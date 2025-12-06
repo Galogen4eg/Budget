@@ -1664,6 +1664,77 @@ async function categorizeWithGemini(description) {
     return null;
 }
 
+// Функция для повторной проверки нераспознанных операций
+async function recategorizeOperations() {
+    const key = localStorage.getItem('geminiApiKey');
+    if (!key) {
+        alert('Сначала сохраните API ключ Gemini');
+        return;
+    }
+    
+    const statusEl = document.getElementById('geminiStatus');
+    statusEl.innerHTML = '<span class="text-blue-600">🔄 Проверяю операции...</span>';
+    
+    // Категории-маркеры, которые считаем "нераспознанными"
+    const uncategorizedMarkers = ['прочие операции', 'операция по карте', 'другое', '📝 другое'];
+    
+    // Собираем нераспознанные операции
+    const expenses = getCurrentExpenses();
+    const uncategorized = expenses.filter(e => {
+        const descLower = e.description.toLowerCase();
+        // Если описание содержит маркеры нераспознанных или не начинается с эмодзи
+        const hasMarker = uncategorizedMarkers.some(m => descLower.includes(m));
+        const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|^[\u{2600}-\u{26FF}]/u.test(e.description);
+        return hasMarker || !startsWithEmoji;
+    });
+    
+    if (uncategorized.length === 0) {
+        statusEl.innerHTML = '<span class="text-green-600">✅ Все операции уже категоризированы!</span>';
+        return;
+    }
+    
+    statusEl.innerHTML = `<span class="text-blue-600">🔄 Найдено ${uncategorized.length} нераспознанных операций. Обрабатываю...</span>`;
+    
+    let updated = 0;
+    let errors = 0;
+    
+    for (const expense of uncategorized) {
+        try {
+            // Сначала пробуем локальные словари
+            const localCategory = mapBankCategory('', expense.description, '');
+            
+            if (localCategory) {
+                expense.description = localCategory;
+                updated++;
+                console.log(`Local categorized: ${expense.description} → ${localCategory}`);
+            } else {
+                // Если локально не получилось — отправляем в Gemini
+                const geminiCategory = await categorizeWithGemini(expense.description);
+                if (geminiCategory && geminiCategory !== '📝 Другое') {
+                    console.log(`Gemini categorized: ${expense.description} → ${geminiCategory}`);
+                    expense.description = geminiCategory;
+                    updated++;
+                }
+            }
+            
+            // Небольшая задержка чтобы не превысить лимит API
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+        } catch (e) {
+            console.error('Error categorizing:', e);
+            errors++;
+        }
+    }
+    
+    // Сохраняем изменения
+    if (updated > 0) {
+        syncData();
+        renderAll();
+    }
+    
+    statusEl.innerHTML = `<span class="text-green-600">✅ Обновлено ${updated} из ${uncategorized.length} операций${errors > 0 ? ` (ошибок: ${errors})` : ''}</span>`;
+}
+
 // ======== СТАРТ ========
 init();
 loadGeminiKey();

@@ -1252,13 +1252,23 @@ function detectSpecialTransfer(description, code) {
     if (code?.toLowerCase().startsWith('c42')) return '📦 Маркетплейсы';
     const lowerDesc = description.toLowerCase();
     
-    // Перевод Гале (если есть "перевод по СБП" и цифры "1048" в телефоне)
-    if ((lowerDesc.includes('перевод') || lowerDesc.includes('сбп')) && lowerDesc.includes('1048')) {
-        return '💸 Перевод Гале';
-    }
+    // Проверяем, есть ли это перевод по СБП
+    const isSbpTransfer = lowerDesc.includes('перевод') || lowerDesc.includes('сбп') || lowerDesc.includes('sbp');
     
-    // Перевод на Ozon
-    if ((lowerDesc.includes('перевод') || lowerDesc.includes('сбп')) && lowerDesc.includes('ozon')) return '📦 Маркетплейсы';
+    if (isSbpTransfer) {
+        // Перевод Гале (если есть цифры "1048" в номере телефона)
+        if (lowerDesc.includes('1048')) {
+            return '💸 Переводы Гале';
+        }
+        
+        // Перевод на Ozon
+        if (lowerDesc.includes('ozon')) {
+            return '📦 Маркетплейсы';
+        }
+        
+        // Любой другой перевод по СБП
+        return '💸 Перевод по СБП';
+    }
     
     return description;
 }

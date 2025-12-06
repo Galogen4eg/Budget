@@ -1201,36 +1201,7 @@ function cancelExcelImport() {
 }
 
 // ======== ТЕМА ========
-function toggleTheme() {
-    const html = document.documentElement;
-    const currentTheme = html.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    html.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeButton(newTheme);
-}
-
-function updateThemeButton(theme) {
-    const icon = document.getElementById('themeIcon');
-    const text = document.getElementById('themeText');
-    if (theme === 'dark') {
-        icon.textContent = '☀️';
-        text.textContent = 'Светлая';
-    } else {
-        icon.textContent = '🌙';
-        text.textContent = 'Тёмная';
-    }
-}
-
-function loadTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeButton(savedTheme);
-}
-
-// Загружаем тему при старте
-loadTheme();
+// Тема временно отключена
 
 // ======== ПОИСК ОПЕРАЦИЙ ========
 function searchOperations() {

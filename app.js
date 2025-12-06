@@ -1181,16 +1181,64 @@ const STORE_NAME_MAP = {
     'глория': '👕 Одежда: Gloria Jeans'
 };
 
+// MCC коды для категоризации
+const MCC_CATEGORY_MAP = {
+    // Продукты и супермаркеты
+    '5411': '🛒 Продукты', '5412': '🛒 Продукты', '5499': '🛒 Продукты',
+    '5311': '🛒 Продукты', '5331': '🛒 Продукты', '5399': '🛒 Продукты',
+    // Рестораны и кафе
+    '5812': '🍔 Еда', '5813': '🍔 Еда', '5814': '☕ Кофе/Фастфуд',
+    // АЗС
+    '5541': '⛽ АЗС', '5542': '⛽ АЗС', '5983': '⛽ АЗС',
+    // Аптеки
+    '5912': '💊 Аптека',
+    // Одежда
+    '5691': '👕 Одежда', '5651': '👕 Одежда', '5611': '👕 Одежда',
+    // Такси
+    '4121': '🚕 Такси', '4131': '🚕 Такси',
+    // Маркетплейсы
+    '5999': '📦 Маркетплейсы',
+    // Электроника
+    '5732': '🖥️ Электроника', '5734': '🖥️ Электроника',
+    // Развлечения
+    '7832': '🎮 Развлечения', '7841': '🎮 Развлечения',
+    // Красота
+    '7230': '💅 Красота', '7298': '💅 Красота'
+};
+
 function mapBankCategory(bankCategory, description, code) {
     if (code?.toLowerCase().startsWith('c42')) return '📦 Маркетплейсы';
     const searchText = (bankCategory + ' ' + description).toLowerCase();
     
+    // Извлекаем MCC код из описания
+    const mccMatch = description.match(/MCC:\s*(\d{4})/i);
+    if (mccMatch) {
+        const mcc = mccMatch[1];
+        if (MCC_CATEGORY_MAP[mcc]) {
+            // Пытаемся также извлечь название заведения
+            const placeMatch = description.match(/место совершения операции:\s*[^,]*\/([^,]+)/i);
+            if (placeMatch) {
+                const placeName = placeMatch[1].replace(/\s*\d+$/, '').trim();
+                // Для кофе/фастфуда добавляем название заведения
+                if (mcc === '5814' && placeName) {
+                    return `☕ Кофе/Фастфуд: ${placeName}`;
+                }
+            }
+            return MCC_CATEGORY_MAP[mcc];
+        }
+    }
+    
     // Парсим "место совершения операции" для определения магазина
-    const placeMatch = description.match(/место совершения операции:\s*[^,]+\/([^,\/]+)/i);
+    const placeMatch = description.match(/место совершения операции:\s*[^,]*\/([^,]+)/i);
     if (placeMatch) {
         const storeName = placeMatch[1].toLowerCase().replace(/\s*\d+$/, '').trim();
         for (const [keyword, ourCategory] of Object.entries(STORE_NAME_MAP)) {
             if (storeName.includes(keyword)) return ourCategory;
+        }
+        // Если магазин не найден в словаре, но есть MCC для продуктов — это магазин
+        if (mccMatch && ['5411', '5412', '5499', '5311', '5331', '5399'].includes(mccMatch[1])) {
+            const placeName = placeMatch[1].replace(/\s*\d+$/, '').trim();
+            return `🏪 Магазины: ${placeName}`;
         }
     }
     
@@ -1523,5 +1571,99 @@ renderAll = function() {
     }
 };
 
+// ======== GEMINI AI ========
+function saveGeminiKey() {
+    const key = document.getElementById('geminiApiKey').value.trim();
+    if (!key) { alert('Введите API ключ'); return; }
+    localStorage.setItem('geminiApiKey', key);
+    document.getElementById('geminiStatus').innerHTML = '<span class="text-green-600">✅ Ключ сохранён</span>';
+}
+
+function loadGeminiKey() {
+    const key = localStorage.getItem('geminiApiKey');
+    if (key) {
+        document.getElementById('geminiApiKey').value = key;
+    }
+}
+
+async function testGeminiKey() {
+    const key = document.getElementById('geminiApiKey').value.trim() || localStorage.getItem('geminiApiKey');
+    if (!key) { 
+        document.getElementById('geminiStatus').innerHTML = '<span class="text-red-600">❌ Введите API ключ</span>'; 
+        return; 
+    }
+    
+    document.getElementById('geminiStatus').innerHTML = '<span class="text-blue-600">⏳ Проверка...</span>';
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: 'Ответь одним словом: работает' }] }]
+            })
+        });
+        
+        if (response.ok) {
+            document.getElementById('geminiStatus').innerHTML = '<span class="text-green-600">✅ Ключ работает!</span>';
+        } else {
+            const error = await response.json();
+            document.getElementById('geminiStatus').innerHTML = `<span class="text-red-600">❌ Ошибка: ${error.error?.message || 'Неверный ключ'}</span>`;
+        }
+    } catch (e) {
+        document.getElementById('geminiStatus').innerHTML = `<span class="text-red-600">❌ Ошибка подключения</span>`;
+    }
+}
+
+async function categorizeWithGemini(description) {
+    const key = localStorage.getItem('geminiApiKey');
+    if (!key) return null;
+    
+    try {
+        const prompt = `Определи категорию траты по описанию: "${description}".
+        
+Ответь ТОЛЬКО одним из вариантов (без объяснений):
+- 🏪 Магазины: [название магазина]
+- 🛒 Продукты
+- 🍔 Еда
+- ☕ Кофе
+- 🚗 Транспорт
+- ⛽ АЗС
+- 💊 Здоровье
+- 👕 Одежда
+- 🎮 Развлечения
+- 📦 Маркетплейсы
+- 🏠 Дом
+- 📱 Связь
+- 💸 Переводы
+- 💅 Красота
+- 📚 Образование
+- ✈️ Путешествия
+- 📝 Другое
+
+Если это магазин, укажи его название после двоеточия.`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const result = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (result && result.length < 50) {
+                return result;
+            }
+        }
+    } catch (e) {
+        console.error('Gemini error:', e);
+    }
+    return null;
+}
+
 // ======== СТАРТ ========
 init();
+loadGeminiKey();

@@ -112,17 +112,19 @@
             <h1 class="text-2xl md:text-3xl font-semibold mb-2">🛍️ Список покупок</h1>
             <p class="text-white/90 text-sm max-w-xl mx-auto">Добавляйте позиции, используйте каталог или свои шаблоны</p>
             <div class="mt-4 grid grid-cols-2 max-w-md mx-auto gap-3 text-sm font-medium">
-                <a href="index.html" class="px-6 py-3 rounded-2xl bg-white/20 text-white border border-white/30 shadow-inner flex items-center justify-center gap-2 transition">
+                <a id="headerBudgetLink" href="index.html" class="px-6 py-3 rounded-2xl bg-white/20 text-white border border-white/30 shadow-inner flex items-center justify-center gap-2 transition">
                     📊 Бюджет
                 </a>
-                <a href="shopping.html" class="px-6 py-3 rounded-2xl bg-white text-blue-600 shadow flex items-center justify-center gap-2">
+                <a id="headerShoppingLink" href="shopping.html" class="px-6 py-3 rounded-2xl bg-white text-blue-600 shadow flex items-center justify-center gap-2">
                     🛍️ Список покупок
                 </a>
             </div>
         </header>
 
-        <!-- Быстро добавить -->
-        <section class="card p-4 space-y-3">
+        <div class="grid lg:grid-cols-[2fr_1.1fr] gap-4 items-start">
+            <div class="space-y-4">
+                <!-- Быстро добавить -->
+                <section class="card p-4 space-y-3">
             <div class="flex items-center justify-between text-sm text-gray-500">
                 <h2 class="text-lg font-medium text-gray-800">⚡ Быстрое добавление</h2>
                 <span>Enter в любом поле добавит позицию</span>
@@ -326,6 +328,7 @@
         let activeCategoryFilter = '';
         let activeCatalogCategory = '';
         const categoriesSet = new Set();
+        let currentRoomShoppingRef = null;
 
         const elements = {
             list: document.getElementById('itemsList'),
@@ -347,6 +350,7 @@
         document.getElementById('addItemBtn').addEventListener('click', () => handleAddItem());
         document.getElementById('catalogSearch').addEventListener('input', renderCatalog);
         document.getElementById('clearList').addEventListener('click', clearList);
+        document.getElementById('headerBudgetLink').addEventListener('click', handleBudgetLinkClick);
         ['itemName', 'itemQuantity', 'itemCategory'].forEach(id => {
             document.getElementById(id).addEventListener('keypress', e => {
                 if (e.key === 'Enter') handleAddItem();
@@ -535,6 +539,7 @@
             const item = shoppingItems.find(i => i.id === id);
             if (item) {
                 item.done = !item.done;
+                saveShoppingToRoom();
                 renderAll();
             }
         }
@@ -565,6 +570,7 @@
 
         function removeItem(id) {
             shoppingItems = shoppingItems.filter(i => i.id !== id);
+            saveShoppingToRoom();
             renderAll();
         }
 

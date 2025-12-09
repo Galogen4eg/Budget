@@ -409,6 +409,7 @@ function renderAll() {
 }
 function renderCurrentMonth() {
     const el = document.getElementById('currentMonth');
+    if (!el) return;
     el.textContent = `${monthNames[currentViewMonth.getMonth()]} ${currentViewMonth.getFullYear()}`;
     el.parentElement?.classList.toggle('hidden', el.textContent.trim() === '');
 }
@@ -749,7 +750,7 @@ const BANK_CATEGORY_MAP = {
     'топливо': '🚗 Транспорт: Топливо', 'fuel': '🚗 Транспорт: Топливо', 'fuel station': '🚗 Транспорт: Топливо',
     'бензин': '🚗 Транспорт: Топливо', 'benzin': '🚗 Транспорт: Топливо', 'gas': '🚗 Транспорт: Топливо',
     'азс': '🚗 Транспорт: АЗС', 'azs': '🚗 Транспорт: АЗС', 'zapravka': '🚗 Транспорт: АЗС',
-    'lukoil': '🚗 Транспорт: Лукойл', 'лукойл': '���� Транспорт: Лукойл',
+    'lukoil': '🚗 Транспорт: Лукойл', 'лукойл': '🚗 Транспорт: Лукойл',
     'gazpromneft': '🚗 Транспорт: Газпромнефть', 'gazprom': '🚗 Транспорт: Газпромнефть',
     'rosneft': '🚗 Транспорт: Роснефть', 'роснефть': '🚗 Транспорт: Роснефть',
     'bp': '🚗 Транспорт: АЗС', 'shell': '🚗 Транспорт: АЗС', 'tatneft': '🚗 Транспорт: Татнефть', 'татнефть': '🚗 Транспорт: Татнефть',

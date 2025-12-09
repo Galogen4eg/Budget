@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в семейную комнату</title>
+    <meta name="description" content="Создайте семейную комнату или войдите по ID и паролю">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script defer src="core.js"></script>
+    <script defer src="rooms.js"></script>
+    <script defer src="auth.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); min-height: 100vh; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="max-w-4xl w-full grid lg:grid-cols-2 gap-6">
+        <div class="bg-white/90 backdrop-blur rounded-2xl p-6 shadow-2xl space-y-4">
+            <h1 class="text-2xl font-semibold text-gray-900">👨‍👩‍👧 Семейный бюджет</h1>
+            <p class="text-gray-500 text-sm">Создание и управление комнатой для бюджета, списка покупок и синхронизации между устройствами</p>
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
+                <p class="font-medium mb-2">Как работает</p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>Создайте комнату и поделитесь ID/паролем с семьёй</li>
+                    <li>Внутри комнаты синхронизируются бюджет и список покупок</li>
+                    <li>Можно подключаться с любого устройства</li>
+                </ul>
+            </div>
+        </div>
+        <div class="space-y-4">
+            <div class="bg-white rounded-2xl p-6 shadow-2xl space-y-4">
+                <h2 class="text-xl font-semibold text-gray-900">✨ Создать комнату</h2>
+                <p class="text-gray-500 text-sm">Придумайте пароль — им вы поделитесь с семьёй</p>
+                <input type="password" id="authCreatePassword" class="input-field" placeholder="Новый пароль" />
+                <button onclick="authPage.createRoom()" class="btn-primary w-full py-3 rounded-xl font-medium">Создать комнату</button>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-2xl space-y-4">
+                <h2 class="text-xl font-semibold text-gray-900">📥 Войти в комнату</h2>
+                <div class="space-y-3">
+                    <input type="text" id="authRoomId" class="input-field uppercase" maxlength="6" placeholder="ID комнаты" />
+                    <input type="password" id="authRoomPassword" class="input-field" placeholder="Пароль" />
+                    <div id="authJoinError" class="text-xs text-red-500 hidden">Неверный ID или пароль</div>
+                    <button onclick="authPage.joinRoom()" class="btn-secondary w-full py-3 rounded-xl font-medium">Войти</button>
+                </div>
+                <p class="text-xs text-gray-400">Подсказка: ID комнаты состоит из 6 символов (буквы и цифры)</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

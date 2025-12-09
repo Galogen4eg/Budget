@@ -31,6 +31,29 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-4 px-3 md:py-8 md:px-4">
+    <div id="authOverlay" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[120] px-4">
+        <div class="bg-white rounded-2xl w-full max-w-3xl p-6 md:p-8 shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <h2 class="text-2xl font-semibold text-gray-800">🔐 Вход в комнату</h2>
+                <p class="text-gray-500 text-sm">Создайте новую комнату для семьи или подключитесь по ID и паролю</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="border border-gray-200 rounded-2xl p-4 bg-gray-50 space-y-3">
+                    <h3 class="text-lg font-medium text-gray-800">✨ Создать комнату</h3>
+                    <p class="text-xs text-gray-500">Введите пароль, чтобы защитить доступ</p>
+                    <input type="password" id="authCreatePassword" placeholder="Новый пароль" class="input-field" />
+                    <button onclick="roomsManager.createRoomFromAuth()" class="btn-primary w-full px-4 py-2 rounded-lg font-medium">Создать</button>
+                </div>
+                <div class="border border-gray-200 rounded-2xl p-4 bg-white space-y-3">
+                    <h3 class="text-lg font-medium text-gray-800">📥 Войти в комнату</h3>
+                    <input type="text" id="authRoomId" placeholder="ID комнаты" class="input-field uppercase" maxlength="6" />
+                    <input type="password" id="authRoomPassword" placeholder="Пароль" class="input-field" />
+                    <div id="authJoinError" class="text-red-500 text-xs hidden">Неверный пароль</div>
+                    <button onclick="roomsManager.joinRoomFromAuth()" class="btn-secondary w-full px-4 py-2 rounded-lg font-medium">Войти</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="max-w-5xl mx-auto">
         
         <!-- Шапка с градиентом -->

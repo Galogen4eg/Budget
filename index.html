@@ -127,7 +127,7 @@
                         <div id="fixedPaymentsList" class="space-y-2 max-h-48 overflow-y-auto"></div>
                     </div>
                 </div>
-                <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="mt-3 п-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div class="grid grid-cols-2 gap-3 text-center">
                         <div class="p-2 bg-white rounded border">
                             <div class="text-gray-500 text-xs">Можно отложить</div>
@@ -141,7 +141,7 @@
                             <div class="text-gray-500 text-xs">Max траты на день</div>
                             <div id="dailyLimit" class="text-amber-600 font-medium text-sm">0 ₽</div>
                         </div>
-                        <div class="p-2 bg-white rounded border">
+                        <div class="п-2 bg-white rounded border">
                             <div class="text-gray-500 text-xs">Текущий баланс</div>
                             <div id="actualBalance" class="text-purple-600 font-medium text-sm">0 ₽</div>
                         </div>
@@ -174,12 +174,12 @@
                         </div>
                         <p class="text-gray-500 text-xs">Получите бесплатный ключ на <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">aistudio.google.com/app/apikey</a></p>
                         <div id="gemиниStatus" class="mt-2 text-sm"></div>
-                        <div class="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                        <div class="mt-3 pt-3 border-т border-gray-200 space-y-2">
                             <button onclick="recategorizeOperations()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
                                 🔄 Проверить нераспознанные операции
                             </button>
-                            <button onclick="reapplyLocalCategories()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-                                ♻️ Повторно определить категории (без ИИ)
+                            <button onclick="reapplyLocalCategories()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items развития justify-center gap-2">
+                                ♻️ Повторно определить категории (без ��И)
                             </button>
                         </div>
                     </div>
@@ -222,4 +222,92 @@
                     <div class="text-center text-gray-500 text-[10px] font-medium py-1">Пн</div>
                     <div class="text-center text-gray-500 text-[10px] font-medium py-1">Вт</div>
                     <div class="text-center text-gray письмо-500 text-[10px] font-medium py-1">Ср</div>
-                    <div class="text-center text-gray-500                                                                                                                                 
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">Чт</div>
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">Пт</div>
+                    <div class="text-center text-amber-600 text-[10px] font-medium py-1">Сб</div>
+                    <div class="text-center text-red-500 text-[10px] font-medium py-1">Вс</div>
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+                <div class="flex justify-center gap-3 mt-3 text-[10px] text-gray-500">
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded bg-gradient-to-br from-green-100 to-green-200 border border-green-400"></div><span>В лимите</span></div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded bg-gradient-to-br from-red-100 to-red-200 border border-red-400"></div><span>Превышение</span></div>
+                    <button onclick="clearDayFilter()" id="clearFilterBtn" class="hidden text-blue-600 hover:text-blue-800 font-medium">✕ Сбросить фильтр</button>
+                </div>
+            </div>
+
+            <div id="dayExpensesPanel" class="hidden card p-4 md:p-6 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📋 Операции за <span id="selectedDayTitle"></span></h2>
+                    <button onclick="closeDayPanel()" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                </div>
+                <div id="dayExpensesList" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                <div class="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
+                    <span class="text-gray-600">Итого за день:</span>
+                    <span id="dayTotal" class="text-xl font-medium text-gray-800">0 ₽</span>
+                </div>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📊 Операции <span id="tableFilterInfo" class="text-sm text-gray-400 font-normal"></span></h2>
+                    <button onclick="clearMonthExpenses()" class="text-red-500 hover:text-red-600 text-sm font-medium px-2">🗑️</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200">
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">📅 Дата</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600 hidden md:table-cell">День</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">📝 Описание</th>
+                                <th class="text-right py-3 px-2 font-medium text-gray-600">💵 Приход</th>
+                                <th class="text-right py-3 px-2 font-medium text-gray-600">💸 Расход</th>
+                                <th class="text-right py-3 px-2 font-medium text-gray-600">💰 Баланс</th>
+                                <th class="text-right py-3 px-2 font-medium text-gray-600 hidden lg:table-cell">📈 Max/день</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyTableBody"></tbody>
+                        <tfoot id="dailyTableFooter" class="bg-gray-50 border-t-2 border-gray-300"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <h2 class="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">📊 По категориям</h2>
+                <div id="categoryStats" class="space-y-2"><p class="text-gray-400 text-center py-4">Добавьте траты для статистики</p></div>
+            </div>
+
+            <div class="hidden card p-4 md:p-6 mb-4">
+                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📈 График: План vs Факт</h2>
+                <div class="relative" style="height: 200px;"><canvas id="budgetChart"></canvas></div>
+            </div>
+
+            <div class="hidden card p-4 md:p-6 mb-4">
+                <details>
+                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">📊 Сравнение месяцев</summary>
+                    <div class="mt-3">
+                        <div class="relative" style="height: 200px;"><canvas id="comparisonChart"></canvas></div>
+                        <div id="comparisonTable" class="mt-4 overflow-x-auto"></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="hidden card p-4 md:p-6 mb-4">
+                <details>
+                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">💳 Лимиты по категориям</summary>
+                    <div class="mt-3">
+                        <div class="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-200">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input type="text" id="limitCategory" placeholder="Категория (🍔 Еда)" class="input-field px-3 py-2 text-sm">
+                                <div class="relative">
+                                    <input type="number" id="limitAmount" placeholder="Лимит" min="0" class="input-field w-full px-3 py-2 text-sm">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₽/мес</span>
+                                </div>
+                                <button onclick="addCategoryLimit()" class="btn-primary px-3 py-2 rounded-lg text-sm font-medium">+ Добавить лимит</button>
+                            </div>
+                        </div>
+                        <div id="limitsContainer" class="space-y-2"></div>
+                    </div>
+                </details>
+            </div>
+        </div>
+

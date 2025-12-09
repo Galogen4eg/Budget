@@ -96,7 +96,7 @@ function handleAddItem(payload) {
     }
     if (!name) return alert('Введите название');
     if (!quantity) quantity = '1 шт';
-    if (!category) category = 'Продукты';
+    if (!category) category = 'П��одукты';
     const item = {
         id: crypto.randomUUID(),
         name,
@@ -306,7 +306,7 @@ function createModal() {
     div.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden';
     div.innerHTML = `
         <div class="bg-white rounded-2xl p-5 w-full max-w-sm space-y-3">
-            <h3 class="text-lg font-semibold text-gray-800">Настроить позицию</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Настроить по��ицию</h3>
             <p id="modalItemName" class="text-gray-500"></p>
             <input id="modalQuantity" type="text" class="input-field" placeholder="Количество" />
             <input id="modalCategory" type="text" class="input-field" placeholder="Категория" />

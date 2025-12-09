@@ -1,6 +1,9 @@
 const authPage = {
     init() {
-        roomsManager.init({ page: 'auth.html', requireAuth: false, autoRedirectOnAuthSuccess: true });
+        // Инициализация roomsManager происходит здесь, на странице auth
+        roomsManager.init({ page: 'auth.html', requireAuth: false });
+        
+        // Навешиваем обработчики на формы
         document.getElementById('createRoomForm').addEventListener('submit', this.handleCreateRoom.bind(this));
         document.getElementById('joinRoomForm').addEventListener('submit', this.handleJoinRoom.bind(this));
     },
@@ -11,10 +14,11 @@ const authPage = {
         const password = document.getElementById('createPassword').value.trim();
         const errorEl = document.getElementById('createError');
         errorEl.classList.add('hidden');
+        
         try {
             if (!name || !password) throw new Error('Введите имя и пароль');
             const roomId = await roomsManager.createRoomWithPassword(password, name);
-            await this.afterAuthSuccess(roomId, password, name);
+            // Редирект произойдёт автоматически в afterSuccessfulJoin
         } catch (e) {
             errorEl.textContent = e.message || 'Не удалось создать комнату';
             errorEl.classList.remove('hidden');
@@ -28,20 +32,15 @@ const authPage = {
         const password = document.getElementById('joinRoomPassword').value.trim();
         const errorEl = document.getElementById('joinError');
         errorEl.classList.add('hidden');
+        
         try {
             if (!name || !roomId || !password) throw new Error('Введите имя, ID и пароль комнаты');
-            const normalizedId = await roomsManager.joinRoomWithCredentials(roomId, password, name);
-            await this.afterAuthSuccess(normalizedId, password, name);
+            await roomsManager.joinRoomWithCredentials(roomId, password, name);
+            // Редирект произойдёт автоматически в afterSuccessfulJoin
         } catch (e) {
             errorEl.textContent = e.message || 'Неверный ID или пароль';
             errorEl.classList.remove('hidden');
         }
-    },
-
-    async afterAuthSuccess(roomId, password, name) {
-        roomsManager.saveRoomCredentials(roomId, password, name);
-        await roomsManager.ensureUserExists(name);
-        roomsManager.redirectAfterAuth();
     }
 };
 

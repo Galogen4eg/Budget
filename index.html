@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Семейный бюджет</title>
     <meta name="description" content="Учёт семейных финансов с синхронизацией">
-    <meta name="theme-color" content="#1a73e8">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Бюджет">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234a9eff' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>💰</text></svg>">
+    <meta name="theme-color" content="#667eea">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -18,28 +13,90 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .header-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .header-gradient h1 { color: white; }
+        .header-gradient #currentMonth { background: rgba(255,255,255,0.2); color: white; border: none; }
+        .header-gradient #connectionStatus { color: white; }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-4 px-3 md:py-8 md:px-4">
     <div class="max-w-5xl mx-auto">
         
-        <!-- Заголовок -->
-        <div class="text-center mb-4">
-            <h1 class="text-2xl md:text-3xl font-medium text-gray-800 mb-1">👨‍👩‍👧 Семейный бюджет</h1>
-            <div class="mt-2 flex flex-wrap justify-center gap-2">
-                <span id="currentMonth" class="text-gray-600 bg-white px-4 py-1 rounded-full text-sm shadow-sm"></span>
-                <span id="connectionStatus" class="px-2 py-1 text-lg" title="Локально">🔴</span>
-
+        <!-- Шапка с градиентом -->
+        <div class="header-gradient text-center">
+            <h1 class="text-2xl md:text-3xl font-medium mb-2">👨‍👩‍👧 Семейный бюджет</h1>
+            <div class="flex justify-center items-center gap-3">
+                <span id="currentMonth" class="px-4 py-1.5 rounded-full text-sm font-medium"></span>
+                <span id="connectionStatus" class="text-lg" title="Локально">🔴</span>
+            </div>
+            <div class="mt-3 flex flex-wrap justify-center gap-2 text-sm">
+                <a href="shopping.html" class="px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium transition flex items-center gap-2">
+                    🛍️ Список покупок
+                </a>
+                <button onclick="goToCurrentMonth()" class="px-4 py-2 rounded-full bg-white text-blue-600 font-medium shadow">
+                    📅 Текущий месяц
+                </button>
             </div>
         </div>
 
         <!-- Вкладки -->
-        <div class="flex justify-center gap-2 mb-4">
-            <button onclick="switchTab('gena')" id="tabGena" class="tab-btn tab-gena active px-6 py-3 rounded-full font-medium text-lg">👨 Гена</button>
-            <button onclick="switchTab('galya')" id="tabGalya" class="tab-btn tab-galya px-6 py-3 rounded-full font-medium text-lg">👩 Галя</button>
-            <button onclick="switchTab('total')" id="tabTotal" class="tab-btn tab-total px-6 py-3 rounded-full font-medium text-lg">👨‍👩‍👧 Общее</button>
+        <div id="tabsContainer" class="flex justify-center gap-2 mb-4 flex-wrap"></div>
+        
+        <!-- Модальные окна -->
+        <div id="addUserModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+                <h3 class="text-lg font-medium text-gray-800 mb-4">👤 Новый пользователь</h3>
+                <input type="text" id="newUserName" placeholder="Имя (например: Мама)" class="input-field w-full px-4 py-3 text-gray-800 mb-4" maxlength="20">
+                <div class="flex gap-2">
+                    <button onclick="confirmAddUser()" class="btn-primary flex-1 px-4 py-3 rounded-lg font-medium">Добавить</button>
+                    <button onclick="closeAddUserModal()" class="btn-secondary px-4 py-3 rounded-lg font-medium">Отмена</button>
+                </div>
+            </div>
         </div>
 
-        <!-- Контент для персональных вкладок -->
+        <div id="passwordModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+                <h3 class="text-lg font-medium text-gray-800 mb-4">🔐 Введите пароль</h3>
+                <input type="password" id="roomPassword" placeholder="Пароль комнаты" class="input-field w-full px-4 py-3 text-gray-800 mb-4">
+                <div id="passwordError" class="text-red-500 text-sm mb-2 hidden">Неверный пароль</div>
+                <div class="flex gap-2">
+                    <button onclick="confirmPassword()" class="btn-primary flex-1 px-4 py-3 rounded-lg font-medium">Войти</button>
+                    <button onclick="closePasswordModal()" class="btn-secondary px-4 py-3 rounded-lg font-medium">Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="createRoomModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+                <h3 class="text-lg font-medium text-gray-800 mb-4">🔐 Создание комнаты</h3>
+                <input type="password" id="newRoomPassword" placeholder="Придумайте пароль" class="input-field w-full px-4 py-3 text-gray-800 mb-4">
+                <div class="flex gap-2">
+                    <button onclick="confirmCreateRoom()" class="btn-primary flex-1 px-4 py-3 rounded-lg font-medium">Создать</button>
+                    <button onclick="closeCreateRoomModal()" class="btn-secondary px-4 py-3 rounded-lg font-medium">Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="changePasswordModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+                <h3 class="text-lg font-medium text-gray-800 mb-4">🔑 Сменить пароль комнаты</h3>
+                <input type="password" id="newRoomPasswordInput" placeholder="Новый пароль" class="input-field w-full px-4 py-3 text-gray-800 mb-4">
+                <div class="flex gap-2">
+                    <button onclick="confirmChangeRoomPassword()" class="btn-primary flex-1 px-4 py-3 rounded-lg font-medium">Сохранить</button>
+                    <button onclick="closeChangePasswordModal()" class="btn-secondary px-4 py-3 rounded-lg font-medium">Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Личный контент -->
         <div id="personalContent">
             <!-- Настройки бюджета -->
             <div class="card p-4 md:p-6 mb-4">
@@ -77,8 +134,6 @@
                                     <option value="insurance">🛡️ Страховки</option>
                                     <option value="education">🎓 Образование</option>
                                     <option value="health">🏥 Здоровье</option>
-                                    <option value="family">👨‍👩‍👧 Семья</option>
-                                    <option value="pets">🐕 Питомцы</option>
                                     <option value="other">📦 Прочее</option>
                                 </select>
                                 <input type="text" id="newPaymentName" placeholder="Название" class="input-field w-full px-2 py-2 text-sm text-gray-800 placeholder-gray-400">
@@ -96,47 +151,18 @@
                 <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div class="grid grid-cols-2 gap-3 text-center">
                         <div class="p-2 bg-white rounded border"><div class="text-gray-500 text-xs">Можно отложить</div><div id="savingsAmount" class="text-blue-600 font-medium text-sm">0</div></div>
-                        <div class="p-2 bg-white rounded border"><div class="text-gray-500 text-xs">Обязательные траты</div><div id="fixedTotal" class="text-red-500 font-medium text-sm">0</div></div>
+                        <div class="p-2 bg-white rounded border"><div class="text-gray-500 text-xs">Обязательные траты</div><div id="fixedTotal" class="text-red-500 font-medium текст-sm">0</div></div>
                         <div class="p-2 bg-white rounded border"><div class="text-gray-500 text-xs">Max траты на день</div><div id="dailyLimit" class="text-amber-600 font-medium text-sm">0</div></div>
                         <div class="p-2 bg-white rounded border"><div class="text-gray-500 text-xs">Текущий баланс</div><div id="actualBalance" class="text-purple-600 font-medium text-sm">0</div></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Поиск операций -->
-            <div class="card p-4 md:p-6 mb-4">
-                <details>
-                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">🔍 Поиск операций</summary>
-                    <div class="mt-3">
-                        <div class="flex gap-2">
-                            <input type="text" id="searchInput" placeholder="Поиск по описанию..." class="input-field flex-1 px-3 py-2 text-sm" oninput="searchOperations()">
-                            <button onclick="clearSearch()" class="btn-secondary px-3 py-2 rounded-lg text-sm">✕</button>
-                        </div>
-                        <div id="searchResults" class="hidden mt-3 max-h-64 overflow-y-auto space-y-2"></div>
-                    </div>
-                </details>
-            </div>
-
-            <!-- Сводка месяца -->
-            <div class="card p-3 mb-4">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex items-center gap-1">
-                        <span class="text-green-500">✅</span>
-                        <span class="text-gray-500 text-xs">Бюджет</span>
-                        <span id="totalBudget" class="text-gray-800 font-medium">0</span>
-                    </div>
-                    <div class="flex items-center gap-1"><span class="text-red-500">💸</span><span class="text-gray-500 text-xs">Потрачено:</span><span id="totalSpent" class="text-gray-800 font-medium">0</span></div>
-                    <div class="flex items-center gap-1"><span class="text-blue-500">💰</span><span class="text-gray-500 text-xs">Остаток:</span><span id="remaining" class="text-gray-800 font-medium">0</span></div>
-                    <div class="flex items-center gap-1"><span class="text-amber-500">📊</span><span class="text-gray-500 text-xs">Прогресс:</span><span id="progressPercent" class="text-gray-800 font-medium">0%</span></div>
-                </div>
-                <div class="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden"><div id="progressBar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div></div>
-            </div>
-
             <!-- Навигация по месяцам -->
             <div class="flex justify-center items-center gap-2 mb-4">
-                <button onclick="changeMonth(-1)" id="prevMonthBtn" class="btn-secondary px-4 py-2 rounded-full font-medium text-sm">← Ноябрь</button>
-                <button onclick="goToCurrentMonth()" id="currentMonthBtn" class="btn-primary px-4 py-2 rounded-full font-medium text-sm">Декабрь</button>
-                <button onclick="changeMonth(1)" id="nextMonthBtn" class="btn-secondary px-4 py-2 rounded-full font-medium text-sm">Январь →</button>
+                <button onclick="changeMonth(-1)" id="prevMonthBtn" class="btn-secondary px-4 py-2 rounded-служба font-medium text-sm">← Пред</button>
+                <button onclick="goToCurrentMonth()" id="currentMonthBtn" class="btn-primary px-4 py-2 rounded-full font-medium text-sm">Текущий</button>
+                <button onclick="changeMonth(1)" id="nextMonthBtn" class="btn-secondary px-4 py-2 rounded-full font-medium text-sm">След →</button>
             </div>
 
             <!-- Добавить приход/расход -->
@@ -153,7 +179,7 @@
                             <input type="date" id="incomeDate" class="input-field w-full px-3 py-2 text-gray-800 text-sm">
                             <input type="text" id="incomeDescription" placeholder="Откуда (зарплата...)" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
                             <div class="relative">
-                                <input type="number" id="incomeAmount" placeholder="Сумма" min="0" step="0.01" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
+                                <input type="number" id="incomeAmount" placeholder="Сумма" min="0" step="0.01" class="input-field w-full px-3 py-2 текст-gray-800 placeholder-gray-400 text-sm">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₽</span>
                             </div>
                             <button onclick="addIncome()" class="btn-success w-full px-3 py-2 rounded-lg font-medium text-sm">+ Добавить</button>
@@ -172,20 +198,42 @@
                             <button onclick="addExpense()" class="btn-primary w-full px-3 py-2 rounded-lg font-medium text-sm">+ Добавить</button>
                         </div>
                         <div id="categoryChips" class="flex flex-wrap gap-2 mt-3"></div>
-                        <div class="flex gap-2 mt-3">
-                            <input type="text" id="newCategoryName" placeholder="➕ Своя категория (например: ☕ Кофе)" class="input-field flex-1 px-3 py-2 text-sm text-gray-800 placeholder-gray-400">
-                            <button onclick="addCustomCategory()" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Добавить</button>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Настройки Gemini AI -->
+            <!-- Импорт Excel -->
+            <div class="card p-4 md:p-6 mb-4">
+                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📂 Загрузить выписку из банка</h2>
+                <div class="flex items-center gap-3">
+                    <label class="flex-1">
+                        <div class="btn-primary px-4 py-2 rounded-lg font-medium text-center cursor-pointer flex items-center justify-center gap-2 text-sm">📂 Выбрать файл (Excel)</div>
+                        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelFile(event)">
+                    </label>
+                </div>
+                <div id="excelPreview" class="hidden mt-3">
+                    <div class="bg-white border border-blue-200 rounded-lg p-3">
+                        <h4 class="font-medium text-gray-800 mb-2">Предпросмотр данных:</h4>
+                        <div class="text-sm text-gray-600 mb-2">Найдено операций: <span id="excelRowCount" class="font-medium">0</span></div>
+                        <div id="excelPreviewTable" class="max-h-64 overflow-auto border border-gray-200 rounded bg-white mb-3"></div>
+                        <div class="flex gap-2">
+                            <button onclick="importExcelData()" class="btn-primary flex-1 px-4 py-2 rounded-lg font-medium text-sm">✅ Импортировать</button>
+                            <button onclick="cancelExcelImport()" class="btn-secondary px-4 py-2 rounded-lg font-medium text-sm">✕ Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Настройки Gemini -->
             <div class="card p-4 md:p-6 mb-4">
                 <details>
                     <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">🤖 Умное определение категорий (Gemini AI)</summary>
                     <div class="mt-3">
                         <p class="text-gray-600 text-sm mb-3">При загрузке выписки нераспознанные операции будут автоматически категоризированы с помощью ИИ.</p>
+                        <div class="mb-4 space-y-2">
+                            <button onclick="reapplyLocalCategories()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">🔁 Повторно определить категории (без ИИ)</button>
+                            <p class="text-gray-500 text-xs">Если операции уже загружены, но остались без категорий — нажмите, чтобы применить встроенные правила.</p>
+                        </div>
                         <div class="flex gap-2 mb-2">
                             <input type="password" id="geminiApiKey" placeholder="Вставьте API ключ Gemini" class="input-field flex-1 px-3 py-2 text-sm">
                             <button onclick="saveGeminiKey()" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Сохранить</button>
@@ -203,40 +251,9 @@
                 </details>
             </div>
 
-            <!-- Импорт из Excel -->
-            <div class="card p-4 md:p-6 mb-4">
-                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📂 Загрузить выписку из банка</h2>
-                <div class="flex items-center gap-3">
-                    <label class="flex-1">
-                        <div class="btn-primary px-4 py-2 rounded-lg font-medium text-center cursor-pointer flex items-center justify-center gap-2 text-sm">📂 Выбрать файл (Excel)</div>
-                        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelFile(event)">
-                    </label>
-                </div>
-                <p class="text-blue-600 text-xs mt-2">Формат: Excel (.xlsx, .xls, .csv)</p>
-                <div id="undoImportContainer" class="hidden mt-3"></div>
-                <div id="excelPreview" class="hidden mt-3">
-                    <div class="bg-white border border-blue-200 rounded-lg p-3">
-                        <h4 class="font-medium text-gray-800 mb-2">Предпросмотр данных:</h4>
-                        <div class="text-sm text-gray-600 mb-2">Найдено операций: <span id="excelRowCount" class="font-medium">0</span><span id="excelSkippedCount" class="text-gray-400 ml-2"></span></div>
-                        <div id="excelPreviewTable" class="max-h-64 overflow-auto border border-gray-200 rounded bg-white mb-3"></div>
-                        <div class="flex gap-2">
-                            <button onclick="importExcelData()" class="btn-primary flex-1 px-4 py-2 rounded-lg font-medium text-sm">✅ Импортировать</button>
-                            <button onclick="cancelExcelImport()" class="btn-secondary px-4 py-2 rounded-lg font-medium text-sm">✕ Отмена</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Календарь -->
             <div class="card p-4 md:p-6 mb-4">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📅 Календарь трат</h2>
-                    <div class="flex items-center gap-2">
-                        <button onclick="changeMonth(-1)" class="btn-secondary px-2 py-1 rounded text-xs">←</button>
-                        <span id="calendarMonth" class="text-gray-700 font-medium text-xs min-w-[80px] text-center"></span>
-                        <button onclick="changeMonth(1)" class="btn-secondary px-2 py-1 rounded text-xs">→</button>
-                    </div>
-                </div>
+                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📅 Календарь трат</h2>
                 <div class="calendar-grid mb-1">
                     <div class="text-center text-gray-500 text-[10px] font-medium py-1">Пн</div>
                     <div class="text-center text-gray-500 text-[10px] font-medium py-1">Вт</div>
@@ -248,29 +265,14 @@
                 </div>
                 <div id="calendarGrid" class="calendar-grid"></div>
                 <div class="flex justify-center gap-3 mt-3 text-[10px] text-gray-500">
-                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded bg-gradient-to-br from-green-100 to-green-200 border border-green-400"></div><span>В лимите</span></div>
-                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded bg-gradient-to-br from-red-100 to-red-200 border border-red-400"></div><span>Превышение</span></div>
                     <button onclick="clearDayFilter()" id="clearFilterBtn" class="hidden text-blue-600 hover:text-blue-800 font-medium">✕ Сбросить фильтр</button>
-                </div>
-            </div>
-
-            <!-- Траты за выбранный день -->
-            <div id="dayExpensesPanel" class="hidden card p-4 md:p-6 mb-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📋 Операции за <span id="selectedDayTitle"></span></h2>
-                    <button onclick="closeDayPanel()" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-                </div>
-                <div id="dayExpensesList" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                <div class="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                    <span class="text-gray-600">Итого за день:</span>
-                    <span id="dayTotal" class="text-xl font-medium text-gray-800">0 ₽</span>
                 </div>
             </div>
 
             <!-- Таблица операций -->
             <div class="card p-4 md:p-6 mb-4">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📊 Операции <span id="tableFilterInfo" class="text-sm text-gray-400 font-normal"></span></h2>
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📊 Операции</h2>
                     <button onclick="clearMonthExpenses()" class="text-red-500 hover:text-red-600 text-sm font-medium px-2">🗑️</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -278,16 +280,13 @@
                         <thead>
                             <tr class="bg-gray-50 border-b border-gray-200">
                                 <th class="text-left py-3 px-2 font-medium text-gray-600">📅 Дата</th>
-                                <th class="text-left py-3 px-2 font-medium text-gray-600 hidden md:table-cell">День</th>
                                 <th class="text-left py-3 px-2 font-medium text-gray-600">📝 Описание</th>
                                 <th class="text-right py-3 px-2 font-medium text-gray-600">💵 Приход</th>
                                 <th class="text-right py-3 px-2 font-medium text-gray-600">💸 Расход</th>
                                 <th class="text-right py-3 px-2 font-medium text-gray-600">💰 Баланс</th>
-                                <th class="text-right py-3 px-2 font-medium text-gray-600 hidden lg:table-cell">📈 Max/день</th>
                             </tr>
                         </thead>
                         <tbody id="dailyTableBody"></tbody>
-                        <tfoot id="dailyTableFooter" class="bg-gray-50 border-t-2 border-gray-300"></tfoot>
                     </table>
                 </div>
             </div>
@@ -297,92 +296,49 @@
                 <h2 class="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">📊 По категориям</h2>
                 <div id="categoryStats" class="space-y-2"><p class="text-gray-400 text-center py-4">Добавьте траты для статистики</p></div>
             </div>
-
-            <!-- График (скрыт) -->
-            <div class="hidden card p-4 md:p-6 mb-4">
-                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📈 График: План vs Факт</h2>
-                <div class="relative" style="height: 200px;"><canvas id="budgetChart"></canvas></div>
-            </div>
-
-            <!-- Сравнение месяцев (скрыто) -->
-            <div class="hidden card p-4 md:p-6 mb-4">
-                <details>
-                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">📊 Сравнение месяцев</summary>
-                    <div class="mt-3">
-                        <div class="relative" style="height: 200px;"><canvas id="comparisonChart"></canvas></div>
-                        <div id="comparisonTable" class="mt-4 overflow-x-auto"></div>
-                    </div>
-                </details>
-            </div>
-
-            <!-- Лимиты по категориям (скрыто) -->
-            <div class="hidden card p-4 md:p-6 mb-4">
-                <details>
-                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">💳 Лимиты по категориям</summary>
-                    <div class="mt-3">
-                        <div class="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-200">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                <input type="text" id="limitCategory" placeholder="Категория (🍔 Еда)" class="input-field px-3 py-2 text-sm">
-                                <div class="relative">
-                                    <input type="number" id="limitAmount" placeholder="Лимит" min="0" class="input-field w-full px-3 py-2 text-sm">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₽/мес</span>
-                                </div>
-                                <button onclick="addCategoryLimit()" class="btn-primary px-3 py-2 rounded-lg text-sm font-medium">+ Добавить лимит</button>
-                            </div>
-                        </div>
-                        <div id="limitsContainer" class="space-y-2"></div>
-                    </div>
-                </details>
-            </div>
         </div>
 
-        <!-- Контент для вкладки "Общее" -->
+        <!-- Общий контент -->
         <div id="totalContent" class="hidden">
             <div class="card p-4 md:p-6 mb-4">
                 <h2 class="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">📊 Общая сводка семьи</h2>
-                <div class="grid md:grid-cols-2 gap-4 mb-4">
-                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                        <div class="flex items-center gap-2 mb-3"><span class="text-2xl">👨</span><span class="font-medium text-gray-800">Гена</span></div>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between"><span class="text-gray-600">Поступления:</span><span id="totalGenaSalary" class="font-medium">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Накопления:</span><span id="totalGenaSavings" class="font-medium text-blue-600">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Обяз. платежи:</span><span id="totalGenaFixed" class="font-medium text-red-500">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Потрачено:</span><span id="totalGenaSpent" class="font-medium text-orange-500">0 ₽</span></div>
-                            <div class="flex justify-between border-t border-blue-200 pt-2"><span class="text-gray-700 font-medium">Баланс:</span><span id="totalGenaRemaining" class="font-bold text-green-600">0 ₽</span></div>
-                        </div>
-                    </div>
-                    <div class="bg-red-50 rounded-lg p-4 border border-red-200">
-                        <div class="flex items-center gap-2 mb-3"><span class="text-2xl">👩</span><span class="font-medium text-gray-800">Галя</span></div>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between"><span class="text-gray-600">Поступления:</span><span id="totalGalyaSalary" class="font-medium">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Накопления:</span><span id="totalGalyaSavings" class="font-medium text-blue-600">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Обяз. платежи:</span><span id="totalGalyaFixed" class="font-medium text-red-500">0 ₽</span></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Потрачено:</span><span id="totalGalyaSpent" class="font-medium text-orange-500">0 ₽</span></div>
-                            <div class="flex justify-between border-t border-red-200 pt-2"><span class="text-gray-700 font-medium">Баланс:</span><span id="totalGalyaRemaining" class="font-bold text-green-600">0 ₽</span></div>
-                        </div>
-                    </div>
-                </div>
+                <div id="usersSummaryGrid" class="grid md:grid-cols-2 gap-4 mb-4"></div>
                 <div class="bg-green-50 rounded-lg p-4 border border-green-200">
                     <div class="flex items-center gap-2 mb-3"><span class="text-2xl">👨‍👩‍👧</span><span class="font-medium text-gray-800 text-lg">Семейный итог</span></div>
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div><div class="text-gray-500 text-xs">Общий доход</div><div id="totalFamilyIncome" class="text-lg font-bold text-gray-800">0 ₽</div></div>
                         <div><div class="text-gray-500 text-xs">Накопления</div><div id="totalFamilySavings" class="text-lg font-bold text-blue-600">0 ₽</div></div>
-                        <div><div class="text-gray-500 text-xs">Обяз. платежи</div><div id="totalFamilyFixed" class="text-lg font-bold text-red-500">0 ₽</div></div>
                         <div><div class="text-gray-500 text-xs">Потрачено</div><div id="totalFamilySpent" class="text-lg font-bold text-orange-500">0 ₽</div></div>
                         <div><div class="text-gray-500 text-xs">Баланс</div><div id="totalFamilyRemaining" class="text-lg font-bold text-green-600">0 ₽</div></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="card p-4 md:p-6 mb-4">
-                <h2 class="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">📋 Все траты за месяц</h2>
-                <div id="totalExpensesList" class="space-y-2 max-h-96 overflow-y-auto"><p class="text-gray-400 text-center py-4">Нет трат за этот месяц</p></div>
-            </div>
-
-            <div class="card p-4 md:p-6 mb-4">
-                <h2 class="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">📊 Общие траты по категориям</h2>
-                <div id="totalCategoryStats" class="space-y-3"><p class="text-gray-400 text-center py-4">Добавьте траты для статистики</p></div>
-            </div>
+        <!-- РАЗДЕЛ НАСТРОЕК - ВСЕГДА ВИДЕН -->
+        <div class="card p-4 mb-4">
+            <details>
+                <summary class="text-gray-800 font-medium cursor-pointer flex itemsосаcenter gap-2">⚙️ Настройки</summary>
+                <div class="mt-4 space-y-4">
+                    <!-- Создание пользователя -->
+                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <h3 class="text-sm font-medium text-blue-800 mb-3">👤 Создать пользователя</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="settingsNewUserName" placeholder="Имя нового пользователя" class="input-field flex-1 px-3 py-2 text-gray-800 placeholder-gray-400">
+                            <button onclick="createUserFromSettings()" class="btn-primary px-4 py-2 rounded-lg font-medium">➕ Создать</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Удаление пользователя -->
+                    <div id="deleteUserSection" class="hidden bg-red-50 rounded-lg p-4 border border-red-200">
+                        <h3 class="text-sm font-medium text-red-800 mb-3">🗑️ Удалить пользователя</h3>
+                        <div class="flex items-center justify-between">
+                            <span id="currentUserName" class="text-gray-700"></span>
+                            <button onclick="deleteCurrentUser()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm">Удалить</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <!-- Синхронизация -->
@@ -404,9 +360,13 @@
                 </div>
                 <div id="roomInfo" class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <div class="flex items-center justify-between">
-                        <div><div class="text-green-600 text-xs">Комната:</div><div id="currentRoomId" class="text-gray-800 font-mono font-medium"></div></div>
+                        <div>
+                            <div class="text-green-600 text-xs">Комната:</div>
+                            <div id="currentRoomId" class="text-gray-800 font-mono font-medium"></div>
+                        </div>
                         <div class="flex gap-2">
                             <button onclick="copyRoomLink()" class="btn-secondary px-3 py-1 rounded-lg text-sm font-medium">📋 Копировать</button>
+                            <button onclick="openChangePasswordModal()" class="btn-secondary px-3 py-1 rounded-lg text-sm font-medium">🔑 Пароль</button>
                             <button onclick="leaveRoom()" class="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg text-sm font-medium transition-colors">Выйти</button>
                         </div>
                     </div>
@@ -414,7 +374,7 @@
             </details>
         </div>
 
-        <div class="text-center text-gray-400 text-xs">💡 Данные сохраняются автоматически</div>
+        <div class="text-center text-gray-400 text-xs py-2">💡 Данные сохраняются автоматически</div>
     </div>
 
     <script src="app.js"></script>

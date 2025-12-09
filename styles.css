@@ -81,6 +81,25 @@ body {
     line-height: 1.5;
 }
 
+.card, .header-gradient, .calendar-day, .chip {
+    animation: fadeInUp 0.4s ease;
+}
+
+button:hover, .calendar-day.today::after {
+    animation: pulseGlow 1.4s ease infinite;
+}
+
+/* ======== АНИМАЦИИ ======== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.9; }
+    100% { opacity: 0.4; }
+}
+
 /* ======== ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ ======== */
 .theme-toggle {
     background: var(--bg-secondary);

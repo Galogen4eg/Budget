@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список покупок</title>
+    <meta name="description" content="Быстрый и удобный список покупок с шаблонами и аналитикой">
+    <meta name="theme-color" content="#667eea">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .shopping-item {
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .shopping-item.swiped {
+            transform: translateX(60px);
+            opacity: 0.4;
+        }
+        .catalog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.65rem;
+        }
+        .catalog-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.4rem;
+            padding: 0.65rem 0.7rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            min-height: 110px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .catalog-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        }
+        .catalog-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .catalog-card button {
+            font-size: 0.72rem;
+            padding: 4px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+            align-self: stretch;
+            justify-content: center;
+        }
+        .catalog-text {
+            width: 100%;
+        }
+        .catalog-meta {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 2px;
+        }
+        .catalog-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 2.4em;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-6 px-4">
+    <div class="max-w-4xl mx-auto space-y-4">
+        <header class="header-gradient text-center rounded-2xl p-6 shadow-lg">
+            <h1 class="text-2xl md:text-3xl font-semibold mb-2">🛍️ Список покупок</h1>
+            <p class="text-white/90 text-sm">Добавляйте позиции, используйте каталог или свои шаблоны</p>
+            <div class="mt-4 flex flex-wrap justify-center gap-2 text-sm">
+                <a href="index.html" class="px-4 py-2 rounded-full bg-white text-blue-600 font-medium shadow">← Вернуться к бюджету</a>
+            </div>
+        </header>
+
+        <!-- Быстро добавить -->
+        <section class="card p-4 space-y-3">
+            <div class="flex items-center justify-between text-sm text-gray-500">
+                <h2 class="text-lg font-medium text-gray-800">⚡ Быстрое добавление</h2>
+                <span>Enter в любом поле добавит позицию</span>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <input id="itemName" type="text" placeholder="Что купить?" class="input-field" />
+                <input id="itemQuantity" type="text" placeholder="Сколько?" class="input-field" />
+                <input id="itemCategory" type="text" placeholder="Категория" class="input-field" />
+                <button id="addItemBtn" class="btn-primary rounded-lg font-medium">Добавить</button>
+            </div>
+            <div class="flex gap-2 overflow-x-auto text-sm pb-1">
+                <button class="chip" onclick="quickAdd('🍞 Хлеб', '1 шт', 'Продукты')">🍞 Хлеб</button>
+                <button class="chip" onclick="quickAdd('🥛 Молоко', '2 л', 'Продукты')">🥛 Молоко</button>
+                <button class="chip" onclick="quickAdd('🥚 Яйца', '10 шт', 'Продукты')">🥚 Яйца</button>
+                <button class="chip" onclick="quickAdd('🍎 Фрукты', '1 кг', 'Продукты')">🍎 Фрукты</button>
+                <button class="chip" onclick="quickAdd('🧻 Бумага', '12 рулонов', 'Бытовая химия')">🧻 Бумага</button>
+            </div>
+            <div id="manualTemplates" class="flex flex-wrap gap-2 text-sm"></div>
+        </section>
+
+        <!-- Статистика и активный список -->
+        <section class="card p-4 space-y-4">
+            <div class="grid grid-cols-3 gap-3 text-center text-sm">
+                <div class="bg-gray-50 rounded-xl p-3">
+                    <div class="text-xs text-gray-500">Всего</div>
+                    <div id="statTotal" class="text-lg font-semibold text-gray-800">0</div>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-3">
+                    <div class="text-xs text-gray-500">Активно</div>
+                    <div id="statActive" class="text-lg font-semibold text-blue-600">0</div>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-3">
+                    <div class="text-xs text-gray-500">Готово</div>
+                    <div id="statDone" class="text-lg font-semibold text-green-600">0</div>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-medium text-gray-800">📝 Активный список</h2>
+                <button id="clearList" class="text-sm text-red-500">🗑️ Очистить всё</button>
+            </div>
+            <div id="categoryFilterChips" class="flex gap-2 overflow-x-auto pb-1 text-sm"></div>
+            <div id="itemsList" class="space-y-2"></div>
+            <p class="text-xs text-gray-400 text-center">Свайп вправо по позиции — отметка «куплено»</p>
+        </section>
+
+        <!-- Каталог и топ -->
+        <section class="grid md:grid-cols-2 gap-4">
+            <div class="card p-4 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-lg font-medium text-gray-800">📚 Быстрые шаблоны</h2>
+                    <input id="catalogSearch" type="text" placeholder="Поиск..." class="input-field text-sm w-40" />
+                </div>
+                <div class="space-y-3">
+                    <div id="catalogCategoryTabs" class="flex flex-wrap gap-2 text-xs md:text-sm"></div>
+                    <div id="catalogGrid" class="catalog-grid"></div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="card p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-medium text-gray-800">🏆 Топ покупок</h2>
+                        <span id="topStatsPeriod" class="text-xs text-gray-500">История</span>
+                    </div>
+                    <div id="topItemsList" class="space-y-2"></div>
+                </div>
+                <div class="card p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-medium text-gray-800">📊 Категории</h2>
+                        <span class="text-xs text-gray-500">частота</span>
+                    </div>
+                    <div id="categoriesList" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Telegram -->
+        <section class="card p-4 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-medium text-gray-800">📲 Отправить список в Telegram</h2>
+                <span class="text-xs text-gray-500">бот + чат</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2">
+                <div>
+                    <label class="text-xs text-gray-500">Bot Token</label>
+                    <input id="telegramToken" type="password" placeholder="123456:ABC..." class="input-field" disabled />
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Chat ID</label>
+                    <input id="telegramChatId" type="text" placeholder="Например, 123456789" class="input-field" disabled />
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="sendTelegramList()" class="btn-primary px-4 py-2 rounded-lg">💬 Отправить список</button>
+            </div>
+            <p class="text-xs text-gray-500">Настройки бота доступны в разделе «⚙️ Настройки списка» ниже.</p>
+            <div id="telegramStatus" class="text-sm"></div>
+        </section>
+
+        <!-- Настройки -->
+        <section class="card p-4 space-y-4">
+            <details>
+                <summary class="text-lg font-medium text-gray-800 cursor-pointer">⚙️ Настройки списка</summary>
+                <div class="mt-4 space-y-3">
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="text-xs text-gray-500">Bot Token</label>
+                            <input id="settingsTelegramToken" type="password" placeholder="123456:ABC..." class="input-field" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Chat ID</label>
+                            <input id="settingsTelegramChatId" type="text" placeholder="Например, 123456789" class="input-field" />
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveTelegramSettings()" class="btn-primary px-4 py-2 rounded-lg">💾 Сохранить настройки</button>
+                        <button onclick="testTelegramSettings()" class="btn-secondary px-4 py-2 rounded-lg">🔍 Проверить</button>
+                    </div>
+                    <p class="text-xs text-gray-500">Хранится локально в браузере. Бот должен быть создан через @BotFather и добавлен в ваш чат.</p>
+                </div>
+            </details>
+        </section>
+    </div>
+
+    <script>
+        const toast = {
+            el: null,
+            show(message) {
+                if (!this.el) {
+                    this.el = document.createElement('div');
+                    this.el.className = 'fixed top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full shadow-lg text-sm z-50 opacity-0 pointer-events-none transition opacity-0';
+                    document.body.appendChild(this.el);
+                }
+                this.el.textContent = message;
+                this.el.style.opacity = '1';
+                clearTimeout(this.timer);
+                this.timer = setTimeout(() => this.el.style.opacity = '0', 1800);
+            }
+        };
+
+        const catalogItems = [
+            { emoji: '🥛', name: 'Молоко 2.5%', quantity: '2 пакета', category: 'Продукты' },
+            { emoji: '🍞', name: 'Хлеб цельнозерновой', quantity: '1 буханка', category: 'Продукты' },
+            { emoji: '🥚', name: 'Яйца С1', quantity: '10 шт', category: 'Продукты' },
+            { emoji: '🍗', name: 'Куриное филе', quantity: '1 кг', category: 'Продукты' },
+            { emoji: '🥔', name: 'Картофель', quantity: '5 кг', category: 'Продукты' },
+            { emoji: '🥕', name: 'Овощи для салата', quantity: '1 набор', category: 'Продукты' },
+            { emoji: '🧀', name: 'Сыр гауда', quantity: '300 г', category: 'Продукты' },
+            { emoji: '🍎', name: 'Яблоки сладкие', quantity: '1 кг', category: 'Продукты' },
+            { emoji: '🍤', name: 'Рыба/морепродукты', quantity: '0.5 кг', category: 'Продукты' },
+            { emoji: '🍶', name: 'Йогурты питьевые', quantity: '4 шт', category: 'Продукты' },
+            { emoji: '🧴', name: 'Гель для стирки', quantity: '1 л', category: 'Бытовая химия' },
+            { emoji: '🧼', name: 'Средство для посуды', quantity: '1 флакон', category: 'Бытовая химия' },
+            { emoji: '🧻', name: 'Туалетная бумага', quantity: '12 рулонов', category: 'Бытовая химия' },
+            { emoji: '🪥', name: 'Зубная паста', quantity: '1 тюбик', category: 'Гигиена' },
+            { emoji: '🩹', name: 'Аптечка пополнение', quantity: '1 набор', category: 'Здоровье' },
+            { emoji: '🍼', name: 'Детское питание', quantity: '5 баночек', category: 'Детское' },
+            { emoji: '🧸', name: 'Подгузники', quantity: '1 упаковка', category: 'Детское' },
+            { emoji: '📚', name: 'Учебники/тетради', quantity: 'на месяц', category: 'Учёба' },
+            { emoji: '🖊️', name: 'Канцелярия', quantity: 'набор', category: 'Учёба' },
+            { emoji: '☕', name: 'Кофе молотый', quantity: '500 г', category: 'Продукты' },
+            { emoji: '🍫', name: 'Сладости к чаепитию', quantity: 'на неделю', category: 'Продукты' },
+            { emoji: '🧂', name: 'Специи набор', quantity: '5 позиций', category: 'Продукты' },
+            { emoji: '🧊', name: 'Заморозка овощи', quantity: '3 пакета', category: 'Продукты' },
+            { emoji: '🍺', name: 'Напитки безалкогольные', quantity: '6 шт', category: 'Продукты' },
+            { emoji: '🪑', name: 'Хозтовары для дома', quantity: 'по списку', category: 'Дом' },
+            { emoji: '🧽', name: 'Губки/салфетки', quantity: '5 шт', category: 'Бытовая химия' },
+            { emoji: '🐾', name: 'Корм для питомца', quantity: '1 мешок', category: 'Зоотовары' },
+            { emoji: '🎂', name: 'Продукты к празднику', quantity: 'список', category: 'Продукты' },
+            { emoji: '🥗', name: 'ЗОЖ-набор', quantity: 'овощи и крупы', category: 'Продукты' },
+            { emoji: '🍽️', name: 'Одноразовая посуда', quantity: 'на 10 персон', category: 'Дом' }
+        ];
+
+        let shoppingItems = JSON.parse(localStorage.getItem('shoppingItems') || '[]');
+        let manualTemplates = JSON.parse(localStorage.getItem('manualTemplates') || '[]');
+        if (!Array.isArray(manualTemplates)) manualTemplates = [];
+        let activeCategoryFilter = '';
+        let activeCatalogCategory = '';
+        const categoriesSet = new Set();
+
+        const elements = {
+            list: document.getElementById('itemsList'),
+            categoryFilter: document.getElementById('categoryFilterChips'),
+            catalogTabs: document.getElementById('catalogCategoryTabs'),
+            catalogGrid: document.getElementById('catalogGrid'),
+            catalogSearch: document.getElementById('catalogSearch'),
+            categoriesSummary: document.getElementById('categoriesList'),
+            topList: document.getElementById('topItemsList'),
+            statTotal: document.getElementById('statTotal'),
+            statActive: document.getElementById('statActive'),
+            statDone: document.getElementById('statDone'),
+            manualTemplates: document.getElementById('manualTemplates'),
+            telegramToken: document.getElementById('telegramToken'),
+            telegramChatId: document.getElementById('telegramChatId'),
+            settingsTelegramToken: document.getElementById('settingsTelegramToken'),
+            settingsTelegramChatId: document.getElementById('settingsTelegramChatId'),
+            telegramStatus: document.getElementById('telegramStatus')
+        };
+
+        document.getElementById('addItemBtn').addEventListener('click', () => handleAddItem());
+        document.getElementById('catalogSearch').addEventListener('input', renderCatalog);
+        document.getElementById('clearList').addEventListener('click', clearList);
+        ['itemName', 'itemQuantity', 'itemCategory'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', e => {
+                if (e.key === 'Enter') handleAddItem();
+            });
+        });
+
+        function handleAddItem(template = null) {
+            const source = template || {
+                name: document.getElementById('itemName').value.trim(),
+                quantity: document.getElementById('itemQuantity').value.trim(),
+                category: document.getElementById('itemCategory').value.trim()
+            };
+            if (!source.name) return;
+            const newItem = { id: Date.now(), name: source.name, quantity: source.quantity, category: source.category, done: false, createdAt: new Date() };
+            shoppingItems.unshift(newItem);
+            if (source.category) categoriesSet.add(source.category);
+            if (activeCategoryFilter && source.category !== activeCategoryFilter) activeCategoryFilter = '';
+            if (!template) saveManualTemplate(newItem);
+            renderAll();
+            localStorage.setItem('shoppingItems', JSON.stringify(shoppingItems));
+            toast.show('Добавлено в список');
+            if (!template) {
+                document.getElementById('itemName').value = '';
+                document.getElementById('itemQuantity').value = '';
+                document.getElementById('itemCategory').value = '';
+            }
+        }
+
+        function saveManualTemplate(item) {
+            const exists = manualTemplates.some(t => t.name === item.name && t.category === item.category);
+            if (exists) return;
+            manualTemplates.unshift({ name: item.name, quantity: item.quantity, category: item.category });
+            manualTemplates = manualTemplates.slice(0, 15);
+            localStorage.setItem('manualTemplates', JSON.stringify(manualTemplates));
+            renderManualTemplates();
+        }
+
+        function renderManualTemplates() {
+            if (!manualTemplates.length) {
+                elements.manualTemplates.innerHTML = '';
+                return;
+            }
+            elements.manualTemplates.innerHTML = manualTemplates.map((tpl, index) => `
+                <div class="relative inline-flex items-center">
+                    <button class="chip pr-6" onclick="applyManualTemplate(${index})">${tpl.name}${tpl.quantity ? ` · ${tpl.quantity}` : ''}</button>
+                    <button class="absolute -right-1 -top-1 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] flex items-center justify-center shadow" onclick="removeManualTemplate(${index})">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function applyManualTemplate(index) {
+            const tpl = manualTemplates[index];
+            handleAddItem(tpl);
+        }
+
+        function removeManualTemplate(index) {
+            manualTemplates.splice(index, 1);
+            localStorage.setItem('manualTemplates', JSON.stringify(manualTemplates));
+            renderManualTemplates();
+        }
+
+        function addFromCatalog(index) {
+            const item = catalogItems[index];
+            handleAddItem({ name: `${item.emoji} ${item.name}`, quantity: item.quantity, category: item.category });
+        }
+
+        function quickAdd(name, quantity = '', category = '') {
+            handleAddItem({ name, quantity, category });
+        }
+
+        function toggleItem(id) {
+            const item = shoppingItems.find(i => i.id === id);
+            if (item) {
+                item.done = !item.done;
+                renderAll();
+            }
+        }
+
+        function removeItem(id) {
+            shoppingItems = shoppingItems.filter(i => i.id !== id);
+            renderAll();
+        }
+
+        function clearList() {
+            if (!shoppingItems.length) return;
+            if (confirm('Очистить список покупок?')) {
+                shoppingItems = [];
+                categoriesSet.clear();
+                renderAll();
+                localStorage.setItem('shoppingItems', '[]');
+            }
+        }
+
+        function setCategoryFilter(value) {
+            activeCategoryFilter = value === 'Все' ? '' : value;
+            renderCategoryFilters();
+            renderItems();
+        }
+
+        function handleCategoryFilterClick(btn) {
+            const value = btn.getAttribute('data-category');
+            setCategoryFilter(value);
+        }
+
+        function setCatalogCategory(value) {
+            activeCatalogCategory = value === 'Все' ? '' : value;
+            renderCatalogTabs();
+            renderCatalog();
+        }
+
+        function handleCatalogCategoryClick(btn) {
+            const value = btn.getAttribute('data-category');
+            setCatalogCategory(value);
+        }
+
+        function renderStats() {
+            const total = shoppingItems.length;
+            const done = shoppingItems.filter(item => item.done).length;
+            const active = total - done;
+            elements.statTotal.textContent = total;
+            elements.statActive.textContent = active;
+            elements.statDone.textContent = done;
+        }
+
+        function renderCategoryFilters() {
+            const categories = ['Все', ...Array.from(categoriesSet).sort()];
+            elements.categoryFilter.innerHTML = categories.map(cat => {
+                const isActive = (cat === 'Все' && !activeCategoryFilter) || activeCategoryFilter === cat;
+                const classes = isActive ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-600 border-gray-200';
+                const safeValue = cat.replace(/"/g, '&quot;');
+                return `<button class="px-3 py-1 rounded-full border text-sm whitespace-nowrap ${classes}" data-category="${safeValue}" onclick="handleCategoryFilterClick(this)">${cat}</button>`;
+            }).join('');
+        }
+
+        function renderItems() {
+            let filtered = shoppingItems;
+            if (activeCategoryFilter) filtered = filtered.filter(item => item.category === activeCategoryFilter);
+            elements.list.innerHTML = filtered.length ? filtered.map(item => `
+                <div class="shopping-item flex items-center justify-between gap-3 rounded-2xl border px-3 py-3 ${item.done ? 'bg-gray-50 opacity-70' : 'bg-white'}" data-id="${item.id}">
+                    <div>
+                        <p class="text-gray-800 font-medium ${item.done ? 'line-through' : ''}">${item.name}</p>
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-1">
+                            ${item.category ? `<span class="px-2 py-0.5 bg-gray-100 rounded-full">${item.category}</span>` : '<span class="px-2 py-0.5 bg-gray-100 rounded-full">Без категории</span>'}
+                            ${item.quantity ? `<span>${item.quantity}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2 text-sm">
+                        <button onclick="toggleItem(${item.id})" class="btn-secondary px-3 py-1 rounded-lg">${item.done ? '↩️' : '✅'}</button>
+                        <button onclick="removeItem(${item.id})" class="text-red-500">✕</button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-gray-400 text-center py-4">Добавьте первую позицию</p>';
+            attachSwipeHandlers();
+        }
+
+        function attachSwipeHandlers() {
+            let startX = 0;
+            let currentId = null;
+            document.querySelectorAll('.shopping-item').forEach(card => {
+                card.addEventListener('touchstart', e => {
+                    startX = e.touches[0].clientX;
+                    currentId = Number(card.dataset.id);
+                    card.classList.remove('swiped');
+                }, { passive: true });
+                card.addEventListener('touchmove', e => {
+                    const delta = e.touches[0].clientX - startX;
+                    if (delta > 40) card.classList.add('swiped');
+                }, { passive: true });
+                card.addEventListener('touchend', e => {
+                    const endX = e.changedTouches[0].clientX;
+                    if (endX - startX > 60 && currentId) toggleItem(currentId);
+                    card.classList.remove('swiped');
+                });
+            });
+        }
+
+        function renderCatalogTabs() {
+            const categories = ['Все', ...new Set(catalogItems.map(item => item.category))];
+            elements.catalogTabs.innerHTML = categories.map(cat => {
+                const isActive = (cat === 'Все' && !activeCatalogCategory) || activeCatalogCategory === cat;
+                const classes = isActive ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-600 border-gray-200';
+                const safeValue = cat.replace(/"/g, '&quot;');
+                return `<button class="px-3 py-1 rounded-full border text-sm whitespace-nowrap ${classes}" data-category="${safeValue}" onclick="handleCatalogCategoryClick(this)">${cat}</button>`;
+            }).join('');
+        }
+
+        function renderCatalog() {
+            const term = elements.catalogSearch.value.toLowerCase();
+            const filtered = catalogItems.filter(item =>
+                (!activeCatalogCategory || item.category === activeCatalogCategory) &&
+                (item.name.toLowerCase().includes(term) || item.category.toLowerCase().includes(term))
+            );
+            elements.catalogGrid.innerHTML = filtered.length ? filtered.map(item => {
+                const index = catalogItems.indexOf(item);
+                return `<div class="catalog-card">
+                    <div class="catalog-icon">${item.emoji}</div>
+                    <div class="catalog-text">
+                        <div class="catalog-meta">${item.category}</div>
+                        <div class="catalog-title">${item.name}</div>
+                    </div>
+                    <button onclick="addFromCatalog(${index})" class="btn-secondary text-xs px-2">+ В список</button>
+                </div>`;
+            }).join('') : '<p class="text-gray-400 text-center py-4">Ничего не найдено</p>';
+        }
+
+        function renderTopItems() {
+            const counts = shoppingItems.reduce((acc, item) => {
+                const key = item.name;
+                if (!acc[key]) acc[key] = { name: item.name, count: 0, category: item.category, quantity: item.quantity };
+                acc[key].count++;
+                return acc;
+            }, {});
+            const sorted = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 5);
+            elements.topList.innerHTML = sorted.length ? sorted.map(item => `
+                <div class="border rounded-2xl px-3 py-2 bg-white flex items-center justify-between">
+                    <div>
+                        <div class="font-medium text-gray-800">${item.name}</div>
+                        <div class="text-xs text-gray-500">${item.category || 'Без категории'} ${item.quantity ? '· ' + item.quantity : ''}</div>
+                    </div>
+                    <button onclick="addTopItem('${item.name.replace(/'/g, "\\'")}')" class="btn-secondary text-sm rounded-lg px-3 py-1">↩️</button>
+                </div>
+            `).join('') : '<p class="text-gray-400 text-center py-4">Истории ещё нет</p>';
+        }
+
+        function renderCategoriesList() {
+            const grouped = shoppingItems.reduce((acc, item) => {
+                const cat = item.category || 'Без категории';
+                acc[cat] = (acc[cat] || 0) + 1;
+                return acc;
+            }, {});
+            const sorted = Object.entries(grouped).sort((a, b) => b[1] - a[1]).slice(0, 6);
+            elements.categoriesSummary.innerHTML = sorted.length ? sorted.map(([cat, count]) => `
+                <div class="flex items-center justify-between border rounded-2xl px-3 py-2 bg-gray-50">
+                    <span class="text-gray-700">${cat}</span>
+                    <span class="text-sm text-gray-500">${count} шт.</span>
+                </div>
+            `).join('') : '<p class="text-gray-400 text-center py-4">Добавьте позиции, чтобы увидеть топ категорий</p>';
+        }
+
+        function addTopItem(name) {
+            const found = shoppingItems.find(item => item.name === name) || manualTemplates.find(item => item.name === name);
+            const base = found || { name, quantity: '', category: '' };
+            handleAddItem(base);
+        }
+
+        function sendTelegramList() {
+            const token = elements.telegramToken.value.trim();
+            const chatId = elements.telegramChatId.value.trim();
+            if (!token) {
+                elements.telegramStatus.textContent = '⚙️ Укажите Bot Token в настройках';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            if (!chatId) {
+                elements.telegramStatus.textContent = '⚙️ Укажите Chat ID в настройках';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            if (!token || !chatId) {
+                elements.telegramStatus.textContent = '⚠️ Укажите токен и Chat ID';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            if (!shoppingItems.length) {
+                elements.telegramStatus.textContent = '⚠️ Список пустой';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            const lines = shoppingItems.map((item, i) => `${i + 1}. ${item.name}${item.quantity ? ' — ' + item.quantity : ''}${item.category ? ' (' + item.category + ')' : ''}${item.done ? ' ✅' : ''}`);
+            const message = `🛍️ Список покупок:\n${lines.join('\n')}`;
+            elements.telegramStatus.textContent = '⏳ Отправляю...';
+            elements.telegramStatus.className = 'text-sm text-blue-600';
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: message })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        elements.telegramStatus.textContent = '✅ Список отправлен';
+                        elements.telegramStatus.className = 'text-sm text-green-600';
+                    } else {
+                        throw new Error(data.description || 'Ошибка Telegram');
+                    }
+                })
+                .catch(err => {
+                    elements.telegramStatus.textContent = `❌ ${err.message}`;
+                    elements.telegramStatus.className = 'text-sm text-red-600';
+                });
+        }
+
+        function saveTelegramSettings() {
+            const token = elements.settingsTelegramToken.value.trim();
+            const chatId = elements.settingsTelegramChatId.value.trim();
+            if (!token || !chatId) {
+                elements.telegramStatus.textContent = '⚠️ Заполните токен и Chat ID';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            localStorage.setItem('telegramToken', token);
+            localStorage.setItem('telegramChatId', chatId);
+            elements.telegramToken.value = token;
+            elements.telegramChatId.value = chatId;
+            elements.telegramStatus.textContent = '💾 Данные сохранены';
+            elements.telegramStatus.className = 'text-sm text-green-600';
+        }
+
+        function testTelegramSettings() {
+            const token = elements.settingsTelegramToken.value.trim();
+            const chatId = elements.settingsTelegramChatId.value.trim();
+            if (!token || !chatId) {
+                elements.telegramStatus.textContent = '⚠️ Заполните токен и Chat ID';
+                elements.telegramStatus.className = 'text-sm text-red-600';
+                return;
+            }
+            elements.telegramStatus.textContent = '🔍 Проверяю...';
+            elements.telegramStatus.className = 'text-sm text-blue-600';
+            fetch(`https://api.telegram.org/bot${token}/getMe`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.ok) throw new Error(data.description || 'Ошибка бота');
+                    elements.telegramStatus.textContent = '✅ Бот активен. Попробуйте отправить список!';
+                    elements.telegramStatus.className = 'text-sm text-green-600';
+                })
+                .catch(err => {
+                    elements.telegramStatus.textContent = `❌ ${err.message}`;
+                    elements.telegramStatus.className = 'text-sm text-red-600';
+                });
+        }
+
+        function loadTelegramSettings() {
+            const token = localStorage.getItem('telegramToken') || '';
+            const chatId = localStorage.getItem('telegramChatId') || '';
+            elements.telegramToken.value = token;
+            elements.telegramChatId.value = chatId;
+            elements.settingsTelegramToken.value = token;
+            elements.settingsTelegramChatId.value = chatId;
+        }
+
+        function renderAll() {
+            shoppingItems.forEach(item => {
+                if (item.category) categoriesSet.add(item.category);
+            });
+            renderStats();
+            renderCategoryFilters();
+            renderItems();
+            renderTopItems();
+            renderCategoriesList();
+            renderCatalogTabs();
+            renderCatalog();
+            localStorage.setItem('shoppingItems', JSON.stringify(shoppingItems));
+        }
+
+        renderManualTemplates();
+        loadTelegramSettings();
+        renderAll();
+
+        window.quickAdd = quickAdd;
+        window.toggleItem = toggleItem;
+        window.removeItem = removeItem;
+        window.addFromCatalog = addFromCatalog;
+        window.addTopItem = addTopItem;
+        window.setCategoryFilter = setCategoryFilter;
+        window.setCatalogCategory = setCatalogCategory;
+        window.handleCategoryFilterClick = handleCategoryFilterClick;
+        window.handleCatalogCategoryClick = handleCatalogCategoryClick;
+        window.applyManualTemplate = applyManualTemplate;
+        window.removeManualTemplate = removeManualTemplate;
+        window.sendTelegramList = sendTelegramList;
+        window.saveTelegramSettings = saveTelegramSettings;
+        window.clearList = clearList;
+    </script>
+</body>
+</html>

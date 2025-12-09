@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Семейный планировщик</title>
+    <meta name="description" content="Общие планы и события семьи">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { font-family: 'Roboto', sans-serif; }
+        .header-gradient {
+            background: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #f97316 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(79,70,229,0.35);
+            position: relative;
+            overflow: hidden;
+        }
+        .header-gradient::after {
+            content: '';
+            position: absolute;
+            inset: 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            pointer-events: none;
+        }
+        .header-gradient h1,
+        .header-gradient p,
+        .header-gradient nav {
+            position: relative;
+            z-index: 1;
+        }
+        .planner-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(120px, 1fr));
+            gap: 8px;
+        }
+        .planner-day {
+            min-height: 120px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .planner-day .date-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .event-pill {
+            border-radius: 12px;
+            padding: 6px 8px;
+            font-size: 0.78rem;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .view-toggle button.active {
+            background: #4f46e5;
+            color: white;
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal-card {
+            width: 100%;
+            max-width: 520px;
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 25px 60px rgba(15,23,42,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-6 px-4">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="header-gradient">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm text-white/70 mb-1">Семейный центр</p>
+                    <h1 class="text-3xl font-semibold">📅 Планировщик</h1>
+                    <p class="text-white/80 text-sm mt-1 max-w-2xl">Планируйте встречи, задачи и напоминания вместе с семьёй. Все участники комнаты видят единый календарь.</p>
+                </div>
+                <nav class="grid grid-cols-3 gap-3 text-sm font-medium min-w-[320px]">
+                    <a href="index.html" class="px-5 py-3 rounded-xl bg-white/20 text-white border border-white/30 text-center">📊 Бюджет</a>
+                    <a href="shopping.html" class="px-5 py-3 rounded-xl bg-white/20 text-white border border-white/30 text-center">🛍️ Покупки</a>
+                    <a href="planner.html" class="px-5 py-3 rounded-xl bg-white text-indigo-600 text-center">📅 Планировщик</a>
+                </nav>
+            </div>
+        </header>
+
+        <section class="card p-4 md:p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="view-toggle inline-flex rounded-full border border-gray-200 overflow-hidden">
+                    <button id="btnMonthView" class="px-4 py-2 text-sm active">Месяц</button>
+                    <button id="btnWeekView" class="px-4 py-2 text-sm">Неделя</button>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                    <button id="btnPrev" class="btn-secondary px-3 py-2">←</button>
+                    <span id="plannerPeriod" class="font-medium text-gray-700 min-w-[140px] text-center">Март 2025</span>
+                    <button id="btnNext" class="btn-secondary px-3 py-2">→</button>
+                </div>
+                <button id="btnAddEvent" class="btn-primary px-4 py-2 rounded-xl text-sm font-medium">+ Добавить событие</button>
+            </div>
+
+            <div id="monthlyView" class="space-y-3">
+                <div class="grid grid-cols-7 text-center text-gray-500 text-xs uppercase font-semibold">
+                    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                </div>
+                <div id="monthGrid" class="planner-grid"></div>
+            </div>
+
+            <div id="weeklyView" class="space-y-2 hidden">
+                <div class="overflow-x-auto">
+                    <div id="weekGrid" class="min-w-[720px] grid grid-cols-7 gap-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card p-4 md:p-6 space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800">📋 Ближайшие события</h2>
+                    <p class="text-sm text-gray-500">Все участники комнаты могут редактировать события</p>
+                </div>
+                <div id="eventFilters" class="flex flex-wrap gap-2 text-xs"></div>
+            </div>
+            <div id="upcomingList" class="space-y-2">
+                <p class="text-gray-400 text-sm">Нет запланированных событий</p>
+            </div>
+        </section>
+    </div>
+
+    <div id="eventModal" class="modal-backdrop">
+        <div class="modal-card space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 id="modalTitle" class="text-lg font-semibold text-gray-800">Новое событие</h3>
+                <button id="btnCloseModal" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Тип</label>
+                    <select id="eventType" class="input-field">
+                        <option value="meeting">📌 Встреча</option>
+                        <option value="task">✅ Задача</option>
+                        <option value="reminder">⏰ Напоминание</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Категория</label>
+                    <input id="eventCategory" type="text" class="input-field" placeholder="Семья, Работа...">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Дата</label>
+                    <input id="eventDate" type="date" class="input-field">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Время</label>
+                    <input id="eventTime" type="time" class="input-field">
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Название</label>
+                <input id="eventTitleInput" type="text" class="input-field" placeholder="Например, Встреча с врачом">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Описание</label>
+                <textarea id="eventDescription" class="input-field" rows="3" placeholder="Дополнительные детали"></textarea>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Повторение</label>
+                    <select id="eventRepeat" class="input-field">
+                        <option value="none">Не повторять</option>
+                        <option value="daily">Каждый день</option>
+                        <option value="weekly">Каждую неделю</option>
+                        <option value="monthly">Каждый месяц</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">До (если повтор)</label>
+                    <input id="eventRepeatEnd" type="date" class="input-field">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="btnDeleteEvent" class="btn-secondary hidden">Удалить</button>
+                <button id="btnSaveEvent" class="btn-primary px-4 py-2 rounded-xl">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="core.js"></script>
+    <script src="rooms.js"></script>
+    <script src="planner.js"></script>
+</body>
+</html>

@@ -4,7 +4,6 @@ let data = { users: [], roomPassword: null };
 let currentViewMonth = new Date();
 let settingsExpanded = false;
 let addSectionExpanded = false;
-let pendingRoomId = null;
 let excelData = null;
 let filterByDay = null;
 
@@ -687,136 +686,24 @@ function isDuplicate(date, amount, description) {
 
 // ======== FIREBASE / СИНХРОНИЗАЦИЯ ========
 function syncData() {
-    if (db && currentRoomId && dataRef) {
-        dataRef.update({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
+    if (db && roomsManager.currentRoomId && roomsManager.dataRef) {
+        roomsManager.dataRef.update({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
     }
 }
-function createRoom() {
-    document.getElementById('createRoomModal').classList.remove('hidden');
-    document.getElementById('newRoomPassword').value = '';
-}
-function closeCreateRoomModal() { document.getElementById('createRoomModal').classList.add('hidden'); }
-function confirmCreateRoom() {
-    const password = document.getElementById('newRoomPassword').value.trim();
-    if (!password) return alert('Введите пароль');
-    const roomId = generateRoomId();
-    data.roomPassword = password;
-    closeCreateRoomModal();
-    joinRoomById(roomId, password, true);
-}
-function joinRoom() {
-    const roomId = document.getElementById('roomIdInput').value.trim().toUpperCase();
-    if (!roomId) return;
-    pendingRoomId = roomId;
-    document.getElementById('passwordModal').classList.remove('hidden');
-    document.getElementById('roomPassword').value = '';
-    document.getElementById('passwordError').classList.add('hidden');
-}
-function closePasswordModal() {
-    document.getElementById('passwordModal').classList.add('hidden');
-    pendingRoomId = null;
-}
-function confirmPassword() {
-    const password = document.getElementById('roomPassword').value;
-    joinRoomById(pendingRoomId, password, false);
-}
-function joinRoomById(roomId, password, isNew = false, silent = false) {
-    if (!db) return alert('Firebase недоступен');
-    currentRoomId = roomId;
-    dataRef = db.ref('family/' + roomId);
-    dataRef.once('value').then(snapshot => {
-        const saved = snapshot.val();
-        if (isNew) {
-            dataRef.set({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
-            setupListener();
-        } else {
-            if (saved?.data?.roomPassword && saved.data.roomPassword !== password) {
-                if (!silent) document.getElementById('passwordError').classList.remove('hidden');
-                else removeSavedRoomCredentials();
-                return;
-            }
-            closePasswordModal();
-            data = saved?.data || { users: [], roomPassword: password };
-            setupListener();
-        }
-        updateRoomUI();
-        updateConnectionStatus(true);
-        if (data.users?.length > 0) currentTab = data.users[0].id;
-        localStorage.setItem('familyRoomId', roomId);
-        if (password) localStorage.setItem('familyRoomPassword', password);
-        renderTabs();
-        renderAll();
-        renderSettingsSection();
-    }).catch(() => {
-        if (silent) removeSavedRoomCredentials();
-    });
-}
-function setupListener() {
-    if (!dataRef) return;
-    dataRef.on('value', snapshot => {
-        const saved = snapshot.val();
-        if (saved?.data) {
-            data = saved.data;
-            if (!currentTab && data.users?.length > 0) currentTab = data.users[0].id;
-            renderTabs();
-            renderAll();
-            renderSettingsSection();
-        }
-    });
-}
-function leaveRoom() {
-    if (dataRef) dataRef.off();
-    currentRoomId = null;
-    data = { users: [], roomPassword: null };
-    currentTab = null;
-    removeSavedRoomCredentials();
-    updateRoomUI();
-    updateConnectionStatus(false);
-    renderTabs();
-    renderAll();
-    renderSettingsSection();
-}
-function generateRoomId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return result;
-}
-function updateRoomUI() {
-    const info = document.getElementById('roomInfo');
-    if (currentRoomId) {
-        info.classList.remove('hidden');
-        document.getElementById('currentRoomId').textContent = currentRoomId;
-    } else {
-        info.classList.add('hidden');
-    }
-}
-function removeSavedRoomCredentials() {
-    localStorage.removeItem('familyRoomId');
-    localStorage.removeItem('familyRoomPassword');
-}
-function copyRoomLink() {
-    if (!currentRoomId) return;
-    const link = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
-    navigator.clipboard.writeText(link).then(() => alert('Ссылка скопирована!'));
-}
-function openChangePasswordModal() {
-    if (!currentRoomId) return alert('Сначала подключитесь к комнате');
-    document.getElementById('changePasswordModal').classList.remove('hidden');
-    document.getElementById('newRoomPasswordInput').value = '';
-}
-function closeChangePasswordModal() {
-    document.getElementById('changePasswordModal').classList.add('hidden');
-}
-function confirmChangeRoomPassword() {
-    const newPassword = document.getElementById('newRoomPasswordInput').value.trim();
-    if (!newPassword) return alert('Введите новый пароль');
-    if (!currentRoomId || !dataRef) return alert('Комната не подключена');
-    data.roomPassword = newPassword;
-    closeChangePasswordModal();
-    syncData();
-    alert('Пароль обновлён');
-}
+
+// ======== FIREBASE / СИНХРОНИЗАЦИЯ ========
+const createRoom = () => roomsManager.createRoom();
+const closeCreateRoomModal = () => roomsManager.closeCreateRoomModal();
+const confirmCreateRoom = () => roomsManager.confirmCreateRoom();
+const joinRoom = () => roomsManager.joinRoom();
+const closePasswordModal = () => roomsManager.closePasswordModal();
+const confirmPassword = () => roomsManager.confirmPassword();
+const leaveRoom = () => roomsManager.leaveRoom();
+const copyRoomLink = () => roomsManager.copyRoomLink();
+const openChangePasswordModal = () => roomsManager.openChangePasswordModal();
+const closeChangePasswordModal = () => roomsManager.closeChangePasswordModal();
+const confirmChangeRoomPassword = () => roomsManager.confirmChangeRoomPassword();
+
 function updateConnectionStatus(online) {
     const status = document.getElementById('connectionStatus');
     status.textContent = online ? '🟢' : '🔴';
@@ -827,7 +714,7 @@ function updateConnectionStatus(online) {
 const BANK_CATEGORY_MAP = {
     // Маркетплейсы
     'ozon': '📦 Маркетплейсы', 'ozone': '📦 Маркетплейсы', 'озон': '📦 Маркетплейсы', 'wildberries': '📦 Маркетплейсы', 'вайлдберриз': '📦 Маркетплейсы',
-    'wb': '📦 Маркетплейсы', 'wbmarket': '📦 Маркетплейсы', 'яндекс маркет': '📦 Маркетплейсы', 'yandex market': '📦 Маркетплейсы',
+    'wb': '📦 Маркетплейсы', 'wbmarket': '📦 Маркетплейсы', 'яндекс маркет': '📦 Маркет��лейсы', 'yandex market': '📦 Маркетплейсы',
     'sbermegmarket': '📦 Маркетплейсы', 'sber market': '📦 Маркетплейсы', 'ali': '📦 Маркетплейсы', 'aliexpress': '📦 Маркетплейсы',
     'lamoda': '📦 Маркетплейсы', 'cdek market': '📦 Маркетплейсы', 'poizon': '📦 Маркетплейсы',
 
@@ -1060,22 +947,11 @@ function init() {
     const savingsInput = document.getElementById('savingsPercent');
     if (savingsInput) savingsInput.addEventListener('change', updateSettings);
 
-    const params = new URLSearchParams(window.location.search);
-    const roomFromUrl = params.get('room');
-    const savedRoomId = localStorage.getItem('familyRoomId');
-    const savedRoomPassword = localStorage.getItem('familyRoomPassword');
-
-    if (roomFromUrl) {
-        pendingRoomId = roomFromUrl;
-        document.getElementById('passwordModal').classList.remove('hidden');
-    } else if (savedRoomId && savedRoomPassword) {
-        joinRoomById(savedRoomId, savedRoomPassword, false, true);
-    }
-
     renderTabs();
     renderAll();
     renderSettingsSection();
     loadGeminiKey();
 }
 
+roomsManager.init();
 document.addEventListener('DOMContentLoaded', init);

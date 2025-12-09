@@ -205,20 +205,10 @@
                 <h2 class="text-lg font-medium text-gray-800">📲 Отправить список в Telegram</h2>
                 <span class="text-xs text-gray-500">бот + чат</span>
             </div>
-            <div class="grid gap-3 md:grid-cols-2">
-                <div>
-                    <label class="text-xs text-gray-500">Bot Token</label>
-                    <input id="telegramToken" type="password" placeholder="123456:ABC..." class="input-field" disabled />
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">Chat ID</label>
-                    <input id="telegramChatId" type="text" placeholder="Например, 123456789" class="input-field" disabled />
-                </div>
-            </div>
+            <p class="text-xs text-gray-500">Убедитесь, что токен и Chat ID сохранены в разделе «⚙️ Настройки списка».</p>
             <div class="flex flex-wrap gap-2">
                 <button onclick="sendTelegramList()" class="btn-primary px-4 py-2 rounded-lg">💬 Отправить список</button>
             </div>
-            <p class="text-xs text-gray-500">Настройки бота доступны в разделе «⚙️ Настройки списка» ниже.</p>
             <div id="telegramStatus" class="text-sm"></div>
         </section>
 
@@ -250,7 +240,7 @@
     <!-- Модальное окно количества -->
     <div id="quantityModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-            <h3 class="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">📦 Добавить из шаблона</h3>
+            <h3 id="modalTitle" class="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">📦 Добавить из шаблона</h3>
             <p id="modalItemName" class="text-sm text-gray-600 mb-4"></p>
             <div class="space-y-3">
                 <div>
@@ -268,9 +258,13 @@
                         <option value="мл">мл</option>
                     </select>
                 </div>
+                <div>
+                    <label class="text-xs text-gray-500">Категория</label>
+                    <input id="modalCategory" type="text" class="input-field mt-1" placeholder="Например, Продукты">
+                </div>
                 <p id="modalHint" class="text-xs text-gray-400"></p>
                 <div class="flex gap-2 mt-2">
-                    <button onclick="confirmCatalogAdd()" class="btn-primary flex-1 px-4 py-2 rounded-lg">Добавить</button>
+                    <button onclick="confirmModalAction()" class="btn-primary flex-1 px-4 py-2 rounded-lg">Сохранить</button>
                     <button onclick="closeQuantityModal()" class="btn-secondary px-4 py-2 rounded-lg">Отмена</button>
                 </div>
             </div>
@@ -345,8 +339,6 @@
             statActive: document.getElementById('statActive'),
             statDone: document.getElementById('statDone'),
             manualTemplates: document.getElementById('manualTemplates'),
-            telegramToken: document.getElementById('telegramToken'),
-            telegramChatId: document.getElementById('telegramChatId'),
             settingsTelegramToken: document.getElementById('settingsTelegramToken'),
             settingsTelegramChatId: document.getElementById('settingsTelegramChatId'),
             telegramStatus: document.getElementById('telegramStatus')
@@ -453,16 +445,31 @@
         };
 
         let pendingCatalogItem = null;
+        let editItemId = null;
+
+        function openQuantityModal({ title, name, category, quantity, unit, hintText }) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalItemName').textContent = name || '';
+            document.getElementById('modalUnit').value = unit || 'шт';
+            document.getElementById('modalQuantity').value = quantity || '';
+            document.getElementById('modalCategory').value = category || '';
+            document.getElementById('modalHint').textContent = hintText || '';
+            document.getElementById('quantityModal').classList.remove('hidden');
+        }
 
         function addFromCatalog(index) {
             const item = catalogItems[index];
             pendingCatalogItem = item;
-            document.getElementById('modalItemName').textContent = `${item.emoji} ${item.name}`;
+            editItemId = null;
             const hint = getUnitForItem(item.name);
-            document.getElementById('modalUnit').value = hint.unit;
-            document.getElementById('modalQuantity').value = hint.defaultQuantity;
-            document.getElementById('modalHint').textContent = hint.hintText;
-            document.getElementById('quantityModal').classList.remove('hidden');
+            openQuantityModal({
+                title: '📦 Добавить из шаблона',
+                name: `${item.emoji} ${item.name}`,
+                category: item.category,
+                quantity: hint.defaultQuantity,
+                unit: hint.unit,
+                hintText: hint.hintText
+            });
         }
 
         function getUnitForItem(name) {
@@ -490,17 +497,32 @@
         function closeQuantityModal() {
             document.getElementById('quantityModal').classList.add('hidden');
             pendingCatalogItem = null;
+            editItemId = null;
         }
 
-        function confirmCatalogAdd() {
-            if (!pendingCatalogItem) return;
+        function confirmModalAction() {
             const qty = document.getElementById('modalQuantity').value.trim();
             const unit = document.getElementById('modalUnit').value;
+            const category = document.getElementById('modalCategory').value.trim();
             const quantityText = qty ? `${qty} ${unit}` : '';
+
+            if (editItemId) {
+                const item = shoppingItems.find(i => i.id === editItemId);
+                if (item) {
+                    item.quantity = quantityText;
+                    item.category = category;
+                    toast.show('Обновлено');
+                }
+                renderAll();
+                closeQuantityModal();
+                return;
+            }
+
+            if (!pendingCatalogItem) return;
             handleAddItem({
                 name: `${pendingCatalogItem.emoji} ${pendingCatalogItem.name}`,
                 quantity: quantityText,
-                category: pendingCatalogItem.category
+                category: category || pendingCatalogItem.category
             });
             closeQuantityModal();
         }
@@ -515,6 +537,30 @@
                 item.done = !item.done;
                 renderAll();
             }
+        }
+
+        function editItem(id) {
+            const item = shoppingItems.find(i => i.id === id);
+            if (!item) return;
+            const { unit, base } = parseQuantity(item.quantity);
+            editItemId = id;
+            pendingCatalogItem = null;
+            openQuantityModal({
+                title: '✏️ Редактировать позицию',
+                name: item.name,
+                category: item.category,
+                quantity: base,
+                unit,
+                hintText: 'Измените количество или категорию'
+            });
+        }
+
+        function parseQuantity(quantity = '') {
+            if (!quantity) return { base: '', unit: 'шт' };
+            const match = quantity.match(/([\d.,]+)/);
+            const num = match ? match[1].replace(',', '.') : '';
+            const unit = quantity.replace(match ? match[1] : '', '').trim() || 'шт';
+            return { base: num, unit };
         }
 
         function removeItem(id) {
@@ -577,7 +623,7 @@
             let filtered = shoppingItems;
             if (activeCategoryFilter) filtered = filtered.filter(item => item.category === activeCategoryFilter);
             elements.list.innerHTML = filtered.length ? filtered.map(item => `
-                <div class="shopping-item flex items-center justify-between gap-3 rounded-2xl border px-3 py-3 ${item.done ? 'bg-gray-50 opacity-70' : 'bg-white'}" data-id="${item.id}">
+                <div class="shopping-item flex items-center justify-between gap-3 rounded-2xl border px-3 py-3 ${item.done ? 'bg-gray-50 opacity-70' : 'bg-white'}" data-id="${item.id}" onclick="editItem(${item.id})">
                     <div>
                         <p class="text-gray-800 font-medium ${item.done ? 'line-through' : ''}">${item.name}</p>
                         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-1">
@@ -586,8 +632,8 @@
                         </div>
                     </div>
                     <div class="flex flex-col gap-2 text-sm">
-                        <button onclick="toggleItem(${item.id})" class="btn-secondary px-3 py-1 rounded-lg">${item.done ? '↩️' : '✅'}</button>
-                        <button onclick="removeItem(${item.id})" class="text-red-500">✕</button>
+                        <button onclick="event.stopPropagation(); toggleItem(${item.id})" class="btn-secondary px-3 py-1 rounded-lg">${item.done ? '↩️' : '✅'}</button>
+                        <button onclick="event.stopPropagation(); removeItem(${item.id})" class="text-red-500">✕</button>
                     </div>
                 </div>
             `).join('') : '<p class="text-gray-400 text-center py-4">Добавьте первую позицию</p>';
@@ -685,20 +731,10 @@
         }
 
         function sendTelegramList() {
-            const token = elements.telegramToken.value.trim();
-            const chatId = elements.telegramChatId.value.trim();
-            if (!token) {
-                elements.telegramStatus.textContent = '⚙️ Укажите Bot Token в настройках';
-                elements.telegramStatus.className = 'text-sm text-red-600';
-                return;
-            }
-            if (!chatId) {
-                elements.telegramStatus.textContent = '⚙️ Укажите Chat ID в настройках';
-                elements.telegramStatus.className = 'text-sm text-red-600';
-                return;
-            }
+            const token = (elements.settingsTelegramToken.value || '').trim();
+            const chatId = (elements.settingsTelegramChatId.value || '').trim();
             if (!token || !chatId) {
-                elements.telegramStatus.textContent = '⚠️ Укажите токен и Chat ID';
+                elements.telegramStatus.textContent = '⚙️ Сначала укажите Bot Token и Chat ID в настройках ниже';
                 elements.telegramStatus.className = 'text-sm text-red-600';
                 return;
             }
@@ -708,7 +744,7 @@
                 return;
             }
             const lines = shoppingItems.map((item, i) => `${i + 1}. ${item.name}${item.quantity ? ' — ' + item.quantity : ''}${item.category ? ' (' + item.category + ')' : ''}${item.done ? ' ✅' : ''}`);
-            const message = `🛍️ Список покупок:\n${lines.join('\n')}`;
+            const message = `🛍️ Список покупок\n${lines.join('\n')}`;
             elements.telegramStatus.textContent = '⏳ Отправляю...';
             elements.telegramStatus.className = 'text-sm text-blue-600';
             fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -741,8 +777,6 @@
             }
             localStorage.setItem('telegramToken', token);
             localStorage.setItem('telegramChatId', chatId);
-            elements.telegramToken.value = token;
-            elements.telegramChatId.value = chatId;
             elements.telegramStatus.textContent = '💾 Данные сохранены';
             elements.telegramStatus.className = 'text-sm text-green-600';
         }
@@ -773,8 +807,6 @@
         function loadTelegramSettings() {
             const token = localStorage.getItem('telegramToken') || '';
             const chatId = localStorage.getItem('telegramChatId') || '';
-            elements.telegramToken.value = token;
-            elements.telegramChatId.value = chatId;
             elements.settingsTelegramToken.value = token;
             elements.settingsTelegramChatId.value = chatId;
         }
@@ -800,6 +832,7 @@
         window.quickAdd = quickAdd;
         window.toggleItem = toggleItem;
         window.removeItem = removeItem;
+        window.editItem = editItem;
         window.addFromCatalog = addFromCatalog;
         window.addTopItem = addTopItem;
         window.setCategoryFilter = setCategoryFilter;

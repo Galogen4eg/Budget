@@ -1,53 +1,47 @@
 const authPage = {
     init() {
         roomsManager.init({ page: 'auth.html', requireAuth: false, autoRedirectOnAuthSuccess: true });
-        const createInput = document.getElementById('authCreatePassword');
-        const roomInput = document.getElementById('authRoomId');
-        const passInput = document.getElementById('authRoomPassword');
-        [createInput, roomInput, passInput].forEach(input => {
-            if (!input) return;
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    if (input === createInput) this.createRoom();
-                    else this.joinRoom();
-                }
-            });
-        });
+        document.getElementById('createRoomForm').addEventListener('submit', this.handleCreateRoom.bind(this));
+        document.getElementById('joinRoomForm').addEventListener('submit', this.handleJoinRoom.bind(this));
     },
 
-    async createRoom() {
-        const input = document.getElementById('authCreatePassword');
-        const password = input?.value.trim();
-        if (!password) return alert('Введите пароль');
+    async handleCreateRoom(event) {
+        event.preventDefault();
+        const name = document.getElementById('createName').value.trim();
+        const password = document.getElementById('createPassword').value.trim();
+        const errorEl = document.getElementById('createError');
+        errorEl.classList.add('hidden');
         try {
-            await roomsManager.createRoomWithPassword(password);
-            input.value = '';
+            if (!name || !password) throw new Error('Введите имя и пароль');
+            const roomId = await roomsManager.createRoomWithPassword(password, name);
+            await this.afterAuthSuccess(roomId, password, name);
         } catch (e) {
-            console.error(e);
-            alert(e.message || 'Не удалось создать комнату');
+            errorEl.textContent = e.message || 'Не удалось создать комнату';
+            errorEl.classList.remove('hidden');
         }
     },
 
-    async joinRoom() {
-        const idInput = document.getElementById('authRoomId');
-        const passInput = document.getElementById('authRoomPassword');
-        const errorEl = document.getElementById('authJoinError');
-        const roomId = idInput?.value.trim().toUpperCase();
-        const password = passInput?.value;
-        if (!roomId || !password) {
-            errorEl?.classList.remove('hidden');
-            return;
-        }
+    async handleJoinRoom(event) {
+        event.preventDefault();
+        const name = document.getElementById('joinName').value.trim();
+        const roomId = document.getElementById('joinRoomId').value.trim().toUpperCase();
+        const password = document.getElementById('joinRoomPassword').value.trim();
+        const errorEl = document.getElementById('joinError');
+        errorEl.classList.add('hidden');
         try {
-            const success = await roomsManager.joinRoomWithCredentials(roomId, password);
-            if (!success) throw new Error('Неверный ID или пароль');
-            idInput.value = '';
-            passInput.value = '';
-            errorEl?.classList.add('hidden');
+            if (!name || !roomId || !password) throw new Error('Введите имя, ID и пароль комнаты');
+            const normalizedId = await roomsManager.joinRoomWithCredentials(roomId, password, name);
+            await this.afterAuthSuccess(normalizedId, password, name);
         } catch (e) {
-            errorEl?.classList.remove('hidden');
-            setTimeout(() => errorEl?.classList.add('hidden'), 3000);
+            errorEl.textContent = e.message || 'Неверный ID или пароль';
+            errorEl.classList.remove('hidden');
         }
+    },
+
+    async afterAuthSuccess(roomId, password, name) {
+        roomsManager.saveRoomCredentials(roomId, password, name);
+        await roomsManager.ensureUserExists(name);
+        roomsManager.redirectAfterAuth();
     }
 };
 

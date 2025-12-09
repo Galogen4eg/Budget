@@ -954,7 +954,9 @@ function init() {
     loadGeminiKey();
 }
 
-roomsManager.init();
+const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+roomsManager.init({ page: currentPage, requireAuth: currentPage !== 'auth.html' });
+
 document.addEventListener('DOMContentLoaded', () => {
     init();
     if (typeof loadShoppingFromRoom === 'function') loadShoppingFromRoom();

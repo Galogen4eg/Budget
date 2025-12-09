@@ -2,126 +2,138 @@
 const roomsManager = {
     currentRoomId: null,
     dataRef: null,
-    pendingRoomId: null,
     options: {
         page: '',
-        requireAuth: false,
+        requireAuth: true,
         autoRedirectOnAuthSuccess: true
     },
 
     ensureDataStructure() {
-        if (!data || typeof data !== 'object') data = { users: [], roomPassword: null, shopping: { items: [], templates: [] } };
+        if (!data || typeof data !== 'object') {
+            data = { users: [], roomPassword: null, shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } } };
+        }
         if (!Array.isArray(data.users)) data.users = [];
-        if (!data.shopping || typeof data.shopping !== 'object') data.shopping = { items: [], templates: [] };
+        if (!data.shopping || typeof data.shopping !== 'object') data.shopping = { items: [], templates: [], telegram: { token: '', chatId: '' } };
         if (!Array.isArray(data.shopping.items)) data.shopping.items = [];
         if (!Array.isArray(data.shopping.templates)) data.shopping.templates = [];
+        if (!data.shopping.telegram) data.shopping.telegram = { token: '', chatId: '' };
     },
 
     init(options = {}) {
         this.options = {
             page: options.page || this.getCurrentPageName(),
-            requireAuth: !!options.requireAuth,
+            requireAuth: options.requireAuth !== false,
             autoRedirectOnAuthSuccess: options.autoRedirectOnAuthSuccess !== false
         };
 
         this.ensureDataStructure();
+        this.updateRoomUI();
+
         const params = new URLSearchParams(window.location.search);
         const roomFromUrl = params.get('room');
         const savedRoomId = localStorage.getItem('familyRoomId');
         const savedRoomPassword = localStorage.getItem('familyRoomPassword');
+        const pageName = this.options.page;
 
-        const tryJoin = (id, password, silent = false) => {
-            if (!id || !password) return Promise.resolve(false);
-            return this.joinRoomById(id, password, false, silent).then(success => {
-                if (!success && !silent && this.options.requireAuth) this.redirectToAuth();
-                return success;
-            });
-        };
-
-        if (roomFromUrl && savedRoomPassword) {
-            tryJoin(roomFromUrl, savedRoomPassword, true).then(success => {
-                if (!success && this.options.requireAuth) this.redirectToAuth();
-            });
+        if (pageName === 'auth.html') {
+            if (savedRoomId && savedRoomPassword) {
+                const target = roomFromUrl || savedRoomId;
+                this.joinRoomById(target, savedRoomPassword, false, true).then(success => {
+                    if (success && this.options.autoRedirectOnAuthSuccess) {
+                        this.redirectAfterAuth();
+                    } else {
+                        this.updateRoomUI();
+                    }
+                });
+            }
             return;
         }
 
-        if (savedRoomId && savedRoomPassword) {
-            tryJoin(savedRoomId, savedRoomPassword, true).then(success => {
-                if (!success && this.options.requireAuth) this.redirectToAuth();
-            });
+        const targetRoomId = roomFromUrl || savedRoomId;
+        if (!targetRoomId || !savedRoomPassword) {
+            if (this.options.requireAuth) this.redirectToAuth();
             return;
         }
 
-        if (this.options.requireAuth) {
-            this.redirectToAuth();
-        } else {
-            this.updateRoomUI();
-        }
+        this.joinRoomById(targetRoomId, savedRoomPassword, false, true).then(success => {
+            if (!success) this.redirectToAuth();
+        });
     },
 
     getCurrentPageName() {
         return window.location.pathname.split('/').pop() || 'index.html';
     },
 
-    redirectToAuth() {
-        const next = encodeURIComponent(this.options.page || 'index.html');
+    redirectToAuth(force = false) {
+        if (this.options.page === 'auth.html' && !force) return;
+        const path = window.location.pathname.replace(/^\//, '') || 'index.html';
+        const search = window.location.search || '';
+        const next = encodeURIComponent(`${path}${search}`);
         window.location.href = `auth.html?next=${next}`;
     },
 
     redirectAfterAuth() {
         const params = new URLSearchParams(window.location.search);
-        const next = params.get('next') || 'index.html';
-        const target = `${next}?room=${this.currentRoomId}`;
-        window.location.href = target;
+        const nextParam = params.get('next');
+        const decoded = nextParam ? decodeURIComponent(nextParam) : 'index.html';
+        const url = new URL(decoded, window.location.origin);
+        if (this.currentRoomId) url.searchParams.set('room', this.currentRoomId);
+        window.location.href = url.href;
     },
 
-    async createRoomWithPassword(password) {
+    async createRoomWithPassword(password, userName) {
         if (!password) throw new Error('Введите пароль');
+        if (!userName) throw new Error('Введите имя');
         const roomId = this.generateRoomId();
         data.roomPassword = password;
-        const success = await this.joinRoomById(roomId, password, true, false);
+        this.ensureDataStructure();
+        const success = await this.joinRoomById(roomId, password, true, false, userName);
         if (success === false) throw new Error('Не удалось создать комнату');
-        this.saveRoomCredentials(roomId, password);
+        this.saveRoomCredentials(roomId, password, userName);
         return roomId;
     },
 
-    async joinRoomWithCredentials(roomId, password) {
+    async joinRoomWithCredentials(roomId, password, userName) {
         if (!roomId || !password) throw new Error('Введите ID и пароль');
+        if (!userName) throw new Error('Введите имя');
         const normalizedId = roomId.trim().toUpperCase();
-        const success = await this.joinRoomById(normalizedId, password, false, false);
+        const success = await this.joinRoomById(normalizedId, password, false, false, userName);
         if (success === false) throw new Error('Неверный ID комнаты или пароль');
-        this.saveRoomCredentials(normalizedId, password);
+        this.saveRoomCredentials(normalizedId, password, userName);
         return normalizedId;
     },
 
-    joinRoomById(roomId, password, isNew = false, silent = false) {
+    joinRoomById(roomId, password, isNew = false, silent = false, userName = '') {
         if (!db) {
             if (!silent) alert('Firebase недоступен');
             return Promise.resolve(false);
         }
 
+        const normalizedId = roomId.trim().toUpperCase();
         if (this.dataRef) this.dataRef.off();
-        this.currentRoomId = roomId;
-        this.dataRef = db.ref('family/' + roomId);
+        this.currentRoomId = normalizedId;
+        this.currentUserName = userName || localStorage.getItem('familyUserName') || '';
+        this.dataRef = db.ref('family/' + normalizedId);
 
         return this.dataRef.once('value').then(snapshot => {
             const saved = snapshot.val();
             if (isNew) {
                 this.ensureDataStructure();
                 return this.dataRef.set({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP }).then(() => {
-                    this.afterSuccessfulJoin(roomId, password);
+                    this.afterSuccessfulJoin(normalizedId, password);
                     return true;
                 });
             } else {
                 if (saved?.data?.roomPassword && saved.data.roomPassword !== password) {
                     if (!silent) alert('Неверный пароль комнаты');
                     this.currentRoomId = null;
+                    this.removeSavedRoomCredentials();
                     return false;
                 }
-                data = saved?.data || { users: [], roomPassword: password, shopping: { items: [], templates: [] } };
+                data = saved?.data || { users: [], roomPassword: password, shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } } };
                 this.ensureDataStructure();
                 this.setupListener();
-                this.afterSuccessfulJoin(roomId, password);
+                this.afterSuccessfulJoin(normalizedId, password);
                 return true;
             }
         }).catch(err => {
@@ -166,7 +178,7 @@ const roomsManager = {
     leaveRoom() {
         if (this.dataRef) this.dataRef.off();
         this.currentRoomId = null;
-        data = { users: [], roomPassword: null, shopping: { items: [], templates: [] } };
+        data = { users: [], roomPassword: null, shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } } };
         currentTab = null;
         this.removeSavedRoomCredentials();
         this.clearRoomUrl();
@@ -175,7 +187,7 @@ const roomsManager = {
         if (typeof renderAll === 'function') renderAll();
         if (typeof renderSettingsSection === 'function') renderSettingsSection();
         if (typeof loadShoppingFromRoom === 'function') loadShoppingFromRoom();
-        if (this.options.requireAuth) this.redirectToAuth();
+        this.redirectToAuth(true);
     },
 
     openChangePasswordModal() {
@@ -208,24 +220,28 @@ const roomsManager = {
     saveRoomCredentials(roomId, password) {
         localStorage.setItem('familyRoomId', roomId);
         if (password) localStorage.setItem('familyRoomPassword', password);
+        this.updateNavigationLinks();
     },
 
     removeSavedRoomCredentials() {
         localStorage.removeItem('familyRoomId');
         localStorage.removeItem('familyRoomPassword');
+        this.updateNavigationLinks();
     },
 
     setRoomUrl(roomId) {
         if (this.options.page === 'auth.html') return;
-        const base = `${window.location.origin}${window.location.pathname}`;
-        window.history.replaceState(null, '', `${base}?room=${roomId}`);
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', roomId);
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
         this.updateNavigationLinks();
     },
 
     clearRoomUrl() {
         if (this.options.page === 'auth.html') return;
-        const base = `${window.location.origin}${window.location.pathname}`;
-        window.history.replaceState(null, '', base);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
         this.updateNavigationLinks();
     },
 
@@ -234,11 +250,10 @@ const roomsManager = {
         links.forEach(link => {
             const target = link.getAttribute('data-room-link');
             if (!target) return;
-            if (this.currentRoomId) {
-                link.href = `${target}?room=${this.currentRoomId}`;
-            } else {
-                link.href = target;
-            }
+            const url = new URL(target, window.location.origin);
+            if (this.currentRoomId) url.searchParams.set('room', this.currentRoomId);
+            else url.searchParams.delete('room');
+            link.href = url.pathname.replace(window.location.origin, '') + url.search;
         });
     },
 
@@ -257,8 +272,9 @@ const roomsManager = {
 
     copyRoomLink() {
         if (!this.currentRoomId) return alert('Комната не подключена');
-        const link = `${window.location.origin}${window.location.pathname}?room=${this.currentRoomId}`;
-        navigator.clipboard.writeText(link).then(() => alert('Ссылка скопирована!'));
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', this.currentRoomId);
+        navigator.clipboard.writeText(url.href).then(() => alert('Ссылка скопирована!'));
     },
 
     generateRoomId() {

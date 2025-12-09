@@ -26,6 +26,11 @@
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
+    <noscript>
+        <div class="max-w-lg w-full bg-white rounded-2xl shadow-xl p-6 text-center text-red-600 font-medium">
+            Для работы сервиса требуется включённый JavaScript.
+        </div>
+    </noscript>
     <main class="w-full max-w-5xl grid lg:grid-cols-2 gap-6">
         <section class="auth-card p-6 lg:p-8 space-y-4">
             <h1 class="text-3xl font-semibold text-gray-900">👨‍👩‍👧 Семейный бюджет</h1>
@@ -50,6 +55,7 @@
                 <p class="text-sm text-gray-500">Введите своё имя и придумайте пароль для комнаты</p>
                 <input id="createName" type="text" class="input-field" placeholder="Ваше имя (например, Мама)" required>
                 <input id="createPassword" type="password" class="input-field" placeholder="Пароль комнаты" required>
+                <div class="text-xs text-gray-400">ID комнаты будет сгенерирован автоматически после создания.</div>
                 <button type="submit" class="btn-primary w-full py-3 rounded-xl font-medium">Создать и войти</button>
                 <div id="createError" class="text-sm text-red-500 hidden"></div>
             </form>
@@ -60,6 +66,7 @@
                 <input id="joinRoomId" type="text" class="input-field uppercase" placeholder="ID (например, ABC123)" maxlength="6" required>
                 <input id="joinRoomPassword" type="password" class="input-field" placeholder="Пароль комнаты" required>
                 <button type="submit" class="btn-secondary w-full py-3 rounded-xl font-medium">Войти</button>
+                <p class="text-xs text-gray-400 text-center">После входа можно переключаться между «Бюджетом» и «Списком покупок».</p>
                 <div id="joinError" class="text-sm text-red-500 hidden"></div>
             </form>
         </section>

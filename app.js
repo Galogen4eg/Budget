@@ -273,6 +273,7 @@ function renderSettingsSection() {
     const user = getCurrentUser();
     const deleteSection = document.getElementById('deleteUserSection');
     const userName = document.getElementById('currentUserName');
+    if (!deleteSection || !userName) return;
     if (user) {
         deleteSection.classList.remove('hidden');
         userName.textContent = `👤 ${user.name}`;

@@ -83,7 +83,187 @@
 
         <div id="tabsContainer" class="flex justify-center gap-2 mb-4 flex-wrap"></div>
 
-        <!-- остальной контент без изменений -->
-    </div>
-</body>
-</html>
+        <div id="personalContent">
+            <div class="card p-4 md:p-6 mb-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">⚙️ Настройки бюджета</h2>
+                    <button onclick="toggleSettings()" id="toggleSettingsBtn" class="text-blue-600 hover-text-blue-700 text-sm font-medium">Развернуть ▼</button>
+                </div>
+                <div id="settingsContent" class="hidden mt-4">
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label class="text-gray-500 text-xs block mb-1">🏦 Накопления</label>
+                            <div class="relative">
+                                <input type="number" id="savingsPercent" placeholder="0" min="0" max="100" step="1" class="input-field w-full px-3 py-2 text-gray-800 font-medium placeholder-gray-400">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-gray-500 text-xs block mb-1">📊 Итого поступлений</label>
+                            <div id="totalIncomeDisplay" class="px-3 py-2 bg-green-50 border border-green-200 rounded text-green-700 font-medium">0 ₽</div>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-200 pt-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">📋 Ежемесячные обязательные платежи</h3>
+                        <div class="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-200">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <select id="newPaymentCategory" class="input-field w-full px-2 py-2 text-sm text-gray-800 bg-white">
+                                    <option value="housing">🏠 Жильё</option>
+                                    <option value="utilities">💡 Коммуналка</option>
+                                    <option value="transport">🚗 Транспорт</option>
+                                    <option value="communication">📱 Связь</option>
+                                    <option value="subscriptions">📺 Подписки</option>
+                                    <option value="credits">💳 Кредиты</option>
+                                    <option value="insurance">🛡️ Страховки</option>
+                                    <option value="education">🎓 Образование</option>
+                                    <option value="health">🏥 Здоровье</option>
+                                    <option value="family">👨‍👩‍👧 Семья</option>
+                                    <option value="pets">🐕 Питомцы</option>
+                                    <option value="other">📦 Прочее</option>
+                                </select>
+                                <input type="text" id="newPaymentName" placeholder="Название" class="input-field w-full px-2 py-2 text-sm text-gray-800 placeholder-gray-400">
+                                <div class="relative">
+                                    <input type="number" id="newPaymentAmount" placeholder="Сумма" min="0" class="input-field w-full px-2 py-2 text-sm text-gray-800 placeholder-gray-400">
+                                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₽</span>
+                                </div>
+                                <button onclick="addFixedPayment()" class="btn-primary w-full px-3 py-2 rounded-lg text-sm font-medium">+ Добавить</button>
+                            </div>
+                        </div>
+                        <div id="fixedPaymentsList" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+                <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="p-2 bg-white rounded border">
+                            <div class="text-gray-500 text-xs">Можно отложить</div>
+                            <div id="savingsAmount" class="text-blue-600 font-medium text-sm">0</div>
+                        </div>
+                        <div class="p-2 bg-white rounded border">
+                            <div class="text-gray-500 text-xs">Обязательные траты</div>
+                            <div id="fixedTotal" class="text-red-500 font-medium text-sm">0</div>
+                        </div>
+                        <div class="p-2 bg-white rounded border">
+                            <div class="text-gray-500 text-xs">Max траты на день</div>
+                            <div id="dailyLimit" class="text-amber-600 font-medium text-sm">0</div>
+                        </div>
+                        <div class="p-2 bg-white rounded border">
+                            <div class="text-gray-500 text-xs">Текущий баланс</div>
+                            <div id="actualBalance" class="text-purple-600 font-medium text-sm">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <details>
+                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">🔍 Поиск операций</summary>
+                    <div class="mt-3">
+                        <div class="flex gap-2">
+                            <input type="text" id="searchInput" placeholder="Поиск по описанию..." class="input-field flex-1 px-3 py-2 text-sm" oninput="searchOperations()">
+                            <button onclick="clearSearch()" class="btn-secondary px-3 py-2 rounded-lg text-sm">✕</button>
+                        </div>
+                        <div id="searchResults" class="hidden mt-3 max-h-64 overflow-y-auto space-y-2"></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">➕ Добавить приход / расход</h2>
+                    <button onclick="toggleAddSection()" id="toggleAddBtn" class="text-blue-600 hover-text-blue-700 text-sm font-medium">Развернуть ▼</button>
+                </div>
+                <div id="addSectionContent" class="hidden mt-4">
+                    <div class="bg-green-50 rounded-lg p-4 mb-4 border border-green-200">
+                        <h3 class="text-sm font-medium text-green-800 mb-3 flex items-center gap-2">💵 Приход</h3>
+                        <div class="grid md:grid-cols-4 gap-3">
+                            <input type="date" id="incomeDate" class="input-field w-full px-3 py-2 text-gray-800 text-sm">
+                            <input type="text" id="incomeDescription" placeholder="Откуд�� (зарплата...)" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
+                            <div class="relative">
+                                <input type="number" id="incomeAmount" placeholder="Сумма" min="0" step="0.01" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₽</span>
+                            </div>
+                            <button onclick="addIncome()" class="btn-success w-full px-3 py-2 rounded-lg font-medium text-sm">+ Добавить</button>
+                        </div>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <h3 class="text-sm font-medium text-red-800 mb-3 flex items-center gap-2">💸 Расход</h3>
+                        <div class="grid md-grid-cols-4 gap-3">
+                            <input type="date" id="expenseDate" class="input-field w-full px-3 py-2 text-gray-800 text-sm">
+                            <input type="text" id="expenseDescription" placeholder="На что потратили" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
+                            <div class="relative">
+                                <input type="number" id="expenseAmount" placeholder="Сумма" min="0" step="1" class="input-field w-full px-3 py-2 text-gray-800 placeholder-gray-400 text-sm">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₽</span>
+                            </div>
+                            <button onclick="addExpense()" class="btn-primary w-full px-3 py-2 rounded-lg font-medium text-sm">+ Добавить</button>
+                        </div>
+                        <div id="categoryChips" class="flex flex-wrap gap-2 mt-3"></div>
+                        <div class="flex gap-2 mt-3">
+                            <input type="text" id="newCategoryName" placeholder="➕ Своя категория (например: ☕ Кофе)" class="input-field flex-1 px-3 py-2 text-sm text-gray-800 placeholder-gray-400">
+                            <button onclick="addCustomCategory()" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Добавить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <details>
+                    <summary class="text-base font-medium text-gray-800 cursor-pointer flex items-center gap-2">🤖 Умное определение категорий (Gemini AI)</summary>
+                    <div class="mt-3">
+                        <p class="text-gray-600 text-sm mb-3">При загрузке выписки нераспознанные операции будут автоматически категоризированы с помощью ИИ.</p>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <input type="password" id="geminiApiKey" placeholder="Вставьте API ключ Gemini" class="input-field flex-1 px-3 py-2 text-sm">
+                            <button onclick="saveGeminiKey()" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Сохранить</button>
+                            <button onclick="testGeminiKey()" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Проверить</button>
+                        </div>
+                        <p class="text-gray-500 text-xs">Получите бесплатный ключ на <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">aistudio.google.com/app/apikey</a></p>
+                        <div id="geminiStatus" class="mt-2 text-sm"></div>
+                        <div class="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                            <button onclick="recategorizeOperations()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                                🔄 Проверить нераспознанные операции
+                            </button>
+                            <button onclick="reapplyLocalCategories()" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                                ♻️ Повторно определить категории (без ИИ)
+                            </button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <h2 class="text-base font-medium text-gray-800 mb-3 flex items-center gap-2">📂 Загрузить выписку из банка</h2>
+                <div class="flex items-center gap-3">
+                    <label class="flex-1">
+                        <div class="btn-primary px-4 py-2 rounded-lg font-medium text-center cursor-pointer flex items-center justify-center gap-2 text-sm">📂 Выбрать файл (Excel)</div>
+                        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelFile(event)">
+                    </label>
+                </div>
+                <p class="text-blue-600 text-xs mt-2">Формат: Excel (.xlsx, .xls, .csv)</p>
+                <div id="undoImportContainer" class="hidden mt-3"></div>
+                <div id="excelPreview" class="hidden mt-3">
+                    <div class="bg-white border border-blue-200 rounded-lg p-3">
+                        <h4 class="font-medium text-gray-800 mb-2">Предпросмотр данных:</h4>
+                        <div class="text-sm text-gray-600 mb-2">Найдено операций: <span id="excelRowCount" class="font-medium">0</span><span id="excelSkippedCount" class="text-gray-400 ml-2"></span></div>
+                        <div id="excelPreviewTable" class="max-h-64 overflow-auto border border-gray-200 rounded bg-white mb-3"></div>
+                        <div class="flex gap-2">
+                            <button onclick="importExcelData()" class="btn-primary flex-1 px-4 py-2 rounded-lg font-medium text-sm">✅ Импортировать</button>
+                            <button onclick="cancelExcelImport()" class="btn-secondary px-4 py-2 rounded-lg font-medium text-sm">✕ Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 md:p-6 mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-base font-medium text-gray-800 flex items-center gap-2">📅 Календарь трат</h2>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeMonth(-1)" class="btn-secondary px-2 py-1 rounded text-xs">←</button>
+                        <span id="calendarMonth" class="text-gray-700 font-medium text-xs min-w-[80px] text-center"></span>
+                        <button onclick="changeMonth(1)" class="btn-secondary px-2 py-1 rounded text-xs">→</button>
+                    </div>
+                </div>
+                <div class="calendar-grid mb-1">
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">Пн</div>
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">Вт</div>
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">Ср</div>
+                    <div class="text-center text-gray-500 text-[10px] font-medium py-1">
+... (truncated)

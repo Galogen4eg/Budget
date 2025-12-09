@@ -33,6 +33,7 @@ const roomsManager = {
         const roomFromUrl = params.get('room');
         const savedRoomId = localStorage.getItem('familyRoomId');
         const savedRoomPassword = localStorage.getItem('familyRoomPassword');
+        const savedUserName = localStorage.getItem('familyUserName');
         const pageName = this.options.page;
 
         if (pageName === 'auth.html') {
@@ -45,6 +46,8 @@ const roomsManager = {
                         this.updateRoomUI();
                     }
                 });
+            } else {
+                this.updateRoomUI();
             }
             return;
         }
@@ -55,7 +58,8 @@ const roomsManager = {
             return;
         }
 
-        this.joinRoomById(targetRoomId, savedRoomPassword, false, true).then(success => {
+        const userNameForJoin = savedUserName || '';
+        this.joinRoomById(targetRoomId, savedRoomPassword, false, true, userNameForJoin).then(success => {
             if (!success) this.redirectToAuth();
         });
     },

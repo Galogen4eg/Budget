@@ -720,7 +720,7 @@ function confirmPassword() {
     const password = document.getElementById('roomPassword').value;
     joinRoomById(pendingRoomId, password, false);
 }
-function joinRoomById(roomId, password, isNew) {
+function joinRoomById(roomId, password, isNew = false, silent = false) {
     if (!db) return alert('Firebase недоступен');
     currentRoomId = roomId;
     dataRef = db.ref('family/' + roomId);
@@ -731,7 +731,8 @@ function joinRoomById(roomId, password, isNew) {
             setupListener();
         } else {
             if (saved?.data?.roomPassword && saved.data.roomPassword !== password) {
-                document.getElementById('passwordError').classList.remove('hidden');
+                if (!silent) document.getElementById('passwordError').classList.remove('hidden');
+                else removeSavedRoomCredentials();
                 return;
             }
             closePasswordModal();
@@ -741,9 +742,13 @@ function joinRoomById(roomId, password, isNew) {
         updateRoomUI();
         updateConnectionStatus(true);
         if (data.users?.length > 0) currentTab = data.users[0].id;
+        localStorage.setItem('familyRoomId', roomId);
+        if (password) localStorage.setItem('familyRoomPassword', password);
         renderTabs();
         renderAll();
         renderSettingsSection();
+    }).catch(() => {
+        if (silent) removeSavedRoomCredentials();
     });
 }
 function setupListener() {
@@ -764,6 +769,7 @@ function leaveRoom() {
     currentRoomId = null;
     data = { users: [], roomPassword: null };
     currentTab = null;
+    removeSavedRoomCredentials();
     updateRoomUI();
     updateConnectionStatus(false);
     renderTabs();
@@ -784,6 +790,10 @@ function updateRoomUI() {
     } else {
         info.classList.add('hidden');
     }
+}
+function removeSavedRoomCredentials() {
+    localStorage.removeItem('familyRoomId');
+    localStorage.removeItem('familyRoomPassword');
 }
 function copyRoomLink() {
     if (!currentRoomId) return;
@@ -1049,11 +1059,19 @@ function init() {
     if (document.getElementById('incomeDate')) document.getElementById('incomeDate').valueAsDate = new Date();
     const savingsInput = document.getElementById('savingsPercent');
     if (savingsInput) savingsInput.addEventListener('change', updateSettings);
-    const roomFromUrl = new URLSearchParams(window.location.search).get('room');
+
+    const params = new URLSearchParams(window.location.search);
+    const roomFromUrl = params.get('room');
+    const savedRoomId = localStorage.getItem('familyRoomId');
+    const savedRoomPassword = localStorage.getItem('familyRoomPassword');
+
     if (roomFromUrl) {
         pendingRoomId = roomFromUrl;
         document.getElementById('passwordModal').classList.remove('hidden');
+    } else if (savedRoomId && savedRoomPassword) {
+        joinRoomById(savedRoomId, savedRoomPassword, false, true);
     }
+
     renderTabs();
     renderAll();
     renderSettingsSection();

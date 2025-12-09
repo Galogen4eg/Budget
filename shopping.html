@@ -10,6 +10,30 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="styles.css">
     <style>
+        .header-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            box-shadow: 0 4px 18px rgba(102, 126, 234, 0.35);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .header-gradient::after {
+            content: '';
+            position: absolute;
+            inset: 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            pointer-events: none;
+        }
+        .header-gradient h1,
+        .header-gradient p {
+            position: relative;
+            z-index: 1;
+        }
+        .header-gradient p {
+            color: rgba(255,255,255,0.92);
+        }
         .shopping-item {
             transition: transform 0.2s ease, opacity 0.2s ease;
         }
@@ -86,9 +110,14 @@
     <div class="max-w-4xl mx-auto space-y-4">
         <header class="header-gradient text-center rounded-2xl p-6 shadow-lg">
             <h1 class="text-2xl md:text-3xl font-semibold mb-2">🛍️ Список покупок</h1>
-            <p class="text-white/90 text-sm">Добавляйте позиции, используйте каталог или свои шаблоны</p>
-            <div class="mt-4 flex flex-wrap justify-center gap-2 text-sm">
-                <a href="index.html" class="px-4 py-2 rounded-full bg-white text-blue-600 font-medium shadow">← Вернуться к бюджету</a>
+            <p class="text-white/90 text-sm max-w-xl mx-auto">Добавляйте позиции, используйте каталог или свои шаблоны</p>
+            <div class="mt-4 grid grid-cols-2 max-w-md mx-auto gap-3 text-sm font-medium">
+                <a href="index.html" class="px-6 py-3 rounded-2xl bg-white/20 text-white border border-white/30 shadow-inner flex items-center justify-center gap-2 transition">
+                    📊 Бюджет
+                </a>
+                <a href="shopping.html" class="px-6 py-3 rounded-2xl bg-white text-blue-600 shadow flex items-center justify-center gap-2">
+                    🛍️ Список покупок
+                </a>
             </div>
         </header>
 
@@ -216,6 +245,36 @@
                 </div>
             </details>
         </section>
+    </div>
+
+    <!-- Модальное окно количества -->
+    <div id="quantityModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h3 class="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">📦 Добавить из шаблона</h3>
+            <p id="modalItemName" class="text-sm text-gray-600 mb-4"></p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-gray-500">Количество</label>
+                    <input id="modalQuantity" type="number" min="0" step="0.1" class="input-field mt-1" placeholder="1">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Единица измерения</label>
+                    <select id="modalUnit" class="input-field mt-1">
+                        <option value="шт">шт</option>
+                        <option value="уп.">уп.</option>
+                        <option value="кг">кг</option>
+                        <option value="г">г</option>
+                        <option value="л">л</option>
+                        <option value="мл">мл</option>
+                    </select>
+                </div>
+                <p id="modalHint" class="text-xs text-gray-400"></p>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="confirmCatalogAdd()" class="btn-primary flex-1 px-4 py-2 rounded-lg">Добавить</button>
+                    <button onclick="closeQuantityModal()" class="btn-secondary px-4 py-2 rounded-lg">Отмена</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -357,9 +416,93 @@
             renderManualTemplates();
         }
 
+        const UNIT_HINTS = {
+            'молоко': 'л',
+            'йогурт': 'шт',
+            'кефир': 'л',
+            'хлеб': 'шт',
+            'булка': 'шт',
+            'яйц': 'шт',
+            'филе': 'кг',
+            'курин': 'кг',
+            'картоф': 'кг',
+            'овощ': 'кг',
+            'фрукт': 'кг',
+            'яблок': 'кг',
+            'банан': 'кг',
+            'сыр': 'г',
+            'колбас': 'г',
+            'бекон': 'г',
+            'рыб': 'г',
+            'морепродукт': 'г',
+            'напитк': 'л',
+            'вода': 'л',
+            'сок': 'л',
+            'кофе': 'г',
+            'чай': 'г',
+            'специ': 'г',
+            'подгуз': 'шт',
+            'салфетк': 'шт',
+            'губк': 'шт',
+            'пакет': 'шт',
+            'паста': 'шт',
+            'шампун': 'мл',
+            'гель': 'мл',
+            'моющее': 'мл',
+            'порош': 'кг'
+        };
+
+        let pendingCatalogItem = null;
+
         function addFromCatalog(index) {
             const item = catalogItems[index];
-            handleAddItem({ name: `${item.emoji} ${item.name}`, quantity: item.quantity, category: item.category });
+            pendingCatalogItem = item;
+            document.getElementById('modalItemName').textContent = `${item.emoji} ${item.name}`;
+            const hint = getUnitForItem(item.name);
+            document.getElementById('modalUnit').value = hint.unit;
+            document.getElementById('modalQuantity').value = hint.defaultQuantity;
+            document.getElementById('modalHint').textContent = hint.hintText;
+            document.getElementById('quantityModal').classList.remove('hidden');
+        }
+
+        function getUnitForItem(name) {
+            const lower = name.toLowerCase();
+            for (const [key, unit] of Object.entries(UNIT_HINTS)) {
+                if (lower.includes(key)) {
+                    const defaults = {
+                        'шт': '1',
+                        'уп.': '1',
+                        'кг': '1',
+                        'г': '500',
+                        'л': '1',
+                        'мл': '500'
+                    };
+                    return {
+                        unit,
+                        defaultQuantity: defaults[unit] || '1',
+                        hintText: `Рекомендуемое измерение: ${unit}`
+                    };
+                }
+            }
+            return { unit: 'шт', defaultQuantity: '1', hintText: 'Выберите измерение вручную' };
+        }
+
+        function closeQuantityModal() {
+            document.getElementById('quantityModal').classList.add('hidden');
+            pendingCatalogItem = null;
+        }
+
+        function confirmCatalogAdd() {
+            if (!pendingCatalogItem) return;
+            const qty = document.getElementById('modalQuantity').value.trim();
+            const unit = document.getElementById('modalUnit').value;
+            const quantityText = qty ? `${qty} ${unit}` : '';
+            handleAddItem({
+                name: `${pendingCatalogItem.emoji} ${pendingCatalogItem.name}`,
+                quantity: quantityText,
+                category: pendingCatalogItem.category
+            });
+            closeQuantityModal();
         }
 
         function quickAdd(name, quantity = '', category = '') {

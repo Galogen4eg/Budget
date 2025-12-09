@@ -4,7 +4,16 @@ const roomsManager = {
     dataRef: null,
     pendingRoomId: null,
 
+    ensureDataStructure() {
+        if (!data || typeof data !== 'object') data = { users: [], roomPassword: null, shopping: { items: [], templates: [] } };
+        if (!Array.isArray(data.users)) data.users = [];
+        if (!data.shopping || typeof data.shopping !== 'object') data.shopping = { items: [], templates: [] };
+        if (!Array.isArray(data.shopping.items)) data.shopping.items = [];
+        if (!Array.isArray(data.shopping.templates)) data.shopping.templates = [];
+    },
+
     init() {
+        this.ensureDataStructure();
         const params = new URLSearchParams(window.location.search);
         const roomFromUrl = params.get('room');
         const savedRoomId = localStorage.getItem('familyRoomId');
@@ -65,6 +74,7 @@ const roomsManager = {
         this.dataRef.once('value').then(snapshot => {
             const saved = snapshot.val();
             if (isNew) {
+                this.ensureDataStructure();
                 this.dataRef.set({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
                 this.setupListener();
             } else {
@@ -74,7 +84,8 @@ const roomsManager = {
                     return;
                 }
                 this.closePasswordModal();
-                data = saved?.data || { users: [], roomPassword: password };
+                data = saved?.data || { users: [], roomPassword: password, shopping: { items: [], templates: [] } };
+                this.ensureDataStructure();
                 this.setupListener();
             }
             this.updateRoomUI();
@@ -107,7 +118,7 @@ const roomsManager = {
     leaveRoom() {
         if (this.dataRef) this.dataRef.off();
         this.currentRoomId = null;
-        data = { users: [], roomPassword: null };
+        data = { users: [], roomPassword: null, shopping: { items: [], templates: [] } };
         currentTab = null;
         this.removeSavedRoomCredentials();
         this.clearRoomUrl();

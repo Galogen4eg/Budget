@@ -320,8 +320,8 @@
             { emoji: '🍽️', name: 'Одноразовая посуда', quantity: 'на 10 персон', category: 'Дом' }
         ];
 
-        let shoppingItems = JSON.parse(localStorage.getItem('shoppingItems') || '[]');
-        let manualTemplates = JSON.parse(localStorage.getItem('manualTemplates') || '[]');
+        let shoppingItems = [];
+        let manualTemplates = [];
         if (!Array.isArray(manualTemplates)) manualTemplates = [];
         let activeCategoryFilter = '';
         let activeCatalogCategory = '';
@@ -362,11 +362,11 @@
             if (!source.name) return;
             const newItem = { id: Date.now(), name: source.name, quantity: source.quantity, category: source.category, done: false, createdAt: new Date() };
             shoppingItems.unshift(newItem);
+            saveShoppingToRoom();
             if (source.category) categoriesSet.add(source.category);
             if (activeCategoryFilter && source.category !== activeCategoryFilter) activeCategoryFilter = '';
             if (!template) saveManualTemplate(newItem);
             renderAll();
-            localStorage.setItem('shoppingItems', JSON.stringify(shoppingItems));
             toast.show('Добавлено в список');
             if (!template) {
                 document.getElementById('itemName').value = '';

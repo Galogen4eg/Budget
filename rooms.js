@@ -1,352 +1,197 @@
-// ======== УПРАВЛЕНИЕ КОМНАТАМИ ========
 const roomsManager = {
     currentRoomId: null,
     currentUserName: null,
     dataRef: null,
+    data: {
+        users: [],
+        shopping: { items: [], templates: [] }
+    },
+    savedRoomId: null,
+    savedPassword: null,
+    savedUserName: null,
+    isAuthPage: false,
+    isProtectedPage: false,
     isRedirecting: false,
-    isInitialized: false,
-    options: {
-        page: '',
-        next: 'index.html'
-    },
-
-    ensureDataStructure() {
-        if (!data || typeof data !== 'object') {
-            data = {
-                users: [],
-                roomPassword: null,
-                shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } }
-            };
-        }
-        if (!Array.isArray(data.users)) {
-            if (data.users && typeof data.users === 'object') data.users = Object.values(data.users);
-            else data.users = [];
-        }
-        if (!data.shopping || typeof data.shopping !== 'object') {
-            data.shopping = { items: [], templates: [], telegram: { token: '', chatId: '' } };
-        }
-        if (!Array.isArray(data.shopping.items)) {
-            if (data.shopping.items && typeof data.shopping.items === 'object') data.shopping.items = Object.values(data.shopping.items);
-            else data.shopping.items = [];
-        }
-        if (!Array.isArray(data.shopping.templates)) {
-            if (data.shopping.templates && typeof data.shopping.templates === 'object') data.shopping.templates = Object.values(data.shopping.templates);
-            else data.shopping.templates = [];
-        }
-        if (!data.shopping.telegram) data.shopping.telegram = { token: '', chatId: '' };
-    },
 
     init(options = {}) {
-        // Предотвращаем повторную инициализацию
-        if (this.isInitialized) return;
-        this.isInitialized = true;
+        this.page = options.page || this._getPage();
+        this.isAuthPage = this.page === 'auth.html';
+        this.isProtectedPage = !this.isAuthPage;
+        this.requireAuth = options.requireAuth !== false;
+        this._checkSavedCredentials();
 
-        this.options.page = options.page || this.getCurrentPageName();
-        this.options.next = options.next || 'index.html';
-
-        this.ensureDataStructure();
-        this.updateRoomUI();
-
-        const savedRoomId = localStorage.getItem('familyRoomId');
-        const savedRoomPassword = localStorage.getItem('familyRoomPassword');
-        const savedUserName = localStorage.getItem('familyUserName');
-        const params = new URLSearchParams(window.location.search);
-
-        // Страница авторизации — особая логика
-        if (this.options.page === 'auth.html') {
-            this.handleAuthPage(savedRoomId, savedRoomPassword, savedUserName, params.get('room'));
-            return;
-        }
-
-        // Защищённые страницы (бюджет, покупки)
-        this.handleProtectedPage(savedRoomId, savedRoomPassword, savedUserName, params);
-    },
-
-    handleAuthPage(savedRoomId, savedRoomPassword, savedUserName, roomFromUrl) {
-        // Если ВСЕ данные есть — пробуем автоматический вход
-        if (savedRoomId && savedRoomPassword && savedUserName) {
-            const target = roomFromUrl || savedRoomId;
-            this.joinRoomById(target, savedRoomPassword, false, true, savedUserName)
-                .then(success => {
-                    if (success) {
-                        this.redirectAfterAuth();
-                    }
-                    // Если не удалось — просто остаёмся на странице авторизации, НЕ удаляем данные
-                })
-                .catch(() => {
-                    // Ошибка подключения — остаёмся на auth
-                });
-        }
-        // Если данных нет — просто показываем формы
-    },
-
-    handleProtectedPage(savedRoomId, savedRoomPassword, savedUserName, params) {
-        // Предотвращаем повторные редиректы
-        if (this.isRedirecting) return;
-
-        const roomFromUrl = params.get('room');
-        const targetRoomId = roomFromUrl || savedRoomId;
-
-        // Если нет данных для входа ��� редирект на auth
-        if (!targetRoomId || !savedRoomPassword || !savedUserName) {
-            this.isRedirecting = true;
-            this.removeSavedRoomCredentials();
-            this.redirectToAuth();
-            return;
-        }
-
-        // Пробуем подключиться
-        this.joinRoomById(targetRoomId, savedRoomPassword, false, true, savedUserName)
-            .then(success => {
-                if (!success && !this.isRedirecting) {
-                    this.isRedirecting = true;
-                    this.removeSavedRoomCredentials();
-                    this.redirectToAuth();
-                }
-            })
-            .catch(() => {
-                if (!this.isRedirecting) {
-                    this.isRedirecting = true;
-                    this.removeSavedRoomCredentials();
-                    this.redirectToAuth();
-                }
-            });
-    },
-
-    getCurrentPageName() {
-        return window.location.pathname.split('/').pop() || 'index.html';
-    },
-
-    redirectToAuth() {
-        // Не редиректим если уже на auth
-        if (window.location.pathname.includes('auth.html')) return;
-        
-        const path = window.location.pathname + window.location.search;
-        const next = encodeURIComponent(path || 'index.html');
-        window.location.href = `auth.html?next=${next}`;
-    },
-
-    redirectAfterAuth() {
-        const params = new URLSearchParams(window.location.search);
-        const nextParam = params.get('next');
-        let targetUrl = 'index.html';
-        
-        if (nextParam) {
-            try {
-                const decoded = decodeURIComponent(nextParam);
-                // Парсим URL
-                const url = new URL(decoded, window.location.origin);
-                // Убираем старые параметры room, добавим свой
-                url.searchParams.delete('room');
-                if (this.currentRoomId) url.searchParams.set('room', this.currentRoomId);
-                targetUrl = url.pathname + url.search;
-            } catch (e) {
-                targetUrl = 'index.html';
-                if (this.currentRoomId) targetUrl += '?room=' + this.currentRoomId;
-            }
+        if (this.isAuthPage) {
+            this._initAuthPage();
         } else {
-            if (this.currentRoomId) targetUrl = 'index.html?room=' + this.currentRoomId;
+            this._initProtectedPage();
         }
-        
-        window.location.href = targetUrl;
     },
 
-    async createRoomWithPassword(password, userName) {
-        if (!password) throw new Error('Введите пароль');
-        if (!userName) throw new Error('Введите имя');
-        const roomId = this.generateRoomId();
-        data.roomPassword = password;
-        this.ensureUserExists(userName, false, true);
-        const success = await this.joinRoomById(roomId, password, true, false, userName, true);
-        if (success === false) throw new Error('Не удалось создать комнату');
-        this.saveRoomCredentials(roomId, password, userName);
-        return roomId;
-    },
-
-    async joinRoomWithCredentials(roomId, password, userName) {
-        if (!roomId || !password) throw new Error('Введите ID и пароль');
-        if (!userName) throw new Error('Введите имя');
-        const normalizedId = roomId.trim().toUpperCase();
-        const success = await this.joinRoomById(normalizedId, password, false, false, userName, true);
-        if (success === false) throw new Error('Неверный ID комнаты или пароль');
-        this.saveRoomCredentials(normalizedId, password, userName);
-        return normalizedId;
-    },
-
-    joinRoomById(roomId, password, isNew = false, silent = false, userName = '', autoSelectUser = false) {
-        if (!db) {
-            if (!silent) alert('Firebase недоступен');
-            return Promise.resolve(false);
+    createRoomWithPassword(password, userName) {
+        if (!password || !userName) {
+            return Promise.reject(new Error('Введите имя и пароль комнаты'));
         }
+        const roomId = this._generateRoomId();
+        this.currentRoomId = roomId;
+        this.currentUserName = userName;
+        this.data = {
+            users: [],
+            shopping: { items: [], templates: [] }
+        };
+        this._ensureUser(userName);
+        this._persistRoom({ roomPassword: password });
+        this._saveCredentials(roomId, password, userName);
+        this._redirectToTargetPage(roomId);
+        return Promise.resolve(roomId);
+    },
 
-        const normalizedId = roomId.trim().toUpperCase();
-        if (this.dataRef) this.dataRef.off();
-        this.currentRoomId = normalizedId;
-        this.currentUserName = userName || localStorage.getItem('familyUserName') || '';
-        this.dataRef = db.ref('family/' + normalizedId);
+    joinRoomWithCredentials(roomId, password, userName) {
+        if (!roomId || !password || !userName) {
+            return Promise.reject(new Error('Введите ID комнаты, пароль и имя')); 
+        }
+        this.currentUserName = userName;
+        return this.joinRoomById(roomId, password, { redirect: true });
+    },
 
-        return this.dataRef.once('value').then(snapshot => {
-            const saved = snapshot.val();
-            if (isNew) {
-                this.ensureDataStructure();
-                return this.dataRef.set({ data, lastUpdated: firebase.database.ServerValue.TIMESTAMP }).then(() => {
-                    this.afterSuccessfulJoin(normalizedId, password);
-                    return true;
-                });
-            } else {
-                if (saved?.data?.roomPassword && saved.data.roomPassword !== password) {
-                    if (!silent) alert('Неверный пароль комнаты');
-                    this.currentRoomId = null;
-                    return false;
+    joinRoomById(roomId, password, options = {}) {
+        const { redirect = true, silent = false } = options;
+        if (!roomId || !password) return Promise.reject(new Error('Нет идентификатора комнаты'));
+        this.currentRoomId = roomId;
+        this._saveCredentials(roomId, password, this.currentUserName);
+        this._persistRoom({ roomPassword: password });
+
+        return new Promise((resolve, reject) => {
+            if (!window.firebase?.database) {
+                return reject(new Error('Firebase не настроен'));
+            }
+            if (this.dataRef) this.dataRef.off();
+            this.dataRef = firebase.database().ref('family/' + roomId);
+            this.dataRef.once('value').then(snapshot => {
+                const payload = snapshot.val?.()?.data || { users: [], shopping: { items: [], templates: [] } };
+                this.data = payload;
+                this._ensureUser(this.currentUserName);
+                if (redirect && this.isAuthPage) {
+                    this._redirectToTargetPage(roomId);
                 }
-                data = saved?.data || { users: [], roomPassword: password, shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } } };
-                const user = this.ensureUserExists(this.currentUserName, true, autoSelectUser);
-                if (user) currentTab = user.id;
-                this.ensureDataStructure();
-                this.setupListener();
-                this.afterSuccessfulJoin(normalizedId, password);
-                return true;
-            }
-        }).catch(err => {
-            console.error('Room join error:', err);
-            if (!silent) alert('Не удалось подключиться к комнате');
-            this.currentRoomId = null;
-            if (typeof updateConnectionStatus === 'function') updateConnectionStatus(false);
-            return false;
-        });
-    },
-
-    ensureUserExists(userName, silent = false, forceSelect = false) {
-        if (!userName) return null;
-        if (!Array.isArray(data.users)) data.users = [];
-        let user = data.users.find(u => u.name === userName);
-        let created = false;
-        if (!user) {
-            user = {
-                id: 'user_' + Date.now(),
-                name: userName,
-                settings: { savingsPercent: 0 },
-                fixedPayments: [],
-                expenses: [],
-                incomes: [],
-                customCategories: []
-            };
-            data.users.push(user);
-            created = true;
-        }
-        if (created) {
-            if (this.dataRef) {
-                this.dataRef.child('data').set(data);
-            } else if (typeof syncData === 'function') {
-                syncData();
-            }
-        }
-        if (!silent || forceSelect) currentTab = user.id;
-        return user;
-    },
-
-    afterSuccessfulJoin(roomId, password) {
-        this.saveRoomCredentials(roomId, password, this.currentUserName);
-        if (this.options.page !== 'auth.html') this.setRoomUrl(roomId);
-        this.updateRoomUI();
-        if (typeof updateConnectionStatus === 'function') updateConnectionStatus(true);
-        if (typeof renderTabs === 'function') renderTabs();
-        if (typeof renderAll === 'function') renderAll();
-        if (typeof renderSettingsSection === 'function') renderSettingsSection();
-        if (typeof loadShoppingFromRoom === 'function') loadShoppingFromRoom();
-        // Редирект после успешного входа — только на странице auth
-        if (this.options.page === 'auth.html') this.redirectAfterAuth();
-    },
-
-    setupListener() {
-        if (!this.dataRef) return;
-        this.dataRef.on('value', snapshot => {
-            const saved = snapshot.val();
-            if (saved?.data) {
-                data = saved.data;
-                this.ensureDataStructure();
-                if (!currentTab && data.users?.length > 0) currentTab = data.users[0].id;
-                if (typeof renderTabs === 'function') renderTabs();
-                if (typeof renderAll === 'function') renderAll();
-                if (typeof renderSettingsSection === 'function') renderSettingsSection();
-                if (typeof loadShoppingFromRoom === 'function') loadShoppingFromRoom();
-            }
+                resolve(roomId);
+            }).catch(err => {
+                if (!silent) this._redirectToAuth();
+                reject(err);
+            });
         });
     },
 
     leaveRoom() {
-        if (this.dataRef) this.dataRef.off();
+        if (this.dataRef) {
+            this.dataRef.off();
+            this.dataRef = null;
+        }
         this.currentRoomId = null;
-        data = {
-            users: [],
-            roomPassword: null,
-            shopping: { items: [], templates: [], telegram: { token: '', chatId: '' } }
-        };
-        currentTab = null;
-        this.removeSavedRoomCredentials();
-        this.clearRoomUrl();
-        if (typeof updateConnectionStatus === 'function') updateConnectionStatus(false);
-        if (typeof renderTabs === 'function') renderTabs();
-        if (typeof renderAll === 'function') renderAll();
-        if (typeof renderSettingsSection === 'function') renderSettingsSection();
-        if (typeof loadShoppingFromRoom === 'function') loadShoppingFromRoom();
-        this.redirectToAuth();
+        this.currentUserName = null;
+        this.data = { users: [], shopping: { items: [], templates: [] } };
+        this._clearSavedCredentials();
+        this._redirectToAuth(true);
     },
 
-    saveRoomCredentials(roomId, password, userName) {
-        localStorage.setItem('familyRoomId', roomId);
-        localStorage.setItem('familyRoomPassword', password);
-        localStorage.setItem('familyUserName', userName);
-        this.updateRoomUI();
-    },
-
-    removeSavedRoomCredentials() {
-        localStorage.removeItem('familyRoomId');
-        localStorage.removeItem('familyRoomPassword');
-        localStorage.removeItem('familyUserName');
-        this.updateRoomUI();
-    },
-
-    setRoomUrl(roomId) {
-        if (this.options.page === 'auth.html') return;
-        const url = new URL(window.location.href);
-        url.searchParams.set('room', roomId);
-        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
-        this.updateRoomUI();
-    },
-
-    clearRoomUrl() {
-        if (this.options.page === 'auth.html') return;
-        const url = new URL(window.location.href);
-        url.searchParams.delete('room');
-        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
-    },
-
-    updateRoomUI() {
-        const info = document.getElementById('roomInfo');
-        if (!info) return;
-        const idEl = document.getElementById('currentRoomId');
-        const nameEl = document.getElementById('currentUserName');
-        if (this.currentRoomId) {
-            info.classList.remove('hidden');
-            if (idEl) idEl.textContent = this.currentRoomId;
-            if (nameEl) nameEl.textContent = this.currentUserName || '';
-        } else {
-            info.classList.add('hidden');
+    _initAuthPage() {
+        if (this.savedRoomId && this.savedPassword && this.savedUserName) {
+            if (!sessionStorage.getItem('rooms_authed')) {
+                this.joinRoomById(this.savedRoomId, this.savedPassword, { redirect: true, silent: true })
+                    .then(() => sessionStorage.setItem('rooms_authed', '1'))
+                    .catch(() => {
+                        this._clearSavedCredentials();
+                        sessionStorage.removeItem('rooms_authed');
+                    });
+            }
         }
     },
 
-    copyRoomLink() {
-        if (!this.currentRoomId) return alert('Комната не подключена');
-        const url = new URL(window.location.href);
-        url.searchParams.set('room', this.currentRoomId);
-        navigator.clipboard.writeText(url.href).then(() => alert('Ссылка скопирована!'));
+    _initProtectedPage() {
+        if (!this.savedRoomId || !this.savedPassword || !this.savedUserName) {
+            this._redirectToAuth();
+            return;
+        }
+        this.currentUserName = this.savedUserName;
+        this.joinRoomById(this.savedRoomId, this.savedPassword, { redirect: false, silent: true })
+            .catch(() => this._redirectToAuth());
     },
 
-    generateRoomId() {
+    _redirectToAuth(force = false) {
+        if (this.isAuthPage && !force) return;
+        if (this.isRedirecting) return;
+        this.isRedirecting = true;
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = 'auth.html?next=' + next;
+    },
+
+    _redirectToTargetPage(roomId) {
+        const urlHasRoom = window.location.search.includes('?room=');
+        const basePath = window.location.origin + window.location.pathname;
+        const nextParam = new URLSearchParams(window.location.search).get('next');
+        const target = nextParam ? decodeURIComponent(nextParam) : (urlHasRoom ? window.location.pathname + window.location.search : '/index.html');
+        const separator = target.includes('?') ? '&' : '?';
+        const dest = target.split('?')[0] + '?room=' + roomId;
+        window.location.href = dest;
+    },
+
+    _ensureUser(name) {
+        if (!name) return;
+        if (!Array.isArray(this.data.users)) this.data.users = [];
+        const exists = this.data.users.find(u => u.name === name);
+        if (!exists) {
+            this.data.users.push({ id: 'user_' + Date.now(), name, settings: { savingsPercent: 0 }, fixedPayments: [], expenses: [], incomes: [], customCategories: [] });
+        }
+        this._syncData();
+    },
+
+    _persistRoom(payload) {
+        if (!window.firebase?.database || !this.currentRoomId) return;
+        const ref = firebase.database().ref('family/' + this.currentRoomId);
+        ref.set({ data: this.data, roomPassword: payload?.roomPassword || null, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
+    },
+
+    _syncData() {
+        if (!window.firebase?.database || !this.currentRoomId) return;
+        const ref = firebase.database().ref('family/' + this.currentRoomId);
+        ref.update({ data: this.data, lastUpdated: firebase.database.ServerValue.TIMESTAMP });
+    },
+
+    _saveCredentials(roomId, password, userName) {
+        localStorage.setItem('budgetRoomId', roomId);
+        localStorage.setItem('budgetRoomPassword', password);
+        localStorage.setItem('budgetUserName', userName);
+        this.savedRoomId = roomId;
+        this.savedPassword = password;
+        this.savedUserName = userName;
+    },
+
+    _checkSavedCredentials() {
+        this.savedRoomId = localStorage.getItem('budgetRoomId');
+        this.savedPassword = localStorage.getItem('budgetRoomPassword');
+        this.savedUserName = localStorage.getItem('budgetUserName');
+    },
+
+    _clearSavedCredentials() {
+        localStorage.removeItem('budgetRoomId');
+        localStorage.removeItem('budgetRoomPassword');
+        localStorage.removeItem('budgetUserName');
+        this.savedRoomId = null;
+        this.savedPassword = null;
+        this.savedUserName = null;
+    },
+
+    _getPage() {
+        return window.location.pathname.split('/').pop() || 'index.html';
+    },
+
+    _generateRoomId() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
-        for (let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
         return result;
     }
 };
+
+window.roomsManager = roomsManager;

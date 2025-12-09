@@ -18,6 +18,12 @@ window.db = window.db || null;
         if (typeof firebase !== 'undefined') {
             if (firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig);
             window.db = firebase.database();
+
+            if (firebase.auth) {
+                firebase.auth().signInAnonymously().catch((error) => {
+                    console.error('Firebase auth error:', error);
+                });
+            }
         }
     } catch (e) {
         console.error('Firebase init error:', e);

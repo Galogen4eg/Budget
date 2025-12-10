@@ -16,261 +16,475 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background: #f8fafc;
             min-height: 100vh;
-            color: #333;
+            color: #1e293b;
         }
         
-        .container {
+        .app-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 0 16px;
         }
         
         header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-bottom: 30px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
         
         .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 16px 0;
         }
         
         .logo {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #7c3aed;
         }
         
         nav {
             display: flex;
-            gap: 15px;
+            gap: 8px;
         }
         
         .nav-button {
-            padding: 12px 24px;
-            border-radius: 50px;
-            border: none;
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-        
-        .nav-button.active {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .nav-button:hover:not(.active) {
-            background: rgba(102, 126, 234, 0.2);
-            transform: translateY(-2px);
-        }
-        
-        main {
-            display: grid;
-            gap: 25px;
-        }
-        
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            padding: 25px;
-            transition: transform 0.3s ease;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .card-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #4a5568;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .stat-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: scale(1.02);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stat-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-        
-        .stat-income .stat-icon {
-            background: linear-gradient(45deg, #48bb78, #38a169);
-            color: white;
-        }
-        
-        .stat-expense .stat-icon {
-            background: linear-gradient(45deg, #e53e3e, #c53030);
-            color: white;
-        }
-        
-        .stat-balance .stat-icon {
-            background: linear-gradient(45deg, #3182ce, #2b6cb0);
-            color: white;
-        }
-        
-        .stat-savings .stat-icon {
-            background: linear-gradient(45deg, #dd6b20, #c05621);
-            color: white;
-        }
-        
-        .stat-info h3 {
-            font-size: 0.9rem;
-            color: #718096;
-            margin-bottom: 5px;
-        }
-        
-        .stat-info p {
-            font-size: 1.8rem;
-            font-weight: 700;
-        }
-        
-        .stat-income .stat-info p {
-            color: #48bb78;
-        }
-        
-        .stat-expense .stat-info p {
-            color: #e53e3e;
-        }
-        
-        .stat-balance .stat-info p {
-            color: #3182ce;
-        }
-        
-        .stat-savings .stat-info p {
-            color: #dd6b20;
-        }
-        
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .form-group label {
-            font-size: 0.9rem;
-            color: #4a5568;
-            margin-bottom: 5px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.95rem;
             font-weight: 500;
         }
         
-        .form-control {
-            padding: 12px 15px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+        .nav-button.active {
+            background: #7c3aed;
+            color: white;
         }
         
-        .form-control:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        .nav-button:not(.active):hover {
+            background: #f1f5f9;
         }
         
-        .btn {
-            padding: 12px 25px;
+        main {
+            padding: 24px 0;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 24px;
+        }
+        
+        .grid-cols-1 {
+            grid-template-columns: 1fr;
+        }
+        
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .grid-cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .card {
+            background: white;
             border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .items-center {
             align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
         
-        .btn-primary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+        .justify-between {
+            justify-content: space-between;
+        }
+        
+        .justify-end {
+            justify-content: flex-end;
+        }
+        
+        .space-x-2 > * + * {
+            margin-left: 8px;
+        }
+        
+        .space-x-3 > * + * {
+            margin-left: 12px;
+        }
+        
+        .space-x-4 > * + * {
+            margin-left: 16px;
+        }
+        
+        .space-y-2 > * + * {
+            margin-top: 8px;
+        }
+        
+        .space-y-3 > * + * {
+            margin-top: 12px;
+        }
+        
+        .space-y-4 > * + * {
+            margin-top: 16px;
+        }
+        
+        .space-y-6 > * + * {
+            margin-top: 24px;
+        }
+        
+        .text-gray-600 {
+            color: #71717a;
+        }
+        
+        .text-green-600 {
+            color: #16a34a;
+        }
+        
+        .text-red-600 {
+            color: #dc2626;
+        }
+        
+        .text-blue-500 {
+            color: #3b82f6;
+        }
+        
+        .text-purple-500 {
+            color: #a855f7;
+        }
+        
+        .text-orange-600 {
+            color: #ea580c;
+        }
+        
+        .text-yellow-500 {
+            color: #eab308;
+        }
+        
+        .text-gray-500 {
+            color: #a1a1aa;
+        }
+        
+        .text-gray-400 {
+            color: #d4d4d8;
+        }
+        
+        .text-gray-700 {
+            color: #52525b;
+        }
+        
+        .text-gray-800 {
+            color: #27272a;
+        }
+        
+        .text-white {
             color: white;
         }
         
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        .bg-white {
+            background: white;
         }
         
-        .btn-success {
-            background: linear-gradient(45deg, #48bb78, #38a169);
-            color: white;
+        .bg-purple-600 {
+            background: #7c3aed;
         }
         
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        .bg-purple-100 {
+            background: #f3e8ff;
         }
         
-        .btn-danger {
-            background: linear-gradient(45deg, #e53e3e, #c53030);
-            color: white;
+        .bg-green-100 {
+            background: #dcfce7;
         }
         
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(229, 62, 62, 0.4);
+        .bg-red-100 {
+            background: #fee2e2;
         }
         
-        .table-container {
+        .bg-blue-100 {
+            background: #dbeafe;
+        }
+        
+        .bg-yellow-100 {
+            background: #fef9c3;
+        }
+        
+        .bg-gray-50 {
+            background: #fafafa;
+        }
+        
+        .bg-gray-100 {
+            background: #f4f4f5;
+        }
+        
+        .bg-gray-200 {
+            background: #e4e4e7;
+        }
+        
+        .bg-purple-50 {
+            background: #f5f3ff;
+        }
+        
+        .rounded {
+            border-radius: 6px;
+        }
+        
+        .rounded-lg {
+            border-radius: 8px;
+        }
+        
+        .rounded-full {
+            border-radius: 9999px;
+        }
+        
+        .rounded-xl {
+            border-radius: 12px;
+        }
+        
+        .p-2 {
+            padding: 8px;
+        }
+        
+        .p-3 {
+            padding: 12px;
+        }
+        
+        .p-4 {
+            padding: 16px;
+        }
+        
+        .p-6 {
+            padding: 24px;
+        }
+        
+        .px-3 {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        
+        .px-4 {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        
+        .px-6 {
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        
+        .py-2 {
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
+        
+        .py-3 {
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+        
+        .py-4 {
+            padding-top: 16px;
+            padding-bottom: 16px;
+        }
+        
+        .mb-2 {
+            margin-bottom: 8px;
+        }
+        
+        .mb-3 {
+            margin-bottom: 12px;
+        }
+        
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+        
+        .mb-6 {
+            margin-bottom: 24px;
+        }
+        
+        .mt-2 {
+            margin-top: 8px;
+        }
+        
+        .mt-3 {
+            margin-top: 12px;
+        }
+        
+        .mt-4 {
+            margin-top: 16px;
+        }
+        
+        .ml-2 {
+            margin-left: 8px;
+        }
+        
+        .font-bold {
+            font-weight: 700;
+        }
+        
+        .font-semibold {
+            font-weight: 600;
+        }
+        
+        .font-medium {
+            font-weight: 500;
+        }
+        
+        .text-xl {
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+        }
+        
+        .text-lg {
+            font-size: 1.125rem;
+            line-height: 1.75rem;
+        }
+        
+        .text-base {
+            font-size: 1rem;
+            line-height: 1.5rem;
+        }
+        
+        .text-sm {
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+        }
+        
+        .text-xs {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        
+        .w-full {
+            width: 100%;
+        }
+        
+        .h-2 {
+            height: 0.5rem;
+        }
+        
+        .h-3 {
+            height: 0.75rem;
+        }
+        
+        .h-4 {
+            height: 1rem;
+        }
+        
+        .w-3 {
+            width: 0.75rem;
+        }
+        
+        .w-4 {
+            width: 1rem;
+        }
+        
+        .border {
+            border: 1px solid;
+        }
+        
+        .border-b {
+            border-bottom: 1px solid;
+        }
+        
+        .border-gray-100 {
+            border-color: #f1f5f9;
+        }
+        
+        .border-gray-200 {
+            border-color: #e2e8f0;
+        }
+        
+        .border-gray-300 {
+            border-color: #cbd5e1;
+        }
+        
+        .border-transparent {
+            border-color: transparent;
+        }
+        
+        .border-green-500 {
+            border-color: #16a34a;
+        }
+        
+        .border-red-500 {
+            border-color: #dc2626;
+        }
+        
+        .cursor-pointer {
+            cursor: pointer;
+        }
+        
+        .transition-all {
+            transition-property: all;
+            transition-duration: 0.2s;
+        }
+        
+        .transition-colors {
+            transition-property: background-color, border-color, color;
+            transition-duration: 0.2s;
+        }
+        
+        .shadow-sm {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .shadow {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .relative {
+            position: relative;
+        }
+        
+        .absolute {
+            position: absolute;
+        }
+        
+        .z-10 {
+            z-index: 10;
+        }
+        
+        .z-50 {
+            z-index: 50;
+        }
+        
+        .sticky {
+            position: sticky;
+        }
+        
+        .top-0 {
+            top: 0;
+        }
+        
+        .overflow-x-auto {
             overflow-x: auto;
+        }
+        
+        .overflow-y-auto {
+            overflow-y: auto;
         }
         
         table {
@@ -278,262 +492,287 @@
             border-collapse: collapse;
         }
         
-        th, td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
+        .truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
-        th {
-            font-weight: 600;
-            color: #4a5568;
-            background-color: #f7fafc;
+        .line-through {
+            text-decoration: line-through;
         }
         
-        tr:hover {
-            background-color: #f7fafc;
+        input, select, textarea {
+            font-family: inherit;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            margin: 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px 12px;
         }
         
-        .action-btn {
-            background: none;
-            border: none;
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        
+        button {
             cursor: pointer;
-            font-size: 1.1rem;
-            padding: 5px;
-            border-radius: 5px;
-            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            margin: 0;
         }
         
-        .action-btn:hover {
-            background-color: #e2e8f0;
+        .btn-primary {
+            background: #7c3aed;
+            color: white;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
         }
         
-        .delete-btn {
-            color: #e53e3e;
+        .btn-primary:hover {
+            background: #6d28d9;
         }
         
-        .edit-btn {
-            color: #3182ce;
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
         }
         
-        .calendar {
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        
+        /* Calendar styles */
+        .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 10px;
+            gap: 1px;
+            background-color: #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
         }
         
-        .calendar-header {
+        .calendar-header-cell {
+            background-color: #f8fafc;
+            padding: 12px 8px;
             text-align: center;
             font-weight: 600;
-            color: #4a5568;
-            padding: 10px;
-            background-color: #f7fafc;
-            border-radius: 10px;
+            font-size: 0.875rem;
+            color: #64748b;
         }
         
-        .calendar-day {
-            min-height: 100px;
+        .calendar-day-cell {
             background-color: white;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            min-height: 100px;
+            padding: 8px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s;
+            border: 1px solid #f1f5f9;
         }
         
-        .calendar-day:hover {
-            background-color: #f7fafc;
-            transform: translateY(-2px);
+        .calendar-day-cell:hover {
+            background-color: #f8f9ff;
         }
         
-        .calendar-day.other-month {
-            background-color: #f1f5f9;
-            color: #a0aec0;
+        .calendar-day-cell.other-month {
+            background-color: #f8fafc;
+            color: #94a3b8;
         }
         
         .calendar-day-number {
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .calendar-events {
-            font-size: 0.8rem;
-        }
-        
-        .calendar-event {
-            padding: 3px 6px;
-            border-radius: 5px;
-            margin-bottom: 3px;
-            color: white;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .event-income {
-            background: linear-gradient(45deg, #48bb78, #38a169);
-        }
-        
-        .event-expense {
-            background: linear-gradient(45deg, #e53e3e, #c53030);
-        }
-        
-        .shopping-list {
-            display: grid;
-            gap: 15px;
-        }
-        
-        .shopping-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .checkbox {
-            width: 22px;
-            height: 22px;
-            border: 2px solid #cbd5e0;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .checkbox.checked {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border-color: #667eea;
-        }
-        
-        .checkbox.checked::after {
-            content: "✓";
-            color: white;
-            font-size: 14px;
-        }
-        
-        .shopping-item.completed .item-name {
-            text-decoration: line-through;
-            color: #a0aec0;
-        }
-        
-        .item-name {
-            flex: 1;
+            font-size: 0.875rem;
             font-weight: 500;
+            margin-bottom: 4px;
         }
         
-        .item-quantity {
-            color: #718096;
-            font-size: 0.9rem;
-        }
-        
-        .room-selector {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            padding: 40px;
-            max-width: 500px;
-            margin: 50px auto;
-            text-align: center;
-        }
-        
-        .room-selector h2 {
-            font-size: 2rem;
-            margin-bottom: 30px;
-            color: #4a5568;
-        }
-        
-        .room-form {
+        .calendar-events-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 2px;
         }
         
-        .room-input {
-            padding: 15px 20px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-        }
-        
-        .room-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-        
-        .room-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .room-tab {
-            flex: 1;
-            padding: 15px;
-            border-radius: 12px;
-            background: #f7fafc;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-        }
-        
-        .room-tab.active {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+        .calendar-event-item {
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             color: white;
         }
         
+        .calendar-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .calendar-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .calendar-nav-button {
+            background-color: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .calendar-nav-button:hover {
+            background-color: #e2e8f0;
+        }
+        
+        .calendar-today-button {
+            background-color: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .calendar-today-button:hover {
+            background-color: #6d28d9;
+        }
+        
+        .selected-day {
+            background-color: #e0e7ff !important;
+            border: 2px solid #4f46e5;
+        }
+        
+        /* Color picker */
         .color-picker {
             display: flex;
-            gap: 10px;
             flex-wrap: wrap;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 8px;
         }
         
         .color-option {
-            width: 30px;
-            height: 30px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid transparent;
-            transition: all 0.2s ease;
         }
         
         .color-option.selected {
-            border-color: #2d3748;
-            transform: scale(1.1);
+            border-color: #000;
         }
         
+        /* Mobile responsive */
         @media (max-width: 768px) {
-            .container {
-                padding: 10px;
+            .app-container {
+                padding: 0 12px;
             }
             
             .header-content {
                 flex-direction: column;
-                gap: 20px;
+                gap: 16px;
+                padding: 16px 0;
             }
             
-            .stats-grid {
+            .logo {
+                font-size: 1.25rem;
+            }
+            
+            nav {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            
+            .nav-button {
+                padding: 8px 12px;
+                font-size: 0.875rem;
+            }
+            
+            main {
+                padding: 16px 0;
+            }
+            
+            .card {
+                padding: 16px;
+                border-radius: 8px;
+            }
+            
+            .grid {
+                gap: 16px;
+            }
+            
+            .grid-cols-2 {
                 grid-template-columns: 1fr;
             }
             
-            .form-grid {
+            .grid-cols-3 {
                 grid-template-columns: 1fr;
             }
             
-            .calendar {
-                grid-template-columns: repeat(1, 1fr);
+            .grid-cols-4 {
+                grid-template-columns: 1fr;
             }
             
-            .room-selector {
-                margin: 20px 10px;
-                padding: 20px;
+            .calendar-day-cell {
+                min-height: 80px;
+                padding: 6px;
+            }
+            
+            .calendar-header-cell {
+                padding: 8px 4px;
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .app-container {
+                padding: 0 8px;
+            }
+            
+            .header-content {
+                padding: 12px 0;
+            }
+            
+            nav {
+                gap: 4px;
+            }
+            
+            .nav-button {
+                padding: 6px 10px;
+                font-size: 0.75rem;
+            }
+            
+            .card {
+                padding: 12px;
+            }
+            
+            .calendar-day-cell {
+                min-height: 60px;
+                padding: 4px;
+            }
+            
+            .calendar-event-item {
+                font-size: 0.625rem;
+                padding: 1px 2px;
             }
         }
     </style>
@@ -545,54 +784,72 @@
         const { useState, useEffect } = React;
 
         const FamilyBudgetApp = () => {
-            const [activeTab, setActiveTab] = useState('budget');
-            const [showRoomSelector, setShowRoomSelector] = useState(true);
-            const [currentRoom, setCurrentRoom] = useState(null);
-            const [roomMode, setRoomMode] = useState('join');
-            const [roomId, setRoomId] = useState('');
-            const [roomName, setRoomName] = useState('');
+            const [activeTab, setActiveTab] = React.useState('budget');
+            const [currentRoom, setCurrentRoom] = React.useState(null);
+            const [showRoomModal, setShowRoomModal] = React.useState(true);
+            const [roomMode, setRoomMode] = React.useState('join');
+            const [roomId, setRoomId] = React.useState('');
+            const [roomName, setRoomName] = React.useState('');
             
             // Budget states
-            const [transactions, setTransactions] = useState([
-                { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана' },
-                { id: 2, type: 'expense', amount: 15000, category: 'Продукты', date: '2024-01-16', description: 'Покупка продуктов' },
-                { id: 3, type: 'expense', amount: 8000, category: 'Транспорт', date: '2024-01-17', description: 'Бензин' },
-                { id: 4, type: 'expense', amount: 5000, category: 'Продукты', date: '2024-01-18', description: 'Овощи и фрукты' }
+            const [transactions, setTransactions] = React.useState([
+                { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана', balanceAfter: 50000 },
+                { id: 2, type: 'expense', amount: 15000, category: 'Продукты', date: '2024-01-16', description: 'Покупка продуктов', balanceAfter: 35000 },
+                { id: 3, type: 'expense', amount: 8000, category: 'Транспорт', date: '2024-01-17', description: 'Бензин', balanceAfter: 27000 },
+                { id: 4, type: 'expense', amount: 5000, category: 'Продукты', date: '2024-01-18', description: 'Овощи и фрукты', balanceAfter: 22000 },
+                { id: 5, type: 'expense', amount: 3000, category: 'Развлечения', date: '2024-01-19', description: 'Кино', balanceAfter: 19000 }
             ]);
             
-            const [newTransaction, setNewTransaction] = useState({
+            const [initialBalance, setInitialBalance] = React.useState(0);
+            const [newTransaction, setNewTransaction] = React.useState({
                 type: 'expense',
                 amount: '',
                 category: 'Продукты',
                 date: new Date().toISOString().split('T')[0],
                 description: ''
             });
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [selectedDate, setSelectedDate] = React.useState(null);
+            const [showAddTransaction, setShowAddTransaction] = React.useState(false);
             
             // Shopping list states
-            const [shoppingList, setShoppingList] = useState([
-                { id: 1, item: 'Молоко', quantity: 2, unit: 'литра', completed: false },
-                { id: 2, item: 'Хлеб', quantity: 1, unit: 'батон', completed: true },
-                { id: 3, item: 'Яйца', quantity: 10, unit: 'штук', completed: false }
+            const [shoppingList, setShoppingList] = React.useState([
+                { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
+                { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
+                { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
             ]);
             
-            const [newShoppingItem, setNewShoppingItem] = useState({
-                item: '',
-                quantity: 1,
-                unit: 'штука'
-            });
+            const [newItem, setNewItem] = React.useState({ name: '', quantity: 1, unit: 'штука' });
             
             // Calendar states
-            const [currentDate, setCurrentDate] = useState(new Date());
-            const [selectedDate, setSelectedDate] = useState(null);
-            const [calendarEvents, setCalendarEvents] = useState([
-                { id: 1, title: 'Оплата кредита', date: '2024-01-20', color: 'event-expense' },
-                { id: 2, title: 'Покупка подарка', date: '2024-01-25', color: 'event-income' }
+            const [calendarEvents, setCalendarEvents] = React.useState([
+                { id: 1, title: 'Оплата кредита', date: '2024-01-20', color: 'bg-blue-500' },
+                { id: 2, title: 'Покупка подарка', date: '2024-01-25', color: 'bg-pink-500' }
             ]);
             
-            const [newEvent, setNewEvent] = useState({
+            const [newEvent, setNewEvent] = React.useState({
                 title: '',
-                date: new Date().toISOString().split('T')[0]
+                date: new Date().toISOString().split('T')[0],
+                color: 'bg-blue-500'
             });
+            
+            const [currentDate, setCurrentDate] = React.useState(new Date());
+            const [calendarView, setCalendarView] = React.useState('month');
+            
+            // Settings
+            const [fixedExpenses, setFixedExpenses] = React.useState([
+                { id: 1, name: 'Аренда', amount: 15000, category: 'Жилье' },
+                { id: 2, name: 'Кредит', amount: 8000, category: 'Жилье' }
+            ]);
+            
+            const [savingsPercentage, setSavingsPercentage] = React.useState(20);
+            const [authorNames] = React.useState(['Иван', 'Мария']);
+            
+            // Color options for events
+            const colorOptions = [
+                'bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-yellow-500', 
+                'bg-purple-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
+            ];
 
             // Calculate financial metrics
             const totalIncome = transactions
@@ -603,31 +860,10 @@
                 .filter(t => t.type === 'expense')
                 .reduce((sum, t) => sum + t.amount, 0);
             
-            const balance = totalIncome - totalExpenses;
-            const savings = balance * 0.2; // 20% откладываем
-
-            // Join room
-            const joinRoom = () => {
-                if (roomId.trim()) {
-                    setCurrentRoom({ id: roomId, name: `Комната ${roomId}` });
-                    setShowRoomSelector(false);
-                }
-            };
-
-            // Create room
-            const createRoom = () => {
-                if (roomName.trim()) {
-                    const newRoomId = 'room_' + Date.now();
-                    setCurrentRoom({ id: newRoomId, name: roomName });
-                    setShowRoomSelector(false);
-                }
-            };
-
-            // Exit room
-            const exitRoom = () => {
-                setCurrentRoom(null);
-                setShowRoomSelector(true);
-            };
+            const fixedExpensesTotal = fixedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const balance = initialBalance + totalIncome - totalExpenses;
+            const availableToSave = balance > 0 ? balance * (savingsPercentage / 100) : 0;
+            const dailySpendingLimit = Math.max(0, (balance - availableToSave - fixedExpensesTotal) / 30);
 
             // Add transaction
             const addTransaction = () => {
@@ -635,7 +871,8 @@
                     const transaction = {
                         id: Date.now(),
                         ...newTransaction,
-                        amount: parseFloat(newTransaction.amount)
+                        amount: parseFloat(newTransaction.amount),
+                        balanceAfter: calculateBalanceAfterNewTransaction()
                     };
                     setTransactions([...transactions, transaction]);
                     setNewTransaction({
@@ -648,21 +885,22 @@
                 }
             };
 
-            // Delete transaction
-            const deleteTransaction = (id) => {
-                setTransactions(transactions.filter(t => t.id !== id));
+            const calculateBalanceAfterNewTransaction = () => {
+                const lastBalance = transactions.length > 0 ? transactions[transactions.length - 1].balanceAfter : initialBalance;
+                const amount = parseFloat(newTransaction.amount) || 0;
+                return newTransaction.type === 'income' ? lastBalance + amount : lastBalance - amount;
             };
 
             // Add shopping item
             const addShoppingItem = () => {
-                if (newShoppingItem.item.trim()) {
+                if (newItem.name.trim()) {
                     const item = {
                         id: Date.now(),
-                        ...newShoppingItem,
+                        ...newItem,
                         completed: false
                     };
                     setShoppingList([...shoppingList, item]);
-                    setNewShoppingItem({ item: '', quantity: 1, unit: 'штука' });
+                    setNewItem({ name: '', quantity: 1, unit: 'штука' });
                 }
             };
 
@@ -683,17 +921,31 @@
                 if (newEvent.title) {
                     const event = {
                         id: Date.now(),
-                        ...newEvent,
-                        color: newEvent.title.toLowerCase().includes('доход') || newEvent.title.toLowerCase().includes('зарплата') ? 'event-income' : 'event-expense'
+                        ...newEvent
                     };
                     setCalendarEvents([...calendarEvents, event]);
-                    setNewEvent({ title: '', date: new Date().toISOString().split('T')[0] });
+                    setNewEvent({
+                        title: '',
+                        date: new Date().toISOString().split('T')[0],
+                        color: 'bg-blue-500'
+                    });
                 }
             };
 
             // Delete calendar event
             const deleteCalendarEvent = (id) => {
                 setCalendarEvents(calendarEvents.filter(event => event.id !== id));
+            };
+
+            // Calendar navigation
+            const navigateCalendar = (direction) => {
+                const newDate = new Date(currentDate);
+                if (calendarView === 'month') {
+                    newDate.setMonth(newDate.getMonth() + direction);
+                } else {
+                    newDate.setDate(newDate.getDate() + (direction * 7));
+                }
+                setCurrentDate(newDate);
             };
 
             // Get calendar data
@@ -723,16 +975,16 @@
 
             const { days, title } = getCalendarData();
 
-            // Navigate calendar
-            const navigateCalendar = (direction) => {
-                const newDate = new Date(currentDate);
-                newDate.setMonth(newDate.getMonth() + direction);
-                setCurrentDate(newDate);
-                setSelectedDate(null);
+            // Get events for specific date
+            const getEventsForDate = (date) => {
+                return calendarEvents.filter(event => 
+                    new Date(event.date).toDateString() === date.toDateString()
+                );
             };
 
-            // Handle day click
+            // Handle day click in calendar
             const handleDayClick = (day) => {
+                // If clicking the same date again, deselect it (reset filter)
                 if (selectedDate && day.toDateString() === selectedDate.toDateString()) {
                     setSelectedDate(null);
                 } else {
@@ -740,179 +992,251 @@
                 }
             };
 
-            // Get events for date
-            const getEventsForDate = (date) => {
-                return calendarEvents.filter(event => 
-                    new Date(event.date).toDateString() === date.toDateString()
-                );
-            };
-
-            // Get transactions for date
-            const getTransactionsForDate = (date) => {
-                return transactions.filter(transaction => 
-                    new Date(transaction.date).toDateString() === date.toDateString()
-                );
-            };
-
             // Filtered transactions
-            const filteredTransactions = selectedDate 
-                ? transactions.filter(t => new Date(t.date).toDateString() === selectedDate.toDateString())
-                : transactions;
+            const filteredTransactions = transactions.filter(transaction => {
+                // Filter by search term
+                if (searchTerm && !(
+                    transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+                )) {
+                    return false;
+                }
+                
+                // Filter by selected date
+                if (selectedDate && new Date(transaction.date).toDateString() !== selectedDate.toDateString()) {
+                    return false;
+                }
+                
+                return true;
+            });
 
-            if (showRoomSelector) {
-                return (
-                    React.createElement('div', { className: 'room-selector' },
-                        React.createElement('h2', null, 'Семейный Бюджет'),
-                        React.createElement('div', { className: 'room-form' },
-                            roomMode === 'join' ? 
-                            React.createElement('input', {
-                                type: 'text',
-                                placeholder: 'Введите ID комнаты',
-                                value: roomId,
-                                onChange: (e) => setRoomId(e.target.value),
-                                className: 'room-input'
-                            }) :
-                            React.createElement('input', {
-                                type: 'text',
-                                placeholder: 'Название новой комнаты',
-                                value: roomName,
-                                onChange: (e) => setRoomName(e.target.value),
-                                className: 'room-input'
-                            }),
-                            React.createElement('button', {
-                                onClick: roomMode === 'join' ? joinRoom : createRoom,
-                                className: 'btn btn-primary'
-                            }, roomMode === 'join' ? 'Войти в комнату' : 'Создать комнату'),
-                            React.createElement('div', { className: 'room-buttons' },
-                                React.createElement('div', {
-                                    className: `room-tab ${roomMode === 'join' ? 'active' : ''}`,
-                                    onClick: () => setRoomMode('join')
-                                }, 'Войти'),
-                                React.createElement('div', {
-                                    className: `room-tab ${roomMode === 'create' ? 'active' : ''}`,
-                                    onClick: () => setRoomMode('create')
-                                }, 'Создать')
+            // Join room
+            const joinRoom = () => {
+                if (roomId.trim()) {
+                    setCurrentRoom({ id: roomId, name: `Комната ${roomId}` });
+                    setShowRoomModal(false);
+                }
+            };
+
+            // Create room
+            const createRoom = () => {
+                if (roomName.trim()) {
+                    const newRoomId = 'room_' + Date.now();
+                    setCurrentRoom({ id: newRoomId, name: roomName });
+                    setShowRoomModal(false);
+                }
+            };
+
+            // Exit room
+            const exitRoom = () => {
+                setCurrentRoom(null);
+                setShowRoomModal(true);
+            };
+
+            // Render room modal
+            if (showRoomModal) {
+                return React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50' },
+                    React.createElement('div', { className: 'bg-white rounded-xl p-6 w-full max-w-md mx-4' },
+                        React.createElement('h2', { className: 'text-xl font-bold mb-4 text-center' }, 
+                            roomMode === 'join' ? 'Войти в комнату' : 'Создать комнату'
+                        ),
+                        
+                        roomMode === 'join' ? 
+                        React.createElement('div', { className: 'space-y-4' },
+                            React.createElement('input',
+                                {
+                                    type: 'text',
+                                    placeholder: 'Введите ID комнаты',
+                                    value: roomId,
+                                    onChange: (e) => setRoomId(e.target.value),
+                                    className: 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                }
+                            ),
+                            React.createElement('button',
+                                {
+                                    onClick: joinRoom,
+                                    className: 'w-full btn-primary'
+                                },
+                                'Войти'
+                            )
+                        ) :
+                        React.createElement('div', { className: 'space-y-4' },
+                            React.createElement('input',
+                                {
+                                    type: 'text',
+                                    placeholder: 'Название комнаты',
+                                    value: roomName,
+                                    onChange: (e) => setRoomName(e.target.value),
+                                    className: 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                }
+                            ),
+                            React.createElement('button',
+                                {
+                                    onClick: createRoom,
+                                    className: 'w-full btn-primary'
+                                },
+                                'Создать'
+                            )
+                        ),
+                        
+                        React.createElement('div', { className: 'flex gap-2 mt-4' },
+                            React.createElement('button',
+                                {
+                                    onClick: () => setRoomMode('join'),
+                                    className: `flex-1 py-2 rounded-lg ${roomMode === 'join' ? 'bg-purple-600 text-white' : 'bg-gray-100'}`
+                                },
+                                'Войти'
+                            ),
+                            React.createElement('button',
+                                {
+                                    onClick: () => setRoomMode('create'),
+                                    className: `flex-1 py-2 rounded-lg ${roomMode === 'create' ? 'bg-purple-600 text-white' : 'bg-gray-100'}`
+                                },
+                                'Создать'
                             )
                         )
                     )
                 );
             }
 
-            return (
-                React.createElement('div', { className: 'container' },
-                    // Header
-                    React.createElement('header', null,
+            return React.createElement('div', { className: 'min-h-screen bg-gray-50' },
+                // Header
+                React.createElement('header', null,
+                    React.createElement('div', { className: 'app-container' },
                         React.createElement('div', { className: 'header-content' },
-                            React.createElement('h1', { className: 'logo' }, 'Семейный Бюджет'),
-                            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '15px' } },
-                                currentRoom && React.createElement('div', { style: { fontSize: '0.9rem', color: '#667eea' } },
-                                    `Комната: ${currentRoom.name}`
+                            React.createElement('div', { className: 'flex items-center space-x-3' },
+                                React.createElement('h1', { className: 'logo' }, 'Семейный Бюджет'),
+                                currentRoom && React.createElement('div', { className: 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full' },
+                                    currentRoom.name
+                                )
+                            ),
+                            React.createElement('div', { className: 'flex items-center space-x-2' },
+                                React.createElement('button',
+                                    {
+                                        onClick: exitRoom,
+                                        className: 'text-sm text-gray-600 hover:text-gray-800'
+                                    },
+                                    'Выйти'
                                 ),
-                                React.createElement('button', {
-                                    onClick: exitRoom,
-                                    className: 'btn btn-danger',
-                                    style: { padding: '8px 15px' }
-                                }, 'Выйти'),
-                                React.createElement('nav', null,
-                                    ['budget', 'shopping', 'calendar'].map(tab => 
-                                        React.createElement('button', {
-                                            key: tab,
-                                            className: `nav-button ${activeTab === tab ? 'active' : ''}`,
-                                            onClick: () => setActiveTab(tab)
-                                        },
-                                        React.createElement('i', { className: `fas fa-${tab === 'budget' ? 'wallet' : tab === 'shopping' ? 'shopping-cart' : 'calendar'}` }),
-                                        React.createElement('span', null, 
-                                            tab === 'budget' ? 'Бюджет' : 
-                                            tab === 'shopping' ? 'Покупки' : 'Календарь'
-                                        )
+                                React.createElement('nav', { className: 'flex' },
+                                    [
+                                        { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' },
+                                        { id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' },
+                                        { id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' }
+                                    ].map(({ id, label, icon }) => 
+                                        React.createElement('button',
+                                            {
+                                                key: id,
+                                                onClick: () => setActiveTab(id),
+                                                className: `nav-button ${activeTab === id ? 'active' : ''}`
+                                            },
+                                            React.createElement('i', { className: icon }),
+                                            React.createElement('span', { className: 'ml-2' }, label)
                                         )
                                     )
                                 )
                             )
                         )
-                    ),
+                    )
+                ),
 
-                    // Main content
-                    React.createElement('main', null,
-                        // Budget tab
-                        activeTab === 'budget' && React.createElement(React.Fragment, null,
-                            // Stats
-                            React.createElement('div', { className: 'stats-grid' },
-                                React.createElement('div', { className: 'stat-card stat-income' },
-                                    React.createElement('div', { className: 'stat-icon' },
-                                        React.createElement('i', { className: 'fas fa-arrow-down' })
+                React.createElement('main', { className: 'app-container' },
+                    // Budget Tab
+                    activeTab === 'budget' && React.createElement('div', { className: 'space-y-6' },
+                        // Financial Summary
+                        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
+                            React.createElement('div', { className: 'card' },
+                                React.createElement('div', { className: 'flex items-center justify-between' },
+                                    React.createElement('div', null,
+                                        React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Начальный остаток'),
+                                        React.createElement('input',
+                                            {
+                                                type: 'number',
+                                                value: initialBalance,
+                                                onChange: (e) => setInitialBalance(parseFloat(e.target.value) || 0),
+                                                className: 'text-xl font-bold text-purple-600 w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none'
+                                            }
+                                        )
                                     ),
-                                    React.createElement('div', { className: 'stat-info' },
-                                        React.createElement('h3', null, 'Доходы'),
-                                        React.createElement('p', null, totalIncome.toLocaleString('ru-RU'), ' ₽')
-                                    )
-                                ),
-                                React.createElement('div', { className: 'stat-card stat-expense' },
-                                    React.createElement('div', { className: 'stat-icon' },
-                                        React.createElement('i', { className: 'fas fa-arrow-up' })
-                                    ),
-                                    React.createElement('div', { className: 'stat-info' },
-                                        React.createElement('h3', null, 'Расходы'),
-                                        React.createElement('p', null, totalExpenses.toLocaleString('ru-RU'), ' ₽')
-                                    )
-                                ),
-                                React.createElement('div', { className: 'stat-card stat-balance' },
-                                    React.createElement('div', { className: 'stat-icon' },
-                                        React.createElement('i', { className: 'fas fa-balance-scale' })
-                                    ),
-                                    React.createElement('div', { className: 'stat-info' },
-                                        React.createElement('h3', null, 'Баланс'),
-                                        React.createElement('p', null, balance.toLocaleString('ru-RU'), ' ₽')
-                                    )
-                                ),
-                                React.createElement('div', { className: 'stat-card stat-savings' },
-                                    React.createElement('div', { className: 'stat-icon' },
-                                        React.createElement('i', { className: 'fas fa-piggy-bank' })
-                                    ),
-                                    React.createElement('div', { className: 'stat-info' },
-                                        React.createElement('h3', null, 'Откладываем'),
-                                        React.createElement('p', null, savings.toLocaleString('ru-RU'), ' ₽')
-                                    )
+                                    React.createElement('div', { className: 'text-purple-500' }, '💰')
                                 )
                             ),
-
-                            // Add transaction form
+                            
                             React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' }, 'Добавить операцию'),
-                                    React.createElement('button', { className: 'btn btn-primary', onClick: addTransaction },
-                                        React.createElement('i', { className: 'fas fa-plus' }),
-                                        ' Добавить'
-                                    )
-                                ),
-                                React.createElement('div', { className: 'form-grid' },
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Тип'),
-                                        React.createElement('select', {
-                                            className: 'form-control',
+                                React.createElement('div', { className: 'flex items-center justify-between' },
+                                    React.createElement('div', null,
+                                        React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Текущий баланс'),
+                                        React.createElement('p', { className: `text-xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}` },
+                                            balance.toLocaleString('ru-RU'), ' ₽'
+                                        )
+                                    ),
+                                    React.createElement('div', { className: 'text-blue-500' }, '💳')
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: 'card' },
+                                React.createElement('div', { className: 'flex items-center justify-between' },
+                                    React.createElement('div', null,
+                                        React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Можно отложить'),
+                                        React.createElement('p', { className: 'text-xl font-bold text-green-600' },
+                                            availableToSave.toLocaleString('ru-RU'), ' ₽'
+                                        )
+                                    ),
+                                    React.createElement('div', { className: 'text-green-500' }, '📈')
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: 'card' },
+                                React.createElement('div', { className: 'flex items-center justify-between' },
+                                    React.createElement('div', null,
+                                        React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Ежедневно можно тратить'),
+                                        React.createElement('p', { className: 'text-xl font-bold text-orange-600' },
+                                            dailySpendingLimit.toLocaleString('ru-RU', { maximumFractionDigits: 0 }), ' ₽'
+                                        )
+                                    ),
+                                    React.createElement('div', { className: 'text-orange-500' }, '📉')
+                                )
+                            )
+                        ),
+
+                        // Add Transaction
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('button',
+                                {
+                                    onClick: () => setShowAddTransaction(!showAddTransaction),
+                                    className: 'flex items-center justify-between w-full'
+                                },
+                                React.createElement('h2', { className: 'text-lg font-semibold' }, 'Добавить операцию'),
+                                React.createElement('div', null, showAddTransaction ? '▲' : '▼')
+                            ),
+                            
+                            showAddTransaction && React.createElement('div', { className: 'mt-4' },
+                                React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3' },
+                                    React.createElement('select',
+                                        {
                                             value: newTransaction.type,
-                                            onChange: (e) => setNewTransaction({...newTransaction, type: e.target.value})
+                                            onChange: (e) => setNewTransaction({...newTransaction, type: e.target.value}),
+                                            className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                         },
                                         React.createElement('option', { value: 'income' }, 'Доход'),
                                         React.createElement('option', { value: 'expense' }, 'Расход')
-                                        )
                                     ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Сумма'),
-                                        React.createElement('input', {
+                                    
+                                    React.createElement('input',
+                                        {
                                             type: 'number',
-                                            className: 'form-control',
                                             placeholder: 'Сумма',
                                             value: newTransaction.amount,
-                                            onChange: (e) => setNewTransaction({...newTransaction, amount: e.target.value})
-                                        })
+                                            onChange: (e) => setNewTransaction({...newTransaction, amount: e.target.value}),
+                                            className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
                                     ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Категория'),
-                                        React.createElement('select', {
-                                            className: 'form-control',
+                                    
+                                    React.createElement('select',
+                                        {
                                             value: newTransaction.category,
-                                            onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value})
+                                            onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value}),
+                                            className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                         },
                                         React.createElement('option', { value: 'Продукты' }, 'Продукты'),
                                         React.createElement('option', { value: 'Транспорт' }, 'Транспорт'),
@@ -922,80 +1246,193 @@
                                         React.createElement('option', { value: 'Образование' }, 'Образование'),
                                         React.createElement('option', { value: 'Зарплата' }, 'Зарплата'),
                                         React.createElement('option', { value: 'Фриланс' }, 'Фриланс')
-                                        )
                                     ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Дата'),
-                                        React.createElement('input', {
+                                    
+                                    React.createElement('input',
+                                        {
                                             type: 'date',
-                                            className: 'form-control',
                                             value: newTransaction.date,
-                                            onChange: (e) => setNewTransaction({...newTransaction, date: e.target.value})
-                                        })
+                                            onChange: (e) => setNewTransaction({...newTransaction, date: e.target.value}),
+                                            className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
                                     ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Описание'),
-                                        React.createElement('input', {
+                                    
+                                    React.createElement('input',
+                                        {
                                             type: 'text',
-                                            className: 'form-control',
                                             placeholder: 'Описание',
                                             value: newTransaction.description,
-                                            onChange: (e) => setNewTransaction({...newTransaction, description: e.target.value})
-                                        })
+                                            onChange: (e) => setNewTransaction({...newTransaction, description: e.target.value}),
+                                            className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
+                                    ),
+                                    
+                                    React.createElement('button',
+                                        {
+                                            onClick: addTransaction,
+                                            className: 'btn-primary flex items-center justify-center'
+                                        },
+                                        React.createElement('i', { className: 'fas fa-plus mr-2' }),
+                                        'Добавить'
+                                    )
+                                )
+                            )
+                        ),
+
+                        // Calendar
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'calendar-navigation' },
+                                React.createElement('div', { className: 'flex items-center space-x-3' },
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => navigateCalendar(-1),
+                                            className: 'calendar-nav-button'
+                                        },
+                                        React.createElement('i', { className: 'fas fa-chevron-left' })
+                                    ),
+                                    React.createElement('h2', { className: 'calendar-title' }, title),
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => navigateCalendar(1),
+                                            className: 'calendar-nav-button'
+                                        },
+                                        React.createElement('i', { className: 'fas fa-chevron-right' })
+                                    )
+                                ),
+                                React.createElement('button',
+                                    {
+                                        onClick: () => {
+                                            const today = new Date();
+                                            setCurrentDate(today);
+                                            setSelectedDate(today);
+                                        },
+                                        className: 'calendar-today-button'
+                                    },
+                                    'Сегодня'
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: 'calendar-grid' },
+                                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
+                                    React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
+                                ),
+                                
+                                days.map((day, index) => {
+                                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                                    const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
+                                    const events = getEventsForDate(day);
+                                    const dayTransactions = transactions.filter(t => 
+                                        new Date(t.date).toDateString() === day.toDateString()
+                                    );
+                                    const hasEvents = events.length > 0 || dayTransactions.length > 0;
+                                    
+                                    return React.createElement('div',
+                                        {
+                                            key: index,
+                                            className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''} ${hasEvents ? 'cursor-pointer' : ''}`,
+                                            onClick: () => hasEvents && handleDayClick(day)
+                                        },
+                                        React.createElement('div', { className: 'calendar-day-number' },
+                                            day.getDate()
+                                        ),
+                                        
+                                        React.createElement('div', { className: 'calendar-events-container' },
+                                            events.slice(0, 2).map(event => 
+                                                React.createElement('div',
+                                                    {
+                                                        key: event.id,
+                                                        className: `calendar-event-item ${event.color}`,
+                                                        title: event.title
+                                                    },
+                                                    event.title
+                                                )
+                                            ),
+                                            
+                                            dayTransactions.slice(0, 2).map(transaction => 
+                                                React.createElement('div',
+                                                    {
+                                                        key: transaction.id,
+                                                        className: `calendar-event-item ${transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'}`,
+                                                        title: transaction.description
+                                                    },
+                                                    transaction.type === 'income' ? '+' : '-', transaction.amount, ' ₽'
+                                                )
+                                            ),
+                                            
+                                            (events.length > 2 || dayTransactions.length > 2) && React.createElement('div', { className: 'text-xs text-gray-500' },
+                                                '+', (events.length - 2) + (dayTransactions.length - 2), ' еще'
+                                            )
+                                        )
+                                    );
+                                })
+                            )
+                        ),
+
+                        // Transactions History
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                React.createElement('h2', { className: 'text-lg font-semibold' }, 
+                                    selectedDate ? `Операции за ${selectedDate.toLocaleDateString('ru-RU')}` : 'История операций'
+                                ),
+                                selectedDate && React.createElement('button',
+                                    {
+                                        onClick: () => setSelectedDate(null),
+                                        className: 'text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded'
+                                    },
+                                    'Показать все'
+                                ),
+                                React.createElement('div', { className: 'relative' },
+                                    React.createElement('div', { className: 'absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400' },
+                                        React.createElement('i', { className: 'fas fa-search' })
+                                    ),
+                                    React.createElement('input',
+                                        {
+                                            type: 'text',
+                                            placeholder: 'Поиск...',
+                                            value: searchTerm,
+                                            onChange: (e) => setSearchTerm(e.target.value),
+                                            className: 'pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
                                     )
                                 )
                             ),
-
-                            // Transactions table
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' },
-                                        selectedDate ? `Операции за ${selectedDate.toLocaleDateString('ru-RU')}` : 'История операций'
+                            React.createElement('div', { className: 'overflow-x-auto' },
+                                React.createElement('table', { className: 'w-full' },
+                                    React.createElement('thead', null,
+                                        React.createElement('tr', { className: 'border-b border-gray-200' },
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Дата'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Описание'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Категория'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Сумма'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Баланс после'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Действия')
+                                        )
                                     ),
-                                    selectedDate && React.createElement('button', {
-                                        className: 'btn btn-secondary',
-                                        onClick: () => setSelectedDate(null)
-                                    }, 'Показать все')
-                                ),
-                                React.createElement('div', { className: 'table-container' },
-                                    React.createElement('table', null,
-                                        React.createElement('thead', null,
-                                            React.createElement('tr', null,
-                                                React.createElement('th', null, 'Дата'),
-                                                React.createElement('th', null, 'Описание'),
-                                                React.createElement('th', null, 'Категория'),
-                                                React.createElement('th', null, 'Сумма'),
-                                                React.createElement('th', null, 'Действия')
-                                            )
-                                        ),
-                                        React.createElement('tbody', null,
-                                            filteredTransactions.map(transaction => 
-                                                React.createElement('tr', { key: transaction.id },
-                                                    React.createElement('td', null, new Date(transaction.date).toLocaleDateString('ru-RU')),
-                                                    React.createElement('td', null, transaction.description),
-                                                    React.createElement('td', null,
-                                                        React.createElement('span', { style: { 
-                                                            backgroundColor: transaction.type === 'income' ? '#48bb78' : '#e53e3e',
-                                                            color: 'white',
-                                                            padding: '4px 8px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '0.8rem'
-                                                        } }, transaction.category)
-                                                    ),
-                                                    React.createElement('td', { style: { 
-                                                        fontWeight: 'bold',
-                                                        color: transaction.type === 'income' ? '#48bb78' : '#e53e3e'
-                                                    } },
-                                                        transaction.type === 'income' ? '+' : '-',
-                                                        transaction.amount.toLocaleString('ru-RU'), ' ₽'
-                                                    ),
-                                                    React.createElement('td', null,
-                                                        React.createElement('button', {
-                                                            className: 'action-btn delete-btn',
-                                                            onClick: () => deleteTransaction(transaction.id)
+                                    React.createElement('tbody', null,
+                                        filteredTransactions.slice().reverse().map(transaction => 
+                                            React.createElement('tr', { key: transaction.id, className: 'border-b border-gray-100 hover:bg-gray-50' },
+                                                React.createElement('td', { className: 'py-3 px-4' }, new Date(transaction.date).toLocaleDateString('ru-RU')),
+                                                React.createElement('td', { className: 'py-3 px-4' }, transaction.description),
+                                                React.createElement('td', { className: 'py-3 px-4' },
+                                                    React.createElement('span', { className: 'px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs' },
+                                                        transaction.category
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: `py-3 px-4 font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}` },
+                                                    transaction.type === 'income' ? '+' : '-', transaction.amount.toLocaleString('ru-RU'), ' ₽'
+                                                ),
+                                                React.createElement('td', { className: `py-3 px-4 font-semibold ${transaction.balanceAfter >= 0 ? 'text-green-600' : 'text-red-600'}` },
+                                                    transaction.balanceAfter.toLocaleString('ru-RU'), ' ₽'
+                                                ),
+                                                React.createElement('td', { className: 'py-3 px-4' },
+                                                    React.createElement('button',
+                                                        {
+                                                            onClick: () => {
+                                                                setTransactions(transactions.filter(t => t.id !== transaction.id));
+                                                            },
+                                                            className: 'text-red-500 hover:text-red-700'
                                                         },
                                                         React.createElement('i', { className: 'fas fa-trash' })
-                                                        )
                                                     )
                                                 )
                                             )
@@ -1005,232 +1442,335 @@
                             )
                         ),
 
-                        // Shopping list tab
-                        activeTab === 'shopping' && React.createElement(React.Fragment, null,
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' }, 'Список покупок'),
-                                    React.createElement('button', { className: 'btn btn-success', onClick: addShoppingItem },
-                                        React.createElement('i', { className: 'fas fa-plus' }),
-                                        ' Добавить'
-                                    )
-                                ),
-                                React.createElement('div', { className: 'form-grid' },
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Название'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'form-control',
-                                            placeholder: 'Название товара',
-                                            value: newShoppingItem.item,
-                                            onChange: (e) => setNewShoppingItem({...newShoppingItem, item: e.target.value})
-                                        })
-                                    ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Количество'),
-                                        React.createElement('input', {
-                                            type: 'number',
-                                            className: 'form-control',
-                                            placeholder: 'Количество',
-                                            value: newShoppingItem.quantity,
-                                            onChange: (e) => setNewShoppingItem({...newShoppingItem, quantity: parseInt(e.target.value) || 1})
-                                        })
-                                    ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Единица'),
-                                        React.createElement('select', {
-                                            className: 'form-control',
-                                            value: newShoppingItem.unit,
-                                            onChange: (e) => setNewShoppingItem({...newShoppingItem, unit: e.target.value})
-                                        },
-                                        React.createElement('option', { value: 'штука' }, 'штука'),
-                                        React.createElement('option', { value: 'литр' }, 'литр'),
-                                        React.createElement('option', { value: 'грамм' }, 'грамм'),
-                                        React.createElement('option', { value: 'килограмм' }, 'килограмм'),
-                                        React.createElement('option', { value: 'метр' }, 'метр'),
-                                        React.createElement('option', { value: 'упаковка' }, 'упаковка')
+                        // Fixed Expenses
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                React.createElement('h2', { className: 'text-lg font-semibold' }, 'Обязательные траты'),
+                                React.createElement('div', { className: 'text-sm text-gray-600' },
+                                    fixedExpenses.length, ' записей (', fixedExpensesTotal.toLocaleString('ru-RU'), ' ₽)'
+                                )
+                            ),
+                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' },
+                                fixedExpenses.map(expense => 
+                                    React.createElement('div', { key: expense.id, className: 'border border-gray-200 rounded-lg p-4' },
+                                        React.createElement('div', { className: 'flex justify-between items-start' },
+                                            React.createElement('div', null,
+                                                React.createElement('h3', { className: 'font-medium' }, expense.name),
+                                                React.createElement('p', { className: 'text-sm text-gray-600' }, expense.category)
+                                            ),
+                                            React.createElement('button',
+                                                {
+                                                    onClick: () => {
+                                                        setFixedExpenses(fixedExpenses.filter(e => e.id !== expense.id));
+                                                    },
+                                                    className: 'text-red-500 hover:text-red-700'
+                                                },
+                                                React.createElement('i', { className: 'fas fa-trash' })
+                                            )
+                                        ),
+                                        React.createElement('p', { className: 'text-lg font-bold text-red-600 mt-2' },
+                                            expense.amount.toLocaleString('ru-RU'), ' ₽'
                                         )
                                     )
                                 )
                             ),
-
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' }, 'Список покупок'),
-                                    React.createElement('button', { className: 'btn btn-primary' },
-                                        React.createElement('i', { className: 'fab fa-telegram' }),
-                                        ' Отправить в Telegram'
-                                    )
-                                ),
-                                React.createElement('div', { className: 'shopping-list' },
-                                    shoppingList.map(item => 
-                                        React.createElement('div', { key: item.id, className: `shopping-item ${item.completed ? 'completed' : ''}` },
-                                            React.createElement('div', {
-                                                className: `checkbox ${item.completed ? 'checked' : ''}`,
-                                                onClick: () => toggleShoppingItem(item.id)
-                                            }),
-                                            React.createElement('div', { className: 'item-name' }, item.item),
-                                            React.createElement('div', { className: 'item-quantity' },
-                                                item.quantity, ' ', item.unit
-                                            ),
-                                            React.createElement('button', {
-                                                className: 'action-btn delete-btn',
-                                                onClick: () => deleteShoppingItem(item.id)
-                                            },
-                                            React.createElement('i', { className: 'fas fa-trash' })
-                                            )
-                                        )
-                                    )
-                                )
+                            React.createElement('button',
+                                {
+                                    onClick: () => {
+                                        const newExpense = {
+                                            id: Date.now(),
+                                            name: 'Новая трата',
+                                            amount: 0,
+                                            category: 'Продукты'
+                                        };
+                                        setFixedExpenses([...fixedExpenses, newExpense]);
+                                    },
+                                    className: 'mt-4 btn-primary'
+                                },
+                                React.createElement('i', { className: 'fas fa-plus mr-2' }),
+                                'Добавить обязательную трату'
                             )
                         ),
 
-                        // Calendar tab
-                        activeTab === 'calendar' && React.createElement(React.Fragment, null,
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' }, title),
-                                    React.createElement('div', { style: { display: 'flex', gap: '10px' } },
-                                        React.createElement('button', {
-                                            className: 'btn btn-secondary',
-                                            onClick: () => navigateCalendar(-1)
+                        // Budget Settings
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('h2', { className: 'text-lg font-semibold mb-4' }, 'Настройки бюджета'),
+                            
+                            React.createElement('div', { className: 'mb-6' },
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
+                                    'Процент для откладывания: ', savingsPercentage, '%'
+                                ),
+                                React.createElement('input',
+                                    {
+                                        type: 'range',
+                                        min: 0,
+                                        max: 50,
+                                        value: savingsPercentage,
+                                        onChange: (e) => setSavingsPercentage(parseInt(e.target.value)),
+                                        className: 'w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600'
+                                    }
+                                )
+                            )
+                        )
+                    ),
+
+                    // Shopping List Tab
+                    activeTab === 'shopping' && React.createElement('div', { className: 'space-y-6' },
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('h2', { className: 'text-lg font-semibold mb-4' }, 'Список покупок'),
+                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-3 mb-4' },
+                                React.createElement('input',
+                                    {
+                                        type: 'text',
+                                        placeholder: 'Название товара',
+                                        value: newItem.name,
+                                        onChange: (e) => setNewItem({...newItem, name: e.target.value}),
+                                        className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                    }
+                                ),
+                                
+                                React.createElement('input',
+                                    {
+                                        type: 'number',
+                                        placeholder: 'Количество',
+                                        value: newItem.quantity,
+                                        onChange: (e) => setNewItem({...newItem, quantity: parseInt(e.target.value) || 1}),
+                                        className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                    }
+                                ),
+                                
+                                React.createElement('select',
+                                    {
+                                        value: newItem.unit,
+                                        onChange: (e) => setNewItem({...newItem, unit: e.target.value}),
+                                        className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                    },
+                                    React.createElement('option', { value: 'штука' }, 'штука'),
+                                    React.createElement('option', { value: 'литр' }, 'литр'),
+                                    React.createElement('option', { value: 'грамм' }, 'грамм'),
+                                    React.createElement('option', { value: 'килограмм' }, 'килограмм'),
+                                    React.createElement('option', { value: 'метр' }, 'метр'),
+                                    React.createElement('option', { value: 'упаковка' }, 'упаковка')
+                                ),
+                                
+                                React.createElement('button',
+                                    {
+                                        onClick: addShoppingItem,
+                                        className: 'btn-primary flex items-center justify-center'
+                                    },
+                                    React.createElement('i', { className: 'fas fa-plus mr-2' }),
+                                    'Добавить'
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: 'space-y-2' },
+                                shoppingList.map(item => 
+                                    React.createElement('div', { key: item.id, className: 'flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50' },
+                                        React.createElement('div', { className: 'flex items-center space-x-3' },
+                                            React.createElement('div',
+                                                {
+                                                    className: `w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.completed ? 'bg-green-500 border-green-500' : 'border-gray-300'}`,
+                                                    onClick: () => toggleShoppingItem(item.id)
+                                                },
+                                                item.completed && React.createElement('i', { className: 'fas fa-check text-white text-xs' })
+                                            ),
+                                            React.createElement('div', null,
+                                                React.createElement('span', { className: `${item.completed ? 'line-through text-gray-500' : 'text-gray-800'}` },
+                                                    item.item
+                                                ),
+                                                React.createElement('span', { className: 'text-sm text-gray-600 ml-2' },
+                                                    '× ', item.quantity, ' ', item.unit
+                                                )
+                                            )
+                                        ),
+                                        React.createElement('button',
+                                            {
+                                                onClick: () => deleteShoppingItem(item.id),
+                                                className: 'text-red-500 hover:text-red-700'
+                                            },
+                                            React.createElement('i', { className: 'fas fa-trash' })
+                                        )
+                                    )
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: 'flex justify-end mt-4' },
+                                React.createElement('button',
+                                    {
+                                        onClick: () => alert('Список отправлен в Telegram!'),
+                                        className: 'bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors flex items-center'
+                                    },
+                                    React.createElement('i', { className: 'fab fa-telegram mr-2' }),
+                                    'Отправить в Telegram'
+                                )
+                            )
+                        )
+                    ),
+
+                    // Planner Tab
+                    activeTab === 'planner' && React.createElement('div', { className: 'space-y-6' },
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                React.createElement('h2', { className: 'text-lg font-semibold' }, 'Планировщик событий'),
+                                React.createElement('div', { className: 'flex space-x-2' },
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => navigateCalendar(-1),
+                                            className: 'p-2 rounded hover:bg-gray-100'
                                         },
                                         React.createElement('i', { className: 'fas fa-chevron-left' })
-                                        ),
-                                        React.createElement('button', {
-                                            className: 'btn btn-primary',
+                                    ),
+                                    React.createElement('button',
+                                        {
                                             onClick: () => {
                                                 const today = new Date();
                                                 setCurrentDate(today);
-                                                setSelectedDate(today);
-                                            }
-                                        }, 'Сегодня'),
-                                        React.createElement('button', {
-                                            className: 'btn btn-secondary',
-                                            onClick: () => navigateCalendar(1)
+                                            },
+                                            className: 'px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700'
+                                        },
+                                        'Сегодня'
+                                    ),
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => navigateCalendar(1),
+                                            className: 'p-2 rounded hover:bg-gray-100'
                                         },
                                         React.createElement('i', { className: 'fas fa-chevron-right' })
-                                        )
                                     )
-                                ),
-                                React.createElement('div', { className: 'calendar' },
-                                    ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
-                                        React.createElement('div', { key: day, className: 'calendar-header' }, day)
-                                    ),
-                                    days.map((day, index) => {
-                                        const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                                        const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
-                                        const events = getEventsForDate(day);
-                                        const transactions = getTransactionsForDate(day);
-                                        
-                                        return React.createElement('div', {
-                                            key: index,
-                                            className: `calendar-day ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''}`,
-                                            onClick: () => handleDayClick(day)
-                                        },
-                                        React.createElement('div', { className: 'calendar-day-number' }, day.getDate()),
-                                        React.createElement('div', { className: 'calendar-events' },
-                                            events.slice(0, 2).map(event => 
-                                                React.createElement('div', {
-                                                    key: event.id,
-                                                    className: `calendar-event ${event.color}`
-                                                }, event.title)
-                                            ),
-                                            transactions.slice(0, 2).map(transaction => 
-                                                React.createElement('div', {
-                                                    key: transaction.id,
-                                                    className: `calendar-event ${transaction.type === 'income' ? 'event-income' : 'event-expense'}`
-                                                },
-                                                transaction.type === 'income' ? '+' : '-',
-                                                transaction.amount, ' ₽'
-                                                )
-                                            )
-                                        )
-                                        );
-                                    })
                                 )
                             ),
-
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' }, 'Добавить событие'),
-                                    React.createElement('button', { className: 'btn btn-primary', onClick: addCalendarEvent },
-                                        React.createElement('i', { className: 'fas fa-plus' }),
-                                        ' Добавить'
-                                    )
+                            
+                            React.createElement('div', { className: 'calendar-navigation mb-4' },
+                                React.createElement('h2', { className: 'calendar-title text-center' }, title)
+                            ),
+                            
+                            React.createElement('div', { className: 'calendar-grid' },
+                                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
+                                    React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
                                 ),
-                                React.createElement('div', { className: 'form-grid' },
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Название события'),
-                                        React.createElement('input', {
+                                
+                                days.map((day, index) => {
+                                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                                    const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
+                                    const events = getEventsForDate(day);
+                                    const hasEvents = events.length > 0;
+                                    
+                                    return React.createElement('div',
+                                        {
+                                            key: index,
+                                            className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''} ${hasEvents ? 'cursor-pointer' : ''}`,
+                                            onClick: () => hasEvents && handleDayClick(day)
+                                        },
+                                        React.createElement('div', { className: 'calendar-day-number' },
+                                            day.getDate()
+                                        ),
+                                        
+                                        React.createElement('div', { className: 'calendar-events-container' },
+                                            events.slice(0, 3).map(event => 
+                                                React.createElement('div',
+                                                    {
+                                                        key: event.id,
+                                                        className: `calendar-event-item ${event.color}`,
+                                                        title: event.title
+                                                    },
+                                                    event.title
+                                                )
+                                            ),
+                                            
+                                            events.length > 3 && React.createElement('div', { className: 'text-xs text-gray-500' },
+                                                '+', events.length - 3, ' еще'
+                                            )
+                                        )
+                                    );
+                                })
+                            )
+                        ),
+
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('h2', { className: 'text-lg font-semibold mb-4' }, 'Добавить событие'),
+                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                                React.createElement('div', { className: 'space-y-3' },
+                                    React.createElement('input',
+                                        {
                                             type: 'text',
-                                            className: 'form-control',
                                             placeholder: 'Название события',
                                             value: newEvent.title,
-                                            onChange: (e) => setNewEvent({...newEvent, title: e.target.value})
-                                        })
+                                            onChange: (e) => setNewEvent({...newEvent, title: e.target.value}),
+                                            className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
                                     ),
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', null, 'Дата'),
-                                        React.createElement('input', {
+                                    
+                                    React.createElement('input',
+                                        {
                                             type: 'date',
-                                            className: 'form-control',
                                             value: newEvent.date,
-                                            onChange: (e) => setNewEvent({...newEvent, date: e.target.value})
-                                        })
+                                            onChange: (e) => setNewEvent({...newEvent, date: e.target.value}),
+                                            className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                        }
                                     )
+                                ),
+                                
+                                React.createElement('div', { className: 'space-y-3' },
+                                    React.createElement('div', { className: 'color-picker' },
+                                        colorOptions.map(color => 
+                                            React.createElement('div',
+                                                {
+                                                    key: color,
+                                                    className: `color-option ${color} ${newEvent.color === color ? 'selected' : ''}`,
+                                                    onClick: () => setNewEvent({...newEvent, color: color}),
+                                                    title: color.replace('bg-', '').replace('-500', '')
+                                                }
+                                            )
+                                        )
+                                    ),
+                                    
+                                    React.createElement('button',
+                                        {
+                                            onClick: addCalendarEvent,
+                                            className: 'w-full btn-primary flex items-center justify-center'
+                                        },
+                                        React.createElement('i', { className: 'fas fa-plus mr-2' }),
+                                        'Добавить событие'
+                                    )
+                                )
+                            )
+                        ),
+
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                React.createElement('h2', { className: 'text-lg font-semibold' },
+                                    selectedDate ? `События за ${selectedDate.toLocaleDateString('ru-RU')}` : 'Все события'
+                                ),
+                                selectedDate && React.createElement('button',
+                                    {
+                                        onClick: () => setSelectedDate(null),
+                                        className: 'text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded'
+                                    },
+                                    'Показать все события'
                                 )
                             ),
-
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'card-header' },
-                                    React.createElement('h2', { className: 'card-title' },
-                                        selectedDate ? `События за ${selectedDate.toLocaleDateString('ru-RU')}` : 'Все события'
-                                    ),
-                                    selectedDate && React.createElement('button', {
-                                        className: 'btn btn-secondary',
-                                        onClick: () => setSelectedDate(null)
-                                    }, 'Показать все')
-                                ),
-                                React.createElement('div', { className: 'table-container' },
-                                    React.createElement('table', null,
-                                        React.createElement('thead', null,
-                                            React.createElement('tr', null,
-                                                React.createElement('th', null, 'Дата'),
-                                                React.createElement('th', null, 'Событие'),
-                                                React.createElement('th', null, 'Действия')
-                                            )
-                                        ),
-                                        React.createElement('tbody', null,
-                                            [...calendarEvents, ...transactions]
-                                                .filter(item => !selectedDate || new Date(item.date).toDateString() === selectedDate.toDateString())
-                                                .map(item => 
-                                                    React.createElement('tr', { key: item.id },
-                                                        React.createElement('td', null, new Date(item.date).toLocaleDateString('ru-RU')),
-                                                        React.createElement('td', null,
-                                                            item.title || item.description,
-                                                            item.type && React.createElement('span', { style: { 
-                                                                marginLeft: '10px',
-                                                                backgroundColor: item.type === 'income' ? '#48bb78' : '#e53e3e',
-                                                                color: 'white',
-                                                                padding: '2px 6px',
-                                                                borderRadius: '8px',
-                                                                fontSize: '0.7rem'
-                                                            } }, item.type === 'income' ? 'Доход' : 'Расход')
-                                                        ),
-                                                        React.createElement('td', null,
-                                                            React.createElement('button', {
-                                                                className: 'action-btn delete-btn',
-                                                                onClick: () => item.title ? deleteCalendarEvent(item.id) : deleteTransaction(item.id)
-                                                            },
-                                                            React.createElement('i', { className: 'fas fa-trash' })
-                                                            )
-                                                        )
-                                                    )
+                            
+                            React.createElement('div', { className: 'space-y-3' },
+                                calendarEvents
+                                    .filter(event => !selectedDate || new Date(event.date).toDateString() === selectedDate.toDateString())
+                                    .map(event => 
+                                        React.createElement('div', { key: event.id, className: 'flex items-start space-x-3 p-3 border border-gray-200 rounded hover:bg-gray-50' },
+                                            React.createElement('div', { className: `w-3 h-3 rounded-full mt-1 ${event.color}` }),
+                                            React.createElement('div', { className: 'flex-1' },
+                                                React.createElement('div', { className: 'font-medium' }, event.title),
+                                                React.createElement('div', { className: 'text-sm text-gray-600' },
+                                                    new Date(event.date).toLocaleDateString('ru-RU')
                                                 )
+                                            ),
+                                            React.createElement('button',
+                                                {
+                                                    onClick: () => deleteCalendarEvent(event.id),
+                                                    className: 'text-red-500 hover:text-red-700'
+                                                },
+                                                React.createElement('i', { className: 'fas fa-trash' })
+                                            )
                                         )
                                     )
-                                )
                             )
                         )
                     )

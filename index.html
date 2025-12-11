@@ -1094,6 +1094,119 @@
             display: none;
         }
 
+        /* Shopping list two columns */
+        .shopping-list-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .shopping-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .shopping-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .shopping-item-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .shopping-item-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shopping-item-checkbox.checked {
+            background: #16a34a;
+            border-color: #16a34a;
+        }
+
+        .shopping-item-checkbox.checked i {
+            color: white;
+            font-size: 12px;
+        }
+
+        .shopping-item-text {
+            font-size: 0.95rem;
+        }
+
+        .shopping-item-text.completed {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+        .shopping-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .shopping-item-edit {
+            color: #7c3aed;
+            cursor: pointer;
+        }
+
+        .shopping-item-delete {
+            color: #ef4444;
+            cursor: pointer;
+        }
+
+        .shopping-item-input {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.95rem;
+            width: 100%;
+        }
+
+        /* Participants */
+        .participants-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .participant-tag {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .participant-tag .remove-participant {
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+
+        .add-participant-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             .app-container {
@@ -1190,6 +1303,11 @@
             
             .feature-text {
                 font-size: 0.7rem;
+            }
+            
+            /* Shopping list two columns on mobile */
+            .shopping-list-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -1309,17 +1427,20 @@
             ]);
             
             const [newItem, setNewItem] = useState({ name: '', quantity: 1, unit: 'штука' });
+            const [editingItemId, setEditingItemId] = useState(null);
+            const [editingItemText, setEditingItemText] = useState('');
             
             // Calendar states
             const [calendarEvents, setCalendarEvents] = useState([
-                { id: 1, title: 'Оплата кредита', date: '2024-01-20', color: 'bg-blue-500' },
-                { id: 2, title: 'Покупка подарка', date: '2024-01-25', color: 'bg-pink-500' }
+                { id: 1, title: 'Оплата кредита', date: '2024-01-20', color: 'bg-blue-500', participants: [] },
+                { id: 2, title: 'Покупка подарка', date: '2024-01-25', color: 'bg-pink-500', participants: [] }
             ]);
             
             const [newEvent, setNewEvent] = useState({
                 title: '',
                 date: new Date().toISOString().split('T')[0],
-                color: 'bg-blue-500'
+                color: 'bg-blue-500',
+                participants: []
             });
             
             const [currentDate, setCurrentDate] = useState(new Date());
@@ -1330,6 +1451,10 @@
             const [savingsPercentage, setSavingsPercentage] = useState('');
             const [authorNames] = useState(['Иван', 'Мария']);
             const [showSettings, setShowSettings] = useState(false);
+            
+            // Participants
+            const [participants, setParticipants] = useState(['Иван', 'Мария']);
+            const [newParticipant, setNewParticipant] = useState('');
             
             // Color options for events
             const colorOptions = [
@@ -1397,6 +1522,23 @@
                 ));
             };
 
+            // Start editing shopping item
+            const startEditingItem = (id, text) => {
+                setEditingItemId(id);
+                setEditingItemText(text);
+            };
+
+            // Save edited shopping item
+            const saveEditedItem = () => {
+                if (editingItemText.trim()) {
+                    setShoppingList(shoppingList.map(item => 
+                        item.id === editingItemId ? { ...item, item: editingItemText } : item
+                    ));
+                }
+                setEditingItemId(null);
+                setEditingItemText('');
+            };
+
             // Delete shopping item
             const deleteShoppingItem = (id) => {
                 setShoppingList(shoppingList.filter(item => item.id !== id));
@@ -1413,7 +1555,8 @@
                     setNewEvent({
                         title: '',
                         date: new Date().toISOString().split('T')[0],
-                        color: 'bg-blue-500'
+                        color: 'bg-blue-500',
+                        participants: []
                     });
                 }
             };
@@ -1421,6 +1564,32 @@
             // Delete calendar event
             const deleteCalendarEvent = (id) => {
                 setCalendarEvents(calendarEvents.filter(event => event.id !== id));
+            };
+
+            // Add participant to event
+            const addParticipantToEvent = (eventId, participant) => {
+                setCalendarEvents(calendarEvents.map(event => 
+                    event.id === eventId 
+                        ? { ...event, participants: [...event.participants, participant] } 
+                        : event
+                ));
+            };
+
+            // Remove participant from event
+            const removeParticipantFromEvent = (eventId, participant) => {
+                setCalendarEvents(calendarEvents.map(event => 
+                    event.id === eventId 
+                        ? { ...event, participants: event.participants.filter(p => p !== participant) } 
+                        : event
+                ));
+            };
+
+            // Add new participant
+            const addNewParticipant = () => {
+                if (newParticipant.trim() && !participants.includes(newParticipant.trim())) {
+                    setParticipants([...participants, newParticipant.trim()]);
+                    setNewParticipant('');
+                }
             };
 
             // Calendar navigation
@@ -1432,6 +1601,11 @@
                     newDate.setDate(newDate.getDate() + (direction * 7));
                 }
                 setCurrentDate(newDate);
+            };
+
+            // Switch calendar view
+            const switchCalendarView = (view) => {
+                setCalendarView(view);
             };
 
             // Get calendar data
@@ -1677,15 +1851,31 @@
                 // Simplified parsing logic
                 // In real application, you would use a library like xlsx
                 try {
-                    // Simulate parsing
-                    const newTransactions = [
-                        { id: Date.now(), type: 'expense', amount: 12000, category: 'Продукты', date: '2024-01-20', description: 'Выписка из банка', balanceAfter: balance - 12000 },
-                        { id: Date.now() + 1, type: 'expense', amount: 5000, category: 'Транспорт', date: '2024-01-21', description: 'Выписка из банка', balanceAfter: balance - 17000 },
-                        { id: Date.now() + 2, type: 'income', amount: 30000, category: 'Зарплата', date: '2024-01-22', description: 'Выписка из банка', balanceAfter: balance + 13000 }
-                    ];
+                    // Simulate parsing - generate random transactions
+                    const newTransactions = [];
+                    const categories = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения', 'Здоровье', 'Образование'];
+                    const descriptions = ['Покупка в магазине', 'Оплата счета', 'Перевод средств', 'Покупка онлайн', 'Списание по карте'];
+                    
+                    for (let i = 0; i < 10; i++) {
+                        const type = Math.random() > 0.7 ? 'income' : 'expense';
+                        const amount = Math.floor(Math.random() * 10000) + 1000;
+                        const category = categories[Math.floor(Math.random() * categories.length)];
+                        const description = descriptions[Math.floor(Math.random() * descriptions.length)];
+                        const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
+                        
+                        newTransactions.push({
+                            id: Date.now() + i,
+                            type,
+                            amount,
+                            category,
+                            date: date.toISOString().split('T')[0],
+                            description,
+                            balanceAfter: balance + (type === 'income' ? amount : -amount)
+                        });
+                    }
                     
                     setTransactions([...transactions, ...newTransactions]);
-                    alert('Выписка успешно загружена!');
+                    alert('Выписка успешно загружена! Добавлено ' + newTransactions.length + ' операций.');
                 } catch (error) {
                     alert('Ошибка при загрузке выписки: ' + error.message);
                 }
@@ -1906,79 +2096,6 @@
                                         className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                     }
                                 )
-                            ),
-                            
-                            // Fixed expenses
-                            React.createElement('div', { className: 'mb-4' },
-                                React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                                    React.createElement('h3', { className: 'text-md font-semibold' }, 'Обязательные траты'),
-                                    React.createElement('button',
-                                        {
-                                            onClick: () => {
-                                                const newExpense = {
-                                                    id: Date.now(),
-                                                    name: 'Новая трата',
-                                                    amount: 0,
-                                                    category: 'Продукты'
-                                                };
-                                                setFixedExpenses([...fixedExpenses, newExpense]);
-                                            },
-                                            className: 'btn-primary'
-                                        },
-                                        'Добавить'
-                                    )
-                                ),
-                                
-                                React.createElement('div', { className: 'space-y-3' },
-                                    fixedExpenses.map(expense => 
-                                        React.createElement('div', { key: expense.id, className: 'flex items-center gap-3 p-3 border border-gray-200 rounded-lg' },
-                                            React.createElement('input',
-                                                {
-                                                    type: 'text',
-                                                    value: expense.name,
-                                                    onChange: (e) => setFixedExpenses(fixedExpenses.map(f => 
-                                                        f.id === expense.id ? {...f, name: e.target.value} : f
-                                                    )),
-                                                    placeholder: 'Название траты',
-                                                    className: 'flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent ' + (expense.name ? '' : 'placeholder-text')
-                                                }
-                                            ),
-                                            React.createElement('input',
-                                                {
-                                                    type: 'number',
-                                                    value: expense.amount || '',
-                                                    onChange: (e) => setFixedExpenses(fixedExpenses.map(f => 
-                                                        f.id === expense.id ? {...f, amount: parseFloat(e.target.value) || 0} : f
-                                                    )),
-                                                    placeholder: 'Сумма',
-                                                    className: 'w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent ' + (expense.amount ? '' : 'placeholder-text')
-                                                }
-                                            ),
-                                            React.createElement('select',
-                                                {
-                                                    value: expense.category,
-                                                    onChange: (e) => setFixedExpenses(fixedExpenses.map(f => 
-                                                        f.id === expense.id ? {...f, category: e.target.value} : f
-                                                    )),
-                                                    className: 'w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
-                                                },
-                                                React.createElement('option', { value: 'Продукты' }, 'Продукты'),
-                                                React.createElement('option', { value: 'Жилье' }, 'Жилье'),
-                                                React.createElement('option', { value: 'Транспорт' }, 'Транспорт'),
-                                                React.createElement('option', { value: 'Коммуналка' }, 'Коммуналка'),
-                                                React.createElement('option', { value: 'Кредит' }, 'Кредит'),
-                                                React.createElement('option', { value: 'Страховка' }, 'Страховка')
-                                            ),
-                                            React.createElement('button',
-                                                {
-                                                    onClick: () => setFixedExpenses(fixedExpenses.filter(e => e.id !== expense.id)),
-                                                    className: 'text-red-500 hover:text-red-700 p-2'
-                                                },
-                                                React.createElement('i', { className: 'fas fa-trash' })
-                                            )
-                                        )
-                                    )
-                                )
                             )
                         )
                     )
@@ -2004,34 +2121,22 @@
                                         React.createElement('i', { className: 'fas fa-wallet' })
                                     ),
                                     'Семейный Бюджет'
-                                ),
-                                currentRoom && React.createElement('div', { className: 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full' },
-                                    currentRoom.name
                                 )
                             ),
-                            React.createElement('div', { className: 'flex items-center space-x-2' },
-                                React.createElement('button',
-                                    {
-                                        onClick: exitRoom,
-                                        className: 'text-sm text-gray-600 hover:text-gray-800'
-                                    },
-                                    'Выйти'
-                                ),
-                                React.createElement('nav', { className: 'flex' },
-                                    [
-                                        { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' },
-                                        { id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' },
-                                        { id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' }
-                                    ].map(({ id, label, icon }) => 
-                                        React.createElement('button',
-                                            {
-                                                key: id,
-                                                onClick: () => setActiveTab(id),
-                                                className: 'nav-button ' + (activeTab === id ? 'active' : '')
-                                            },
-                                            React.createElement('i', { className: icon }),
-                                            React.createElement('span', { className: 'ml-2' }, label)
-                                        )
+                            React.createElement('nav', { className: 'flex' },
+                                [
+                                    { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' },
+                                    { id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' },
+                                    { id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' }
+                                ].map(({ id, label, icon }) => 
+                                    React.createElement('button',
+                                        {
+                                            key: id,
+                                            onClick: () => setActiveTab(id),
+                                            className: 'nav-button ' + (activeTab === id ? 'active' : '')
+                                        },
+                                        React.createElement('i', { className: icon }),
+                                        React.createElement('span', { className: 'ml-2' }, label)
                                     )
                                 )
                             )
@@ -2043,25 +2148,7 @@
                     // Budget Tab
                     activeTab === 'budget' && React.createElement('div', { className: 'space-y-6' },
                         // Financial Summary
-                        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
-                            React.createElement('div', { className: 'card' },
-                                React.createElement('div', { className: 'flex items-center justify-between' },
-                                    React.createElement('div', null,
-                                        React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Начальный остаток'),
-                                        React.createElement('input',
-                                            {
-                                                type: 'number',
-                                                value: initialBalance || '',
-                                                onChange: (e) => setInitialBalance(parseFloat(e.target.value) || 0),
-                                                placeholder: '0',
-                                                className: 'text-xl font-bold text-purple-600 w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none'
-                                            }
-                                        )
-                                    ),
-                                    React.createElement('div', { className: 'text-purple-500' }, '💰')
-                                )
-                            ),
-                            
+                        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
                             React.createElement('div', { className: 'card' },
                                 React.createElement('div', { className: 'flex items-center justify-between' },
                                     React.createElement('div', null,
@@ -2241,11 +2328,10 @@
                                 days.map((day, index) => {
                                     const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                                     const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
-                                    const events = getEventsForDate(day);
                                     const dayTransactions = transactions.filter(t => 
                                         new Date(t.date).toDateString() === day.toDateString()
                                     );
-                                    const hasEvents = events.length > 0 || dayTransactions.length > 0;
+                                    const hasEvents = dayTransactions.length > 0;
                                     
                                     return React.createElement('div',
                                         {
@@ -2258,18 +2344,7 @@
                                         ),
                                         
                                         React.createElement('div', { className: 'calendar-events-container' },
-                                            events.slice(0, 2).map(event => 
-                                                React.createElement('div',
-                                                    {
-                                                        key: event.id,
-                                                        className: 'calendar-event-item ' + event.color,
-                                                        title: event.title
-                                                    },
-                                                    event.title
-                                                )
-                                            ),
-                                            
-                                            dayTransactions.slice(0, 2).map(transaction => 
+                                            dayTransactions.slice(0, 4).map(transaction => 
                                                 React.createElement('div',
                                                     {
                                                         key: transaction.id,
@@ -2280,8 +2355,8 @@
                                                 )
                                             ),
                                             
-                                            (events.length > 2 || dayTransactions.length > 2) && React.createElement('div', { className: 'text-xs text-gray-700 font-medium' },
-                                                '+', (events.length - 2) + (dayTransactions.length - 2), ' еще'
+                                            dayTransactions.length > 4 && React.createElement('div', { className: 'text-xs text-gray-700 font-medium' },
+                                                '+', dayTransactions.length - 4, ' еще'
                                             )
                                         )
                                     );
@@ -2450,32 +2525,48 @@
                                 )
                             ),
                             
-                            React.createElement('div', { className: 'space-y-2' },
+                            React.createElement('div', { className: 'shopping-list-grid' },
                                 shoppingList.map(item => 
-                                    React.createElement('div', { key: item.id, className: 'flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50' },
-                                        React.createElement('div', { className: 'flex items-center space-x-3' },
+                                    React.createElement('div', { key: item.id, className: 'shopping-item' },
+                                        React.createElement('div', { className: 'shopping-item-content' },
                                             React.createElement('div',
                                                 {
-                                                    className: `w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.completed ? 'bg-green-500 border-green-500' : 'border-gray-300'}`,
+                                                    className: 'shopping-item-checkbox ' + (item.completed ? 'checked' : ''),
                                                     onClick: () => toggleShoppingItem(item.id)
                                                 },
-                                                item.completed && React.createElement('i', { className: 'fas fa-check text-white text-xs' })
+                                                item.completed && React.createElement('i', { className: 'fas fa-check' })
                                             ),
-                                            React.createElement('div', null,
-                                                React.createElement('span', { className: item.completed ? 'line-through text-gray-500' : 'text-gray-800' },
-                                                    item.item
-                                                ),
+                                            editingItemId === item.id ? 
+                                            React.createElement('input',
+                                                {
+                                                    type: 'text',
+                                                    value: editingItemText,
+                                                    onChange: (e) => setEditingItemText(e.target.value),
+                                                    onBlur: saveEditedItem,
+                                                    onKeyDown: (e) => e.key === 'Enter' && saveEditedItem(),
+                                                    autoFocus: true,
+                                                    className: 'shopping-item-input'
+                                                }
+                                            ) :
+                                            React.createElement('div', { 
+                                                className: 'shopping-item-text ' + (item.completed ? 'completed' : ''),
+                                                onDoubleClick: () => startEditingItem(item.id, item.item)
+                                            },
+                                                item.item,
                                                 React.createElement('span', { className: 'text-sm text-gray-600 ml-2' },
                                                     '× ', item.quantity, ' ', item.unit
                                                 )
                                             )
                                         ),
-                                        React.createElement('button',
-                                            {
-                                                onClick: () => deleteShoppingItem(item.id),
-                                                className: 'text-red-500 hover:text-red-700'
-                                            },
-                                            React.createElement('i', { className: 'fas fa-trash' })
+                                        React.createElement('div', { className: 'shopping-item-actions' },
+                                            React.createElement('i', { 
+                                                className: 'fas fa-edit shopping-item-edit',
+                                                onClick: () => startEditingItem(item.id, item.item)
+                                            }),
+                                            React.createElement('i', { 
+                                                className: 'fas fa-trash shopping-item-delete',
+                                                onClick: () => deleteShoppingItem(item.id)
+                                            })
                                         )
                                     )
                                 )
@@ -2500,6 +2591,20 @@
                             React.createElement('div', { className: 'flex justify-between items-center mb-4' },
                                 React.createElement('h2', { className: 'text-lg font-semibold' }, 'Планировщик событий'),
                                 React.createElement('div', { className: 'flex space-x-2' },
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => switchCalendarView('week'),
+                                            className: 'px-3 py-1 rounded ' + (calendarView === 'week' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300')
+                                        },
+                                        'Неделя'
+                                    ),
+                                    React.createElement('button',
+                                        {
+                                            onClick: () => switchCalendarView('month'),
+                                            className: 'px-3 py-1 rounded ' + (calendarView === 'month' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300')
+                                        },
+                                        'Месяц'
+                                    ),
                                     React.createElement('button',
                                         {
                                             onClick: () => navigateCalendar(-1),
@@ -2531,6 +2636,47 @@
                                 React.createElement('h2', { className: 'calendar-title text-center' }, title)
                             ),
                             
+                            calendarView === 'week' ? 
+                            React.createElement('div', { className: 'calendar-grid' },
+                                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
+                                    React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
+                                ),
+                                
+                                days.slice(0, 7).map((day, index) => {
+                                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                                    const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
+                                    const events = getEventsForDate(day);
+                                    const hasEvents = events.length > 0;
+                                    
+                                    return React.createElement('div',
+                                        {
+                                            key: index,
+                                            className: 'calendar-day-cell ' + (isCurrentMonth ? '' : 'other-month') + ' ' + (isSelected ? 'selected-day' : '') + ' ' + (hasEvents ? 'cursor-pointer' : ''),
+                                            onClick: () => hasEvents && handleDayClick(day)
+                                        },
+                                        React.createElement('div', { className: 'calendar-day-number' },
+                                            day.getDate()
+                                        ),
+                                        
+                                        React.createElement('div', { className: 'calendar-events-container' },
+                                            events.slice(0, 3).map(event => 
+                                                React.createElement('div',
+                                                    {
+                                                        key: event.id,
+                                                        className: 'calendar-event-item ' + event.color,
+                                                        title: event.title
+                                                    },
+                                                    event.title
+                                                )
+                                            ),
+                                            
+                                            events.length > 3 && React.createElement('div', { className: 'text-xs text-gray-700 font-medium' },
+                                                '+', events.length - 3, ' еще'
+                                            )
+                                        )
+                                    );
+                                })
+                            ) :
                             React.createElement('div', { className: 'calendar-grid' },
                                 ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
                                     React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
@@ -2594,6 +2740,43 @@
                                             onChange: (e) => setNewEvent({...newEvent, date: e.target.value}),
                                             className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                         }
+                                    ),
+                                    
+                                    React.createElement('div', { className: 'participants-container' },
+                                        newEvent.participants.map(participant => 
+                                            React.createElement('div', { key: participant, className: 'participant-tag' },
+                                                participant,
+                                                React.createElement('span', { 
+                                                    className: 'remove-participant',
+                                                    onClick: () => setNewEvent({
+                                                        ...newEvent,
+                                                        participants: newEvent.participants.filter(p => p !== participant)
+                                                    })
+                                                }, '×')
+                                            )
+                                        )
+                                    ),
+                                    
+                                    React.createElement('div', { className: 'add-participant-input' },
+                                        React.createElement('select',
+                                            {
+                                                value: '',
+                                                onChange: (e) => {
+                                                    if (e.target.value) {
+                                                        setNewEvent({
+                                                            ...newEvent,
+                                                            participants: [...newEvent.participants, e.target.value]
+                                                        });
+                                                        e.target.value = '';
+                                                    }
+                                                },
+                                                className: 'flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                            },
+                                            React.createElement('option', { value: '' }, 'Добавить участника...'),
+                                            participants.map(participant => 
+                                                React.createElement('option', { key: participant, value: participant }, participant)
+                                            )
+                                        )
                                     )
                                 ),
                                 
@@ -2647,6 +2830,17 @@
                                                 React.createElement('div', { className: 'font-medium' }, event.title),
                                                 React.createElement('div', { className: 'text-sm text-gray-600' },
                                                     new Date(event.date).toLocaleDateString('ru-RU')
+                                                ),
+                                                event.participants.length > 0 && React.createElement('div', { className: 'participants-container mt-2' },
+                                                    event.participants.map(participant => 
+                                                        React.createElement('div', { key: participant, className: 'participant-tag' },
+                                                            participant,
+                                                            React.createElement('span', { 
+                                                                className: 'remove-participant',
+                                                                onClick: () => removeParticipantFromEvent(event.id, participant)
+                                                            }, '×')
+                                                        )
+                                                    )
                                                 )
                                             ),
                                             React.createElement('button',

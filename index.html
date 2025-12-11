@@ -7,8 +7,6 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -90,7 +88,7 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        .nav-button:hover {
+        .nav-button:not(.active):hover {
             background: rgba(255, 255, 255, 0.3);
         }
 
@@ -273,8 +271,36 @@
             background: #f5f3ff;
         }
 
-        .bg-gray-300 {
-            background: #cbd5e1;
+        .bg-red-500 {
+            background: #ef4444;
+        }
+
+        .bg-green-500 {
+            background: #16a34a;
+        }
+
+        .bg-blue-500 {
+            background: #3b82f6;
+        }
+
+        .bg-pink-500 {
+            background: #ec4899;
+        }
+
+        .bg-yellow-500 {
+            background: #eab308;
+        }
+
+        .bg-purple-500 {
+            background: #a855f7;
+        }
+
+        .bg-indigo-500 {
+            background: #6366f1;
+        }
+
+        .bg-teal-500 {
+            background: #14b8a6;
         }
 
         .rounded {
@@ -566,7 +592,7 @@
             border-radius: 6px;
             padding: 8px 16px;
             font-weight: 500;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
             border: none;
             box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
         }
@@ -583,7 +609,7 @@
             border-radius: 6px;
             padding: 8px 16px;
             font-weight: 500;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
             border: none;
         }
 
@@ -714,7 +740,6 @@
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid transparent;
-            transition: all 0.2s;
         }
 
         .color-option:hover {
@@ -724,33 +749,6 @@
         .color-option.selected {
             border-color: #000;
             transform: scale(1.1);
-        }
-
-        /* Categories */
-        .categories-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .category-item {
-            padding: 6px 12px;
-            background: #f1f5f9;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.875rem;
-        }
-
-        .category-item.active {
-            background: #7c3aed;
-            color: white;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-        }
-
-        .category-item:hover:not(.active) {
-            background: #e2e8f0;
         }
 
         /* Auth Page Styles */
@@ -1038,22 +1036,62 @@
             max-height: 1000px;
         }
 
-        /* Table alignment fix */
-        .table-cell {
-            text-align: left;
-            padding: 12px 16px;
+        /* Categories */
+        .categories-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
         }
 
-        .table-header {
-            text-align: left;
-            padding: 12px 16px;
-            font-weight: 600;
-            color: #374151;
+        .category-item {
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
         }
 
-        /* Placeholder text */
-        .placeholder-text {
-            color: #9ca3af;
+        .category-item.active {
+            background: #7c3aed;
+            color: white;
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+        }
+
+        .category-item:hover:not(.active) {
+            background: #e2e8f0;
+        }
+
+        /* File upload */
+        .file-upload {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+
+        .file-upload:hover {
+            border-color: #7c3aed;
+            background: #f0f4ff;
+        }
+
+        .file-upload i {
+            font-size: 2rem;
+            color: #7c3aed;
+            margin-bottom: 16px;
+        }
+
+        .file-upload p {
+            margin-bottom: 16px;
+            color: #64748b;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
         }
 
         /* Mobile responsive */
@@ -1228,28 +1266,19 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Initialize Firebase
-        const firebaseConfig = {
-            databaseURL: "https://budg-1d5e0-default-rtdb.europe-west1.firebasedatabase.app"
-        };
-
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-
-        const database = firebase.database();
-
         const FamilyBudgetApp = () => {
             const [activeTab, setActiveTab] = useState('budget');
             const [currentRoom, setCurrentRoom] = useState(null);
             const [showRoomModal, setShowRoomModal] = useState(true);
             const [roomMode, setRoomMode] = useState('join');
-            const [roomNameInput, setRoomNameInput] = useState(''); // Для входа используем название
-            const [roomName, setRoomName] = useState(''); // Для создания используем название
+            const [roomId, setRoomId] = useState('');
+            const [roomName, setRoomName] = useState('');
             const [roomPassword, setRoomPassword] = useState('');
             const [roomError, setRoomError] = useState('');
             const [roomSuccess, setRoomSuccess] = useState('');
             const [isLoading, setIsLoading] = useState(false);
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [showAllTime, setShowAllTime] = useState(false);
             
             // Budget states
             const [transactions, setTransactions] = useState([
@@ -1271,7 +1300,6 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedDate, setSelectedDate] = useState(null);
             const [showAddTransaction, setShowAddTransaction] = useState(false);
-            const [showAllTime, setShowAllTime] = useState(false);
             
             // Shopping list states
             const [shoppingList, setShoppingList] = useState([
@@ -1298,278 +1326,16 @@
             const [calendarView, setCalendarView] = useState('month');
             
             // Settings
-            const [fixedExpenses, setFixedExpenses] = useState([
-                { id: 1, name: 'Аренда', amount: 15000, category: 'Жилье' },
-                { id: 2, name: 'Кредит', amount: 8000, category: 'Жилье' }
-            ]);
-            
-            const [savingsPercentage, setSavingsPercentage] = useState(20);
+            const [fixedExpenses, setFixedExpenses] = useState([]);
+            const [savingsPercentage, setSavingsPercentage] = useState('');
             const [authorNames] = useState(['Иван', 'Мария']);
             const [showSettings, setShowSettings] = useState(false);
-            
-            // Categories
-            const [selectedCategory, setSelectedCategory] = useState('all');
-            const [categories, setCategories] = useState(['Продукты', 'Транспорт', 'Жилье', 'Развлечения', 'Здоровье', 'Образование', 'Зарплата', 'Фриланс']);
             
             // Color options for events
             const colorOptions = [
                 'bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-yellow-500', 
                 'bg-purple-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
             ];
-
-            // Load room data from Firebase
-            const loadRoomData = async (roomName, password) => {
-                try {
-                    setIsLoading(true);
-                    
-                    // Получаем список всех комнат
-                    const roomsRef = database.ref('rooms');
-                    const snapshot = await roomsRef.once('value');
-                    const roomsData = snapshot.val();
-                    
-                    if (!roomsData) {
-                        throw new Error('Комнаты не найдены');
-                    }
-                    
-                    // Ищем комнату по названию
-                    let foundRoomKey = null;
-                    let foundRoomData = null;
-                    
-                    for (const [key, room] of Object.entries(roomsData)) {
-                        if (room.name === roomName) {
-                            foundRoomKey = key;
-                            foundRoomData = room;
-                            break;
-                        }
-                    }
-                    
-                    if (!foundRoomKey || !foundRoomData) {
-                        throw new Error('Комната не найдена');
-                    }
-                    
-                    if (foundRoomData.password !== password) {
-                        throw new Error('Неверный пароль');
-                    }
-                    
-                    // Load data
-                    setTransactions(foundRoomData.transactions || []);
-                    setShoppingList(foundRoomData.shoppingList || []);
-                    setCalendarEvents(foundRoomData.calendarEvents || []);
-                    setFixedExpenses(foundRoomData.fixedExpenses || []);
-                    setInitialBalance(foundRoomData.initialBalance || 0);
-                    setSavingsPercentage(foundRoomData.savingsPercentage || 20);
-                    setCategories(foundRoomData.categories || ['Продукты', 'Транспорт', 'Жилье', 'Развлечения', 'Здоровье', 'Образование', 'Зарплата', 'Фриланс']);
-                    
-                    return { key: foundRoomKey, data: foundRoomData };
-                } catch (error) {
-                    console.error('Error loading room data:', error);
-                    throw error;
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Save room data to Firebase
-            const saveRoomData = async (roomKey, roomName, password) => {
-                try {
-                    const roomData = {
-                        name: roomName,
-                        password: password,
-                        transactions: transactions,
-                        shoppingList: shoppingList,
-                        calendarEvents: calendarEvents,
-                        fixedExpenses: fixedExpenses,
-                        initialBalance: initialBalance,
-                        savingsPercentage: savingsPercentage,
-                        categories: categories,
-                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
-                    };
-                    
-                    await database.ref(`rooms/${roomKey}`).set(roomData);
-                } catch (error) {
-                    console.error('Error saving room data:', error);
-                    throw error;
-                }
-            };
-
-            // Create new room
-            const createNewRoom = async (roomName, password) => {
-                try {
-                    // Проверяем, существует ли уже комната с таким названием
-                    const roomsRef = database.ref('rooms');
-                    const snapshot = await roomsRef.once('value');
-                    const roomsData = snapshot.val();
-                    
-                    if (roomsData) {
-                        for (const [key, room] of Object.entries(roomsData)) {
-                            if (room.name === roomName) {
-                                throw new Error('Комната с таким названием уже существует');
-                            }
-                        }
-                    }
-                    
-                    // Генерируем уникальный ключ для комнаты
-                    const newRoomKey = 'room_' + Date.now();
-                    
-                    // Initialize room with default data
-                    const defaultTransactions = [
-                        { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана', balanceAfter: 50000 },
-                        { id: 2, type: 'expense', amount: 15000, category: 'Продукты', date: '2024-01-16', description: 'Покупка продуктов', balanceAfter: 35000 },
-                        { id: 3, type: 'expense', amount: 8000, category: 'Транспорт', date: '2024-01-17', description: 'Бензин', balanceAfter: 27000 },
-                        { id: 4, type: 'expense', amount: 5000, category: 'Продукты', date: '2024-01-18', description: 'Овощи и фрукты', balanceAfter: 22000 },
-                        { id: 5, type: 'expense', amount: 3000, category: 'Развлечения', date: '2024-01-19', description: 'Кино', balanceAfter: 19000 }
-                    ];
-                    
-                    const defaultShoppingList = [
-                        { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
-                        { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
-                        { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
-                    ];
-                    
-                    const defaultCalendarEvents = [
-                        { id: 1, title: 'Оплата кредита', date: '2024-01-20', color: 'bg-blue-500' },
-                        { id: 2, title: 'Покупка подарка', date: '2024-01-25', color: 'bg-pink-500' }
-                    ];
-                    
-                    const defaultCategories = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения', 'Здоровье', 'Образование', 'Зарплата', 'Фриланс'];
-                    
-                    // Set default data locally
-                    setTransactions(defaultTransactions);
-                    setShoppingList(defaultShoppingList);
-                    setCalendarEvents(defaultCalendarEvents);
-                    setFixedExpenses([]);
-                    setInitialBalance(0);
-                    setSavingsPercentage(20);
-                    setCategories(defaultCategories);
-                    
-                    // Save to Firebase
-                    const roomData = {
-                        name: roomName,
-                        password: password,
-                        transactions: defaultTransactions,
-                        shoppingList: defaultShoppingList,
-                        calendarEvents: defaultCalendarEvents,
-                        fixedExpenses: [],
-                        initialBalance: 0,
-                        savingsPercentage: 20,
-                        categories: defaultCategories,
-                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
-                    };
-                    
-                    await database.ref(`rooms/${newRoomKey}`).set(roomData);
-                    
-                    return newRoomKey;
-                } catch (error) {
-                    console.error('Error creating room:', error);
-                    throw error;
-                }
-            };
-
-            // Handle room form changes
-            const handleRoomChange = (field, value) => {
-                if (field === 'roomNameInput') setRoomNameInput(value);
-                if (field === 'roomName') setRoomName(value);
-                if (field === 'roomPassword') setRoomPassword(value);
-                setRoomError('');
-            };
-
-            // Join room
-            const joinRoom = async (e) => {
-                e.preventDefault();
-                setRoomError('');
-                setRoomSuccess('');
-                
-                // Simple validation
-                if (!roomNameInput.trim()) {
-                    setRoomError('Пожалуйста, введите название комнаты');
-                    return;
-                }
-                
-                if (!roomPassword.trim()) {
-                    setRoomError('Пожалуйста, введите пароль комнаты');
-                    return;
-                }
-                
-                try {
-                    setIsLoading(true);
-                    const roomResult = await loadRoomData(roomNameInput, roomPassword);
-                    setCurrentRoom({ 
-                        id: roomResult.key, 
-                        name: roomResult.data.name, 
-                        password: roomPassword 
-                    });
-                    setShowRoomModal(false);
-                    setRoomSuccess('Успешный вход в комнату!');
-                    setTimeout(() => setRoomSuccess(''), 2000);
-                } catch (error) {
-                    setRoomError(error.message || 'Ошибка при входе в комнату');
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Create room
-            const createRoom = async (e) => {
-                e.preventDefault();
-                setRoomError('');
-                setRoomSuccess('');
-                
-                // Simple validation
-                if (!roomName.trim()) {
-                    setRoomError('Пожалуйста, введите название комнаты');
-                    return;
-                }
-                
-                if (!roomPassword.trim()) {
-                    setRoomError('Пожалуйста, введите пароль для комнаты');
-                    return;
-                }
-                
-                try {
-                    setIsLoading(true);
-                    const newRoomKey = await createNewRoom(roomName, roomPassword);
-                    setCurrentRoom({ 
-                        id: newRoomKey, 
-                        name: roomName, 
-                        password: roomPassword 
-                    });
-                    setShowRoomModal(false);
-                    setRoomSuccess('Комната успешно создана!');
-                    setTimeout(() => setRoomSuccess(''), 2000);
-                } catch (error) {
-                    setRoomError(error.message || 'Ошибка при создании комнаты');
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Exit room
-            const exitRoom = () => {
-                setCurrentRoom(null);
-                setShowRoomModal(true);
-                setRoomNameInput('');
-                setRoomName('');
-                setRoomPassword('');
-                // Clear local data
-                setTransactions([]);
-                setShoppingList([]);
-                setCalendarEvents([]);
-                setFixedExpenses([]);
-                setInitialBalance(0);
-                setSavingsPercentage(20);
-                setCategories(['Продукты', 'Транспорт', 'Жилье', 'Развлечения', 'Здоровье', 'Образование', 'Зарплата', 'Фриланс']);
-            };
-
-            // Save data when it changes
-            useEffect(() => {
-                if (currentRoom) {
-                    const saveTimer = setTimeout(() => {
-                        saveRoomData(currentRoom.id, currentRoom.name, currentRoom.password);
-                    }, 1000);
-                    
-                    return () => clearTimeout(saveTimer);
-                }
-            }, [transactions, shoppingList, calendarEvents, fixedExpenses, initialBalance, savingsPercentage, categories, currentRoom]);
 
             // Calculate financial metrics
             const totalIncome = transactions
@@ -1580,7 +1346,7 @@
                 .filter(t => t.type === 'expense')
                 .reduce((sum, t) => sum + t.amount, 0);
             
-            const fixedExpensesTotal = fixedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const fixedExpensesTotal = fixedExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
             const balance = initialBalance + totalIncome - totalExpenses;
             const availableToSave = balance > 0 ? balance * (savingsPercentage / 100) : 0;
             const dailySpendingLimit = Math.max(0, (balance - availableToSave - fixedExpensesTotal) / 30);
@@ -1595,12 +1361,6 @@
                         balanceAfter: calculateBalanceAfterNewTransaction()
                     };
                     setTransactions([...transactions, transaction]);
-                    
-                    // Add category to categories list if it doesn't exist
-                    if (!categories.includes(newTransaction.category)) {
-                        setCategories([...categories, newTransaction.category]);
-                    }
-                    
                     setNewTransaction({
                         type: 'expense',
                         amount: '',
@@ -1713,10 +1473,8 @@
                 // If clicking the same date again, deselect it (reset filter)
                 if (selectedDate && day.toDateString() === selectedDate.toDateString()) {
                     setSelectedDate(null);
-                    setShowAllTime(false);
                 } else {
                     setSelectedDate(day);
-                    setShowAllTime(false);
                 }
             };
 
@@ -1727,11 +1485,6 @@
                     transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
                 )) {
-                    return false;
-                }
-                
-                // Filter by selected category
-                if (selectedCategory !== 'all' && transaction.category !== selectedCategory) {
                     return false;
                 }
                 
@@ -1758,21 +1511,184 @@
 
             // Get categories for selected date
             const getCategoriesForSelectedDate = () => {
-                if (!selectedDate) return categories;
-                
-                const dateTransactions = transactions.filter(t => 
-                    new Date(t.date).toDateString() === selectedDate.toDateString()
-                );
-                
-                const uniqueCategories = [...new Set(dateTransactions.map(t => t.category))];
-                return uniqueCategories.length > 0 ? uniqueCategories : categories;
+                if (!showAllTime) {
+                    if (selectedDate) {
+                        // Return categories for selected date
+                        const dateTransactions = transactions.filter(t => 
+                            new Date(t.date).toDateString() === selectedDate.toDateString()
+                        );
+                        const uniqueCategories = [...new Set(dateTransactions.map(t => t.category))];
+                        return uniqueCategories;
+                    } else {
+                        // Return categories for current month
+                        const currentMonthTransactions = transactions.filter(t => {
+                            const transactionDate = new Date(t.date);
+                            return transactionDate.getMonth() === currentDate.getMonth() && 
+                                   transactionDate.getFullYear() === currentDate.getFullYear();
+                        });
+                        const uniqueCategories = [...new Set(currentMonthTransactions.map(t => t.category))];
+                        return uniqueCategories;
+                    }
+                } else {
+                    // Return all categories
+                    const uniqueCategories = [...new Set(transactions.map(t => t.category))];
+                    return uniqueCategories;
+                }
             };
 
             const dateCategories = getCategoriesForSelectedDate();
 
-            // Close modal without action
-            const closeRoomModal = () => {
-                setShowRoomModal(false);
+            // Get aggregated expenses by category
+            const getAggregatedExpensesByCategory = () => {
+                let filteredTransactionsArray = transactions;
+                
+                if (!showAllTime) {
+                    if (selectedDate) {
+                        // Filter by selected date
+                        filteredTransactionsArray = transactions.filter(t => 
+                            new Date(t.date).toDateString() === selectedDate.toDateString()
+                        );
+                    } else {
+                        // Filter by current month
+                        filteredTransactionsArray = transactions.filter(t => {
+                            const transactionDate = new Date(t.date);
+                            return transactionDate.getMonth() === currentDate.getMonth() && 
+                                   transactionDate.getFullYear() === currentDate.getFullYear();
+                        });
+                    }
+                }
+                
+                const aggregated = {};
+                filteredTransactionsArray
+                    .filter(t => t.type === 'expense')
+                    .forEach(t => {
+                        if (!aggregated[t.category]) {
+                            aggregated[t.category] = 0;
+                        }
+                        aggregated[t.category] += t.amount;
+                    });
+                
+                return aggregated;
+            };
+
+            const aggregatedExpenses = getAggregatedExpensesByCategory();
+
+            // Join room
+            const joinRoom = (e) => {
+                e.preventDefault();
+                setRoomError('');
+                setRoomSuccess('');
+                
+                // Simple validation
+                if (!roomId.trim()) {
+                    setRoomError('Пожалуйста, введите ID комнаты');
+                    return;
+                }
+                
+                if (!roomPassword.trim()) {
+                    setRoomError('Пожалуйста, введите пароль комнаты');
+                    return;
+                }
+                
+                try {
+                    setIsLoading(true);
+                    // Simulate joining room
+                    setTimeout(() => {
+                        setCurrentRoom({ id: roomId, name: `Комната ${roomId}` });
+                        setShowRoomModal(false);
+                        setRoomSuccess('Успешный вход в комнату!');
+                        setTimeout(() => setRoomSuccess(''), 2000);
+                    }, 500);
+                } catch (error) {
+                    setRoomError(error.message || 'Ошибка при входе в комнату');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            // Create room
+            const createRoom = (e) => {
+                e.preventDefault();
+                setRoomError('');
+                setRoomSuccess('');
+                
+                // Simple validation
+                if (!roomName.trim()) {
+                    setRoomError('Пожалуйста, введите название комнаты');
+                    return;
+                }
+                
+                if (!roomPassword.trim()) {
+                    setRoomError('Пожалуйста, введите пароль для комнаты');
+                    return;
+                }
+                
+                try {
+                    setIsLoading(true);
+                    // Simulate creating room
+                    setTimeout(() => {
+                        const newRoomId = 'room_' + Date.now();
+                        setCurrentRoom({ id: newRoomId, name: roomName });
+                        setShowRoomModal(false);
+                        setRoomSuccess('Комната успешно создана!');
+                        setTimeout(() => setRoomSuccess(''), 2000);
+                    }, 500);
+                } catch (error) {
+                    setRoomError(error.message || 'Ошибка при создании комнаты');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            // Exit room
+            const exitRoom = () => {
+                setCurrentRoom(null);
+                setShowRoomModal(true);
+                setRoomId('');
+                setRoomName('');
+                setRoomPassword('');
+                // Clear local data
+                setTransactions([]);
+                setShoppingList([]);
+                setCalendarEvents([]);
+                setFixedExpenses([]);
+                setInitialBalance(0);
+                setSavingsPercentage('');
+            };
+
+            // Handle file upload
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (file && (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const data = event.target.result;
+                        // Parse XLS file (simplified version)
+                        parseXLSFile(data);
+                    };
+                    reader.readAsBinaryString(file);
+                } else {
+                    alert('Пожалуйста, выберите файл формата XLS или XLSX');
+                }
+            };
+
+            // Parse XLS file
+            const parseXLSFile = (data) => {
+                // Simplified parsing logic
+                // In real application, you would use a library like xlsx
+                try {
+                    // Simulate parsing
+                    const newTransactions = [
+                        { id: Date.now(), type: 'expense', amount: 12000, category: 'Продукты', date: '2024-01-20', description: 'Выписка из банка', balanceAfter: balance - 12000 },
+                        { id: Date.now() + 1, type: 'expense', amount: 5000, category: 'Транспорт', date: '2024-01-21', description: 'Выписка из банка', balanceAfter: balance - 17000 },
+                        { id: Date.now() + 2, type: 'income', amount: 30000, category: 'Зарплата', date: '2024-01-22', description: 'Выписка из банка', balanceAfter: balance + 13000 }
+                    ];
+                    
+                    setTransactions([...transactions, ...newTransactions]);
+                    alert('Выписка успешно загружена!');
+                } catch (error) {
+                    alert('Ошибка при загрузке выписки: ' + error.message);
+                }
             };
 
             // Render room modal
@@ -1800,8 +1716,7 @@
                                             left: roomMode === 'join' ? '6px' : 'calc(50% + 3px)',
                                             width: 'calc(50% - 9px)'
                                         }
-                                    }
-                                ),
+                                    }),
                                 React.createElement('div', 
                                     {
                                         className: 'mode-toggle-btn ' + (roomMode === 'join' ? 'active' : ''),
@@ -1834,14 +1749,14 @@
                             !isLoading && roomMode === 'join' ? 
                             React.createElement('form', { onSubmit: joinRoom },
                                 React.createElement('div', { className: 'form-group' },
-                                    React.createElement('label', { className: 'form-label' }, 'Название комнаты'),
+                                    React.createElement('label', { className: 'form-label' }, 'ID комнаты'),
                                     React.createElement('input',
                                         {
                                             type: 'text',
-                                            className: 'form-input ' + (roomError && !roomNameInput ? 'error' : ''),
-                                            value: roomNameInput,
-                                            onChange: (e) => handleRoomChange('roomNameInput', e.target.value),
-                                            placeholder: 'Введите название комнаты'
+                                            className: 'form-input ' + (roomError && !roomId ? 'error' : ''),
+                                            value: roomId,
+                                            onChange: (e) => setRoomId(e.target.value),
+                                            placeholder: 'Введите ID комнаты'
                                         }
                                     )
                                 ),
@@ -1853,7 +1768,7 @@
                                             type: 'password',
                                             className: 'form-input ' + (roomError && !roomPassword ? 'error' : ''),
                                             value: roomPassword,
-                                            onChange: (e) => handleRoomChange('roomPassword', e.target.value),
+                                            onChange: (e) => setRoomPassword(e.target.value),
                                             placeholder: 'Введите пароль комнаты'
                                         }
                                     )
@@ -1874,7 +1789,7 @@
                                             type: 'text',
                                             className: 'form-input ' + (roomError && !roomName ? 'error' : ''),
                                             value: roomName,
-                                            onChange: (e) => handleRoomChange('roomName', e.target.value),
+                                            onChange: (e) => setRoomName(e.target.value),
                                             placeholder: 'Введите название комнаты'
                                         }
                                     )
@@ -1887,7 +1802,7 @@
                                             type: 'password',
                                             className: 'form-input ' + (roomError && !roomPassword ? 'error' : ''),
                                             value: roomPassword,
-                                            onChange: (e) => handleRoomChange('roomPassword', e.target.value),
+                                            onChange: (e) => setRoomPassword(e.target.value),
                                             placeholder: 'Введите пароль для комнаты'
                                         }
                                     )
@@ -1969,7 +1884,7 @@
                                         type: 'number',
                                         value: initialBalance || '',
                                         onChange: (e) => setInitialBalance(parseFloat(e.target.value) || 0),
-                                        placeholder: 'Введите начальный остаток',
+                                        placeholder: '0',
                                         className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                     }
                                 )
@@ -1978,16 +1893,17 @@
                             // Savings percentage
                             React.createElement('div', { className: 'mb-6' },
                                 React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
-                                    'Процент для откладывания: ', savingsPercentage, '%'
+                                    'Процент для откладывания'
                                 ),
                                 React.createElement('input',
                                     {
-                                        type: 'range',
+                                        type: 'number',
                                         min: '0',
                                         max: '50',
-                                        value: savingsPercentage,
-                                        onChange: (e) => setSavingsPercentage(parseInt(e.target.value)),
-                                        className: 'w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600'
+                                        value: savingsPercentage || '',
+                                        onChange: (e) => setSavingsPercentage(e.target.value ? parseInt(e.target.value) : ''),
+                                        placeholder: 'Введите процент',
+                                        className: 'w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                     }
                                 )
                             ),
@@ -2055,7 +1971,7 @@
                                             ),
                                             React.createElement('button',
                                                 {
-                                                    onClick: () => setFixedExpenses(fixedExpenses.filter(f => f.id !== expense.id)),
+                                                    onClick: () => setFixedExpenses(fixedExpenses.filter(e => e.id !== expense.id)),
                                                     className: 'text-red-500 hover:text-red-700 p-2'
                                                 },
                                                 React.createElement('i', { className: 'fas fa-trash' })
@@ -2068,6 +1984,11 @@
                     )
                 );
             };
+
+            // If no room selected, show room selection modal
+            if (showRoomModal) {
+                return renderRoomModal();
+            }
 
             return React.createElement('div', { className: 'min-h-screen bg-gray-50' },
                 // Room Modal
@@ -2083,22 +2004,34 @@
                                         React.createElement('i', { className: 'fas fa-wallet' })
                                     ),
                                     'Семейный Бюджет'
+                                ),
+                                currentRoom && React.createElement('div', { className: 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full' },
+                                    currentRoom.name
                                 )
                             ),
-                            React.createElement('nav', { className: 'flex' },
-                                [
-                                    { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' },
-                                    { id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' },
-                                    { id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' }
-                                ].map(({ id, label, icon }) => 
-                                    React.createElement('button',
-                                        {
-                                            key: id,
-                                            onClick: () => setActiveTab(id),
-                                            className: 'nav-button ' + (activeTab === id ? 'active' : '')
-                                        },
-                                        React.createElement('i', { className: icon }),
-                                        React.createElement('span', { className: 'ml-2' }, label)
+                            React.createElement('div', { className: 'flex items-center space-x-2' },
+                                React.createElement('button',
+                                    {
+                                        onClick: exitRoom,
+                                        className: 'text-sm text-gray-600 hover:text-gray-800'
+                                    },
+                                    'Выйти'
+                                ),
+                                React.createElement('nav', { className: 'flex' },
+                                    [
+                                        { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' },
+                                        { id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' },
+                                        { id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' }
+                                    ].map(({ id, label, icon }) => 
+                                        React.createElement('button',
+                                            {
+                                                key: id,
+                                                onClick: () => setActiveTab(id),
+                                                className: 'nav-button ' + (activeTab === id ? 'active' : '')
+                                            },
+                                            React.createElement('i', { className: icon }),
+                                            React.createElement('span', { className: 'ml-2' }, label)
+                                        )
                                     )
                                 )
                             )
@@ -2205,9 +2138,14 @@
                                             onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value}),
                                             className: 'px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
                                         },
-                                        categories.map(category => 
-                                            React.createElement('option', { key: category, value: category }, category)
-                                        )
+                                        React.createElement('option', { value: 'Продукты' }, 'Продукты'),
+                                        React.createElement('option', { value: 'Транспорт' }, 'Транспорт'),
+                                        React.createElement('option', { value: 'Жилье' }, 'Жилье'),
+                                        React.createElement('option', { value: 'Развлечения' }, 'Развлечения'),
+                                        React.createElement('option', { value: 'Здоровье' }, 'Здоровье'),
+                                        React.createElement('option', { value: 'Образование' }, 'Образование'),
+                                        React.createElement('option', { value: 'Зарплата' }, 'Зарплата'),
+                                        React.createElement('option', { value: 'Фриланс' }, 'Фриланс')
                                     ),
                                     
                                     React.createElement('input',
@@ -2237,6 +2175,27 @@
                                         React.createElement('i', { className: 'fas fa-plus mr-2' }),
                                         'Добавить'
                                     )
+                                )
+                            )
+                        ),
+
+                        // Upload Statement
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('h2', { className: 'text-lg font-semibold mb-4' }, 'Загрузка выписки'),
+                            React.createElement('div', { className: 'file-upload' },
+                                React.createElement('input',
+                                    {
+                                        type: 'file',
+                                        accept: '.xls,.xlsx',
+                                        onChange: handleFileUpload,
+                                        id: 'file-upload'
+                                    }
+                                ),
+                                React.createElement('label', { htmlFor: 'file-upload' },
+                                    React.createElement('i', { className: 'fas fa-file-excel' }),
+                                    React.createElement('p', null, 'Выберите файл XLS с банковской выпиской'),
+                                    React.createElement('p', { className: 'text-sm text-gray-500' }, 'Файл должен содержать данные о транзакциях'),
+                                    React.createElement('button', { className: 'btn-primary mt-4' }, 'Загрузить')
                                 )
                             )
                         ),
@@ -2291,7 +2250,7 @@
                                     return React.createElement('div',
                                         {
                                             key: index,
-                                            className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''} ${hasEvents ? 'cursor-pointer' : ''}`,
+                                            className: 'calendar-day-cell ' + (isCurrentMonth ? '' : 'other-month') + ' ' + (isSelected ? 'selected-day' : '') + ' ' + (hasEvents ? 'cursor-pointer' : ''),
                                             onClick: () => hasEvents && handleDayClick(day)
                                         },
                                         React.createElement('div', { className: 'calendar-day-number' },
@@ -2303,7 +2262,7 @@
                                                 React.createElement('div',
                                                     {
                                                         key: event.id,
-                                                        className: `calendar-event-item ${event.color}`,
+                                                        className: 'calendar-event-item ' + event.color,
                                                         title: event.title
                                                     },
                                                     event.title
@@ -2314,7 +2273,7 @@
                                                 React.createElement('div',
                                                     {
                                                         key: transaction.id,
-                                                        className: `calendar-event-item ${transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'}`,
+                                                        className: 'calendar-event-item ' + (transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'),
                                                         title: transaction.description
                                                     },
                                                     transaction.type === 'income' ? '+' : '-', transaction.amount, ' ₽'
@@ -2330,7 +2289,7 @@
                             )
                         ),
 
-                        // Transactions History with Categories
+                        // Transactions History
                         React.createElement('div', { className: 'card' },
                             React.createElement('div', { className: 'flex justify-between items-center mb-4' },
                                 React.createElement('h2', { className: 'text-lg font-semibold' }, 
@@ -2354,68 +2313,48 @@
                                         },
                                         'Показать все'
                                     ),
-                                    React.createElement('input',
-                                        {
-                                            type: 'text',
-                                            placeholder: 'Поиск...',
-                                            value: searchTerm,
-                                            onChange: (e) => setSearchTerm(e.target.value),
-                                            className: 'px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
-                                        }
+                                    React.createElement('div', { className: 'relative' },
+                                        React.createElement('input',
+                                            {
+                                                type: 'text',
+                                                placeholder: 'Поиск...',
+                                                value: searchTerm,
+                                                onChange: (e) => setSearchTerm(e.target.value),
+                                                className: 'pl-4 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent'
+                                            }
+                                        )
                                     )
                                 )
                             ),
-                            
-                            // Categories filter
-                            React.createElement('div', { className: 'categories-container mb-4' },
-                                React.createElement('div', 
-                                    {
-                                        className: `category-item ${selectedCategory === 'all' ? 'active' : ''}`,
-                                        onClick: () => setSelectedCategory('all')
-                                    },
-                                    'Все категории'
-                                ),
-                                dateCategories.map(category => 
-                                    React.createElement('div', 
-                                        {
-                                            key: category,
-                                            className: `category-item ${selectedCategory === category ? 'active' : ''}`,
-                                            onClick: () => setSelectedCategory(category)
-                                        },
-                                        category
-                                    )
-                                )
-                            ),
-                            
                             React.createElement('div', { className: 'overflow-x-auto' },
                                 React.createElement('table', { className: 'w-full' },
                                     React.createElement('thead', null,
                                         React.createElement('tr', { className: 'border-b border-gray-200' },
-                                            React.createElement('th', { className: 'table-header' }, 'Дата'),
-                                            React.createElement('th', { className: 'table-header' }, 'Описание'),
-                                            React.createElement('th', { className: 'table-header' }, 'Категория'),
-                                            React.createElement('th', { className: 'table-header' }, 'Сумма'),
-                                            React.createElement('th', { className: 'table-header' }, 'Баланс после'),
-                                            React.createElement('th', { className: 'table-header' }, 'Действия')
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Дата'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Описание'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Категория'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Сумма'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Баланс после'),
+                                            React.createElement('th', { className: 'text-left py-3 px-4' }, 'Действия')
                                         )
                                     ),
                                     React.createElement('tbody', null,
                                         filteredTransactions.slice().reverse().map(transaction => 
                                             React.createElement('tr', { key: transaction.id, className: 'border-b border-gray-100 hover:bg-gray-50' },
-                                                React.createElement('td', { className: 'table-cell' }, new Date(transaction.date).toLocaleDateString('ru-RU')),
-                                                React.createElement('td', { className: 'table-cell' }, transaction.description),
-                                                React.createElement('td', { className: 'table-cell' },
+                                                React.createElement('td', { className: 'py-3 px-4' }, new Date(transaction.date).toLocaleDateString('ru-RU')),
+                                                React.createElement('td', { className: 'py-3 px-4' }, transaction.description),
+                                                React.createElement('td', { className: 'py-3 px-4' },
                                                     React.createElement('span', { className: 'px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs' },
                                                         transaction.category
                                                     )
                                                 ),
-                                                React.createElement('td', { className: `table-cell font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}` },
+                                                React.createElement('td', { className: `py-3 px-4 font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}` },
                                                     transaction.type === 'income' ? '+' : '-', transaction.amount.toLocaleString('ru-RU'), ' ₽'
                                                 ),
-                                                React.createElement('td', { className: `table-cell font-semibold ${transaction.balanceAfter >= 0 ? 'text-green-600' : 'text-red-600'}` },
+                                                React.createElement('td', { className: `py-3 px-4 font-semibold ${transaction.balanceAfter >= 0 ? 'text-green-600' : 'text-red-600'}` },
                                                     transaction.balanceAfter.toLocaleString('ru-RU'), ' ₽'
                                                 ),
-                                                React.createElement('td', { className: 'table-cell' },
+                                                React.createElement('td', { className: 'py-3 px-4' },
                                                     React.createElement('button',
                                                         {
                                                             onClick: () => {
@@ -2426,6 +2365,31 @@
                                                         React.createElement('i', { className: 'fas fa-trash' })
                                                     )
                                                 )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+
+                        // Categories Block
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('h2', { className: 'text-lg font-semibold mb-4' }, 'Категории'),
+                            React.createElement('div', { className: 'categories-container' },
+                                dateCategories.map(category => 
+                                    React.createElement('div',
+                                        {
+                                            key: category,
+                                            className: 'category-item',
+                                            onClick: () => {
+                                                // Filter by category
+                                                setSearchTerm(category);
+                                            }
+                                        },
+                                        React.createElement('div', { className: 'flex justify-between items-center w-full' },
+                                            React.createElement('span', null, category),
+                                            React.createElement('span', { className: 'text-sm font-semibold' },
+                                                aggregatedExpenses[category] ? aggregatedExpenses[category].toLocaleString('ru-RU') + ' ₽' : '0 ₽'
                                             )
                                         )
                                     )
@@ -2498,7 +2462,7 @@
                                                 item.completed && React.createElement('i', { className: 'fas fa-check text-white text-xs' })
                                             ),
                                             React.createElement('div', null,
-                                                React.createElement('span', { className: `${item.completed ? 'line-through text-gray-500' : 'text-gray-800'}` },
+                                                React.createElement('span', { className: item.completed ? 'line-through text-gray-500' : 'text-gray-800' },
                                                     item.item
                                                 ),
                                                 React.createElement('span', { className: 'text-sm text-gray-600 ml-2' },
@@ -2581,7 +2545,7 @@
                                     return React.createElement('div',
                                         {
                                             key: index,
-                                            className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''} ${hasEvents ? 'cursor-pointer' : ''}`,
+                                            className: 'calendar-day-cell ' + (isCurrentMonth ? '' : 'other-month') + ' ' + (isSelected ? 'selected-day' : '') + ' ' + (hasEvents ? 'cursor-pointer' : ''),
                                             onClick: () => hasEvents && handleDayClick(day)
                                         },
                                         React.createElement('div', { className: 'calendar-day-number' },
@@ -2593,7 +2557,7 @@
                                                 React.createElement('div',
                                                     {
                                                         key: event.id,
-                                                        className: `calendar-event-item ${event.color}`,
+                                                        className: 'calendar-event-item ' + event.color,
                                                         title: event.title
                                                     },
                                                     event.title
@@ -2639,7 +2603,7 @@
                                             React.createElement('div',
                                                 {
                                                     key: color,
-                                                    className: `color-option ${color} ${newEvent.color === color ? 'selected' : ''}`,
+                                                    className: 'color-option ' + color + ' ' + (newEvent.color === color ? 'selected' : ''),
                                                     onClick: () => setNewEvent({...newEvent, color: color}),
                                                     title: color.replace('bg-', '').replace('-500', '')
                                                 }

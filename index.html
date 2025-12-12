@@ -1,18 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Семейный бюджет</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
 </head>
 <body>
   <div id="root"></div>
   <script type="module">
     import React from 'https://esm.sh/react@18.2.0';
-    import { createRoot } from 'https://esm.sh/react-dom@18.2.0';
-    import App from './src/App.jsx';
+    import ReactDOM from 'https://esm.sh/react-dom@18.2.0';
+    
+    const App = () => {
+      const [roomId, setRoomId] = React.useState(() => localStorage.getItem('roomId') || '');
+      const [isConnected, setIsConnected] = React.useState(false);
+      
+      const joinRoom = () => {
+        if (roomId) {
+          localStorage.setItem('roomId', roomId);
+          setIsConnected(true);
+        }
+      };
+      
+      if (!isConnected) {
+        return (
+          <div style={{fontFamily:'sans-serif',maxWidth:'500px',margin:'100px auto',padding:'20px'}}>
+            <h1>💰 Семейный бюджет</h1>
+            <div style={{marginTop:'20px'}}>
+              <input 
+                type="text" 
+                value={roomId}
+                onChange={e => setRoomId(e.target.value)}
+                placeholder="Введите ID комнаты"
+                style={{width:'100%',padding:'10px',marginBottom:'10px',border:'1px solid #ccc',borderRadius:'4px'}}
+              />
+              <button 
+                onClick={joinRoom}
+                style={{width:'100%',padding:'10px',backgroundColor:'#4f46e5',color:'white',border:'none',borderRadius:'4px',cursor:'pointer'}}
+              >
+                Подключиться
+              </button>
+            </div>
+          </div>
+        );
+      }
+      
+      return <div>Загрузка приложения...</div>;
+    };
 
-    createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>

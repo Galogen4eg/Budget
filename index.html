@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Основные стили */
+        /* Все CSS стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -1657,6 +1657,15 @@
             .shopping-list-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .auth-container {
+                padding: 24px;
+            }
+            
+            .auth-features {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -1744,10 +1753,7 @@
             const [shoppingList, setShoppingList] = useState([
                 { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
                 { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
-                { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false },
-                { id: 4, item: 'Сыр', quantity: 1, unit: 'упаковка', completed: false },
-                { id: 5, item: 'Масло', quantity: 1, unit: 'упаковка', completed: true },
-                { id: 6, item: 'Картофель', quantity: 2, unit: 'килограмм', completed: false }
+                { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
             ]);
             
             const [newItem, setNewItem] = useState({ name: '', quantity: '', unit: 'штука' });
@@ -1816,6 +1822,7 @@
             ]);
             const [newParticipant, setNewParticipant] = useState('');
             const [selectedParticipantColor, setSelectedParticipantColor] = useState('bg-blue-500');
+            const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
             
             // Templates
             const [templates, setTemplates] = useState([
@@ -2205,6 +2212,7 @@
                 if (newParticipant.trim() && !participants.some(p => p.name === newParticipant.trim())) {
                     setParticipants(prev => [...prev, { name: newParticipant.trim(), color: selectedParticipantColor }]);
                     setNewParticipant('');
+                    setShowAddParticipantModal(false);
                 }
             }, [newParticipant, participants, selectedParticipantColor]);
 
@@ -2779,22 +2787,22 @@
                                     <div className="modal-body">
                                         <div className="space-y-4">
                                             <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                                                <input
+                                                    type="date"
+                                                    value={newEvent.startDate}
+                                                    readOnly
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-100"
+                                                />
+                                            </div>
+                                            
+                                            <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Название события</label>
                                                 <input
                                                     type="text"
                                                     value={newEvent.title}
                                                     onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
                                                     placeholder="Введите название события"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                                />
-                                            </div>
-                                            
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
-                                                <input
-                                                    type="date"
-                                                    value={newEvent.startDate}
-                                                    onChange={(e) => setNewEvent({...newEvent, startDate: e.target.value})}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                                 />
                                             </div>
@@ -3786,6 +3794,49 @@
                         </div>
                     </div>
 
+                    {/* Fixed Expenses */}
+                    <div className="card">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold">Обязательные траты</h2>
+                            <button
+                                onClick={() => setShowAddFixedExpenseModal(true)}
+                                className="btn-primary"
+                            >
+                                Добавить трату
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {fixedExpenses.map(expense => (
+                                <div 
+                                    key={expense.id} 
+                                    className="fixed-expense-item"
+                                    onClick={() => {
+                                        setNewFixedExpense({
+                                            name: expense.name,
+                                            amount: expense.amount.toString(),
+                                            category: expense.category
+                                        });
+                                        setEditingFixedExpenseId(expense.id);
+                                    }}
+                                >
+                                    <div className="fixed-expense-name">{expense.name}</div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="fixed-expense-amount">{expense.amount.toLocaleString('ru-RU')} ₽</div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteFixedExpense(expense.id);
+                                            }}
+                                            className="fixed-expense-delete"
+                                        >
+                                            <i className="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Budget Settings */}
                     <div className="card">
                         <div 
@@ -3826,57 +3877,6 @@
                                         placeholder="Введите процент"
                                         className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     />
-                                </div>
-                                
-                                {/* Fixed Expenses */}
-                                <div className="mb-6">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-md font-semibold">Обязательные траты</h3>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setShowAddFixedExpenseModal(true)}
-                                                className="btn-primary"
-                                            >
-                                                Добавить трату
-                                            </button>
-                                            <button
-                                                onClick={clearAllTransactions}
-                                                className="btn-danger"
-                                            >
-                                                Очистка операций
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {fixedExpenses.map(expense => (
-                                            <div 
-                                                key={expense.id} 
-                                                className="fixed-expense-item"
-                                                onClick={() => {
-                                                    setNewFixedExpense({
-                                                        name: expense.name,
-                                                        amount: expense.amount.toString(),
-                                                        category: expense.category
-                                                    });
-                                                    setEditingItemId(expense.id);
-                                                }}
-                                            >
-                                                <div className="fixed-expense-name">{expense.name}</div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="fixed-expense-amount">{expense.amount.toLocaleString('ru-RU')} ₽</div>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            deleteFixedExpense(expense.id);
-                                                        }}
-                                                        className="fixed-expense-delete"
-                                                    >
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
                                 </div>
                                 
                                 {/* Tab visibility settings */}
@@ -3960,7 +3960,7 @@
                                 Отправить в Telegram
                             </button>
                         </div>
-                        <div className="shopping-list-grid">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Add item form */}
                             <div className="space-y-3">
                                 <h3 className="text-md font-semibold">Добавление товара</h3>
@@ -4139,15 +4139,7 @@
                                 </button>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => {
-                                        const today = new Date();
-                                        setCurrentDate(today);
-                                    }}
-                                    className="calendar-today-button"
-                                >
-                                    Сегодня
-                                </button>
+                                {/* Removed Today button */}
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button
@@ -4184,7 +4176,7 @@
                                         hours.push(
                                             <React.Fragment key={hour}>
                                                 <div className="week-time-column">
-                                                    {`${hour.toString().padStart(2, '0')}:00`}
+                                                    {`${hour}:00`}
                                                 </div>
                                                 {Array(7).fill(0).map((_, dayIndex) => {
                                                     const startOfWeek = new Date(currentDate);

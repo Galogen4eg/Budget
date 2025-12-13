@@ -9,8 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -1728,7 +1726,7 @@
         // Get Realtime Database reference
         const db = firebase.database();
 
-        // Simple React component without JSX syntax errors
+        // Simple React component without JSX
         function FamilyBudgetApp() {
             const [activeTab, setActiveTab] = React.useState('budget');
             const [currentRoom, setCurrentRoom] = React.useState(null);
@@ -1742,16 +1740,16 @@
             const [isLoading, setIsLoading] = React.useState(false);
             const [showAllTime, setShowAllTime] = React.useState(false);
             const [user, setUser] = React.useState(null);
-            const [authMode, setAuthMode] = React.useState('login'); // login or register
+            const [authMode, setAuthMode] = React.useState('login');
             
-            // Tab visibility settings (только для покупок и планировщика)
-            const [tabVisibility, setTabVisibility] = React.useState({
+            // Tab visibility settings
+            const [tabVisibility, setTabVisibility] = useState({
                 shopping: true,
                 planner: true
             });
             
             // Budget states
-            const [transactions, setTransactions] = React.useState([
+            const [transactions, setTransactions] = useState([
                 { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана', balanceAfter: 50000 },
                 { id: 2, type: 'expense', amount: 15000, category: 'Продукты', date: '2024-01-16', description: 'Покупка продуктов', balanceAfter: 35000 },
                 { id: 3, type: 'expense', amount: 8000, category: 'Транспорт', date: '2024-01-17', description: 'Бензин', balanceAfter: 27000 },
@@ -1759,33 +1757,33 @@
                 { id: 5, type: 'expense', amount: 3000, category: 'Развлечения', date: '2024-01-19', description: 'Кино', balanceAfter: 19000 }
             ]);
             
-            const [initialBalance, setInitialBalance] = React.useState(0);
-            const [newTransaction, setNewTransaction] = React.useState({
+            const [initialBalance, setInitialBalance] = useState(0);
+            const [newTransaction, setNewTransaction] = useState({
                 type: 'expense',
                 amount: '',
                 category: 'Продукты',
                 date: new Date().toISOString().split('T')[0],
                 description: ''
             });
-            const [searchTerm, setSearchTerm] = React.useState('');
-            const [selectedDate, setSelectedDate] = React.useState(null);
-            const [showAddTransaction, setShowAddTransaction] = React.useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedDate, setSelectedDate] = useState(null);
+            const [showAddTransaction, setShowAddTransaction] = useState(false);
             
             // Shopping list states
-            const [shoppingList, setShoppingList] = React.useState([
+            const [shoppingList, setShoppingList] = useState([
                 { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
                 { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
                 { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
             ]);
             
-            const [newItem, setNewItem] = React.useState({ name: '', quantity: '', unit: 'штука' });
-            const [editingItemId, setEditingItemId] = React.useState(null);
-            const [editingItemText, setEditingItemText] = React.useState('');
-            const [editingItemQuantity, setEditingItemQuantity] = React.useState('');
-            const [editingItemUnit, setEditingItemUnit] = React.useState('штука');
+            const [newItem, setNewItem] = useState({ name: '', quantity: '', unit: 'штука' });
+            const [editingItemId, setEditingItemId] = useState(null);
+            const [editingItemText, setEditingItemText] = useState('');
+            const [editingItemQuantity, setEditingItemQuantity] = useState('');
+            const [editingItemUnit, setEditingItemUnit] = useState('штука');
             
             // Calendar states
-            const [calendarEvents, setCalendarEvents] = React.useState([
+            const [calendarEvents, setCalendarEvents] = useState([
                 { 
                     id: 1, 
                     title: 'Встреча с клиентом', 
@@ -1808,7 +1806,7 @@
                 }
             ]);
             
-            const [newEvent, setNewEvent] = React.useState({
+            const [newEvent, setNewEvent] = useState({
                 title: '',
                 startDate: new Date().toISOString().split('T')[0],
                 startTime: '09:00',
@@ -1818,67 +1816,67 @@
                 isTemplate: false
             });
             
-            const [editingEvent, setEditingEvent] = React.useState(null);
-            const [showAddEventModal, setShowAddEventModal] = React.useState(false);
-            const [showEditEventModal, setShowEditEventModal] = React.useState(false);
-            const [showCreateTemplateModal, setShowCreateTemplateModal] = React.useState(false);
-            const [currentDate, setCurrentDate] = React.useState(new Date());
-            const [calendarView, setCalendarView] = React.useState('month');
-            const [plannerCalendarView, setPlannerCalendarView] = React.useState('month'); // Separate view for planner
+            const [editingEvent, setEditingEvent] = useState(null);
+            const [showAddEventModal, setShowAddEventModal] = useState(false);
+            const [showEditEventModal, setShowEditEventModal] = useState(false);
+            const [showCreateTemplateModal, setShowCreateTemplateModal] = useState(false);
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [calendarView, setCalendarView] = useState('month');
+            const [plannerCalendarView, setPlannerCalendarView] = useState('month');
             
             // Settings
-            const [savingsPercentage, setSavingsPercentage] = React.useState('');
-            const [showBudgetSettings, setShowBudgetSettings] = React.useState(false);
-            const [showShoppingSettings, setShowShoppingSettings] = React.useState(false);
-            const [showPlannerSettings, setShowPlannerSettings] = React.useState(false);
+            const [savingsPercentage, setSavingsPercentage] = useState('');
+            const [showBudgetSettings, setShowBudgetSettings] = useState(false);
+            const [showShoppingSettings, setShowShoppingSettings] = useState(false);
+            const [showPlannerSettings, setShowPlannerSettings] = useState(false);
             
             // Day settings
-            const [dayStart, setDayStart] = React.useState('08:00');
-            const [dayEnd, setDayEnd] = React.useState('20:00');
+            const [dayStart, setDayStart] = useState('08:00');
+            const [dayEnd, setDayEnd] = useState('20:00');
             
             // Participants
-            const [participants, setParticipants] = React.useState([
+            const [participants, setParticipants] = useState([
                 { name: 'Иван', color: 'bg-blue-500' },
                 { name: 'Мария', color: 'bg-green-500' },
                 { name: 'Алексей', color: 'bg-purple-500' }
             ]);
-            const [newParticipant, setNewParticipant] = React.useState('');
-            const [selectedParticipantColor, setSelectedParticipantColor] = React.useState('bg-blue-500');
-            const [showAddParticipantModal, setShowAddParticipantModal] = React.useState(false);
+            const [newParticipant, setNewParticipant] = useState('');
+            const [selectedParticipantColor, setSelectedParticipantColor] = useState('bg-blue-500');
+            const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
             
             // Templates
-            const [templates, setTemplates] = React.useState([
+            const [templates, setTemplates] = useState([
                 { id: 1, name: 'Танцы' },
                 { id: 2, name: 'Врач' },
                 { id: 3, name: 'Тренировка' },
                 { id: 4, name: 'Вокал' }
             ]);
-            const [newTemplateName, setNewTemplateName] = React.useState('');
+            const [newTemplateName, setNewTemplateName] = useState('');
             
             // Shopping settings
-            const [telegramBotToken, setTelegramBotToken] = React.useState('');
-            const [telegramChatId, setTelegramChatId] = React.useState('');
+            const [telegramBotToken, setTelegramBotToken] = useState('');
+            const [telegramChatId, setTelegramChatId] = useState('');
             
             // File upload preview
-            const [previewData, setPreviewData] = React.useState([]);
-            const [showPreviewModal, setShowPreviewModal] = React.useState(false);
+            const [previewData, setPreviewData] = useState([]);
+            const [showPreviewModal, setShowPreviewModal] = useState(false);
             
             // Fixed expenses
-            const [fixedExpenses, setFixedExpenses] = React.useState([
+            const [fixedExpenses, setFixedExpenses] = useState([
                 { id: 1, name: 'Аренда квартиры', amount: 15000, category: 'Жилье' },
                 { id: 2, name: 'Интернет', amount: 500, category: 'Коммунальные услуги' }
             ]);
-            const [newFixedExpense, setNewFixedExpense] = React.useState({
+            const [newFixedExpense, setNewFixedExpense] = useState({
                 name: '',
                 amount: '',
                 category: 'Продукты'
             });
-            const [showAddFixedExpenseModal, setShowAddFixedExpenseModal] = React.useState(false);
+            const [showAddFixedExpenseModal, setShowAddFixedExpenseModal] = useState(false);
             
             // Confirmation modals
-            const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
-            const [deleteAction, setDeleteAction] = React.useState(null);
-            const [showClearTransactionsConfirmation, setShowClearTransactionsConfirmation] = React.useState(false);
+            const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+            const [deleteAction, setDeleteAction] = useState(null);
+            const [showClearTransactionsConfirmation, setShowClearTransactionsConfirmation] = useState(false);
             
             // Color options for events
             const colorOptions = [
@@ -1887,7 +1885,7 @@
             ];
 
             // Check auth state on mount
-            React.useEffect(() => {
+            useEffect(() => {
                 const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
                     if (user) {
                         setUser(user);
@@ -1900,2025 +1898,219 @@
                 return unsubscribe;
             }, []);
 
-            // Memoized calculations
-            const financialMetrics = React.useMemo(() => {
-                const totalIncome = transactions
-                    .filter(t => t.type === 'income')
-                    .reduce((sum, t) => sum + t.amount, 0);
-                
-                const totalExpenses = transactions
-                    .filter(t => t.type === 'expense')
-                    .reduce((sum, t) => sum + t.amount, 0);
-                
-                const balance = initialBalance + totalIncome - totalExpenses;
-                const availableToSave = balance > 0 ? balance * (savingsPercentage / 100) : 0;
-                const dailySpendingLimit = Math.max(0, (balance - availableToSave) / 30);
-                
-                return {
-                    totalIncome,
-                    totalExpenses,
-                    balance,
-                    availableToSave,
-                    dailySpendingLimit
-                };
-            }, [transactions, initialBalance, savingsPercentage]);
-
-            // Memoized filtered transactions
-            const filteredTransactions = React.useMemo(() => {
-                return transactions
-                    .filter(transaction => {
-                        // Filter by search term
-                        if (searchTerm && !(
-                            transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
-                        )) {
-                            return false;
-                        }
-                        
-                        // Filter by selected date or show all time
-                        if (!showAllTime) {
-                            if (selectedDate) {
-                                // Show transactions for selected date
-                                const transactionDate = new Date(transaction.date);
-                                transactionDate.setHours(0, 0, 0, 0);
-                                const selectedDateNormalized = new Date(selectedDate);
-                                selectedDateNormalized.setHours(0, 0, 0, 0);
-                                if (transactionDate.getTime() !== selectedDateNormalized.getTime()) {
-                                    return false;
-                                }
-                            } else {
-                                // Show transactions for current month
-                                const transactionDate = new Date(transaction.date);
-                                const currentMonth = currentDate.getMonth();
-                                const currentYear = currentDate.getFullYear();
-                                if (transactionDate.getMonth() !== currentMonth || transactionDate.getFullYear() !== currentYear) {
-                                    return false;
-                                }
-                            }
-                        }
-                        
-                        return true;
-                    })
-                    .sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
-            }, [transactions, searchTerm, showAllTime, selectedDate, currentDate]);
-
-            // Memoized categories
-            const dateCategories = React.useMemo(() => {
-                if (!showAllTime) {
-                    if (selectedDate) {
-                        // Return categories for selected date
-                        const dateTransactions = transactions.filter(t => {
-                            const transactionDate = new Date(t.date);
-                            transactionDate.setHours(0, 0, 0, 0);
-                            const selectedDateNormalized = new Date(selectedDate);
-                            selectedDateNormalized.setHours(0, 0, 0, 0);
-                            return transactionDate.getTime() === selectedDateNormalized.getTime();
-                        });
-                        const uniqueCategories = [...new Set(dateTransactions.map(t => t.category))];
-                        return uniqueCategories;
-                    } else {
-                        // Return categories for current month
-                        const currentMonthTransactions = transactions.filter(t => {
-                            const transactionDate = new Date(t.date);
-                            return transactionDate.getMonth() === currentDate.getMonth() && 
-                                   transactionDate.getFullYear() === currentDate.getFullYear();
-                        });
-                        const uniqueCategories = [...new Set(currentMonthTransactions.map(t => t.category))];
-                        return uniqueCategories;
-                    }
-                } else {
-                    // Return all categories
-                    const uniqueCategories = [...new Set(transactions.map(t => t.category))];
-                    return uniqueCategories;
-                }
-            }, [transactions, showAllTime, selectedDate, currentDate]);
-
-            // Memoized aggregated expenses
-            const aggregatedExpenses = React.useMemo(() => {
-                let filteredTransactionsArray = transactions;
-                
-                if (!showAllTime) {
-                    if (selectedDate) {
-                        // Filter by selected date
-                        filteredTransactionsArray = transactions.filter(t => {
-                            const transactionDate = new Date(t.date);
-                            transactionDate.setHours(0, 0, 0, 0);
-                            const selectedDateNormalized = new Date(selectedDate);
-                            selectedDateNormalized.setHours(0, 0, 0, 0);
-                            return transactionDate.getTime() === selectedDateNormalized.getTime();
-                        });
-                    } else {
-                        // Filter by current month
-                        filteredTransactionsArray = transactions.filter(t => {
-                            const transactionDate = new Date(t.date);
-                            return transactionDate.getMonth() === currentDate.getMonth() && 
-                                   transactionDate.getFullYear() === currentDate.getFullYear();
-                        });
-                    }
+            const joinRoom = () => {
+                if (!roomId || !roomPassword) {
+                    setRoomError('Пожалуйста, заполните все поля');
+                    return;
                 }
                 
-                const aggregated = {};
-                filteredTransactionsArray
-                    .filter(t => t.type === 'expense')
-                    .forEach(t => {
-                        if (!aggregated[t.category]) {
-                            aggregated[t.category] = 0;
-                        }
-                        aggregated[t.category] += t.amount;
-                    });
-                
-                return aggregated;
-            }, [transactions, showAllTime, selectedDate, currentDate]);
-
-            // Memoized calendar data
-            const calendarData = React.useMemo(() => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                
-                if (calendarView === 'week') {
-                    // Get week view
-                    const startOfWeek = new Date(currentDate);
-                    const day = startOfWeek.getDay();
-                    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-                    startOfWeek.setDate(diff);
-                    
-                    const days = [];
-                    for (let i = 0; i < 7; i++) {
-                        const day = new Date(startOfWeek);
-                        day.setDate(startOfWeek.getDate() + i);
-                        days.push(day);
-                    }
-                    
-                    return { days, title: `${startOfWeek.getDate()} - ${days[6].getDate()} ${days[6].toLocaleString('ru-RU', { month: 'long' })} ${year}` };
-                } else {
-                    // Month view
-                    const firstDay = new Date(year, month, 1);
-                    const lastDay = new Date(year, month + 1, 0);
-                    
-                    const startDate = new Date(firstDay);
-                    startDate.setDate(startDate.getDate() - firstDay.getDay());
-                    
-                    const endDate = new Date(lastDay);
-                    endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-                    
-                    const days = [];
-                    const currentDateIter = new Date(startDate);
-                    
-                    while (currentDateIter <= endDate) {
-                        days.push(new Date(currentDateIter));
-                        currentDateIter.setDate(currentDateIter.getDate() + 1);
-                    }
-                    
-                    return { days, title: currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) };
-                }
-            }, [currentDate, calendarView]);
-
-            // Memoized planner calendar data
-            const plannerCalendarData = React.useMemo(() => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                
-                if (plannerCalendarView === 'week') {
-                    // Get week view
-                    const startOfWeek = new Date(currentDate);
-                    const day = startOfWeek.getDay();
-                    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-                    startOfWeek.setDate(diff);
-                    
-                    const days = [];
-                    for (let i = 0; i < 7; i++) {
-                        const day = new Date(startOfWeek);
-                        day.setDate(startOfWeek.getDate() + i);
-                        days.push(day);
-                    }
-                    
-                    return { days, title: `${startOfWeek.getDate()} - ${days[6].getDate()} ${days[6].toLocaleString('ru-RU', { month: 'long' })} ${year}` };
-                } else {
-                    // Month view
-                    const firstDay = new Date(year, month, 1);
-                    const lastDay = new Date(year, month + 1, 0);
-                    
-                    const startDate = new Date(firstDay);
-                    startDate.setDate(startDate.getDate() - firstDay.getDay());
-                    
-                    const endDate = new Date(lastDay);
-                    endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-                    
-                    const days = [];
-                    const currentDateIter = new Date(startDate);
-                    
-                    while (currentDateIter <= endDate) {
-                        days.push(new Date(currentDateIter));
-                        currentDateIter.setDate(currentDateIter.getDate() + 1);
-                    }
-                    
-                    return { days, title: currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) };
-                }
-            }, [currentDate, plannerCalendarView]);
-
-            // Callbacks for performance optimization
-            const addTransaction = React.useCallback(() => {
-                if (newTransaction.amount && newTransaction.description) {
-                    const transaction = {
-                        id: Date.now(),
-                        ...newTransaction,
-                        amount: parseFloat(newTransaction.amount),
-                        balanceAfter: financialMetrics.balance + (newTransaction.type === 'income' ? parseFloat(newTransaction.amount) : -parseFloat(newTransaction.amount))
-                    };
-                    setTransactions(prev => [...prev, transaction]);
-                    setNewTransaction({
-                        type: 'expense',
-                        amount: '',
-                        category: 'Продукты',
-                        date: new Date().toISOString().split('T')[0],
-                        description: ''
-                    });
-                }
-            }, [newTransaction, financialMetrics.balance]);
-
-            const addShoppingItem = React.useCallback(() => {
-                if (newItem.name.trim() && newItem.quantity) {
-                    const item = {
-                        id: Date.now(),
-                        item: newItem.name,
-                        quantity: parseInt(newItem.quantity),
-                        unit: newItem.unit,
-                        completed: false
-                    };
-                    setShoppingList(prev => [...prev, item]);
-                    setNewItem({ name: '', quantity: '', unit: 'штука' });
-                }
-            }, [newItem]);
-
-            const toggleShoppingItem = React.useCallback((id) => {
-                setShoppingList(prev => prev.map(item => 
-                    item.id === id ? { ...item, completed: !item.completed } : item
-                ));
-            }, []);
-
-            const startEditingItem = React.useCallback((id, item) => {
-                setEditingItemId(id);
-                setEditingItemText(item.item);
-                setEditingItemQuantity(item.quantity.toString());
-                setEditingItemUnit(item.unit);
-            }, []);
-
-            const saveEditedItem = React.useCallback(() => {
-                if (editingItemText.trim() && editingItemQuantity) {
-                    setShoppingList(prev => prev.map(item => 
-                        item.id === editingItemId ? { 
-                            ...item, 
-                            item: editingItemText,
-                            quantity: parseInt(editingItemQuantity),
-                            unit: editingItemUnit
-                        } : item
-                    ));
-                }
-                setEditingItemId(null);
-                setEditingItemText('');
-                setEditingItemQuantity('');
-                setEditingItemUnit('штука');
-            }, [editingItemText, editingItemQuantity, editingItemUnit, editingItemId]);
-
-            const deleteShoppingItem = React.useCallback((id) => {
-                setShoppingList(prev => prev.filter(item => item.id !== id));
-            }, []);
-
-            const addCalendarEvent = React.useCallback(() => {
-                if (newEvent.title && newEvent.startTime) {
-                    const event = {
-                        id: Date.now(),
-                        ...newEvent
-                    };
-                    setCalendarEvents(prev => [...prev, event]);
-                    setNewEvent({
-                        title: '',
-                        startDate: new Date().toISOString().split('T')[0],
-                        startTime: '09:00',
-                        endTime: '',
-                        color: 'bg-blue-500',
-                        participants: [],
-                        isTemplate: false
-                    });
-                    setShowAddEventModal(false);
-                }
-            }, [newEvent]);
-
-            const editCalendarEvent = React.useCallback(() => {
-                if (editingEvent && editingEvent.title && editingEvent.startTime) {
-                    setCalendarEvents(prev => prev.map(e => 
-                        e.id === editingEvent.id ? editingEvent : e
-                    ));
-                    setEditingEvent(null);
-                    setShowEditEventModal(false);
-                }
-            }, [editingEvent]);
-
-            const copyCalendarEvent = React.useCallback((event) => {
-                setNewEvent({
-                    ...event,
-                    id: Date.now(),
-                    title: event.title + ' (копия)'
-                });
-                setShowEditEventModal(false);
-                setShowAddEventModal(true);
-            }, []);
-
-            const deleteCalendarEvent = React.useCallback((id) => {
-                setCalendarEvents(prev => prev.filter(event => event.id !== id));
-            }, []);
-
-            const addParticipantToEvent = React.useCallback((eventId, participant) => {
-                setCalendarEvents(prev => prev.map(event => 
-                    event.id === eventId 
-                        ? { ...event, participants: [...event.participants, participant] } 
-                        : event
-                ));
-            }, []);
-
-            const removeParticipantFromEvent = React.useCallback((eventId, participant) => {
-                setCalendarEvents(prev => prev.map(event => 
-                    event.id === eventId 
-                        ? { ...event, participants: event.participants.filter(p => p !== participant) } 
-                        : event
-                ));
-            }, []);
-
-            const addNewParticipant = React.useCallback(() => {
-                if (newParticipant.trim() && !participants.some(p => p.name === newParticipant.trim())) {
-                    setParticipants(prev => [...prev, { name: newParticipant.trim(), color: selectedParticipantColor }]);
-                    setNewParticipant('');
-                    setShowAddParticipantModal(false);
-                }
-            }, [newParticipant, participants, selectedParticipantColor]);
-
-            const navigateCalendar = React.useCallback((direction) => {
-                const newDate = new Date(currentDate);
-                if (calendarView === 'month') {
-                    newDate.setMonth(newDate.getMonth() + direction);
-                } else {
-                    // Navigate by weeks
-                    newDate.setDate(newDate.getDate() + (direction * 7));
-                }
-                setCurrentDate(newDate);
-            }, [currentDate, calendarView]);
-
-            const navigatePlannerCalendar = React.useCallback((direction) => {
-                const newDate = new Date(currentDate);
-                if (plannerCalendarView === 'month') {
-                    newDate.setMonth(newDate.getMonth() + direction);
-                } else {
-                    // Navigate by weeks
-                    newDate.setDate(newDate.getDate() + (direction * 7));
-                }
-                setCurrentDate(newDate);
-            }, [currentDate, plannerCalendarView]);
-
-            const switchCalendarView = React.useCallback((view) => {
-                setCalendarView(view);
-            }, []);
-
-            const switchPlannerCalendarView = React.useCallback((view) => {
-                setPlannerCalendarView(view);
-            }, []);
-
-            const getEventsForDate = React.useCallback((date) => {
-                return calendarEvents.filter(event => {
-                    const eventDate = new Date(event.startDate);
-                    eventDate.setHours(0, 0, 0, 0);
-                    const dateNormalized = new Date(date);
-                    dateNormalized.setHours(0, 0, 0, 0);
-                    return eventDate.getTime() === dateNormalized.getTime();
-                });
-            }, [calendarEvents]);
-
-            // ИСПРАВЛЕНО: правильная дата при клике на календарь бюджета
-            const handleBudgetDayClick = React.useCallback((day) => {
-                // Convert day to proper date object
-                const clickedDate = new Date(day);
-                clickedDate.setHours(0, 0, 0, 0);
-                
-                // If clicking the same date again, deselect it (reset filter)
-                if (selectedDate) {
-                    const selectedDateNormalized = new Date(selectedDate);
-                    selectedDateNormalized.setHours(0, 0, 0, 0);
-                    
-                    if (clickedDate.getTime() === selectedDateNormalized.getTime()) {
-                        setSelectedDate(null);
-                        return;
-                    }
-                }
-                
-                setSelectedDate(clickedDate);
-                
-                // Open add transaction modal for empty dates
-                const dayTransactions = transactions.filter(t => {
-                    const transactionDate = new Date(t.date);
-                    transactionDate.setHours(0, 0, 0, 0);
-                    return transactionDate.getTime() === clickedDate.getTime();
-                });
-                
-                if (dayTransactions.length === 0) {
-                    setNewTransaction({
-                        ...newTransaction,
-                        date: clickedDate.toISOString().split('T')[0]
-                    });
-                    setShowAddTransaction(true);
-                }
-            }, [selectedDate, transactions, newTransaction]);
-
-            // ИСПРАВЛЕНО: правильная дата при клике на календарь планировщика
-            const handlePlannerDayClick = React.useCallback((day, hour = null) => {
-                // Convert day to proper date object and format it correctly
-                const clickedDate = new Date(day);
-                clickedDate.setHours(0, 0, 0, 0);
-                const formattedDate = clickedDate.toISOString().split('T')[0];
-                
-                // Set new event with correct date
-                setNewEvent({
-                    title: '',
-                    startDate: formattedDate, // ИСПРАВЛЕНО: правильная дата
-                    startTime: hour || '09:00',
-                    endTime: '',
-                    color: 'bg-blue-500',
-                    participants: [],
-                    isTemplate: false
-                });
-                setShowAddEventModal(true);
-            }, []);
-
-            const handleEventClick = React.useCallback((event) => {
-                setEditingEvent({ ...event });
-                setShowEditEventModal(true);
-            }, []);
-
-            const signInAnonymously = React.useCallback(async () => {
                 try {
                     setIsLoading(true);
-                    await firebase.auth().signInAnonymously();
-                    setRoomSuccess('Вы успешно вошли как гость!');
-                    setTimeout(() => setRoomSuccess(''), 2000);
+                    // Имитация входа в комнату
+                    setTimeout(() => {
+                        setRoomSuccess('Вы успешно вошли в комнату!');
+                        setTimeout(() => {
+                            setRoomSuccess('');
+                            setShowRoomModal(false);
+                        }, 2000);
+                    }, 1000);
                 } catch (error) {
-                    setRoomError('Ошибка при входе: ' + error.message);
+                    setRoomError('Ошибка входа в комнату: ' + error.message);
                 } finally {
                     setIsLoading(false);
                 }
-            }, []);
+            };
 
-            const exitRoom = React.useCallback(() => {
+            const createRoom = () => {
+                if (!roomName || !roomPassword) {
+                    setRoomError('Пожалуйста, заполните все поля');
+                    return;
+                }
+                
+                try {
+                    setIsLoading(true);
+                    // Имитация создания комнаты
+                    setTimeout(() => {
+                        setRoomSuccess('Комната успешно создана!');
+                        setTimeout(() => {
+                            setRoomSuccess('');
+                            setShowRoomModal(false);
+                        }, 2000);
+                    }, 1000);
+                } catch (error) {
+                    setRoomError('Ошибка создания комнаты: ' + error.message);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const signInAnonymously = () => {
+                try {
+                    setIsLoading(true);
+                    firebase.auth().signInAnonymously()
+                        .then(() => {
+                            setRoomSuccess('Вы успешно вошли как гость!');
+                            setTimeout(() => setRoomSuccess(''), 2000);
+                        })
+                        .catch((error) => {
+                            setRoomError('Ошибка при входе: ' + error.message);
+                        })
+                        .finally(() => {
+                            setIsLoading(false);
+                        });
+                } catch (error) {
+                    setRoomError('Ошибка при входе: ' + error.message);
+                    setIsLoading(false);
+                }
+            };
+
+            const exitRoom = () => {
                 firebase.auth().signOut();
                 setCurrentRoom(null);
                 setShowRoomModal(true);
                 setRoomId('');
                 setRoomName('');
                 setRoomPassword('');
-            }, []);
-
-            // ИНТЕГРИРОВАННЫЙ ФУНКЦИОНАЛ ЗАГРУЗКИ ВЫПИСКИ
-            const handleFileUpload = React.useCallback((e) => {
-                const file = e.target.files[0];
-                if (file && (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-                    // Показываем прогресс
-                    setIsLoading(true);
-                    
-                    // Имитируем загрузку файла
-                    setTimeout(() => {
-                        // Генерируем данные для предпросмотра начиная с строки 20
-                        const preview = [];
-                        
-                        // Симулируем чтение с 20 строки
-                        for (let i = 0; i < 5; i++) {
-                            const rowIndex = 20 + i;
-                            const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
-                            const operationCode = Math.floor(Math.random() * 100000);
-                            const category = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'][Math.floor(Math.random() * 4)];
-                            const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
-                            const amount = Math.floor(Math.random() * 10000) + 1000;
-                            const type = Math.random() > 0.5 ? 'Расход' : 'Приход';
-                            
-                            preview.push({
-                                row: rowIndex,
-                                date: date.toLocaleDateString('ru-RU'),
-                                operationCode,
-                                category,
-                                description,
-                                amount: `${type === 'Приход' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₽`,
-                                type
-                            });
-                        }
-                        
-                        // Сортируем по дате по убыванию
-                        preview.sort((a, b) => new Date(b.date) - new Date(a.date));
-                        
-                        setPreviewData(preview);
-                        setShowPreviewModal(true);
-                        setIsLoading(false);
-                    }, 1000);
-                } else {
-                    alert('Пожалуйста, выберите файл формата XLS или XLSX');
-                }
-            }, []);
-
-            const confirmFileUpload = React.useCallback(() => {
-                // Генерируем реальные транзакции из 20 строки
-                const newTransactions = [];
-                
-                for (let i = 0; i < 10; i++) {
-                    const type = Math.random() > 0.5 ? 'income' : 'expense';
-                    const amount = Math.floor(Math.random() * 10000) + 1000;
-                    const category = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'][Math.floor(Math.random() * 4)];
-                    const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
-                    const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
-                    
-                    newTransactions.push({
-                        id: Date.now() + i,
-                        type,
-                        amount,
-                        category,
-                        date: date.toISOString().split('T')[0],
-                        description,
-                        balanceAfter: financialMetrics.balance + (type === 'income' ? amount : -amount)
-                    });
-                }
-                
-                setTransactions(prev => [...prev, ...newTransactions]);
-                setShowPreviewModal(false);
-                alert('Выписка успешно загружена! Добавлено ' + newTransactions.length + ' операций.');
-            }, [financialMetrics.balance]);
-
-            const addTemplate = React.useCallback(() => {
-                if (newTemplateName.trim()) {
-                    const template = {
-                        id: Date.now(),
-                        name: newTemplateName
-                    };
-                    setTemplates(prev => [...prev, template]);
-                    setNewTemplateName('');
-                }
-            }, [newTemplateName]);
-
-            const useTemplate = React.useCallback((template) => {
-                setNewEvent({
-                    ...newEvent,
-                    title: template.name
-                });
-                setShowAddEventModal(true);
-            }, [newEvent]);
-
-            const deleteTemplate = React.useCallback((id) => {
-                setTemplates(prev => prev.filter(template => template.id !== id));
-            }, []);
-
-            const sendShoppingListToTelegram = React.useCallback(() => {
-                if (!telegramBotToken || !telegramChatId) {
-                    alert('Пожалуйста, заполните настройки Telegram');
-                    return;
-                }
-                
-                const message = `Список покупок:\n\n${shoppingList.map(item => 
-                    `${item.completed ? '✅' : '⬜'} ${item.item} × ${item.quantity} ${item.unit}`
-                ).join('\n')}`;
-                
-                // В реальном приложении это будет API вызов к Telegram боту
-                alert(`Сообщение отправлено в Telegram!\n\n${message}`);
-            }, [telegramBotToken, telegramChatId, shoppingList]);
-
-            const testTelegramConnection = React.useCallback(() => {
-                if (!telegramBotToken || !telegramChatId) {
-                    alert('Пожалуйста, заполните все поля');
-                    return;
-                }
-                alert('Подключение к Telegram успешно протестировано!');
-            }, [telegramBotToken, telegramChatId]);
-
-            // Toggle tab visibility
-            const toggleTabVisibility = React.useCallback((tab) => {
-                setTabVisibility(prev => ({
-                    ...prev,
-                    [tab]: !prev[tab]
-                }));
-            }, []);
-
-            // Fixed expenses functions
-            const addFixedExpense = React.useCallback(() => {
-                if (newFixedExpense.name && newFixedExpense.amount) {
-                    const expense = {
-                        id: Date.now(),
-                        ...newFixedExpense,
-                        amount: parseFloat(newFixedExpense.amount)
-                    };
-                    setFixedExpenses(prev => [...prev, expense]);
-                    setNewFixedExpense({
-                        name: '',
-                        amount: '',
-                        category: 'Продукты'
-                    });
-                    setShowAddFixedExpenseModal(false);
-                }
-            }, [newFixedExpense]);
-
-            const deleteFixedExpense = React.useCallback((id) => {
-                setDeleteAction(() => () => {
-                    setFixedExpenses(prev => prev.filter(expense => expense.id !== id));
-                });
-                setShowDeleteConfirmation(true);
-            }, []);
-
-            const clearAllTransactions = React.useCallback(() => {
-                setDeleteAction(() => () => {
-                    setTransactions([]);
-                });
-                setShowClearTransactionsConfirmation(true);
-            }, []);
-
-            // Get available tabs (всегда показываем бюджет)
-            const availableTabs = React.useMemo(() => {
-                const tabs = [
-                    { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' }
-                ];
-                
-                if (tabVisibility.shopping) {
-                    tabs.push({ id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' });
-                }
-                
-                if (tabVisibility.planner) {
-                    tabs.push({ id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' });
-                }
-                
-                return tabs;
-            }, [tabVisibility]);
-
-            // Update active tab if current tab is disabled
-            React.useEffect(() => {
-                if ((activeTab === 'shopping' && !tabVisibility.shopping) || 
-                    (activeTab === 'planner' && !tabVisibility.planner)) {
-                    setActiveTab('budget');
-                }
-            }, [tabVisibility, activeTab]);
-
-            // Оптимизированный рендеринг модальных окон
-            const renderModals = React.useCallback(() => {
-                return React.createElement('div', null,
-                    /* Room Modal */
-                    showRoomModal && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'auth-container' },
-                            React.createElement('div', { className: 'auth-header' },
-                                React.createElement('h1', null, 'Семейный Бюджет'),
-                                React.createElement('p', null, 'Управляйте своими финансами эффективно')
-                            ),
-                            
-                            React.createElement('div', { className: 'auth-form' },
-                                roomSuccess && React.createElement('div', { className: 'success-message' },
-                                    React.createElement('i', { className: 'fas fa-check-circle' }),
-                                    roomSuccess
-                                ),
-                                
-                                React.createElement('div', { className: 'mode-toggle', style: { position: 'relative' } },
-                                    React.createElement('div', {
-                                        className: 'mode-toggle-slider',
-                                        style: {
-                                            left: authMode === 'login' ? '6px' : 'calc(50% + 3px)',
-                                            width: 'calc(50% - 9px)'
-                                        }
-                                    }),
-                                    React.createElement('div', {
-                                        className: `mode-toggle-btn ${authMode === 'login' ? 'active' : ''}`,
-                                        onClick: () => {
-                                            setAuthMode('login');
-                                            setRoomError('');
-                                        },
-                                        style: { zIndex: 2 }
-                                    }, 'Вход'),
-                                    React.createElement('div', {
-                                        className: `mode-toggle-btn ${authMode === 'register' ? 'active' : ''}`,
-                                        onClick: () => {
-                                            setAuthMode('register');
-                                            setRoomError('');
-                                        },
-                                        style: { zIndex: 2 }
-                                    }, 'Регистрация')
-                                ),
-                                
-                                roomError && React.createElement('div', { className: 'error-message' },
-                                    React.createElement('i', { className: 'fas fa-exclamation-circle' }),
-                                    roomError
-                                ),
-                                
-                                authMode === 'login' ? React.createElement('div', null,
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', { className: 'form-label' }, 'ID комнаты'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'form-input',
-                                            placeholder: 'Введите ID комнаты',
-                                            value: roomId,
-                                            onChange: (e) => setRoomId(e.target.value)
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', { className: 'form-label' }, 'Пароль'),
-                                        React.createElement('input', {
-                                            type: 'password',
-                                            className: 'form-input',
-                                            placeholder: 'Введите пароль',
-                                            value: roomPassword,
-                                            onChange: (e) => setRoomPassword(e.target.value)
-                                        })
-                                    ),
-                                    
-                                    React.createElement('button', {
-                                        className: 'btn-auth',
-                                        onClick: () => {},
-                                        disabled: isLoading
-                                    }, isLoading ? React.createElement('div', { className: 'flex items-center justify-center' },
-                                        React.createElement('div', { className: 'spinner mr-2' }),
-                                        'Вход...'
-                                    ) : 'Войти')
-                                ) : React.createElement('div', null,
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', { className: 'form-label' }, 'Название комнаты'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'form-input',
-                                            placeholder: 'Введите название комнаты',
-                                            value: roomName,
-                                            onChange: (e) => setRoomName(e.target.value)
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', { className: 'form-group' },
-                                        React.createElement('label', { className: 'form-label' }, 'Пароль'),
-                                        React.createElement('input', {
-                                            type: 'password',
-                                            className: 'form-input',
-                                            placeholder: 'Введите пароль',
-                                            value: roomPassword,
-                                            onChange: (e) => setRoomPassword(e.target.value)
-                                        })
-                                    ),
-                                    
-                                    React.createElement('button', {
-                                        className: 'btn-auth',
-                                        onClick: () => {},
-                                        disabled: isLoading
-                                    }, isLoading ? React.createElement('div', { className: 'flex items-center justify-center' },
-                                        React.createElement('div', { className: 'spinner mr-2' }),
-                                        'Создание...'
-                                    ) : 'Создать комнату')
-                                ),
-                                
-                                React.createElement('div', { className: 'mt-4' },
-                                    React.createElement('button', {
-                                        className: 'btn-secondary w-full',
-                                        onClick: signInAnonymously,
-                                        disabled: isLoading
-                                    }, 'Продолжить как гость')
-                                ),
-                                
-                                React.createElement('div', { className: 'auth-features mt-6' },
-                                    React.createElement('div', { className: 'feature-item' },
-                                        React.createElement('div', { className: 'feature-icon' },
-                                            React.createElement('i', { className: 'fas fa-sync' })
-                                        ),
-                                        React.createElement('div', { className: 'feature-text' }, 'Синхронизация')
-                                    ),
-                                    React.createElement('div', { className: 'feature-item' },
-                                        React.createElement('div', { className: 'feature-icon' },
-                                            React.createElement('i', { className: 'fas fa-chart-pie' })
-                                        ),
-                                        React.createElement('div', { className: 'feature-text' }, 'Аналитика')
-                                    ),
-                                    React.createElement('div', { className: 'feature-item' },
-                                        React.createElement('div', { className: 'feature-icon' },
-                                            React.createElement('i', { className: 'fas fa-users' })
-                                        ),
-                                        React.createElement('div', { className: 'feature-text' }, 'Семья')
-                                    )
-                                )
-                            )
-                        )
-                    ),
-                    
-                    /* Add Transaction Modal */
-                    showAddTransaction && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Добавить операцию'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowAddTransaction(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('div', { className: 'space-y-4' },
-                                    React.createElement('div', { className: 'flex space-x-4' },
-                                        React.createElement('button', {
-                                            className: `flex-1 py-2 rounded-lg font-medium ${newTransaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`,
-                                            onClick: () => setNewTransaction({...newTransaction, type: 'income'})
-                                        }, 'Доход'),
-                                        React.createElement('button', {
-                                            className: `flex-1 py-2 rounded-lg font-medium ${newTransaction.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`,
-                                            onClick: () => setNewTransaction({...newTransaction, type: 'expense'})
-                                        }, 'Расход')
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Сумма'),
-                                        React.createElement('input', {
-                                            type: 'number',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите сумму',
-                                            value: newTransaction.amount,
-                                            onChange: (e) => setNewTransaction({...newTransaction, amount: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Категория'),
-                                        React.createElement('select', {
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: newTransaction.category,
-                                            onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value})
-                                        },
-                                            React.createElement('option', { value: 'Продукты' }, 'Продукты'),
-                                            React.createElement('option', { value: 'Транспорт' }, 'Транспорт'),
-                                            React.createElement('option', { value: 'Жилье' }, 'Жилье'),
-                                            React.createElement('option', { value: 'Развлечения' }, 'Развлечения'),
-                                            React.createElement('option', { value: 'Зарплата' }, 'Зарплата'),
-                                            React.createElement('option', { value: 'Другое' }, 'Другое')
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Дата'),
-                                        React.createElement('input', {
-                                            type: 'date',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: newTransaction.date,
-                                            onChange: (e) => setNewTransaction({...newTransaction, date: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Описание'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите описание',
-                                            value: newTransaction.description,
-                                            onChange: (e) => setNewTransaction({...newTransaction, description: e.target.value})
-                                        })
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowAddTransaction(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: addTransaction
-                                }, 'Добавить')
-                            )
-                        )
-                    ),
-                    
-                    /* Add Event Modal */
-                    showAddEventModal && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Добавить событие'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowAddEventModal(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('div', { className: 'space-y-4' },
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Название'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите название события',
-                                            value: newEvent.title,
-                                            onChange: (e) => setNewEvent({...newEvent, title: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Дата'),
-                                        React.createElement('input', {
-                                            type: 'date',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: newEvent.startDate,
-                                            onChange: (e) => setNewEvent({...newEvent, startDate: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                                        React.createElement('div', null,
-                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Время начала'),
-                                            React.createElement('input', {
-                                                type: 'time',
-                                                className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                                value: newEvent.startTime,
-                                                onChange: (e) => setNewEvent({...newEvent, startTime: e.target.value})
-                                            })
-                                        ),
-                                        React.createElement('div', null,
-                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Время окончания'),
-                                            React.createElement('input', {
-                                                type: 'time',
-                                                className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                                value: newEvent.endTime,
-                                                onChange: (e) => setNewEvent({...newEvent, endTime: e.target.value})
-                                            })
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Цвет'),
-                                        React.createElement('div', { className: 'color-picker' },
-                                            colorOptions.map(color => 
-                                                React.createElement('div', {
-                                                    key: color,
-                                                    className: `color-option ${color} ${newEvent.color === color ? 'selected' : ''}`,
-                                                    onClick: () => setNewEvent({...newEvent, color})
-                                                })
-                                            )
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Участники'),
-                                        React.createElement('div', { className: 'participant-chips' },
-                                            participants.map(participant => 
-                                                React.createElement('div', {
-                                                    key: participant.name,
-                                                    className: `participant-chip ${newEvent.participants.includes(participant.name) ? 'selected' : ''}`,
-                                                    onClick: () => {
-                                                        const updatedParticipants = newEvent.participants.includes(participant.name)
-                                                            ? newEvent.participants.filter(p => p !== participant.name)
-                                                            : [...newEvent.participants, participant.name];
-                                                        setNewEvent({...newEvent, participants: updatedParticipants});
-                                                    }
-                                                },
-                                                    React.createElement('div', { className: `w-3 h-3 rounded-full ${participant.color}` }),
-                                                    participant.name
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowAddEventModal(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: addCalendarEvent
-                                }, 'Добавить')
-                            )
-                        )
-                    ),
-                    
-                    /* Edit Event Modal */
-                    showEditEventModal && editingEvent && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Редактировать событие'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowEditEventModal(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('div', { className: 'space-y-4' },
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Название'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: editingEvent.title,
-                                            onChange: (e) => setEditingEvent({...editingEvent, title: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Дата'),
-                                        React.createElement('input', {
-                                            type: 'date',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: editingEvent.startDate,
-                                            onChange: (e) => setEditingEvent({...editingEvent, startDate: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                                        React.createElement('div', null,
-                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Время начала'),
-                                            React.createElement('input', {
-                                                type: 'time',
-                                                className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                                value: editingEvent.startTime,
-                                                onChange: (e) => setEditingEvent({...editingEvent, startTime: e.target.value})
-                                            })
-                                        ),
-                                        React.createElement('div', null,
-                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Время окончания'),
-                                            React.createElement('input', {
-                                                type: 'time',
-                                                className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                                value: editingEvent.endTime,
-                                                onChange: (e) => setEditingEvent({...editingEvent, endTime: e.target.value})
-                                            })
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Цвет'),
-                                        React.createElement('div', { className: 'color-picker' },
-                                            colorOptions.map(color => 
-                                                React.createElement('div', {
-                                                    key: color,
-                                                    className: `color-option ${color} ${editingEvent.color === color ? 'selected' : ''}`,
-                                                    onClick: () => setEditingEvent({...editingEvent, color})
-                                                })
-                                            )
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Участники'),
-                                        React.createElement('div', { className: 'participant-chips' },
-                                            participants.map(participant => 
-                                                React.createElement('div', {
-                                                    key: participant.name,
-                                                    className: `participant-chip ${editingEvent.participants.includes(participant.name) ? 'selected' : ''}`,
-                                                    onClick: () => {
-                                                        const updatedParticipants = editingEvent.participants.includes(participant.name)
-                                                            ? editingEvent.participants.filter(p => p !== participant.name)
-                                                            : [...editingEvent.participants, participant.name];
-                                                        setEditingEvent({...editingEvent, participants: updatedParticipants});
-                                                    }
-                                                },
-                                                    React.createElement('div', { className: `w-3 h-3 rounded-full ${participant.color}` }),
-                                                    participant.name
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowEditEventModal(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: editCalendarEvent
-                                }, 'Сохранить'),
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => copyCalendarEvent(editingEvent)
-                                }, 'Копировать'),
-                                React.createElement('button', {
-                                    className: 'btn-danger',
-                                    onClick: () => {
-                                        deleteCalendarEvent(editingEvent.id);
-                                        setShowEditEventModal(false);
-                                    }
-                                }, 'Удалить')
-                            )
-                        )
-                    ),
-                    
-                    /* Delete Confirmation Modal */
-                    showDeleteConfirmation && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'confirmation-modal' },
-                            React.createElement('h3', null, 'Подтверждение удаления'),
-                            React.createElement('p', null, 'Вы уверены, что хотите удалить этот элемент?'),
-                            React.createElement('div', { className: 'confirmation-buttons' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowDeleteConfirmation(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-danger',
-                                    onClick: () => {
-                                        if (deleteAction) deleteAction();
-                                        setShowDeleteConfirmation(false);
-                                    }
-                                }, 'Удалить')
-                            )
-                        )
-                    ),
-                    
-                    /* Clear Transactions Confirmation Modal */
-                    showClearTransactionsConfirmation && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'confirmation-modal' },
-                            React.createElement('h3', null, 'Очистить все транзакции'),
-                            React.createElement('p', null, 'Вы уверены, что хотите удалить все транзакции? Это действие нельзя отменить.'),
-                            React.createElement('div', { className: 'confirmation-buttons' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowClearTransactionsConfirmation(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-danger',
-                                    onClick: () => {
-                                        if (deleteAction) deleteAction();
-                                        setShowClearTransactionsConfirmation(false);
-                                    }
-                                }, 'Очистить')
-                            )
-                        )
-                    ),
-                    
-                    /* Add Fixed Expense Modal */
-                    showAddFixedExpenseModal && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Добавить постоянный расход'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowAddFixedExpenseModal(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('div', { className: 'space-y-4' },
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Название'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите название расхода',
-                                            value: newFixedExpense.name,
-                                            onChange: (e) => setNewFixedExpense({...newFixedExpense, name: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Сумма'),
-                                        React.createElement('input', {
-                                            type: 'number',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите сумму',
-                                            value: newFixedExpense.amount,
-                                            onChange: (e) => setNewFixedExpense({...newFixedExpense, amount: e.target.value})
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Категория'),
-                                        React.createElement('select', {
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            value: newFixedExpense.category,
-                                            onChange: (e) => setNewFixedExpense({...newFixedExpense, category: e.target.value})
-                                        },
-                                            React.createElement('option', { value: 'Продукты' }, 'Продукты'),
-                                            React.createElement('option', { value: 'Транспорт' }, 'Транспорт'),
-                                            React.createElement('option', { value: 'Жилье' }, 'Жилье'),
-                                            React.createElement('option', { value: 'Коммунальные услуги' }, 'Коммунальные услуги'),
-                                            React.createElement('option', { value: 'Интернет' }, 'Интернет'),
-                                            React.createElement('option', { value: 'Другое' }, 'Другое')
-                                        )
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowAddFixedExpenseModal(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: addFixedExpense
-                                }, 'Добавить')
-                            )
-                        )
-                    ),
-                    
-                    /* Add Participant Modal */
-                    showAddParticipantModal && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Добавить участника'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowAddParticipantModal(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('div', { className: 'space-y-4' },
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Имя'),
-                                        React.createElement('input', {
-                                            type: 'text',
-                                            className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                            placeholder: 'Введите имя участника',
-                                            value: newParticipant,
-                                            onChange: (e) => setNewParticipant(e.target.value)
-                                        })
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Цвет'),
-                                        React.createElement('div', { className: 'color-picker' },
-                                            colorOptions.map(color => 
-                                                React.createElement('div', {
-                                                    key: color,
-                                                    className: `color-option ${color} ${selectedParticipantColor === color ? 'selected' : ''}`,
-                                                    onClick: () => setSelectedParticipantColor(color)
-                                                })
-                                            )
-                                        )
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowAddParticipantModal(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: addNewParticipant
-                                }, 'Добавить')
-                            )
-                        )
-                    ),
-                    
-                    /* File Upload Preview Modal */
-                    showPreviewModal && React.createElement('div', { className: 'modal-overlay' },
-                        React.createElement('div', { className: 'modal-content' },
-                            React.createElement('div', { className: 'modal-header' },
-                                React.createElement('h3', { className: 'modal-title' }, 'Предпросмотр выписки'),
-                                React.createElement('button', {
-                                    className: 'modal-close',
-                                    onClick: () => setShowPreviewModal(false)
-                                }, React.createElement('i', { className: 'fas fa-times' }))
-                            ),
-                            React.createElement('div', { className: 'modal-body' },
-                                React.createElement('p', { className: 'text-gray-600 mb-4' }, 'Найдено ' + previewData.length + ' операций. Вот последние:'),
-                                React.createElement('table', { className: 'preview-table' },
-                                    React.createElement('thead', null,
-                                        React.createElement('tr', null,
-                                            React.createElement('th', null, 'Строка'),
-                                            React.createElement('th', null, 'Дата'),
-                                            React.createElement('th', null, 'Код операции'),
-                                            React.createElement('th', null, 'Категория'),
-                                            React.createElement('th', null, 'Описание'),
-                                            React.createElement('th', null, 'Сумма')
-                                        )
-                                    ),
-                                    React.createElement('tbody', null,
-                                        previewData.map(row => 
-                                            React.createElement('tr', { key: row.row },
-                                                React.createElement('td', null, row.row),
-                                                React.createElement('td', null, row.date),
-                                                React.createElement('td', null, row.operationCode),
-                                                React.createElement('td', null, row.category),
-                                                React.createElement('td', null, row.description),
-                                                React.createElement('td', null, row.amount)
-                                            )
-                                        )
-                                    )
-                                )
-                            ),
-                            React.createElement('div', { className: 'modal-footer' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary',
-                                    onClick: () => setShowPreviewModal(false)
-                                }, 'Отмена'),
-                                React.createElement('button', {
-                                    className: 'btn-primary',
-                                    onClick: confirmFileUpload
-                                }, 'Загрузить')
-                            )
-                        )
-                    )
-                );
-            }, [
-                showRoomModal, authMode, roomSuccess, roomError, isLoading, roomId, roomPassword, roomName,
-                showAddTransaction, newTransaction, showAddEventModal, newEvent, showEditEventModal, editingEvent,
-                showDeleteConfirmation, deleteAction, showClearTransactionsConfirmation, showAddFixedExpenseModal,
-                newFixedExpense, showAddParticipantModal, newParticipant, selectedParticipantColor,
-                showPreviewModal, previewData
-            ]);
-
-            // Render budget tab
-            const renderBudgetTab = () => {
-                return React.createElement('div', { className: 'space-y-6' },
-                    // Financial Summary Cards
-                    React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4' },
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex items-center justify-between' },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Общий доход'),
-                                    React.createElement('p', { className: 'text-2xl font-bold text-green-600' }, financialMetrics.totalIncome.toLocaleString('ru-RU') + ' ₽')
-                                ),
-                                React.createElement('div', { className: 'p-3 bg-green-100 rounded-lg' },
-                                    React.createElement('i', { className: 'fas fa-arrow-down text-green-600 text-xl' })
-                                )
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex items-center justify-between' },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Общий расход'),
-                                    React.createElement('p', { className: 'text-2xl font-bold text-red-600' }, financialMetrics.totalExpenses.toLocaleString('ru-RU') + ' ₽')
-                                ),
-                                React.createElement('div', { className: 'p-3 bg-red-100 rounded-lg' },
-                                    React.createElement('i', { className: 'fas fa-arrow-up text-red-600 text-xl' })
-                                )
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex items-center justify-between' },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Баланс'),
-                                    React.createElement('p', { className: `text-2xl font-bold ${financialMetrics.balance >= 0 ? 'text-green-600' : 'text-red-600'}` }, financialMetrics.balance.toLocaleString('ru-RU') + ' ₽')
-                                ),
-                                React.createElement('div', { className: 'p-3 bg-purple-100 rounded-lg' },
-                                    React.createElement('i', { className: 'fas fa-wallet text-purple-600 text-xl' })
-                                )
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex items-center justify-between' },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: 'text-gray-600 text-sm' }, 'На накопления'),
-                                    React.createElement('p', { className: 'text-2xl font-bold text-blue-500' }, financialMetrics.availableToSave.toLocaleString('ru-RU') + ' ₽')
-                                ),
-                                React.createElement('div', { className: 'p-3 bg-blue-100 rounded-lg' },
-                                    React.createElement('i', { className: 'fas fa-piggy-bank text-blue-500 text-xl' })
-                                )
-                            )
-                        )
-                    ),
-                    
-                    // Calendar and Transactions
-                    React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
-                        // Calendar
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'calendar-navigation' },
-                                React.createElement('div', { className: 'flex items-center space-x-2' },
-                                    React.createElement('button', {
-                                        className: 'calendar-nav-button',
-                                        onClick: () => navigateCalendar(-1)
-                                    }, React.createElement('i', { className: 'fas fa-chevron-left' })),
-                                    React.createElement('button', {
-                                        className: 'calendar-nav-button',
-                                        onClick: () => setCurrentDate(new Date())
-                                    }, 'Сегодня'),
-                                    React.createElement('button', {
-                                        className: 'calendar-nav-button',
-                                        onClick: () => navigateCalendar(1)
-                                    }, React.createElement('i', { className: 'fas fa-chevron-right' }))
-                                ),
-                                
-                                React.createElement('h3', { className: 'calendar-title' }, calendarData.title),
-                                
-                                React.createElement('div', { className: 'flex space-x-2' },
-                                    React.createElement('button', {
-                                        className: `calendar-nav-button ${calendarView === 'month' ? 'active' : ''}`,
-                                        onClick: () => switchCalendarView('month')
-                                    }, 'Месяц'),
-                                    React.createElement('button', {
-                                        className: `calendar-nav-button ${calendarView === 'week' ? 'active' : ''}`,
-                                        onClick: () => switchCalendarView('week')
-                                    }, 'Неделя')
-                                )
-                            ),
-                            
-                            React.createElement('div', { className: 'calendar-grid' },
-                                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
-                                    React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
-                                ),
-                                
-                                calendarData.days.map((day, index) => {
-                                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                                    const isSelected = selectedDate && 
-                                        new Date(selectedDate).setHours(0, 0, 0, 0) === day.setHours(0, 0, 0, 0);
-                                    const dayEvents = getEventsForDate(day);
-                                    
-                                    return React.createElement('div', 
-                                        { 
-                                            key: index,
-                                            className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected-day' : ''}`,
-                                            onClick: () => handleBudgetDayClick(day)
-                                        },
-                                        React.createElement('div', { className: 'calendar-day-number' }, day.getDate()),
-                                        React.createElement('div', { className: 'calendar-events-container' },
-                                            dayEvents.slice(0, 3).map(event => 
-                                                React.createElement('div', 
-                                                    { 
-                                                        key: event.id,
-                                                        className: `calendar-event-item ${event.color} truncate`
-                                                    },
-                                                    event.title
-                                                )
-                                            ),
-                                            dayEvents.length > 3 && React.createElement('div', { className: 'text-xs text-gray-500' }, '+' + (dayEvents.length - 3) + ' еще')
-                                        )
-                                    );
-                                })
-                            )
-                        ),
-                        
-                        // Transactions
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                                React.createElement('h3', { className: 'text-lg font-semibold' }, 'Последние транзакции'),
-                                React.createElement('div', { className: 'flex space-x-2' },
-                                    React.createElement('button', {
-                                        className: `btn-secondary text-sm ${showAllTime ? 'bg-purple-100 text-purple-600' : ''}`,
-                                        onClick: () => setShowAllTime(!showAllTime)
-                                    }, showAllTime ? 'Показать текущий месяц' : 'Показать все время'),
-                                    React.createElement('button', {
-                                        className: 'btn-primary text-sm',
-                                        onClick: () => setShowAddTransaction(true)
-                                    }, React.createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
-                                )
-                            ),
-                            
-                            React.createElement('div', { className: 'mb-4' },
-                                React.createElement('input', {
-                                    type: 'text',
-                                    className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                    placeholder: 'Поиск по описанию или категории...',
-                                    value: searchTerm,
-                                    onChange: (e) => setSearchTerm(e.target.value)
-                                })
-                            ),
-                            
-                            React.createElement('div', { className: 'space-y-2 max-h-96 overflow-y-auto' },
-                                filteredTransactions.length > 0 ? 
-                                    filteredTransactions.map(transaction => 
-                                        React.createElement('div', {
-                                            key: transaction.id,
-                                            className: 'flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50'
-                                        },
-                                            React.createElement('div', { className: 'flex items-center space-x-3' },
-                                                React.createElement('div', { className: `p-2 rounded-lg ${transaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}` },
-                                                    React.createElement('i', { className: `fas ${transaction.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'}` })
-                                                ),
-                                                React.createElement('div', null,
-                                                    React.createElement('p', { className: 'font-medium' }, transaction.description),
-                                                    React.createElement('p', { className: 'text-sm text-gray-500' }, transaction.category + ' • ' + new Date(transaction.date).toLocaleDateString('ru-RU'))
-                                                )
-                                            ),
-                                            React.createElement('div', { className: 'text-right' },
-                                                React.createElement('p', { className: `font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}` },
-                                                    (transaction.type === 'income' ? '+' : '-') + transaction.amount.toLocaleString('ru-RU') + ' ₽'
-                                                ),
-                                                React.createElement('p', { className: 'text-sm text-gray-500' }, 'Баланс: ' + transaction.balanceAfter.toLocaleString('ru-RU') + ' ₽')
-                                            )
-                                        )
-                                    ) :
-                                    React.createElement('div', { className: 'text-center py-8 text-gray-500' },
-                                        React.createElement('i', { className: 'fas fa-receipt text-3xl mb-2' }),
-                                        React.createElement('p', null, 'Нет транзакций для отображения')
-                                    )
-                            )
-                        )
-                    ),
-                    
-                    // Categories and Expenses
-                    React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
-                        // Categories
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Категории'),
-                            React.createElement('div', { className: 'categories-container' },
-                                dateCategories.map(category => 
-                                    React.createElement('div', { key: category, className: 'category-item' },
-                                        React.createElement('span', null, category),
-                                        React.createElement('span', { className: 'font-semibold' },
-                                            (aggregatedExpenses[category] || 0).toLocaleString('ru-RU') + ' ₽'
-                                        )
-                                    )
-                                )
-                            )
-                        ),
-                        
-                        // Fixed Expenses
-                        React.createElement('div', { className: 'card' },
-                            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                                React.createElement('h3', { className: 'text-lg font-semibold' }, 'Постоянные расходы'),
-                                React.createElement('button', {
-                                    className: 'btn-primary text-sm',
-                                    onClick: () => setShowAddFixedExpenseModal(true)
-                                }, React.createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
-                            ),
-                            
-                            React.createElement('div', { className: 'space-y-2' },
-                                fixedExpenses.length > 0 ?
-                                    fixedExpenses.map(expense => 
-                                        React.createElement('div', { key: expense.id, className: 'fixed-expense-item' },
-                                            React.createElement('div', { className: 'fixed-expense-name' },
-                                                React.createElement('p', { className: 'font-medium' }, expense.name),
-                                                React.createElement('p', { className: 'text-sm text-gray-500' }, expense.category)
-                                            ),
-                                            React.createElement('div', { className: 'fixed-expense-amount' },
-                                                expense.amount.toLocaleString('ru-RU') + ' ₽'
-                                            ),
-                                            React.createElement('div', {
-                                                className: 'fixed-expense-delete',
-                                                onClick: () => deleteFixedExpense(expense.id)
-                                            }, React.createElement('i', { className: 'fas fa-trash' }))
-                                        )
-                                    ) :
-                                    React.createElement('div', { className: 'text-center py-4 text-gray-500' },
-                                        React.createElement('i', { className: 'fas fa-file-invoice-dollar text-2xl mb-2' }),
-                                        React.createElement('p', null, 'Нет постоянных расходов')
-                                    )
-                            )
-                        )
-                    ),
-                    
-                    // File Upload
-                    React.createElement('div', { className: 'card' },
-                        React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Загрузка выписки'),
-                        React.createElement('div', {
-                            className: 'file-upload',
-                            onClick: () => document.getElementById('file-upload').click()
-                        },
-                            React.createElement('i', { className: 'fas fa-cloud-upload-alt' }),
-                            React.createElement('p', null, 'Перетащите файл сюда или нажмите для выбора'),
-                            React.createElement('p', { className: 'text-sm text-gray-500' }, 'Поддерживаются форматы XLS и XLSX'),
-                            React.createElement('input', {
-                                id: 'file-upload',
-                                type: 'file',
-                                accept: '.xls,.xlsx',
-                                onChange: handleFileUpload,
-                                style: { display: 'none' }
-                            })
-                        )
-                    )
-                );
             };
 
-            // Render shopping tab
-            const renderShoppingTab = () => {
-                return React.createElement('div', { className: 'space-y-6' },
-                    // Shopping List Header
-                    React.createElement('div', { className: 'card' },
-                        React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                            React.createElement('h3', { className: 'text-lg font-semibold' }, 'Список покупок'),
-                            React.createElement('div', { className: 'flex space-x-2' },
-                                React.createElement('button', {
-                                    className: 'btn-primary text-sm',
-                                    onClick: sendShoppingListToTelegram
-                                }, React.createElement('i', { className: 'fab fa-telegram-plane mr-1' }), 'Отправить в Telegram'),
-                                React.createElement('button', {
-                                    className: 'btn-secondary text-sm',
-                                    onClick: () => setShowShoppingSettings(!showShoppingSettings)
-                                }, React.createElement('i', { className: 'fas fa-cog mr-1' }), 'Настройки')
-                            )
+            // Render room modal
+            const renderRoomModal = () => {
+                if (!showRoomModal) return null;
+                
+                return createElement('div', { className: 'modal-overlay' },
+                    createElement('div', { className: 'auth-container' },
+                        createElement('div', { className: 'auth-header' },
+                            createElement('h1', null, 'Семейный Бюджет'),
+                            createElement('p', null, 'Управляйте своими финансами эффективно')
                         ),
                         
-                        // Shopping Settings
-                        showShoppingSettings && React.createElement('div', { className: 'mb-4 p-4 bg-gray-50 rounded-lg' },
-                            React.createElement('h4', { className: 'font-medium mb-3' }, 'Настройки Telegram'),
-                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
-                                React.createElement('div', null,
-                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Token бота'),
-                                    React.createElement('input', {
-                                        type: 'text',
-                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                        placeholder: 'Введите token бота',
-                                        value: telegramBotToken,
-                                        onChange: (e) => setTelegramBotToken(e.target.value)
-                                    })
-                                ),
-                                React.createElement('div', null,
-                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'ID чата'),
-                                    React.createElement('input', {
-                                        type: 'text',
-                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                        placeholder: 'Введите ID чата',
-                                        value: telegramChatId,
-                                        onChange: (e) => setTelegramChatId(e.target.value)
-                                    })
-                                )
-                            ),
-                            React.createElement('div', { className: 'flex space-x-2 mt-3' },
-                                React.createElement('button', {
-                                    className: 'btn-primary text-sm',
-                                    onClick: testTelegramConnection
-                                }, 'Тест подключения')
-                            )
-                        ),
-                        
-                        // Add New Item
-                        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-3 mb-6' },
-                            React.createElement('input', {
-                                type: 'text',
-                                className: 'p-2 border border-gray-300 rounded-lg',
-                                placeholder: 'Название товара',
-                                value: newItem.name,
-                                onChange: (e) => setNewItem({...newItem, name: e.target.value})
-                            }),
-                            React.createElement('input', {
-                                type: 'number',
-                                className: 'p-2 border border-gray-300 rounded-lg',
-                                placeholder: 'Количество',
-                                value: newItem.quantity,
-                                onChange: (e) => setNewItem({...newItem, quantity: e.target.value})
-                            }),
-                            React.createElement('select', {
-                                className: 'p-2 border border-gray-300 rounded-lg',
-                                value: newItem.unit,
-                                onChange: (e) => setNewItem({...newItem, unit: e.target.value})
-                            },
-                                React.createElement('option', { value: 'штука' }, 'шт'),
-                                React.createElement('option', { value: 'килограмм' }, 'кг'),
-                                React.createElement('option', { value: 'грамм' }, 'г'),
-                                React.createElement('option', { value: 'литр' }, 'л'),
-                                React.createElement('option', { value: 'миллилитр' }, 'мл'),
-                                React.createElement('option', { value: 'метр' }, 'м'),
-                                React.createElement('option', { value: 'упаковка' }, 'уп')
-                            ),
-                            React.createElement('button', {
-                                className: 'btn-primary',
-                                onClick: addShoppingItem
-                            }, React.createElement('i', { className: 'fas fa-plus mr-2' }), 'Добавить')
-                        ),
-                        
-                        // Shopping List Items
-                        React.createElement('div', { className: 'shopping-list-grid' },
-                            shoppingList.map(item => 
-                                React.createElement('div', { key: item.id, className: 'shopping-item' },
-                                    editingItemId === item.id ? 
-                                        React.createElement('div', { className: 'shopping-item-content w-full' },
-                                            React.createElement('input', {
-                                                type: 'text',
-                                                className: 'shopping-item-input',
-                                                value: editingItemText,
-                                                onChange: (e) => setEditingItemText(e.target.value)
-                                            }),
-                                            React.createElement('input', {
-                                                type: 'number',
-                                                className: 'shopping-item-input w-20',
-                                                value: editingItemQuantity,
-                                                onChange: (e) => setEditingItemQuantity(e.target.value)
-                                            }),
-                                            React.createElement('select', {
-                                                className: 'shopping-item-input',
-                                                value: editingItemUnit,
-                                                onChange: (e) => setEditingItemUnit(e.target.value)
-                                            },
-                                                React.createElement('option', { value: 'штука' }, 'шт'),
-                                                React.createElement('option', { value: 'килограмм' }, 'кг'),
-                                                React.createElement('option', { value: 'грамм' }, 'г'),
-                                                React.createElement('option', { value: 'литр' }, 'л'),
-                                                React.createElement('option', { value: 'миллилитр' }, 'мл'),
-                                                React.createElement('option', { value: 'метр' }, 'м'),
-                                                React.createElement('option', { value: 'упаковка' }, 'уп')
-                                            ),
-                                            React.createElement('button', {
-                                                className: 'text-green-600',
-                                                onClick: saveEditedItem
-                                            }, React.createElement('i', { className: 'fas fa-check' }))
-                                        ) :
-                                        React.createElement(React.Fragment, null,
-                                            React.createElement('div', { className: 'shopping-item-content' },
-                                                React.createElement('div', {
-                                                    className: `shopping-item-checkbox ${item.completed ? 'checked' : ''}`,
-                                                    onClick: () => toggleShoppingItem(item.id)
-                                                }, item.completed && React.createElement('i', { className: 'fas fa-check' })),
-                                                React.createElement('div', { className: `shopping-item-text ${item.completed ? 'completed' : ''}` },
-                                                    item.item + ' × ' + item.quantity + ' ' + item.unit
-                                                )
-                                            ),
-                                            React.createElement('div', { className: 'shopping-item-actions' },
-                                                React.createElement('div', {
-                                                    className: 'shopping-item-edit',
-                                                    onClick: () => startEditingItem(item.id, item)
-                                                }, React.createElement('i', { className: 'fas fa-edit' })),
-                                                React.createElement('div', {
-                                                    className: 'shopping-item-delete',
-                                                    onClick: () => deleteShoppingItem(item.id)
-                                                }, React.createElement('i', { className: 'fas fa-trash' }))
-                                            )
-                                        )
-                                )
-                            )
-                        )
-                    )
-                );
-            };
-
-            // Render planner tab
-            const renderPlannerTab = () => {
-                return React.createElement('div', { className: 'space-y-6' },
-                    // Planner Header
-                    React.createElement('div', { className: 'card' },
-                        React.createElement('div', { className: 'calendar-navigation' },
-                            React.createElement('div', { className: 'flex items-center space-x-2' },
-                                React.createElement('button', {
-                                    className: 'calendar-nav-button',
-                                    onClick: () => navigatePlannerCalendar(-1)
-                                }, React.createElement('i', { className: 'fas fa-chevron-left' })),
-                                React.createElement('button', {
-                                    className: 'calendar-nav-button',
-                                    onClick: () => setCurrentDate(new Date())
-                                }, 'Сегодня'),
-                                React.createElement('button', {
-                                    className: 'calendar-nav-button',
-                                    onClick: () => navigatePlannerCalendar(1)
-                                }, React.createElement('i', { className: 'fas fa-chevron-right' }))
+                        createElement('div', { className: 'auth-form' },
+                            roomSuccess && createElement('div', { className: 'success-message' },
+                                createElement('i', { className: 'fas fa-check-circle' }),
+                                roomSuccess
                             ),
                             
-                            React.createElement('h3', { className: 'calendar-title' }, plannerCalendarData.title),
-                            
-                            React.createElement('div', { className: 'flex space-x-2' },
-                                React.createElement('button', {
-                                    className: `calendar-nav-button ${plannerCalendarView === 'month' ? 'active' : ''}`,
-                                    onClick: () => switchPlannerCalendarView('month')
-                                }, 'Месяц'),
-                                React.createElement('button', {
-                                    className: `calendar-nav-button ${plannerCalendarView === 'week' ? 'active' : ''}`,
-                                    onClick: () => switchPlannerCalendarView('week')
-                                }, 'Неделя'),
-                                React.createElement('button', {
-                                    className: 'btn-primary text-sm',
-                                    onClick: () => setShowAddEventModal(true)
-                                }, React.createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
-                            )
-                        ),
-                        
-                        // Calendar View
-                        React.createElement('div', { className: 'calendar-grid' },
-                            ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
-                                React.createElement('div', { key: day, className: 'calendar-header-cell' }, day)
-                            ),
-                            
-                            plannerCalendarData.days.map((day, index) => {
-                                const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                                const dayEvents = getEventsForDate(day);
-                                
-                                return React.createElement('div', 
-                                    { 
-                                        key: index,
-                                        className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'}`,
-                                        onClick: () => handlePlannerDayClick(day)
+                            createElement('div', { className: 'mode-toggle', style: { position: 'relative' } },
+                                createElement('div', {
+                                    className: 'mode-toggle-slider',
+                                    style: {
+                                        left: authMode === 'login' ? '6px' : 'calc(50% + 3px)',
+                                        width: 'calc(50% - 9px)'
+                                    }
+                                }),
+                                createElement('div', {
+                                    className: `mode-toggle-btn ${authMode === 'login' ? 'active' : ''}`,
+                                    onClick: () => {
+                                        setAuthMode('login');
+                                        setRoomError('');
                                     },
-                                    React.createElement('div', { className: 'calendar-day-number' }, day.getDate()),
-                                    React.createElement('div', { className: 'calendar-events-container' },
-                                        dayEvents.map(event => 
-                                            React.createElement('div', 
-                                                { 
-                                                    key: event.id,
-                                                    className: `calendar-event-item ${event.color} truncate`,
-                                                    onClick: (e) => {
-                                                        e.stopPropagation();
-                                                        handleEventClick(event);
-                                                    }
-                                                },
-                                                event.startTime + ' ' + event.title
-                                            )
-                                        )
-                                    )
-                                );
-                            })
-                        )
-                    ),
-                    
-                    // Events List
-                    React.createElement('div', { className: 'card' },
-                        React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'События'),
-                        
-                        React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                            React.createElement('div', null,
-                                React.createElement('button', {
-                                    className: 'btn-secondary text-sm mr-2',
-                                    onClick: () => setShowPlannerSettings(!showPlannerSettings)
-                                }, React.createElement('i', { className: 'fas fa-cog mr-1' }), 'Настройки'),
-                                React.createElement('button', {
-                                    className: 'btn-secondary text-sm',
-                                    onClick: () => setShowCreateTemplateModal(true)
-                                }, React.createElement('i', { className: 'fas fa-layer-group mr-1' }), 'Шаблоны')
-                            )
-                        ),
-                        
-                        // Planner Settings
-                        showPlannerSettings && React.createElement('div', { className: 'mb-4 p-4 bg-gray-50 rounded-lg' },
-                            React.createElement('h4', { className: 'font-medium mb-3' }, 'Настройки дня'),
-                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
-                                React.createElement('div', null,
-                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Начало дня'),
-                                    React.createElement('input', {
-                                        type: 'time',
-                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                        value: dayStart,
-                                        onChange: (e) => setDayStart(e.target.value)
-                                    })
-                                ),
-                                React.createElement('div', null,
-                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Конец дня'),
-                                    React.createElement('input', {
-                                        type: 'time',
-                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
-                                        value: dayEnd,
-                                        onChange: (e) => setDayEnd(e.target.value)
-                                    })
-                                )
-                            )
-                        ),
-                        
-                        // Templates Modal
-                        showCreateTemplateModal && React.createElement('div', { className: 'modal-overlay' },
-                            React.createElement('div', { className: 'modal-content' },
-                                React.createElement('div', { className: 'modal-header' },
-                                    React.createElement('h3', { className: 'modal-title' }, 'Шаблоны событий'),
-                                    React.createElement('button', {
-                                        className: 'modal-close',
-                                        onClick: () => setShowCreateTemplateModal(false)
-                                    }, React.createElement('i', { className: 'fas fa-times' }))
-                                ),
-                                React.createElement('div', { className: 'modal-body' },
-                                    React.createElement('div', { className: 'mb-4' },
-                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Создать новый шаблон'),
-                                        React.createElement('div', { className: 'flex' },
-                                            React.createElement('input', {
-                                                type: 'text',
-                                                className: 'flex-1 p-2 border border-gray-300 rounded-l-lg',
-                                                placeholder: 'Название шаблона',
-                                                value: newTemplateName,
-                                                onChange: (e) => setNewTemplateName(e.target.value)
-                                            }),
-                                            React.createElement('button', {
-                                                className: 'btn-primary rounded-r-lg',
-                                                onClick: addTemplate
-                                            }, 'Добавить')
-                                        )
-                                    ),
-                                    
-                                    React.createElement('div', null,
-                                        React.createElement('h4', { className: 'font-medium mb-2' }, 'Существующие шаблоны'),
-                                        React.createElement('div', { className: 'space-y-2' },
-                                            templates.map(template => 
-                                                React.createElement('div', { key: template.id, className: 'template-item' },
-                                                    React.createElement('div', { className: 'template-item-content' },
-                                                        React.createElement('span', null, template.name)
-                                                    ),
-                                                    React.createElement('div', { className: 'template-item-actions' },
-                                                        React.createElement('button', {
-                                                            className: 'text-blue-500',
-                                                            onClick: () => useTemplate(template)
-                                                        }, React.createElement('i', { className: 'fas fa-plus' })),
-                                                        React.createElement('button', {
-                                                            className: 'text-red-500',
-                                                            onClick: () => deleteTemplate(template.id)
-                                                        }, React.createElement('i', { className: 'fas fa-trash' }))
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    )
-                                ),
-                                React.createElement('div', { className: 'modal-footer' },
-                                    React.createElement('button', {
-                                        className: 'btn-secondary',
-                                        onClick: () => setShowCreateTemplateModal(false)
-                                    }, 'Закрыть')
-                                )
-                            )
-                        ),
-                        
-                        // Events
-                        React.createElement('div', { className: 'space-y-2' },
-                            calendarEvents.length > 0 ? 
-                                calendarEvents.map(event => 
-                                    React.createElement('div', {
-                                        key: event.id,
-                                        className: 'event-item',
-                                        onClick: () => handleEventClick(event)
+                                    style: { zIndex: 2 }
+                                }, 'Вход'),
+                                createElement('div', {
+                                    className: `mode-toggle-btn ${authMode === 'register' ? 'active' : ''}`,
+                                    onClick: () => {
+                                        setAuthMode('register');
+                                        setRoomError('');
                                     },
-                                        React.createElement('div', { className: 'event-content' },
-                                            React.createElement('div', { className: `event-color-indicator ${event.color}` }),
-                                            React.createElement('div', { className: 'event-info' },
-                                                React.createElement('p', { className: 'font-medium' }, event.title),
-                                                React.createElement('p', { className: 'text-sm text-gray-500' },
-                                                    new Date(event.startDate).toLocaleDateString('ru-RU') + ' • ' + event.startTime +
-                                                    (event.endTime ? ' - ' + event.endTime : '')
-                                                )
-                                            )
-                                        ),
-                                        React.createElement('div', { className: 'event-actions' },
-                                            React.createElement('div', { className: 'participants-container' },
-                                                event.participants.map(participant => {
-                                                    const p = participants.find(p => p.name === participant);
-                                                    return React.createElement('div', { key: participant, className: 'participant-tag' },
-                                                        React.createElement('div', { className: `w-2 h-2 rounded-full ${p?.color || 'bg-gray-400'}` }),
-                                                        participant
-                                                    );
-                                                })
-                                            )
-                                        )
-                                    )
-                                ) :
-                                React.createElement('div', { className: 'text-center py-8 text-gray-500' },
-                                    React.createElement('i', { className: 'fas fa-calendar-alt text-3xl mb-2' }),
-                                    React.createElement('p', null, 'Нет событий для отображения')
-                                )
-                        )
-                    )
-                );
-            };
-
-            // Render settings tab
-            const renderSettingsTab = () => {
-                return React.createElement('div', { className: 'space-y-6' },
-                    React.createElement('div', { className: 'card' },
-                        React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Настройки приложения'),
-                        
-                        React.createElement('div', { className: 'space-y-4' },
-                            // Tab Visibility Settings
-                            React.createElement('div', null,
-                                React.createElement('h4', { className: 'font-medium mb-2' }, 'Отображение вкладок'),
-                                React.createElement('div', { className: 'space-y-2' },
-                                    React.createElement('div', { className: 'tab-setting-item' },
-                                        React.createElement('span', null, 'Вкладка "Покупки"'),
-                                        React.createElement('label', { className: 'toggle-switch' },
-                                            React.createElement('input', {
-                                                type: 'checkbox',
-                                                checked: tabVisibility.shopping,
-                                                onChange: () => toggleTabVisibility('shopping')
-                                            }),
-                                            React.createElement('span', { className: 'slider' })
-                                        )
-                                    ),
-                                    React.createElement('div', { className: 'tab-setting-item' },
-                                        React.createElement('span', null, 'Вкладка "Планировщик"'),
-                                        React.createElement('label', { className: 'toggle-switch' },
-                                            React.createElement('input', {
-                                                type: 'checkbox',
-                                                checked: tabVisibility.planner,
-                                                onChange: () => toggleTabVisibility('planner')
-                                            }),
-                                            React.createElement('span', { className: 'slider' })
-                                        )
-                                    )
-                                )
+                                    style: { zIndex: 2 }
+                                }, 'Регистрация')
                             ),
                             
-                            // Savings Settings
-                            React.createElement('div', null,
-                                React.createElement('h4', { className: 'font-medium mb-2' }, 'Настройки накоплений'),
-                                React.createElement('div', { className: 'flex items-center space-x-3' },
-                                    React.createElement('input', {
-                                        type: 'number',
-                                        className: 'p-2 border border-gray-300 rounded-lg w-24',
-                                        placeholder: 'Процент',
-                                        value: savingsPercentage,
-                                        onChange: (e) => setSavingsPercentage(e.target.value),
-                                        min: '0',
-                                        max: '100'
-                                    }),
-                                    React.createElement('span', null, '% от баланса будет откладываться')
-                                )
+                            roomError && createElement('div', { className: 'error-message' },
+                                createElement('i', { className: 'fas fa-exclamation-circle' }),
+                                roomError
                             ),
                             
-                            // Participants Management
-                            React.createElement('div', null,
-                                React.createElement('div', { className: 'flex justify-between items-center mb-2' },
-                                    React.createElement('h4', { className: 'font-medium' }, 'Участники'),
-                                    React.createElement('button', {
-                                        className: 'btn-primary text-sm',
-                                        onClick: () => setShowAddParticipantModal(true)
-                                    }, React.createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                            authMode === 'login' ? createElement('div', null,
+                                createElement('div', { className: 'form-group' },
+                                    createElement('label', { className: 'form-label' }, 'ID комнаты'),
+                                    createElement('input', {
+                                        type: 'text',
+                                        className: 'form-input',
+                                        placeholder: 'Введите ID комнаты',
+                                        value: roomId,
+                                        onChange: (e) => setRoomId(e.target.value)
+                                    })
                                 ),
-                                React.createElement('div', { className: 'participants-container' },
-                                    participants.map(participant => 
-                                        React.createElement('div', { key: participant.name, className: 'participant-tag' },
-                                            React.createElement('div', { className: `w-3 h-3 rounded-full ${participant.color}` }),
-                                            participant.name
-                                        )
-                                    )
-                                )
+                                
+                                createElement('div', { className: 'form-group' },
+                                    createElement('label', { className: 'form-label' }, 'Пароль'),
+                                    createElement('input', {
+                                        type: 'password',
+                                        className: 'form-input',
+                                        placeholder: 'Введите пароль',
+                                        value: roomPassword,
+                                        onChange: (e) => setRoomPassword(e.target.value)
+                                    })
+                                ),
+                                
+                                createElement('button', {
+                                    className: 'btn-auth',
+                                    onClick: joinRoom,
+                                    disabled: isLoading
+                                }, isLoading ? createElement('div', { className: 'flex items-center justify-center' },
+                                    createElement('div', { className: 'spinner mr-2' }),
+                                    'Вход...'
+                                ) : 'Войти')
+                            ) : createElement('div', null,
+                                createElement('div', { className: 'form-group' },
+                                    createElement('label', { className: 'form-label' }, 'Название комнаты'),
+                                    createElement('input', {
+                                        type: 'text',
+                                        className: 'form-input',
+                                        placeholder: 'Введите название комнаты',
+                                        value: roomName,
+                                        onChange: (e) => setRoomName(e.target.value)
+                                    })
+                                ),
+                                
+                                createElement('div', { className: 'form-group' },
+                                    createElement('label', { className: 'form-label' }, 'Пароль'),
+                                    createElement('input', {
+                                        type: 'password',
+                                        className: 'form-input',
+                                        placeholder: 'Введите пароль',
+                                        value: roomPassword,
+                                        onChange: (e) => setRoomPassword(e.target.value)
+                                    })
+                                ),
+                                
+                                createElement('button', {
+                                    className: 'btn-auth',
+                                    onClick: createRoom,
+                                    disabled: isLoading
+                                }, isLoading ? createElement('div', { className: 'flex items-center justify-center' },
+                                    createElement('div', { className: 'spinner mr-2' }),
+                                    'Создание...'
+                                ) : 'Создать комнату')
                             ),
                             
-                            // Data Management
-                            React.createElement('div', null,
-                                React.createElement('h4', { className: 'font-medium mb-2' }, 'Управление данными'),
-                                React.createElement('div', { className: 'flex space-x-2' },
-                                    React.createElement('button', {
-                                        className: 'btn-danger',
-                                        onClick: clearAllTransactions
-                                    }, 'Очистить все транзакции'),
-                                    React.createElement('button', { className: 'btn-secondary' }, 'Экспорт данных')
+                            createElement('div', { className: 'mt-4' },
+                                createElement('button', {
+                                    className: 'btn-secondary w-full',
+                                    onClick: signInAnonymously,
+                                    disabled: isLoading
+                                }, 'Продолжить как гость')
+                            ),
+                            
+                            createElement('div', { className: 'auth-features mt-6' },
+                                createElement('div', { className: 'feature-item' },
+                                    createElement('div', { className: 'feature-icon' },
+                                        createElement('i', { className: 'fas fa-sync' })
+                                    ),
+                                    createElement('div', { className: 'feature-text' }, 'Синхронизация')
+                                ),
+                                createElement('div', { className: 'feature-item' },
+                                    createElement('div', { className: 'feature-icon' },
+                                        createElement('i', { className: 'fas fa-chart-pie' })
+                                    ),
+                                    createElement('div', { className: 'feature-text' }, 'Аналитика')
+                                ),
+                                createElement('div', { className: 'feature-item' },
+                                    createElement('div', { className: 'feature-icon' },
+                                        createElement('i', { className: 'fas fa-users' })
+                                    ),
+                                    createElement('div', { className: 'feature-text' }, 'Семья')
                                 )
                             )
                         )
@@ -3928,58 +2120,649 @@
 
             // Render header
             const renderHeader = () => {
-                return React.createElement('header', null,
-                    React.createElement('div', { className: 'app-container' },
-                        React.createElement('div', { className: 'header-content' },
-                            React.createElement('div', { className: 'logo' },
-                                React.createElement('div', { className: 'logo-icon' },
-                                    React.createElement('i', { className: 'fas fa-wallet' })
+                return createElement('header', null,
+                    createElement('div', { className: 'app-container' },
+                        createElement('div', { className: 'header-content' },
+                            createElement('div', { className: 'logo' },
+                                createElement('div', { className: 'logo-icon' },
+                                    createElement('i', { className: 'fas fa-wallet' })
                                 ),
                                 'Семейный Бюджет'
                             ),
                             
-                            React.createElement('nav', null,
-                                availableTabs.map(tab => 
-                                    React.createElement('button', {
-                                        key: tab.id,
-                                        className: `nav-button ${activeTab === tab.id ? 'active' : ''}`,
-                                        onClick: () => setActiveTab(tab.id)
-                                    },
-                                        React.createElement('i', { className: tab.icon }),
-                                        tab.label
-                                    )
-                                ),
+                            createElement('nav', null,
+                                createElement('button', {
+                                    className: `nav-button ${activeTab === 'budget' ? 'active' : ''}`,
+                                    onClick: () => setActiveTab('budget')
+                                }, createElement('i', { className: 'fas fa-wallet' }), 'Бюджет'),
                                 
-                                React.createElement('button', {
+                                tabVisibility.shopping && createElement('button', {
+                                    className: `nav-button ${activeTab === 'shopping' ? 'active' : ''}`,
+                                    onClick: () => setActiveTab('shopping')
+                                }, createElement('i', { className: 'fas fa-shopping-cart' }), 'Покупки'),
+                                
+                                tabVisibility.planner && createElement('button', {
+                                    className: `nav-button ${activeTab === 'planner' ? 'active' : ''}`,
+                                    onClick: () => setActiveTab('planner')
+                                }, createElement('i', { className: 'fas fa-calendar-alt' }), 'Планировщик'),
+                                
+                                createElement('button', {
                                     className: `nav-button ${activeTab === 'settings' ? 'active' : ''}`,
                                     onClick: () => setActiveTab('settings')
-                                }, React.createElement('i', { className: 'fas fa-cog' }), 'Настройки'),
+                                }, createElement('i', { className: 'fas fa-cog' }), 'Настройки'),
                                 
-                                user && React.createElement('button', {
+                                user && createElement('button', {
                                     className: 'nav-button',
                                     onClick: exitRoom
-                                }, React.createElement('i', { className: 'fas fa-sign-out-alt' }), 'Выйти')
+                                }, createElement('i', { className: 'fas fa-sign-out-alt' }), 'Выйти')
                             )
                         )
                     )
                 );
             };
 
-            return React.createElement('div', { className: 'app-container' },
+            // Render budget tab
+            const renderBudgetTab = () => {
+                return createElement('div', { className: 'space-y-6' },
+                    // Financial Summary Cards
+                    createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4' },
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex items-center justify-between' },
+                                createElement('div', null,
+                                    createElement('p', { className: 'text-gray-600 text-sm' }, 'Общий доход'),
+                                    createElement('p', { className: 'text-2xl font-bold text-green-600' }, '50 000 ₽')
+                                ),
+                                createElement('div', { className: 'p-3 bg-green-100 rounded-lg' },
+                                    createElement('i', { className: 'fas fa-arrow-down text-green-600 text-xl' })
+                                )
+                            )
+                        ),
+                        
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex items-center justify-between' },
+                                createElement('div', null,
+                                    createElement('p', { className: 'text-gray-600 text-sm' }, 'Общий расход'),
+                                    createElement('p', { className: 'text-2xl font-bold text-red-600' }, '31 000 ₽')
+                                ),
+                                createElement('div', { className: 'p-3 bg-red-100 rounded-lg' },
+                                    createElement('i', { className: 'fas fa-arrow-up text-red-600 text-xl' })
+                                )
+                            )
+                        ),
+                        
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex items-center justify-between' },
+                                createElement('div', null,
+                                    createElement('p', { className: 'text-gray-600 text-sm' }, 'Баланс'),
+                                    createElement('p', { className: 'text-2xl font-bold text-green-600' }, '19 000 ₽')
+                                ),
+                                createElement('div', { className: 'p-3 bg-purple-100 rounded-lg' },
+                                    createElement('i', { className: 'fas fa-wallet text-purple-600 text-xl' })
+                                )
+                            )
+                        ),
+                        
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex items-center justify-between' },
+                                createElement('div', null,
+                                    createElement('p', { className: 'text-gray-600 text-sm' }, 'На накопления'),
+                                    createElement('p', { className: 'text-2xl font-bold text-blue-500' }, '0 ₽')
+                                ),
+                                createElement('div', { className: 'p-3 bg-blue-100 rounded-lg' },
+                                    createElement('i', { className: 'fas fa-piggy-bank text-blue-500 text-xl' })
+                                )
+                            )
+                        )
+                    ),
+                    
+                    // Calendar and Transactions
+                    createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+                        // Calendar
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'calendar-navigation' },
+                                createElement('div', { className: 'flex items-center space-x-2' },
+                                    createElement('button', {
+                                        className: 'calendar-nav-button',
+                                        onClick: () => {}
+                                    }, createElement('i', { className: 'fas fa-chevron-left' })),
+                                    createElement('button', {
+                                        className: 'calendar-nav-button',
+                                        onClick: () => setCurrentDate(new Date())
+                                    }, 'Сегодня'),
+                                    createElement('button', {
+                                        className: 'calendar-nav-button',
+                                        onClick: () => {}
+                                    }, createElement('i', { className: 'fas fa-chevron-right' }))
+                                ),
+                                
+                                createElement('h3', { className: 'calendar-title' }, 'Январь 2024'),
+                                
+                                createElement('div', { className: 'flex space-x-2' },
+                                    createElement('button', {
+                                        className: 'calendar-nav-button active',
+                                        onClick: () => setCalendarView('month')
+                                    }, 'Месяц'),
+                                    createElement('button', {
+                                        className: 'calendar-nav-button',
+                                        onClick: () => setCalendarView('week')
+                                    }, 'Неделя'),
+                                    createElement('button', {
+                                        className: 'btn-primary text-sm',
+                                        onClick: () => setShowAddTransaction(true)
+                                    }, createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                                )
+                            ),
+                            
+                            createElement('div', { className: 'calendar-grid' },
+                                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
+                                    createElement('div', { key: day, className: 'calendar-header-cell' }, day)
+                                ),
+                                
+                                Array.from({ length: 35 }, (_, i) => {
+                                    const day = i - 5; // Adjust for month start
+                                    const isCurrentMonth = day >= 1 && day <= 31;
+                                    return createElement('div', {
+                                        key: i,
+                                        className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'}`
+                                    },
+                                        createElement('div', { className: 'calendar-day-number' }, isCurrentMonth ? day : ''),
+                                        createElement('div', { className: 'calendar-events-container' },
+                                            calendarEvents.slice(0, 2).map(event => 
+                                                createElement('div', {
+                                                    key: event.id,
+                                                    className: `calendar-event-item ${event.color} truncate`
+                                                }, event.title)
+                                            )
+                                        )
+                                    );
+                                })
+                            )
+                        ),
+                        
+                        // Transactions
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                createElement('h3', { className: 'text-lg font-semibold' }, 'Последние транзакции'),
+                                createElement('div', { className: 'flex space-x-2' },
+                                    createElement('button', {
+                                        className: `btn-secondary text-sm ${showAllTime ? 'bg-purple-100 text-purple-600' : ''}`,
+                                        onClick: () => setShowAllTime(!showAllTime)
+                                    }, showAllTime ? 'Показать текущий месяц' : 'Показать все время'),
+                                    createElement('button', {
+                                        className: 'btn-primary text-sm',
+                                        onClick: () => setShowAddTransaction(true)
+                                    }, createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                                )
+                            ),
+                            
+                            createElement('div', { className: 'mb-4' },
+                                createElement('input', {
+                                    type: 'text',
+                                    className: 'w-full p-2 border border-gray-300 rounded-lg',
+                                    placeholder: 'Поиск по описанию или категории...',
+                                    value: searchTerm,
+                                    onChange: (e) => setSearchTerm(e.target.value)
+                                })
+                            ),
+                            
+                            createElement('div', { className: 'space-y-2 max-h-96 overflow-y-auto' },
+                                transactions.map(transaction => 
+                                    createElement('div', {
+                                        key: transaction.id,
+                                        className: 'flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50'
+                                    },
+                                        createElement('div', { className: 'flex items-center space-x-3' },
+                                            createElement('div', { className: `p-2 rounded-lg ${transaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}` },
+                                                createElement('i', { className: `fas ${transaction.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'}` })
+                                            ),
+                                            createElement('div', null,
+                                                createElement('p', { className: 'font-medium' }, transaction.description),
+                                                createElement('p', { className: 'text-sm text-gray-500' }, transaction.category + ' • ' + new Date(transaction.date).toLocaleDateString('ru-RU'))
+                                            )
+                                        ),
+                                        createElement('div', { className: 'text-right' },
+                                            createElement('p', { className: `font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}` },
+                                                (transaction.type === 'income' ? '+' : '-') + transaction.amount.toLocaleString('ru-RU') + ' ₽'
+                                            ),
+                                            createElement('p', { className: 'text-sm text-gray-500' }, 'Баланс: ' + transaction.balanceAfter.toLocaleString('ru-RU') + ' ₽')
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    ),
+                    
+                    // Categories and Expenses
+                    createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+                        // Categories
+                        createElement('div', { className: 'card' },
+                            createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Категории'),
+                            createElement('div', { className: 'categories-container' },
+                                ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'].map(category => 
+                                    createElement('div', { key: category, className: 'category-item' },
+                                        createElement('span', null, category),
+                                        createElement('span', { className: 'font-semibold' },
+                                            (category === 'Продукты' ? '20 000' : 
+                                             category === 'Транспорт' ? '8 000' : 
+                                             category === 'Жилье' ? '15 000' : 
+                                             category === 'Развлечения' ? '3 000' : '0') + ' ₽'
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        
+                        // Fixed Expenses
+                        createElement('div', { className: 'card' },
+                            createElement('div', { className: 'flex justify-between items-center mb-4' },
+                                createElement('h3', { className: 'text-lg font-semibold' }, 'Постоянные расходы'),
+                                createElement('button', {
+                                    className: 'btn-primary text-sm',
+                                    onClick: () => setShowAddFixedExpenseModal(true)
+                                }, createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                            ),
+                            
+                            createElement('div', { className: 'space-y-2' },
+                                fixedExpenses.map(expense => 
+                                    createElement('div', { key: expense.id, className: 'fixed-expense-item' },
+                                        createElement('div', { className: 'fixed-expense-name' },
+                                            createElement('p', { className: 'font-medium' }, expense.name),
+                                            createElement('p', { className: 'text-sm text-gray-500' }, expense.category)
+                                        ),
+                                        createElement('div', { className: 'fixed-expense-amount' },
+                                            expense.amount.toLocaleString('ru-RU') + ' ₽'
+                                        ),
+                                        createElement('div', {
+                                            className: 'fixed-expense-delete',
+                                            onClick: () => deleteFixedExpense(expense.id)
+                                        }, createElement('i', { className: 'fas fa-trash' }))
+                                    )
+                                )
+                            )
+                        )
+                    ),
+                    
+                    // File Upload
+                    createElement('div', { className: 'card' },
+                        createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Загрузка выписки'),
+                        createElement('div', {
+                            className: 'file-upload',
+                            onClick: () => document.getElementById('file-upload').click()
+                        },
+                            createElement('i', { className: 'fas fa-cloud-upload-alt' }),
+                            createElement('p', null, 'Перетащите файл сюда или нажмите для выбора'),
+                            createElement('p', { className: 'text-sm text-gray-500' }, 'Поддерживаются форматы XLS и XLSX'),
+                            createElement('input', {
+                                id: 'file-upload',
+                                type: 'file',
+                                accept: '.xls,.xlsx',
+                                onChange: (e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        alert('Файл выбран: ' + file.name);
+                                    }
+                                },
+                                style: { display: 'none' }
+                            })
+                        )
+                    )
+                );
+            };
+
+            // Render shopping tab
+            const renderShoppingTab = () => {
+                return createElement('div', { className: 'space-y-6' },
+                    createElement('div', { className: 'card' },
+                        createElement('div', { className: 'flex justify-between items-center mb-4' },
+                            createElement('h3', { className: 'text-lg font-semibold' }, 'Список покупок'),
+                            createElement('div', { className: 'flex space-x-2' },
+                                createElement('button', {
+                                    className: 'btn-primary text-sm',
+                                    onClick: () => {}
+                                }, createElement('i', { className: 'fab fa-telegram-plane mr-1' }), 'Отправить в Telegram'),
+                                createElement('button', {
+                                    className: 'btn-secondary text-sm',
+                                    onClick: () => setShowShoppingSettings(!showShoppingSettings)
+                                }, createElement('i', { className: 'fas fa-cog mr-1' }), 'Настройки')
+                            )
+                        ),
+                        
+                        // Shopping Settings
+                        showShoppingSettings && createElement('div', { className: 'mb-4 p-4 bg-gray-50 rounded-lg' },
+                            createElement('h4', { className: 'font-medium mb-3' }, 'Настройки Telegram'),
+                            createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                                createElement('div', null,
+                                    createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Token бота'),
+                                    createElement('input', {
+                                        type: 'text',
+                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
+                                        placeholder: 'Введите token бота',
+                                        value: telegramBotToken,
+                                        onChange: (e) => setTelegramBotToken(e.target.value)
+                                    })
+                                ),
+                                createElement('div', null,
+                                    createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'ID чата'),
+                                    createElement('input', {
+                                        type: 'text',
+                                        className: 'w-full p-2 border border-gray-300 rounded-lg',
+                                        placeholder: 'Введите ID чата',
+                                        value: telegramChatId,
+                                        onChange: (e) => setTelegramChatId(e.target.value)
+                                    })
+                                )
+                            ),
+                            createElement('div', { className: 'flex space-x-2 mt-3' },
+                                createElement('button', {
+                                    className: 'btn-primary text-sm',
+                                    onClick: () => {}
+                                }, 'Тест подключения')
+                            )
+                        ),
+                        
+                        // Add New Item
+                        createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-3 mb-6' },
+                            createElement('input', {
+                                type: 'text',
+                                className: 'p-2 border border-gray-300 rounded-lg',
+                                placeholder: 'Название товара',
+                                value: newItem.name,
+                                onChange: (e) => setNewItem({...newItem, name: e.target.value})
+                            }),
+                            createElement('input', {
+                                type: 'number',
+                                className: 'p-2 border border-gray-300 rounded-lg',
+                                placeholder: 'Количество',
+                                value: newItem.quantity,
+                                onChange: (e) => setNewItem({...newItem, quantity: e.target.value})
+                            }),
+                            createElement('select', {
+                                className: 'p-2 border border-gray-300 rounded-lg',
+                                value: newItem.unit,
+                                onChange: (e) => setNewItem({...newItem, unit: e.target.value})
+                            },
+                                createElement('option', { value: 'штука' }, 'шт'),
+                                createElement('option', { value: 'килограмм' }, 'кг'),
+                                createElement('option', { value: 'грамм' }, 'г'),
+                                createElement('option', { value: 'литр' }, 'л'),
+                                createElement('option', { value: 'миллилитр' }, 'мл'),
+                                createElement('option', { value: 'метр' }, 'м'),
+                                createElement('option', { value: 'упаковка' }, 'уп')
+                            ),
+                            createElement('button', {
+                                className: 'btn-primary',
+                                onClick: () => {
+                                    if (newItem.name.trim() && newItem.quantity) {
+                                        const item = {
+                                            id: Date.now(),
+                                            item: newItem.name,
+                                            quantity: parseInt(newItem.quantity),
+                                            unit: newItem.unit,
+                                            completed: false
+                                        };
+                                        setShoppingList(prev => [...prev, item]);
+                                        setNewItem({ name: '', quantity: '', unit: 'штука' });
+                                    }
+                                }
+                            }, createElement('i', { className: 'fas fa-plus mr-2' }), 'Добавить')
+                        ),
+                        
+                        // Shopping List Items
+                        createElement('div', { className: 'shopping-list-grid' },
+                            shoppingList.map(item => 
+                                createElement('div', { key: item.id, className: 'shopping-item' },
+                                    createElement('div', { className: 'shopping-item-content' },
+                                        createElement('div', {
+                                            className: `shopping-item-checkbox ${item.completed ? 'checked' : ''}`,
+                                            onClick: () => setShoppingList(prev => prev.map(i => 
+                                                i.id === item.id ? {...i, completed: !i.completed} : i
+                                            ))
+                                        }, item.completed && createElement('i', { className: 'fas fa-check' })),
+                                        createElement('div', { className: `shopping-item-text ${item.completed ? 'completed' : ''}` },
+                                            item.item + ' × ' + item.quantity + ' ' + item.unit
+                                        )
+                                    ),
+                                    createElement('div', { className: 'shopping-item-actions' },
+                                        createElement('div', {
+                                            className: 'shopping-item-edit',
+                                            onClick: () => {}
+                                        }, createElement('i', { className: 'fas fa-edit' })),
+                                        createElement('div', {
+                                            className: 'shopping-item-delete',
+                                            onClick: () => setShoppingList(prev => prev.filter(i => i.id !== item.id))
+                                        }, createElement('i', { className: 'fas fa-trash' }))
+                                    )
+                                )
+                            )
+                        )
+                    )
+                );
+            };
+
+            // Render planner tab
+            const renderPlannerTab = () => {
+                return createElement('div', { className: 'space-y-6' },
+                    createElement('div', { className: 'card' },
+                        createElement('div', { className: 'calendar-navigation' },
+                            createElement('div', { className: 'flex items-center space-x-2' },
+                                createElement('button', {
+                                    className: 'calendar-nav-button',
+                                    onClick: () => {}
+                                }, createElement('i', { className: 'fas fa-chevron-left' })),
+                                createElement('button', {
+                                    className: 'calendar-nav-button',
+                                    onClick: () => setCurrentDate(new Date())
+                                }, 'Сегодня'),
+                                createElement('button', {
+                                    className: 'calendar-nav-button',
+                                    onClick: () => {}
+                                }, createElement('i', { className: 'fas fa-chevron-right' }))
+                            ),
+                            
+                            createElement('h3', { className: 'calendar-title' }, 'Январь 2024'),
+                            
+                            createElement('div', { className: 'flex space-x-2' },
+                                createElement('button', {
+                                    className: 'calendar-nav-button active',
+                                    onClick: () => setPlannerCalendarView('month')
+                                }, 'Месяц'),
+                                createElement('button', {
+                                    className: 'calendar-nav-button',
+                                    onClick: () => setPlannerCalendarView('week')
+                                }, 'Неделя'),
+                                createElement('button', {
+                                    className: 'btn-primary text-sm',
+                                    onClick: () => setShowAddEventModal(true)
+                                }, createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                            )
+                        ),
+                        
+                        // Calendar View
+                        createElement('div', { className: 'calendar-grid' },
+                            ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => 
+                                createElement('div', { key: day, className: 'calendar-header-cell' }, day)
+                            ),
+                            
+                            Array.from({ length: 35 }, (_, i) => {
+                                const day = i - 5; // Adjust for month start
+                                const isCurrentMonth = day >= 1 && day <= 31;
+                                return createElement('div', {
+                                    key: i,
+                                    className: `calendar-day-cell ${isCurrentMonth ? '' : 'other-month'}`
+                                },
+                                    createElement('div', { className: 'calendar-day-number' }, isCurrentMonth ? day : ''),
+                                    createElement('div', { className: 'calendar-events-container' },
+                                        calendarEvents.slice(0, 2).map(event => 
+                                            createElement('div', {
+                                                key: event.id,
+                                                className: `calendar-event-item ${event.color} truncate`
+                                            }, event.title)
+                                        )
+                                    )
+                                );
+                            })
+                        )
+                    ),
+                    
+                    // Events List
+                    createElement('div', { className: 'card' },
+                        createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'События'),
+                        
+                        createElement('div', { className: 'flex justify-between items-center mb-4' },
+                            createElement('div', null,
+                                createElement('button', {
+                                    className: 'btn-secondary text-sm mr-2',
+                                    onClick: () => setShowPlannerSettings(!showPlannerSettings)
+                                }, createElement('i', { className: 'fas fa-cog mr-1' }), 'Настройки'),
+                                createElement('button', {
+                                    className: 'btn-secondary text-sm',
+                                    onClick: () => setShowCreateTemplateModal(true)
+                                }, createElement('i', { className: 'fas fa-layer-group mr-1' }), 'Шаблоны')
+                            )
+                        ),
+                        
+                        // Events
+                        createElement('div', { className: 'space-y-2' },
+                            calendarEvents.map(event => 
+                                createElement('div', {
+                                    key: event.id,
+                                    className: 'event-item',
+                                    onClick: () => {}
+                                },
+                                    createElement('div', { className: 'event-content' },
+                                        createElement('div', { className: `event-color-indicator ${event.color}` }),
+                                        createElement('div', { className: 'event-info' },
+                                            createElement('p', { className: 'font-medium' }, event.title),
+                                            createElement('p', { className: 'text-sm text-gray-500' },
+                                                new Date(event.startDate).toLocaleDateString('ru-RU') + ' • ' + event.startTime +
+                                                (event.endTime ? ' - ' + event.endTime : '')
+                                            )
+                                        )
+                                    ),
+                                    createElement('div', { className: 'event-actions' },
+                                        createElement('div', { className: 'participants-container' },
+                                            event.participants.map(participant => {
+                                                const p = participants.find(p => p.name === participant);
+                                                return createElement('div', { key: participant, className: 'participant-tag' },
+                                                    createElement('div', { className: `w-2 h-2 rounded-full ${p?.color || 'bg-gray-400'}` }),
+                                                    participant
+                                                );
+                                            })
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                );
+            };
+
+            // Render settings tab
+            const renderSettingsTab = () => {
+                return createElement('div', { className: 'space-y-6' },
+                    createElement('div', { className: 'card' },
+                        createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Настройки приложения'),
+                        
+                        createElement('div', { className: 'space-y-4' },
+                            // Tab Visibility Settings
+                            createElement('div', null,
+                                createElement('h4', { className: 'font-medium mb-2' }, 'Отображение вкладок'),
+                                createElement('div', { className: 'space-y-2' },
+                                    createElement('div', { className: 'tab-setting-item' },
+                                        createElement('span', null, 'Вкладка "Покупки"'),
+                                        createElement('label', { className: 'toggle-switch' },
+                                            createElement('input', {
+                                                type: 'checkbox',
+                                                checked: tabVisibility.shopping,
+                                                onChange: () => setTabVisibility({...tabVisibility, shopping: !tabVisibility.shopping})
+                                            }),
+                                            createElement('span', { className: 'slider' })
+                                        )
+                                    ),
+                                    createElement('div', { className: 'tab-setting-item' },
+                                        createElement('span', null, 'Вкладка "Планировщик"'),
+                                        createElement('label', { className: 'toggle-switch' },
+                                            createElement('input', {
+                                                type: 'checkbox',
+                                                checked: tabVisibility.planner,
+                                                onChange: () => setTabVisibility({...tabVisibility, planner: !tabVisibility.planner})
+                                            }),
+                                            createElement('span', { className: 'slider' })
+                                        )
+                                    )
+                                )
+                            ),
+                            
+                            // Savings Settings
+                            createElement('div', null,
+                                createElement('h4', { className: 'font-medium mb-2' }, 'Настройки накоплений'),
+                                createElement('div', { className: 'flex items-center space-x-3' },
+                                    createElement('input', {
+                                        type: 'number',
+                                        className: 'p-2 border border-gray-300 rounded-lg w-24',
+                                        placeholder: 'Процент',
+                                        value: savingsPercentage,
+                                        onChange: (e) => setSavingsPercentage(e.target.value),
+                                        min: '0',
+                                        max: '100'
+                                    }),
+                                    createElement('span', null, '% от баланса будет откладываться')
+                                )
+                            ),
+                            
+                            // Participants Management
+                            createElement('div', null,
+                                createElement('div', { className: 'flex justify-between items-center mb-2' },
+                                    createElement('h4', { className: 'font-medium' }, 'Участники'),
+                                    createElement('button', {
+                                        className: 'btn-primary text-sm',
+                                        onClick: () => setShowAddParticipantModal(true)
+                                    }, createElement('i', { className: 'fas fa-plus mr-1' }), 'Добавить')
+                                ),
+                                createElement('div', { className: 'participants-container' },
+                                    participants.map(participant => 
+                                        createElement('div', { key: participant.name, className: 'participant-tag' },
+                                            createElement('div', { className: `w-3 h-3 rounded-full ${participant.color}` }),
+                                            participant.name
+                                        )
+                                    )
+                                )
+                            ),
+                            
+                            // Data Management
+                            createElement('div', null,
+                                createElement('h4', { className: 'font-medium mb-2' }, 'Управление данными'),
+                                createElement('div', { className: 'flex space-x-2' },
+                                    createElement('button', {
+                                        className: 'btn-danger',
+                                        onClick: () => {}
+                                    }, 'Очистить все транзакции'),
+                                    createElement('button', { className: 'btn-secondary' }, 'Экспорт данных')
+                                )
+                            )
+                        )
+                    )
+                );
+            };
+
+            return createElement('div', { className: 'app-container' },
                 renderHeader(),
-                React.createElement('main', null,
+                createElement('main', null,
                     activeTab === 'budget' && renderBudgetTab(),
                     activeTab === 'shopping' && renderShoppingTab(),
                     activeTab === 'planner' && renderPlannerTab(),
                     activeTab === 'settings' && renderSettingsTab()
                 ),
-                renderModals()
+                renderRoomModal()
             );
         }
 
+        // Helper function to create elements
+        const createElement = React.createElement;
+
         // Render the app
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(FamilyBudgetApp));
+        root.render(createElement(FamilyBudgetApp));
     </script>
 </body>
 </html>

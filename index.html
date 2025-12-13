@@ -1488,6 +1488,7 @@
             const [editingItemText, setEditingItemText] = useState('');
             const [editingItemQuantity, setEditingItemQuantity] = useState('');
             const [editingItemUnit, setEditingItemUnit] = useState('штука');
+            const [showAddShoppingItem, setShowAddShoppingItem] = useState(false); // FIX: Added missing state
             // Calendar states
             const [calendarEvents, setCalendarEvents] = useState([
                 { 
@@ -1807,6 +1808,7 @@
                     };
                     setShoppingList(prev => [...prev, item]);
                     setNewItem({ name: '', quantity: '', unit: 'штука' });
+                    setShowAddShoppingItem(false); // FIX: Close modal after adding
                 }
             }, [newItem]);
             const toggleShoppingItem = useCallback((id) => {
@@ -2407,7 +2409,7 @@ ${shoppingList.map(item =>
                             </div>
                         )}
                         
-                        {/* Add Shopping Item Modal */}
+                        {/* Add Shopping Item Modal - FIX: Added missing modal */}
                         {showAddShoppingItem && (
                             <div className="modal-overlay">
                                 <div className="modal-content">
@@ -3280,7 +3282,8 @@ ${shoppingList.map(item =>
                 showPreviewModal, fixedExpenses, showAddFixedExpenseModal, newFixedExpense, 
                 showDeleteConfirmation, showBudgetSettings, savingsPercentage, initialBalance, 
                 dayStart, dayEnd, showShoppingSettings, telegramBotToken, telegramChatId, 
-                showPlannerSettings, deleteAction, showClearTransactionsConfirmation, user, isLoading
+                showPlannerSettings, deleteAction, showClearTransactionsConfirmation, user, isLoading,
+                showAddShoppingItem, newItem // FIX: Added missing dependencies
             ]);
             
             // Render UI
@@ -3585,289 +3588,3 @@ ${shoppingList.map(item =>
                                                                     <>
                                                                         <div 
                                                                             className="shopping-item-checkbox"
-                                                                            onClick={() => toggleShoppingItem(item.id)}
-                                                                        >
-                                                                            {false && <i className="fas fa-check"></i>}
-                                                                        </div>
-                                                                        <div className="shopping-item-text">
-                                                                            {item.item}
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                            <div className="shopping-item-actions">
-                                                                {editingItemId === item.id ? (
-                                                                    <button 
-                                                                        className="shopping-item-edit"
-                                                                        onClick={saveEditedItem}
-                                                                    >
-                                                                        <i className="fas fa-save"></i>
-                                                                    </button>
-                                                                ) : (
-                                                                    <>
-                                                                        <button 
-                                                                            className="shopping-item-edit"
-                                                                            onClick={() => startEditingItem(item.id, item)}
-                                                                        >
-                                                                            <i className="fas fa-edit"></i>
-                                                                        </button>
-                                                                        <button 
-                                                                            className="shopping-item-delete"
-                                                                            onClick={() => setShowDeleteConfirmation(true)}
-                                                                        >
-                                                                            <i className="fas fa-trash"></i>
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">Нет товаров для покупки</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Bought Column */}
-                                    <div className="card">
-                                        <h3 className="font-medium mb-4 flex items-center">
-                                            <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                                            Купленные товары
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {shoppingList
-                                                .filter(item => item.completed)
-                                                .length > 0 ? (
-                                                shoppingList
-                                                    .filter(item => item.completed)
-                                                    .map(item => (
-                                                        <div key={item.id} className="shopping-item">
-                                                            <div className="shopping-item-content">
-                                                                <div 
-                                                                    className="shopping-item-checkbox checked"
-                                                                    onClick={() => toggleShoppingItem(item.id)}
-                                                                >
-                                                                    <i className="fas fa-check"></i>
-                                                                </div>
-                                                                <div className="shopping-item-text completed">
-                                                                    {item.item} × {item.quantity} {item.unit}
-                                                                </div>
-                                                            </div>
-                                                            <div className="shopping-item-actions">
-                                                                <button 
-                                                                    className="shopping-item-delete"
-                                                                    onClick={() => deleteShoppingItem(item.id)}
-                                                                >
-                                                                    <i className="fas fa-trash"></i>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">Нет купленных товаров</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* Import from Excel */}
-                                <div className="card">
-                                    <h3 className="font-medium mb-4">Импорт из Excel</h3>
-                                    <div className="file-upload" onClick={() => document.getElementById('excel-file').click()}>
-                                        <i className="fas fa-file-excel"></i>
-                                        <p>Перетащите файл Excel или нажмите для выбора</p>
-                                        <p className="text-gray-500 text-sm">Поддерживаются форматы XLS и XLSX</p>
-                                        <input 
-                                            type="file" 
-                                            id="excel-file" 
-                                            accept=".xlsx, .xls" 
-                                            onChange={handleFileUpload}
-                                            className="hidden"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {activeTab === 'planner' && (
-                            <div className="space-y-6">
-                                {/* Calendar Header */}
-                                <div className="flex justify-between items-center">
-                                    <h2 className="text-xl font-semibold">Планировщик</h2>
-                                    <div className="flex space-x-2">
-                                        <button 
-                                            className="btn-secondary"
-                                            onClick={() => setShowPlannerSettings(true)}
-                                        >
-                                            <i className="fas fa-cog mr-2"></i>
-                                            Настройки
-                                        </button>
-                                        <button 
-                                            className="btn-primary"
-                                            onClick={() => {
-                                                setNewEvent({
-                                                    title: '',
-                                                    startDate: new Date().toISOString().split('T')[0],
-                                                    startTime: '09:00',
-                                                    endTime: '10:00',
-                                                    color: 'bg-blue-500',
-                                                    participants: [],
-                                                    isTemplate: false
-                                                });
-                                                setShowAddEventModal(true);
-                                            }}
-                                        >
-                                            <i className="fas fa-plus mr-2"></i>
-                                            Новое событие
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Calendar View Toggle */}
-                                <div className="flex justify-between items-center mb-4">
-                                    <div className="calendar-navigation">
-                                        <div>
-                                            <button 
-                                                className="calendar-nav-button"
-                                                onClick={() => navigatePlannerCalendar(-1)}
-                                            >
-                                                <i className="fas fa-chevron-left"></i>
-                                            </button>
-                                            <button 
-                                                className="calendar-nav-button"
-                                                onClick={() => navigatePlannerCalendar(1)}
-                                            >
-                                                <i className="fas fa-chevron-right"></i>
-                                            </button>
-                                        </div>
-                                        <div className="calendar-title">
-                                            {plannerCalendarData.title}
-                                        </div>
-                                        <div>
-                                            <button 
-                                                className={`calendar-nav-button ${plannerCalendarView === 'month' ? 'bg-purple-100 text-purple-700' : ''}`}
-                                                onClick={() => switchPlannerCalendarView('month')}
-                                            >
-                                                Месяц
-                                            </button>
-                                            <button 
-                                                className={`calendar-nav-button ${plannerCalendarView === 'week' ? 'bg-purple-100 text-purple-700' : ''}`}
-                                                onClick={() => switchPlannerCalendarView('week')}
-                                            >
-                                                Неделя
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        className="calendar-today-button"
-                                        onClick={() => setCurrentDate(new Date())}
-                                    >
-                                        Сегодня
-                                    </button>
-                                </div>
-                                
-                                {/* Calendar Grid */}
-                                <div className="card">
-                                    {plannerCalendarView === 'month' ? (
-                                        <div className="calendar-grid">
-                                            {/* Week days header */}
-                                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                                                <div key={day} className="calendar-header-cell">
-                                                    {day}
-                                                </div>
-                                            ))}
-                                            
-                                            {/* Days with events */}
-                                            {plannerCalendarData.days.map(day => {
-                                                const isToday = new Date().toDateString() === day.toDateString();
-                                                const isSelected = selectedDate && new Date(selectedDate).toDateString() === day.toDateString();
-                                                const isOtherMonth = day.getMonth() !== currentDate.getMonth();
-                                                const dayEvents = getEventsForDate(day);
-                                                
-                                                return (
-                                                    <div 
-                                                        key={day.toString()} 
-                                                        className={`calendar-day-cell ${isOtherMonth ? 'other-month' : ''} ${isToday ? 'border-2 border-purple-500' : ''} ${isSelected ? 'selected-day' : ''}`}
-                                                        onClick={() => handlePlannerDayClick(day)}
-                                                    >
-                                                        <div className="calendar-day-number">
-                                                            {day.getDate()}
-                                                        </div>
-                                                        <div className="calendar-events-container">
-                                                            {dayEvents.slice(0, 3).map(event => (
-                                                                <div 
-                                                                    key={event.id} 
-                                                                    className={`calendar-event-item ${event.color} truncate`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleEventClick(event);
-                                                                    }}
-                                                                >
-                                                                    {event.title}
-                                                                    {event.participants.length > 0 && (
-                                                                        <span className="ml-1 text-xs">({event.participants.join(', ')})</span>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                            {dayEvents.length > 3 && (
-                                                                <div className="calendar-event-item bg-gray-300 text-gray-700 text-xs truncate">
-                                                                    +{dayEvents.length - 3} еще
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="week-calendar">
-                                            {/* Time column header */}
-                                            <div className="week-time-column">
-                                                Время
-                                            </div>
-                                            
-                                            {/* Day headers */}
-                                            {plannerCalendarData.days.map(day => (
-                                                <div key={day.toString()} className="calendar-header-cell">
-                                                    {day.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric' })}
-                                                </div>
-                                            ))}
-                                            
-                                            {/* Time slots and events would go here for week view */}
-                                            {[...Array(12)].map((_, index) => {
-                                                const hour = 8 + index;
-                                                return (
-                                                    <React.Fragment key={hour}>
-                                                        <div className="week-time-column">
-                                                            {hour}:00
-                                                        </div>
-                                                        {plannerCalendarData.days.map(day => (
-                                                            <div 
-                                                                key={`${day.toString()}-${hour}`} 
-                                                                className="week-hour-cell"
-                                                                onClick={() => handlePlannerDayClick(day, `${hour}:00`)}
-                                                            >
-                                                                {/* Events would be positioned here for week view */}
-                                                            </div>
-                                                        ))}
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </main>
-                    
-                    {/* Render all modals */}
-                    {renderModals()}
-                </div>
-            );
-        };
-        
-        // Render the app
-        ReactDOM.render(<FamilyBudgetApp />, document.getElementById('root'));
-    </script>
-</body>
-</html>

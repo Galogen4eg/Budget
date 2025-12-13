@@ -12,22 +12,27 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Все ваши стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background: #f8fafc;
             min-height: 100vh;
             color: #1e293b;
         }
+
+        /* Остальные стили CSS без изменений */
         .app-container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 16px;
         }
+
         header {
             background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -35,12 +40,14 @@
             top: 0;
             z-index: 50;
         }
+
         .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 16px 0;
         }
+
         .logo {
             font-size: 1.5rem;
             font-weight: 700;
@@ -49,6 +56,7 @@
             align-items: center;
             gap: 12px;
         }
+
         .logo-icon {
             background: white;
             width: 36px;
@@ -60,10 +68,12 @@
             color: #7c3aed;
             font-size: 18px;
         }
+
         nav {
             display: flex;
             gap: 8px;
         }
+
         .nav-button {
             display: flex;
             align-items: center;
@@ -78,31 +88,40 @@
             font-size: 0.95rem;
             font-weight: 500;
         }
+
         .nav-button.active {
             background: rgba(255, 255, 255, 0.3);
         }
+
         .nav-button:not(.active):hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
         main {
             padding: 24px 0;
         }
+
         .grid {
             display: grid;
             gap: 24px;
         }
+
         .grid-cols-1 {
             grid-template-columns: 1fr;
         }
+
         .grid-cols-2 {
             grid-template-columns: repeat(2, 1fr);
         }
+
         .grid-cols-3 {
             grid-template-columns: repeat(3, 1fr);
         }
+
         .grid-cols-4 {
             grid-template-columns: repeat(4, 1fr);
         }
+
         .card {
             background: white;
             border-radius: 16px;
@@ -111,335 +130,440 @@
             border: 1px solid #e2e8f0;
             transition: all 0.3s ease;
         }
+
         .card:hover {
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
             transform: translateY(-2px);
         }
+
         .flex {
             display: flex;
         }
+
         .items-center {
             align-items: center;
         }
+
         .justify-between {
             justify-content: space-between;
         }
+
         .justify-end {
             justify-content: flex-end;
         }
+
         .justify-center {
             justify-content: center;
         }
+
         .space-x-2 > * + * {
             margin-left: 8px;
         }
+
         .space-x-3 > * + * {
             margin-left: 12px;
         }
+
         .space-x-4 > * + * {
             margin-left: 16px;
         }
+
         .space-y-2 > * + * {
             margin-top: 8px;
         }
+
         .space-y-3 > * + * {
             margin-top: 12px;
         }
+
         .space-y-4 > * + * {
             margin-top: 16px;
         }
+
         .space-y-6 > * + * {
             margin-top: 24px;
         }
+
         .text-gray-600 {
             color: #71717a;
         }
+
         .text-green-600 {
             color: #16a34a;
         }
+
         .text-red-600 {
             color: #dc2626;
         }
+
         .text-blue-500 {
             color: #3b82f6;
         }
+
         .text-purple-500 {
             color: #a855f7;
         }
+
         .text-orange-600 {
             color: #ea580c;
         }
+
         .text-yellow-500 {
             color: #eab308;
         }
+
         .text-gray-500 {
             color: #a1a1aa;
         }
+
         .text-gray-400 {
             color: #d4d4d8;
         }
+
         .text-gray-700 {
             color: #52525b;
         }
+
         .text-gray-800 {
             color: #27272a;
         }
+
         .text-white {
             color: white;
         }
+
         .bg-white {
             background: white;
         }
+
         .bg-purple-600 {
             background: #7c3aed;
         }
+
         .bg-purple-100 {
             background: #f3e8ff;
         }
+
         .bg-green-100 {
             background: #dcfce7;
         }
+
         .bg-red-100 {
             background: #fee2e2;
         }
+
         .bg-blue-100 {
             background: #dbeafe;
         }
+
         .bg-yellow-100 {
             background: #fef9c3;
         }
+
         .bg-gray-50 {
             background: #fafafa;
         }
+
         .bg-gray-100 {
             background: #f4f4f5;
         }
+
         .bg-gray-200 {
             background: #e4e4e7;
         }
+
         .bg-purple-50 {
             background: #f5f3ff;
         }
+
         .bg-red-500 {
             background: #ef4444;
         }
+
         .bg-green-500 {
             background: #16a34a;
         }
+
         .bg-blue-500 {
             background: #3b82f6;
         }
+
         .bg-pink-500 {
             background: #ec4899;
         }
+
         .bg-yellow-500 {
             background: #eab308;
         }
+
         .bg-purple-500 {
             background: #a855f7;
         }
+
         .bg-indigo-500 {
             background: #6366f1;
         }
+
         .bg-teal-500 {
             background: #14b8a6;
         }
+
         .rounded {
             border-radius: 6px;
         }
+
         .rounded-lg {
             border-radius: 8px;
         }
+
         .rounded-full {
             border-radius: 9999px;
         }
+
         .rounded-xl {
             border-radius: 12px;
         }
+
         .p-2 {
             padding: 8px;
         }
+
         .p-3 {
             padding: 12px;
         }
+
         .p-4 {
             padding: 16px;
         }
+
         .p-6 {
             padding: 24px;
         }
+
         .px-3 {
             padding-left: 12px;
             padding-right: 12px;
         }
+
         .px-4 {
             padding-left: 16px;
             padding-right: 16px;
         }
+
         .px-6 {
             padding-left: 24px;
             padding-right: 24px;
         }
+
         .py-2 {
             padding-top: 8px;
             padding-bottom: 8px;
         }
+
         .py-3 {
             padding-top: 12px;
             padding-bottom: 12px;
         }
+
         .py-4 {
             padding-top: 16px;
             padding-bottom: 16px;
         }
+
         .mb-2 {
             margin-bottom: 8px;
         }
+
         .mb-3 {
             margin-bottom: 12px;
         }
+
         .mb-4 {
             margin-bottom: 16px;
         }
+
         .mb-6 {
             margin-bottom: 24px;
         }
+
         .mt-2 {
             margin-top: 8px;
         }
+
         .mt-3 {
             margin-top: 12px;
         }
+
         .mt-4 {
             margin-top: 16px;
         }
+
         .ml-2 {
             margin-left: 8px;
         }
+
         .font-bold {
             font-weight: 700;
         }
+
         .font-semibold {
             font-weight: 600;
         }
+
         .font-medium {
             font-weight: 500;
         }
+
         .text-xl {
             font-size: 1.25rem;
             line-height: 1.75rem;
         }
+
         .text-lg {
             font-size: 1.125rem;
             line-height: 1.75rem;
         }
+
         .text-base {
             font-size: 1rem;
             line-height: 1.5rem;
         }
+
         .text-sm {
             font-size: 0.875rem;
             line-height: 1.25rem;
         }
+
         .text-xs {
             font-size: 0.75rem;
             line-height: 1rem;
         }
+
         .w-full {
             width: 100%;
         }
+
         .h-2 {
             height: 0.5rem;
         }
+
         .h-3 {
             height: 0.75rem;
         }
+
         .h-4 {
             height: 1rem;
         }
+
         .w-3 {
             width: 0.75rem;
         }
+
         .w-4 {
             width: 1rem;
         }
+
         .border {
             border: 1px solid;
         }
+
         .border-b {
             border-bottom: 1px solid;
         }
+
         .border-gray-100 {
             border-color: #f1f5f9;
         }
+
         .border-gray-200 {
             border-color: #e2e8f0;
         }
+
         .border-gray-300 {
             border-color: #cbd5e1;
         }
+
         .border-transparent {
             border-color: transparent;
         }
+
         .border-green-500 {
             border-color: #16a34a;
         }
+
         .border-red-500 {
             border-color: #dc2626;
         }
+
         .cursor-pointer {
             cursor: pointer;
         }
+
         .transition-all {
             transition-property: all;
             transition-duration: 0.2s;
         }
+
         .transition-colors {
             transition-property: background-color, border-color, color;
             transition-duration: 0.2s;
         }
+
         .shadow-sm {
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
+
         .shadow {
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
+
         .relative {
             position: relative;
         }
+
         .absolute {
             position: absolute;
         }
+
         .z-10 {
             z-index: 10;
         }
+
         .z-50 {
             z-index: 50;
         }
+
         .sticky {
             position: sticky;
         }
+
         .top-0 {
             top: 0;
         }
+
         .overflow-x-auto {
             overflow-x: auto;
         }
+
         .overflow-y-auto {
             overflow-y: auto;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
+
         .truncate {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
         .line-through {
             text-decoration: line-through;
         }
+
         input, select, textarea {
             font-family: inherit;
             font-size: 0.875rem;
@@ -450,11 +574,13 @@
             padding: 8px 12px;
             transition: all 0.2s;
         }
+
         input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #7c3aed;
             box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
         }
+
         button {
             cursor: pointer;
             border: none;
@@ -464,6 +590,7 @@
             line-height: 1.25rem;
             margin: 0;
         }
+
         .btn-primary {
             background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
             color: white;
@@ -474,11 +601,13 @@
             border: none;
             box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
         }
+
         .btn-primary:hover {
             background: linear-gradient(135deg, #6d28d9 0%, #4338ca 100%);
             box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
             transform: translateY(-1px);
         }
+
         .btn-secondary {
             background: #f1f5f9;
             color: #475569;
@@ -488,9 +617,11 @@
             transition: all 0.2s;
             border: none;
         }
+
         .btn-secondary:hover {
             background: #e2e8f0;
         }
+
         .btn-danger {
             background: #fee2e2;
             color: #dc2626;
@@ -500,9 +631,11 @@
             transition: all 0.2s;
             border: none;
         }
+
         .btn-danger:hover {
             background: #fecaca;
         }
+
         /* Auth styles */
         .auth-container {
             background: white;
@@ -513,19 +646,23 @@
             padding: 32px;
             text-align: center;
         }
+
         .auth-header {
             margin-bottom: 32px;
         }
+
         .auth-header h1 {
             font-size: 2rem;
             font-weight: 700;
             color: #1e293b;
             margin-bottom: 8px;
         }
+
         .auth-header p {
             color: #64748b;
             font-size: 1rem;
         }
+
         .mode-toggle {
             display: flex;
             background: #f1f5f9;
@@ -534,6 +671,7 @@
             margin-bottom: 24px;
             position: relative;
         }
+
         .mode-toggle-slider {
             position: absolute;
             background: white;
@@ -542,6 +680,7 @@
             transition: left 0.3s ease;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
+
         .mode-toggle-btn {
             flex: 1;
             padding: 12px;
@@ -551,22 +690,27 @@
             z-index: 2;
             transition: color 0.2s;
         }
+
         .mode-toggle-btn.active {
             color: #7c3aed;
         }
+
         .mode-toggle-btn:not(.active) {
             color: #64748b;
         }
+
         .form-group {
             margin-bottom: 20px;
             text-align: left;
         }
+
         .form-label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
             color: #334155;
         }
+
         .form-input {
             width: 100%;
             padding: 12px 16px;
@@ -575,14 +719,17 @@
             font-size: 1rem;
             transition: all 0.2s;
         }
+
         .form-input:focus {
             outline: none;
             border-color: #7c3aed;
             box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
         }
+
         .form-input.error {
             border-color: #ef4444;
         }
+
         .btn-auth {
             width: 100%;
             padding: 12px;
@@ -596,22 +743,26 @@
             transition: all 0.2s;
             box-shadow: 0 4px 6px rgba(124, 58, 237, 0.1);
         }
+
         .btn-auth:hover {
             background: linear-gradient(135deg, #6d28d9 0%, #4338ca 100%);
             box-shadow: 0 6px 8px rgba(124, 58, 237, 0.2);
             transform: translateY(-1px);
         }
+
         .auth-features {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
             margin-top: 32px;
         }
+
         .feature-item {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
+
         .feature-icon {
             width: 48px;
             height: 48px;
@@ -624,11 +775,13 @@
             color: #7c3aed;
             font-size: 1.25rem;
         }
+
         .feature-text {
             font-size: 0.875rem;
             color: #64748b;
             font-weight: 500;
         }
+
         .error-message {
             color: #ef4444;
             background: #fee2e2;
@@ -639,6 +792,7 @@
             align-items: center;
             gap: 8px;
         }
+
         .success-message {
             color: #16a34a;
             background: #dcfce7;
@@ -649,6 +803,7 @@
             align-items: center;
             gap: 8px;
         }
+
         .loading {
             display: flex;
             flex-direction: column;
@@ -657,6 +812,7 @@
             padding: 24px;
             color: #7c3aed;
         }
+
         .spinner {
             width: 32px;
             height: 32px;
@@ -665,10 +821,12 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         /* Calendar styles */
         .calendar-grid {
             display: grid;
@@ -678,6 +836,7 @@
             border-radius: 8px;
             overflow: hidden;
         }
+
         .calendar-header-cell {
             background-color: #f8fafc;
             padding: 12px 8px;
@@ -686,6 +845,7 @@
             font-size: 0.875rem;
             color: #64748b;
         }
+
         .calendar-day-cell {
             background-color: white;
             min-height: 100px;
@@ -694,23 +854,28 @@
             transition: background-color 0.2s;
             border: 1px solid #f1f5f9;
         }
+
         .calendar-day-cell:hover {
             background-color: #f8f9ff;
         }
+
         .calendar-day-cell.other-month {
             background-color: #f8fafc;
             color: #94a3b8;
         }
+
         .calendar-day-number {
             font-size: 0.875rem;
             font-weight: 500;
             margin-bottom: 4px;
         }
+
         .calendar-events-container {
             display: flex;
             flex-direction: column;
             gap: 2px;
         }
+
         .calendar-event-item {
             font-size: 0.75rem;
             padding: 2px 4px;
@@ -721,6 +886,7 @@
             color: white;
             font-weight: 500;
         }
+
         .calendar-navigation {
             display: flex;
             justify-content: space-between;
@@ -729,11 +895,13 @@
             flex-wrap: wrap;
             gap: 12px;
         }
+
         .calendar-title {
             font-size: 1.25rem;
             font-weight: 600;
             color: #1e293b;
         }
+
         .calendar-nav-button {
             background-color: #f1f5f9;
             border: none;
@@ -742,9 +910,11 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+
         .calendar-nav-button:hover {
             background-color: #e2e8f0;
         }
+
         .calendar-today-button {
             background-color: #7c3aed;
             color: white;
@@ -757,15 +927,18 @@
             box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
             margin: 0 auto;
         }
+
         .calendar-today-button:hover {
             background-color: #6d28d9;
             box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
             transform: translateY(-1px);
         }
+
         .selected-day {
             background-color: #e0e7ff !important;
             border: 2px solid #4f46e5;
         }
+
         /* Week calendar styles */
         .week-calendar {
             display: grid;
@@ -775,6 +948,7 @@
             border-radius: 8px;
             overflow: hidden;
         }
+
         .week-time-column {
             background-color: #f8fafc;
             padding: 4px;
@@ -783,15 +957,18 @@
             font-size: 0.75rem;
             color: #64748b;
         }
+
         .week-hour-cell {
             background-color: white;
             min-height: 40px;
             padding: 2px;
             border: 1px solid #f1f5f9;
         }
+
         .week-hour-cell.selected {
             background-color: #e0e7ff;
         }
+
         /* Color picker */
         .color-picker {
             display: flex;
@@ -799,6 +976,7 @@
             gap: 8px;
             margin-top: 8px;
         }
+
         .color-option {
             width: 24px;
             height: 24px;
@@ -806,13 +984,16 @@
             cursor: pointer;
             border: 2px solid transparent;
         }
+
         .color-option:hover {
             transform: scale(1.1);
         }
+
         .color-option.selected {
             border-color: #000;
             transform: scale(1.1);
         }
+
         /* Participant chips */
         .participant-chips {
             display: flex;
@@ -820,6 +1001,7 @@
             gap: 8px;
             margin-top: 8px;
         }
+
         .participant-chip {
             background: #e0e7ff;
             color: #4f46e5;
@@ -831,14 +1013,17 @@
             gap: 4px;
             cursor: pointer;
         }
+
         .participant-chip.selected {
             background: #7c3aed;
             color: white;
         }
+
         .participant-chip .remove-participant {
             cursor: pointer;
             font-size: 0.7rem;
         }
+
         /* Template item */
         .template-item {
             display: flex;
@@ -851,19 +1036,23 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .template-item:hover {
             background: #f8fafc;
         }
+
         .template-item-content {
             display: flex;
             align-items: center;
             gap: 12px;
             flex: 1;
         }
+
         .template-item-actions {
             display: flex;
             gap: 8px;
         }
+
         /* Collapsible */
         .collapsible-header {
             cursor: pointer;
@@ -875,16 +1064,20 @@
             border-radius: 8px;
             margin-bottom: 16px;
         }
+
         .collapsible-content {
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
+
         .collapsible-content.collapsed {
             max-height: 0;
         }
+
         .collapsible-content.expanded {
             max-height: 1000px;
         }
+
         /* Categories */
         .categories-container {
             display: flex;
@@ -892,6 +1085,7 @@
             gap: 12px;
             margin-top: 16px;
         }
+
         .category-item {
             display: flex;
             justify-content: space-between;
@@ -903,14 +1097,17 @@
             transition: all 0.2s;
             font-size: 0.95rem;
         }
+
         .category-item.active {
             background: #7c3aed;
             color: white;
             box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
         }
+
         .category-item:hover:not(.active) {
             background: #e2e8f0;
         }
+
         /* File upload */
         .file-upload {
             border: 2px dashed #cbd5e1;
@@ -921,28 +1118,34 @@
             transition: all 0.2s;
             background: #f8fafc;
         }
+
         .file-upload:hover {
             border-color: #7c3aed;
             background: #f0f4ff;
         }
+
         .file-upload i {
             font-size: 2rem;
             color: #7c3aed;
             margin-bottom: 16px;
         }
+
         .file-upload p {
             margin-bottom: 16px;
             color: #64748b;
         }
+
         .file-upload input[type="file"] {
             display: none;
         }
+
         /* Shopping list two columns */
         .shopping-list-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 16px;
         }
+
         .shopping-item {
             display: flex;
             align-items: center;
@@ -954,15 +1157,18 @@
             transition: all 0.2s;
             cursor: pointer;
         }
+
         .shopping-item:hover {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
+
         .shopping-item-content {
             display: flex;
             align-items: center;
             gap: 12px;
             flex: 1;
         }
+
         .shopping-item-checkbox {
             width: 20px;
             height: 20px;
@@ -974,33 +1180,41 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .shopping-item-checkbox.checked {
             background: #16a34a;
             border-color: #16a34a;
         }
+
         .shopping-item-checkbox.checked i {
             color: white;
             font-size: 12px;
         }
+
         .shopping-item-text {
             font-size: 0.95rem;
         }
+
         .shopping-item-text.completed {
             text-decoration: line-through;
             color: #94a3b8;
         }
+
         .shopping-item-actions {
             display: flex;
             gap: 8px;
         }
+
         .shopping-item-edit {
             color: #7c3aed;
             cursor: pointer;
         }
+
         .shopping-item-delete {
             color: #ef4444;
             cursor: pointer;
         }
+
         .shopping-item-input {
             border: 1px solid #cbd5e1;
             border-radius: 4px;
@@ -1008,6 +1222,7 @@
             font-size: 0.95rem;
             width: 100%;
         }
+
         /* Participants */
         .participants-container {
             display: flex;
@@ -1015,6 +1230,7 @@
             gap: 8px;
             margin-top: 12px;
         }
+
         .participant-tag {
             background: #e0e7ff;
             color: #4f46e5;
@@ -1025,15 +1241,18 @@
             align-items: center;
             gap: 4px;
         }
+
         .participant-tag .remove-participant {
             cursor: pointer;
             font-size: 0.7rem;
         }
+
         .add-participant-input {
             display: flex;
             gap: 8px;
             margin-top: 8px;
         }
+
         /* Modal */
         .modal-overlay {
             position: fixed;
@@ -1044,6 +1263,7 @@
             justify-content: center;
             z-index: 100;
         }
+
         .modal-content {
             background: white;
             border-radius: 16px;
@@ -1053,6 +1273,7 @@
             max-height: 90vh;
             overflow-y: auto;
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -1060,11 +1281,13 @@
             padding: 20px 24px;
             border-bottom: 1px solid #e2e8f0;
         }
+
         .modal-title {
             font-size: 1.25rem;
             font-weight: 600;
             color: #1e293b;
         }
+
         .modal-close {
             background: none;
             border: none;
@@ -1072,9 +1295,11 @@
             cursor: pointer;
             color: #94a3b8;
         }
+
         .modal-body {
             padding: 24px;
         }
+
         .modal-footer {
             padding: 20px 24px;
             border-top: 1px solid #e2e8f0;
@@ -1082,22 +1307,26 @@
             justify-content: flex-end;
             gap: 12px;
         }
+
         /* Preview table */
         .preview-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 16px;
         }
+
         .preview-table th,
         .preview-table td {
             padding: 8px 12px;
             text-align: left;
             border-bottom: 1px solid #e2e8f0;
         }
+
         .preview-table th {
             background-color: #f8fafc;
             font-weight: 600;
         }
+
         /* Event item alignment */
         .event-item {
             display: flex;
@@ -1109,25 +1338,30 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
+
         .event-content {
             display: flex;
             align-items: center;
             gap: 12px;
             flex: 1;
         }
+
         .event-color-indicator {
             width: 12px;
             height: 12px;
             border-radius: 50%;
         }
+
         .event-info {
             flex: 1;
         }
+
         .event-actions {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+
         /* Template chip */
         .template-chip {
             background: #e0e7ff;
@@ -1140,6 +1374,7 @@
             gap: 4px;
             cursor: pointer;
         }
+
         /* Toggle switch */
         .toggle-switch {
             position: relative;
@@ -1147,11 +1382,13 @@
             width: 50px;
             height: 24px;
         }
+
         .toggle-switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
+
         .slider {
             position: absolute;
             cursor: pointer;
@@ -1163,6 +1400,7 @@
             transition: .4s;
             border-radius: 24px;
         }
+
         .slider:before {
             position: absolute;
             content: "";
@@ -1174,12 +1412,15 @@
             transition: .4s;
             border-radius: 50%;
         }
+
         input:checked + .slider {
             background-color: #7c3aed;
         }
+
         input:checked + .slider:before {
             transform: translateX(26px);
         }
+
         .tab-setting-item {
             display: flex;
             justify-content: space-between;
@@ -1190,6 +1431,7 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
+
         /* Template chips */
         .template-chips {
             display: flex;
@@ -1197,6 +1439,7 @@
             gap: 8px;
             margin-top: 12px;
         }
+
         .template-chip-item {
             background: #e0e7ff;
             color: #4f46e5;
@@ -1206,10 +1449,12 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .template-chip-item:hover {
             background: #c7d2fe;
             transform: translateY(-1px);
         }
+
         /* Participant creation */
         .participant-creation {
             display: flex;
@@ -1217,12 +1462,14 @@
             margin-top: 16px;
             align-items: center;
         }
+
         .color-preview {
             width: 24px;
             height: 24px;
             border-radius: 50%;
             border: 2px solid #e2e8f0;
         }
+
         /* Color picker grid */
         .color-picker-grid {
             display: grid;
@@ -1230,6 +1477,7 @@
             gap: 8px;
             margin-top: 8px;
         }
+
         .color-picker-item {
             width: 30px;
             height: 30px;
@@ -1238,13 +1486,16 @@
             border: 2px solid transparent;
             transition: all 0.2s;
         }
+
         .color-picker-item:hover {
             transform: scale(1.1);
         }
+
         .color-picker-item.selected {
             border-color: #000;
             transform: scale(1.1);
         }
+
         /* Fixed expense item */
         .fixed-expense-item {
             display: flex;
@@ -1256,17 +1507,21 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
+
         .fixed-expense-name {
             flex: 1;
         }
+
         .fixed-expense-amount {
             font-weight: bold;
             margin-right: 16px;
         }
+
         .fixed-expense-delete {
             color: #ef4444;
             cursor: pointer;
         }
+
         /* Participant color selector */
         .participant-color-selector {
             display: flex;
@@ -1274,6 +1529,7 @@
             gap: 8px;
             margin-top: 8px;
         }
+
         .color-option-small {
             width: 20px;
             height: 20px;
@@ -1281,9 +1537,11 @@
             cursor: pointer;
             border: 2px solid transparent;
         }
+
         .color-option-small.selected {
             border-color: #000;
         }
+
         /* Confirmation modal */
         .confirmation-modal {
             background: white;
@@ -1294,123 +1552,153 @@
             padding: 24px;
             text-align: center;
         }
+
         .confirmation-modal h3 {
             font-size: 1.25rem;
             font-weight: 600;
             color: #1e293b;
             margin-bottom: 16px;
         }
+
         .confirmation-modal p {
             color: #64748b;
             margin-bottom: 24px;
         }
+
         .confirmation-buttons {
             display: flex;
             justify-content: center;
             gap: 12px;
         }
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             .app-container {
                 padding: 0 12px;
             }
+            
             .header-content {
                 flex-direction: column;
                 gap: 16px;
                 padding: 16px 0;
             }
+            
             .logo {
                 font-size: 1.25rem;
             }
+            
             nav {
                 width: 100%;
                 justify-content: center;
                 flex-wrap: wrap;
                 gap: 6px;
             }
+            
             .nav-button {
                 padding: 8px 12px;
                 font-size: 0.875rem;
             }
+            
             main {
                 padding: 16px 0;
             }
+            
             .card {
                 padding: 16px;
                 border-radius: 12px;
             }
+            
             .grid {
                 gap: 16px;
             }
+            
             .grid-cols-2 {
                 grid-template-columns: 1fr;
             }
+            
             .grid-cols-3 {
                 grid-template-columns: 1fr;
             }
+            
             .grid-cols-4 {
                 grid-template-columns: 1fr;
             }
+            
             .calendar-day-cell {
                 min-height: 80px;
                 padding: 6px;
             }
+            
             .calendar-header-cell {
                 padding: 8px 4px;
                 font-size: 0.75rem;
             }
+            
             .calendar-navigation {
                 flex-direction: column;
                 align-items: stretch;
                 gap: 12px;
             }
+            
             .calendar-navigation > div:first-child {
                 order: 1;
             }
+            
             .calendar-navigation > div:last-child {
                 order: 2;
                 display: flex;
                 justify-content: center;
             }
+            
             .calendar-navigation > div:nth-child(2) {
                 order: 3;
                 display: flex;
                 justify-content: center;
                 gap: 8px;
             }
+            
             /* Shopping list two columns on mobile */
             .shopping-list-grid {
                 grid-template-columns: 1fr;
             }
+            
             .auth-container {
                 padding: 24px;
             }
+            
             .auth-features {
                 grid-template-columns: 1fr;
                 gap: 12px;
             }
         }
+
         @media (max-width: 480px) {
             .app-container {
                 padding: 0 8px;
             }
+            
             .header-content {
                 padding: 12px 0;
             }
+            
             nav {
                 gap: 4px;
             }
+            
             .nav-button {
                 padding: 6px 10px;
                 font-size: 0.75rem;
             }
+            
             .card {
                 padding: 12px;
             }
+            
             .calendar-day-cell {
                 min-height: 60px;
                 padding: 4px;
             }
+            
             .calendar-event-item {
                 font-size: 0.625rem;
                 padding: 1px 2px;
@@ -1420,8 +1708,10 @@
 </head>
 <body>
     <div id="root"></div>
+
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
+
         // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB5C3tMzDj7KJQZrOu6q1vW8N9x0a2b3c4",
@@ -1432,12 +1722,15 @@
             appId: "1:123456789012:web:abcdef1234567890abcdef",
             databaseURL: "https://family-budget-app-default-rtdb.firebaseio.com/"
         };
+
         // Initialize Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
+
         // Get Realtime Database reference
         const db = firebase.database();
+
         // Оптимизированный компонент приложения
         const FamilyBudgetApp = () => {
             const [activeTab, setActiveTab] = useState('budget');
@@ -1453,11 +1746,13 @@
             const [showAllTime, setShowAllTime] = useState(false);
             const [user, setUser] = useState(null);
             const [authMode, setAuthMode] = useState('login'); // login or register
+            
             // Tab visibility settings (только для покупок и планировщика)
             const [tabVisibility, setTabVisibility] = useState({
                 shopping: true,
                 planner: true
             });
+            
             // Budget states
             const [transactions, setTransactions] = useState([
                 { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана', balanceAfter: 50000 },
@@ -1466,6 +1761,7 @@
                 { id: 4, type: 'expense', amount: 5000, category: 'Продукты', date: '2024-01-18', description: 'Овощи и фрукты', balanceAfter: 22000 },
                 { id: 5, type: 'expense', amount: 3000, category: 'Развлечения', date: '2024-01-19', description: 'Кино', balanceAfter: 19000 }
             ]);
+            
             const [initialBalance, setInitialBalance] = useState(0);
             const [newTransaction, setNewTransaction] = useState({
                 type: 'expense',
@@ -1477,18 +1773,20 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedDate, setSelectedDate] = useState(null);
             const [showAddTransaction, setShowAddTransaction] = useState(false);
+            
             // Shopping list states
             const [shoppingList, setShoppingList] = useState([
                 { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
                 { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
                 { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
             ]);
+            
             const [newItem, setNewItem] = useState({ name: '', quantity: '', unit: 'штука' });
             const [editingItemId, setEditingItemId] = useState(null);
             const [editingItemText, setEditingItemText] = useState('');
             const [editingItemQuantity, setEditingItemQuantity] = useState('');
             const [editingItemUnit, setEditingItemUnit] = useState('штука');
-            const [showAddShoppingItem, setShowAddShoppingItem] = useState(false); // FIX: Added missing state
+            
             // Calendar states
             const [calendarEvents, setCalendarEvents] = useState([
                 { 
@@ -1512,6 +1810,7 @@
                     isTemplate: false 
                 }
             ]);
+            
             const [newEvent, setNewEvent] = useState({
                 title: '',
                 startDate: new Date().toISOString().split('T')[0],
@@ -1521,6 +1820,7 @@
                 participants: [],
                 isTemplate: false
             });
+            
             const [editingEvent, setEditingEvent] = useState(null);
             const [showAddEventModal, setShowAddEventModal] = useState(false);
             const [showEditEventModal, setShowEditEventModal] = useState(false);
@@ -1528,14 +1828,17 @@
             const [currentDate, setCurrentDate] = useState(new Date());
             const [calendarView, setCalendarView] = useState('month');
             const [plannerCalendarView, setPlannerCalendarView] = useState('month'); // Separate view for planner
+            
             // Settings
             const [savingsPercentage, setSavingsPercentage] = useState('');
             const [showBudgetSettings, setShowBudgetSettings] = useState(false);
             const [showShoppingSettings, setShowShoppingSettings] = useState(false);
             const [showPlannerSettings, setShowPlannerSettings] = useState(false);
+            
             // Day settings
             const [dayStart, setDayStart] = useState('08:00');
             const [dayEnd, setDayEnd] = useState('20:00');
+            
             // Participants
             const [participants, setParticipants] = useState([
                 { name: 'Иван', color: 'bg-blue-500' },
@@ -1545,6 +1848,7 @@
             const [newParticipant, setNewParticipant] = useState('');
             const [selectedParticipantColor, setSelectedParticipantColor] = useState('bg-blue-500');
             const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
+            
             // Templates
             const [templates, setTemplates] = useState([
                 { id: 1, name: 'Танцы' },
@@ -1553,12 +1857,15 @@
                 { id: 4, name: 'Вокал' }
             ]);
             const [newTemplateName, setNewTemplateName] = useState('');
+            
             // Shopping settings
             const [telegramBotToken, setTelegramBotToken] = useState('');
             const [telegramChatId, setTelegramChatId] = useState('');
+            
             // File upload preview
             const [previewData, setPreviewData] = useState([]);
             const [showPreviewModal, setShowPreviewModal] = useState(false);
+            
             // Fixed expenses
             const [fixedExpenses, setFixedExpenses] = useState([
                 { id: 1, name: 'Аренда квартиры', amount: 15000, category: 'Жилье' },
@@ -1570,15 +1877,18 @@
                 category: 'Продукты'
             });
             const [showAddFixedExpenseModal, setShowAddFixedExpenseModal] = useState(false);
+            
             // Confirmation modals
             const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
             const [deleteAction, setDeleteAction] = useState(null);
             const [showClearTransactionsConfirmation, setShowClearTransactionsConfirmation] = useState(false);
+            
             // Color options for events
             const colorOptions = [
                 'bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-yellow-500', 
                 'bg-purple-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
             ];
+
             // Check auth state on mount
             useEffect(() => {
                 const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
@@ -1592,17 +1902,21 @@
                 });
                 return unsubscribe;
             }, []);
+
             // Memoized calculations
             const financialMetrics = useMemo(() => {
                 const totalIncome = transactions
                     .filter(t => t.type === 'income')
                     .reduce((sum, t) => sum + t.amount, 0);
+                
                 const totalExpenses = transactions
                     .filter(t => t.type === 'expense')
                     .reduce((sum, t) => sum + t.amount, 0);
+                
                 const balance = initialBalance + totalIncome - totalExpenses;
                 const availableToSave = balance > 0 ? balance * (savingsPercentage / 100) : 0;
                 const dailySpendingLimit = Math.max(0, (balance - availableToSave) / 30);
+                
                 return {
                     totalIncome,
                     totalExpenses,
@@ -1611,6 +1925,7 @@
                     dailySpendingLimit
                 };
             }, [transactions, initialBalance, savingsPercentage]);
+
             // Memoized filtered transactions
             const filteredTransactions = useMemo(() => {
                 return transactions
@@ -1622,6 +1937,7 @@
                         )) {
                             return false;
                         }
+                        
                         // Filter by selected date or show all time
                         if (!showAllTime) {
                             if (selectedDate) {
@@ -1643,10 +1959,12 @@
                                 }
                             }
                         }
+                        
                         return true;
                     })
                     .sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
             }, [transactions, searchTerm, showAllTime, selectedDate, currentDate]);
+
             // Memoized categories
             const dateCategories = useMemo(() => {
                 if (!showAllTime) {
@@ -1677,9 +1995,11 @@
                     return uniqueCategories;
                 }
             }, [transactions, showAllTime, selectedDate, currentDate]);
+
             // Memoized aggregated expenses
             const aggregatedExpenses = useMemo(() => {
                 let filteredTransactionsArray = transactions;
+                
                 if (!showAllTime) {
                     if (selectedDate) {
                         // Filter by selected date
@@ -1699,6 +2019,7 @@
                         });
                     }
                 }
+                
                 const aggregated = {};
                 filteredTransactionsArray
                     .filter(t => t.type === 'expense')
@@ -1708,76 +2029,96 @@
                         }
                         aggregated[t.category] += t.amount;
                     });
+                
                 return aggregated;
             }, [transactions, showAllTime, selectedDate, currentDate]);
+
             // Memoized calendar data
             const calendarData = useMemo(() => {
                 const year = currentDate.getFullYear();
                 const month = currentDate.getMonth();
+                
                 if (calendarView === 'week') {
                     // Get week view
                     const startOfWeek = new Date(currentDate);
                     const day = startOfWeek.getDay();
                     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
                     startOfWeek.setDate(diff);
+                    
                     const days = [];
                     for (let i = 0; i < 7; i++) {
                         const day = new Date(startOfWeek);
                         day.setDate(startOfWeek.getDate() + i);
                         days.push(day);
                     }
+                    
                     return { days, title: `${startOfWeek.getDate()} - ${days[6].getDate()} ${days[6].toLocaleString('ru-RU', { month: 'long' })} ${year}` };
                 } else {
                     // Month view
                     const firstDay = new Date(year, month, 1);
                     const lastDay = new Date(year, month + 1, 0);
+                    
                     const startDate = new Date(firstDay);
                     startDate.setDate(startDate.getDate() - firstDay.getDay());
+                    
                     const endDate = new Date(lastDay);
                     endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
+                    
                     const days = [];
                     const currentDateIter = new Date(startDate);
+                    
                     while (currentDateIter <= endDate) {
                         days.push(new Date(currentDateIter));
                         currentDateIter.setDate(currentDateIter.getDate() + 1);
                     }
+                    
                     return { days, title: currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) };
                 }
             }, [currentDate, calendarView]);
+
             // Memoized planner calendar data
             const plannerCalendarData = useMemo(() => {
                 const year = currentDate.getFullYear();
                 const month = currentDate.getMonth();
+                
                 if (plannerCalendarView === 'week') {
                     // Get week view
                     const startOfWeek = new Date(currentDate);
                     const day = startOfWeek.getDay();
                     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
                     startOfWeek.setDate(diff);
+                    
                     const days = [];
                     for (let i = 0; i < 7; i++) {
                         const day = new Date(startOfWeek);
                         day.setDate(startOfWeek.getDate() + i);
                         days.push(day);
                     }
+                    
                     return { days, title: `${startOfWeek.getDate()} - ${days[6].getDate()} ${days[6].toLocaleString('ru-RU', { month: 'long' })} ${year}` };
                 } else {
                     // Month view
                     const firstDay = new Date(year, month, 1);
                     const lastDay = new Date(year, month + 1, 0);
+                    
                     const startDate = new Date(firstDay);
                     startDate.setDate(startDate.getDate() - firstDay.getDay());
+                    
                     const endDate = new Date(lastDay);
                     endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
+                    
                     const days = [];
                     const currentDateIter = new Date(startDate);
+                    
                     while (currentDateIter <= endDate) {
                         days.push(new Date(currentDateIter));
                         currentDateIter.setDate(currentDateIter.getDate() + 1);
                     }
+                    
                     return { days, title: currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) };
                 }
             }, [currentDate, plannerCalendarView]);
+
             // Callbacks for performance optimization
             const addTransaction = useCallback(() => {
                 if (newTransaction.amount && newTransaction.description) {
@@ -1797,6 +2138,7 @@
                     });
                 }
             }, [newTransaction, financialMetrics.balance]);
+
             const addShoppingItem = useCallback(() => {
                 if (newItem.name.trim() && newItem.quantity) {
                     const item = {
@@ -1808,20 +2150,22 @@
                     };
                     setShoppingList(prev => [...prev, item]);
                     setNewItem({ name: '', quantity: '', unit: 'штука' });
-                    setShowAddShoppingItem(false); // FIX: Close modal after adding
                 }
             }, [newItem]);
+
             const toggleShoppingItem = useCallback((id) => {
                 setShoppingList(prev => prev.map(item => 
                     item.id === id ? { ...item, completed: !item.completed } : item
                 ));
             }, []);
+
             const startEditingItem = useCallback((id, item) => {
                 setEditingItemId(id);
                 setEditingItemText(item.item);
                 setEditingItemQuantity(item.quantity.toString());
                 setEditingItemUnit(item.unit);
             }, []);
+
             const saveEditedItem = useCallback(() => {
                 if (editingItemText.trim() && editingItemQuantity) {
                     setShoppingList(prev => prev.map(item => 
@@ -1838,9 +2182,11 @@
                 setEditingItemQuantity('');
                 setEditingItemUnit('штука');
             }, [editingItemText, editingItemQuantity, editingItemUnit, editingItemId]);
+
             const deleteShoppingItem = useCallback((id) => {
                 setShoppingList(prev => prev.filter(item => item.id !== id));
             }, []);
+
             const addCalendarEvent = useCallback(() => {
                 if (newEvent.title && newEvent.startTime) {
                     const event = {
@@ -1860,6 +2206,7 @@
                     setShowAddEventModal(false);
                 }
             }, [newEvent]);
+
             const editCalendarEvent = useCallback(() => {
                 if (editingEvent && editingEvent.title && editingEvent.startTime) {
                     setCalendarEvents(prev => prev.map(e => 
@@ -1869,6 +2216,7 @@
                     setShowEditEventModal(false);
                 }
             }, [editingEvent]);
+
             const copyCalendarEvent = useCallback((event) => {
                 setNewEvent({
                     ...event,
@@ -1878,9 +2226,11 @@
                 setShowEditEventModal(false);
                 setShowAddEventModal(true);
             }, []);
+
             const deleteCalendarEvent = useCallback((id) => {
                 setCalendarEvents(prev => prev.filter(event => event.id !== id));
             }, []);
+
             const addParticipantToEvent = useCallback((eventId, participant) => {
                 setCalendarEvents(prev => prev.map(event => 
                     event.id === eventId 
@@ -1888,6 +2238,7 @@
                         : event
                 ));
             }, []);
+
             const removeParticipantFromEvent = useCallback((eventId, participant) => {
                 setCalendarEvents(prev => prev.map(event => 
                     event.id === eventId 
@@ -1895,6 +2246,7 @@
                         : event
                 ));
             }, []);
+
             const addNewParticipant = useCallback(() => {
                 if (newParticipant.trim() && !participants.some(p => p.name === newParticipant.trim())) {
                     setParticipants(prev => [...prev, { name: newParticipant.trim(), color: selectedParticipantColor }]);
@@ -1902,6 +2254,7 @@
                     setShowAddParticipantModal(false);
                 }
             }, [newParticipant, participants, selectedParticipantColor]);
+
             const navigateCalendar = useCallback((direction) => {
                 const newDate = new Date(currentDate);
                 if (calendarView === 'month') {
@@ -1912,6 +2265,7 @@
                 }
                 setCurrentDate(newDate);
             }, [currentDate, calendarView]);
+
             const navigatePlannerCalendar = useCallback((direction) => {
                 const newDate = new Date(currentDate);
                 if (plannerCalendarView === 'month') {
@@ -1922,12 +2276,15 @@
                 }
                 setCurrentDate(newDate);
             }, [currentDate, plannerCalendarView]);
+
             const switchCalendarView = useCallback((view) => {
                 setCalendarView(view);
             }, []);
+
             const switchPlannerCalendarView = useCallback((view) => {
                 setPlannerCalendarView(view);
             }, []);
+
             const getEventsForDate = useCallback((date) => {
                 return calendarEvents.filter(event => {
                     const eventDate = new Date(event.startDate);
@@ -1937,27 +2294,33 @@
                     return eventDate.getTime() === dateNormalized.getTime();
                 });
             }, [calendarEvents]);
+
             // ИСПРАВЛЕНО: правильная дата при клике на календарь бюджета
             const handleBudgetDayClick = useCallback((day) => {
                 // Convert day to proper date object
                 const clickedDate = new Date(day);
                 clickedDate.setHours(0, 0, 0, 0);
+                
                 // If clicking the same date again, deselect it (reset filter)
                 if (selectedDate) {
                     const selectedDateNormalized = new Date(selectedDate);
                     selectedDateNormalized.setHours(0, 0, 0, 0);
+                    
                     if (clickedDate.getTime() === selectedDateNormalized.getTime()) {
                         setSelectedDate(null);
                         return;
                     }
                 }
+                
                 setSelectedDate(clickedDate);
+                
                 // Open add transaction modal for empty dates
                 const dayTransactions = transactions.filter(t => {
                     const transactionDate = new Date(t.date);
                     transactionDate.setHours(0, 0, 0, 0);
                     return transactionDate.getTime() === clickedDate.getTime();
                 });
+                
                 if (dayTransactions.length === 0) {
                     setNewTransaction({
                         ...newTransaction,
@@ -1966,12 +2329,14 @@
                     setShowAddTransaction(true);
                 }
             }, [selectedDate, transactions, newTransaction]);
+
             // ИСПРАВЛЕНО: правильная дата при клике на календарь планировщика
             const handlePlannerDayClick = useCallback((day, hour = null) => {
                 // Convert day to proper date object and format it correctly
                 const clickedDate = new Date(day);
                 clickedDate.setHours(0, 0, 0, 0);
                 const formattedDate = clickedDate.toISOString().split('T')[0];
+                
                 // Set new event with correct date
                 setNewEvent({
                     title: '',
@@ -1984,10 +2349,12 @@
                 });
                 setShowAddEventModal(true);
             }, []);
+
             const handleEventClick = useCallback((event) => {
                 setEditingEvent({ ...event });
                 setShowEditEventModal(true);
             }, []);
+
             const signInAnonymously = useCallback(async () => {
                 try {
                     setIsLoading(true);
@@ -2000,6 +2367,7 @@
                     setIsLoading(false);
                 }
             }, []);
+
             const exitRoom = useCallback(() => {
                 firebase.auth().signOut();
                 setCurrentRoom(null);
@@ -2008,11 +2376,13 @@
                 setRoomName('');
                 setRoomPassword('');
             }, []);
+
             const handleFileUpload = useCallback((e) => {
                 const file = e.target.files[0];
                 if (file && (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
                     // Generate preview data starting from row 20
                     const preview = [];
+                    
                     // Simulate reading from row 20
                     for (let i = 0; i < 5; i++) {
                         const rowIndex = 20 + i;
@@ -2022,6 +2392,7 @@
                         const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
                         const amount = Math.floor(Math.random() * 10000) + 1000;
                         const type = Math.random() > 0.5 ? 'Расход' : 'Приход';
+                        
                         preview.push({
                             row: rowIndex,
                             date: date.toLocaleDateString('ru-RU'),
@@ -2032,23 +2403,28 @@
                             type
                         });
                     }
+                    
                     // Sort by date descending
                     preview.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    
                     setPreviewData(preview);
                     setShowPreviewModal(true);
                 } else {
                     alert('Пожалуйста, выберите файл формата XLS или XLSX');
                 }
             }, []);
+
             const confirmFileUpload = useCallback(() => {
                 // Generate actual transactions from row 20
                 const newTransactions = [];
+                
                 for (let i = 0; i < 10; i++) {
                     const type = Math.random() > 0.5 ? 'income' : 'expense';
                     const amount = Math.floor(Math.random() * 10000) + 1000;
                     const category = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'][Math.floor(Math.random() * 4)];
                     const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
                     const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
+                    
                     newTransactions.push({
                         id: Date.now() + i,
                         type,
@@ -2059,10 +2435,12 @@
                         balanceAfter: financialMetrics.balance + (type === 'income' ? amount : -amount)
                     });
                 }
+                
                 setTransactions(prev => [...prev, ...newTransactions]);
                 setShowPreviewModal(false);
                 alert('Выписка успешно загружена! Добавлено ' + newTransactions.length + ' операций.');
             }, [financialMetrics.balance]);
+
             const addTemplate = useCallback(() => {
                 if (newTemplateName.trim()) {
                     const template = {
@@ -2073,6 +2451,7 @@
                     setNewTemplateName('');
                 }
             }, [newTemplateName]);
+
             const useTemplate = useCallback((template) => {
                 setNewEvent({
                     ...newEvent,
@@ -2080,21 +2459,25 @@
                 });
                 setShowAddEventModal(true);
             }, [newEvent]);
+
             const deleteTemplate = useCallback((id) => {
                 setTemplates(prev => prev.filter(template => template.id !== id));
             }, []);
+
             const sendShoppingListToTelegram = useCallback(() => {
                 if (!telegramBotToken || !telegramChatId) {
                     alert('Пожалуйста, заполните настройки Telegram');
                     return;
                 }
-                const message = `Список покупок:
-${shoppingList.map(item => 
+                
+                const message = `Список покупок:\n\n${shoppingList.map(item => 
                     `${item.completed ? '✅' : '⬜'} ${item.item} × ${item.quantity} ${item.unit}`
                 ).join('\n')}`;
+                
                 // In real app, this would be an API call to Telegram bot
-                alert(`Сообщение отправлено в Telegram!\n${message}`);
+                alert(`Сообщение отправлено в Telegram!\n\n${message}`);
             }, [telegramBotToken, telegramChatId, shoppingList]);
+
             const testTelegramConnection = useCallback(() => {
                 if (!telegramBotToken || !telegramChatId) {
                     alert('Пожалуйста, заполните все поля');
@@ -2102,6 +2485,7 @@ ${shoppingList.map(item =>
                 }
                 alert('Подключение к Telegram успешно протестировано!');
             }, [telegramBotToken, telegramChatId]);
+
             // Toggle tab visibility
             const toggleTabVisibility = useCallback((tab) => {
                 setTabVisibility(prev => ({
@@ -2109,6 +2493,7 @@ ${shoppingList.map(item =>
                     [tab]: !prev[tab]
                 }));
             }, []);
+
             // Fixed expenses functions
             const addFixedExpense = useCallback(() => {
                 if (newFixedExpense.name && newFixedExpense.amount) {
@@ -2126,31 +2511,38 @@ ${shoppingList.map(item =>
                     setShowAddFixedExpenseModal(false);
                 }
             }, [newFixedExpense]);
+
             const deleteFixedExpense = useCallback((id) => {
                 setDeleteAction(() => () => {
                     setFixedExpenses(prev => prev.filter(expense => expense.id !== id));
                 });
                 setShowDeleteConfirmation(true);
             }, []);
+
             const clearAllTransactions = useCallback(() => {
                 setDeleteAction(() => () => {
                     setTransactions([]);
                 });
                 setShowClearTransactionsConfirmation(true);
             }, []);
+
             // Get available tabs (всегда показываем бюджет)
             const availableTabs = useMemo(() => {
                 const tabs = [
                     { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' }
                 ];
+                
                 if (tabVisibility.shopping) {
                     tabs.push({ id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' });
                 }
+                
                 if (tabVisibility.planner) {
                     tabs.push({ id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' });
                 }
+                
                 return tabs;
             }, [tabVisibility]);
+
             // Update active tab if current tab is disabled
             useEffect(() => {
                 if ((activeTab === 'shopping' && !tabVisibility.shopping) || 
@@ -2158,6 +2550,7 @@ ${shoppingList.map(item =>
                     setActiveTab('budget');
                 }
             }, [tabVisibility, activeTab]);
+
             // Оптимизированный рендеринг модальных окон
             const renderModals = useCallback(() => {
                 return (
@@ -2170,6 +2563,7 @@ ${shoppingList.map(item =>
                                         <h1>Семейный Бюджет</h1>
                                         <p>Управляйте своими финансами эффективно</p>
                                     </div>
+                                    
                                     <div className="auth-form">
                                         {roomSuccess && (
                                             <div className="success-message">
@@ -2177,6 +2571,7 @@ ${shoppingList.map(item =>
                                                 {roomSuccess}
                                             </div>
                                         )}
+                                        
                                         <div className="mode-toggle" style={{ position: 'relative' }}>
                                             <div 
                                                 className="mode-toggle-slider"
@@ -2194,1397 +2589,3 @@ ${shoppingList.map(item =>
                                                 style={{ zIndex: 2 }}
                                             >
                                                 Вход
-                                            </div>
-                                            <div 
-                                                className={`mode-toggle-btn ${authMode === 'register' ? 'active' : ''}`}
-                                                onClick={() => {
-                                                    setAuthMode('register');
-                                                    setRoomError('');
-                                                }}
-                                                style={{ zIndex: 2 }}
-                                            >
-                                                Регистрация
-                                            </div>
-                                        </div>
-                                        
-                                        {roomError && (
-                                            <div className="error-message">
-                                                <i className="fas fa-exclamation-circle"></i>
-                                                {roomError}
-                                            </div>
-                                        )}
-                                        
-                                        {authMode === 'login' && (
-                                            <>
-                                                <div className="form-group">
-                                                    <label className="form-label">ID комнаты</label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-input"
-                                                        value={roomId}
-                                                        onChange={(e) => setRoomId(e.target.value)}
-                                                        placeholder="Введите ID комнаты"
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Пароль</label>
-                                                    <input
-                                                        type="password"
-                                                        className="form-input"
-                                                        value={roomPassword}
-                                                        onChange={(e) => setRoomPassword(e.target.value)}
-                                                        placeholder="Введите пароль"
-                                                    />
-                                                </div>
-                                                <div className="mt-4">
-                                                    <button 
-                                                        className="btn-auth"
-                                                        onClick={signInAnonymously}
-                                                        disabled={isLoading}
-                                                    >
-                                                        {isLoading ? (
-                                                            <div className="flex items-center justify-center">
-                                                                <div className="spinner mr-2"></div>
-                                                                Загрузка...
-                                                            </div>
-                                                        ) : 'Войти как гость'}
-                                                    </button>
-                                                </div>
-                                                <div className="mt-4 text-center">
-                                                    <button 
-                                                        className="text-purple-600 hover:text-purple-800 font-medium"
-                                                        onClick={() => {
-                                                            setRoomMode('create');
-                                                            setRoomId('');
-                                                        }}
-                                                    >
-                                                        Создать новую комнату
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                        
-                                        {authMode === 'register' && (
-                                            <>
-                                                <div className="form-group">
-                                                    <label className="form-label">Название комнаты</label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-input"
-                                                        value={roomName}
-                                                        onChange={(e) => setRoomName(e.target.value)}
-                                                        placeholder="Введите название комнаты"
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Пароль</label>
-                                                    <input
-                                                        type="password"
-                                                        className="form-input"
-                                                        value={roomPassword}
-                                                        onChange={(e) => setRoomPassword(e.target.value)}
-                                                        placeholder="Создайте пароль"
-                                                    />
-                                                </div>
-                                                <button className="btn-auth mt-4">
-                                                    Создать комнату
-                                                </button>
-                                            </>
-                                        )}
-                                        
-                                        <div className="auth-features mt-6">
-                                            <div className="feature-item">
-                                                <div className="feature-icon">
-                                                    <i className="fas fa-shield-alt"></i>
-                                                </div>
-                                                <div className="feature-text">Безопасность</div>
-                                            </div>
-                                            <div className="feature-item">
-                                                <div className="feature-icon">
-                                                    <i className="fas fa-sync-alt"></i>
-                                                </div>
-                                                <div className="feature-text">Синхронизация</div>
-                                            </div>
-                                            <div className="feature-item">
-                                                <div className="feature-icon">
-                                                    <i className="fas fa-users"></i>
-                                                </div>
-                                                <div className="feature-text">Совместная работа</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Add Transaction Modal */}
-                        {showAddTransaction && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Новая операция</h3>
-                                        <button className="modal-close" onClick={() => setShowAddTransaction(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Тип операции</label>
-                                                <select
-                                                    className="form-input w-full"
-                                                    value={newTransaction.type}
-                                                    onChange={(e) => setNewTransaction(prev => ({ ...prev, type: e.target.value }))}
-                                                >
-                                                    <option value="income">Доход</option>
-                                                    <option value="expense">Расход</option>
-                                                </select>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Сумма</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-full"
-                                                    value={newTransaction.amount}
-                                                    onChange={(e) => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
-                                                    placeholder="Введите сумму"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Категория</label>
-                                                <select
-                                                    className="form-input w-full"
-                                                    value={newTransaction.category}
-                                                    onChange={(e) => setNewTransaction(prev => ({ ...prev, category: e.target.value }))}
-                                                >
-                                                    <option value="Зарплата">Зарплата</option>
-                                                    <option value="Продукты">Продукты</option>
-                                                    <option value="Транспорт">Транспорт</option>
-                                                    <option value="Жилье">Жилье</option>
-                                                    <option value="Развлечения">Развлечения</option>
-                                                    <option value="Образование">Образование</option>
-                                                    <option value="Здоровье">Здоровье</option>
-                                                    <option value="Другое">Другое</option>
-                                                </select>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Дата</label>
-                                                <input
-                                                    type="date"
-                                                    className="form-input w-full"
-                                                    value={newTransaction.date}
-                                                    onChange={(e) => setNewTransaction(prev => ({ ...prev, date: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Описание</label>
-                                                <textarea
-                                                    className="form-input w-full"
-                                                    value={newTransaction.description}
-                                                    onChange={(e) => setNewTransaction(prev => ({ ...prev, description: e.target.value }))}
-                                                    placeholder="Введите описание операции"
-                                                    rows="3"
-                                                ></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowAddTransaction(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addTransaction();
-                                                setShowAddTransaction(false);
-                                            }}
-                                        >
-                                            Добавить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Add Shopping Item Modal - FIX: Added missing modal */}
-                        {showAddShoppingItem && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Новый товар</h3>
-                                        <button className="modal-close" onClick={() => setShowAddShoppingItem(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Название товара</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={newItem.name}
-                                                    onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-                                                    placeholder="Введите название товара"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Количество</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-full"
-                                                    value={newItem.quantity}
-                                                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
-                                                    placeholder="Введите количество"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Единица измерения</label>
-                                                <select
-                                                    className="form-input w-full"
-                                                    value={newItem.unit}
-                                                    onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
-                                                >
-                                                    <option value="штука">штука</option>
-                                                    <option value="килограмм">килограмм</option>
-                                                    <option value="грамм">грамм</option>
-                                                    <option value="литр">литр</option>
-                                                    <option value="миллилитр">миллилитр</option>
-                                                    <option value="метров">метр</option>
-                                                    <option value="упаковка">упаковка</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowAddShoppingItem(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addShoppingItem();
-                                                setShowAddShoppingItem(false);
-                                            }}
-                                        >
-                                            Добавить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Add Event Modal */}
-                        {showAddEventModal && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Новое событие</h3>
-                                        <button className="modal-close" onClick={() => setShowAddEventModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Название события</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={newEvent.title}
-                                                    onChange={(e) => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
-                                                    placeholder="Введите название события"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Дата</label>
-                                                <input
-                                                    type="date"
-                                                    className="form-input w-full"
-                                                    value={newEvent.startDate}
-                                                    onChange={(e) => setNewEvent(prev => ({ ...prev, startDate: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Время начала</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={newEvent.startTime}
-                                                    onChange={(e) => setNewEvent(prev => ({ ...prev, startTime: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Время окончания</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={newEvent.endTime}
-                                                    onChange={(e) => setNewEvent(prev => ({ ...prev, endTime: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Цвет события</label>
-                                                <div className="color-picker">
-                                                    {colorOptions.map(color => (
-                                                        <div
-                                                            key={color}
-                                                            className={`color-option ${color} ${newEvent.color === color ? 'selected' : ''}`}
-                                                            onClick={() => setNewEvent(prev => ({ ...prev, color: color }))}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Участники</label>
-                                                <div className="participant-chips">
-                                                    {participants.map(participant => (
-                                                        <div 
-                                                            key={participant.name}
-                                                            className={`participant-chip ${newEvent.participants.includes(participant.name) ? 'selected' : ''}`}
-                                                            onClick={() => {
-                                                                if (newEvent.participants.includes(participant.name)) {
-                                                                    setNewEvent(prev => ({
-                                                                        ...prev,
-                                                                        participants: prev.participants.filter(p => p !== participant.name)
-                                                                    }));
-                                                                } else {
-                                                                    setNewEvent(prev => ({
-                                                                        ...prev,
-                                                                        participants: [...prev.participants, participant.name]
-                                                                    }));
-                                                                }
-                                                            }}
-                                                        >
-                                                            {participant.name}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Шаблоны</label>
-                                                <div className="template-chips">
-                                                    {templates.map(template => (
-                                                        <div 
-                                                            key={template.id}
-                                                            className="template-chip-item"
-                                                            onClick={() => setNewEvent(prev => ({ ...prev, title: template.name }))}
-                                                        >
-                                                            {template.name}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <button 
-                                                    className="btn-secondary mt-2"
-                                                    onClick={() => setShowCreateTemplateModal(true)}
-                                                >
-                                                    Создать новый шаблон
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowAddEventModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addCalendarEvent();
-                                                setShowAddEventModal(false);
-                                            }}
-                                        >
-                                            Добавить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Edit Event Modal */}
-                        {showEditEventModal && editingEvent && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Редактирование события</h3>
-                                        <button className="modal-close" onClick={() => setShowEditEventModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Название события</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={editingEvent.title}
-                                                    onChange={(e) => setEditingEvent(prev => ({ ...prev, title: e.target.value }))}
-                                                    placeholder="Введите название события"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Дата</label>
-                                                <input
-                                                    type="date"
-                                                    className="form-input w-full"
-                                                    value={editingEvent.startDate}
-                                                    onChange={(e) => setEditingEvent(prev => ({ ...prev, startDate: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Время начала</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={editingEvent.startTime}
-                                                    onChange={(e) => setEditingEvent(prev => ({ ...prev, startTime: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Время окончания</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={editingEvent.endTime}
-                                                    onChange={(e) => setEditingEvent(prev => ({ ...prev, endTime: e.target.value }))}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Цвет события</label>
-                                                <div className="color-picker">
-                                                    {colorOptions.map(color => (
-                                                        <div
-                                                            key={color}
-                                                            className={`color-option ${color} ${editingEvent.color === color ? 'selected' : ''}`}
-                                                            onClick={() => setEditingEvent(prev => ({ ...prev, color: color }))}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Участники</label>
-                                                <div className="participant-chips">
-                                                    {participants.map(participant => (
-                                                        <div 
-                                                            key={participant.name}
-                                                            className={`participant-chip ${editingEvent.participants.includes(participant.name) ? 'selected' : ''}`}
-                                                            onClick={() => {
-                                                                if (editingEvent.participants.includes(participant.name)) {
-                                                                    setEditingEvent(prev => ({
-                                                                        ...prev,
-                                                                        participants: prev.participants.filter(p => p !== participant.name)
-                                                                    }));
-                                                                } else {
-                                                                    setEditingEvent(prev => ({
-                                                                        ...prev,
-                                                                        participants: [...prev.participants, participant.name]
-                                                                    }));
-                                                                }
-                                                            }}
-                                                        >
-                                                            {participant.name}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-danger px-4 py-2"
-                                            onClick={() => {
-                                                deleteCalendarEvent(editingEvent.id);
-                                                setShowEditEventModal(false);
-                                            }}
-                                        >
-                                            Удалить
-                                        </button>
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowEditEventModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                editCalendarEvent();
-                                                setShowEditEventModal(false);
-                                            }}
-                                        >
-                                            Сохранить
-                                        </button>
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => {
-                                                copyCalendarEvent(editingEvent);
-                                            }}
-                                        >
-                                            Копировать
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Create Template Modal */}
-                        {showCreateTemplateModal && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Создание шаблона</h3>
-                                        <button className="modal-close" onClick={() => setShowCreateTemplateModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="form-group">
-                                            <label className="form-label">Название шаблона</label>
-                                            <input
-                                                type="text"
-                                                className="form-input w-full"
-                                                value={newTemplateName}
-                                                onChange={(e) => setNewTemplateName(e.target.value)}
-                                                placeholder="Введите название шаблона"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowCreateTemplateModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addTemplate();
-                                                setShowCreateTemplateModal(false);
-                                            }}
-                                        >
-                                            Создать
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Add Participant Modal */}
-                        {showAddParticipantModal && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Добавление участника</h3>
-                                        <button className="modal-close" onClick={() => setShowAddParticipantModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Имя участника</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={newParticipant}
-                                                    onChange={(e) => setNewParticipant(e.target.value)}
-                                                    placeholder="Введите имя участника"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Цвет</label>
-                                                <div className="color-picker">
-                                                    {colorOptions.map(color => (
-                                                        <div
-                                                            key={color}
-                                                            className={`color-option ${color} ${selectedParticipantColor === color ? 'selected' : ''}`}
-                                                            onClick={() => setSelectedParticipantColor(color)}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowAddParticipantModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addNewParticipant();
-                                                setShowAddParticipantModal(false);
-                                            }}
-                                        >
-                                            Добавить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Preview Modal */}
-                        {showPreviewModal && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Предпросмотр выписки</h3>
-                                        <button className="modal-close" onClick={() => setShowPreviewModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <p className="mb-4">Предварительный просмотр первой страницы выписки (строки 20-24):</p>
-                                        <div className="overflow-x-auto">
-                                            <table className="preview-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Строка</th>
-                                                        <th>Дата</th>
-                                                        <th>Код операции</th>
-                                                        <th>Категория</th>
-                                                        <th>Описание</th>
-                                                        <th>Сумма</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {previewData.map(row => (
-                                                        <tr key={row.row}>
-                                                            <td>{row.row}</td>
-                                                            <td>{row.date}</td>
-                                                            <td>{row.operationCode}</td>
-                                                            <td>{row.category}</td>
-                                                            <td>{row.description}</td>
-                                                            <td dangerouslySetInnerHTML={{ __html: row.amount }}></td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowPreviewModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                confirmFileUpload();
-                                            }}
-                                        >
-                                            Импортировать все операции
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Add Fixed Expense Modal */}
-                        {showAddFixedExpenseModal && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Новый регулярный расход</h3>
-                                        <button className="modal-close" onClick={() => setShowAddFixedExpenseModal(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Название расхода</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={newFixedExpense.name}
-                                                    onChange={(e) => setNewFixedExpense(prev => ({ ...prev, name: e.target.value }))}
-                                                    placeholder="Введите название расхода"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Сумма</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-full"
-                                                    value={newFixedExpense.amount}
-                                                    onChange={(e) => setNewFixedExpense(prev => ({ ...prev, amount: e.target.value }))}
-                                                    placeholder="Введите сумму"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Категория</label>
-                                                <select
-                                                    className="form-input w-full"
-                                                    value={newFixedExpense.category}
-                                                    onChange={(e) => setNewFixedExpense(prev => ({ ...prev, category: e.target.value }))}
-                                                >
-                                                    <option value="Продукты">Продукты</option>
-                                                    <option value="Жилье">Жилье</option>
-                                                    <option value="Коммунальные услуги">Коммунальные услуги</option>
-                                                    <option value="Транспорт">Транспорт</option>
-                                                    <option value="Развлечения">Развлечения</option>
-                                                    <option value="Образование">Образование</option>
-                                                    <option value="Здоровье">Здоровье</option>
-                                                    <option value="Другое">Другое</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowAddFixedExpenseModal(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                addFixedExpense();
-                                                setShowAddFixedExpenseModal(false);
-                                            }}
-                                        >
-                                            Добавить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Delete Confirmation Modal */}
-                        {showDeleteConfirmation && (
-                            <div className="modal-overlay">
-                                <div className="confirmation-modal">
-                                    <h3>Подтверждение удаления</h3>
-                                    <p>Вы уверены, что хотите удалить этот элемент? Это действие нельзя отменить.</p>
-                                    <div className="confirmation-buttons">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowDeleteConfirmation(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-danger px-4 py-2"
-                                            onClick={() => {
-                                                if (deleteAction) {
-                                                    deleteAction();
-                                                }
-                                                setShowDeleteConfirmation(false);
-                                                setDeleteAction(null);
-                                            }}
-                                        >
-                                            Удалить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Clear Transactions Confirmation Modal */}
-                        {showClearTransactionsConfirmation && (
-                            <div className="modal-overlay">
-                                <div className="confirmation-modal">
-                                    <h3>Очистить все операции</h3>
-                                    <p>Вы уверены, что хотите удалить все операции? Это действие нельзя отменить.</p>
-                                    <div className="confirmation-buttons">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowClearTransactionsConfirmation(false)}
-                                        >
-                                            Отмена
-                                        </button>
-                                        <button 
-                                            className="btn-danger px-4 py-2"
-                                            onClick={() => {
-                                                if (deleteAction) {
-                                                    deleteAction();
-                                                }
-                                                setShowClearTransactionsConfirmation(false);
-                                                setDeleteAction(null);
-                                            }}
-                                        >
-                                            Очистить все
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Budget Settings Modal */}
-                        {showBudgetSettings && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Настройки бюджета</h3>
-                                        <button className="modal-close" onClick={() => setShowBudgetSettings(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Процент на сбережения</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-full"
-                                                    value={savingsPercentage}
-                                                    onChange={(e) => setSavingsPercentage(e.target.value)}
-                                                    placeholder="Введите процент (например, 10)"
-                                                    min="0"
-                                                    max="100"
-                                                />
-                                                <p className="text-gray-500 text-sm mt-1">Сумма, которую вы хотите откладывать от общего баланса</p>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Начальный баланс</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-full"
-                                                    value={initialBalance}
-                                                    onChange={(e) => setInitialBalance(parseFloat(e.target.value))}
-                                                    placeholder="Введите начальный баланс"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Начало дня</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={dayStart}
-                                                    onChange={(e) => setDayStart(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Конец дня</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={dayEnd}
-                                                    onChange={(e) => setDayEnd(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowBudgetSettings(false)}
-                                        >
-                                            Закрыть
-                                        </button>
-                                        <button 
-                                            className="btn-primary px-4 py-2"
-                                            onClick={() => {
-                                                setShowBudgetSettings(false);
-                                            }}
-                                        >
-                                            Сохранить
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Shopping Settings Modal */}
-                        {showShoppingSettings && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Настройки списка покупок</h3>
-                                        <button className="modal-close" onClick={() => setShowShoppingSettings(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Telegram Bot Token</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={telegramBotToken}
-                                                    onChange={(e) => setTelegramBotToken(e.target.value)}
-                                                    placeholder="Введите токен бота"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Telegram Chat ID</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-input w-full"
-                                                    value={telegramChatId}
-                                                    onChange={(e) => setTelegramChatId(e.target.value)}
-                                                    placeholder="Введите ID чата"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <button 
-                                                    className="btn-secondary w-full"
-                                                    onClick={testTelegramConnection}
-                                                >
-                                                    Проверить подключение
-                                                </button>
-                                            </div>
-                                            <div className="form-group">
-                                                <button 
-                                                    className="btn-primary w-full"
-                                                    onClick={sendShoppingListToTelegram}
-                                                >
-                                                    Отправить список в Telegram
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowShoppingSettings(false)}
-                                        >
-                                            Закрыть
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Planner Settings Modal */}
-                        {showPlannerSettings && (
-                            <div className="modal-overlay">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h3 className="modal-title">Настройки планировщика</h3>
-                                        <button className="modal-close" onClick={() => setShowPlannerSettings(false)}>
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="space-y-4">
-                                            <div className="form-group">
-                                                <label className="form-label">Начало дня</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={dayStart}
-                                                    onChange={(e) => setDayStart(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Конец дня</label>
-                                                <input
-                                                    type="time"
-                                                    className="form-input w-full"
-                                                    value={dayEnd}
-                                                    onChange={(e) => setDayEnd(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Участники</label>
-                                                <div className="participants-container">
-                                                    {participants.map(participant => (
-                                                        <div key={participant.name} className="participant-tag">
-                                                            {participant.name}
-                                                            <span className="remove-participant" onClick={() => {
-                                                                setParticipants(prev => prev.filter(p => p.name !== participant.name));
-                                                            }}>×</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <button 
-                                                    className="btn-secondary mt-2"
-                                                    onClick={() => setShowAddParticipantModal(true)}
-                                                >
-                                                    Добавить участника
-                                                </button>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Шаблоны событий</label>
-                                                <div className="space-y-2 mt-2">
-                                                    {templates.map(template => (
-                                                        <div key={template.id} className="template-item">
-                                                            <div className="template-item-content">
-                                                                <i className="fas fa-calendar-alt text-purple-500"></i>
-                                                                <span>{template.name}</span>
-                                                            </div>
-                                                            <div className="template-item-actions">
-                                                                <button 
-                                                                    className="text-gray-500 hover:text-purple-500"
-                                                                    onClick={() => {
-                                                                        setNewTemplateName(template.name);
-                                                                        setTemplates(prev => prev.filter(t => t.id !== template.id));
-                                                                    }}
-                                                                >
-                                                                    <i className="fas fa-edit"></i>
-                                                                </button>
-                                                                <button 
-                                                                    className="text-gray-500 hover:text-red-500"
-                                                                    onClick={() => deleteTemplate(template.id)}
-                                                                >
-                                                                    <i className="fas fa-trash"></i>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className="form-group mt-4">
-                                                    <input
-                                                        type="text"
-                                                        className="form-input w-full"
-                                                        value={newTemplateName}
-                                                        onChange={(e) => setNewTemplateName(e.target.value)}
-                                                        placeholder="Новый шаблон"
-                                                    />
-                                                    <button 
-                                                        className="btn-primary mt-2"
-                                                        onClick={addTemplate}
-                                                    >
-                                                        Добавить шаблон
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button 
-                                            className="btn-secondary px-4 py-2"
-                                            onClick={() => setShowPlannerSettings(false)}
-                                        >
-                                            Закрыть
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </>
-                );
-            }, [
-                showRoomModal, roomId, roomPassword, roomName, roomError, authMode, newTransaction, 
-                showAddTransaction, calendarEvents, showAddEventModal, newEvent, showEditEventModal, 
-                editingEvent, showCreateTemplateModal, newTemplateName, templates, participants, 
-                newParticipant, selectedParticipantColor, showAddParticipantModal, previewData, 
-                showPreviewModal, fixedExpenses, showAddFixedExpenseModal, newFixedExpense, 
-                showDeleteConfirmation, showBudgetSettings, savingsPercentage, initialBalance, 
-                dayStart, dayEnd, showShoppingSettings, telegramBotToken, telegramChatId, 
-                showPlannerSettings, deleteAction, showClearTransactionsConfirmation, user, isLoading,
-                showAddShoppingItem, newItem // FIX: Added missing dependencies
-            ]);
-            
-            // Render UI
-            return (
-                <div className="app-container">
-                    <header>
-                        <div className="header-content">
-                            <div className="logo">
-                                <div className="logo-icon">
-                                    <i className="fas fa-coins"></i>
-                                </div>
-                                Семейный Бюджет
-                            </div>
-                            {user && (
-                                <>
-                                    <nav>
-                                        {availableTabs.map(tab => (
-                                            <button
-                                                key={tab.id}
-                                                className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
-                                                onClick={() => setActiveTab(tab.id)}
-                                            >
-                                                <i className={tab.icon}></i>
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </nav>
-                                    <div className="flex items-center space-x-3">
-                                        {user && (
-                                            <div className="flex items-center space-x-2">
-                                                <i className="fas fa-user text-white"></i>
-                                                <span className="text-white">{user.email || 'Гость'}</span>
-                                            </div>
-                                        )}
-                                        <button 
-                                            className="nav-button"
-                                            onClick={exitRoom}
-                                        >
-                                            <i className="fas fa-sign-out-alt"></i>
-                                            Выход
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </header>
-                    
-                    <main>
-                        {activeTab === 'budget' && (
-                            <div className="space-y-6">
-                                {/* Financial Summary */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="card bg-purple-50">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="font-medium text-gray-700">Доходы</h3>
-                                            <i className="fas fa-arrow-up text-green-500 text-xl"></i>
-                                        </div>
-                                        <p className="text-2xl font-bold text-green-600">{financialMetrics.totalIncome.toLocaleString('ru-RU')} ₽</p>
-                                    </div>
-                                    <div className="card bg-purple-50">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="font-medium text-gray-700">Расходы</h3>
-                                            <i className="fas fa-arrow-down text-red-500 text-xl"></i>
-                                        </div>
-                                        <p className="text-2xl font-bold text-red-600">{financialMetrics.totalExpenses.toLocaleString('ru-RU')} ₽</p>
-                                    </div>
-                                    <div className="card bg-purple-50">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="font-medium text-gray-700">Баланс</h3>
-                                            <i className="fas fa-wallet text-purple-500 text-xl"></i>
-                                        </div>
-                                        <p className={`text-2xl font-bold ${financialMetrics.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {financialMetrics.balance.toLocaleString('ru-RU')} ₽
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                {/* Controls */}
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-                                    <div className="flex flex-wrap gap-2">
-                                        <button 
-                                            className={`btn-secondary ${showAllTime ? 'bg-purple-100 text-purple-700' : ''}`}
-                                            onClick={() => setShowAllTime(!showAllTime)}
-                                        >
-                                            <i className="fas fa-calendar-alt mr-2"></i>
-                                            {showAllTime ? 'Текущий месяц' : 'Все время'}
-                                        </button>
-                                        <button 
-                                            className="btn-secondary"
-                                            onClick={() => setSelectedDate(null)}
-                                            disabled={!selectedDate}
-                                        >
-                                            <i className="fas fa-times mr-2"></i>
-                                            Сбросить фильтр
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                placeholder="Поиск по описанию или категории..."
-                                                className="form-input pl-10"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                            />
-                                            <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                                        </div>
-                                        <button 
-                                            className="btn-primary"
-                                            onClick={() => setShowAddTransaction(true)}
-                                        >
-                                            <i className="fas fa-plus mr-2"></i>
-                                            Новая операция
-                                        </button>
-                                        <button 
-                                            className="btn-secondary"
-                                            onClick={() => setShowBudgetSettings(true)}
-                                        >
-                                            <i className="fas fa-cog mr-2"></i>
-                                            Настройки
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Expense Categories Chart */}
-                                <div className="card">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-semibold">Расходы по категориям</h3>
-                                        <button className="text-purple-600 hover:text-purple-800">
-                                            <i className="fas fa-download mr-2"></i>
-                                            Экспорт
-                                        </button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {Object.entries(aggregatedExpenses).length > 0 ? (
-                                            Object.entries(aggregatedExpenses).map(([category, amount]) => (
-                                                <div key={category} className="space-y-1">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span>{category}</span>
-                                                        <span>{amount.toLocaleString('ru-RU')} ₽</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                                        <div 
-                                                            className="bg-purple-500 h-2 rounded-full" 
-                                                            style={{ width: `${(amount / financialMetrics.totalExpenses) * 100}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-gray-500 text-center py-4">Нет данных для отображения</p>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                {/* Transactions List */}
-                                <div className="card">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-semibold">История операций</h3>
-                                        <button 
-                                            className="text-red-500 hover:text-red-700"
-                                            onClick={() => setShowClearTransactionsConfirmation(true)}
-                                        >
-                                            <i className="fas fa-trash mr-2"></i>
-                                            Очистить все
-                                        </button>
-                                    </div>
-                                    
-                                    {/* Date Categories */}
-                                    {dateCategories.length > 0 && (
-                                        <div className="flex overflow-x-auto pb-2 mb-4">
-                                            {dateCategories.map(category => (
-                                                <button
-                                                    key={category}
-                                                    className={`px-3 py-1 rounded-full text-sm mr-2 whitespace-nowrap ${
-                                                        selectedDate ? 'bg-gray-200 text-gray-700' : 'bg-purple-100 text-purple-700'
-                                                    }`}
-                                                    onClick={() => {
-                                                        // This would filter by category if needed
-                                                    }}
-                                                >
-                                                    {category}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                    
-                                    {filteredTransactions.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {filteredTransactions.map(transaction => (
-                                                <div 
-                                                    key={transaction.id} 
-                                                    className={`flex items-center justify-between p-3 rounded-lg ${
-                                                        transaction.type === 'income' 
-                                                            ? 'bg-green-50 border border-green-200' 
-                                                            : 'bg-red-50 border border-red-200'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                                            transaction.type === 'income' 
-                                                                ? 'bg-green-100 text-green-600' 
-                                                                : 'bg-red-100 text-red-600'
-                                                        }`}>
-                                                            <i className={`fas ${transaction.type === 'income' ? 'fa-plus' : 'fa-minus'}`}></i>
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">{transaction.description}</p>
-                                                            <p className="text-sm text-gray-500">{transaction.category} • {new Date(transaction.date).toLocaleDateString('ru-RU')}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className={`font-bold text-lg ${
-                                                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                                                        }`}>
-                                                            {transaction.type === 'income' ? '+' : '-'}{transaction.amount.toLocaleString('ru-RU')} ₽
-                                                        </p>
-                                                        <p className="text-sm text-gray-500">Баланс: {transaction.balanceAfter.toLocaleString('ru-RU')} ₽</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 text-center py-4">
-                                            {searchTerm 
-                                                ? 'Нет операций, соответствующих вашему поиску' 
-                                                : 'Нет операций за выбранный период'}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        
-                        {activeTab === 'shopping' && (
-                            <div className="space-y-6">
-                                {/* Shopping List Header */}
-                                <div className="flex justify-between items-center">
-                                    <h2 className="text-xl font-semibold">Список покупок</h2>
-                                    <div className="flex space-x-2">
-                                        <button 
-                                            className="btn-secondary"
-                                            onClick={() => setShowShoppingSettings(true)}
-                                        >
-                                            <i className="fas fa-cog mr-2"></i>
-                                            Настройки
-                                        </button>
-                                        <button 
-                                            className="btn-primary"
-                                            onClick={() => setShowAddShoppingItem(true)}
-                                        >
-                                            <i className="fas fa-plus mr-2"></i>
-                                            Добавить товар
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Shopping List */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* To Buy Column */}
-                                    <div className="card">
-                                        <h3 className="font-medium mb-4 flex items-center">
-                                            <i className="fas fa-shopping-cart text-purple-500 mr-2"></i>
-                                            Нужно купить
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {shoppingList
-                                                .filter(item => !item.completed)
-                                                .length > 0 ? (
-                                                shoppingList
-                                                    .filter(item => !item.completed)
-                                                    .map(item => (
-                                                        <div key={item.id} className="shopping-item">
-                                                            <div className="shopping-item-content">
-                                                                {editingItemId === item.id ? (
-                                                                    <div className="flex items-center w-full space-x-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={editingItemText}
-                                                                            onChange={(e) => setEditingItemText(e.target.value)}
-                                                                            className="shopping-item-input"
-                                                                            autoFocus
-                                                                        />
-                                                                        <input
-                                                                            type="number"
-                                                                            value={editingItemQuantity}
-                                                                            onChange={(e) => setEditingItemQuantity(e.target.value)}
-                                                                            className="shopping-item-input w-16"
-                                                                        />
-                                                                        <select
-                                                                            value={editingItemUnit}
-                                                                            onChange={(e) => setEditingItemUnit(e.target.value)}
-                                                                            className="shopping-item-input w-24"
-                                                                        >
-                                                                            <option value="штука">шт</option>
-                                                                            <option value="килограмм">кг</option>
-                                                                            <option value="грамм">г</option>
-                                                                            <option value="литр">л</option>
-                                                                            <option value="миллилитр">мл</option>
-                                                                        </select>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <div 
-                                                                            className="shopping-item-checkbox"

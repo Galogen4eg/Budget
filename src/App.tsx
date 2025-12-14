@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import toast, { Toaster } from './mock-toast';
-import { signInAnonymouslyAndSetupRoom } from './config/firebase';
-
-import BudgetPage from './pages/BudgetPage';
-import ShoppingPage from './pages/ShoppingPage';
-import PlannerPage from './pages/PlannerPage';
-import SettingsPage from './pages/SettingsPage';
-import Header from './components/Header';
+import { BudgetPage } from './pages/BudgetPage';
+import { ShoppingListPage } from './pages/ShoppingListPage';
+import { PlannerPage } from './pages/PlannerPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { Header } from './components/Header';
+import { auth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from './config/firebase';
+import { Toaster } from './mock-toast';
 
 const theme = createTheme({
   palette: {
@@ -22,131 +21,40 @@ const theme = createTheme({
     error: {
       main: '#ef476f',
     },
-    background: {
-      default: '#f5f7fa',
-    },
   },
   typography: {
-    fontFamily: [
-      'Inter',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif'
-    ].join(','),
+    fontFamily: 'Inter, sans-serif',
     h1: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-    h2: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-    h3: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-    h4: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-    h5: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-    h6: {
-      fontFamily: [
-        'Montserrat',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif'
-      ].join(','),
-    },
-  },
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: `
-        body {
-          transition: background-color, color 0.2s ease;
-        }
-      `,
+      fontFamily: 'Montserrat, sans-serif',
     },
   },
 });
 
-const App: React.FC = () => {
+function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initApp = async () => {
+    const initializeApp = async () => {
       try {
-        // Check if we already have a roomId in localStorage
-        const existingRoomId = localStorage.getItem('roomId');
-        if (existingRoomId) {
-          setRoomId(existingRoomId);
-          setLoading(false);
-          return;
-        }
-
-        // Sign in anonymously and setup room
-        const { roomId: newRoomId } = await signInAnonymouslyAndSetupRoom();
-        setRoomId(newRoomId);
+        console.log('App initialized');
       } catch (error) {
         console.error('Error initializing app:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
-    initApp();
+    initializeApp();
   }, []);
-
-  if (loading) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          Загрузка...
-        </div>
-      </ThemeProvider>
-    );
-  }
 
   if (!roomId) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          Ошибка инициализации приложения
-        </div>
-      </ThemeProvider>
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <p>Loading...</p>
+        <button onClick={() => {
+          signInWithPopup(auth, new GoogleAuthProvider());
+        }}>
+          Sign In
+        </button>
+      </div>
     );
   }
 
@@ -156,9 +64,9 @@ const App: React.FC = () => {
       <Router>
         <Header />
         <Routes>
-          <Route path="/" element={<BudgetPage roomId={roomId} />} />
+          <Route path="/" element={<Navigate to="/budget" replace />} />
           <Route path="/budget" element={<BudgetPage roomId={roomId} />} />
-          <Route path="/shopping" element={<ShoppingPage roomId={roomId} />} />
+          <Route path="/shopping" element={<ShoppingListPage roomId={roomId} />} />
           <Route path="/planner" element={<PlannerPage roomId={roomId} />} />
           <Route path="/settings" element={<SettingsPage roomId={roomId} />} />
         </Routes>
@@ -166,6 +74,6 @@ const App: React.FC = () => {
       </Router>
     </ThemeProvider>
   );
-};
+}
 
 export default App;

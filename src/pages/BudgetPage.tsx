@@ -10,7 +10,7 @@ interface BudgetPageProps {
   roomId: string;
 }
 
-const BudgetPage: React.FC<BudgetPageProps> = ({ roomId }) => {
+export const BudgetPage: React.FC<BudgetPageProps> = ({ roomId }) => {
   // Mock data - these would come from Firebase in real implementation
   const [initialBalance, setInitialBalance] = useState<number>(50000);
   const [currentBalance, setCurrentBalance] = useState<number>(35200);
@@ -127,5 +127,3 @@ const BudgetPage: React.FC<BudgetPageProps> = ({ roomId }) => {
     </Container>
   );
 };
-
-export default BudgetPage;

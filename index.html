@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Семейный Бюджет</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PWA мета-теги -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4361ee">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -60,14 +66,108 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
+            text-align: center;
         }
         
         .auth-title {
             text-align: center;
             color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .auth-subtitle {
+            text-align: center;
+            color: var(--gray);
             margin-bottom: 30px;
-            font-size: 28px;
+            font-size: 16px;
+        }
+        
+        .google-login-btn {
+            width: 100%;
+            padding: 15px;
+            background: white;
+            color: #444;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .google-login-btn:hover {
+            border-color: #4285F4;
+            background: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .google-login-btn i {
+            color: #4285F4;
+            font-size: 18px;
+        }
+        
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            margin: 25px 0;
+            color: var(--gray);
+        }
+        
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        
+        .auth-divider span {
+            padding: 0 15px;
+        }
+        
+        .auth-input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .auth-input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        
+        .auth-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .auth-btn:hover:not(:disabled) {
+            background: var(--secondary);
+        }
+        
+        .auth-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
         }
         
         .auth-tabs {
@@ -101,43 +201,6 @@
             display: block;
         }
         
-        .auth-input {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        
-        .auth-input:focus {
-            border-color: var(--primary);
-            outline: none;
-        }
-        
-        .auth-btn {
-            width: 100%;
-            padding: 15px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .auth-btn:hover:not(:disabled) {
-            background: var(--secondary);
-        }
-        
-        .auth-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-        
         .auth-error {
             color: var(--danger);
             text-align: center;
@@ -159,11 +222,54 @@
         }
         
         .logo {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: bold;
+            overflow: hidden;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .user-name {
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
         }
         
         .nav-tabs {
@@ -172,6 +278,7 @@
             background: rgba(255,255,255,0.1);
             padding: 5px;
             border-radius: 12px;
+            margin-top: 15px;
         }
         
         .tab {
@@ -181,28 +288,16 @@
             color: white;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 500;
             transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .tab.active {
             background: rgba(255,255,255,0.2);
-        }
-        
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .settings-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 5px;
         }
         
         /* ОСНОВНОЙ КОНТЕНТ */
@@ -535,7 +630,7 @@
             overflow: hidden;
         }
         
-        /* НАСТРОЙКИ - СВИТЧЕР */
+        /* НАСТРОЙКИ */
         .settings-container {
             background: white;
             border-radius: 15px;
@@ -788,12 +883,13 @@
             
             .nav-tabs {
                 width: 100%;
-                justify-content: center;
+                overflow-x: auto;
+                justify-content: flex-start;
             }
             
-            .user-menu {
+            .user-info {
                 width: 100%;
-                justify-content: center;
+                justify-content: space-between;
             }
             
             .main-content {
@@ -821,40 +917,79 @@
                 padding: 10px 5px;
             }
         }
+        
+        /* PWA ПОДСКАЗКА */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 9999;
+            max-width: 300px;
+        }
+        
+        .install-prompt.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
     <!-- АВТОРИЗАЦИЯ -->
     <div id="authContainer" class="auth-container">
         <div class="auth-box">
-            <h1 class="auth-title">Семейный Бюджет</h1>
+            <h1 class="auth-title">👨‍👩‍👧‍👦 Семейный Бюджет</h1>
+            <p class="auth-subtitle">Управляйте финансами вместе с семьёй</p>
+            
+            <button id="googleLoginBtn" class="google-login-btn">
+                <i class="fab fa-google"></i> Войти через Google
+            </button>
+            
+            <div class="auth-divider">
+                <span>или</span>
+            </div>
             
             <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="login">Войти</button>
-                <button class="auth-tab" data-tab="register">Создать комнату</button>
+                <button class="auth-tab active" data-tab="create">Создать семью</button>
+                <button class="auth-tab" data-tab="join">Присоединиться</button>
             </div>
             
-            <div id="loginForm" class="auth-form active">
-                <input type="text" id="loginRoomName" class="auth-input" placeholder="Название комнаты" required>
-                <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль комнаты" required>
-                <button id="loginBtn" class="auth-btn">
-                    <i class="fas fa-sign-in-alt"></i> Войти в комнату
+            <!-- СОЗДАНИЕ СЕМЬИ -->
+            <div id="createForm" class="auth-form active">
+                <input type="text" id="familyName" class="auth-input" placeholder="Название семьи (например, 'Семья Ивановых')">
+                <button id="createFamilyBtn" class="auth-btn">
+                    <i class="fas fa-plus-circle"></i> Создать новую семью
                 </button>
+                <p style="color: var(--gray); font-size: 14px; margin-top: 15px;">
+                    Вы станете владельцем семьи и сможете приглашать других участников
+                </p>
             </div>
             
-            <div id="registerForm" class="auth-form">
-                <input type="text" id="registerRoomName" class="auth-input" placeholder="Название комнаты" required>
-                <input type="password" id="registerPassword" class="auth-input" placeholder="Пароль комнаты" required>
-                <input type="password" id="confirmPassword" class="auth-input" placeholder="Подтвердите пароль" required>
-                <button id="registerBtn" class="auth-btn">
-                    <i class="fas fa-plus-circle"></i> Создать комнату
+            <!-- ПРИСОЕДИНЕНИЕ К СЕМЬЕ -->
+            <div id="joinForm" class="auth-form">
+                <input type="text" id="inviteCode" class="auth-input" placeholder="Код приглашения (например: ABCD-EFGH)">
+                <button id="joinFamilyBtn" class="auth-btn">
+                    <i class="fas fa-user-plus"></i> Присоединиться к семье
                 </button>
+                <p style="color: var(--gray); font-size: 14px; margin-top: 15px;">
+                    Попросите код приглашения у владельца семьи
+                </p>
             </div>
             
             <div id="authError" class="auth-error"></div>
             
             <p class="text-center mt-20" style="color: var(--gray); font-size: 14px;">
-                <i class="fas fa-info-circle"></i> Комната создается один раз, затем участники входят по названию и паролю
+                <i class="fas fa-shield-alt"></i> Все данные защищены Google авторизацией
             </p>
         </div>
     </div>
@@ -864,27 +999,36 @@
         <!-- ШАПКА -->
         <div class="header">
             <div class="logo">
-                <i class="fas fa-wallet"></i>
-                <span id="currentRoomName">Семейный Бюджет</span>
+                <i class="fas fa-home"></i>
+                <div>
+                    <span id="currentFamilyName">Семейный Бюджет</span>
+                    <div style="font-size: 12px; opacity: 0.8;" id="familyInfo"></div>
+                </div>
             </div>
             
-            <div class="nav-tabs">
-                <button class="tab active" data-page="budget">
-                    <i class="fas fa-chart-pie"></i> Бюджет
-                </button>
-                <button class="tab" data-page="purchases">
-                    <i class="fas fa-shopping-cart"></i> Покупки
-                </button>
-                <button class="tab" data-page="planner">
-                    <i class="fas fa-calendar-alt"></i> Планировщик
+            <div class="user-info">
+                <div id="userAvatar" class="user-avatar"></div>
+                <div class="user-name" id="userDisplayName"></div>
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
                 </button>
             </div>
-            
-            <div class="user-menu">
-                <button id="settingsBtn" class="settings-btn">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
+        </div>
+        
+        <!-- НАВИГАЦИЯ -->
+        <div class="nav-tabs">
+            <button class="tab active" data-page="budget">
+                <i class="fas fa-chart-pie"></i> Бюджет
+            </button>
+            <button class="tab" data-page="purchases">
+                <i class="fas fa-shopping-cart"></i> Покупки
+            </button>
+            <button class="tab" data-page="planner">
+                <i class="fas fa-calendar-alt"></i> Планировщик
+            </button>
+            <button class="tab" data-page="settings">
+                <i class="fas fa-cog"></i> Настройки
+            </button>
         </div>
         
         <!-- ОСНОВНОЙ КОНТЕНТ -->
@@ -892,7 +1036,7 @@
             <!-- СТРАНИЦА БЮДЖЕТА -->
             <div id="budgetPage" class="page active">
                 <div class="page-title">
-                    <span>Бюджет</span>
+                    <span>Семейный бюджет</span>
                     <div class="history-filters">
                         <button class="filter-btn active" data-filter="month">Этот месяц</button>
                         <button class="filter-btn" data-filter="all">За всё время</button>
@@ -1050,746 +1194,3 @@
                 </div>
                 
                 <div class="planner-container">
-                    <div class="planner-controls">
-                        <div class="view-toggle">
-                            <button class="view-btn active" data-view="month">Месяц</button>
-                            <button class="view-btn" data-view="week">Неделя</button>
-                        </div>
-                        
-                        <div>
-                            <button id="prevPeriod"><i class="fas fa-chevron-left"></i></button>
-                            <span id="currentPeriod" style="margin: 0 15px;">Декабрь 2024</span>
-                            <button id="nextPeriod"><i class="fas fa-chevron-right"></i></button>
-                        </div>
-                    </div>
-                    
-                    <div id="plannerCalendar">
-                        <!-- Динамически заполняется -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- МОДАЛЬНЫЕ ОКНА -->
-    <div id="settingsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Настройки</h3>
-                <button class="close-modal" onclick="closeSettingsModal()">&times;</button>
-            </div>
-            
-            <div class="settings-tabs">
-                <button class="settings-tab active" data-settings="budget">Бюджет</button>
-                <button class="settings-tab" data-settings="purchases">Покупки</button>
-                <button class="settings-tab" data-settings="planner">Планировщик</button>
-            </div>
-            
-            <div class="settings-content">
-                <!-- НАСТРОЙКИ БЮДЖЕТА -->
-                <div id="budgetSettings" class="settings-section active">
-                    <div class="form-group">
-                        <label class="form-label">Начальный остаток</label>
-                        <input type="number" id="initialBalanceInput" class="form-control" placeholder="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Процент для откладывания</label>
-                        <input type="number" id="savingsPercentInput" class="form-control" placeholder="Введите процент">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Название комнаты</label>
-                        <input type="text" id="roomNameInput" class="form-control" readonly>
-                        <button id="leaveRoomBtn" class="btn btn-secondary mt-10" style="width: 100%;">
-                            <i class="fas fa-sign-out-alt"></i> Выйти из комнаты
-                        </button>
-                    </div>
-                    
-                    <details class="spoiler">
-                        <summary>Обязательные траты</summary>
-                        <div class="spoiler-content">
-                            <div id="mandatoryExpensesList"></div>
-                            <button id="addMandatoryExpenseBtn" class="btn btn-primary mt-10">
-                                <i class="fas fa-plus"></i> Добавить трату
-                            </button>
-                        </div>
-                    </details>
-                    
-                    <div class="danger-zone mt-30">
-                        <button id="clearAllOperationsBtn" class="btn btn-danger" style="width: 100%;">
-                            <i class="fas fa-trash"></i> Очистка всех операций
-                        </button>
-                        <p class="hint mt-10" style="color: var(--gray); font-size: 14px;">
-                            Удаляет всю историю операций. Действие необратимо.
-                        </p>
-                    </div>
-                </div>
-                
-                <!-- НАСТРОЙКИ ПОКУПОК -->
-                <div id="purchasesSettings" class="settings-section">
-                    <div class="form-group">
-                        <label class="form-label">Telegram Bot Token</label>
-                        <input type="text" id="telegramToken" class="form-control" placeholder="Введите токен бота">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Chat ID</label>
-                        <input type="text" id="telegramChatId" class="form-control" placeholder="Введите ID чата">
-                    </div>
-                    
-                    <button id="testTelegramBtn" class="btn btn-secondary">
-                        <i class="fas fa-test"></i> Тестировать подключение
-                    </button>
-                    
-                    <div class="mt-30">
-                        <h4>Словарь покупок</h4>
-                        <div id="purchasesDictionary"></div>
-                        <button id="addToDictionaryBtn" class="btn btn-primary mt-10">
-                            <i class="fas fa-plus"></i> Добавить в словарь
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- НАСТРОЙКИ ПЛАНИРОВЩИКА -->
-                <div id="plannerSettings" class="settings-section">
-                    <h4>Участники</h4>
-                    <div id="participantsList"></div>
-                    
-                    <button id="addParticipantBtn" class="btn btn-primary mt-10">
-                        <i class="fas fa-plus"></i> Добавить участника
-                    </button>
-                    
-                    <div class="mt-30">
-                        <h4>Шаблоны событий</h4>
-                        <div id="eventTemplatesList"></div>
-                        <button id="addTemplateBtn" class="btn btn-primary mt-10">
-                            <i class="fas fa-plus"></i> Добавить шаблон
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeSettingsModal()">Закрыть</button>
-                <button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // === ВАЖНО: ЗАМЕНИТЕ ЭТУ КОНФИГУРАЦИЮ НА СВОЮ ИЗ FIREBASE CONSOLE ===
-        const firebaseConfig = {
-            // ВАШИ РЕАЛЬНЫЕ ДАННЫЕ ИЗ FIREBASE CONSOLE
-            apiKey: "ВАШ_API_KEY",
-            authDomain: "ВАШ_ПРОЕКТ.firebaseapp.com",
-            projectId: "ВАШ_ПРОЕКТ",
-            storageBucket: "ВАШ_ПРОЕКТ.appspot.com",
-            messagingSenderId: "ВАШ_SENDER_ID",
-            appId: "ВАШ_APP_ID"
-        };
-
-        // Инициализация Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // Глобальное состояние приложения
-        const state = {
-            currentUser: null,
-            currentRoom: null,
-            currentRoomId: null,
-            activePage: 'budget',
-            activeSettingsTab: 'budget',
-            
-            // Данные
-            transactions: [],
-            purchases: [],
-            events: [],
-            categories: [],
-            mandatoryExpenses: [],
-            participants: [],
-            eventTemplates: [],
-            
-            // Фильтры
-            currentMonth: new Date().getMonth(),
-            currentYear: new Date().getFullYear(),
-            transactionFilter: 'month',
-            
-            // Настройки
-            settings: {
-                initialBalance: 0,
-                savingsPercent: 10,
-                roomName: '',
-                telegramToken: '',
-                telegramChatId: ''
-            },
-            
-            // Цветовая палитра
-            colorPalette: [
-                '#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0',
-                '#118AB2', '#EF476F', '#073B4C', '#7209B7',
-                '#3A86FF', '#FB5607', '#8338EC', '#FF006E'
-            ]
-        };
-
-        // === ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК АВТОРИЗАЦИИ ===
-        document.querySelectorAll('.auth-tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const tabId = this.dataset.tab;
-                
-                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                
-                document.querySelectorAll('.auth-form').forEach(form => {
-                    form.classList.remove('active');
-                });
-                document.getElementById(tabId + 'Form').classList.add('active');
-                
-                document.getElementById('authError').style.display = 'none';
-            });
-        });
-
-        // === РЕГИСТРАЦИЯ КОМНАТЫ ===
-        document.getElementById('registerBtn').addEventListener('click', async function() {
-            const roomName = document.getElementById('registerRoomName').value.trim();
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            const errorEl = document.getElementById('authError');
-            const btn = this;
-            
-            // Валидация
-            if (!roomName || !password || !confirmPassword) {
-                errorEl.textContent = 'Заполните все поля';
-                errorEl.style.display = 'block';
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                errorEl.textContent = 'Пароли не совпадают';
-                errorEl.style.display = 'block';
-                return;
-            }
-            
-            if (password.length < 6) {
-                errorEl.textContent = 'Пароль должен быть не менее 6 символов';
-                errorEl.style.display = 'block';
-                return;
-            }
-            
-            try {
-                // Показываем индикатор загрузки
-                btn.disabled = true;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
-                
-                // 1. Анонимная аутентификация
-                const userCredential = await auth.signInAnonymously();
-                state.currentUser = userCredential.user;
-                
-                // 2. Проверяем, существует ли уже комната с таким названием
-                const roomsSnapshot = await db.collection('rooms')
-                    .where('name', '==', roomName)
-                    .get();
-                
-                if (!roomsSnapshot.empty) {
-                    throw new Error('Комната с таким названием уже существует');
-                }
-                
-                // 3. Создаем уникальный ID комнаты
-                const roomId = generateRoomId();
-                
-                // 4. Сохраняем комнату в Firestore
-                const roomData = {
-                    name: roomName,
-                    password: hashPassword(password),
-                    ownerId: state.currentUser.uid,
-                    members: [state.currentUser.uid],
-                    settings: {
-                        initialBalance: 0,
-                        savingsPercent: 10,
-                        roomName: roomName,
-                        telegramToken: '',
-                        telegramChatId: ''
-                    },
-                    createdAt: firebase.firestore.Timestamp.now(),
-                    updatedAt: firebase.firestore.Timestamp.now()
-                };
-                
-                await db.collection('rooms').doc(roomId).set(roomData);
-                
-                // 5. Сохраняем состояние
-                state.currentRoom = roomName;
-                state.currentRoomId = roomId;
-                state.settings = roomData.settings;
-                
-                // 6. Сохраняем в localStorage
-                localStorage.setItem('familyBudgetRoom', JSON.stringify({
-                    roomId: roomId,
-                    roomName: roomName,
-                    userId: state.currentUser.uid,
-                    lastLogin: Date.now()
-                }));
-                
-                // 7. Показываем приложение
-                document.getElementById('authContainer').classList.add('hidden');
-                document.getElementById('appContainer').classList.remove('hidden');
-                document.getElementById('currentRoomName').textContent = state.settings.roomName;
-                document.getElementById('roomNameInput').value = state.settings.roomName;
-                
-            } catch (error) {
-                console.error('Ошибка регистрации:', error);
-                errorEl.textContent = error.message || 'Ошибка при создании комнаты';
-                errorEl.style.display = 'block';
-                
-                // Восстанавливаем кнопку
-                btn.innerHTML = '<i class="fas fa-plus-circle"></i> Создать комнату';
-                btn.disabled = false;
-            }
-        });
-
-        // === ВХОД В КОМНАТУ ===
-        document.getElementById('loginBtn').addEventListener('click', async function() {
-            const roomName = document.getElementById('loginRoomName').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const errorEl = document.getElementById('authError');
-            const btn = this;
-            
-            if (!roomName || !password) {
-                errorEl.textContent = 'Заполните все поля';
-                errorEl.style.display = 'block';
-                return;
-            }
-            
-            try {
-                // Показываем индикатор загрузки
-                btn.disabled = true;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-                
-                // 1. Анонимная аутентификация
-                const userCredential = await auth.signInAnonymously();
-                state.currentUser = userCredential.user;
-                
-                // 2. Ищем комнату по названию
-                const roomsSnapshot = await db.collection('rooms')
-                    .where('name', '==', roomName)
-                    .get();
-                
-                if (roomsSnapshot.empty) {
-                    throw new Error('Комната не найдена');
-                }
-                
-                const roomDoc = roomsSnapshot.docs[0];
-                const roomData = roomDoc.data();
-                const roomId = roomDoc.id;
-                
-                // 3. Проверяем пароль
-                const hashedPassword = hashPassword(password);
-                if (roomData.password !== hashedPassword) {
-                    throw new Error('Неверный пароль');
-                }
-                
-                // 4. Проверяем, есть ли пользователь в участниках
-                let isMember = roomData.members && roomData.members.includes(state.currentUser.uid);
-                
-                if (!isMember) {
-                    // Добавляем пользователя в комнату
-                    await db.collection('rooms').doc(roomId).update({
-                        members: firebase.firestore.FieldValue.arrayUnion(state.currentUser.uid),
-                        updatedAt: firebase.firestore.Timestamp.now()
-                    });
-                }
-                
-                // 5. Сохраняем состояние
-                state.currentRoom = roomName;
-                state.currentRoomId = roomId;
-                state.settings = roomData.settings || {};
-                
-                // 6. Сохраняем в localStorage
-                localStorage.setItem('familyBudgetRoom', JSON.stringify({
-                    roomId: roomId,
-                    roomName: roomName,
-                    userId: state.currentUser.uid,
-                    lastLogin: Date.now()
-                }));
-                
-                // 7. Загружаем данные комнаты
-                await loadRoomData();
-                
-                // 8. Показываем приложение
-                document.getElementById('authContainer').classList.add('hidden');
-                document.getElementById('appContainer').classList.remove('hidden');
-                document.getElementById('currentRoomName').textContent = state.settings.roomName;
-                document.getElementById('roomNameInput').value = state.settings.roomName;
-                
-            } catch (error) {
-                console.error('Ошибка входа:', error);
-                errorEl.textContent = error.message || 'Ошибка при входе в комнату';
-                errorEl.style.display = 'block';
-                
-                // Восстанавливаем кнопку
-                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти в комнату';
-                btn.disabled = false;
-            }
-        });
-
-        // === ВОССТАНОВЛЕНИЕ СЕССИИ ===
-        window.addEventListener('DOMContentLoaded', async () => {
-            const savedRoom = localStorage.getItem('familyBudgetRoom');
-            
-            if (savedRoom) {
-                try {
-                    const { roomId, roomName, userId, lastLogin } = JSON.parse(savedRoom);
-                    
-                    // Проверяем, не прошло ли больше 7 дней
-                    if (lastLogin && Date.now() - lastLogin > 7 * 24 * 60 * 60 * 1000) {
-                        localStorage.removeItem('familyBudgetRoom');
-                        return;
-                    }
-                    
-                    // Пытаемся восстановить сессию
-                    await auth.signInAnonymously();
-                    
-                    // Проверяем комнату
-                    const roomDoc = await db.collection('rooms').doc(roomId).get();
-                    
-                    if (roomDoc.exists) {
-                        const roomData = roomDoc.data();
-                        
-                        if (roomData.members && roomData.members.includes(auth.currentUser.uid)) {
-                            // Успешное восстановление
-                            state.currentUser = auth.currentUser;
-                            state.currentRoom = roomName;
-                            state.currentRoomId = roomId;
-                            state.settings = roomData.settings || {};
-                            
-                            await loadRoomData();
-                            
-                            document.getElementById('authContainer').classList.add('hidden');
-                            document.getElementById('appContainer').classList.remove('hidden');
-                            document.getElementById('currentRoomName').textContent = state.settings.roomName;
-                            document.getElementById('roomNameInput').value = state.settings.roomName;
-                            
-                            return;
-                        }
-                    }
-                    
-                    // Если не удалось восстановить, очищаем localStorage
-                    localStorage.removeItem('familyBudgetRoom');
-                    
-                } catch (error) {
-                    console.error('Ошибка восстановления сессии:', error);
-                    localStorage.removeItem('familyBudgetRoom');
-                }
-            }
-        });
-
-        // === УТИЛИТЫ ===
-        function generateRoomId() {
-            return 'room_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        function hashPassword(password) {
-            // Простой хэш для демонстрации
-            let hash = 0;
-            for (let i = 0; i < password.length; i++) {
-                const char = password.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return hash.toString();
-        }
-
-        // === ЗАГРУЗКА ДАННЫХ ИЗ FIRESTORE ===
-        async function loadRoomData() {
-            try {
-                showLoader(true);
-                
-                // Загружаем настройки комнаты
-                const roomDoc = await db.collection('rooms').doc(state.currentRoomId).get();
-                if (roomDoc.exists) {
-                    const roomData = roomDoc.data();
-                    state.settings = { ...state.settings, ...roomData.settings };
-                }
-                
-                // Загружаем транзакции
-                const transactionsSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('transactions')
-                    .orderBy('date', 'desc')
-                    .get();
-                
-                state.transactions = transactionsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Загружаем покупки
-                const purchasesSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('purchases')
-                    .orderBy('createdAt', 'asc')
-                    .get();
-                
-                state.purchases = purchasesSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Загружаем события
-                const eventsSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('events')
-                    .orderBy('date', 'asc')
-                    .get();
-                
-                state.events = eventsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Загружаем обязательные траты
-                const expensesSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('mandatoryExpenses')
-                    .orderBy('createdAt', 'asc')
-                    .get();
-                
-                state.mandatoryExpenses = expensesSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Загружаем участников
-                const participantsSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('participants')
-                    .orderBy('createdAt', 'asc')
-                    .get();
-                
-                state.participants = participantsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Загружаем шаблоны
-                const templatesSnapshot = await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .collection('eventTemplates')
-                    .orderBy('createdAt', 'asc')
-                    .get();
-                
-                state.eventTemplates = templatesSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Рассчитываем категории
-                calculateCategories();
-                
-                // Обновляем UI
-                updateBudgetPage();
-                updatePurchasesPage();
-                updatePlannerPage();
-                
-                showLoader(false);
-                
-            } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-                alert('Ошибка загрузки данных: ' + error.message);
-                showLoader(false);
-            }
-        }
-
-        function showLoader(show) {
-            const loader = document.getElementById('loader');
-            if (!loader && show) {
-                const loaderEl = document.createElement('div');
-                loaderEl.id = 'loader';
-                loaderEl.className = 'loader';
-                loaderEl.style.position = 'fixed';
-                loaderEl.style.top = '50%';
-                loaderEl.style.left = '50%';
-                loaderEl.style.transform = 'translate(-50%, -50%)';
-                loaderEl.style.zIndex = '9999';
-                document.body.appendChild(loaderEl);
-            } else if (loader && !show) {
-                loader.remove();
-            }
-        }
-
-        // === БАЗОВЫЙ ФУНКЦИОНАЛ ===
-        function calculateCategories() {
-            const categoryMap = new Map();
-            state.transactions.forEach(t => {
-                if (t.type === 'expense' && t.category) {
-                    categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
-                }
-            });
-            state.categories = Array.from(categoryMap.entries()).map(([name, amount]) => ({ name, amount }));
-        }
-
-        function updateBudgetPage() {
-            document.getElementById('currentBalance').textContent = '0 ₽';
-            document.getElementById('savingsAmount').textContent = '0 ₽';
-            document.getElementById('dailyLimit').textContent = '0 ₽';
-            document.getElementById('monthExpenses').textContent = '0 ₽';
-        }
-
-        function updatePurchasesPage() {
-            document.getElementById('purchasesList').innerHTML = '<p>Нет покупок</p>';
-        }
-
-        function updatePlannerPage() {
-            document.getElementById('plannerCalendar').innerHTML = '<p>Календарь загружается...</p>';
-        }
-
-        // === ОБРАБОТЧИКИ ИНТЕРФЕЙСА ===
-        document.addEventListener('DOMContentLoaded', () => {
-            // Переключение вкладок
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const pageId = this.dataset.page;
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    document.querySelectorAll('.page').forEach(page => {
-                        page.classList.remove('active');
-                    });
-                    document.getElementById(pageId + 'Page').classList.add('active');
-                    state.activePage = pageId;
-                });
-            });
-
-            // Переключение настроек
-            document.querySelectorAll('.settings-tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const settingsId = this.dataset.settings;
-                    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    document.querySelectorAll('.settings-section').forEach(section => {
-                        section.classList.remove('active');
-                    });
-                    document.getElementById(settingsId + 'Settings').classList.add('active');
-                    state.activeSettingsTab = settingsId;
-                });
-            });
-
-            // Кнопка настроек
-            document.getElementById('settingsBtn').addEventListener('click', () => {
-                document.getElementById('settingsModal').classList.add('active');
-                document.getElementById('roomNameInput').value = state.settings.roomName;
-                document.getElementById('initialBalanceInput').value = state.settings.initialBalance || '';
-                document.getElementById('savingsPercentInput').value = state.settings.savingsPercent || '';
-            });
-
-            // Навигация по месяцам
-            document.getElementById('prevMonth').addEventListener('click', () => {
-                if (state.currentMonth === 0) {
-                    state.currentMonth = 11;
-                    state.currentYear--;
-                } else {
-                    state.currentMonth--;
-                }
-                updateBudgetCalendar();
-            });
-
-            document.getElementById('nextMonth').addEventListener('click', () => {
-                if (state.currentMonth === 11) {
-                    state.currentMonth = 0;
-                    state.currentYear++;
-                } else {
-                    state.currentMonth++;
-                }
-                updateBudgetCalendar();
-            });
-        });
-
-        function closeSettingsModal() {
-            document.getElementById('settingsModal').classList.remove('active');
-        }
-
-        function updateBudgetCalendar() {
-            // Базовая реализация
-            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-                               'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-            document.getElementById('currentMonthYear').textContent = `${monthNames[state.currentMonth]} ${state.currentYear}`;
-        }
-
-        // Выход из комнаты
-        document.getElementById('leaveRoomBtn').addEventListener('click', async () => {
-            if (confirm('Вы уверены, что хотите выйти из комнаты?')) {
-                try {
-                    // Удаляем пользователя из комнаты
-                    await db.collection('rooms').doc(state.currentRoomId).update({
-                        members: firebase.firestore.FieldValue.arrayRemove(state.currentUser.uid),
-                        updatedAt: firebase.firestore.Timestamp.now()
-                    });
-                    
-                    // Выходим из аутентификации
-                    await auth.signOut();
-                    localStorage.removeItem('familyBudgetRoom');
-                    
-                    // Сбрасываем состояние
-                    state.currentUser = null;
-                    state.currentRoom = null;
-                    state.currentRoomId = null;
-                    
-                    // Показываем экран авторизации
-                    document.getElementById('appContainer').classList.add('hidden');
-                    document.getElementById('authContainer').classList.remove('hidden');
-                    
-                    // Сбрасываем формы
-                    document.getElementById('loginRoomName').value = '';
-                    document.getElementById('loginPassword').value = '';
-                    document.getElementById('registerRoomName').value = '';
-                    document.getElementById('registerPassword').value = '';
-                    document.getElementById('confirmPassword').value = '';
-                    document.getElementById('authError').style.display = 'none';
-                    
-                    // Показываем вкладку входа
-                    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-                    document.querySelector('.auth-tab[data-tab="login"]').classList.add('active');
-                    document.getElementById('loginForm').classList.add('active');
-                    
-                } catch (error) {
-                    console.error('Ошибка выхода:', error);
-                    alert('Ошибка при выходе из комнаты');
-                }
-            }
-        });
-
-        // Базовая реализация других функций
-        async function saveSettings() {
-            try {
-                const updates = {
-                    'settings.initialBalance': parseFloat(document.getElementById('initialBalanceInput').value) || 0,
-                    'settings.savingsPercent': parseFloat(document.getElementById('savingsPercentInput').value) || 0,
-                    'settings.roomName': document.getElementById('roomNameInput').value.trim(),
-                    'settings.telegramToken': document.getElementById('telegramToken').value.trim(),
-                    'settings.telegramChatId': document.getElementById('telegramChatId').value.trim(),
-                    'updatedAt': firebase.firestore.FieldValue.serverTimestamp()
-                };
-                
-                await db.collection('rooms')
-                    .doc(state.currentRoomId)
-                    .update(updates);
-                
-                // Обновляем локальные настройки
-                state.settings = { ...state.settings, ...updates };
-                
-                // Обновляем название комнаты в шапке
-                document.getElementById('currentRoomName').textContent = state.settings.roomName;
-                
-                closeSettingsModal();
-                alert('Настройки сохранены');
-                
-            } catch (error) {
-                console.error('Ошибка сохранения настроек:', error);
-                alert('Ошибка при сохранении настроек');
-            }
-        }
-    </script>
-</body>
-</html>

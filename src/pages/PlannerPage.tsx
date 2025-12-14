@@ -1,3 +1,4 @@
+// src/pages/PlannerPage.tsx
 import React, { useState } from 'react';
 import { Container, Box } from '@mui/material';
 import CalendarViewSwitcher from '../components/CalendarViewSwitcher';
@@ -29,10 +30,8 @@ const PlannerPage: React.FC<PlannerPageProps> = ({ roomId }) => {
   ];
 
   const handleDateClick = (arg: any) => {
-    // Convert to local time without UTC offset
     const localDate = new Date(arg.date.valueOf() + arg.date.getTimezoneOffset() * 60000);
     console.log('Date clicked:', localDate);
-    // Open event modal here
   };
 
   const renderEventContent = (eventInfo: any) => {
@@ -63,7 +62,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({ roomId }) => {
             right: ''
           }}
           slotDuration="01:00:00"
-          selectable={true}ф
+          selectable={true}
           selectMirror={true}
           dayMaxEvents={true}
           weekends={true}

@@ -1,2568 +1,2051 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Семейный Бюджет</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background: #f8fafc;
-            min-height: 100vh;
-            color: #1e293b;
-        }
-
-        .app-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 16px;
-        }
-
-        header {
-            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 50;
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            background: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #7c3aed;
-            font-size: 18px;
-        }
-
-        nav {
-            display: flex;
-            gap: 8px;
-        }
-
-        .nav-button {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            transition: all 0.2s;
-            border: none;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
-        .nav-button.active {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .nav-button:not(.active):hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        main {
-            padding: 24px 0;
-        }
-
-        .grid {
-            display: grid;
-            gap: 24px;
-        }
-
-        .grid-cols-1 {
-            grid-template-columns: 1fr;
-        }
-
-        .grid-cols-2 {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .grid-cols-3 {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .grid-cols-4 {
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            padding: 24px;
-            border: 1px solid #e2e8f0;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .flex {
-            display: flex;
-        }
-
-        .items-center {
-            align-items: center;
-        }
-
-        .justify-between {
-            justify-content: space-between;
-        }
-
-        .justify-end {
-            justify-content: flex-end;
-        }
-
-        .justify-center {
-            justify-content: center;
-        }
-
-        .space-x-2 > * + * {
-            margin-left: 8px;
-        }
-
-        .space-x-3 > * + * {
-            margin-left: 12px;
-        }
-
-        .space-x-4 > * + * {
-            margin-left: 16px;
-        }
-
-        .space-y-2 > * + * {
-            margin-top: 8px;
-        }
-
-        .space-y-3 > * + * {
-            margin-top: 12px;
-        }
-
-        .space-y-4 > * + * {
-            margin-top: 16px;
-        }
-
-        .space-y-6 > * + * {
-            margin-top: 24px;
-        }
-
-        .text-gray-600 {
-            color: #71717a;
-        }
-
-        .text-green-600 {
-            color: #16a34a;
-        }
-
-        .text-red-600 {
-            color: #dc2626;
-        }
-
-        .text-blue-500 {
-            color: #3b82f6;
-        }
-
-        .text-purple-500 {
-            color: #a855f7;
-        }
-
-        .text-orange-600 {
-            color: #ea580c;
-        }
-
-        .text-yellow-500 {
-            color: #eab308;
-        }
-
-        .text-gray-500 {
-            color: #a1a1aa;
-        }
-
-        .text-gray-400 {
-            color: #d4d4d8;
-        }
-
-        .text-gray-700 {
-            color: #52525b;
-        }
-
-        .text-gray-800 {
-            color: #27272a;
-        }
-
-        .text-white {
-            color: white;
-        }
-
-        .bg-white {
-            background: white;
-        }
-
-        .bg-purple-600 {
-            background: #7c3aed;
-        }
-
-        .bg-purple-100 {
-            background: #f3e8ff;
-        }
-
-        .bg-green-100 {
-            background: #dcfce7;
-        }
-
-        .bg-red-100 {
-            background: #fee2e2;
-        }
-
-        .bg-blue-100 {
-            background: #dbeafe;
-        }
-
-        .bg-yellow-100 {
-            background: #fef9c3;
-        }
-
-        .bg-gray-50 {
-            background: #fafafa;
-        }
-
-        .bg-gray-100 {
-            background: #f4f4f5;
-        }
-
-        .bg-gray-200 {
-            background: #e4e4e7;
-        }
-
-        .bg-purple-50 {
-            background: #f5f3ff;
-        }
-
-        .bg-red-500 {
-            background: #ef4444;
-        }
-
-        .bg-green-500 {
-            background: #16a34a;
-        }
-
-        .bg-blue-500 {
-            background: #3b82f6;
-        }
-
-        .bg-pink-500 {
-            background: #ec4899;
-        }
-
-        .bg-yellow-500 {
-            background: #eab308;
-        }
-
-        .bg-purple-500 {
-            background: #a855f7;
-        }
-
-        .bg-indigo-500 {
-            background: #6366f1;
-        }
-
-        .bg-teal-500 {
-            background: #14b8a6;
-        }
-
-        .rounded {
-            border-radius: 6px;
-        }
-
-        .rounded-lg {
-            border-radius: 8px;
-        }
-
-        .rounded-full {
-            border-radius: 9999px;
-        }
-
-        .rounded-xl {
-            border-radius: 12px;
-        }
-
-        .p-2 {
-            padding: 8px;
-        }
-
-        .p-3 {
-            padding: 12px;
-        }
-
-        .p-4 {
-            padding: 16px;
-        }
-
-        .p-6 {
-            padding: 24px;
-        }
-
-        .px-3 {
-            padding-left: 12px;
-            padding-right: 12px;
-        }
-
-        .px-4 {
-            padding-left: 16px;
-            padding-right: 16px;
-        }
-
-        .px-6 {
-            padding-left: 24px;
-            padding-right: 24px;
-        }
-
-        .py-2 {
-            padding-top: 8px;
-            padding-bottom: 8px;
-        }
-
-        .py-3 {
-            padding-top: 12px;
-            padding-bottom: 12px;
-        }
-
-        .py-4 {
-            padding-top: 16px;
-            padding-bottom: 16px;
-        }
-
-        .mb-2 {
-            margin-bottom: 8px;
-        }
-
-        .mb-3 {
-            margin-bottom: 12px;
-        }
-
-        .mb-4 {
-            margin-bottom: 16px;
-        }
-
-        .mb-6 {
-            margin-bottom: 24px;
-        }
-
-        .mt-2 {
-            margin-top: 8px;
-        }
-
-        .mt-3 {
-            margin-top: 12px;
-        }
-
-        .mt-4 {
-            margin-top: 16px;
-        }
-
-        .ml-2 {
-            margin-left: 8px;
-        }
-
-        .font-bold {
-            font-weight: 700;
-        }
-
-        .font-semibold {
-            font-weight: 600;
-        }
-
-        .font-medium {
-            font-weight: 500;
-        }
-
-        .text-xl {
-            font-size: 1.25rem;
-            line-height: 1.75rem;
-        }
-
-        .text-lg {
-            font-size: 1.125rem;
-            line-height: 1.75rem;
-        }
-
-        .text-base {
-            font-size: 1rem;
-            line-height: 1.5rem;
-        }
-
-        .text-sm {
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-        }
-
-        .text-xs {
-            font-size: 0.75rem;
-            line-height: 1rem;
-        }
-
-        .w-full {
-            width: 100%;
-        }
-
-        .h-2 {
-            height: 0.5rem;
-        }
-
-        .h-3 {
-            height: 0.75rem;
-        }
-
-        .h-4 {
-            height: 1rem;
-        }
-
-        .w-3 {
-            width: 0.75rem;
-        }
-
-        .w-4 {
-            width: 1rem;
-        }
-
-        .border {
-            border: 1px solid;
-        }
-
-        .border-b {
-            border-bottom: 1px solid;
-        }
-
-        .border-gray-100 {
-            border-color: #f1f5f9;
-        }
-
-        .border-gray-200 {
-            border-color: #e2e8f0;
-        }
-
-        .border-gray-300 {
-            border-color: #cbd5e1;
-        }
-
-        .border-transparent {
-            border-color: transparent;
-        }
-
-        .border-green-500 {
-            border-color: #16a34a;
-        }
-
-        .border-red-500 {
-            border-color: #dc2626;
-        }
-
-        .cursor-pointer {
-            cursor: pointer;
-        }
-
-        .transition-all {
-            transition-property: all;
-            transition-duration: 0.2s;
-        }
-
-        .transition-colors {
-            transition-property: background-color, border-color, color;
-            transition-duration: 0.2s;
-        }
-
-        .shadow-sm {
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        .shadow {
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .relative {
-            position: relative;
-        }
-
-        .absolute {
-            position: absolute;
-        }
-
-        .z-10 {
-            z-index: 10;
-        }
-
-        .z-50 {
-            z-index: 50;
-        }
-
-        .sticky {
-            position: sticky;
-        }
-
-        .top-0 {
-            top: 0;
-        }
-
-        .overflow-x-auto {
-            overflow-x: auto;
-        }
-
-        .overflow-y-auto {
-            overflow-y: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .truncate {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .line-through {
-            text-decoration: line-through;
-        }
-
-        input, select, textarea {
-            font-family: inherit;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            margin: 0;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 8px 12px;
-            transition: all 0.2s;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #7c3aed;
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-        }
-
-        button {
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-family: inherit;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            margin: 0;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
-            color: white;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-weight: 500;
-            transition: all 0.2s;
-            border: none;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #6d28d9 0%, #4338ca 100%);
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: #f1f5f9;
-            color: #475569;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-weight: 500;
-            transition: all 0.2s;
-            border: none;
-        }
-
-        .btn-secondary:hover {
-            background: #e2e8f0;
-        }
-
-        .btn-danger {
-            background: #fee2e2;
-            color: #dc2626;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-weight: 500;
-            transition: all 0.2s;
-            border: none;
-        }
-
-        .btn-danger:hover {
-            background: #fecaca;
-        }
-
-        /* Auth styles */
-        .auth-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            max-width: 450px;
-            width: 90%;
-            padding: 32px;
-            text-align: center;
-        }
-
-        .auth-header {
-            margin-bottom: 32px;
-        }
-
-        .auth-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-
-        .auth-header p {
-            color: #64748b;
-            font-size: 1rem;
-        }
-
-        .mode-toggle {
-            display: flex;
-            background: #f1f5f9;
-            border-radius: 8px;
-            padding: 4px;
-            margin-bottom: 24px;
-            position: relative;
-        }
-
-        .mode-toggle-slider {
-            position: absolute;
-            background: white;
-            border-radius: 6px;
-            height: calc(100% - 8px);
-            transition: left 0.3s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .mode-toggle-btn {
-            flex: 1;
-            padding: 12px;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            z-index: 2;
-            transition: color 0.2s;
-        }
-
-        .mode-toggle-btn.active {
-            color: #7c3aed;
-        }
-
-        .mode-toggle-btn:not(.active) {
-            color: #64748b;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #334155;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.2s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #7c3aed;
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-        }
-
-        .form-input.error {
-            border-color: #ef4444;
-        }
-
-        .btn-auth {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(124, 58, 237, 0.1);
-        }
-
-        .btn-auth:hover {
-            background: linear-gradient(135deg, #6d28d9 0%, #4338ca 100%);
-            box-shadow: 0 6px 8px rgba(124, 58, 237, 0.2);
-            transform: translateY(-1px);
-        }
-
-        .auth-features {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-top: 32px;
-        }
-
-        .feature-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            background: #f1f5f9;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 8px;
-            color: #7c3aed;
-            font-size: 1.25rem;
-        }
-
-        .feature-text {
-            font-size: 0.875rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .error-message {
-            color: #ef4444;
-            background: #fee2e2;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .success-message {
-            color: #16a34a;
-            background: #dcfce7;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            padding: 24px;
-            color: #7c3aed;
-        }
-
-        .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid rgba(124, 58, 237, 0.2);
-            border-top: 3px solid #7c3aed;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Calendar styles */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background-color: #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .calendar-header-cell {
-            background-color: #f8fafc;
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: #64748b;
-        }
-
-        .calendar-day-cell {
-            background-color: white;
-            min-height: 100px;
-            padding: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border: 1px solid #f1f5f9;
-        }
-
-        .calendar-day-cell:hover {
-            background-color: #f8f9ff;
-        }
-
-        .calendar-day-cell.other-month {
-            background-color: #f8fafc;
-            color: #94a3b8;
-        }
-
-        .calendar-day-number {
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 4px;
-        }
-
-        .calendar-events-container {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .calendar-event-item {
-            font-size: 0.75rem;
-            padding: 2px 4px;
-            border-radius: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: white;
-            font-weight: 500;
-        }
-
-        .calendar-navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .calendar-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .calendar-nav-button {
-            background-color: #f1f5f9;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .calendar-nav-button:hover {
-            background-color: #e2e8f0;
-        }
-
-        .calendar-today-button {
-            background-color: #7c3aed;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-            margin: 0 auto;
-        }
-
-        .calendar-today-button:hover {
-            background-color: #6d28d9;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .selected-day {
-            background-color: #e0e7ff !important;
-            border: 2px solid #4f46e5;
-        }
-
-        /* Week calendar styles */
-        .week-calendar {
-            display: grid;
-            grid-template-columns: 60px repeat(7, 1fr);
-            gap: 1px;
-            background-color: #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .week-time-column {
-            background-color: #f8fafc;
-            padding: 4px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
-        .week-hour-cell {
-            background-color: white;
-            min-height: 40px;
-            padding: 2px;
-            border: 1px solid #f1f5f9;
-        }
-
-        .week-hour-cell.selected {
-            background-color: #e0e7ff;
-        }
-
-        /* Color picker */
-        .color-picker {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .color-option {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-
-        .color-option:hover {
-            transform: scale(1.1);
-        }
-
-        .color-option.selected {
-            border-color: #000;
-            transform: scale(1.1);
-        }
-
-        /* Participant chips */
-        .participant-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .participant-chip {
-            background: #e0e7ff;
-            color: #4f46e5;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-        }
-
-        .participant-chip.selected {
-            background: #7c3aed;
-            color: white;
-        }
-
-        .participant-chip .remove-participant {
-            cursor: pointer;
-            font-size: 0.7rem;
-        }
-
-        /* Template item */
-        .template-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .template-item:hover {
-            background: #f8fafc;
-        }
-
-        .template-item-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .template-item-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* Collapsible */
-        .collapsible-header {
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px;
-            background: #f8fafc;
-            border-radius: 8px;
-            margin-bottom: 16px;
-        }
-
-        .collapsible-content {
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-
-        .collapsible-content.collapsed {
-            max-height: 0;
-        }
-
-        .collapsible-content.expanded {
-            max-height: 1000px;
-        }
-
-        /* Categories */
-        .categories-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 16px;
-        }
-
-        .category-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.95rem;
-        }
-
-        .category-item.active {
-            background: #7c3aed;
-            color: white;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-        }
-
-        .category-item:hover:not(.active) {
-            background: #e2e8f0;
-        }
-
-        /* File upload */
-        .file-upload {
-            border: 2px dashed #cbd5e1;
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #f8fafc;
-        }
-
-        .file-upload:hover {
-            border-color: #7c3aed;
-            background: #f0f4ff;
-        }
-
-        .file-upload i {
-            font-size: 2rem;
-            color: #7c3aed;
-            margin-bottom: 16px;
-        }
-
-        .file-upload p {
-            margin-bottom: 16px;
-            color: #64748b;
-        }
-
-        .file-upload input[type="file"] {
-            display: none;
-        }
-
-        /* Shopping list two columns */
-        .shopping-list-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-
-        .shopping-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: white;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .shopping-item:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .shopping-item-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .shopping-item-checkbox {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #cbd5e1;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .shopping-item-checkbox.checked {
-            background: #16a34a;
-            border-color: #16a34a;
-        }
-
-        .shopping-item-checkbox.checked i {
-            color: white;
-            font-size: 12px;
-        }
-
-        .shopping-item-text {
-            font-size: 0.95rem;
-        }
-
-        .shopping-item-text.completed {
-            text-decoration: line-through;
-            color: #94a3b8;
-        }
-
-        .shopping-item-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .shopping-item-edit {
-            color: #7c3aed;
-            cursor: pointer;
-        }
-
-        .shopping-item-delete {
-            color: #ef4444;
-            cursor: pointer;
-        }
-
-        .shopping-item-input {
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 0.95rem;
-            width: 100%;
-        }
-
-        /* Participants */
-        .participants-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .participant-tag {
-            background: #e0e7ff;
-            color: #4f46e5;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .participant-tag .remove-participant {
-            cursor: pointer;
-            font-size: 0.7rem;
-        }
-
-        .add-participant-input {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 24px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .modal-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #94a3b8;
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        .modal-footer {
-            padding: 20px 24px;
-            border-top: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        /* Preview table */
-        .preview-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        .preview-table th,
-        .preview-table td {
-            padding: 8px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .preview-table th {
-            background-color: #f8fafc;
-            font-weight: 600;
-        }
-
-        /* Event item alignment */
-        .event-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-        }
-
-        .event-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .event-color-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .event-info {
-            flex: 1;
-        }
-
-        .event-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        /* Template chip */
-        .template-chip {
-            background: #e0e7ff;
-            color: #4f46e5;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-        }
-
-        /* Toggle switch */
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: #7c3aed;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .tab-setting-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-        }
-
-        /* Template chips */
-        .template-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .template-chip-item {
-            background: #e0e7ff;
-            color: #4f46e5;
-            padding: 6px 12px;
-            border-radius: 16px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .template-chip-item:hover {
-            background: #c7d2fe;
-            transform: translateY(-1px);
-        }
-
-        /* Participant creation */
-        .participant-creation {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-            align-items: center;
-        }
-
-        .color-preview {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 2px solid #e2e8f0;
-        }
-
-        /* Color picker grid */
-        .color-picker-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .color-picker-item {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .color-picker-item:hover {
-            transform: scale(1.1);
-        }
-
-        .color-picker-item.selected {
-            border-color: #000;
-            transform: scale(1.1);
-        }
-
-        /* Fixed expense item */
-        .fixed-expense-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-        }
-
-        .fixed-expense-name {
-            flex: 1;
-        }
-
-        .fixed-expense-amount {
-            font-weight: bold;
-            margin-right: 16px;
-        }
-
-        .fixed-expense-delete {
-            color: #ef4444;
-            cursor: pointer;
-        }
-
-        /* Participant color selector */
-        .participant-color-selector {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .color-option-small {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-
-        .color-option-small.selected {
-            border-color: #000;
-        }
-
-        /* Confirmation modal */
-        .confirmation-modal {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            max-width: 400px;
-            width: 90%;
-            padding: 24px;
-            text-align: center;
-        }
-
-        .confirmation-modal h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 16px;
-        }
-
-        .confirmation-modal p {
-            color: #64748b;
-            margin-bottom: 24px;
-        }
-
-        .confirmation-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-        }
-
-        /* Mobile responsive */
-        @media (max-width: 768px) {
-            .app-container {
-                padding: 0 12px;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 16px;
-                padding: 16px 0;
-            }
-            
-            .logo {
-                font-size: 1.25rem;
-            }
-            
-            nav {
-                width: 100%;
-                justify-content: center;
-                flex-wrap: wrap;
-                gap: 6px;
-            }
-            
-            .nav-button {
-                padding: 8px 12px;
-                font-size: 0.875rem;
-            }
-            
-            main {
-                padding: 16px 0;
-            }
-            
-            .card {
-                padding: 16px;
-                border-radius: 12px;
-            }
-            
-            .grid {
-                gap: 16px;
-            }
-            
-            .grid-cols-2 {
-                grid-template-columns: 1fr;
-            }
-            
-            .grid-cols-3 {
-                grid-template-columns: 1fr;
-            }
-            
-            .grid-cols-4 {
-                grid-template-columns: 1fr;
-            }
-            
-            .calendar-day-cell {
-                min-height: 80px;
-                padding: 6px;
-            }
-            
-            .calendar-header-cell {
-                padding: 8px 4px;
-                font-size: 0.75rem;
-            }
-            
-            .calendar-navigation {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 12px;
-            }
-            
-            .calendar-navigation > div:first-child {
-                order: 1;
-            }
-            
-            .calendar-navigation > div:last-child {
-                order: 2;
-                display: flex;
-                justify-content: center;
-            }
-            
-            .calendar-navigation > div:nth-child(2) {
-                order: 3;
-                display: flex;
-                justify-content: center;
-                gap: 8px;
-            }
-            
-            /* Shopping list two columns on mobile */
-            .shopping-list-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .auth-container {
-                padding: 24px;
-            }
-            
-            .auth-features {
-                grid-template-columns: 1fr;
-                gap: 12px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .app-container {
-                padding: 0 8px;
-            }
-            
-            .header-content {
-                padding: 12px 0;
-            }
-            
-            nav {
-                gap: 4px;
-            }
-            
-            .nav-button {
-                padding: 6px 10px;
-                font-size: 0.75rem;
-            }
-            
-            .card {
-                padding: 12px;
-            }
-            
-            .calendar-day-cell {
-                min-height: 60px;
-                padding: 4px;
-            }
-            
-            .calendar-event-item {
-                font-size: 0.625rem;
-                padding: 1px 2px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Семейный бюджет</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-light: #bfdbfe;
+      --secondary: #10b981;
+      --accent: #8b5cf6;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --radius: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.25rem;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #f8fafc;
+      color: var(--gray-800);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+    
+    /* Auth modal styles */
+    .auth-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: var(--transition);
+    }
+    
+    .auth-modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .auth-card {
+      background: white;
+      border-radius: var(--radius-xl);
+      width: 90%;
+      max-width: 450px;
+      padding: 2rem;
+      box-shadow: var(--shadow-xl);
+      text-align: center;
+      transform: scale(0.9);
+      transition: var(--transition);
+    }
+    
+    .auth-modal.active .auth-card {
+      transform: scale(1);
+    }
+    
+    .auth-logo {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+    
+    .auth-title {
+      font-weight: 700;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--gray-900);
+    }
+    
+    .auth-subtitle {
+      color: var(--gray-500);
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1.25rem;
+      text-align: left;
+    }
+    
+    .form-label {
+      display: block;
+      font-weight: 500;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+      color: var(--gray-700);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      transition: var(--transition);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    
+    .auth-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+    }
+    
+    .auth-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(59, 130, 246, 0.4);
+    }
+    
+    .auth-btn:active {
+      transform: translateY(0);
+    }
+    
+    .auth-separator {
+      margin: 1.5rem 0;
+      display: flex;
+      align-items: center;
+      text-align: center;
+    }
+    
+    .auth-separator::before,
+    .auth-separator::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--gray-300);
+    }
+    
+    .auth-separator span {
+      padding: 0 1rem;
+      color: var(--gray-500);
+      font-size: 0.875rem;
+    }
+    
+    /* Header styles */
+    header {
+      background-color: white;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      animation: slideDown 0.4s ease;
+    }
+    
+    @keyframes slideDown {
+      from { transform: translateY(-100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .logo-icon {
+      background-color: var(--primary);
+      color: white;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+      animation: bounce 1s infinite alternate;
+    }
+    
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-4px); }
+    }
+    
+    .logo-text {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--gray-900);
+    }
+    
+    .nav-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--gray-200);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    
+    .nav-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .tab {
+      padding: 0.75rem 1.25rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--gray-500);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      transition: var(--transition);
+      position: relative;
+    }
+    
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--primary);
+      animation: expand 0.3s ease;
+    }
+    
+    @keyframes expand {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    
+    .tab:hover:not(.active) {
+      color: var(--gray-700);
+    }
+    
+    .tab i {
+      font-size: 0.875rem;
+    }
+    
+    .room-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--gray-500);
+      margin-left: 1rem;
+    }
+    
+    .settings-btn {
+      background: none;
+      border: none;
+      color: var(--gray-500);
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-left: 0.5rem;
+    }
+    
+    .settings-btn:hover {
+      background-color: var(--gray-100);
+      color: var(--gray-700);
+      transform: rotate(90deg);
+    }
+    
+    /* Main content styles */
+    main {
+      padding: 1.5rem 0;
+      animation: slideUp 0.5s ease;
+    }
+    
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .section-title {
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin-bottom: 1.25rem;
+      color: var(--gray-900);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: fadeIn 0.4s ease;
+    }
+    
+    .section-title i {
+      color: var(--primary);
+      transition: transform 0.3s ease;
+    }
+    
+    .section-title:hover i {
+      transform: scale(1.1) rotate(5deg);
+    }
+    
+    /* Dashboard/Summary cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .summary-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+      border: 1px solid var(--gray-200);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(to right, var(--primary), var(--accent));
+      opacity: 0.8;
+    }
+    
+    .summary-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    
+    .summary-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--gray-500);
+      margin-bottom: 0.5rem;
+    }
+    
+    .summary-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    
+    .summary-value.positive {
+      color: var(--success);
+    }
+    
+    .summary-value.negative {
+      color: var(--danger);
+    }
+    
+    .summary-value.warning {
+      color: var(--warning);
+    }
+    
+    /* File upload styling */
+    .file-upload-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .file-upload-btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .file-upload-btn:hover {
+      background-color: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+    
+    .file-upload-label {
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      background-color: var(--gray-100);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .file-upload-label:hover {
+      background-color: var(--gray-200);
+    }
+    
+    .file-upload-input {
+      display: none;
+    }
+    
+    /* Table styles */
+    .card {
+      background: white;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+    
+    .card:hover {
+      box-shadow: var(--shadow-md);
+    }
+    
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .card-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .search-container {
+      position: relative;
+      width: 100%;
+      max-width: 20rem;
+    }
+    
+    .search-icon {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      font-size: 0.875rem;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem 0.5rem 2rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      transition: var(--transition);
+    }
+    
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+      border: none;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb, #7e3af2);
+    }
+    
+    .btn-secondary {
+      background-color: var(--gray-100);
+      color: var(--gray-700);
+    }
+    
+    .btn-secondary:hover {
+      background-color: var(--gray-200);
+    }
+    
+    .btn-success {
+      background-color: var(--secondary);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background-color: #0da271;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    thead {
+      background-color: var(--gray-50);
+    }
+    
+    th {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    
+    td {
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    
+    tr:hover {
+      background-color: var(--gray-50);
+    }
+    
+    .tag {
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .tag-income {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+    
+    .tag-expense {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .text-income {
+      color: var(--success);
+    }
+    
+    .text-expense {
+      color: var(--danger);
+    }
+    
+    /* Modals */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: var(--transition);
+    }
+    
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: var(--radius-xl);
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-xl);
+      transform: translateY(20px);
+      transition: var(--transition);
+    }
+    
+    .modal.active .modal-content {
+      transform: translateY(0);
+    }
+    
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-title {
+      font-weight: 700;
+      font-size: 1.25rem;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--gray-500);
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .modal-close:hover {
+      color: var(--gray-700);
+      background-color: var(--gray-100);
+    }
+    
+    .modal-body {
+      padding: 1.5rem;
+    }
+    
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+    
+    /* Settings modal specific styles */
+    .settings-modal .modal-content {
+      max-width: 800px;
+    }
+    
+    .settings-section {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .settings-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .settings-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      cursor: pointer;
+    }
+    
+    .accordion-title {
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    
+    .accordion-icon {
+      transition: transform 0.2s;
+    }
+    
+    .accordion-icon.open {
+      transform: rotate(180deg);
+    }
+    
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    
+    .accordion-content.open {
+      max-height: 500px;
+    }
+    
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    
+    @media (min-width: 768px) {
+      .settings-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    
+    .settings-item {
+      margin-bottom: 1rem;
+    }
+    
+    /* Animation for notifications */
+    .notification {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 1rem 1.5rem;
+      border-radius: var(--radius-lg);
+      color: white;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(400px);
+      transition: transform 0.3s ease-out;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .notification.show {
+      transform: translateX(0);
+    }
+    
+    .notification.success {
+      background-color: var(--success);
+    }
+    
+    .notification.error {
+      background-color: var(--danger);
+    }
+    
+    .notification.warning {
+      background-color: var(--warning);
+      color: var(--gray-800);
+    }
+    
+    .notification.info {
+      background-color: var(--primary);
+    }
+    
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #f8fafc;
+    }
+    
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid rgba(59, 130, 246, 0.2);
+      border-radius: 50%;
+      border-top-color: #3b82f6;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      margin-top: 1rem;
+      font-size: 1.125rem;
+      font-weight: 500;
+      color: var(--gray-600);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--gray-500);
+    }
+    
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      color: var(--gray-300);
+    }
+    
+    .empty-title {
+      font-weight: 600;
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--gray-700);
+    }
+    
+    .empty-description {
+      color: var(--gray-500);
+      margin-bottom: 1.5rem;
+    }
+    
+    .empty-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background-color: var(--primary);
+      color: white;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .empty-action:hover {
+      background-color: #2563eb;
+    }
+    
+    .preview-table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+    }
+    
+    .preview-table th {
+      background-color: var(--gray-50);
+    }
+    
+    .preview-table td, .preview-table th {
+      padding: 0.5rem;
+      border: 1px solid var(--gray-200);
+      font-size: 0.875rem;
+    }
+    
+    /* Progress bar */
+    .progress-container {
+      width: 100%;
+      height: 4px;
+      background-color: var(--gray-200);
+      border-radius: 2px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background-color: var(--primary);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      
+      .nav-tabs {
+        width: 100%;
+      }
+      
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .action-buttons {
+        width: 100%;
+        flex-direction: column;
+      }
+      
+      .modal-content {
+        width: 95%;
+        max-width: 95%;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <!-- Auth Modal -->
+  <div class="auth-modal" id="auth-modal">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <i class="fas fa-home"></i>
+      </div>
+      <h2 class="auth-title">Семейный бюджет</h2>
+      <p class="auth-subtitle">Войдите в свою комнату или создайте новую</p>
+      
+      <div class="form-group">
+        <label class="form-label" for="room-name">Название комнаты</label>
+        <input type="text" id="room-name" class="form-input" placeholder="Например: Семья Ивановых" required>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="room-password">Пароль</label>
+        <input type="password" id="room-password" class="form-input" placeholder="Введите пароль" required>
+      </div>
+      
+      <button class="auth-btn" id="login-btn">
+        <i class="fas fa-door-open"></i> Войти в комнату
+      </button>
+      
+      <div class="auth-separator">
+        <span>или</span>
+      </div>
+      
+      <button class="auth-btn" style="background: linear-gradient(135deg, var(--secondary), #0da271);" id="create-room-btn">
+        <i class="fas fa-plus-circle"></i> Создать новую комнату
+      </button>
+    </div>
+  </div>
 
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyB5C3tMzDj7KJQZrOu6q1vW8N9x0a2b3c4",
-            authDomain: "family-budget-app.firebaseapp.com",
-            projectId: "family-budget-app",
-            storageBucket: "family-budget-app.appspot.com",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:abcdef1234567890abcdef",
-            databaseURL: "https://family-budget-app-default-rtdb.firebaseio.com/"
-        };
+  <header>
+    <div class="container header-container">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fas fa-home"></i>
+        </div>
+        <div class="logo-text">Семейный бюджет</div>
+      </div>
+      <div class="room-info">
+        <i class="fas fa-door-open"></i>
+        <span id="current-room">Комната не выбрана</span>
+      </div>
+      <button class="settings-btn" id="settings-btn">
+        <i class="fas fa-cog"></i>
+      </button>
+    </div>
+    <div class="container">
+      <div class="nav-tabs">
+        <div class="tab active" data-tab="budget">
+          <i class="fas fa-home"></i> Бюджет
+        </div>
+        <div class="tab" data-tab="shopping">
+          <i class="fas fa-shopping-cart"></i> Список покупок
+        </div>
+        <div class="tab" data-tab="planner">
+          <i class="fas fa-calendar-alt"></i> Планировщик
+        </div>
+      </div>
+    </div>
+  </header>
 
-        // Initialize Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+  <main class="container">
+    <!-- Budget Tab -->
+    <div class="tab-content active" id="budget-tab">
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-title">Текущий баланс</div>
+          <div class="summary-value positive" id="current-balance">0 ₽</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-title">Накопления</div>
+          <div class="summary-value warning" id="savings">0 ₽</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-title">Можно тратить в день</div>
+          <div class="summary-value" id="daily-spend">0 ₽</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-title">Обязательные траты</div>
+          <div class="summary-value negative" id="mandatory-expenses">0 ₽</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-history"></i> История операций
+          </div>
+          <div class="action-buttons">
+            <div class="search-container">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" class="search-input" id="transaction-search" placeholder="Поиск операций...">
+            </div>
+            <div class="file-upload-container">
+              <label class="file-upload-label" for="file-upload">
+                <i class="fas fa-file-excel"></i> Загрузить выписку
+              </label>
+              <input type="file" id="file-upload" class="file-upload-input" accept=".xlsx, .xls">
+            </div>
+            <button class="btn btn-secondary" id="all-time-btn">
+              <i class="fas fa-clock"></i> За всё время
+            </button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Категория</th>
+                <th>Описание</th>
+                <th>Сумма</th>
+                <th>Баланс</th>
+              </tr>
+            </thead>
+            <tbody id="transactions-table">
+              <tr>
+                <td colspan="5" class="empty-state">
+                  <div class="empty-icon">
+                    <i class="fas fa-search-dollar"></i>
+                  </div>
+                  <div class="empty-title">Нет операций</div>
+                  <div class="empty-description">Добавьте первую операцию или загрузите выписку из банка</div>
+                  <button class="empty-action" id="add-first-transaction">
+                    <i class="fas fa-plus"></i> Добавить операцию
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-chart-pie"></i> Категории
+          </div>
+        </div>
+        <div class="categories-list" id="categories-list">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="empty-title">Нет данных о категориях</div>
+            <div class="empty-description">Добавьте операции для отображения категорий расходов</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shopping Tab -->
+    <div class="tab-content" id="shopping-tab">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i class="fas fa-shopping-basket"></i>
+        </div>
+        <div class="empty-title">Список покупок</div>
+        <div class="empty-description">Функционал списка покупок будет доступен после входа в комнату</div>
+        <button class="empty-action" style="background: linear-gradient(135deg, var(--primary), var(--accent));">
+          <i class="fas fa-plus"></i> Добавить товар
+        </button>
+      </div>
+    </div>
+
+    <!-- Planner Tab -->
+    <div class="tab-content" id="planner-tab">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i class="fas fa-calendar-alt"></i>
+        </div>
+        <div class="empty-title">Планировщик событий</div>
+        <div class="empty-description">Функционал планировщика будет доступен после входа в комнату</div>
+        <button class="empty-action" style="background: linear-gradient(135deg, var(--primary), var(--accent));">
+          <i class="fas fa-plus"></i> Создать событие
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal settings-modal" id="settings-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Настройки</div>
+        <button class="modal-close" id="close-settings">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-title">
+            <i class="fas fa-wallet"></i> Бюджет
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label class="form-label">Начальный остаток</label>
+              <input type="number" class="form-input" id="initial-balance" placeholder="Введите остаток на начало периода" value="0">
+            </div>
+            <div class="settings-item">
+              <label class="form-label">Процент для откладывания</label>
+              <input type="number" class="form-input" id="savings-percentage" placeholder="Например: 10" value="" min="0" max="100">
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-title">
+            <i class="fas fa-cog"></i> Парсер выписок
+          </div>
+          <div class="settings-item">
+            <label class="form-label">Настройки парсера</label>
+            <p class="form-input" style="background-color: var(--gray-100); padding: 1rem; border-radius: 0.5rem;">
+              Парсер настроен для обработки выписок Альфа-Банка<br>
+              Поддерживаемые форматы: .xlsx, .xls<br>
+              <small class="text-gray-500">Автоматическое определение категорий и проверка дубликатов</small>
+            </p>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-title">
+            <i class="fas fa-shopping-cart"></i> Список покупок
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label class="form-label">ID Telegram бота</label>
+              <input type="text" class="form-input" id="telegram-bot-id" placeholder="123456789:ABCdefGhiJKLmnoPQRstuVWXyz">
+            </div>
+            <div class="settings-item">
+              <label class="form-label">ID Telegram чата</label>
+              <input type="text" class="form-input" id="telegram-chat-id" placeholder="-1001234567890">
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-title">
+            <i class="fas fa-calendar-alt"></i> Планировщик
+          </div>
+          <div class="settings-item">
+            <label class="form-label">Участники семьи</label>
+            <div id="participants-list" style="margin-top: 1rem;">
+              <div class="empty-state" style="padding: 1rem;">
+                <p class="empty-description">Нет участников</p>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top: 1rem;" id="add-participant">
+              <i class="fas fa-plus"></i> Добавить участника
+            </button>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-title">
+            <i class="fas fa-door-open"></i> Комнаты
+          </div>
+          <div class="settings-item">
+            <label class="form-label">Текущая комната</label>
+            <div class="form-input" style="background-color: var(--gray-100); padding: 1rem; border-radius: 0.5rem;" id="current-room-settings">
+              Не выбрана
+            </div>
+          </div>
+          <div class="settings-item">
+            <button class="btn btn-danger" id="logout-btn" style="width: 100%;">
+              <i class="fas fa-sign-out-alt"></i> Выйти из комнаты
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-settings">Отмена</button>
+        <button class="btn btn-primary" id="save-settings">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction Modal -->
+  <div class="modal" id="transaction-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Новая операция</div>
+        <button class="modal-close" id="close-transaction">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Тип операции</label>
+          <select class="form-input form-select" id="transaction-type">
+            <option value="expense">Расход</option>
+            <option value="income">Приход</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сумма</label>
+          <input type="number" class="form-input" id="transaction-amount" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Категория</label>
+          <input type="text" class="form-input" list="categories-dictionary" id="transaction-category" placeholder="Выберите или создайте категорию" required>
+          <datalist id="categories-dictionary">
+            <option value="Продукты">
+            <option value="Транспорт">
+            <option value="Жилье">
+            <option value="Аренда">
+            <option value="Квартплата">
+            <option value="Развлечения">
+            <option value="Кафе">
+            <option value="Одежда">
+            <option value="Здоровье">
+            <option value="Образование">
+            <option value="Зарплата">
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Описание</label>
+          <input type="text" class="form-input" id="transaction-description" placeholder="Необязательное описание">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дата</label>
+          <input type="date" class="form-input" id="transaction-date" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-transaction">Отмена</button>
+        <button class="btn btn-primary" id="save-transaction">Добавить операцию</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Preview Modal -->
+  <div class="modal" id="import-modal">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fas fa-file-import"></i> Предпросмотр выписки
+        </div>
+        <button class="modal-close" id="close-import">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div class="file-name" style="display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-file-excel"></i>
+            <span id="preview-file-name">Файл не выбран</span>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar" id="import-progress"></div>
+          </div>
+        </div>
+        
+        <div id="import-error" class="notification error" style="display: none; margin-bottom: 1rem;">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="error-message">Ошибка при загрузке файла</span>
+        </div>
+        
+        <div class="table-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem;">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Описание</th>
+                <th>Сумма</th>
+                <th>Категория</th>
+              </tr>
+            </thead>
+            <tbody id="import-preview">
+              <tr>
+                <td colspan="4" class="text-center py-8 text-gray-500">Нет данных для отображения</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="text-align: center; padding: 1rem; background-color: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+            <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;" id="total-transactions">0</div>
+            <div style="color: var(--gray-600); font-size: 0.875rem;">Всего операций</div>
+          </div>
+          <div style="text-align: center; padding: 1rem; background-color: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+            <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--success);" id="total-income">0 ₽</div>
+            <div style="color: var(--gray-600); font-size: 0.875rem;">Доход</div>
+          </div>
+          <div style="text-align: center; padding: 1rem; background-color: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+            <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--danger);" id="total-expense">0 ₽</div>
+            <div style="color: var(--gray-600); font-size: 0.875rem;">Расход</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-import">
+          <i class="fas fa-times"></i> Отмена
+        </button>
+        <button class="btn btn-success" id="import-transactions">
+          <i class="fas fa-check-circle"></i> Импортировать операции
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <i class="fas fa-bell"></i>
+    <span>Операция успешно добавлена</span>
+  </div>
+
+  <script>
+    // DOM Elements
+    const authModal = document.getElementById('auth-modal');
+    const loginBtn = document.getElementById('login-btn');
+    const createRoomBtn = document.getElementById('create-room-btn');
+    const roomNameInput = document.getElementById('room-name');
+    const roomPasswordInput = document.getElementById('room-password');
+    const currentRoomElement = document.getElementById('current-room');
+    const tabButtons = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettings = document.getElementById('close-settings');
+    const cancelSettings = document.getElementById('cancel-settings');
+    const saveSettings = document.getElementById('save-settings');
+    const logoutBtn = document.getElementById('logout-btn');
+    const transactionModal = document.getElementById('transaction-modal');
+    const closeTransaction = document.getElementById('close-transaction');
+    const cancelTransaction = document.getElementById('cancel-transaction');
+    const saveTransaction = document.getElementById('save-transaction');
+    const addFirstTransaction = document.getElementById('add-first-transaction');
+    const fileUpload = document.getElementById('file-upload');
+    const importModal = document.getElementById('import-modal');
+    const closeImport = document.getElementById('close-import');
+    const cancelImport = document.getElementById('cancel-import');
+    const importTransactionsBtn = document.getElementById('import-transactions');
+    const notification = document.getElementById('notification');
+    const initialBalanceInput = document.getElementById('initial-balance');
+    const savingsPercentageInput = document.getElementById('savings-percentage');
+    const telegramBotIdInput = document.getElementById('telegram-bot-id');
+    const telegramChatIdInput = document.getElementById('telegram-chat-id');
+    const currentRoomSettings = document.getElementById('current-room-settings');
+    const participantsList = document.getElementById('participants-list');
+    const addParticipantBtn = document.getElementById('add-participant');
+    
+    // State variables (in-memory storage)
+    let currentRoomId = null;
+    let currentRoomName = null;
+    let transactions = [];
+    let categories = {};
+    let settings = {
+      initialBalance: 0,
+      savingsPercentage: '',
+      telegramBotId: '',
+      telegramChatId: ''
+    };
+
+    // Application data (stored in memory)
+    const appData = {
+      rooms: {}
+    };
+
+    // Check if we can use localStorage
+    let canUseLocalStorage = true;
+    try {
+      // Test if localStorage is available
+      window.localStorage.setItem('test', 'test');
+      window.localStorage.removeItem('test');
+    } catch (e) {
+      canUseLocalStorage = false;
+      console.warn('localStorage is not available. Using in-memory storage.');
+    }
+
+    // Load data from storage if available
+    function loadData() {
+      if (canUseLocalStorage) {
+        try {
+          const savedData = localStorage.getItem('family-budget-data');
+          if (savedData) {
+            Object.assign(appData, JSON.parse(savedData));
+          }
+        } catch (e) {
+          console.error('Error loading data from localStorage:', e);
         }
+      }
+    }
 
-        // Get Realtime Database reference
-        const db = firebase.database();
-
-        // Simple React component without JSX
-        function FamilyBudgetApp() {
-            const [activeTab, setActiveTab] = React.useState('budget');
-            const [currentRoom, setCurrentRoom] = React.useState(null);
-            const [showRoomModal, setShowRoomModal] = React.useState(true);
-            const [roomMode, setRoomMode] = React.useState('join');
-            const [roomId, setRoomId] = React.useState('');
-            const [roomName, setRoomName] = React.useState('');
-            const [roomPassword, setRoomPassword] = React.useState('');
-            const [roomError, setRoomError] = React.useState('');
-            const [roomSuccess, setRoomSuccess] = React.useState('');
-            const [isLoading, setIsLoading] = React.useState(false);
-            const [showAllTime, setShowAllTime] = React.useState(false);
-            const [user, setUser] = React.useState(null);
-            const [authMode, setAuthMode] = React.useState('login'); // login or register
-            
-            // Tab visibility settings (только для покупок и планировщика)
-            const [tabVisibility, setTabVisibility] = React.useState({
-                shopping: true,
-                planner: true
-            });
-            
-            // Budget states
-            const [transactions, setTransactions] = React.useState([
-                { id: 1, type: 'income', amount: 50000, category: 'Зарплата', date: '2024-01-15', description: 'Зарплата Ивана', balanceAfter: 50000 },
-                { id: 2, type: 'expense', amount: 15000, category: 'Продукты', date: '2024-01-16', description: 'Покупка продуктов', balanceAfter: 35000 },
-                { id: 3, type: 'expense', amount: 8000, category: 'Транспорт', date: '2024-01-17', description: 'Бензин', balanceAfter: 27000 },
-                { id: 4, type: 'expense', amount: 5000, category: 'Продукты', date: '2024-01-18', description: 'Овощи и фрукты', balanceAfter: 22000 },
-                { id: 5, type: 'expense', amount: 3000, category: 'Развлечения', date: '2024-01-19', description: 'Кино', balanceAfter: 19000 }
-            ]);
-            
-            const [initialBalance, setInitialBalance] = React.useState(0);
-            const [newTransaction, setNewTransaction] = React.useState({
-                type: 'expense',
-                amount: '',
-                category: 'Продукты',
-                date: new Date().toISOString().split('T')[0],
-                description: ''
-            });
-            const [searchTerm, setSearchTerm] = React.useState('');
-            const [selectedDate, setSelectedDate] = React.useState(null);
-            const [showAddTransaction, setShowAddTransaction] = React.useState(false);
-            
-            // Shopping list states
-            const [shoppingList, setShoppingList] = React.useState([
-                { id: 1, item: 'Молоко', quantity: 1, unit: 'литр', completed: false },
-                { id: 2, item: 'Хлеб', quantity: 2, unit: 'штука', completed: true },
-                { id: 3, item: 'Яблоки', quantity: 3, unit: 'килограмм', completed: false }
-            ]);
-            
-            const [newItem, setNewItem] = React.useState({ name: '', quantity: '', unit: 'штука' });
-            const [editingItemId, setEditingItemId] = React.useState(null);
-            const [editingItemText, setEditingItemText] = React.useState('');
-            const [editingItemQuantity, setEditingItemQuantity] = React.useState('');
-            const [editingItemUnit, setEditingItemUnit] = React.useState('штука');
-            
-            // Calendar states
-            const [calendarEvents, setCalendarEvents] = React.useState([
-                { 
-                    id: 1, 
-                    title: 'Встреча с клиентом', 
-                    startDate: '2024-01-20', 
-                    startTime: '10:00',
-                    endTime: '11:30',
-                    color: 'bg-blue-500', 
-                    participants: ['Иван'], 
-                    isTemplate: false 
-                },
-                { 
-                    id: 2, 
-                    title: 'Тренировка', 
-                    startDate: '2024-01-21', 
-                    startTime: '18:00',
-                    endTime: '19:30',
-                    color: 'bg-green-500', 
-                    participants: ['Мария'], 
-                    isTemplate: false 
-                }
-            ]);
-            
-            const [newEvent, setNewEvent] = React.useState({
-                title: '',
-                startDate: new Date().toISOString().split('T')[0],
-                startTime: '09:00',
-                endTime: '',
-                color: 'bg-blue-500',
-                participants: [],
-                isTemplate: false
-            });
-            
-            const [editingEvent, setEditingEvent] = React.useState(null);
-            const [showAddEventModal, setShowAddEventModal] = React.useState(false);
-            const [showEditEventModal, setShowEditEventModal] = React.useState(false);
-            const [showCreateTemplateModal, setShowCreateTemplateModal] = React.useState(false);
-            const [currentDate, setCurrentDate] = React.useState(new Date());
-            const [calendarView, setCalendarView] = React.useState('month');
-            const [plannerCalendarView, setPlannerCalendarView] = React.useState('month'); // Separate view for planner
-            
-            // Settings
-            const [savingsPercentage, setSavingsPercentage] = React.useState('');
-            const [showBudgetSettings, setShowBudgetSettings] = React.useState(false);
-            const [showShoppingSettings, setShowShoppingSettings] = React.useState(false);
-            const [showPlannerSettings, setShowPlannerSettings] = React.useState(false);
-            
-            // Day settings
-            const [dayStart, setDayStart] = React.useState('08:00');
-            const [dayEnd, setDayEnd] = React.useState('20:00');
-            
-            // Participants
-            const [participants, setParticipants] = React.useState([
-                { name: 'Иван', color: 'bg-blue-500' },
-                { name: 'Мария', color: 'bg-green-500' },
-                { name: 'Алексей', color: 'bg-purple-500' }
-            ]);
-            const [newParticipant, setNewParticipant] = React.useState('');
-            const [selectedParticipantColor, setSelectedParticipantColor] = React.useState('bg-blue-500');
-            const [showAddParticipantModal, setShowAddParticipantModal] = React.useState(false);
-            
-            // Templates
-            const [templates, setTemplates] = React.useState([
-                { id: 1, name: 'Танцы' },
-                { id: 2, name: 'Врач' },
-                { id: 3, name: 'Тренировка' },
-                { id: 4, name: 'Вокал' }
-            ]);
-            const [newTemplateName, setNewTemplateName] = React.useState('');
-            
-            // Shopping settings
-            const [telegramBotToken, setTelegramBotToken] = React.useState('');
-            const [telegramChatId, setTelegramChatId] = React.useState('');
-            
-            // File upload preview
-            const [previewData, setPreviewData] = React.useState([]);
-            const [showPreviewModal, setShowPreviewModal] = React.useState(false);
-            
-            // Fixed expenses
-            const [fixedExpenses, setFixedExpenses] = React.useState([
-                { id: 1, name: 'Аренда квартиры', amount: 15000, category: 'Жилье' },
-                { id: 2, name: 'Интернет', amount: 500, category: 'Коммунальные услуги' }
-            ]);
-            const [newFixedExpense, setNewFixedExpense] = React.useState({
-                name: '',
-                amount: '',
-                category: 'Продукты'
-            });
-            const [showAddFixedExpenseModal, setShowAddFixedExpenseModal] = React.useState(false);
-            
-            // Confirmation modals
-            const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
-            const [deleteAction, setDeleteAction] = React.useState(null);
-            const [showClearTransactionsConfirmation, setShowClearTransactionsConfirmation] = React.useState(false);
-            
-            // Color options for events
-            const colorOptions = [
-                'bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-yellow-500', 
-                'bg-purple-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
-            ];
-
-            // Check auth state on mount
-            React.useEffect(() => {
-                const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
-                    if (user) {
-                        setUser(user);
-                        setShowRoomModal(false);
-                    } else {
-                        setUser(null);
-                        setShowRoomModal(true);
-                    }
-                });
-                return unsubscribe;
-            }, []);
-
-            const joinRoom = () => {
-                if (!roomId || !roomPassword) {
-                    setRoomError('Пожалуйста, заполните все поля');
-                    return;
-                }
-                
-                try {
-                    setIsLoading(true);
-                    // Имитация входа в комнату
-                    setTimeout(() => {
-                        setRoomSuccess('Вы успешно вошли в комнату!');
-                        setTimeout(() => {
-                            setRoomSuccess('');
-                            setShowRoomModal(false);
-                        }, 2000);
-                    }, 1000);
-                } catch (error) {
-                    setRoomError('Ошибка входа в комнату: ' + error.message);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            const createRoom = () => {
-                if (!roomName || !roomPassword) {
-                    setRoomError('Пожалуйста, заполните все поля');
-                    return;
-                }
-                
-                try {
-                    setIsLoading(true);
-                    // Имитация создания комнаты
-                    setTimeout(() => {
-                        setRoomSuccess('Комната успешно создана!');
-                        setTimeout(() => {
-                            setRoomSuccess('');
-                            setShowRoomModal(false);
-                        }, 2000);
-                    }, 1000);
-                } catch (error) {
-                    setRoomError('Ошибка создания комнаты: ' + error.message);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Shopping functions
-            const addShoppingItem = () => {
-                if (newItem.name.trim() && newItem.quantity) {
-                    const item = {
-                        id: Date.now(),
-                        item: newItem.name,
-                        quantity: parseInt(newItem.quantity),
-                        unit: newItem.unit,
-                        completed: false
-                    };
-                    setShoppingList(prev => [...prev, item]);
-                    setNewItem({ name: '', quantity: '', unit: 'штука' });
-                }
-            };
-
-            const toggleShoppingItem = (id) => {
-                setShoppingList(prev => prev.map(item => 
-                    item.id === id ? { ...item, completed: !item.completed } : item
-                ));
-            };
-
-            const deleteShoppingItem = (id) => {
-                setShoppingList(prev => prev.filter(item => item.id !== id));
-            };
-
-            const startEditingItem = (id, item) => {
-                setEditingItemId(id);
-                setEditingItemText(item.item);
-                setEditingItemQuantity(item.quantity.toString());
-                setEditingItemUnit(item.unit);
-            };
-
-            const saveEditedItem = () => {
-                if (editingItemText.trim() && editingItemQuantity) {
-                    setShoppingList(prev => prev.map(item => 
-                        item.id === editingItemId ? { 
-                            ...item, 
-                            item: editingItemText,
-                            quantity: parseInt(editingItemQuantity),
-                            unit: editingItemUnit
-                        } : item
-                    ));
-                }
-                setEditingItemId(null);
-                setEditingItemText('');
-                setEditingItemQuantity('');
-                setEditingItemUnit('штука');
-            };
-
-            // Calendar functions
-            const addCalendarEvent = () => {
-                if (newEvent.title && newEvent.startTime) {
-                    const event = {
-                        id: Date.now(),
-                        ...newEvent
-                    };
-                    setCalendarEvents(prev => [...prev, event]);
-                    setNewEvent({
-                        title: '',
-                        startDate: new Date().toISOString().split('T')[0],
-                        startTime: '09:00',
-                        endTime: '',
-                        color: 'bg-blue-500',
-                        participants: [],
-                        isTemplate: false
-                    });
-                    setShowAddEventModal(false);
-                }
-            };
-
-            const editCalendarEvent = () => {
-                if (editingEvent && editingEvent.title && editingEvent.startTime) {
-                    setCalendarEvents(prev => prev.map(e => 
-                        e.id === editingEvent.id ? editingEvent : e
-                    ));
-                    setEditingEvent(null);
-                    setShowEditEventModal(false);
-                }
-            };
-
-            const copyCalendarEvent = (event) => {
-                setNewEvent({
-                    ...event,
-                    id: Date.now(),
-                    title: event.title + ' (копия)'
-                });
-                setShowEditEventModal(false);
-                setShowAddEventModal(true);
-            };
-
-            const deleteCalendarEvent = (id) => {
-                setCalendarEvents(prev => prev.filter(event => event.id !== id));
-            };
-
-            const addParticipantToEvent = (eventId, participant) => {
-                setCalendarEvents(prev => prev.map(event => 
-                    event.id === eventId 
-                        ? { ...event, participants: [...event.participants, participant] } 
-                        : event
-                ));
-            };
-
-            const removeParticipantFromEvent = (eventId, participant) => {
-                setCalendarEvents(prev => prev.map(event => 
-                    event.id === eventId 
-                        ? { ...event, participants: event.participants.filter(p => p !== participant) } 
-                        : event
-                ));
-            };
-
-            const addNewParticipant = () => {
-                if (newParticipant.trim() && !participants.some(p => p.name === newParticipant.trim())) {
-                    setParticipants(prev => [...prev, { name: newParticipant.trim(), color: selectedParticipantColor }]);
-                    setNewParticipant('');
-                    setShowAddParticipantModal(false);
-                }
-            };
-
-            const navigateCalendar = (direction) => {
-                const newDate = new Date(currentDate);
-                if (calendarView === 'month') {
-                    newDate.setMonth(newDate.getMonth() + direction);
-                } else {
-                    // Navigate by weeks
-                    newDate.setDate(newDate.getDate() + (direction * 7));
-                }
-                setCurrentDate(newDate);
-            };
-
-            const navigatePlannerCalendar = (direction) => {
-                const newDate = new Date(currentDate);
-                if (plannerCalendarView === 'month') {
-                    newDate.setMonth(newDate.getMonth() + direction);
-                } else {
-                    // Navigate by weeks
-                    newDate.setDate(newDate.getDate() + (direction * 7));
-                }
-                setCurrentDate(newDate);
-            };
-
-            const switchCalendarView = (view) => {
-                setCalendarView(view);
-            };
-
-            const switchPlannerCalendarView = (view) => {
-                setPlannerCalendarView(view);
-            };
-
-            const getEventsForDate = (date) => {
-                return calendarEvents.filter(event => {
-                    const eventDate = new Date(event.startDate);
-                    eventDate.setHours(0, 0, 0, 0);
-                    const dateNormalized = new Date(date);
-                    dateNormalized.setHours(0, 0, 0, 0);
-                    return eventDate.getTime() === dateNormalized.getTime();
-                });
-            };
-
-            // ИСПРАВЛЕНО: правильная дата при клике на календарь бюджета
-            const handleBudgetDayClick = (day) => {
-                // Convert day to proper date object
-                const clickedDate = new Date(day);
-                clickedDate.setHours(0, 0, 0, 0);
-                
-                // If clicking the same date again, deselect it (reset filter)
-                if (selectedDate) {
-                    const selectedDateNormalized = new Date(selectedDate);
-                    selectedDateNormalized.setHours(0, 0, 0, 0);
-                    
-                    if (clickedDate.getTime() === selectedDateNormalized.getTime()) {
-                        setSelectedDate(null);
-                        return;
-                    }
-                }
-                
-                setSelectedDate(clickedDate);
-                
-                // Open add transaction modal for empty dates
-                const dayTransactions = transactions.filter(t => {
-                    const transactionDate = new Date(t.date);
-                    transactionDate.setHours(0, 0, 0, 0);
-                    return transactionDate.getTime() === clickedDate.getTime();
-                });
-                
-                if (dayTransactions.length === 0) {
-                    setNewTransaction({
-                        ...newTransaction,
-                        date: clickedDate.toISOString().split('T')[0]
-                    });
-                    setShowAddTransaction(true);
-                }
-            };
-
-            // ИСПРАВЛЕНО: правильная дата при клике на календарь планировщика
-            const handlePlannerDayClick = (day, hour = null) => {
-                // Convert day to proper date object and format it correctly
-                const clickedDate = new Date(day);
-                clickedDate.setHours(0, 0, 0, 0);
-                const formattedDate = clickedDate.toISOString().split('T')[0];
-                
-                // Set new event with correct date
-                setNewEvent({
-                    title: '',
-                    startDate: formattedDate, // ИСПРАВЛЕНО: правильная дата
-                    startTime: hour || '09:00',
-                    endTime: '',
-                    color: 'bg-blue-500',
-                    participants: [],
-                    isTemplate: false
-                });
-                setShowAddEventModal(true);
-            };
-
-            const handleEventClick = (event) => {
-                setEditingEvent({ ...event });
-                setShowEditEventModal(true);
-            };
-
-            const signInAnonymously = () => {
-                try {
-                    setIsLoading(true);
-                    firebase.auth().signInAnonymously()
-                        .then(() => {
-                            setRoomSuccess('Вы успешно вошли как гость!');
-                            setTimeout(() => {
-                                setRoomSuccess('');
-                                setShowRoomModal(false);
-                            }, 2000);
-                        })
-                        .catch((error) => {
-                            setRoomError('Ошибка при входе: ' + error.message);
-                        })
-                        .finally(() => {
-                            setIsLoading(false);
-                        });
-                } catch (error) {
-                    setRoomError('Ошибка при входе: ' + error.message);
-                    setIsLoading(false);
-                }
-            };
-
-            const exitRoom = () => {
-                firebase.auth().signOut();
-                setCurrentRoom(null);
-                setShowRoomModal(true);
-                setRoomId('');
-                setRoomName('');
-                setRoomPassword('');
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (file && (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-                    // Generate preview data starting from row 20
-                    const preview = [];
-                    
-                    // Simulate reading from row 20
-                    for (let i = 0; i < 5; i++) {
-                        const rowIndex = 20 + i;
-                        const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
-                        const operationCode = Math.floor(Math.random() * 100000);
-                        const category = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'][Math.floor(Math.random() * 4)];
-                        const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
-                        const amount = Math.floor(Math.random() * 10000) + 1000;
-                        const type = Math.random() > 0.5 ? 'Расход' : 'Приход';
-                        
-                        preview.push({
-                            row: rowIndex,
-                            date: date.toLocaleDateString('ru-RU'),
-                            operationCode,
-                            category,
-                            description,
-                            amount: `${type === 'Приход' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₽`,
-                            type
-                        });
-                    }
-                    
-                    // Sort by date descending
-                    preview.sort((a, b) => new Date(b.date) - new Date(a.date));
-                    
-                    setPreviewData(preview);
-                    setShowPreviewModal(true);
-                } else {
-                    alert('Пожалуйста, выберите файл формата XLS или XLSX');
-                }
-            };
-
-            const confirmFileUpload = () => {
-                // Generate actual transactions from row 20
-                const newTransactions = [];
-                
-                for (let i = 0; i < 10; i++) {
-                    const type = Math.random() > 0.5 ? 'income' : 'expense';
-                    const amount = Math.floor(Math.random() * 10000) + 1000;
-                    const category = ['Продукты', 'Транспорт', 'Жилье', 'Развлечения'][Math.floor(Math.random() * 4)];
-                    const description = ['Покупка в магазине', 'Оплата счета', 'Перевод средств'][Math.floor(Math.random() * 3)];
-                    const date = new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
-                    
-                    newTransactions.push({
-                        id: Date.now() + i,
-                        type,
-                        amount,
-                        category,
-                        date: date.toISOString().split('T')[0],
-                        description,
-                        balanceAfter: 0 // Will be calculated later
-                    });
-                }
-                
-                setTransactions(prev => [...prev, ...newTransactions]);
-                setShowPreviewModal(false);
-                alert('Выписка успешно загружена! Добавлено ' + newTransactions.length + ' операций.');
-            };
-
-            const addTemplate = () => {
-                if (newTemplateName.trim()) {
-                    const template = {
-                        id: Date.now(),
-                        name: newTemplateName
-                    };
-                    setTemplates(prev => [...prev, template]);
-                    setNewTemplateName('');
-                }
-            };
-
-            const useTemplate = (template) => {
-                setNewEvent({
-                    ...newEvent,
-                    title: template.name
-                });
-                setShowAddEventModal(true);
-            };
-
-            const deleteTemplate = (id) => {
-                setTemplates(prev => prev.filter(template => template.id !== id));
-            };
-
-            const sendShoppingListToTelegram = () => {
-                if (!telegramBotToken || !telegramChatId) {
-                    alert('Пожалуйста, заполните настройки Telegram');
-                    return;
-                }
-                
-                const message = `Список покупок:\n\n${shoppingList.map(item => 
-                    `${item.completed ? '✅' : '⬜'} ${item.item} × ${item.quantity} ${item.unit}`
-                ).join('\n')}`;
-                
-                // In real app, this would be an API call to Telegram bot
-                alert(`Сообщение отправлено в Telegram!\n\n${message}`);
-            };
-
-            const testTelegramConnection = () => {
-                if (!telegramBotToken || !telegramChatId) {
-                    alert('Пожалуйста, заполните все поля');
-                    return;
-                }
-                alert('Подключение к Telegram успешно протестировано!');
-            };
-
-            // Toggle tab visibility
-            const toggleTabVisibility = (tab) => {
-                setTabVisibility(prev => ({
-                    ...prev,
-                    [tab]: !prev[tab]
-                }));
-            };
-
-            // Fixed expenses functions
-            const addFixedExpense = () => {
-                if (newFixedExpense.name && newFixedExpense.amount) {
-                    const expense = {
-                        id: Date.now(),
-                        ...newFixedExpense,
-                        amount: parseFloat(newFixedExpense.amount)
-                    };
-                    setFixedExpenses(prev => [...prev, expense]);
-                    setNewFixedExpense({
-                        name: '',
-                        amount: '',
-                        category: 'Продукты'
-                    });
-                    setShowAddFixedExpenseModal(false);
-                }
-            };
-
-            const deleteFixedExpense = (id) => {
-                setDeleteAction(() => () => {
-                    setFixedExpenses(prev => prev.filter(expense => expense.id !== id));
-                });
-                setShowDeleteConfirmation(true);
-            };
-
-            const clearAllTransactions = () => {
-                setDeleteAction(() => () => {
-                    setTransactions([]);
-                });
-                setShowClearTransactionsConfirmation(true);
-            };
-
-            // Get available tabs (всегда показываем бюджет)
-            const availableTabs = [
-                { id: 'budget', label: 'Бюджет', icon: 'fas fa-wallet' }
-            ];
-            
-            if (tabVisibility.shopping) {
-                availableTabs.push({ id: 'shopping', label: 'Покупки', icon: 'fas fa-shopping-cart' });
-            }
-            
-            if (tabVisibility.planner) {
-                availableTabs.push({ id: 'planner', label: 'Планировщик', icon: 'fas fa-calendar-alt' });
-            }
-
-            // Render room modal
-            const renderRoomModal = () => {
-                if (!showRoomModal) return null;
-                
-                return React.createElement('div', { className: 'modal-overlay' },
-                    React.createElement('div', { className: 'auth-container' },
-                        React.createElement('div', { className: 'auth-header' },
-                            React.createElement('h1', null, 'Семейный Бюджет'),
-                            React.createElement('p', null, 'Управляйте своими финансами эффективно')
-                        ),
-                        
-                        React.createElement('div', { className: 'auth-form' },
-                            roomSuccess && React.createElement('div', { className: 'success-message' },
-                                React.createElement('i', { className: 'fas fa-check-circle' }),
-                                roomSuccess
-                            ),
-                            
-                            React.createElement('div', { className: 'mode-toggle', style: { position: 'relative' } },
-                                React.createElement('div', 
-                                    { 
-                                        className: 'mode-toggle-slider',
-                                        style: { 
-                                            left: authMode === 'login' ? '6px' : 'calc(50% + 3px)',
-                                            width: 'calc(50% - 9px)'
-                                        }
-                                    }
-                                ),
-                                React.createElement('div', 
-                                    { 
-                                        className: `mode-toggle-btn ${authMode === 'login' ? 'active' : ''}`,
-                                        onClick: () => {
-                                            setAuthMode('login');
-                                            setRoomError('');
-                                        },
-                                        style: { zIndex: 2 }
-                                    },
-                                    'Вход'
-                                ),
-                                React.createElement('div', 
-                                    { 
-                                        className: `mode-toggle-btn ${authMode === 'register' ? 'active' : ''}`,
-                                        onClick: () => {
-                                            setAuthMode('register');
-                                            setRoomError('');
-                                        },
-                                        style: { zIndex: 2 }
-                                    },
-                                    'Регистрация'
-                                )
-                            ),
-                            
-                            roomError && React.createElement('div', { className: 'error-message' },
-                                React.createElement('i', { className: 'fas fa-exclamation-circle' }),
-                                roomError
-                            ),
-                            
-                            authMode === 'login' ? React.createElement('div', null,
-                                React.createElement('div', { className: 'form-group' },
-                                    React.createElement('label', { className: 'form-label' }, 'ID комнаты'),
-                                    React.createElement('input', {
-                                        type: 'text',
-                                        className: 'form-input',
-                                        placeholder: 'Введите ID комнаты',
-                                        value: roomId,
-                                        onChange: (e) => setRoomId(e.target.value)
-                                    })
-                                ),
-                                
-                                React.createElement('div', { className: 'form-group' },
-                                    React.createElement('label', { className: 'form-label' }, 'Пароль'),
-                                    React.createElement('input', {
-                                        type: 'password',
-                                        className: 'form-input',
-                                        placeholder: 'Введите пароль',
-                                        value: roomPassword,
-                                        onChange: (e) => setRoomPassword(e.target.value)
-                                    })
-                                ),
-                                
-                                React.createElement('button', {
-                                    className: 'btn-auth',
-                                    onClick: joinRoom,
-                                    disabled: isLoading
-                                }, isLoading ? React.createElement('div', { className: 'flex items-center justify-center' },
-                                    React.createElement('div', { className: 'spinner mr-2' }),
-                                    'Вход...'
-                                ) : 'Войти')
-                            ) : React.createElement('div', null,
-                                React.createElement('div', { className: 'form-group' },
-                                    React.createElement('label', { className: 'form-label' }, 'Название комнаты'),
-                                    React.createElement('input', {
-                                        type: 'text',
-                                        className: 'form-input',
-                                        placeholder: 'Введите название комнаты',
-                                        value: roomName,
-                                        onChange: (e) => setRoomName(e.target.value)
-                                    })
-                                ),
-                                
-                                React.createElement('div', { className: 'form-group' },
-                                    React.createElement('label', { className: 'form-label' }, 'Пароль'),
-                                    React.createElement('input', {
-                                        type: 'password',
-                                        className: 'form-input',
-                                        placeholder: 'Введите пароль',
-                                        value: roomPassword,
-                                        onChange: (e) => setRoomPassword(e.target.value)
-                                    })
-                                ),
-                                
-                                React.createElement('button', {
-                                    className: 'btn-auth',
-                                    onClick: createRoom,
-                                    disabled: isLoading
-                                }, isLoading ? React.createElement('div', { className: 'flex items-center justify-center' },
-                                    React.createElement('div', { className: 'spinner mr-2' }),
-                                    'Создание...'
-                                ) : 'Создать комнату')
-                            ),
-                            
-                            React.createElement('div', { className: 'mt-4' },
-                                React.createElement('button', {
-                                    className: 'btn-secondary w-full',
-                                    onClick: signInAnonymously,
-                                    disabled: isLoading
-                                }, 'Продолжить как гость')
-                            ),
-                            
-                            React.createElement('div', { className: 'auth-features mt-6' },
-                                React.createElement('div', { className: 'feature-item' },
-                                    React.createElement('div', { className: 'feature-icon' },
-                                        React.createElement('i', { className: 'fas fa-sync' })
-                                    ),
-                                    React.createElement('div', { className: 'feature-text' }, 'Синхронизация')
-                                ),
-                                React.createElement('div', { className: 'feature-item' },
-                                    React.createElement('div', { className: 'feature-icon' },
-                                        React.createElement('i', { className: 'fas fa-chart-pie' })
-                                    ),
-                                    React.createElement('div', { className: 'feature-text' }, 'Аналитика')
-                                ),
-                                React.createElement('div', { className: 'feature-item' },
-                                    React.createElement('div', { className: 'feature-icon' },
-                                        React.createElement('i', { className: 'fas fa-users' })
-                                    ),
-                                    React.createElement('div', { className: 'feature-text' }, 'Семья')
-                                )
-                            )
-                        )
-                    )
-                );
-            };
-
-            // Render header
-            const renderHeader = () => {
-                return React.createElement('header', null,
-                    React.createElement('div', { className: 'app-container' },
-                        React.createElement('div', { className: 'header-content' },
-                            React.createElement('div', { className: 'logo' },
-                                React.createElement('div', { className: 'logo-icon' },
-                                    React.createElement('i', { className: 'fas fa-wallet' })
-                                ),
-                                'Семейный Бюджет'
-                            ),
-                            
-                            React.createElement('nav', null,
-                                availableTabs.map(tab => 
-                                    React.createElement('button', {
-                                        key: tab.id,
-                                        className: `nav-button ${activeTab === tab.id ? 'active' : ''}`,
-                                        onClick: () => setActiveTab(tab.id)
-                                    },
-                                        React.createElement('i', { className: tab.icon }),
-                                        tab.label
-                                    )
-                                ),
-                                
-                                React.createElement('button', {
-                                    className: `nav-button ${activeTab === 'settings' ? 'active' : ''}`,
-                                    onClick: () => setActiveTab('settings')
-                                }, React.createElement('i', { className: 'fas fa-cog' }), 'Настройки'),
-                                
-                                user && React.createElement('button', {
-                                    className: 'nav-button',
-                                    onClick: exitRoom
-                                }, React.createElement('i', { className: 'fas fa-sign-out-alt' }), 'Выйти')
-                            )
-                        )
-                    )
-                );
-            };
-
-            return React.createElement('div', { className: 'app-container' },
-                renderHeader(),
-                React.createElement('main', null,
-                    activeTab === 'budget' && renderBudgetTab(),
-                    activeTab === 'shopping' && renderShoppingTab(),
-                    activeTab === 'planner' && renderPlannerTab(),
-                    activeTab === 'settings' && React.createElement('div', { className: 'card' }, 'Настройки')
-                ),
-                renderRoomModal()
-            );
+    // Save data to storage if available
+    function saveData() {
+      if (canUseLocalStorage) {
+        try {
+          localStorage.setItem('family-budget-data', JSON.stringify(appData));
+        } catch (e) {
+          console.error('Error saving data to localStorage:', e);
         }
+      }
+    }
 
-        // Render the app
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(FamilyBudgetApp));
-    </script>
+    // Get room data
+    function getRoomData(roomId) {
+      return appData.rooms[roomId] || {
+        transactions: [],
+        settings: {
+          initialBalance: 0,
+          savingsPercentage: '',
+          telegramBotId: '',
+          telegramChatId: ''
+        }
+      };
+    }
+
+    // Save room data
+    function saveRoomData(roomId, data) {
+      appData.rooms[roomId] = data;
+      saveData();
+    }
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      checkSavedRoom();
+      setupEventListeners();
+    });
+
+    // Check if there's a saved room
+    function checkSavedRoom() {
+      if (canUseLocalStorage) {
+        const savedRoomId = localStorage.getItem('currentRoomId');
+        const savedRoomName = localStorage.getItem('currentRoomName');
+        
+        if (savedRoomId && savedRoomName) {
+          currentRoomId = savedRoomId;
+          currentRoomName = savedRoomName;
+          currentRoomElement.textContent = currentRoomName;
+          currentRoomSettings.textContent = currentRoomName;
+          authModal.classList.remove('active');
+          loadRoomData();
+          return;
+        }
+      }
+      
+      // If no saved room or localStorage not available, show auth modal
+      authModal.classList.add('active');
+    }
+
+    // Set up event listeners
+    function setupEventListeners() {
+      // Auth modal
+      loginBtn.addEventListener('click', loginRoom);
+      createRoomBtn.addEventListener('click', createRoom);
+      
+      // Tab navigation
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          
+          const tabName = button.dataset.tab;
+          tabContents.forEach(content => content.classList.remove('active'));
+          document.getElementById(`${tabName}-tab`).classList.add('active');
+        });
+      });
+      
+      // Settings modal
+      settingsBtn.addEventListener('click', () => openModal(settingsModal));
+      closeSettings.addEventListener('click', () => closeModal(settingsModal));
+      cancelSettings.addEventListener('click', () => closeModal(settingsModal));
+      saveSettings.addEventListener('click', saveSettingsData);
+      logoutBtn.addEventListener('click', logoutRoom);
+      
+      // Transaction modal
+      addFirstTransaction.addEventListener('click', () => openModal(transactionModal));
+      closeTransaction.addEventListener('click', () => closeModal(transactionModal));
+      cancelTransaction.addEventListener('click', () => closeModal(transactionModal));
+      saveTransaction.addEventListener('click', saveTransactionData);
+      
+      // File upload
+      fileUpload.addEventListener('change', handleFileUpload);
+      
+      // Import modal
+      closeImport.addEventListener('click', () => closeModal(importModal));
+      cancelImport.addEventListener('click', () => closeModal(importModal));
+      importTransactionsBtn.addEventListener('click', importTransactions);
+      
+      // Participant button
+      addParticipantBtn.addEventListener('click', () => {
+        showNotification('Функционал добавления участников будет доступен в будущих версиях', 'info');
+      });
+    }
+
+    // Room authentication functions
+    function loginRoom() {
+      const roomName = roomNameInput.value.trim();
+      const password = roomPasswordInput.value.trim();
+      
+      if (!roomName || !password) {
+        showNotification('Пожалуйста, заполните все поля', 'error');
+        return;
+      }
+      
+      // Create a unique ID for the room
+      currentRoomId = btoa(roomName + ':' + password);
+      currentRoomName = roomName;
+      
+      // Save to storage if available
+      if (canUseLocalStorage) {
+        localStorage.setItem('currentRoomId', currentRoomId);
+        localStorage.setItem('currentRoomName', roomName);
+      }
+      
+      currentRoomElement.textContent = roomName;
+      currentRoomSettings.textContent = roomName;
+      authModal.classList.remove('active');
+      
+      loadRoomData();
+      showNotification(`Успешный вход в комнату "${roomName}"`, 'success');
+    }
+
+    function createRoom() {
+      const roomName = roomNameInput.value.trim();
+      const password = roomPasswordInput.value.trim();
+      
+      if (!roomName || !password) {
+        showNotification('Пожалуйста, заполните все поля', 'error');
+        return;
+      }
+      
+      // Create a unique ID for the room
+      currentRoomId = btoa(roomName + ':' + password);
+      currentRoomName = roomName;
+      
+      // Save to storage if available
+      if (canUseLocalStorage) {
+        localStorage.setItem('currentRoomId', currentRoomId);
+        localStorage.setItem('currentRoomName', roomName);
+      }
+      
+      currentRoomElement.textContent = roomName;
+      currentRoomSettings.textContent = roomName;
+      authModal.classList.remove('active');
+      
+      // Initialize new room data
+      initializeNewRoom();
+      showNotification(`Комната "${roomName}" успешно создана!`, 'success');
+    }
+
+    function logoutRoom() {
+      if (canUseLocalStorage) {
+        localStorage.removeItem('currentRoomId');
+        localStorage.removeItem('currentRoomName');
+      }
+      
+      currentRoomId = null;
+      currentRoomName = null;
+      currentRoomElement.textContent = 'Комната не выбрана';
+      currentRoomSettings.textContent = 'Не выбрана';
+      
+      closeModal(settingsModal);
+      authModal.classList.add('active');
+      
+      // Clear data
+      transactions = [];
+      categories = {};
+      settings = {
+        initialBalance: 0,
+        savingsPercentage: '',
+        telegramBotId: '',
+        telegramChatId: ''
+      };
+      
+      // Reset UI
+      updateSummary();
+      updateTransactionsTable();
+      updateCategoriesList();
+      
+      showNotification('Вы успешно вышли из комнаты', 'info');
+    }
+
+    // Data management functions
+    function loadRoomData() {
+      if (!currentRoomId) return;
+      
+      // Get room data
+      const roomData = getRoomData(currentRoomId);
+      
+      // Load transactions
+      transactions = roomData.transactions || [];
+      
+      // Load settings
+      settings = roomData.settings || {
+        initialBalance: 0,
+        savingsPercentage: '',
+        telegramBotId: '',
+        telegramChatId: ''
+      };
+      
+      // Update UI
+      updateSummary();
+      updateTransactionsTable();
+      updateCategoriesList();
+      updateSettingsUI();
+    }
+
+    function saveRoomData() {
+      if (!currentRoomId) return;
+      
+      const roomData = {
+        transactions: transactions,
+        settings: settings
+      };
+      
+      saveRoomData(currentRoomId, roomData);
+    }
+
+    function initializeNewRoom() {
+      transactions = [];
+      categories = {};
+      settings = {
+        initialBalance: 0,
+        savingsPercentage: '',
+        telegramBotId: '',
+        telegramChatId: ''
+      };
+      
+      saveRoomData();
+      updateSummary();
+      updateTransactionsTable();
+      updateCategoriesList();
+    }
+
+    function updateSettingsUI() {
+      if (!settings) return;
+      
+      initialBalanceInput.value = settings.initialBalance || 0;
+      savingsPercentageInput.value = settings.savingsPercentage || '';
+      telegramBotIdInput.value = settings.telegramBotId || '';
+      telegramChatIdInput.value = settings.telegramChatId || '';
+    }
+
+    // UI update functions
+    function updateSummary() {
+      const initialBalance = parseFloat(settings.initialBalance) || 0;
+      const savingsPercent = parseFloat(settings.savingsPercentage) || 0;
+      
+      // Calculate current balance
+      const income = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      
+      const expenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      
+      const currentBalance = initialBalance + income - expenses;
+      const savings = currentBalance * (savingsPercent / 100);
+      
+      // Calculate daily spending budget
+      const today = new Date();
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const daysLeft = Math.max(0, lastDay.getDate() - today.getDate() + 1);
+      const dailyBudget = daysLeft > 0 ? currentBalance / daysLeft : 0;
+      
+      // Update UI
+      document.getElementById('current-balance').textContent = `${currentBalance.toLocaleString('ru-RU')} ₽`;
+      document.getElementById('savings').textContent = `${savings.toLocaleString('ru-RU')} ₽`;
+      document.getElementById('daily-spend').textContent = `${Math.round(dailyBudget).toLocaleString('ru-RU')} ₽`;
+      document.getElementById('mandatory-expenses').textContent = `0 ₽`;
+    }
+
+    function updateTransactionsTable() {
+      const tableBody = document.getElementById('transactions-table');
+      
+      if (transactions.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-search-dollar"></i>
+          </div>
+          <div class="empty-title">Нет операций</div>
+          <div class="empty-description">Добавьте первую операцию или загрузите выписку из банка</div>
+          <button class="empty-action" id="add-first-transaction">
+            <i class="fas fa-plus"></i> Добавить операцию
+          </button>
+        </td></tr>`;
+        document.getElementById('add-first-transaction').addEventListener('click', () => openModal(transactionModal));
+        return;
+      }
+      
+      // Sort transactions by date (newest first)
+      const sortedTransactions = [...transactions].sort((a, b) => 
+        new Date(b.date) - new Date(a.date)
+      );
+      
+      tableBody.innerHTML = sortedTransactions.map(t => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+          <td class="p-3 text-sm">${formatDate(t.date)}</td>
+          <td class="p-3 text-sm">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${
+              t.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+            }">${t.category}</span>
+          </td>
+          <td class="p-3 text-sm">${t.description || '-'}</td>
+          <td class="p-3 text-sm font-medium ${
+            t.type === 'income' ? 'text-green-600' : 'text-red-600'
+          }">${t.type === 'income' ? '+' : '-'}${parseFloat(t.amount).toLocaleString('ru-RU')} ₽</td>
+          <td class="p-3 text-sm font-medium text-gray-800">
+            ${t.balanceAfter ? parseFloat(t.balanceAfter).toLocaleString('ru-RU') : '-'} ₽
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function updateCategoriesList() {
+      const categoriesList = document.getElementById('categories-list');
+      
+      // Calculate category totals
+      const categoryTotals = {};
+      
+      transactions
+        .filter(t => t.type === 'expense')
+        .forEach(t => {
+          categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount || 0);
+        });
+      
+      if (Object.keys(categoryTotals).length === 0) {
+        categoriesList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">
+              <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="empty-title">Нет данных о категориях</div>
+            <div class="empty-description">Добавьте операции для отображения категорий расходов</div>
+          </div>
+        `;
+        return;
+      }
+      
+      // Sort categories by total amount (descending)
+      const sortedCategories = Object.entries(categoryTotals).sort(([,a], [,b]) => b - a);
+      
+      categoriesList.innerHTML = `
+        <div class="space-y-3">
+          ${sortedCategories.map(([category, total]) => `
+            <div class="flex justify-between py-2 border-b border-gray-100">
+              <span class="font-medium">${category}</span>
+              <span class="font-bold text-red-600">${total.toLocaleString('ru-RU')} ₽</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Modal functions
+    function openModal(modal) {
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function closeModal(modal) {
+      modal.classList.remove('active');
+      document.body.style.overflow = 'auto';
+    }
+
+    // Transaction functions
+    function saveTransactionData() {
+      const type = document.getElementById('transaction-type').value;
+      const amount = document.getElementById('transaction-amount').value;
+      const category = document.getElementById('transaction-category').value;
+      const description = document.getElementById('transaction-description').value;
+      const date = document.getElementById('transaction-date').value;
+      
+      if (!amount || !category) {
+        showNotification('Пожалуйста, заполните обязательные поля', 'error');
+        return;
+      }
+      
+      // Calculate balance after
+      const lastBalance = transactions.length > 0 
+        ? parseFloat(transactions[transactions.length - 1].balanceAfter || 0)
+        : parseFloat(settings.initialBalance || 0);
+      
+      const balanceAfter = lastBalance + (type === 'income' ? parseFloat(amount) : -parseFloat(amount));
+      
+      // Add new transaction
+      const newTransaction = {
+        id: Date.now().toString(),
+        type,
+        amount,
+        category,
+        description,
+        date,
+        balanceAfter: balanceAfter.toString(),
+        timestamp: new Date().toISOString()
+      };
+      
+      transactions.unshift(newTransaction);
+      
+      // Save data
+      saveRoomData();
+      
+      // Update UI
+      updateSummary();
+      updateTransactionsTable();
+      updateCategoriesList();
+      
+      // Close modal
+      closeModal(transactionModal);
+      
+      showNotification('Операция успешно добавлена', 'success');
+    }
+
+    // Excel parser functions
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        document.getElementById('preview-file-name').textContent = file.name;
+        processExcelFile(file);
+      } else {
+        showNotification('Поддерживаются только файлы Excel (.xlsx, .xls)', 'error');
+      }
+      
+      // Reset input
+      e.target.value = '';
+    }
+
+    function processExcelFile(file) {
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        try {
+          // Show progress
+          document.getElementById('import-progress').style.width = '0%';
+          
+          setTimeout(() => {
+            const progress = document.getElementById('import-progress');
+            let width = 0;
+            const interval = setInterval(() => {
+              width += 10;
+              progress.style.width = `${width}%`;
+              if (width >= 100) {
+                clearInterval(interval);
+                showImportPreview();
+              }
+            }, 50);
+          }, 100);
+        } catch (error) {
+          console.error('Error processing Excel file:', error);
+          showNotification('Ошибка при обработке файла', 'error');
+          document.getElementById('import-error').style.display = 'flex';
+          document.getElementById('error-message').textContent = error.message;
+        }
+      };
+      
+      reader.readAsArrayBuffer(file);
+    }
+
+    function showImportPreview() {
+      // Sample data for demo
+      const sampleTransactions = [
+        { date: '10.12.2025', description: 'Покупка в магазине', amount: '1500', type: 'expense', category: 'Продукты' },
+        { date: '09.12.2025', description: 'Такси', amount: '350', type: 'expense', category: 'Транспорт' },
+        { date: '08.12.2025', description: 'Зарплата', amount: '75000', type: 'income', category: 'Зарплата' }
+      ];
+      
+      // Update stats
+      const totalIncome = sampleTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      
+      const totalExpense = sampleTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      
+      document.getElementById('total-transactions').textContent = sampleTransactions.length;
+      document.getElementById('total-income').textContent = totalIncome.toLocaleString('ru-RU') + ' ₽';
+      document.getElementById('total-expense').textContent = totalExpense.toLocaleString('ru-RU') + ' ₽';
+      
+      // Render preview table
+      const previewBody = document.getElementById('import-preview');
+      previewBody.innerHTML = sampleTransactions.map(t => `
+        <tr>
+          <td>${t.date}</td>
+          <td>${t.description}</td>
+          <td class="${t.type === 'income' ? 'text-green-600' : 'text-red-600'}">
+            ${t.type === 'income' ? '+' : '-'}${parseFloat(t.amount).toLocaleString('ru-RU')} ₽
+          </td>
+          <td>
+            <select class="form-input" style="padding: 0.25rem;">
+              <option value="Продукты" ${t.category === 'Продукты' ? 'selected' : ''}>Продукты</option>
+              <option value="Транспорт" ${t.category === 'Транспорт' ? 'selected' : ''}>Транспорт</option>
+              <option value="Зарплата" ${t.category === 'Зарплата' ? 'selected' : ''}>Зарплата</option>
+              <option value="Кафе">Кафе</option>
+              <option value="Развлечения">Развлечения</option>
+              <option value="Прочее">Прочее</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+      
+      openModal(importModal);
+    }
+
+    function importTransactions() {
+      // In a real app, this would add the transactions to the database
+      showNotification('Операции успешно импортированы', 'success');
+      closeModal(importModal);
+      
+      // Update UI with sample data
+      transactions = [
+        { id: '1', type: 'expense', amount: '1500', category: 'Продукты', description: 'Покупка в магазине', date: '2025-12-10', balanceAfter: '83500', timestamp: new Date().toISOString() },
+        { id: '2', type: 'expense', amount: '350', category: 'Транспорт', description: 'Такси', date: '2025-12-09', balanceAfter: '85000', timestamp: new Date().toISOString() },
+        { id: '3', type: 'income', amount: '75000', category: 'Зарплата', description: 'Основная зарплата', date: '2025-12-08', balanceAfter: '85350', timestamp: new Date().toISOString() }
+      ];
+      
+      saveRoomData();
+      updateSummary();
+      updateTransactionsTable();
+      updateCategoriesList();
+    }
+
+    // Settings functions
+    function saveSettingsData() {
+      settings.initialBalance = initialBalanceInput.value;
+      settings.savingsPercentage = savingsPercentageInput.value;
+      settings.telegramBotId = telegramBotIdInput.value;
+      settings.telegramChatId = telegramChatIdInput.value;
+      
+      saveRoomData();
+      updateSummary();
+      
+      closeModal(settingsModal);
+      showNotification('Настройки успешно сохранены', 'success');
+    }
+
+    // Utility functions
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function showNotification(message, type = 'info') {
+      notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'bell'}"></i>
+        <span>${message}</span>
+      `;
+      notification.className = `notification ${type} show`;
+      
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 3000);
+    }
+  </script>
 </body>
 </html>
+

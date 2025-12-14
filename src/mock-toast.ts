@@ -9,6 +9,6 @@ export const toast = {
   }
 };
 
-export const Toaster = () => null;
+export const Toaster: React.FC<{ position?: string }> = () => null;
 
 export default toast;

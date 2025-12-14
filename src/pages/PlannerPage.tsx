@@ -63,7 +63,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({ roomId }) => {
             right: ''
           }}
           slotDuration="01:00:00"
-          selectable={true}
+          selectable={true}ф
           selectMirror={true}
           dayMaxEvents={true}
           weekends={true}

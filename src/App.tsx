@@ -7,7 +7,7 @@ import { ShoppingListPage } from './pages/ShoppingListPage';
 import { PlannerPage } from './pages/PlannerPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Header } from './components/Header';
-import { auth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from './config/firebase';
+import { auth, signInWithPopup, GoogleAuthProvider } from './config/firebase';
 import { Toaster } from './mock-toast';
 
 const theme = createTheme({

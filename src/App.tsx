@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ToastContainer } from 'react-hot-toast';
+import toast, { Toaster } from './mock-toast';
 import { signInAnonymouslyAndSetupRoom } from './config/firebase';
 
 import BudgetPage from './pages/BudgetPage';
@@ -162,7 +162,7 @@ const App: React.FC = () => {
           <Route path="/planner" element={<PlannerPage roomId={roomId} />} />
           <Route path="/settings" element={<SettingsPage roomId={roomId} />} />
         </Routes>
-        <ToastContainer position="bottom-right" />
+        <Toaster position="bottom-right" />
       </Router>
     </ThemeProvider>
   );

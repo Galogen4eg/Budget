@@ -1447,7 +1447,7 @@
           const totalExpenses = dayTransactions.reduce((sum, tx) => sum + tx.amount, 0);
           
           cell.innerHTML = `
-            <div class="calendar-date ${isCurrentMonth ? '' : 'text-gray-400'}">
+            <div class="calendar-date ${isCurrentMonth ? '' : 'text-gray-400'} ${dayTransactions.length > 0 ? 'has-transaction' : ''}">
               ${dayNum}
             </div>
             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
@@ -1457,7 +1457,10 @@
           
           if (isCurrentMonth) {
             cell.dataset.date = date.format('YYYY-MM-DD');
-            cell.addEventListener('click', () => openTransactionModal(null, date));
+            // Remove old event listeners to prevent memory leaks
+            const newCell = cell.cloneNode(true);
+            cell.parentNode.replaceChild(newCell, cell);
+            newCell.addEventListener('click', () => openTransactionModal(null, date));
           }
           
           row.appendChild(cell);
@@ -1529,9 +1532,14 @@
     
     // Calculate balance after transaction
     function calculateBalanceAfter(transactionId) {
+      const targetTransaction = transactions.find(t => t.id === transactionId);
+      if (!targetTransaction) {
+        return 0; // Return 0 if transaction is not found
+      }
+      
       let balance = 0;
       transactions
-        .filter(tx => tx.date.unix() <= transactions.find(t => t.id === transactionId).date.unix())
+        .filter(tx => tx.date.unix() <= targetTransaction.date.unix())
         .forEach(tx => {
           balance += tx.type === 'income' ? tx.amount : -tx.amount;
         });
@@ -1799,6 +1807,14 @@
       const [startHour, startMinute] = settings.dayStartTime.split(':').map(Number);
       const [endHour, endMinute] = settings.dayEndTime.split(':').map(Number);
       
+      // Validate settings to avoid infinite loop
+      if (startHour > endHour) {
+        console.warn("Start hour is greater than end hour. Using default values.");
+        // Use default values
+        startHour = 8;
+        endHour = 22;
+      }
+      
       // Create time slots
       for (let hour = startHour; hour <= endHour; hour++) {
         const timeSlot = document.createElement('div');
@@ -2049,10 +2065,19 @@
             <div class="participant-color" style="background-color: ${member.color};"></div>
             <span>${member.name}</span>
           </div>
-          <button class="btn btn-outline" onclick="removeFamilyMember(${member.id})" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
+          <button class="btn btn-outline remove-member-btn" data-id="${member.id}" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
         `;
         
         familyMembersList.appendChild(memberDiv);
+      });
+      
+      // Add event listeners to remove buttons after they're created
+      document.querySelectorAll('.remove-member-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const memberId = parseInt(e.currentTarget.dataset.id);
+          removeFamilyMember(memberId);
+        });
+      });
       });
       
       // Render categories
@@ -2071,10 +2096,18 @@
             <div class="participant-color" style="background-color: ${category.color};"></div>
             <span>${category.name}</span>
           </div>
-          <button class="btn btn-outline" onclick="removeCategory(${category.id})" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
+          <button class="btn btn-outline remove-category-btn" data-id="${category.id}" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
         `;
         
         categoriesListSettings.appendChild(categoryDiv);
+      });
+      
+      // Add event listeners to remove category buttons after they're created
+      document.querySelectorAll('.remove-category-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const categoryId = parseInt(e.currentTarget.dataset.id);
+          removeCategory(categoryId);
+        });
       });
       
       settingsModal.classList.add('active');
@@ -2451,7 +2484,7 @@
       
       // File upload
       document.getElementById('fileUpload').addEventListener('change', function(e) {
-        if (this.files.length > 0) {
+        if (this.files && this.files.length > 0) {
           const fileName = this.files[0].name;
           if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
             showNotification('Файл загружен. Будет выполнен парсинг и показан предпросмотр.');
@@ -2460,6 +2493,8 @@
             showNotification('Пожалуйста, выберите файл Excel (.xlsx или .xls)');
             this.value = '';
           }
+        } else {
+          showNotification('Файл не выбран');
         }
       });
       

@@ -12,7 +12,6 @@
       padding: 0;
       box-sizing: border-box;
     }
-
     :root {
       --primary: #4361ee;
       --accent: #06d6a0;
@@ -24,7 +23,6 @@
       --border: #e2e8f0;
       --success: #10b981;
     }
-
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: #f1f5f9;
@@ -32,13 +30,11 @@
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
-
     .container {
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 16px;
     }
-
     /* Header */
     header {
       background: var(--surface);
@@ -47,14 +43,12 @@
       top: 0;
       z-index: 100;
     }
-
     .tabs-container {
       display: flex;
       justify-content: center;
       padding: 16px 0;
       position: relative;
     }
-
     .tabs {
       display: flex;
       gap: 8px;
@@ -63,7 +57,6 @@
       border-radius: 16px;
       max-width: 500px;
     }
-
     .tab {
       padding: 10px 20px;
       border-radius: 12px;
@@ -76,17 +69,14 @@
       gap: 8px;
       color: var(--text-secondary);
     }
-
     .tab.active {
       background: var(--primary);
       color: white;
       box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
     }
-
     .tab:not(.active):hover {
       color: var(--text);
     }
-
     .settings-btn {
       position: absolute;
       right: 16px;
@@ -102,17 +92,14 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-
     .settings-btn:hover {
       background: var(--surface-light);
       transform: rotate(90deg);
     }
-
     /* Main Content */
     main {
       padding: 24px 0 40px;
     }
-
     .section {
       background: var(--surface);
       border-radius: 16px;
@@ -121,7 +108,6 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
       border: 1px solid var(--border);
     }
-
     .section-title {
       font-size: 18px;
       font-weight: 700;
@@ -131,7 +117,6 @@
       gap: 10px;
       color: var(--text);
     }
-
     .section-title i {
       color: var(--primary);
       width: 24px;
@@ -140,7 +125,6 @@
       align-items: center;
       justify-content: center;
     }
-
     /* Tiles */
     .tiles {
       display: grid;
@@ -148,7 +132,6 @@
       gap: 16px;
       margin-bottom: 24px;
     }
-
     .tile {
       background: var(--surface);
       border-radius: 14px;
@@ -157,29 +140,24 @@
       border: 1px solid var(--border);
       transition: transform 0.2s;
     }
-
     .tile:hover {
       transform: translateY(-3px);
       box-shadow: 0 6px 16px rgba(0,0,0,0.08);
     }
-
     .tile-title {
       font-size: 14px;
       color: var(--text-secondary);
       margin-bottom: 8px;
       font-weight: 500;
     }
-
     .tile-value {
       font-size: 24px;
       font-weight: 700;
       color: var(--text);
     }
-
     .tile-value.positive { color: var(--success); }
     .tile-value.negative { color: var(--error); }
     .tile-value.primary { color: var(--primary); }
-
     /* Calendar Controls */
     .calendar-controls {
       display: flex;
@@ -189,17 +167,14 @@
       flex-wrap: wrap;
       gap: 12px;
     }
-
     .calendar-title {
       font-size: 18px;
       font-weight: 700;
     }
-
     .nav-buttons {
       display: flex;
       gap: 8px;
     }
-
     .nav-btn {
       width: 36px;
       height: 36px;
@@ -212,23 +187,19 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-
     .nav-btn:hover {
       background: var(--surface-light);
     }
-
     /* Calendar */
     .calendar-container {
       overflow-x: auto;
     }
-
     .calendar {
       min-width: 700px;
       width: 100%;
       border-collapse: collapse;
       margin-top: 16px;
     }
-
     .calendar th {
       padding: 12px 8px;
       font-weight: 600;
@@ -236,7 +207,6 @@
       font-size: 13px;
       background: var(--surface-light);
     }
-
     .calendar td {
       width: 14.28%;
       height: 70px;
@@ -249,11 +219,9 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-
     .calendar td:hover {
       background: var(--surface-light);
     }
-
     .calendar-date {
       display: inline-block;
       width: 30px;
@@ -263,12 +231,10 @@
       border-radius: 50%;
       font-weight: 500;
     }
-
     .calendar-date.has-transaction {
       background-color: rgba(67, 97, 238, 0.1);
       color: var(--primary);
     }
-
     .transaction-dot {
       position: absolute;
       bottom: 8px;
@@ -278,14 +244,12 @@
       background-color: var(--primary);
       border-radius: 50%;
     }
-
     /* Categories */
     .categories {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
-
     .category-item {
       display: flex;
       justify-content: space-between;
@@ -296,23 +260,18 @@
       transition: all 0.2s;
       font-size: 15px;
     }
-
     .category-item:hover {
       background: #eef2ff;
     }
-
     .category-name {
       font-weight: 600;
       color: var(--text);
     }
-
     .category-amount {
       font-weight: 700;
     }
-
     .category-amount.positive { color: var(--success); }
     .category-amount.negative { color: var(--error); }
-
     /* Transactions */
     .transactions-header {
       display: flex;
@@ -322,12 +281,10 @@
       flex-wrap: wrap;
       gap: 12px;
     }
-
     .period-buttons {
       display: flex;
       gap: 8px;
     }
-
     .period-btn {
       padding: 8px 16px;
       border-radius: 10px;
@@ -337,19 +294,16 @@
       border: 1px solid var(--border);
       background: white;
     }
-
     .period-btn.active {
       background: var(--primary);
       color: white;
       border-color: var(--primary);
     }
-
     .transactions {
       width: 100%;
       border-collapse: collapse;
       font-size: 15px;
     }
-
     .transactions th {
       text-align: left;
       padding: 12px 16px;
@@ -358,32 +312,26 @@
       font-size: 14px;
       border-bottom: 2px solid var(--border);
     }
-
     .transactions td {
       padding: 14px 16px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.2s;
     }
-
     .transaction-row:hover {
       background-color: var(--surface-light);
     }
-
     .transaction-amount.positive { color: var(--success); }
     .transaction-amount.negative { color: var(--error); }
-
     .transaction-balance {
       color: var(--text-secondary);
       font-size: 13px;
       font-weight: 500;
     }
-
     /* Forms */
     .form-group {
       margin-bottom: 16px;
     }
-
     .form-label {
       display: block;
       margin-bottom: 8px;
@@ -391,7 +339,6 @@
       color: var(--text);
       font-size: 15px;
     }
-
     .form-control {
       width: 100%;
       padding: 12px 16px;
@@ -401,13 +348,11 @@
       font-family: 'Inter', sans-serif;
       transition: border-color 0.2s;
     }
-
     .form-control:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
     }
-
     .btn {
       padding: 12px 20px;
       border-radius: 12px;
@@ -424,49 +369,40 @@
       text-decoration: none;
       white-space: nowrap;
     }
-
     .btn-primary {
       background: linear-gradient(135deg, var(--primary), #3a56e4);
       color: white;
       box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
     }
-
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 6px 16px rgba(67, 97, 238, 0.35);
     }
-
     .btn-outline {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text);
     }
-
     .btn-outline:hover {
       background: var(--surface-light);
     }
-
     .btn-success {
       background: linear-gradient(135deg, var(--accent), #05c194);
       color: white;
     }
-
     .btn-danger {
       background: linear-gradient(135deg, var(--error), #e53e5f);
       color: white;
     }
-
     .btn-group {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
     }
-
     .btn-file {
       position: relative;
       overflow: hidden;
     }
-
     .btn-file input[type="file"] {
       position: absolute;
       top: 0;
@@ -476,24 +412,20 @@
       opacity: 0;
       cursor: pointer;
     }
-
     /* Shopping */
     .shopping-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
     }
-
     @media (max-width: 768px) {
       .shopping-grid {
         grid-template-columns: 1fr;
       }
     }
-
     .shopping-list {
       list-style: none;
     }
-
     .shopping-item {
       display: flex;
       align-items: center;
@@ -505,30 +437,25 @@
       transition: all 0.2s;
       font-size: 15px;
     }
-
     .shopping-item:hover {
       background: #eef2ff;
     }
-
     .item-checkbox {
       margin-right: 16px;
       width: 20px;
       height: 20px;
       accent-color: var(--primary);
     }
-
     .item-name {
       flex: 1;
       font-weight: 600;
       color: var(--text);
     }
-
     .item-quantity {
       color: var(--text-secondary);
       margin-right: 16px;
       font-weight: 500;
     }
-
     /* Event Modal */
     .modal {
       position: fixed;
@@ -545,12 +472,10 @@
       visibility: hidden;
       transition: all 0.3s;
     }
-
     .modal.active {
       opacity: 1;
       visibility: visible;
     }
-
     .modal-content {
       background: white;
       border-radius: 16px;
@@ -563,7 +488,6 @@
       transition: transform 0.3s;
       margin: 20px;
     }
-
     .modal-header {
       padding: 20px;
       border-bottom: 1px solid var(--border);
@@ -571,13 +495,11 @@
       justify-content: space-between;
       align-items: center;
     }
-
     .modal-title {
       font-size: 18px;
       font-weight: 700;
       color: var(--text);
     }
-
     .close-modal {
       background: none;
       border: none;
@@ -591,15 +513,12 @@
       align-items: center;
       justify-content: center;
     }
-
     .close-modal:hover {
       background: var(--surface-light);
     }
-
     .modal-body {
       padding: 20px;
     }
-
     .modal-footer {
       padding: 20px;
       border-top: 1px solid var(--border);
@@ -607,7 +526,6 @@
       justify-content: flex-end;
       gap: 12px;
     }
-
     /* Planner */
     .planner-header {
       display: flex;
@@ -617,12 +535,10 @@
       gap: 12px;
       margin-bottom: 16px;
     }
-
     .view-buttons {
       display: flex;
       gap: 8px;
     }
-
     .view-btn {
       padding: 8px 16px;
       border-radius: 10px;
@@ -632,13 +548,11 @@
       border: 1px solid var(--border);
       background: white;
     }
-
     .view-btn.active {
       background: var(--primary);
       color: white;
       border-color: var(--primary);
     }
-
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -647,7 +561,6 @@
       border-radius: 8px;
       overflow: hidden;
     }
-
     .calendar-header-cell {
       background: white;
       padding: 10px;
@@ -656,7 +569,6 @@
       font-size: 13px;
       color: var(--text-secondary);
     }
-
     .calendar-day {
       background: white;
       min-height: 80px;
@@ -665,16 +577,13 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-
     .calendar-day:hover {
       background: var(--surface-light);
     }
-
     .calendar-date-number {
       font-weight: 600;
       margin-bottom: 6px;
     }
-
     .event-item {
       background: #eef2ff;
       border-left: 3px solid var(--primary);
@@ -683,55 +592,44 @@
       margin-bottom: 4px;
       font-size: 12px;
     }
-
     .event-title {
       font-weight: 600;
       margin-bottom: 2px;
     }
-
     .event-time {
       color: var(--text-secondary);
     }
-
     /* Responsive */
     @media (max-width: 600px) {
       .tabs-container {
         padding: 12px 0;
       }
-      
       .tabs {
         gap: 4px;
       }
-      
       .tab {
         padding: 8px 12px;
         font-size: 14px;
       }
-      
       .tile {
         padding: 16px;
       }
-      
       .tile-value {
         font-size: 20px;
       }
-      
       .section {
         padding: 16px;
       }
-      
       .btn {
         padding: 10px 16px;
         font-size: 14px;
       }
-      
       .transactions th,
       .transactions td {
         padding: 10px 12px;
         font-size: 14px;
       }
     }
-
     /* Notification */
     #notification {
       position: fixed;
@@ -748,11 +646,9 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-
     #notification.show {
       opacity: 1;
     }
-
     /* Participant color dot */
     .participant-color {
       display: inline-block;
@@ -785,7 +681,6 @@
       </div>
     </div>
   </header>
-
   <main class="container">
     <!-- Budget Tab -->
     <div id="budgetTab" class="tab-content">
@@ -808,7 +703,6 @@
           <div class="tile-value negative">25 650 ₽</div>
         </div>
       </div>
-
       <!-- Calendar -->
       <div class="section">
         <div class="calendar-controls">
@@ -841,7 +735,6 @@
           </table>
         </div>
       </div>
-
       <!-- Categories -->
       <div class="section">
         <div class="section-title">
@@ -851,7 +744,6 @@
           <!-- Categories will be generated by JS -->
         </div>
       </div>
-
       <!-- Transactions -->
       <div class="section">
         <div class="transactions-header">
@@ -893,7 +785,6 @@
         </div>
       </div>
     </div>
-
     <!-- Shopping Tab -->
     <div id="shoppingTab" class="tab-content" style="display: none;">
       <div class="shopping-grid">
@@ -926,7 +817,6 @@
               Добавить в список
             </button>
           </div>
-
           <div class="section">
             <div class="section-title">
               <i class="fas fa-chart-bar"></i> Топ покупок
@@ -952,7 +842,6 @@
         </div>
       </div>
     </div>
-
     <!-- Planner Tab -->
     <div id="plannerTab" class="tab-content" style="display: none;">
       <div class="section">
@@ -974,11 +863,9 @@
             <button class="view-btn" data-view="day">День</button>
           </div>
         </div>
-        
         <div class="calendar-grid" id="plannerCalendar">
           <!-- Calendar will be generated by JS -->
         </div>
-        
         <!-- Events List -->
         <div class="section" id="eventsListSection">
           <div class="section-title">
@@ -988,14 +875,12 @@
             <!-- Events will be generated by JS -->
           </div>
         </div>
-        
         <button class="btn btn-primary" id="addEventBtn" style="margin-top: 20px;">
           Добавить событие
         </button>
       </div>
     </div>
   </main>
-
   <!-- Transaction Modal -->
   <div class="modal" id="transactionModal">
     <div class="modal-content">
@@ -1041,7 +926,6 @@
       </div>
     </div>
   </div>
-
   <!-- Shopping Item Modal -->
   <div class="modal" id="shoppingItemModal">
     <div class="modal-content">
@@ -1082,7 +966,6 @@
       </div>
     </div>
   </div>
-
   <!-- Event Modal -->
   <div class="modal" id="eventModal">
     <div class="modal-content">
@@ -1126,7 +1009,6 @@
       </div>
     </div>
   </div>
-
   <!-- Add Participant Modal -->
   <div class="modal" id="addParticipantModal">
     <div class="modal-content">
@@ -1162,7 +1044,6 @@
       </div>
     </div>
   </div>
-
   <!-- Settings Modal -->
   <div class="modal" id="settingsModal">
     <div class="modal-content">
@@ -1199,7 +1080,6 @@
           </div>
         </div>
         <button class="btn btn-primary" id="addFamilyMemberBtn">Добавить участника</button>
-        
         <!-- Planner Time Range -->
         <div class="form-group" style="margin-top: 20px;">
           <label class="form-label">Время отображения в планировщике</label>
@@ -1214,7 +1094,6 @@
             </div>
           </div>
         </div>
-        
         <!-- Categories -->
         <div class="form-group" style="margin-top: 20px;">
           <label class="form-label">Категории</label>
@@ -1223,7 +1102,6 @@
           </div>
         </div>
         <button class="btn btn-primary" id="addCategoryBtn">Добавить категорию</button>
-        
         <!-- Shopping Settings -->
         <div class="form-group" style="margin-top: 20px;">
           <label class="form-check" style="display: flex; align-items: center;">
@@ -1237,7 +1115,6 @@
             <span>Сортировать покупки по категориям</span>
           </label>
         </div>
-        
         <!-- Telegram Integration -->
         <div class="form-group" style="margin-top: 20px;">
           <label class="form-label">Интеграция с Telegram</label>
@@ -1248,7 +1125,6 @@
             <input type="text" class="form-control" id="telegramChatId" placeholder="Введите ID чата">
           </div>
         </div>
-        
         <!-- Export Settings -->
         <div class="form-group" style="margin-top: 20px;">
           <label class="form-label">Экспорт данных</label>
@@ -1264,10 +1140,8 @@
       </div>
     </div>
   </div>
-
   <!-- Notification -->
   <div id="notification">Действие выполнено успешно!</div>
-
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.9/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.9/plugin/weekOfYear.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.9/plugin/localeData.min.js"></script>
@@ -1275,7 +1149,6 @@
     // Load required Day.js plugins
     dayjs.extend(window.dayjs_plugin_weekOfYear);
     dayjs.extend(window.dayjs_plugin_localeData);
-    
     // State management
     let currentBudgetMonth = dayjs().startOf('month'); // Current month
     let currentPlannerMonth = dayjs().startOf('month'); // Current month
@@ -1284,31 +1157,26 @@
     let editingShoppingItemId = null;
     let editingEventId = null;
     let selectedDate = dayjs(); // For storing selected date in planner
-    
     // Mock data
     const transactions = [
       { id: 1, date: dayjs('2025-10-17'), type: 'expense', amount: 2450, category: 'Продукты', description: 'Продукты' },
       { id: 2, date: dayjs('2025-10-09'), type: 'income', amount: 45000, category: 'Доход', description: 'Зарплата' },
       { id: 3, date: dayjs('2025-10-07'), type: 'expense', amount: 1200, category: 'Здоровье', description: 'Аптека' }
     ];
-    
     const shoppingItems = [
       { id: 1, name: 'Молоко', quantity: 1, unit: 'pcs', isBought: false },
       { id: 2, name: 'Хлеб', quantity: 2, unit: 'pcs', isBought: false },
       { id: 3, name: 'Яйца', quantity: 10, unit: 'pcs', isBought: true },
       { id: 4, name: 'Сыр', quantity: 0.5, unit: 'kg', isBought: false }
     ];
-    
     const participants = [
       { id: 1, name: 'Анна', color: '#4361ee' },
       { id: 2, name: 'Иван', color: '#06d6a0' }
     ];
-    
     const events = [
       { id: 1, title: 'Ужин', start: dayjs('2025-12-07T19:00:00'), end: dayjs('2025-12-07T21:00:00'), participantIds: [1] },
       { id: 2, title: 'Фильм', start: dayjs('2025-12-09T20:00:00'), end: dayjs('2025-12-09T22:00:00'), participantIds: [2] }
     ];
-    
     // Settings
     let settings = {
       colorScheme: 'default',
@@ -1330,7 +1198,6 @@
       dayStartTime: '08:00',
       dayEndTime: '22:00'
     };
-    
     // Load settings from localStorage
     function loadSettings() {
       const savedSettings = localStorage.getItem('budgetAppSettings');
@@ -1338,15 +1205,12 @@
         settings = JSON.parse(savedSettings);
       }
     }
-    
     // Save settings to localStorage
     function saveSettings() {
       localStorage.setItem('budgetAppSettings', JSON.stringify(settings));
     }
-    
     // Initialize settings
     loadSettings();
-    
     // Utility functions
     function showNotification(message) {
       if (!settings.notificationsEnabled) return;
@@ -1357,15 +1221,12 @@
         notification.classList.remove('show');
       }, 3000);
     }
-    
     function formatDate(date) {
       return date.format('DD.MM.YY');
     }
-    
     function formatTime(date) {
       return date.format('HH:mm');
     }
-    
     function getUnitLabel(unit, count) {
       const n = Math.abs(count);
       if (unit === 'pcs') {
@@ -1375,7 +1236,6 @@
       }
       return unit === 'liters' ? 'л' : unit === 'grams' ? 'г' : 'кг';
     }
-    
     // DOM Elements
     const budgetTab = document.getElementById('budgetTab');
     const shoppingTab = document.getElementById('shoppingTab');
@@ -1390,14 +1250,12 @@
     const plannerCalendarTitle = document.getElementById('plannerCalendarTitle');
     const eventsList = document.getElementById('eventsList');
     const eventsListSection = document.getElementById('eventsListSection');
-    
     // Modals
     const transactionModal = document.getElementById('transactionModal');
     const shoppingItemModal = document.getElementById('shoppingItemModal');
     const eventModal = document.getElementById('eventModal');
     const settingsModal = document.getElementById('settingsModal');
     const addParticipantModal = document.getElementById('addParticipantModal');
-    
     // Initialize the app
     function init() {
       renderBudgetMonth();
@@ -1407,45 +1265,36 @@
       renderTopShoppingList();
       renderPlanner();
       renderEventsList();
-      
       // Set up event listeners
       setupEventListeners();
     }
-    
     // Render budget calendar
     function renderBudgetMonth() {
       const year = currentBudgetMonth.year();
       const month = currentBudgetMonth.month();
       budgetCalendarTitle.textContent = currentBudgetMonth.format('MMMM YYYY');
-      
       // Clear existing calendar
       budgetCalendarBody.innerHTML = '';
-      
       // Get first day of month and last day
       const firstDay = currentBudgetMonth.startOf('month');
       const lastDay = currentBudgetMonth.endOf('month');
       const startDate = firstDay.startOf('week');
-      
       // Create calendar rows
       let date = startDate;
       for (let week = 0; week < 6; week++) {
         const row = document.createElement('tr');
-        
         for (let day = 0; day < 7; day++) {
           const cell = document.createElement('td');
           const dayNum = date.date();
           const isCurrentMonth = date.month() === month;
-          
           // Calculate total expenses for this day
-          const dayTransactions = transactions.filter(tx => 
-            tx.date.date() === dayNum && 
+          const dayTransactions = transactions.filter(tx =>
+            tx.date.date() === dayNum &&
             tx.date.month() === month &&
             tx.date.year() === year &&
             tx.type === 'expense'
           );
-          
           const totalExpenses = dayTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-          
           cell.innerHTML = `
             <div class="calendar-date ${isCurrentMonth ? '' : 'text-gray-400'} ${dayTransactions.length > 0 ? 'has-transaction' : ''}">
               ${dayNum}
@@ -1454,26 +1303,22 @@
               ${totalExpenses > 0 ? totalExpenses.toLocaleString('ru-RU') + ' ₽' : ''}
             </div>
           `;
-          
           if (isCurrentMonth) {
             cell.dataset.date = date.format('YYYY-MM-DD');
-            // Remove old event listeners to prevent memory leaks
-            const newCell = cell.cloneNode(true);
-            cell.parentNode.replaceChild(newCell, cell);
-            newCell.addEventListener('click', () => openTransactionModal(null, date));
+            // Use the stored date from the cell's dataset
+            cell.addEventListener('click', function() {
+              const clickedDate = dayjs(this.dataset.date);
+              openTransactionModal(null, clickedDate);
+            });
           }
-          
           row.appendChild(cell);
           date = date.add(1, 'day');
         }
-        
         budgetCalendarBody.appendChild(row);
-        
         // Stop if we've passed the end of the month
         if (date.month() > month) break;
       }
     }
-    
     // Render categories
     function renderCategories() {
       // Aggregate transactions by category
@@ -1483,10 +1328,8 @@
         const amount = tx.type === 'income' ? tx.amount : -tx.amount;
         categoryMap[cat] = (categoryMap[cat] || 0) + amount;
       });
-      
       // Clear existing categories
       categoriesList.innerHTML = '';
-      
       // Create category items
       Object.entries(categoryMap)
         .sort(([,a], [,b]) => b - a)
@@ -1503,15 +1346,12 @@
           categoriesList.appendChild(item);
         });
     }
-    
     // Render transactions
     function renderTransactions() {
       // Sort transactions by date (newest first)
       const sortedTransactions = [...transactions].sort((a, b) => b.date.unix() - a.date.unix());
-      
       // Clear existing transactions
       transactionsList.innerHTML = '';
-      
       // Create transaction rows
       sortedTransactions.forEach(tx => {
         const row = document.createElement('tr');
@@ -1529,14 +1369,12 @@
         transactionsList.appendChild(row);
       });
     }
-    
     // Calculate balance after transaction
     function calculateBalanceAfter(transactionId) {
       const targetTransaction = transactions.find(t => t.id === transactionId);
       if (!targetTransaction) {
         return 0; // Return 0 if transaction is not found
       }
-      
       let balance = 0;
       transactions
         .filter(tx => tx.date.unix() <= targetTransaction.date.unix())
@@ -1545,12 +1383,10 @@
         });
       return balance;
     }
-    
     // Render shopping list
     function renderShoppingList() {
       // Clear existing items
       shoppingList.innerHTML = '';
-      
       // Sort items if needed
       let itemsToRender = [...shoppingItems];
       if (settings.sortShoppingByCategory) {
@@ -1560,7 +1396,6 @@
           return catA.name.localeCompare(catB.name);
         });
       }
-      
       // Create shopping items
       itemsToRender.forEach(item => {
         const li = document.createElement('li');
@@ -1572,17 +1407,14 @@
           </div>
           <div class="item-quantity">${item.quantity} ${getUnitLabel(item.unit, item.quantity)}</div>
         `;
-        
         // Add event listeners
         const checkbox = li.querySelector('.item-checkbox');
         const nameElement = li.querySelector('.item-name');
-        
         li.addEventListener('click', (e) => {
           if (e.target !== checkbox) {
             openShoppingItemModal(item);
           }
         });
-        
         checkbox.addEventListener('change', () => {
           item.isBought = checkbox.checked;
           if (checkbox.checked) {
@@ -1594,15 +1426,12 @@
           }
           showNotification(checkbox.checked ? 'Товар отмечен как купленный' : 'Товар возвращен в список');
         });
-        
         shoppingList.appendChild(li);
       });
     }
-    
     // Render top shopping list
     function renderTopShoppingList() {
       topShoppingList.innerHTML = '';
-      
       // Group items by name and calculate total quantity
       const groupedItems = {};
       shoppingItems.forEach(item => {
@@ -1616,10 +1445,8 @@
           };
         }
       });
-      
       // Convert to array and sort by quantity (descending)
       const sortedItems = Object.values(groupedItems).sort((a, b) => b.quantity - a.quantity);
-      
       // Show top 10 items
       sortedItems.slice(0, 10).forEach(item => {
         const div = document.createElement('div');
@@ -1630,16 +1457,13 @@
             <span style="color: var(--text-secondary);">${item.quantity} ${getUnitLabel(item.unit, item.quantity)}</span>
           </div>
         `;
-        
         div.addEventListener('click', () => {
           document.getElementById('itemName').value = item.name;
           showNotification(`Выбрано: ${item.name}`);
         });
-        
         topShoppingList.appendChild(div);
       });
     }
-    
     // Render planner based on current view
     function renderPlanner() {
       switch(currentView) {
@@ -1654,16 +1478,13 @@
           renderPlannerMonth();
       }
     }
-    
     // Render planner for month view
     function renderPlannerMonth() {
       const year = currentPlannerMonth.year();
       const month = currentPlannerMonth.month();
       plannerCalendarTitle.textContent = currentPlannerMonth.format('MMMM YYYY');
-      
       // Clear existing calendar
       plannerCalendar.innerHTML = '';
-      
       // Add header
       ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].forEach(day => {
         const headerCell = document.createElement('div');
@@ -1671,34 +1492,28 @@
         headerCell.textContent = day;
         plannerCalendar.appendChild(headerCell);
       });
-      
       // Get first day of month and last day
       const firstDay = currentPlannerMonth.startOf('month');
       const lastDay = currentPlannerMonth.endOf('month');
       const startDate = firstDay.startOf('week');
-      
       // Create calendar days
       let date = startDate;
       for (let i = 0; i < 42; i++) {
         const dayCell = document.createElement('div');
         dayCell.className = 'calendar-day';
-        
         const dayNum = date.date();
         const isCurrentMonth = date.month() === month;
-        
         dayCell.innerHTML = `
           <div class="calendar-date-number ${isCurrentMonth ? '' : 'text-gray-400'}">
             ${dayNum}
           </div>
         `;
-        
         // Add events for this day
-        const dayEvents = events.filter(e => 
-          e.start.date() === dayNum && 
+        const dayEvents = events.filter(e =>
+          e.start.date() === dayNum &&
           e.start.month() === month &&
           e.start.year() === year
         );
-        
         dayEvents.forEach(event => {
           const participant = participants.find(p => p.id === event.participantIds[0]);
           const eventDiv = document.createElement('div');
@@ -1714,32 +1529,27 @@
           });
           dayCell.appendChild(eventDiv);
         });
-        
         if (isCurrentMonth) {
           dayCell.dataset.date = date.format('YYYY-MM-DD');
-          dayCell.addEventListener('click', () => {
-            selectedDate = date;
-            openEventModal(null, date);
-            renderEventsList(); // Обновляем список событий при выборе даты
+          dayCell.addEventListener('click', function() {
+            const clickedDate = dayjs(this.dataset.date);
+            selectedDate = clickedDate;
+            openEventModal(null, clickedDate);
+            renderEventsList();
           });
         }
-        
         plannerCalendar.appendChild(dayCell);
         date = date.add(1, 'day');
-        
         // Stop if we've passed the end of the month and have 6 full weeks
         if (i >= 34 && date.month() > month) break;
       }
     }
-    
     // Render planner for week view
     function renderPlannerWeek() {
       const currentDate = selectedDate.startOf('week');
       plannerCalendarTitle.textContent = `Неделя ${currentDate.format('DD')} - ${currentDate.add(6, 'day').format('DD MMMM YYYY')}`;
-      
       // Clear existing calendar
       plannerCalendar.innerHTML = '';
-      
       // Add header
       for (let i = 0; i < 7; i++) {
         const day = currentDate.add(i, 'day');
@@ -1748,20 +1558,17 @@
         headerCell.textContent = `${day.format('ddd')}, ${day.format('DD')}`;
         plannerCalendar.appendChild(headerCell);
       }
-      
       // Create day cells for the week
       for (let i = 0; i < 7; i++) {
         const dayDate = currentDate.add(i, 'day');
         const dayCell = document.createElement('div');
         dayCell.className = 'calendar-day';
-        
         // Add events for this day
-        const dayEvents = events.filter(e => 
-          e.start.date() === dayDate.date() && 
+        const dayEvents = events.filter(e =>
+          e.start.date() === dayDate.date() &&
           e.start.month() === dayDate.month() &&
           e.start.year() === dayDate.year()
         );
-        
         dayEvents.forEach(event => {
           const participant = participants.find(p => p.id === event.participantIds[0]);
           const eventDiv = document.createElement('div');
@@ -1777,36 +1584,29 @@
           });
           dayCell.appendChild(eventDiv);
         });
-        
         dayCell.dataset.date = dayDate.format('YYYY-MM-DD');
         dayCell.addEventListener('click', () => {
           selectedDate = dayDate;
           openEventModal(null, dayDate);
           renderEventsList(); // Обновляем список событий при выборе даты
         });
-        
         plannerCalendar.appendChild(dayCell);
       }
     }
-    
     // Render planner for day view
     function renderPlannerDay() {
       const dayDate = selectedDate;
       plannerCalendarTitle.textContent = dayDate.format('dddd, DD MMMM YYYY');
-      
       // Clear existing calendar
       plannerCalendar.innerHTML = '';
-      
       // Add header
       const headerCell = document.createElement('div');
       headerCell.className = 'calendar-header-cell';
       headerCell.textContent = dayDate.format('dddd, DD MMMM');
       plannerCalendar.appendChild(headerCell);
-      
       // Parse start and end times from settings
-      const [startHour, startMinute] = settings.dayStartTime.split(':').map(Number);
-      const [endHour, endMinute] = settings.dayEndTime.split(':').map(Number);
-      
+      let [startHour, startMinute] = settings.dayStartTime.split(':').map(Number);
+      let [endHour, endMinute] = settings.dayEndTime.split(':').map(Number);
       // Validate settings to avoid infinite loop
       if (startHour > endHour) {
         console.warn("Start hour is greater than end hour. Using default values.");
@@ -1814,14 +1614,12 @@
         startHour = 8;
         endHour = 22;
       }
-      
       // Create time slots
       for (let hour = startHour; hour <= endHour; hour++) {
         const timeSlot = document.createElement('div');
         timeSlot.className = 'calendar-day';
         timeSlot.style.minHeight = '40px';
         timeSlot.style.position = 'relative';
-        
         // Add time label
         const timeLabel = document.createElement('div');
         timeLabel.style.position = 'absolute';
@@ -1831,15 +1629,13 @@
         timeLabel.style.color = '#94a3b8';
         timeLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
         timeSlot.appendChild(timeLabel);
-        
         // Add events for this hour
-        const dayEvents = events.filter(e => 
-          e.start.date() === dayDate.date() && 
+        const dayEvents = events.filter(e =>
+          e.start.date() === dayDate.date() &&
           e.start.month() === dayDate.month() &&
           e.start.year() === dayDate.year() &&
           e.start.hour() === hour
         );
-        
         dayEvents.forEach(event => {
           const participant = participants.find(p => p.id === event.participantIds[0]);
           const eventDiv = document.createElement('div');
@@ -1856,7 +1652,6 @@
           });
           timeSlot.appendChild(eventDiv);
         });
-        
         timeSlot.dataset.date = dayDate.format('YYYY-MM-DD');
         timeSlot.dataset.hour = hour;
         timeSlot.addEventListener('click', () => {
@@ -1864,58 +1659,49 @@
           openEventModal(null, clickDate);
           renderEventsList(); // Обновляем список событий при выборе времени
         });
-        
         plannerCalendar.appendChild(timeSlot);
       }
     }
-    
     // Render events list
     function renderEventsList() {
       eventsList.innerHTML = '';
-      
       // Filter events by selected date depending on current view
       let filteredEvents = [];
       if (currentView === 'month') {
         // Show all events for the current month
         const year = currentPlannerMonth.year();
         const month = currentPlannerMonth.month();
-        filteredEvents = events.filter(e => 
-          e.start.year() === year && 
+        filteredEvents = events.filter(e =>
+          e.start.year() === year &&
           e.start.month() === month
         );
       } else if (currentView === 'week') {
         // Show events for the week of selectedDate
         const weekStart = selectedDate.startOf('week');
         const weekEnd = weekStart.add(6, 'day');
-        
-        filteredEvents = events.filter(e => 
-          e.start.isAfter(weekStart.subtract(1, 'day')) && 
+        filteredEvents = events.filter(e =>
+          e.start.isAfter(weekStart.subtract(1, 'day')) &&
           e.start.isBefore(weekEnd.add(1, 'day'))
         );
       } else { // day
         // Show events for the selected day
         const dayStart = selectedDate.startOf('day');
         const dayEnd = selectedDate.endOf('day');
-        
-        filteredEvents = events.filter(e => 
-          e.start.isAfter(dayStart.subtract(1, 'day')) && 
+        filteredEvents = events.filter(e =>
+          e.start.isAfter(dayStart.subtract(1, 'day')) &&
           e.start.isBefore(dayEnd.add(1, 'day'))
         );
       }
-      
       // Sort events by start time
       filteredEvents.sort((a, b) => a.start.unix() - b.start.unix());
-      
       if (filteredEvents.length === 0) {
         eventsList.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-secondary);">Нет событий</div>';
         return;
       }
-      
       filteredEvents.forEach(event => {
         const eventDiv = document.createElement('div');
         eventDiv.className = 'category-item';
         const participant = participants.find(p => p.id === event.participantIds[0]);
-        
         eventDiv.innerHTML = `
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="participant-color" style="background-color: ${participant ? participant.color : '#4361ee'};"></div>
@@ -1925,25 +1711,20 @@
             </div>
           </div>
         `;
-        
         eventDiv.addEventListener('click', () => openEventModal(event));
         eventsList.appendChild(eventDiv);
       });
     }
-    
     // Open transaction modal
     function openTransactionModal(transaction = null, date = null) {
       editingTransactionId = transaction ? transaction.id : null;
-      
-      document.getElementById('transactionModalTitle').textContent = 
+      document.getElementById('transactionModalTitle').textContent =
         transaction ? 'Редактировать операцию' : 'Новая операция';
-      
       if (transaction) {
         document.getElementById('transactionAmount').value = transaction.amount;
         document.getElementById('transactionCategory').value = transaction.category;
         document.getElementById('transactionDescription').value = transaction.description;
         document.getElementById('transactionDate').value = transaction.date.format('YYYY-MM-DD');
-        
         if (transaction.type === 'income') {
           document.getElementById('incomeTypeBtn').classList.add('active');
           document.getElementById('expenseTypeBtn').classList.remove('active');
@@ -1956,51 +1737,48 @@
         document.getElementById('transactionCategory').value = 'Продукты';
         document.getElementById('transactionDescription').value = '';
         document.getElementById('transactionDate').value = date ? date.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD');
-        
         document.getElementById('incomeTypeBtn').classList.remove('active');
         document.getElementById('expenseTypeBtn').classList.add('active');
       }
-      
       transactionModal.classList.add('active');
     }
-    
     // Open shopping item modal
     function openShoppingItemModal(item) {
       editingShoppingItemId = item.id;
-      
       document.getElementById('editItemName').value = item.name;
       document.getElementById('editItemQuantity').value = item.quantity;
       document.getElementById('editItemUnit').value = item.unit;
       document.getElementById('editItemBought').checked = item.isBought;
-      
       shoppingItemModal.classList.add('active');
     }
-    
     // Open event modal
     function openEventModal(event = null, date = null) {
-      editingEventId = event ? event.id : null;
+      // Clear existing state
+      editingEventId = null;
       
       if (event) {
+        // Editing existing event
+        editingEventId = event.id;
         document.getElementById('eventTitle').value = event.title;
         document.getElementById('eventStart').value = event.start.format('YYYY-MM-DDTHH:mm');
         document.getElementById('eventEnd').value = event.end.format('YYYY-MM-DDTHH:mm');
         document.getElementById('isTemplate').checked = false;
         document.getElementById('templateName').style.display = 'none';
       } else {
+        // New event
         document.getElementById('eventTitle').value = '';
         if (date) {
           // Set start time based on current view
           let start, end;
           if (currentView === 'month') {
-            // For month view, use current date but leave time empty
-            start = date.startOf('day');
-            end = date.startOf('day');
+            // For month view, use current date but leave time empty for start
+            start = date.hour(19).minute(0);
+            end = date.hour(20).minute(0); // Default duration 1 hour
           } else {
             // For week and day views, use the clicked date and time
             start = date;
             end = date.add(1, 'hour'); // Default duration 1 hour
           }
-          
           document.getElementById('eventStart').value = start.format('YYYY-MM-DDTHH:mm');
           document.getElementById('eventEnd').value = end.format('YYYY-MM-DDTHH:mm');
         } else {
@@ -2012,7 +1790,6 @@
         document.getElementById('isTemplate').checked = false;
         document.getElementById('templateName').style.display = 'none';
       }
-      
       // Render participants
       const participantSelection = document.getElementById('participantSelection');
       participantSelection.innerHTML = '';
@@ -2032,10 +1809,8 @@
         btn.dataset.participantId = participant.id;
         participantSelection.appendChild(btn);
       });
-      
       eventModal.classList.add('active');
     }
-    
     // Open settings modal
     function openSettingsModal() {
       // Load current settings into form
@@ -2048,7 +1823,6 @@
       document.getElementById('telegramChatId').value = settings.telegramChatId;
       document.getElementById('dayStartTime').value = settings.dayStartTime;
       document.getElementById('dayEndTime').value = settings.dayEndTime;
-      
       // Render family members
       const familyMembersList = document.getElementById('familyMembersList');
       familyMembersList.innerHTML = '';
@@ -2059,7 +1833,6 @@
         memberDiv.style.justifyContent = 'space-between';
         memberDiv.style.padding = '8px';
         memberDiv.style.borderBottom = '1px solid var(--border)';
-        
         memberDiv.innerHTML = `
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="participant-color" style="background-color: ${member.color};"></div>
@@ -2067,10 +1840,8 @@
           </div>
           <button class="btn btn-outline remove-member-btn" data-id="${member.id}" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
         `;
-        
         familyMembersList.appendChild(memberDiv);
       });
-      
       // Add event listeners to remove buttons after they're created
       document.querySelectorAll('.remove-member-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -2078,19 +1849,16 @@
           removeFamilyMember(memberId);
         });
       });
-      };
-      
       // Render categories
       const categoriesListSettings = document.getElementById('categoriesListSettings');
       categoriesListSettings.innerHTML = '';
       settings.categories.forEach(category => {
         const categoryDiv = document.createElement('div');
         categoryDiv.style.display = 'flex';
-        categoryDiv.style.align-items = 'center';
+        categoryDiv.style.alignItems = 'center';
         categoryDiv.style.justifyContent = 'space-between';
         categoryDiv.style.padding = '8px';
         categoryDiv.style.borderBottom = '1px solid var(--border)';
-        
         categoryDiv.innerHTML = `
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="participant-color" style="background-color: ${category.color};"></div>
@@ -2098,10 +1866,8 @@
           </div>
           <button class="btn btn-outline remove-category-btn" data-id="${category.id}" style="padding: 4px 8px; font-size: 12px;">Удалить</button>
         `;
-        
         categoriesListSettings.appendChild(categoryDiv);
       });
-      
       // Add event listeners to remove category buttons after they're created
       document.querySelectorAll('.remove-category-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -2109,48 +1875,39 @@
           removeCategory(categoryId);
         });
       });
-      
       settingsModal.classList.add('active');
     }
-    
     // Remove family member
     function removeFamilyMember(id) {
       settings.familyMembers = settings.familyMembers.filter(m => m.id !== id);
       openSettingsModal(); // Refresh the list
     }
-    
     // Add family member
     function addFamilyMember() {
       document.getElementById('newParticipantName').value = '';
       document.getElementById('customColorPicker').value = '#4361ee';
       addParticipantModal.classList.add('active');
     }
-    
     // Remove category
     function removeCategory(id) {
       settings.categories = settings.categories.filter(c => c.id !== id);
       openSettingsModal(); // Refresh the list
     }
-    
     // Add category
     function addCategory() {
       const name = prompt('Введите название категории:');
       if (!name) return;
-      
       // Generate random color
       const colors = ['#4361ee', '#06d6a0', '#ef476f', '#ffd166', '#118ab2', '#073b4c', '#7209b7', '#f15bb5'];
       const color = colors[Math.floor(Math.random() * colors.length)];
-      
       const newCategory = {
         id: Date.now(),
         name,
         color
       };
-      
       settings.categories.push(newCategory);
       openSettingsModal(); // Refresh the list
     }
-    
     // Set up event listeners
     function setupEventListeners() {
       // Tab switching
@@ -2158,13 +1915,11 @@
         tab.addEventListener('click', () => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-          
           tab.classList.add('active');
           const tabId = tab.getAttribute('data-tab');
           document.getElementById(tabId + 'Tab').style.display = 'block';
         });
       });
-      
       // Budget calendar navigation
       document.getElementById('prevMonthBtn').addEventListener('click', () => {
         currentBudgetMonth = currentBudgetMonth.subtract(1, 'month');
@@ -2172,14 +1927,12 @@
         renderCategories();
         renderTransactions();
       });
-      
       document.getElementById('nextMonthBtn').addEventListener('click', () => {
         currentBudgetMonth = currentBudgetMonth.add(1, 'month');
         renderBudgetMonth();
         renderCategories();
         renderTransactions();
       });
-      
       // Planner calendar navigation
       document.getElementById('prevPlannerMonthBtn').addEventListener('click', () => {
         currentPlannerMonth = currentPlannerMonth.subtract(1, 'month');
@@ -2187,14 +1940,12 @@
         renderPlanner();
         renderEventsList();
       });
-      
       document.getElementById('nextPlannerMonthBtn').addEventListener('click', () => {
         currentPlannerMonth = currentPlannerMonth.add(1, 'month');
         selectedDate = currentPlannerMonth;
         renderPlanner();
         renderEventsList();
       });
-      
       // View switching for planner
       document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2206,44 +1957,37 @@
           showNotification(`Режим: ${btn.textContent}`);
         });
       });
-      
       // Period buttons
       document.getElementById('currentMonthBtn').addEventListener('click', function() {
         this.classList.add('active');
         document.getElementById('allTimeBtn').classList.remove('active');
         showNotification('Показываем операции за текущий месяц');
       });
-      
       document.getElementById('allTimeBtn').addEventListener('click', function() {
         this.classList.add('active');
         document.getElementById('currentMonthBtn').classList.remove('active');
         showNotification('Показываем все операции');
       });
-      
       // Transaction buttons
       document.getElementById('addIncomeBtn').addEventListener('click', () => {
         openTransactionModal(null);
         document.getElementById('incomeTypeBtn').classList.add('active');
         document.getElementById('expenseTypeBtn').classList.remove('active');
       });
-      
       document.getElementById('addExpenseBtn').addEventListener('click', () => {
         openTransactionModal(null);
         document.getElementById('expenseTypeBtn').classList.add('active');
         document.getElementById('incomeTypeBtn').classList.remove('active');
       });
-      
       // Transaction type buttons
       document.getElementById('incomeTypeBtn').addEventListener('click', function() {
         this.classList.add('active');
         document.getElementById('expenseTypeBtn').classList.remove('active');
       });
-      
       document.getElementById('expenseTypeBtn').addEventListener('click', function() {
         this.classList.add('active');
         document.getElementById('incomeTypeBtn').classList.remove('active');
       });
-      
       // Save transaction
       document.getElementById('saveTransactionBtn').addEventListener('click', () => {
         const amount = parseFloat(document.getElementById('transactionAmount').value);
@@ -2251,12 +1995,10 @@
         const description = document.getElementById('transactionDescription').value;
         const dateStr = document.getElementById('transactionDate').value;
         const type = document.getElementById('incomeTypeBtn').classList.contains('active') ? 'income' : 'expense';
-        
         if (!amount || amount <= 0) {
           showNotification('Пожалуйста, введите сумму больше 0');
           return;
         }
-        
         if (editingTransactionId) {
           // Update existing transaction
           const index = transactions.findIndex(tx => tx.id === editingTransactionId);
@@ -2283,38 +2025,31 @@
           transactions.push(newTransaction);
           showNotification('Операция добавлена');
         }
-        
         renderBudgetMonth();
         renderCategories();
         renderTransactions();
         transactionModal.classList.remove('active');
       });
-      
       // Close transaction modal
       document.getElementById('closeTransactionModal').addEventListener('click', () => {
         transactionModal.classList.remove('active');
       });
-      
       document.getElementById('cancelTransactionBtn').addEventListener('click', () => {
         transactionModal.classList.remove('active');
       });
-      
       // Shopping item buttons
       document.getElementById('addItemBtn').addEventListener('click', () => {
         const name = document.getElementById('itemName').value.trim();
         const quantity = parseFloat(document.getElementById('itemQuantity').value);
         const unit = document.getElementById('itemUnit').value;
-        
         if (!name) {
           showNotification('Пожалуйста, введите название товара');
           return;
         }
-        
         if (!quantity || quantity <= 0) {
           showNotification('Количество должно быть больше 0');
           return;
         }
-        
         const newItem = {
           id: Date.now(),
           name,
@@ -2322,24 +2057,20 @@
           unit,
           isBought: false
         };
-        
         shoppingItems.push(newItem);
         renderShoppingList();
         renderTopShoppingList();
         showNotification(`Добавлено: ${name} - ${quantity} ${getUnitLabel(unit, quantity)}`);
-        
         // Clear form
         document.getElementById('itemName').value = '';
         document.getElementById('itemQuantity').value = '1';
       });
-      
       // Send to Telegram
       document.getElementById('sendToTelegramBtn').addEventListener('click', () => {
         if (!settings.telegramToken || !settings.telegramChatId) {
           showNotification('Пожалуйста, настройте Telegram в разделе "Настройки"');
           return;
         }
-        
         // Create message with shopping list
         let message = 'Список покупок:\n';
         shoppingItems.forEach(item => {
@@ -2347,28 +2078,23 @@
             message += `- ${item.name} (${item.quantity} ${getUnitLabel(item.unit, item.quantity)})\n`;
           }
         });
-        
         // In a real implementation, you would send this to Telegram API
         showNotification('Список отправлен в Telegram!');
       });
-      
       // Save shopping item
       document.getElementById('saveShoppingItemBtn').addEventListener('click', () => {
         const name = document.getElementById('editItemName').value.trim();
         const quantity = parseFloat(document.getElementById('editItemQuantity').value);
         const unit = document.getElementById('editItemUnit').value;
         const isBought = document.getElementById('editItemBought').checked;
-        
         if (!name) {
           showNotification('Пожалуйста, введите название товара');
           return;
         }
-        
         if (!quantity || quantity <= 0) {
           showNotification('Количество должно быть больше 0');
           return;
         }
-        
         const item = shoppingItems.find(i => i.id === editingShoppingItemId);
         if (item) {
           item.name = name;
@@ -2379,80 +2105,92 @@
           renderTopShoppingList();
           showNotification('Товар обновлен');
         }
-        
         shoppingItemModal.classList.remove('active');
       });
-      
       // Close shopping item modal
       document.getElementById('closeShoppingItemModal').addEventListener('click', () => {
         shoppingItemModal.classList.remove('active');
       });
-      
       document.getElementById('cancelShoppingItemBtn').addEventListener('click', () => {
         shoppingItemModal.classList.remove('active');
       });
-      
       // Add event button
       document.getElementById('addEventBtn').addEventListener('click', () => {
         openEventModal();
       });
       
-      // Copy event button
+      // Исправленная кнопка "Копировать"
       document.getElementById('copyEventBtn').addEventListener('click', () => {
         if (editingEventId) {
+          // We're editing an existing event
           const originalEvent = events.find(e => e.id === editingEventId);
           if (originalEvent) {
-            // Create a new event with the same title and participants but empty date/time
+            // Clone the event but with new id
             const newEvent = {
+              ...originalEvent,
               id: Date.now(),
-              title: originalEvent.title,
-              start: dayjs(),
-              end: dayjs(),
-              participantIds: [...originalEvent.participantIds]
+              start: dayjs(originalEvent.start), // Clone dayjs object
+              end: dayjs(originalEvent.end), // Clone dayjs object
+              title: originalEvent.title + ' (копия)'
             };
             
+            // Open the modal with the cloned event
             openEventModal(newEvent);
             showNotification('Событие скопировано');
           }
         } else {
-          // If creating a new event, just reset the form
-          document.getElementById('eventTitle').value = '';
-          document.getElementById('eventStart').value = '';
-          document.getElementById('eventEnd').value = '';
-          document.querySelectorAll('.participant-btn').forEach(btn => {
-            btn.classList.remove('active');
+          // We're creating a new event
+          // Get current form values
+          const title = document.getElementById('eventTitle').value;
+          const start = dayjs(document.getElementById('eventStart').value);
+          const end = dayjs(document.getElementById('eventEnd').value);
+          
+          if (!title || !start.isValid() || !end.isValid()) {
+            showNotification('Заполните форму перед копированием');
+            return;
+          }
+          
+          // Create a copy of current form values
+          const newEvent = {
+            id: Date.now(),
+            title: title + ' (копия)',
+            start: dayjs(start),
+            end: dayjs(end),
+            participantIds: []
+          };
+          
+          // Get selected participants
+          document.querySelectorAll('.participant-btn.active').forEach(btn => {
+            newEvent.participantIds.push(parseInt(btn.dataset.participantId));
           });
-          showNotification('Форма очищена для нового события');
+          
+          // Open modal with the copied event
+          openEventModal(newEvent);
+          showNotification('Событие скопировано');
         }
       });
       
       // Save event
       document.getElementById('saveEventBtn').addEventListener('click', () => {
         const title = document.getElementById('eventTitle').value.trim();
-        
         if (!title) {
           showNotification('Пожалуйста, введите название события');
           return;
         }
-        
         const start = dayjs(document.getElementById('eventStart').value);
         const end = dayjs(document.getElementById('eventEnd').value);
-        
         if (end.unix() <= start.unix()) {
           showNotification('Время окончания должно быть позже начала');
           return;
         }
-        
         // Get selected participants
         const selectedParticipants = [];
         document.querySelectorAll('.participant-btn.active').forEach(btn => {
           selectedParticipants.push(parseInt(btn.dataset.participantId));
         });
-        
         if (selectedParticipants.length === 0) {
           selectedParticipants.push(participants[0].id);
         }
-        
         const newEvent = {
           id: Date.now(),
           title,
@@ -2460,28 +2198,23 @@
           end,
           participantIds: selectedParticipants
         };
-        
         events.push(newEvent);
         renderPlanner();
         renderEventsList();
         showNotification(`Событие "${title}" создано`);
         eventModal.classList.remove('active');
       });
-      
       // Close event modal
       document.getElementById('closeEventModal').addEventListener('click', () => {
         eventModal.classList.remove('active');
       });
-      
       document.getElementById('cancelEventBtn').addEventListener('click', () => {
         eventModal.classList.remove('active');
       });
-      
       // Template checkbox
       document.getElementById('isTemplate').addEventListener('change', function() {
         document.getElementById('templateName').style.display = this.checked ? 'block' : 'none';
       });
-      
       // File upload
       document.getElementById('fileUpload').addEventListener('change', function(e) {
         if (this.files && this.files.length > 0) {
@@ -2497,21 +2230,17 @@
           showNotification('Файл не выбран');
         }
       });
-      
       // Settings button
       document.getElementById('settingsBtn').addEventListener('click', () => {
         openSettingsModal();
       });
-      
       // Close settings modal
       document.getElementById('closeSettingsModal').addEventListener('click', () => {
         settingsModal.classList.remove('active');
       });
-      
       document.getElementById('cancelSettingsBtn').addEventListener('click', () => {
         settingsModal.classList.remove('active');
       });
-      
       // Save settings
       document.getElementById('saveSettingsBtn').addEventListener('click', () => {
         settings.colorScheme = document.getElementById('colorScheme').value;
@@ -2523,7 +2252,6 @@
         settings.telegramChatId = document.getElementById('telegramChatId').value;
         settings.dayStartTime = document.getElementById('dayStartTime').value;
         settings.dayEndTime = document.getElementById('dayEndTime').value;
-        
         // Apply theme changes
         if (settings.colorScheme === 'dark') {
           document.documentElement.style.setProperty('--surface', '#1e293b');
@@ -2548,22 +2276,18 @@
           document.documentElement.style.setProperty('--border', '#e2e8f0');
           document.body.style.backgroundColor = '#f1f5f9';
         }
-        
         saveSettings();
         showNotification('Настройки сохранены');
         settingsModal.classList.remove('active');
       });
-      
       // Add family member button
       document.getElementById('addFamilyMemberBtn').addEventListener('click', () => {
         addFamilyMember();
       });
-      
       // Add category button
       document.getElementById('addCategoryBtn').addEventListener('click', () => {
         addCategory();
       });
-      
       // Export buttons
       document.getElementById('exportJsonBtn').addEventListener('click', () => {
         const data = {
@@ -2572,7 +2296,6 @@
           events: events.map(e => ({...e, start: e.start.format(), end: e.end.format()})),
           settings
         };
-        
         const dataStr = JSON.stringify(data, null, 2);
         const dataBlob = new Blob([dataStr], {type: 'application/json'});
         const url = URL.createObjectURL(dataBlob);
@@ -2581,52 +2304,42 @@
         link.download = 'budget_data.json';
         link.click();
         URL.revokeObjectURL(url);
-        
         showNotification('Данные экспортированы в JSON');
       });
-      
       document.getElementById('exportExcelBtn').addEventListener('click', () => {
         showNotification('Экспорт в Excel пока не реализован');
       });
-      
       // Color picker for participants
       document.querySelectorAll('.color-option').forEach(option => {
         option.addEventListener('click', () => {
           document.getElementById('customColorPicker').value = option.dataset.color;
         });
       });
-      
       // Save participant
       document.getElementById('saveParticipantBtn').addEventListener('click', () => {
         const name = document.getElementById('newParticipantName').value.trim();
         const color = document.getElementById('customColorPicker').value;
-        
         if (!name) {
           showNotification('Пожалуйста, введите имя участника');
           return;
         }
-        
         const newMember = {
           id: Date.now(),
           name,
           color
         };
-        
         settings.familyMembers.push(newMember);
         openSettingsModal(); // Refresh the list
         addParticipantModal.classList.remove('active');
       });
-      
       // Close add participant modal
       document.getElementById('closeAddParticipantModal').addEventListener('click', () => {
         addParticipantModal.classList.remove('active');
       });
-      
       document.getElementById('cancelAddParticipantBtn').addEventListener('click', () => {
         addParticipantModal.classList.remove('active');
       });
     }
-    
     // Initialize the app when DOM is loaded
     document.addEventListener('DOMContentLoaded', init);
   </script>

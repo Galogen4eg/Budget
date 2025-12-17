@@ -261,6 +261,7 @@
       border-radius: 12px;
       background: var(--surface-light);
       cursor: pointer;
+      transition: all 0.2s;
       font-size: 15px;
     }
     .category-item:hover {
@@ -512,7 +513,7 @@
       opacity: 0;
       visibility: hidden;
       transition: all 0.3s;
-      z-index: 1000;
+      z-index: 1000; /* Base z-index for modals */
     }
     .modal.active {
       opacity: 1;
@@ -730,7 +731,7 @@
       border-right: none;
     }
     
-    /* Day view styles - исправлен */
+    /* Day view styles */
     .day-view-container {
       display: flex;
       height: 600px;
@@ -738,64 +739,22 @@
       border-radius: 8px;
       overflow: hidden;
     }
-    
-    .day-time-column {
+    .time-column {
       width: 80px;
       background: white;
       border-right: 1px solid var(--border);
     }
-    
-    .day-time-header {
-      height: 40px;
-      background: var(--surface-light);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-    
-    .day-time-slot {
-      height: 60px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 2px;
-      font-size: 12px;
-      color: var(--text-secondary);
-      cursor: pointer;
-    }
-    
-    .day-time-slot:last-child {
-      border-bottom: none;
-    }
-    
-    .day-events-area {
+    .events-container {
       flex: 1;
       position: relative;
       background: white;
     }
-    
-    .day-event-cell {
-      position: absolute;
-      left: 0;
-      right: 0;
+    .hour-row {
       height: 60px;
       border-bottom: 1px solid var(--border);
+      position: relative;
       cursor: pointer;
     }
-    
-    .day-event-cell:hover {
-      background: var(--surface-light);
-    }
-    
-    .day-event-cell:last-child {
-      border-bottom: none;
-    }
-    
     .day-event {
       position: absolute;
       left: 8px;
@@ -808,7 +767,6 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       overflow: hidden;
     }
-    
     .day-event-title {
       font-weight: 600;
       margin-bottom: 2px;
@@ -816,12 +774,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    
     .day-event-time {
       font-size: 12px;
       color: var(--text-secondary);
     }
-    
     /* Templates section */
     .templates-container {
       margin-bottom: 16px;
@@ -867,7 +823,8 @@
       padding: 12px;
       margin-bottom: 8px;
       cursor: pointer;
-      overflow-x: hidden;
+      transition: all 0.2s;
+      overflow-x: hidden; /* Убираем горизонтальный скролл */
     }
     .settings-item:hover {
       background: var(--surface);
@@ -974,7 +931,7 @@
     #addParticipantModal,
     #editCategoryModal,
     #templateModal {
-      z-index: 1002;
+      z-index: 1002; /* Higher than base modal z-index */
     }
   </style>
 </head>

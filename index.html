@@ -29,7 +29,7 @@
       color: var(--text);
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden; /* Prevent horizontal scrollbar */
+      overflow-x: hidden;
     }
     .container {
       max-width: 1200px;
@@ -261,7 +261,6 @@
       border-radius: 12px;
       background: var(--surface-light);
       cursor: pointer;
-      transition: all 0.2s;
       font-size: 15px;
     }
     .category-item:hover {
@@ -324,9 +323,6 @@
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.2s;
-    }
-    .transaction-row {
-      cursor: pointer;
     }
     .transaction-row:hover {
       background-color: var(--surface-light);
@@ -513,10 +509,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
       opacity: 0;
       visibility: hidden;
       transition: all 0.3s;
+      z-index: 1000;
     }
     .modal.active {
       opacity: 1;
@@ -621,7 +617,6 @@
       padding: 8px;
       font-size: 14px;
       cursor: pointer;
-      transition: background 0.2s;
       position: relative;
     }
     .calendar-day:hover {
@@ -652,43 +647,90 @@
     .event-time {
       color: var(--text-secondary);
     }
-    /* Week view styles */
-    .week-view {
-      display: grid;
-      grid-template-columns: 80px repeat(7, 1fr);
-      gap: 1px;
-      background: var(--border);
+    /* Week view styles - полностью переработан */
+    .week-view-container {
+      border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
       height: 600px;
     }
-    .week-time-column {
+    
+    .week-grid {
+      display: grid;
+      grid-template-columns: 80px repeat(7, 1fr);
+      grid-template-rows: 40px repeat(14, 1fr);
+      height: 100%;
       background: white;
-      padding: 8px;
-      text-align: center;
+    }
+    
+    /* Header cells */
+    .week-time-header {
+      grid-column: 1;
+      grid-row: 1;
+      background: var(--surface-light);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 600;
       font-size: 13px;
       color: var(--text-secondary);
-      border-right: 1px solid var(--border);
     }
-    .week-day-column {
+    
+    .week-day-header {
+      background: var(--surface-light);
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+      padding: 4px;
+    }
+    
+    .week-day-header:last-child {
+      border-right: none;
+    }
+    
+    /* Time labels */
+    .week-time-label {
       background: white;
-      min-height: 80px;
-      padding: 8px;
-      font-size: 14px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 2px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    
+    .week-time-label:last-child {
+      border-bottom: none;
+    }
+    
+    /* Grid cells */
+    .week-grid-cell {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
       position: relative;
-      overflow-y: auto;
-      border-left: 1px solid var(--border);
     }
-    .week-day-header {
-      font-weight: 600;
-      padding: 4px 0;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 8px;
+    
+    .week-grid-cell:hover {
+      background: var(--surface-light);
     }
-    /* Day view styles */
+    
+    /* Remove borders for last column and row */
+    .week-grid-cell:last-child:not(.week-time-label) {
+      border-right: none;
+    }
+    
+    /* Day view styles - исправлен */
     .day-view-container {
       display: flex;
       height: 600px;
@@ -696,43 +738,77 @@
       border-radius: 8px;
       overflow: hidden;
     }
-    .time-column {
+    
+    .day-time-column {
       width: 80px;
       background: white;
       border-right: 1px solid var(--border);
     }
-    .time-slot {
-      height: 60px;
+    
+    .day-time-header {
+      height: 40px;
+      background: var(--surface-light);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .day-time-slot {
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 2px;
       font-size: 12px;
       color: var(--text-secondary);
-      border-bottom: 1px solid var(--border);
+      cursor: pointer;
     }
-    .events-container {
+    
+    .day-time-slot:last-child {
+      border-bottom: none;
+    }
+    
+    .day-events-area {
       flex: 1;
       position: relative;
       background: white;
     }
-    .hour-row {
+    
+    .day-event-cell {
+      position: absolute;
+      left: 0;
+      right: 0;
       height: 60px;
       border-bottom: 1px solid var(--border);
-      position: relative;
+      cursor: pointer;
     }
+    
+    .day-event-cell:hover {
+      background: var(--surface-light);
+    }
+    
+    .day-event-cell:last-child {
+      border-bottom: none;
+    }
+    
     .day-event {
       position: absolute;
       left: 8px;
       right: 8px;
       background: #eef2ff;
-      border-radius: 4px;
+      border-left: 3px solid var(--primary);
       padding: 8px;
       font-size: 14px;
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       overflow: hidden;
-      border-left: 3px solid var(--primary);
     }
+    
     .day-event-title {
       font-weight: 600;
       margin-bottom: 2px;
@@ -740,9 +816,71 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    
     .day-event-time {
       font-size: 12px;
       color: var(--text-secondary);
+    }
+    
+    /* Templates section */
+    .templates-container {
+      margin-bottom: 16px;
+    }
+    .template-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: var(--surface-light);
+      border-radius: 16px;
+      margin: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .template-chip:hover {
+      background: var(--primary);
+      color: white;
+    }
+    .template-chip .participant-color {
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+    }
+    /* Settings items */
+    .settings-section {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-section:last-child {
+      border-bottom: none;
+    }
+    .settings-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .settings-item {
+      background: var(--surface-light);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      overflow-x: hidden;
+    }
+    .settings-item:hover {
+      background: var(--surface);
+    }
+    /* Templates in event modal */
+    .templates-section {
+      margin-bottom: 16px;
+    }
+    .templates-title {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      font-weight: 500;
     }
     /* Responsive */
     @media (max-width: 600px) {
@@ -780,29 +918,6 @@
       .calendar-container {
         overflow-x: auto;
       }
-      .week-view {
-        grid-template-columns: 60px repeat(3, 1fr);
-        height: auto;
-      }
-      .day-view-container {
-        flex-direction: column;
-        height: auto;
-      }
-      .time-column {
-        width: 100%;
-        height: 60px;
-        display: flex;
-        overflow-x: auto;
-      }
-      .time-slot {
-        min-width: 60px;
-        height: 100%;
-        border-right: 1px solid var(--border);
-        border-bottom: none;
-      }
-      .events-container {
-        height: calc(100% - 60px);
-      }
     }
     /* Notification */
     #notification {
@@ -831,6 +946,35 @@
       border-radius: 50%;
       margin-right: 6px;
       vertical-align: middle;
+    }
+    /* Color options */
+    .color-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .color-option {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+    }
+    .color-option.selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary);
+    }
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+    
+    /* Higher z-index for specific modals to ensure they appear above settings */
+    #addParticipantModal,
+    #editCategoryModal,
+    #templateModal {
+      z-index: 1002;
     }
   </style>
 </head>
@@ -913,7 +1057,7 @@
       <div class="section">
         <div class="transactions-header">
           <div class="section-title">
-            <i class="fas fa-exchange-alt"></i> История операций
+            <i class="fas fa-exchange-alt"></i> История операций <span id="dateFilterInfo" style="font-size: 14px; color: var(--text-secondary); margin-left: 8px;"></span>
           </div>
           <div class="period-buttons">
             <button class="period-btn active" id="currentMonthBtn">Текущий месяц</button>
@@ -971,17 +1115,18 @@
               <i class="fas fa-plus-circle"></i> Быстрое добавление
             </div>
             <div class="form-group">
-              <label class="form-label">Название</label>
+              <label class="form-label">Название *</label>
               <input type="text" class="form-control" id="itemName" placeholder="Напр., Молоко">
             </div>
             <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div>
                 <label class="form-label">Количество</label>
-                <input type="number" class="form-control" id="itemQuantity" placeholder="1" value="1" min="1">
+                <input type="number" class="form-control" id="itemQuantity" placeholder="1" value="" min="1">
               </div>
               <div>
                 <label class="form-label">Ед. изм.</label>
                 <select class="form-control" id="itemUnit">
+                  <option value="">Выберите...</option>
                   <option value="pcs">шт.</option>
                   <option value="liters">л</option>
                   <option value="grams">г</option>
@@ -1040,7 +1185,6 @@
           </div>
         </div>
         <div id="plannerCalendarContainer">
-          <!-- Calendar will be generated by JS -->
           <div class="calendar-grid" id="plannerCalendar">
             <!-- Month view will be shown by default -->
           </div>
@@ -1115,7 +1259,7 @@
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Название</label>
+          <label class="form-label">Название *</label>
           <input type="text" class="form-control" id="editItemName" placeholder="Название товара">
         </div>
         <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -1126,6 +1270,7 @@
           <div>
             <label class="form-label">Ед. изм.</label>
             <select class="form-control" id="editItemUnit">
+              <option value="">Выберите...</option>
               <option value="pcs">шт.</option>
               <option value="liters">л</option>
               <option value="grams">г</option>
@@ -1154,6 +1299,12 @@
         <button class="close-modal" id="closeEventModal">&times;</button>
       </div>
       <div class="modal-body">
+        <div class="templates-section">
+          <div class="templates-title">Выбрать из шаблонов:</div>
+          <div class="templates-container" id="templatesContainer">
+            <!-- Templates will be added here by JS -->
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Название</label>
           <input type="text" class="form-control" id="eventTitle" placeholder="Название события">
@@ -1168,8 +1319,8 @@
             <input type="time" class="form-control" id="eventStartTime">
           </div>
           <div class="form-group">
-            <label class="form-label">Время окончания (необязательно)</label>
-            <input type="time" class="form-control" id="eventEndTime">
+            <label class="form-label">Время окончания</label>
+            <input type="time" class="form-control" id="eventEndTime" value="">
           </div>
         </div>
         <div class="form-group">
@@ -1178,10 +1329,20 @@
             <!-- Participants will be generated by JS -->
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-check" style="display: flex; align-items: center;">
+            <input type="checkbox" id="isTemplate" style="margin-right: 8px; width: 16px; height: 16px;">
+            <span>Сделать шаблоном</span>
+          </label>
+          <input type="text" class="form-control" id="templateName" placeholder="Название шаблона" style="margin-top: 8px; display: none;">
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" id="cancelEventBtn">Отмена</button>
-        <button class="btn btn-primary" id="saveEventBtn">Создать</button>
+        <div class="action-buttons">
+          <button class="btn btn-outline" id="copyEventBtn">Копировать</button>
+          <button class="btn btn-primary" id="saveEventBtn">Создать</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1189,7 +1350,7 @@
   <div class="modal" id="addParticipantModal">
     <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">Добавить участника</div>
+        <div class="modal-title">Добавить/редактировать участника</div>
         <button class="close-modal" id="closeAddParticipantModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -1199,20 +1360,23 @@
         </div>
         <div class="form-group">
           <label class="form-label">Цвет участника</label>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #4361ee; cursor: pointer;" data-color="#4361ee"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #06d6a0; cursor: pointer;" data-color="#06d6a0"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #ef476f; cursor: pointer;" data-color="#ef476f"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #ffd166; cursor: pointer;" data-color="#ffd166"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #118ab2; cursor: pointer;" data-color="#118ab2"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #073b4c; cursor: pointer;" data-color="#073b4c"></div>
+          <div class="color-options">
+            <div class="color-option" style="background-color: #4361ee;" data-color="#4361ee"></div>
+            <div class="color-option" style="background-color: #06d6a0;" data-color="#06d6a0"></div>
+            <div class="color-option" style="background-color: #ef476f;" data-color="#ef476f"></div>
+            <div class="color-option" style="background-color: #ffd166;" data-color="#ffd166"></div>
+            <div class="color-option" style="background-color: #118ab2;" data-color="#118ab2"></div>
+            <div class="color-option" style="background-color: #073b4c;" data-color="#073b4c"></div>
+            <div class="color-option" style="background-color: #7209b7;" data-color="#7209b7"></div>
+            <div class="color-option" style="background-color: #f15bb5;" data-color="#f15bb5"></div>
+            <div class="color-option" style="background-color: #0077b6;" data-color="#0077b6"></div>
+            <div class="color-option" style="background-color: #2a9d8f;" data-color="#2a9d8f"></div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" id="cancelAddParticipantBtn">Отмена</button>
         <button class="btn btn-primary" id="saveParticipantBtn">Сохранить</button>
-        <button class="btn btn-delete" id="deleteParticipantBtn" style="display: none;">Удалить</button>
       </div>
     </div>
   </div>
@@ -1230,13 +1394,17 @@
         </div>
         <div class="form-group">
           <label class="form-label">Цвет категории</label>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #4361ee; cursor: pointer;" data-color="#4361ee"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #06d6a0; cursor: pointer;" data-color="#06d6a0"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #ef476f; cursor: pointer;" data-color="#ef476f"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #ffd166; cursor: pointer;" data-color="#ffd166"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #118ab2; cursor: pointer;" data-color="#118ab2"></div>
-            <div class="color-option" style="width: 30px; height: 30px; border-radius: 50%; background-color: #073b4c; cursor: pointer;" data-color="#073b4c"></div>
+          <div class="color-options">
+            <div class="color-option" style="background-color: #4361ee;" data-color="#4361ee"></div>
+            <div class="color-option" style="background-color: #06d6a0;" data-color="#06d6a0"></div>
+            <div class="color-option" style="background-color: #ef476f;" data-color="#ef476f"></div>
+            <div class="color-option" style="background-color: #ffd166;" data-color="#ffd166"></div>
+            <div class="color-option" style="background-color: #118ab2;" data-color="#118ab2"></div>
+            <div class="color-option" style="background-color: #073b4c;" data-color="#073b4c"></div>
+            <div class="color-option" style="background-color: #7209b7;" data-color="#7209b7"></div>
+            <div class="color-option" style="background-color: #f15bb5;" data-color="#f15bb5"></div>
+            <div class="color-option" style="background-color: #0077b6;" data-color="#0077b6"></div>
+            <div class="color-option" style="background-color: #2a9d8f;" data-color="#2a9d8f"></div>
           </div>
         </div>
       </div>
@@ -1244,6 +1412,41 @@
         <button class="btn btn-outline" id="cancelEditCategoryBtn">Отмена</button>
         <button class="btn btn-primary" id="saveEditCategoryBtn">Сохранить</button>
         <button class="btn btn-delete" id="deleteCategoryBtn" style="display: none;">Удалить</button>
+      </div>
+    </div>
+  </div>
+  <!-- Template Modal -->
+  <div class="modal" id="templateModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Новый шаблон</div>
+        <button class="close-modal" id="closeTemplateModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Название шаблона</label>
+          <input type="text" class="form-control" id="templateTitle" placeholder="Название шаблона">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label class="form-label">Время начала</label>
+            <input type="time" class="form-control" id="templateStartTime">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Время окончания</label>
+            <input type="time" class="form-control" id="templateEndTime">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Участники</label>
+          <div id="templateParticipantSelection" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <!-- Participants will be generated by JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="cancelTemplateBtn">Отмена</button>
+        <button class="btn btn-primary" id="saveTemplateBtn">Сохранить</button>
       </div>
     </div>
   </div>
@@ -1255,23 +1458,31 @@
         <button class="close-modal" id="closeSettingsModal">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Участники семьи</label>
+        <div class="settings-section">
+          <div class="settings-title">Участники семьи</div>
           <div id="familyMembersList" style="max-height: 200px; overflow-y: auto;">
             <!-- Family members will be generated by JS -->
           </div>
+          <button class="btn btn-primary" id="addFamilyMemberBtn" style="margin-top: 12px;">Добавить участника</button>
         </div>
-        <button class="btn btn-primary" id="addFamilyMemberBtn" style="margin-top: 12px;">Добавить участника</button>
         <!-- Categories -->
-        <div class="form-group" style="margin-top: 20px;">
-          <label class="form-label">Категории</label>
+        <div class="settings-section">
+          <div class="settings-title">Категории</div>
           <div id="categoriesListSettings" style="max-height: 200px; overflow-y: auto;">
             <!-- Categories will be generated by JS -->
           </div>
+          <button class="btn btn-primary" id="addCategoryBtn" style="margin-top: 12px;">Добавить категорию</button>
         </div>
-        <button class="btn btn-primary" id="addCategoryBtn" style="margin-top: 12px;">Добавить категорию</button>
+        <!-- Templates -->
+        <div class="settings-section">
+          <div class="settings-title">Шаблоны событий</div>
+          <div id="templatesListSettings">
+            <!-- Templates will be generated by JS -->
+          </div>
+          <button class="btn btn-primary" id="addTemplateBtn" style="margin-top: 12px;">Добавить шаблон</button>
+        </div>
         <!-- Shopping Settings -->
-        <div class="settings-section" style="margin-top: 20px;">
+        <div class="settings-section">
           <div class="settings-title">Покупки</div>
           <div class="form-group">
             <label class="form-check" style="display: flex; align-items: center;">
@@ -1287,7 +1498,7 @@
           </div>
         </div>
         <!-- Telegram Integration -->
-        <div class="settings-section" style="margin-top: 20px;">
+        <div class="settings-section">
           <div class="settings-title">Интеграция с Telegram</div>
           <div class="form-group">
             <input type="text" class="form-control" id="telegramToken" placeholder="Введите токен бота">
@@ -1297,7 +1508,7 @@
           </div>
         </div>
         <!-- Notifications -->
-        <div class="settings-section" style="margin-top: 20px;">
+        <div class="settings-section">
           <div class="settings-title">Уведомления</div>
           <div class="form-group">
             <label class="form-check" style="display: flex; align-items: center;">
@@ -1307,7 +1518,7 @@
           </div>
         </div>
         <!-- Day Time Range -->
-        <div class="settings-section" style="margin-top: 20px;">
+        <div class="settings-section">
           <div class="settings-title">Время отображения в планировщике</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
@@ -1347,8 +1558,10 @@
     let editingShoppingItemId = null;
     let editingEventId = null;
     let editingCategoryId = null;
-    let editingParticipantId = null;
+    let editingTemplateId = null;
     let selectedDate = dayjs(); // For storing selected date in planner
+    let budgetFilterDate = null; // For filtering
+    let plannerSelectedDate = dayjs(); // For planner day/week view
     
     // Mock data
     const transactions = [
@@ -1374,7 +1587,12 @@
       { id: 2, title: 'Фильм', start: dayjs('2025-12-09T20:00:00'), end: dayjs('2025-12-09T22:00:00'), participantIds: [2] }
     ];
     
-    // Categories
+    const templates = [
+      { id: 1, title: 'Ужин', startTime: '19:00', endTime: '21:00', participantIds: [1] },
+      { id: 2, title: 'Встреча', startTime: '10:00', endTime: '11:00', participantIds: [2] }
+    ];
+    
+    // Categories - исправлены синтаксические ошибки
     const categories = [
       { id: 1, name: 'Продукты', color: '#4361ee' },
       { id: 2, name: 'Транспорт', color: '#06d6a0' },
@@ -1391,36 +1609,12 @@
       dayEndTime: '22:00',
       categories: [...categories],
       familyMembers: [...participants],
+      templates: [...templates],
       autoCompleteShopping: true,
       sortShoppingByCategory: false,
       telegramToken: '',
       telegramChatId: ''
     };
-    
-    // Load settings from localStorage
-    function loadSettings() {
-      try {
-        const savedSettings = localStorage.getItem('budgetAppSettings');
-        if (savedSettings) {
-          settings = {...settings, ...JSON.parse(savedSettings)};
-        }
-      } catch (error) {
-        console.error('Error loading settings:', error);
-      }
-    }
-    
-    // Save settings to localStorage
-    function saveSettings() {
-      try {
-        localStorage.setItem('budgetAppSettings', JSON.stringify(settings));
-      } catch (error) {
-        console.error('Error saving settings:', error);
-        showNotification('Не удалось сохранить настройки');
-      }
-    }
-    
-    // Initialize settings
-    loadSettings();
     
     // DOM Elements
     const budgetTab = document.getElementById('budgetTab');
@@ -1439,6 +1633,7 @@
     const eventsListSection = document.getElementById('eventsListSection');
     const fileNameElement = document.getElementById('fileName');
     const uploadTextElement = document.getElementById('uploadText');
+    const dateFilterInfo = document.getElementById('dateFilterInfo');
     
     // Modals
     const transactionModal = document.getElementById('transactionModal');
@@ -1447,6 +1642,7 @@
     const settingsModal = document.getElementById('settingsModal');
     const addParticipantModal = document.getElementById('addParticipantModal');
     const editCategoryModal = document.getElementById('editCategoryModal');
+    const templateModal = document.getElementById('templateModal');
     const notification = document.getElementById('notification');
     const fileUpload = document.getElementById('fileUpload');
     
@@ -1462,7 +1658,7 @@
       setupEventListeners();
     }
     
-    // Render budget calendar
+    // Render budget month
     function renderBudgetMonth() {
       const year = currentBudgetMonth.year();
       const month = currentBudgetMonth.month();
@@ -1485,7 +1681,7 @@
           const cell = document.createElement('td');
           const dayNum = date.date();
           const isCurrentMonth = date.month() === month;
-          const isToday = date.isSame(dayjs(), 'day') && date.month() === month && date.year() === currentBudgetMonth.year();
+          const isSelected = budgetFilterDate && budgetFilterDate.isSame(date, 'day');
           
           if (!isCurrentMonth) {
             cell.classList.add('inactive');
@@ -1502,1297 +1698,8 @@
           const hasTransactions = dayTransactions.length > 0;
           
           cell.innerHTML = `
-            <div class="calendar-date ${isCurrentMonth ? '' : 'text-gray-400'} ${hasTransactions ? 'has-transaction' : ''} ${isToday ? 'bg-blue-100 text-blue-800' : ''}">
+            <div class="calendar-date ${isCurrentMonth ? '' : 'text-gray-400'} ${hasTransactions ? 'has-transaction' : ''} ${isSelected ? 'selected' : ''}">
               ${dayNum}
             </div>
             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
               ${totalExpenses > 0 ? totalExpenses.toLocaleString('ru-RU') + ' ₽' : ''}
-            </div>
-          `;
-          
-          if (isCurrentMonth) {
-            cell.dataset.date = date.format('YYYY-MM-DD');
-            cell.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openTransactionModal(null, date);
-            });
-          }
-          
-          row.appendChild(cell);
-          date = date.add(1, 'day');
-        }
-        
-        budgetCalendarBody.appendChild(row);
-        
-        // Stop if we've passed the end of the month
-        if (date.month() > month && date.date() > 7) break;
-      }
-    }
-    
-    // Render categories
-    function renderCategories() {
-      // Clear existing categories
-      categoriesList.innerHTML = '';
-      
-      // Create category items
-      settings.categories.forEach(category => {
-        const categoryTransactions = transactions.filter(tx => tx.category === category.name);
-        const balance = categoryTransactions.reduce((sum, tx) => {
-          return sum + (tx.type === 'income' ? tx.amount : -tx.amount);
-        }, 0);
-        
-        const item = document.createElement('div');
-        item.className = 'category-item';
-        item.dataset.categoryId = category.id;
-        item.innerHTML = `
-          <div class="category-name">
-            <span class="participant-color" style="background-color: ${category.color};"></span>
-            <span>${category.name}</span>
-          </div>
-          <div class="category-amount ${balance >= 0 ? 'positive' : 'negative'}">
-            ${balance >= 0 ? '+' : ''}${balance.toLocaleString('ru-RU')} ₽
-          </div>
-        `;
-        
-        // Make entire row clickable for editing
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openEditCategoryModal(category);
-        });
-        
-        categoriesList.appendChild(item);
-      });
-    }
-    
-    // Render transactions
-    function renderTransactions() {
-      // Clear existing transactions
-      transactionsList.innerHTML = '';
-      
-      // Sort transactions by date (newest first)
-      const sortedTransactions = [...transactions].sort((a, b) => b.date.unix() - a.date.unix());
-      
-      // Create transaction rows
-      sortedTransactions.forEach(tx => {
-        const row = document.createElement('tr');
-        row.className = 'transaction-row';
-        row.dataset.transactionId = tx.id;
-        row.innerHTML = `
-          <td>${tx.date.format('DD.MM.YY')}</td>
-          <td>${tx.description}</td>
-          <td>
-            <span style="display: flex; align-items: center; gap: 6px;">
-              <span class="participant-color" style="background-color: ${getCategoryColor(tx.category)};"></span>
-              ${tx.category}
-            </span>
-          </td>
-          <td class="transaction-amount ${tx.type === 'income' ? 'positive' : 'negative'}">
-            ${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽
-          </td>
-          <td class="transaction-balance">${calculateBalanceAfter(tx.id).toLocaleString('ru-RU')} ₽</td>
-        `;
-        
-        // Make entire row clickable for editing
-        row.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openTransactionModal(tx);
-        });
-        
-        transactionsList.appendChild(row);
-      });
-    }
-    
-    // Get category color
-    function getCategoryColor(categoryName) {
-      const category = settings.categories.find(cat => cat.name === categoryName);
-      return category ? category.color : '#4361ee';
-    }
-    
-    // Calculate balance after transaction
-    function calculateBalanceAfter(transactionId) {
-      const targetTransaction = transactions.find(t => t.id === transactionId);
-      if (!targetTransaction) {
-        return 0; // Return 0 if transaction is not found
-      }
-      let balance = 0;
-      transactions
-        .filter(tx => tx.date.unix() <= targetTransaction.date.unix())
-        .forEach(tx => {
-          balance += tx.type === 'income' ? tx.amount : -tx.amount;
-        });
-      return balance;
-    }
-    
-    // Render shopping list
-    function renderShoppingList() {
-      // Clear existing items
-      shoppingList.innerHTML = '';
-      
-      // Create shopping items
-      shoppingItems.forEach(item => {
-        const li = document.createElement('li');
-        li.className = `shopping-item ${item.isBought ? 'bought' : ''}`;
-        li.dataset.itemId = item.id;
-        li.innerHTML = `
-          <input type="checkbox" class="item-checkbox" ${item.isBought ? 'checked' : ''}>
-          <div class="item-name" ${item.isBought ? 'style="text-decoration: line-through; color: #94a3b8;"' : ''}>
-            ${item.name}
-          </div>
-          <div class="item-quantity">${item.quantity} ${getUnitLabel(item.unit, item.quantity)}</div>
-        `;
-        
-        // Make entire row clickable for editing
-        li.addEventListener('click', (e) => {
-          if (e.target !== li.querySelector('.item-checkbox')) {
-            openShoppingItemModal(item);
-          }
-        });
-        
-        // Handle checkbox changes
-        const checkbox = li.querySelector('.item-checkbox');
-        const nameElement = li.querySelector('.item-name');
-        checkbox.addEventListener('change', () => {
-          item.isBought = checkbox.checked;
-          if (checkbox.checked) {
-            nameElement.style.textDecoration = 'line-through';
-            nameElement.style.color = '#94a3b8';
-          } else {
-            nameElement.style.textDecoration = 'none';
-            nameElement.style.color = '';
-          }
-          showNotification(checkbox.checked ? 'Товар отмечен как купленный' : 'Товар возвращен в список');
-        });
-        
-        shoppingList.appendChild(li);
-      });
-    }
-    
-    // Render top shopping list
-    function renderTopShoppingList() {
-      topShoppingList.innerHTML = '';
-      
-      // Group items by name and calculate total quantity
-      const groupedItems = {};
-      shoppingItems.forEach(item => {
-        if (groupedItems[item.name]) {
-          groupedItems[item.name].quantity += item.quantity;
-        } else {
-          groupedItems[item.name] = {
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit
-          };
-        }
-      });
-      
-      // Convert to array and sort by quantity (descending)
-      const sortedItems = Object.values(groupedItems).sort((a, b) => b.quantity - a.quantity);
-      
-      // Show top 10 items
-      sortedItems.slice(0, 10).forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'category-item';
-        div.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span>${item.name}</span>
-            <span style="color: var(--text-secondary);">${item.quantity} ${getUnitLabel(item.unit, item.quantity)}</span>
-          </div>
-        `;
-        
-        div.addEventListener('click', () => {
-          document.getElementById('itemName').value = item.name;
-          showNotification(`Выбрано: ${item.name}`);
-        });
-        
-        topShoppingList.appendChild(div);
-      });
-    }
-    
-    // Get unit label
-    function getUnitLabel(unit, count) {
-      const n = Math.abs(count);
-      if (unit === 'pcs') {
-        if (n % 10 === 1 && n % 100 !== 11) return 'шт.';
-        if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 10)) return 'шт.';
-        return 'шт.';
-      }
-      return unit === 'liters' ? 'л' : unit === 'grams' ? 'г' : 'кг';
-    }
-    
-    // Render planner based on current view
-    function renderPlanner() {
-      // Clear container first
-      plannerCalendarContainer.innerHTML = '';
-      
-      switch(currentView) {
-        case 'week':
-          renderPlannerWeek();
-          break;
-        case 'day':
-          renderPlannerDay();
-          break;
-        case 'month':
-        default:
-          renderPlannerMonth();
-      }
-    }
-    
-    // Render planner for month view
-    function renderPlannerMonth() {
-      const year = currentPlannerMonth.year();
-      const month = currentPlannerMonth.month();
-      plannerCalendarTitle.textContent = currentPlannerMonth.format('MMMM YYYY');
-      
-      // Create calendar container
-      const calendarGrid = document.createElement('div');
-      calendarGrid.className = 'calendar-grid';
-      calendarGrid.id = 'plannerCalendar';
-      
-      // Add header
-      ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].forEach(day => {
-        const headerCell = document.createElement('div');
-        headerCell.className = 'calendar-header-cell';
-        headerCell.textContent = day;
-        calendarGrid.appendChild(headerCell);
-      });
-      
-      // Get first day of month and last day
-      const firstDay = currentPlannerMonth.startOf('month');
-      const lastDay = currentPlannerMonth.endOf('month');
-      const startDate = firstDay.startOf('week');
-      
-      // Create calendar days
-      let date = startDate;
-      for (let i = 0; i < 42; i++) {
-        const dayCell = document.createElement('div');
-        dayCell.className = 'calendar-day';
-        const dayNum = date.date();
-        const isCurrentMonth = date.month() === month;
-        const isToday = date.isSame(dayjs(), 'day') && date.month() === month && date.year() === year;
-        
-        dayCell.innerHTML = `
-          <div class="calendar-date-number ${isCurrentMonth ? '' : 'text-gray-400'} ${isToday ? 'text-blue-600 font-bold' : ''}">
-            ${dayNum}
-          </div>
-        `;
-        
-        // Add events for this day
-        const dayEvents = events.filter(e =>
-          e.start.date() === dayNum &&
-          e.start.month() === month &&
-          e.start.year() === year
-        );
-        
-        dayEvents.forEach(event => {
-          const participant = participants.find(p => p.id === event.participantIds[0]);
-          const eventDiv = document.createElement('div');
-          eventDiv.className = 'event-item';
-          eventDiv.style.borderLeftColor = participant ? participant.color : '#4361ee';
-          eventDiv.innerHTML = `
-            <div class="event-title">${event.title}</div>
-            <div class="event-time">${formatTime(event.start)}</div>
-          `;
-          eventDiv.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEventModal(event);
-          });
-          dayCell.appendChild(eventDiv);
-        });
-        
-        dayCell.dataset.date = date.format('YYYY-MM-DD');
-        dayCell.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectedDate = dayjs(dayCell.dataset.date);
-          openEventModal(null, selectedDate);
-        });
-        
-        if (!isCurrentMonth) {
-          dayCell.style.opacity = '0.5';
-        }
-        
-        calendarGrid.appendChild(dayCell);
-        date = date.add(1, 'day');
-        
-        // Stop if we've passed the end of the month and have 6 full weeks
-        if (i >= 34 && date.month() > month) break;
-      }
-      
-      plannerCalendarContainer.appendChild(calendarGrid);
-    }
-    
-    // Render planner for week view
-    function renderPlannerWeek() {
-      const weekStart = selectedDate.startOf('week');
-      const weekEnd = weekStart.add(6, 'day');
-      const year = weekStart.year();
-      const month = weekStart.month();
-      
-      plannerCalendarTitle.textContent = `Неделя ${weekStart.format('DD.MM')} - ${weekEnd.format('DD.MM.YYYY')}`;
-      
-      // Create week view container
-      const weekView = document.createElement('div');
-      weekView.className = 'week-view';
-      
-      // Add time column
-      const timeColumn = document.createElement('div');
-      timeColumn.className = 'week-time-column';
-      timeColumn.innerHTML = '<div class="week-day-header">Время</div>';
-      
-      // Add time slots based on settings
-      const startHour = parseInt(settings.dayStartTime.split(':')[0]);
-      const endHour = parseInt(settings.dayEndTime.split(':')[0]);
-      
-      for (let hour = startHour; hour <= endHour; hour++) {
-        const timeCell = document.createElement('div');
-        timeCell.className = 'time-slot';
-        timeCell.textContent = `${hour.toString().padStart(2, '0')}:00`;
-        timeColumn.appendChild(timeCell);
-      }
-      
-      weekView.appendChild(timeColumn);
-      
-      // Add day columns
-      for (let i = 0; i < 7; i++) {
-        const dayDate = weekStart.add(i, 'day');
-        const dayColumn = document.createElement('div');
-        dayColumn.className = 'week-day-column';
-        
-        // Add day header
-        const dayHeader = document.createElement('div');
-        dayHeader.className = 'week-day-header';
-        dayHeader.innerHTML = `
-          <div>${dayDate.format('ddd')}</div>
-          <div>${dayDate.format('DD')}</div>
-        `;
-        dayColumn.appendChild(dayHeader);
-        
-        // Add events for this day
-        const dayEvents = events.filter(e =>
-          e.start.date() === dayDate.date() &&
-          e.start.month() === dayDate.month() &&
-          e.start.year() === dayDate.year()
-        );
-        
-        dayEvents.forEach(event => {
-          const hour = event.start.hour();
-          const minute = event.start.minute();
-          const topPosition = ((hour - startHour) * 60) + minute;
-          
-          const eventDiv = document.createElement('div');
-          eventDiv.className = 'event-item';
-          eventDiv.style.position = 'absolute';
-          eventDiv.style.top = `${topPosition}px`;
-          eventDiv.style.width = 'calc(100% - 16px)';
-          eventDiv.style.left = '8px';
-          
-          const participant = participants.find(p => p.id === event.participantIds[0]);
-          if (participant) {
-            eventDiv.style.borderLeftColor = participant.color;
-          }
-          
-          eventDiv.innerHTML = `
-            <div class="event-title">${event.title}</div>
-            <div class="event-time">${formatTime(event.start)} - ${formatTime(event.end)}</div>
-          `;
-          
-          eventDiv.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEventModal(event);
-          });
-          
-          dayColumn.appendChild(eventDiv);
-        });
-        
-        // Make day column clickable to create events at specific times
-        dayColumn.dataset.date = dayDate.format('YYYY-MM-DD');
-        dayColumn.addEventListener('click', (e) => {
-          if (!e.target.closest('.event-item')) {
-            const rect = dayColumn.getBoundingClientRect();
-            const y = e.clientY - rect.top - 32; // Subtract header height
-            const hour = startHour + Math.floor(y / 60);
-            const minute = Math.round((y % 60) / 15) * 15; // Round to nearest 15 minutes
-            
-            const clickDate = dayDate.hour(hour).minute(minute);
-            openEventModal(null, clickDate);
-          }
-        });
-        
-        weekView.appendChild(dayColumn);
-      }
-      
-      plannerCalendarContainer.appendChild(weekView);
-    }
-    
-    // Render planner for day view
-    function renderPlannerDay() {
-      const dayDate = selectedDate;
-      plannerCalendarTitle.textContent = dayDate.format('dddd, DD MMMM YYYY');
-      
-      // Create day view container
-      const dayViewContainer = document.createElement('div');
-      dayViewContainer.className = 'day-view-container';
-      
-      // Add time column
-      const timeColumn = document.createElement('div');
-      timeColumn.className = 'time-column';
-      
-      // Add time slots based on settings
-      const startHour = parseInt(settings.dayStartTime.split(':')[0]);
-      const endHour = parseInt(settings.dayEndTime.split(':')[0]);
-      
-      for (let hour = startHour; hour <= endHour; hour++) {
-        const timeSlot = document.createElement('div');
-        timeSlot.className = 'time-slot';
-        timeSlot.textContent = `${hour.toString().padStart(2, '0')}:00`;
-        timeColumn.appendChild(timeSlot);
-      }
-      
-      dayViewContainer.appendChild(timeColumn);
-      
-      // Add events container
-      const eventsContainer = document.createElement('div');
-      eventsContainer.className = 'events-container';
-      
-      // Add hour rows
-      for (let hour = startHour; hour < endHour; hour++) {
-        const hourRow = document.createElement('div');
-        hourRow.className = 'hour-row';
-        hourRow.dataset.hour = hour;
-        eventsContainer.appendChild(hourRow);
-      }
-      
-      // Add events
-      const dayEvents = events.filter(e =>
-        e.start.date() === dayDate.date() &&
-        e.start.month() === dayDate.month() &&
-        e.start.year() === dayDate.year()
-      );
-      
-      dayEvents.forEach(event => {
-        const hour = event.start.hour();
-        const minute = event.start.minute();
-        const topPosition = ((hour - startHour) * 60) + minute;
-        
-        const eventDiv = document.createElement('div');
-        eventDiv.className = 'day-event';
-        eventDiv.style.top = `${topPosition}px`;
-        
-        const participant = participants.find(p => p.id === event.participantIds[0]);
-        if (participant) {
-          eventDiv.style.borderColor = participant.color;
-        }
-        
-        eventDiv.innerHTML = `
-          <div class="day-event-title">${event.title}</div>
-          <div class="day-event-time">
-            ${formatTime(event.start)} - ${formatTime(event.end)}
-            ${participant ? `<span style="color: ${participant.color}; margin-left: 8px;">${participant.name}</span>` : ''}
-          </div>
-        `;
-        
-        eventDiv.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openEventModal(event);
-        });
-        
-        eventsContainer.appendChild(eventDiv);
-      });
-      
-      // Make hour rows clickable
-      eventsContainer.addEventListener('click', (e) => {
-        if (e.target === eventsContainer || e.target.classList.contains('hour-row')) {
-          const rect = eventsContainer.getBoundingClientRect();
-          const y = e.clientY - rect.top;
-          const hour = startHour + Math.floor(y / 60);
-          const minute = Math.round((y % 60) / 15) * 15; // Round to nearest 15 minutes
-          
-          const clickDate = dayDate.hour(hour).minute(minute);
-          openEventModal(null, clickDate);
-        }
-      });
-      
-      dayViewContainer.appendChild(eventsContainer);
-      plannerCalendarContainer.appendChild(dayViewContainer);
-    }
-    
-    // Format time
-    function formatTime(date) {
-      return date.format('HH:mm');
-    }
-    
-    // Render events list
-    function renderEventsList() {
-      // Clear existing events
-      eventsList.innerHTML = '';
-      
-      // Filter events by current view
-      let filteredEvents = [...events];
-      
-      if (currentView === 'month') {
-        const year = currentPlannerMonth.year();
-        const month = currentPlannerMonth.month();
-        filteredEvents = filteredEvents.filter(e =>
-          e.start.year() === year &&
-          e.start.month() === month
-        );
-      } else if (currentView === 'week') {
-        const weekStart = selectedDate.startOf('week');
-        const weekEnd = weekStart.add(6, 'day');
-        filteredEvents = filteredEvents.filter(e =>
-          e.start.isAfter(weekStart.subtract(1, 'day')) &&
-          e.start.isBefore(weekEnd.add(1, 'day'))
-        );
-      } else if (currentView === 'day') {
-        const dayStart = selectedDate.startOf('day');
-        const dayEnd = selectedDate.endOf('day');
-        filteredEvents = filteredEvents.filter(e =>
-          e.start.isAfter(dayStart.subtract(1, 'day')) &&
-          e.start.isBefore(dayEnd.add(1, 'day'))
-        );
-      }
-      
-      // Sort events by start time
-      filteredEvents.sort((a, b) => a.start.unix() - b.start.unix());
-      
-      if (filteredEvents.length === 0) {
-        eventsList.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-secondary);">Нет событий</div>';
-        return;
-      }
-      
-      filteredEvents.forEach(event => {
-        const eventDiv = document.createElement('div');
-        eventDiv.className = 'category-item';
-        const participant = participants.find(p => p.id === event.participantIds[0]);
-        
-        eventDiv.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="participant-color" style="background-color: ${participant ? participant.color : '#4361ee'};"></div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; color: var(--text);">${event.title}</div>
-              <div style="font-size: 13px; color: var(--text-secondary);">
-                ${event.start.format('DD.MM.YYYY HH:mm')} - ${event.end.format('HH:mm')}
-              </div>
-            </div>
-          </div>
-        `;
-        
-        eventDiv.addEventListener('click', () => openEventModal(event));
-        eventsList.appendChild(eventDiv);
-      });
-    }
-    
-    // Open transaction modal
-    function openTransactionModal(transaction = null, date = null) {
-      editingTransactionId = transaction ? transaction.id : null;
-      document.getElementById('transactionModalTitle').textContent =
-        transaction ? 'Редактировать операцию' : 'Новая операция';
-      
-      // Show/hide delete button
-      const deleteBtn = document.getElementById('deleteTransactionBtn');
-      deleteBtn.style.display = transaction ? 'inline-flex' : 'none';
-      
-      if (transaction) {
-        document.getElementById('transactionAmount').value = transaction.amount;
-        document.getElementById('transactionCategory').value = transaction.category;
-        document.getElementById('transactionDescription').value = transaction.description;
-        document.getElementById('transactionDate').value = transaction.date.format('YYYY-MM-DD');
-        
-        if (transaction.type === 'income') {
-          document.getElementById('incomeTypeBtn').classList.add('active');
-          document.getElementById('expenseTypeBtn').classList.remove('active');
-        } else {
-          document.getElementById('expenseTypeBtn').classList.add('active');
-          document.getElementById('incomeTypeBtn').classList.remove('active');
-        }
-      } else {
-        document.getElementById('transactionAmount').value = '';
-        document.getElementById('transactionCategory').value = 'Продукты';
-        document.getElementById('transactionDescription').value = '';
-        document.getElementById('transactionDate').value = date ? date.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD');
-        document.getElementById('incomeTypeBtn').classList.remove('active');
-        document.getElementById('expenseTypeBtn').classList.add('active');
-      }
-      
-      transactionModal.classList.add('active');
-    }
-    
-    // Open shopping item modal
-    function openShoppingItemModal(item) {
-      editingShoppingItemId = item.id;
-      document.getElementById('editItemName').value = item.name;
-      document.getElementById('editItemQuantity').value = item.quantity;
-      document.getElementById('editItemUnit').value = item.unit;
-      document.getElementById('editItemBought').checked = item.isBought;
-      shoppingItemModal.classList.add('active');
-    }
-    
-    // Open event modal
-    function openEventModal(event = null, date = null) {
-      editingEventId = event ? event.id : null;
-      
-      if (event) {
-        document.getElementById('eventModalTitle').textContent = 'Редактировать событие';
-        document.getElementById('eventTitle').value = event.title;
-        document.getElementById('eventDate').value = event.start.format('YYYY-MM-DD');
-        document.getElementById('eventStartTime').value = event.start.format('HH:mm');
-        document.getElementById('eventEndTime').value = event.end.format('HH:mm');
-      } else {
-        document.getElementById('eventModalTitle').textContent = 'Новое событие';
-        document.getElementById('eventTitle').value = '';
-        if (date) {
-          document.getElementById('eventDate').value = date.format('YYYY-MM-DD');
-          document.getElementById('eventStartTime').value = date.format('HH:mm');
-          document.getElementById('eventEndTime').value = date.add(1, 'hour').format('HH:mm');
-        } else {
-          const now = dayjs();
-          document.getElementById('eventDate').value = now.format('YYYY-MM-DD');
-          document.getElementById('eventStartTime').value = now.format('HH:mm');
-          document.getElementById('eventEndTime').value = now.add(1, 'hour').format('HH:mm');
-        }
-      }
-      
-      // Render participants
-      const participantSelection = document.getElementById('participantSelection');
-      participantSelection.innerHTML = '';
-      
-      participants.forEach(participant => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-outline participant-btn';
-        btn.innerHTML = `
-          <span class="participant-color" style="background-color: ${participant.color};"></span>
-          ${participant.name}
-        `;
-        
-        if (event && event.participantIds.includes(participant.id)) {
-          btn.classList.add('active');
-        }
-        
-        btn.addEventListener('click', () => {
-          btn.classList.toggle('active');
-        });
-        
-        participantSelection.appendChild(btn);
-      });
-      
-      eventModal.classList.add('active');
-    }
-    
-    // Open settings modal
-    function openSettingsModal() {
-      // Render family members
-      const familyMembersList = document.getElementById('familyMembersList');
-      familyMembersList.innerHTML = '';
-      
-      settings.familyMembers.forEach(member => {
-        const memberDiv = document.createElement('div');
-        memberDiv.className = 'category-item';
-        memberDiv.innerHTML = `
-          <div class="category-name">
-            <span class="participant-color" style="background-color: ${member.color};"></span>
-            <span>${member.name}</span>
-          </div>
-        `;
-        
-        // Make entire row clickable for editing
-        memberDiv.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const member = settings.familyMembers.find(m => m.id === parseInt(memberDiv.dataset.memberId));
-          if (member) {
-            document.getElementById('newParticipantName').value = member.name;
-            // Clear and select color option
-            document.querySelectorAll('.color-option').forEach(option => {
-              option.classList.remove('selected');
-              if (option.dataset.color === member.color) {
-                option.classList.add('selected');
-              }
-            });
-            editingParticipantId = member.id;
-            document.getElementById('deleteParticipantBtn').style.display = 'inline-flex';
-            addParticipantModal.classList.add('active');
-          }
-        });
-        
-        memberDiv.dataset.memberId = member.id;
-        familyMembersList.appendChild(memberDiv);
-      });
-      
-      // Render categories
-      const categoriesListSettings = document.getElementById('categoriesListSettings');
-      categoriesListSettings.innerHTML = '';
-      
-      settings.categories.forEach(category => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'category-item';
-        categoryDiv.innerHTML = `
-          <div class="category-name">
-            <span class="participant-color" style="background-color: ${category.color};"></span>
-            <span>${category.name}</span>
-          </div>
-        `;
-        
-        // Make entire row clickable for editing
-        categoryDiv.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openEditCategoryModal(category);
-        });
-        
-        categoriesListSettings.appendChild(categoryDiv);
-      });
-      
-      settingsModal.classList.add('active');
-    }
-    
-    // Open edit category modal
-    function openEditCategoryModal(category) {
-      editingCategoryId = category.id;
-      
-      document.getElementById('editCategoryTitle').textContent = 
-        category ? 'Редактировать категорию' : 'Новая категория';
-      
-      document.getElementById('editCategoryName').value = category ? category.name : '';
-      
-      // Clear and select color option
-      document.querySelectorAll('.color-option').forEach(option => {
-        option.classList.remove('selected');
-        if (category && option.dataset.color === category.color) {
-          option.classList.add('selected');
-        }
-      });
-      
-      // Show/hide delete button
-      const deleteBtn = document.getElementById('deleteCategoryBtn');
-      deleteBtn.style.display = category ? 'inline-flex' : 'none';
-      
-      editCategoryModal.classList.add('active');
-    }
-    
-    // Show notification
-    function showNotification(message) {
-      if (!settings.notificationsEnabled) return;
-      
-      notification.textContent = message;
-      notification.classList.add('show');
-      
-      setTimeout(() => {
-        notification.classList.remove('show');
-      }, 3000);
-    }
-    
-    // Set up event listeners
-    function setupEventListeners() {
-      // Tab switching
-      const tabs = document.querySelectorAll('.tab');
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          tabs.forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-          
-          tab.classList.add('active');
-          const tabId = tab.getAttribute('data-tab');
-          document.getElementById(tabId + 'Tab').style.display = 'block';
-          
-          // Re-render planner when switching to planner tab
-          if (tabId === 'planner') {
-            renderPlanner();
-            renderEventsList();
-          }
-        });
-      });
-      
-      // Budget calendar navigation
-      document.getElementById('prevMonthBtn').addEventListener('click', () => {
-        currentBudgetMonth = currentBudgetMonth.subtract(1, 'month');
-        renderBudgetMonth();
-        renderCategories();
-        renderTransactions();
-      });
-      
-      document.getElementById('nextMonthBtn').addEventListener('click', () => {
-        currentBudgetMonth = currentBudgetMonth.add(1, 'month');
-        renderBudgetMonth();
-        renderCategories();
-        renderTransactions();
-      });
-      
-      // Planner calendar navigation
-      document.getElementById('prevPlannerMonthBtn').addEventListener('click', () => {
-        currentPlannerMonth = currentPlannerMonth.subtract(1, 'month');
-        selectedDate = currentPlannerMonth;
-        renderPlanner();
-        renderEventsList();
-      });
-      
-      document.getElementById('nextPlannerMonthBtn').addEventListener('click', () => {
-        currentPlannerMonth = currentPlannerMonth.add(1, 'month');
-        selectedDate = currentPlannerMonth;
-        renderPlanner();
-        renderEventsList();
-      });
-      
-      // View switching for planner
-      document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentView = btn.getAttribute('data-view');
-          renderPlanner();
-          renderEventsList();
-        });
-      });
-      
-      // Period buttons
-      document.getElementById('currentMonthBtn').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('allTimeBtn').classList.remove('active');
-        showNotification('Показываем операции за текущий месяц');
-      });
-      
-      document.getElementById('allTimeBtn').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('currentMonthBtn').classList.remove('active');
-        showNotification('Показываем все операции');
-      });
-      
-      // Transaction buttons
-      document.getElementById('addIncomeBtn').addEventListener('click', () => {
-        document.getElementById('incomeTypeBtn').classList.add('active');
-        document.getElementById('expenseTypeBtn').classList.remove('active');
-        openTransactionModal();
-      });
-      
-      document.getElementById('addExpenseBtn').addEventListener('click', () => {
-        document.getElementById('expenseTypeBtn').classList.add('active');
-        document.getElementById('incomeTypeBtn').classList.remove('active');
-        openTransactionModal();
-      });
-      
-      // Transaction type buttons
-      document.getElementById('incomeTypeBtn').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('expenseTypeBtn').classList.remove('active');
-      });
-      
-      document.getElementById('expenseTypeBtn').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('incomeTypeBtn').classList.remove('active');
-      });
-      
-      // Save transaction
-      document.getElementById('saveTransactionBtn').addEventListener('click', () => {
-        const amount = parseFloat(document.getElementById('transactionAmount').value);
-        const category = document.getElementById('transactionCategory').value;
-        const description = document.getElementById('transactionDescription').value;
-        const dateStr = document.getElementById('transactionDate').value;
-        const type = document.getElementById('incomeTypeBtn').classList.contains('active') ? 'income' : 'expense';
-        
-        if (!amount || amount <= 0) {
-          showNotification('Пожалуйста, введите сумму больше 0');
-          return;
-        }
-        
-        if (editingTransactionId) {
-          // Update existing transaction
-          const index = transactions.findIndex(tx => tx.id === editingTransactionId);
-          if (index !== -1) {
-            transactions[index] = {
-              ...transactions[index],
-              amount,
-              category,
-              description,
-              date: dayjs(dateStr),
-              type
-            };
-          }
-          showNotification('Операция обновлена');
-        } else {
-          // Add new transaction
-          const newTransaction = {
-            id: Date.now(),
-            date: dayjs(dateStr),
-            type,
-            amount,
-            category,
-            description
-          };
-          transactions.push(newTransaction);
-          showNotification('Операция добавлена');
-        }
-        
-        renderBudgetMonth();
-        renderCategories();
-        renderTransactions();
-        transactionModal.classList.remove('active');
-      });
-      
-      // Delete transaction
-      document.getElementById('deleteTransactionBtn').addEventListener('click', () => {
-        if (confirm('Вы уверены, что хотите удалить эту операцию?')) {
-          transactions.splice(transactions.findIndex(t => t.id === editingTransactionId), 1);
-          showNotification('Операция удалена');
-          renderBudgetMonth();
-          renderCategories();
-          renderTransactions();
-          transactionModal.classList.remove('active');
-        }
-      });
-      
-      // Close transaction modal
-      document.getElementById('closeTransactionModal').addEventListener('click', () => {
-        transactionModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelTransactionBtn').addEventListener('click', () => {
-        transactionModal.classList.remove('active');
-      });
-      
-      // Shopping item buttons
-      document.getElementById('addItemBtn').addEventListener('click', () => {
-        const name = document.getElementById('itemName').value.trim();
-        const quantity = parseFloat(document.getElementById('itemQuantity').value);
-        const unit = document.getElementById('itemUnit').value;
-        
-        if (!name) {
-          showNotification('Пожалуйста, введите название товара');
-          return;
-        }
-        
-        if (!quantity || quantity <= 0) {
-          showNotification('Количество должно быть больше 0');
-          return;
-        }
-        
-        const newItem = {
-          id: Date.now(),
-          name,
-          quantity,
-          unit,
-          isBought: false,
-          category: 'Продукты'
-        };
-        shoppingItems.push(newItem);
-        renderShoppingList();
-        renderTopShoppingList();
-        showNotification(`Товар "${name}" добавлен`);
-        
-        // Clear form
-        document.getElementById('itemName').value = '';
-        document.getElementById('itemQuantity').value = '1';
-      });
-      
-      // Save shopping item
-      document.getElementById('saveShoppingItemBtn').addEventListener('click', () => {
-        const name = document.getElementById('editItemName').value.trim();
-        const quantity = parseFloat(document.getElementById('editItemQuantity').value);
-        const unit = document.getElementById('editItemUnit').value;
-        const isBought = document.getElementById('editItemBought').checked;
-        
-        if (!name) {
-          showNotification('Пожалуйста, введите название товара');
-          return;
-        }
-        
-        if (!quantity || quantity <= 0) {
-          showNotification('Количество должно быть больше 0');
-          return;
-        }
-        
-        const item = shoppingItems.find(i => i.id === editingShoppingItemId);
-        if (item) {
-          item.name = name;
-          item.quantity = quantity;
-          item.unit = unit;
-          item.isBought = isBought;
-          renderShoppingList();
-          renderTopShoppingList();
-          showNotification('Товар обновлен');
-        }
-        
-        shoppingItemModal.classList.remove('active');
-      });
-      
-      // Close shopping item modal
-      document.getElementById('closeShoppingItemModal').addEventListener('click', () => {
-        shoppingItemModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelShoppingItemBtn').addEventListener('click', () => {
-        shoppingItemModal.classList.remove('active');
-      });
-      
-      // Add event button
-      document.getElementById('addEventBtn').addEventListener('click', () => {
-        openEventModal();
-      });
-      
-      // Save event
-      document.getElementById('saveEventBtn').addEventListener('click', () => {
-        const title = document.getElementById('eventTitle').value.trim();
-        const dateStr = document.getElementById('eventDate').value;
-        const startTimeStr = document.getElementById('eventStartTime').value;
-        const endTimeStr = document.getElementById('eventEndTime').value;
-        
-        if (!title) {
-          showNotification('Пожалуйста, введите название события');
-          return;
-        }
-        
-        if (!dateStr || !startTimeStr) {
-          showNotification('Пожалуйста, выберите дату и время начала события');
-          return;
-        }
-        
-        const start = dayjs(`${dateStr}T${startTimeStr}`);
-        const end = endTimeStr ? dayjs(`${dateStr}T${endTimeStr}`) : start.add(1, 'hour');
-        
-        if (end.unix() <= start.unix()) {
-          showNotification('Время окончания должно быть позже начала');
-          return;
-        }
-        
-        // Get selected participants
-        const selectedParticipants = [];
-        document.querySelectorAll('.participant-btn.active').forEach(btn => {
-          selectedParticipants.push(parseInt(btn.dataset.participantId));
-        });
-        
-        if (selectedParticipants.length === 0) {
-          selectedParticipants.push(participants[0].id);
-        }
-        
-        if (editingEventId) {
-          // Update existing event
-          const index = events.findIndex(e => e.id === editingEventId);
-          if (index !== -1) {
-            events[index] = {
-              ...events[index],
-              title,
-              start,
-              end,
-              participantIds: selectedParticipants
-            };
-          }
-          showNotification('Событие обновлено');
-        } else {
-          // Add new event
-          const newEvent = {
-            id: Date.now(),
-            title,
-            start,
-            end,
-            participantIds: selectedParticipants
-          };
-          events.push(newEvent);
-          showNotification('Событие создано');
-        }
-        
-        renderPlanner();
-        renderEventsList();
-        eventModal.classList.remove('active');
-      });
-      
-      // Close event modal
-      document.getElementById('closeEventModal').addEventListener('click', () => {
-        eventModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelEventBtn').addEventListener('click', () => {
-        eventModal.classList.remove('active');
-      });
-      
-      // File upload
-      document.getElementById('fileUpload').addEventListener('change', function(e) {
-        if (this.files && this.files.length > 0) {
-          const fileName = this.files[0].name;
-          fileNameElement.textContent = fileName;
-          uploadTextElement.textContent = 'Файл выбран:';
-          showNotification('Файл выписки загружен');
-        } else {
-          fileNameElement.textContent = '';
-          uploadTextElement.textContent = 'Загрузить выписку из банка';
-        }
-      });
-      
-      // Settings button
-      document.getElementById('settingsBtn').addEventListener('click', () => {
-        openSettingsModal();
-      });
-      
-      // Close settings modal
-      document.getElementById('closeSettingsModal').addEventListener('click', () => {
-        settingsModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelSettingsBtn').addEventListener('click', () => {
-        settingsModal.classList.remove('active');
-      });
-      
-      // Save settings
-      document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-        settings.dayStartTime = document.getElementById('dayStartTime').value;
-        settings.dayEndTime = document.getElementById('dayEndTime').value;
-        settings.notificationsEnabled = document.getElementById('notificationsEnabled').checked;
-        settings.autoCompleteShopping = document.getElementById('autoCompleteShopping').checked;
-        settings.sortShoppingByCategory = document.getElementById('sortShoppingByCategory').checked;
-        settings.telegramToken = document.getElementById('telegramToken').value;
-        settings.telegramChatId = document.getElementById('telegramChatId').value;
-        
-        saveSettings();
-        settingsModal.classList.remove('active');
-        showNotification('Настройки сохранены');
-        
-        // Re-render planner if day start/end times changed
-        if (currentView === 'week' || currentView === 'day') {
-          renderPlanner();
-        }
-      });
-      
-      // Add family member button
-      document.getElementById('addFamilyMemberBtn').addEventListener('click', () => {
-        document.getElementById('newParticipantName').value = '';
-        document.querySelectorAll('.color-option').forEach(option => {
-          option.classList.remove('selected');
-        });
-        document.querySelector('.color-option[data-color="#4361ee"]').classList.add('selected');
-        editingParticipantId = null;
-        document.getElementById('deleteParticipantBtn').style.display = 'none';
-        addParticipantModal.classList.add('active');
-      });
-      
-      // Save participant
-      document.getElementById('saveParticipantBtn').addEventListener('click', () => {
-        const name = document.getElementById('newParticipantName').value.trim();
-        const selectedOption = document.querySelector('.color-option.selected');
-        const color = selectedOption ? selectedOption.dataset.color : '#4361ee';
-        
-        if (!name) {
-          showNotification('Пожалуйста, введите имя участника');
-          return;
-        }
-        
-        if (editingParticipantId) {
-          // Update existing participant
-          const index = settings.familyMembers.findIndex(m => m.id === editingParticipantId);
-          if (index !== -1) {
-            settings.familyMembers[index] = {
-              ...settings.familyMembers[index],
-              name,
-              color
-            };
-          }
-          showNotification('Участник обновлен');
-        } else {
-          // Add new participant
-          const newMember = {
-            id: Date.now(),
-            name,
-            color
-          };
-          settings.familyMembers.push(newMember);
-          participants.push(newMember); // Also add to global participants array
-          showNotification('Участник добавлен');
-        }
-        
-        openSettingsModal(); // Refresh the list
-        addParticipantModal.classList.remove('active');
-      });
-      
-      // Delete participant
-      document.getElementById('deleteParticipantBtn').addEventListener('click', () => {
-        if (confirm('Вы уверены, что хотите удалить этого участника?')) {
-          settings.familyMembers = settings.familyMembers.filter(m => m.id !== editingParticipantId);
-          participants = participants.filter(p => p.id !== editingParticipantId);
-          showNotification('Участник удален');
-          openSettingsModal(); // Refresh the list
-          addParticipantModal.classList.remove('active');
-        }
-      });
-      
-      // Close add participant modal
-      document.getElementById('closeAddParticipantModal').addEventListener('click', () => {
-        addParticipantModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelAddParticipantBtn').addEventListener('click', () => {
-        addParticipantModal.classList.remove('active');
-      });
-      
-      // Add category button
-      document.getElementById('addCategoryBtn').addEventListener('click', () => {
-        openEditCategoryModal({ id: Date.now(), name: '', color: '#4361ee' });
-      });
-      
-      // Save category
-      document.getElementById('saveEditCategoryBtn').addEventListener('click', () => {
-        const name = document.getElementById('editCategoryName').value.trim();
-        const selectedOption = document.querySelector('.color-option.selected');
-        const color = selectedOption ? selectedOption.dataset.color : '#4361ee';
-        
-        if (!name) {
-          showNotification('Пожалуйста, введите название категории');
-          return;
-        }
-        
-        if (editingCategoryId) {
-          // Update existing category
-          const index = settings.categories.findIndex(c => c.id === editingCategoryId);
-          if (index !== -1) {
-            settings.categories[index] = {
-              ...settings.categories[index],
-              name,
-              color
-            };
-          }
-          showNotification('Категория обновлена');
-        } else {
-          // Add new category
-          const newCategory = {
-            id: Date.now(),
-            name,
-            color
-          };
-          settings.categories.push(newCategory);
-          showNotification('Категория добавлена');
-        }
-        
-        renderCategories();
-        openSettingsModal(); // Refresh the list
-        editCategoryModal.classList.remove('active');
-      });
-      
-      // Delete category
-      document.getElementById('deleteCategoryBtn').addEventListener('click', () => {
-        if (confirm('Вы уверены, что хотите удалить эту категорию?')) {
-          settings.categories = settings.categories.filter(c => c.id !== editingCategoryId);
-          showNotification('Категория удалена');
-          renderCategories();
-          openSettingsModal(); // Refresh the list
-          editCategoryModal.classList.remove('active');
-        }
-      });
-      
-      // Close edit category modal
-      document.getElementById('closeEditCategoryModal').addEventListener('click', () => {
-        editCategoryModal.classList.remove('active');
-      });
-      
-      document.getElementById('cancelEditCategoryBtn').addEventListener('click', () => {
-        editCategoryModal.classList.remove('active');
-      });
-      
-      // Color options selection
-      document.querySelectorAll('.color-option').forEach(option => {
-        option.addEventListener('click', function() {
-          document.querySelectorAll('.color-option').forEach(opt => {
-            opt.classList.remove('selected');
-          });
-          this.classList.add('selected');
-        });
-      });
-    }
-    
-    // Initialize the app when DOM is loaded
-    document.addEventListener('DOMContentLoaded', init);
-  </script>
-</body>
-</html>
-

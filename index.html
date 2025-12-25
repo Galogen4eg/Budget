@@ -195,6 +195,10 @@
                 <p class="text-xs font-medium text-gray-400 mt-2 px-1 tracking-wide uppercase">Управление домом</p>
             </div>
             <nav class="px-4 space-y-2 mt-4">
+                <button onclick="router.navigate('dashboard')" id="nav-dashboard" class="sidebar-link w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all group">
+                    <svg class="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span class="text-[15px] font-medium">Обзор</span>
+                </button>
                 <button onclick="router.navigate('budget')" id="nav-budget" class="sidebar-link w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all group">
                     <svg class="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <span class="text-[15px] font-medium">Бюджет</span>
@@ -234,6 +238,9 @@
 
     <!-- Mobile Nav Menu -->
     <div id="mobile-menu" class="hidden fixed inset-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl pt-24 px-8 space-y-6 md:hidden transition-all duration-300">
+         <button onclick="router.navigate('dashboard'); toggleMobileMenu()" class="w-full text-left text-2xl font-semibold py-2 border-b border-gray-100 dark:border-gray-800 dark:text-white flex items-center gap-4">
+             <span class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-500 flex items-center justify-center text-sm">🏠</span> Обзор
+         </button>
          <button onclick="router.navigate('budget'); toggleMobileMenu()" class="w-full text-left text-2xl font-semibold py-2 border-b border-gray-100 dark:border-gray-800 dark:text-white flex items-center gap-4">
              <span class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-500 flex items-center justify-center text-sm">₽</span> Бюджет
          </button>
@@ -304,11 +311,23 @@
                     currency: '₽',
                     notifications: { enabled: true, dnd: false, time: '15' },
                     telegram: { connected: false },
+                    // Global/Sidebar widget prefs
                     widgets: [
                         { id: 'calendar', name: 'Календарь', enabled: true },
                         { id: 'budget', name: 'Баланс', enabled: true },
                         { id: 'chart', name: 'График расходов', enabled: true },
                         { id: 'shopping', name: 'Покупки', enabled: false }
+                    ]
+                }));
+                
+                // Dashboard specific config
+                if(!localStorage.getItem('familyHub_dashboard')) localStorage.setItem('familyHub_dashboard', JSON.stringify({
+                    widgets: [
+                        { id: 'budget_overview', type: 'budget_overview', name: 'Финансы', enabled: true, size: 'large' },
+                        { id: 'today_schedule', type: 'today_schedule', name: 'Расписание на сегодня', enabled: true, size: 'large' },
+                        { id: 'shopping_summary', type: 'shopping_summary', name: 'Покупки', enabled: true, size: 'small' },
+                        { id: 'quick_actions', type: 'quick_actions', name: 'Быстрые действия', enabled: true, size: 'medium' },
+                        { id: 'recent_transactions', type: 'recent_transactions', name: 'Последние операции', enabled: true, size: 'medium' }
                     ]
                 }));
 
@@ -378,6 +397,416 @@
         };
 
         // --- Modules ---
+
+        // 0. Dashboard Module
+        const Dashboard = {
+            render() {
+                const config = DB.get('dashboard');
+                const widgets = config.widgets.filter(w => w.enabled);
+                const participants = DB.get('participants');
+                const admin = participants.find(p => p.role === 'admin') || participants[0] || { name: 'Пользователь' };
+                
+                // Greeting Logic
+                const hour = new Date().getHours();
+                let greeting = 'Добрый день';
+                if (hour < 12) greeting = 'Доброе утро';
+                else if (hour >= 18) greeting = 'Добрый вечер';
+                
+                const dateStr = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+                return `
+                    <div class="space-y-6 animate-fade-in h-full flex flex-col">
+                        <!-- Header -->
+                        <div class="flex justify-between items-end flex-shrink-0">
+                            <div>
+                                <h1 class="text-3xl font-bold dark:text-white tracking-tight">${greeting}, ${admin.name.split(' ')[0]}!</h1>
+                                <p class="text-gray-500 dark:text-gray-400 capitalize mt-1">${dateStr}</p>
+                            </div>
+                            <button onclick="Dashboard.openSettings()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-gray-500">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            </button>
+                        </div>
+
+                        <!-- Widget Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-min grid-flow-dense pb-10">
+                            ${widgets.map(w => this.renderWidget(w)).join('')}
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderWidget(widget) {
+                // Wrapper - Optimized col-spans for dense grid
+                let colSpan = 'col-span-1';
+                let rowSpan = '';
+                
+                switch(widget.type) {
+                    case 'budget_overview': 
+                        colSpan = 'md:col-span-2 lg:col-span-2'; 
+                        break;
+                    case 'today_schedule': 
+                        colSpan = 'md:col-span-1 lg:col-span-2'; 
+                        // rowSpan = 'row-span-2'; // Removing explicit row-span to fit better automatically
+                        break;
+                    case 'recent_transactions':
+                        colSpan = 'md:col-span-1 lg:col-span-2';
+                        break;
+                    // others default to col-span-1
+                }
+
+                // If on mobile, everything is col-span-1 (handled by grid-cols-1 default)
+
+                const contentMap = {
+                    'budget_overview': this.getBudgetContent(),
+                    'today_schedule': this.getScheduleContent(),
+                    'shopping_summary': this.getShoppingContent(),
+                    'quick_actions': this.getQuickActionsContent(),
+                    'recent_transactions': this.getTransactionsContent()
+                };
+
+                return `
+                    <div class="card p-6 flex flex-col justify-between ${colSpan} ${rowSpan} hover:shadow-lg transition-shadow duration-300 border border-gray-100 dark:border-white/5 h-full min-h-[180px]">
+                        ${contentMap[widget.type] || ''}
+                    </div>
+                `;
+            },
+
+            getBudgetContent() {
+                const transactions = DB.get('transactions');
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+                
+                const thisMonthTx = transactions.filter(t => {
+                    const d = new Date(t.date);
+                    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                });
+
+                const income = thisMonthTx.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const expense = thisMonthTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                
+                // Total Balance (All time)
+                const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const balance = totalIncome - totalExpense;
+
+                // Progress (Simple logic: assuming 80% of income is budget limit for demo)
+                const limit = income > 0 ? income * 0.8 : 50000; 
+                const percent = Math.min(100, (expense / limit) * 100);
+
+                return `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wide">Семейный бюджет</h3>
+                            <div class="text-3xl font-extrabold text-gray-900 dark:text-white mt-1">${formatCurrency(balance)}</div>
+                            <p class="text-xs text-gray-400 mt-1">Текущий баланс</p>
+                        </div>
+                        <button onclick="router.navigate('budget')" class="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-green-50 dark:bg-green-900/10 p-3 rounded-xl">
+                            <p class="text-xs text-green-600 font-bold mb-1">Доходы (мес)</p>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">+${formatCurrency(income)}</p>
+                        </div>
+                        <div class="bg-red-50 dark:bg-red-900/10 p-3 rounded-xl">
+                            <p class="text-xs text-red-600 font-bold mb-1">Расходы (мес)</p>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">-${formatCurrency(expense)}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                         <div class="flex justify-between text-xs font-medium mb-2">
+                            <span class="text-gray-500">Расход бюджета</span>
+                            <span class="text-gray-900 dark:text-white">${Math.round(percent)}%</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-2">
+                            <span>Потрачено: ${formatCurrency(expense)}</span>
+                            <span>Лимит: ~${formatCurrency(limit)}</span>
+                        </div>
+                    </div>
+                `;
+            },
+
+            getScheduleContent() {
+                const events = DB.get('events');
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayEvents = events
+                    .filter(e => e.date === todayStr)
+                    .sort((a,b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+                
+                const participants = DB.get('participants');
+
+                return `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-bold dark:text-white">Сегодня</h3>
+                        <button onclick="router.navigate('calendar')" class="text-sm font-bold text-blue-500 hover:underline">Календарь</button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[250px] hide-scrollbar">
+                        ${todayEvents.length === 0 ? `
+                            <div class="flex flex-col items-center justify-center h-full text-center text-gray-400">
+                                <p class="mb-2 text-2xl">☕️</p>
+                                <p>На сегодня планов нет</p>
+                                <button onclick="Calendar.openAddModal('${todayStr}')" class="mt-4 text-xs bg-gray-100 dark:bg-white/10 px-3 py-1.5 rounded-lg font-bold text-gray-600 dark:text-white hover:bg-gray-200 transition-colors">Добавить</button>
+                            </div>
+                        ` : todayEvents.map(e => {
+                            const p = participants.find(x => x.id == e.participantId) || { color: '#ccc' };
+                            return `
+                                <div class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onclick="Calendar.openDayModal('${todayStr}')">
+                                    <div class="w-1.5 h-10 rounded-full mt-1 flex-shrink-0" style="background-color: ${p.color}"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between">
+                                            <h4 class="font-bold text-gray-900 dark:text-white truncate">${e.title}</h4>
+                                            <span class="text-xs font-medium text-gray-400 flex-shrink-0 ml-2">${e.time || 'Весь день'}</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 truncate mt-0.5 flex items-center gap-1">
+                                            <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${p.color}"></span> ${p.name}
+                                            ${e.location ? `• 📍 ${e.location}` : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${todayEvents.length > 0 ? `
+                        <button onclick="Calendar.openAddModal('${todayStr}')" class="w-full mt-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl transition-colors dashed-border">
+                            + Добавить событие
+                        </button>
+                    ` : ''}
+                `;
+            },
+
+            getShoppingContent() {
+                const items = DB.get('shopping');
+                const active = items.filter(i => !i.checked);
+                const count = active.length;
+                const total = active.reduce((sum, i) => sum + (parseFloat(i.price || 0) * (parseFloat(i.qty) || 1)), 0);
+
+                // Group by shop for summary
+                const shops = DB.get('shops');
+                const byShop = {};
+                active.forEach(i => {
+                    const sName = shops.find(s => s.id == i.shopId)?.name || 'Разное';
+                    byShop[sName] = (byShop[sName] || 0) + 1;
+                });
+                const topShops = Object.entries(byShop).sort((a,b) => b[1] - a[1]).slice(0, 2);
+
+                return `
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold dark:text-white flex items-center gap-2">
+                                <span class="bg-orange-100 dark:bg-orange-900/30 text-orange-600 p-1 rounded-lg">🛒</span>
+                                Покупки
+                            </h3>
+                            <span class="bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300">${count}</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-end mb-4">
+                            <div>
+                                <p class="text-2xl font-extrabold text-gray-900 dark:text-white">${count}</p>
+                                <p class="text-xs text-gray-400">Товаров в списке</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-gray-900 dark:text-white">~${formatCurrency(total)}</p>
+                                <p class="text-xs text-gray-400">Сумма</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 mb-4">
+                             ${topShops.map(([name, c]) => `
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-500">🏪 ${name}</span>
+                                    <span class="font-bold dark:text-white">${c}</span>
+                                </div>
+                             `).join('')}
+                             ${active.length === 0 ? '<p class="text-xs text-green-500 font-medium">Всё куплено! 🎉</p>' : ''}
+                        </div>
+
+                        <button onclick="router.navigate('shopping')" class="w-full py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition-opacity">
+                            Открыть список
+                        </button>
+                    </div>
+                `;
+            },
+
+            getQuickActionsContent() {
+                return `
+                    <div>
+                        <h3 class="font-bold dark:text-white mb-4 flex items-center gap-2">
+                            <span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 p-1 rounded-lg">⚡</span>
+                            Быстрые действия
+                        </h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="Budget.openModal()" class="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-colors group">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">💰</div>
+                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">Расход</span>
+                            </button>
+                            <button onclick="Calendar.openAddModal()" class="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors group">
+                                <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">📅</div>
+                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">Событие</span>
+                            </button>
+                            <button onclick="Shopping.openAddModal()" class="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-white/5 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl transition-colors group">
+                                <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">🛒</div>
+                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">Товар</span>
+                            </button>
+                            <button onclick="Shopping.openScanner()" class="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-white/5 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors group">
+                                <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">📷</div>
+                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">Скан</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            getTransactionsContent() {
+                const transactions = DB.get('transactions')
+                    .sort((a,b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 4);
+
+                return `
+                    <div>
+                         <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold dark:text-white text-sm uppercase text-gray-400">Последние операции</h3>
+                        </div>
+                        <div class="space-y-3">
+                            ${transactions.length === 0 ? '<p class="text-xs text-gray-400">История пуста</p>' : 
+                            transactions.map(t => `
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs ${t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}">
+                                            ${t.type === 'income' ? '↓' : '↑'}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[100px]">${t.description}</p>
+                                            <p class="text-[10px] text-gray-500">${formatDate(t.date)}</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-sm font-bold ${t.type === 'income' ? 'text-green-500' : 'text-gray-900 dark:text-white'}">
+                                        ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            },
+
+            openSettings() {
+                const config = DB.get('dashboard');
+                // Ensure unique IDs and clean structure
+                
+                const renderList = () => {
+                    return config.widgets.map((w, index) => `
+                        <div class="widget-item flex items-center justify-between p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 group transition-all" 
+                             draggable="true" 
+                             data-index="${index}"
+                             ondragstart="Dashboard.dragStart(event)" 
+                             ondragover="Dashboard.dragOver(event)" 
+                             ondrop="Dashboard.drop(event)"
+                             ondragenter="this.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20')"
+                             ondragleave="this.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20')"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div class="cursor-grab active:cursor-grabbing p-2 text-gray-400 hover:text-gray-600">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+                                </div>
+                                <span class="font-bold text-gray-900 dark:text-white select-none">${w.name}</span>
+                            </div>
+                            <label class="relative cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" ${w.enabled ? 'checked' : ''} onchange="Dashboard.toggleWidget('${w.id}')">
+                                <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
+                    `).join('');
+                };
+
+                const modalHtml = `
+                    <div class="p-6">
+                         <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold dark:text-white">Настройка Обзора</h3>
+                            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-4">Перетаскивайте элементы для изменения порядка.</p>
+                        
+                        <div id="widget-settings-list" class="space-y-2 max-h-[400px] overflow-y-auto">
+                            ${renderList()}
+                        </div>
+
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="closeModal()" class="px-6 py-2 bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-bold rounded-xl hover:bg-gray-200 transition-colors">Готово</button>
+                        </div>
+                    </div>
+                `;
+                openModal(modalHtml);
+            },
+
+            toggleWidget(id) {
+                const config = DB.get('dashboard');
+                const w = config.widgets.find(x => x.id === id);
+                if(w) {
+                    w.enabled = !w.enabled;
+                    DB.save('dashboard', config);
+                    router.refresh();
+                }
+            },
+
+            dragStart(e) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', e.target.getAttribute('data-index'));
+                e.target.style.opacity = '0.5';
+            },
+
+            dragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                return false;
+            },
+
+            drop(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // Get Dragged Index
+                const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                
+                // Get Target Index (traverse up to find the row)
+                let target = e.target;
+                while (target && !target.hasAttribute('data-index')) {
+                    target = target.parentElement;
+                }
+                
+                // Reset Styles
+                document.querySelectorAll('.widget-item').forEach(el => {
+                    el.style.opacity = '1';
+                    el.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+                });
+
+                if (target) {
+                    const toIndex = parseInt(target.getAttribute('data-index'));
+                    
+                    if (fromIndex !== toIndex && !isNaN(fromIndex) && !isNaN(toIndex)) {
+                        // Reorder Data
+                        const config = DB.get('dashboard');
+                        const item = config.widgets.splice(fromIndex, 1)[0];
+                        config.widgets.splice(toIndex, 0, item);
+                        DB.save('dashboard', config);
+                        
+                        // Re-render Settings List
+                        this.openSettings(); 
+                        
+                        // Refresh Dashboard Background
+                        router.refresh();
+                    }
+                }
+                return false;
+            }
+        };
 
         // 1. Budget Module
         const Budget = {
@@ -1851,7 +2280,7 @@
 
         // --- Router ---
         const router = {
-            current: 'budget',
+            current: 'dashboard',
             
             navigate(route) {
                 this.current = route;
@@ -1877,6 +2306,7 @@
                 
                 setTimeout(() => {
                     switch(this.current) {
+                        case 'dashboard': content.innerHTML = Dashboard.render(); break;
                         case 'budget': content.innerHTML = Budget.render(); break;
                         case 'calendar': content.innerHTML = Calendar.render(); break;
                         case 'shopping': content.innerHTML = Shopping.render(); break;
@@ -1893,6 +2323,7 @@
                 // Refresh without animation
                 const content = document.getElementById('app-content');
                 switch(this.current) {
+                    case 'dashboard': content.innerHTML = Dashboard.render(); break;
                     case 'budget': content.innerHTML = Budget.render(); break;
                     case 'calendar': content.innerHTML = Calendar.render(); break;
                     case 'shopping': content.innerHTML = Shopping.render(); break;
@@ -1939,7 +2370,7 @@
 
         // Init
         document.addEventListener('DOMContentLoaded', () => {
-            router.navigate('budget');
+            router.navigate('dashboard');
         });
 
     </script>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru" class="antialiased">
 <head>
@@ -41,6 +42,15 @@
         }
     </script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
 </head>
 <body class="h-screen flex overflow-hidden selection:bg-ios-blue selection:text-white">
 
@@ -118,36 +128,35 @@
         </div>
     </div>
 
-    <script src="categorizer.js"></script>
-    <script src="app.js"></script>
+    <script src="core.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="budget.js"></script>
+    <script src="calendar.js"></script>
+    <script src="shopping.js"></script>
+    <script src="settings.js"></script>
+    <script src="init.js"></script>
+    
     <script>
         function toggleSidebar() {
             const s = document.getElementById('main-sidebar');
             const icon = document.getElementById('sidebar-toggle-icon');
-            // Check if currently collapsed based on width class
             const isCollapsed = s.classList.contains('w-20');
             
             if (isCollapsed) {
-                // Expand
                 s.classList.remove('w-20');
                 s.classList.add('w-72');
                 icon.classList.remove('rotate-180');
-                
-                // Show text with a slight delay for transition if needed, but here instant is fine or simple timeout
                 document.querySelectorAll('.sidebar-text').forEach(el => {
                     el.classList.remove('hidden');
-                    // Small timeout to allow display:block to apply before opacity transition if we were doing that
                     setTimeout(() => el.classList.remove('opacity-0'), 10);
                 });
             } else {
-                // Collapse
                 s.classList.remove('w-72');
                 s.classList.add('w-20');
                 icon.classList.add('rotate-180');
-                
                 document.querySelectorAll('.sidebar-text').forEach(el => {
                     el.classList.add('opacity-0');
-                    el.classList.add('hidden'); // Hide completely
+                    el.classList.add('hidden'); 
                 });
             }
         }

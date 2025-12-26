@@ -5,8 +5,8 @@
                 if(!localStorage.getItem('familyHub_events')) localStorage.setItem('familyHub_events', JSON.stringify([]));
                 if(!localStorage.getItem('familyHub_templates')) localStorage.setItem('familyHub_templates', JSON.stringify([]));
                 if(!localStorage.getItem('familyHub_shopping')) localStorage.setItem('familyHub_shopping', JSON.stringify([
-                    { id: 1, name: 'Молоко', qty: 2, unit: 'л', category: 'dairy', shopId: 1, checked: false, priority: 'normal', price: 80 },
-                    { id: 2, name: 'Хлеб', qty: 1, unit: 'шт', category: 'bakery', shopId: 1, checked: true, priority: 'normal', price: 40 }
+                    { id: 1, name: 'Молоко', qty: 2, unit: 'л', category: 'cat_1', shopId: 1, checked: false, priority: 'normal', price: 80 },
+                    { id: 2, name: 'Хлеб', qty: 1, unit: 'шт', category: 'cat_1', shopId: 1, checked: true, priority: 'normal', price: 40 }
                 ]));
                 if(!localStorage.getItem('familyHub_shops')) localStorage.setItem('familyHub_shops', JSON.stringify([
                     { id: 1, name: 'Пятёрочка' }, { id: 2, name: 'Магнит' }, { id: 3, name: 'Ашан' }, { id: 4, name: 'ВкусВилл' }
@@ -61,14 +61,10 @@
 
         const formatCurrency = (amount) => { const currency = DB.get('settings').currency || '₽'; return `${parseFloat(amount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ${currency}`; };
         const formatDate = (dateStr) => { 
-    if(!dateStr) return ''; 
-    const d = new Date(dateStr);
-    // Show time if available (simple heuristic: if input string implies time)
-    // But since we want to support showing time for manual entries which we will add later, let's just default to date.
-    // However, the prompt asks to SHOW time.
-    // Let's format it as "15 дек, 14:30"
-    return d.toLocaleString('ru-RU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); 
-};
+            if(!dateStr) return ''; 
+            const d = new Date(dateStr);
+            return d.toLocaleString('ru-RU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); 
+        };
         const showToast = (msg, isSuccess=true) => {
             const toast = document.getElementById('toast'); document.getElementById('toast-message').innerText = msg;
             if(window.innerWidth >= 768) { toast.classList.remove('translate-y-32'); setTimeout(() => toast.classList.add('translate-y-32'), 3000); } 
@@ -111,7 +107,6 @@
             }
         };
 
-        // 0. Import Module
         const Import = {
             data: [],
             step: 1,
@@ -127,12 +122,7 @@
             render() {
                 let content = '';
                 if (this.isLoading) {
-                    content = `
-                        <div class="p-12 text-center">
-                            <div class="animate-spin text-4xl mb-4">⏳</div>
-                            <p class="text-gray-500">Обработка файла...</p>
-                        </div>
-                    `;
+                    content = `<div class="p-12 text-center"><div class="animate-spin text-4xl mb-4">⏳</div><p class="text-gray-500">Обработка...</p></div>`;
                 } else if(this.step === 1) {
                     content = `
                         <div class="p-6 text-center">
@@ -158,7 +148,6 @@
                     const total = this.data.filter(t => t.importChecked).reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
                     const cats = DB.get('categories');
 
-                    // MODIFIED: Wide layout, Full descriptions, Duplicate indicators
                     content = `
                         <div class="p-6 h-[80vh] flex flex-col">
                             <div class="flex justify-between items-center mb-6">
@@ -216,8 +205,6 @@
                         </div>
                     `;
                 }
-                
-                // MODIFIED: Request a wide modal (90% width)
                 openModal(content, 'max-w-[90vw]');
             },
             
@@ -292,13 +279,9 @@
             
             process(rows) {
                 this.isLoading = false;
-                
-                // Get existing transactions for duplicate checking
                 const existingTxs = DB.get('transactions');
-                // Create a quick lookup map (date + amount + description) for speed
                 const existingMap = new Set(existingTxs.map(t => `${t.date}|${t.amount}|${t.description}`));
 
-                // Smart header detection
                 let headerRowIdx = -1;
                 const keywords = ['дата', 'date', 'сумма', 'amount', 'описание', 'description'];
                 
@@ -357,7 +340,6 @@
                     const mcc = row[10];
                     const cat = this.categorize(desc, mcc);
                     
-                    // MODIFIED: Check for duplicates
                     const uniqueKey = `${isoDate}|${amount}|${desc}`;
                     const isDuplicate = existingMap.has(uniqueKey);
 
@@ -369,7 +351,7 @@
                         category: cat,
                         description: desc,
                         importId: Date.now(),
-                        importChecked: !isDuplicate, // Uncheck duplicates by default
+                        importChecked: !isDuplicate,
                         isDuplicate: isDuplicate
                     });
                 }
@@ -386,6 +368,7 @@
             },
 
             categorize(desc, mcc) {
+                // Use local SmartCategorizer directly
                 const res = SmartCategorizer.categorize(desc, mcc);
                 const cats = DB.get('categories');
                 const c = cats.find(x => x.id === res.categoryId);
@@ -394,7 +377,6 @@
             },
             
             save() {
-                // MODIFIED: Only save checked items and remove temp fields
                 const toImport = this.data
                     .filter(t => t.importChecked)
                     .map(({importChecked, isDuplicate, ...rest}) => rest);
@@ -412,7 +394,6 @@
             }
         };
 
-        // 0. Dashboard Module
         const Dashboard = {
             render() {
                 const config = DB.get('dashboard');
@@ -430,7 +411,6 @@
 
                 return `
                     <div class="space-y-6 animate-fade-in h-full flex flex-col">
-                        <!-- Header -->
                         <div class="flex justify-between items-end flex-shrink-0">
                             <div>
                                 <h1 class="text-3xl font-bold dark:text-white tracking-tight">${greeting}!</h1>
@@ -441,7 +421,6 @@
                             </button>
                         </div>
 
-                        <!-- Widget Grid -->
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-min grid-flow-dense pb-10">
                             ${widgets.map(w => this.renderWidget(w)).join('')}
                         </div>
@@ -484,7 +463,6 @@
             },
 
             getWidgetIcon(type) {
-                // Uniform monochrome icons (Gray)
                 const baseClass = "w-6 h-6 text-gray-400 dark:text-gray-500";
                 const icons = {
                     'budget_overview': `<svg class="${baseClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
@@ -2063,7 +2041,7 @@
             start(cb) {
                 this.init();
                 const el = document.createElement('div'); el.id = 'scanner-overlay';
-                el.innerHTML = `<div class="fixed inset-0 bg-black z-[70] flex flex-col items-center justify-center"><video id="video" class="w-full h-full object-cover opacity-50"></video><div class="absolute w-64 h-48 border-2 border-white/50 rounded-2xl z-20 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"></div><div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-0.5 bg-red-500 shadow-[0_0_10px_red] animate-pulse z-30"></div><button onclick="Scanner.stop()" class="absolute bottom-10 bg-white text-black px-6 py-2 rounded-full font-bold z-30">Закрыть</button></div>`;
+                el.innerHTML = `<div class="fixed inset-0 bg-black z-[70] flex flex-col items-center justify-center"><video id="video" class="w-full h-full object-cover opacity-50"></video><div class="absolute w-64 h-48 border-2 border-white/50 rounded-2xl z-20 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"></div><button onclick="Scanner.stop()" class="absolute bottom-10 bg-white text-black px-6 py-2 rounded-full font-bold z-30">Закрыть</button></div>`;
                 document.body.appendChild(el);
                 if(this.reader) this.reader.decodeFromVideoDevice(null, 'video', (res) => { if(res) cb(res.getText()); });
             },

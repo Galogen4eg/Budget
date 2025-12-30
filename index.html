@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#FBFDFF" />
+    <meta name="theme-color" content="#EBEFF5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Семейный Бюджет</title>
@@ -12,40 +12,36 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        /* Используем системные шрифты для идеального отображения кириллицы на любой ОС */
         --system-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
       }
       body {
         font-family: var(--system-font);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        background-color: #FBFDFF;
-        letter-spacing: normal; /* Исправлено слипание букв */
+        background-color: #EBEFF5; /* More contrasty background */
+        letter-spacing: normal;
         line-height: 1.5;
         text-rendering: optimizeLegibility;
         overscroll-behavior-y: none;
       }
       
-      /* Оптимизация для цифр (моноширинные цифры в таблицах) */
       .tabular {
         font-variant-numeric: tabular-nums;
-        letter-spacing: -0.01em; /* Для цифр легкая плотность допустима */
+        letter-spacing: -0.01em;
       }
 
-      /* Эффект стекла */
       .glass {
         background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.6);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
       }
       
       .shadow-soft {
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08); /* Stronger shadow */
       }
       
-      /* Скрытие скроллбара */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -54,25 +50,21 @@
         scrollbar-width: none;
       }
       
-      /* Анимация нажатия в стиле iOS */
       .ios-btn-active:active {
         transform: scale(0.96);
         opacity: 0.9;
         transition: transform 0.1s ease;
       }
       
-      /* Настройка сканера */
       #reader video {
         border-radius: 1.5rem !important;
         object-fit: cover !important;
       }
       
-      /* Заголовки */
       h1, h2, h3, h4, h5, h6 {
-        letter-spacing: -0.01em; /* Убрана излишняя плотность */
+        letter-spacing: -0.01em;
       }
       
-      /* Мелкий текст капсом - делаем читаемее */
       .text-xs.uppercase, 
       .text-\[10px\].uppercase, 
       .text-\[9px\].uppercase {

@@ -6,7 +6,7 @@ import {
   Mic, BrainCircuit,
   X, Plus, ScanBarcode, Loader2,
   Receipt, MicOff, Maximize2, ShoppingBag,
-  Scale, Hash, Globe, WifiOff, Search, Star, Archive, Edit2
+  Scale, Hash, Globe, WifiOff, Search, Star, Archive, Edit2, Check
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -45,12 +45,13 @@ const TOP_PURCHASES = [
 ];
 
 const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, members, onCompletePurchase, transactions = [], onMoveToPantry }) => {
-  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(false);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [totalCostInput, setTotalCostInput] = useState('');
   
+  // Modal Form State
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('1');
   const [unit, setUnit] = useState<'шт' | 'кг' | 'уп' | 'л'>('шт');
@@ -66,7 +67,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
 
-  // Price History Logic
+  // Price History Logic for Modal
   const lastPrice = useMemo(() => {
     if (!title || title.length < 3) return null;
     const match = transactions.find(t => t.note && t.note.toLowerCase().includes(title.toLowerCase()));
@@ -105,7 +106,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      // Clean up markdown ticks if present
       let rawText = response.text || '[]';
       rawText = rawText.replace(/```json|```/g, '').trim();
 
@@ -182,7 +182,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     if (localProduct) { addProduct(localProduct); return; }
 
     if (!navigator.onLine) {
-       openManualEntry(decodedText); showNotify('warning', 'Офлайн: товара нет в локальной базе'); setIsScannerOpen(false); return;
+       openModal(decodedText); showNotify('warning', 'Офлайн: товара нет в локальной базе'); setIsScannerOpen(false); return;
     }
 
     setScannerStatus('Ищу в мировой базе...');
@@ -191,26 +191,26 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     if (onlineProduct) { addProduct(onlineProduct); return; }
 
     setIsScannerOpen(false);
-    openManualEntry(decodedText);
+    openModal(decodedText);
     showNotify('warning', 'Товар не найден, введите название');
   };
   
-  const openManualEntry = (code?: string) => {
+  const openModal = (code?: string) => {
     setTitle(code ? `Товар #${code}` : '');
     setAmount('1');
     setUnit('шт');
     setSelectedAisle('other');
     setEditingItemId(null);
-    setIsManualOpen(true);
+    setIsModalOpen(true);
   };
   
-  const openEditEntry = (item: ShoppingItem) => {
+  const openEditModal = (item: ShoppingItem) => {
     setTitle(item.title);
     setAmount(item.amount || '1');
     setUnit(item.unit || 'шт');
     setSelectedAisle(item.category);
     setEditingItemId(item.id);
-    setIsManualOpen(true);
+    setIsModalOpen(true);
   };
 
   useEffect(() => {
@@ -251,7 +251,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         setItems([newItem, ...items]);
     }
     
-    setTitle(''); setAmount('1'); setUnit('шт'); setEditingItemId(null); setIsManualOpen(false); vibrate('light');
+    setTitle(''); setAmount('1'); setUnit('шт'); setEditingItemId(null); setIsModalOpen(false); vibrate('light');
   };
 
   const handleQuickAdd = (topItem: typeof TOP_PURCHASES[0]) => {
@@ -286,6 +286,72 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   return (
     <div className="relative space-y-8 pb-36">
       <AnimatePresence>
+        {/* ADD/EDIT ITEM MODAL */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-4">
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+             <motion.div 
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+             >
+                <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100">
+                   <h3 className="font-black text-xl text-[#1C1C1E]">{editingItemId ? 'Редактировать' : 'Добавить'}</h3>
+                   <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><X size={20}/></button>
+                </div>
+                
+                <div className="p-8 space-y-6 overflow-y-auto">
+                    <div className="space-y-4">
+                        <div className="relative">
+                           <input 
+                             type="text" 
+                             value={title} 
+                             onChange={(e) => setTitle(e.target.value)} 
+                             placeholder="Что купить? (напр. Молоко)" 
+                             className="w-full bg-white p-5 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] border border-white focus:border-blue-200 transition-all shadow-sm" 
+                             autoFocus
+                           />
+                           {lastPrice && (
+                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
+                               Было: {lastPrice} {settings.currency}
+                             </div>
+                           )}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-white p-4 rounded-2xl flex items-center gap-3 border border-white focus-within:border-blue-200 transition-all shadow-sm">
+                            <Scale size={18} className="text-gray-400" />
+                            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-lg text-[#1C1C1E] w-full" />
+                          </div>
+                          <div className="flex bg-gray-200/50 p-1.5 rounded-2xl border border-transparent">
+                            {UNITS.map(u => (<button key={u} onClick={() => setUnit(u)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all uppercase tracking-wider ${unit === u ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>{u}</button>))}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Отдел</label>
+                           <div className="flex flex-wrap gap-2">
+                             {STORE_AISLES.slice(0, 8).map(aisle => (
+                               <button 
+                                 key={aisle.id} 
+                                 onClick={() => setSelectedAisle(aisle.id)} 
+                                 className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all flex items-center gap-2 ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-white text-gray-400 shadow-sm'}`}
+                               >
+                                 <span className="text-sm">{aisle.icon}</span> {aisle.label}
+                               </button>
+                             ))}
+                           </div>
+                        </div>
+                    </div>
+                    
+                    <button onClick={handleSaveItem} className="w-full bg-blue-500 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-xs shadow-xl ios-btn-active flex items-center justify-center gap-2">
+                       <Check size={18} strokeWidth={3} />
+                       {editingItemId ? 'Сохранить' : 'Добавить в список'}
+                    </button>
+                </div>
+             </motion.div>
+          </div>
+        )}
+
         {isStoreMode && (
           <StoreModeOverlay items={items} setItems={setItems} onClose={() => setIsStoreMode(false)} groupedByAisle={activeItems.reduce((acc:any, i) => { (acc[i.category] = acc[i.category] || []).push(i); return acc; }, {})} vibrate={vibrate} />
         )}
@@ -323,7 +389,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         <div className="flex items-center gap-5">
           <div className="relative w-20 h-20">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15.5" fill="none" className="text-gray-100" strokeWidth="4" stroke="currentColor" />
+              <circle cx="18" cy="18" r="15.5" fill="none" className="text-gray-200" strokeWidth="4" stroke="currentColor" />
               <motion.circle cx="18" cy="18" r="15.5" fill="none" stroke="#007AFF" strokeWidth="4.2" strokeDasharray="97.39, 97.39" initial={{ strokeDashoffset: 97.39 }} animate={{ strokeDashoffset: 97.39 - (97.39 * progress / 100) }} />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-[12px] font-black text-[#1C1C1E]">{progress}%</span></div>
@@ -335,9 +401,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-soft border border-white overflow-hidden transition-all">
-        <div className="p-7 flex items-center justify-between">
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => openManualEntry()}>
+      <div className="bg-white rounded-[2.5rem] shadow-soft border border-white overflow-hidden transition-all p-7 flex items-center justify-between">
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => openModal()}>
             <div className="w-11 h-11 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"><Plus size={24} strokeWidth={3} /></div>
             <span className="font-black text-lg text-[#1C1C1E]">Добавить товар</span>
           </div>
@@ -345,44 +410,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             <button onClick={startListening} className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-50 text-blue-500'}`}>{isListening ? <MicOff size={22} /> : <Mic size={22} />}</button>
             <button onClick={startScanner} className="w-11 h-11 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 shadow-sm ios-btn-active"><ScanBarcode size={22} /></button>
           </div>
-        </div>
-        <AnimatePresence>
-          {isManualOpen && (
-            <motion.div 
-                initial={{ height: 0, opacity: 0 }} 
-                animate={{ height: 'auto', opacity: 1 }} 
-                exit={{ height: 0, opacity: 0 }} 
-                className="px-7 pb-20 space-y-6 max-h-[60vh] overflow-y-auto"
-            >
-              <div className="space-y-4">
-                <div className="relative">
-                   <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что купить? (напр. Молоко)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none font-bold text-[#1C1C1E] border border-transparent focus:border-blue-100 transition-all" />
-                   {lastPrice && (
-                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
-                       Было: {lastPrice} {settings.currency}
-                     </div>
-                   )}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-transparent focus-within:border-blue-100 transition-all">
-                    <Scale size={18} className="text-gray-400" />
-                    <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-[#1C1C1E] w-full" />
-                  </div>
-                  <div className="flex bg-gray-100/50 p-1.5 rounded-2xl border border-gray-100">
-                    {UNITS.map(u => (<button key={u} onClick={() => setUnit(u)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all uppercase tracking-wider ${unit === u ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>{u}</button>))}
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Отдел</label>
-                   <div className="flex flex-wrap gap-2">{STORE_AISLES.slice(0, 8).map(aisle => (<button key={aisle.id} onClick={() => setSelectedAisle(aisle.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{aisle.icon} {aisle.label}</button>))}</div>
-                </div>
-              </div>
-              <button onClick={handleSaveItem} className="w-full bg-blue-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-xl ios-btn-active">{editingItemId ? 'Сохранить изменения' : 'Добавить в список'}</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <div className="space-y-3">
@@ -400,7 +427,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       <div className="space-y-6">
         {activeItems.map(item => (
-          <ShoppingCard key={item.id} item={item} onToggle={() => setItems(items.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} onRemove={() => setItems(items.filter(i => i.id !== item.id))} onEdit={() => openEditEntry(item)} />
+          <ShoppingCard key={item.id} item={item} onToggle={() => setItems(items.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} onRemove={() => setItems(items.filter(i => i.id !== item.id))} onEdit={() => openEditModal(item)} />
         ))}
       </div>
 
@@ -414,7 +441,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                  onToggle={() => setItems(items.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} 
                  onRemove={() => setItems(items.filter(i => i.id !== item.id))} 
                  onPantry={onMoveToPantry}
-                 onEdit={() => openEditEntry(item)}
+                 onEdit={() => openEditModal(item)}
               />
             ))}
           </div>
@@ -427,20 +454,22 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 };
 
 const ShoppingCard = ({ item, onToggle, onRemove, onPantry, onEdit }: any) => (
-  <motion.div layout className="bg-white p-5 rounded-[1.8rem] border border-white shadow-sm flex items-center gap-5 transition-all">
-    <button onClick={onToggle} className={`transition-colors flex-shrink-0 ${item.completed ? 'text-green-500' : 'text-gray-200'}`}>
+  <motion.div 
+    layout 
+    onClick={() => !item.completed && onEdit()} 
+    className="bg-white p-5 rounded-[1.8rem] border border-white shadow-soft flex items-center gap-5 transition-all cursor-pointer active:scale-[0.99]"
+  >
+    <button 
+      onClick={(e) => { e.stopPropagation(); onToggle(); }} 
+      className={`p-1 transition-colors flex-shrink-0 ${item.completed ? 'text-green-500' : 'text-gray-200 hover:text-green-400'}`}
+    >
       {item.completed ? <CheckCircle2 size={26} fill="currentColor" className="text-white" /> : <Circle size={26} />}
     </button>
-    <div className="flex-1 min-w-0" onClick={onToggle}>
+    <div className="flex-1 min-w-0">
       <h5 className={`font-bold text-[15px] truncate ${item.completed ? 'line-through text-gray-400' : 'text-[#1C1C1E]'}`}>{item.title}</h5>
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{item.amount || '1'} {item.unit || 'шт'} • {STORE_AISLES.find(a => a.id === item.category)?.label || 'Прочее'}</p>
     </div>
     <div className="flex gap-2">
-       {!item.completed && (
-         <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-2.5 text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0">
-            <Edit2 size={18} />
-         </button>
-       )}
        {item.completed && onPantry && (
          <button onClick={(e) => { e.stopPropagation(); onPantry(item); alert('Добавлено в кладовку'); }} className="p-2.5 text-blue-500 bg-blue-50 rounded-xl transition-colors">
             <Archive size={18} />

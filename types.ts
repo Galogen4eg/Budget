@@ -117,6 +117,12 @@ export interface LoyaltyCard {
   barcodeType?: 'code128' | 'qr'; 
 }
 
+export interface MandatoryExpense {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;
@@ -142,6 +148,7 @@ export interface AppSettings {
   initialBalance: number;
   initialBalanceDate?: string;
   salaryDates: number[]; // Array of days (e.g., [10, 25])
+  mandatoryExpenses: MandatoryExpense[]; // New: Fixed monthly costs
 
   alfaMapping: {
     date: string;

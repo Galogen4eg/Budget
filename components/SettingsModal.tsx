@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move } from 'lucide-react';
-import { AppSettings, FamilyMember, Category, LearnedRule } from '../types';
+import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign } from 'lucide-react';
+import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense } from '../types';
 import { MemberMarker } from '../constants';
 import { getIconById } from '../constants';
 
@@ -56,7 +56,7 @@ const SERVICES_CONFIG = [
 const PRESET_COLORS = [ '#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2' ];
 const PRESET_ICONS = [ 'Utensils', 'Car', 'Home', 'ShoppingBag', 'Heart', 'Zap', 'Plane', 'Briefcase', 'PiggyBank', 'Coffee', 'Tv', 'MoreHorizontal' ];
 
-type SectionType = 'general' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'advanced' | 'family';
+type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'advanced' | 'family';
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
@@ -70,6 +70,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [newCategory, setNewCategory] = useState({ label: '', icon: PRESET_ICONS[0], color: PRESET_COLORS[5] });
   
   const [targetFamilyId, setTargetFamilyId] = useState('');
+  
+  // Mandatory Expense State
+  const [newExpenseName, setNewExpenseName] = useState('');
+  const [newExpenseAmount, setNewExpenseAmount] = useState('');
   
   const [draggedWidgetIndex, setDraggedWidgetIndex] = useState<number | null>(null);
 
@@ -88,7 +92,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     console.log(`User response to install prompt: ${outcome}`);
   };
 
-  // ... (Other handlers same as before)
   const handleAddCategory = () => {
     if (!newCategory.label.trim()) return;
     const newCat: Category = { ...newCategory, id: newCategory.label.toLowerCase().replace(/\s/g, '_'), isCustom: true };
@@ -118,6 +121,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   };
   const handleUpdateMember = (id: string, updates: Partial<FamilyMember>) => { onUpdateMembers(members.map(m => m.id === id ? { ...m, ...updates } : m)); };
   const handleDeleteMember = (id: string) => { if (members.length <= 1) { alert("Должен остаться хотя бы один участник"); return; } onUpdateMembers(members.filter(m => m.id !== id)); };
+
+  const handleAddMandatoryExpense = () => {
+      if (!newExpenseName.trim() || !newExpenseAmount) return;
+      const newExpense: MandatoryExpense = {
+          id: Date.now().toString(),
+          name: newExpenseName.trim(),
+          amount: parseFloat(newExpenseAmount)
+      };
+      const currentExpenses = settings.mandatoryExpenses || [];
+      handleChange('mandatoryExpenses', [...currentExpenses, newExpense]);
+      setNewExpenseName('');
+      setNewExpenseAmount('');
+  };
+
+  const handleDeleteMandatoryExpense = (id: string) => {
+      const currentExpenses = settings.mandatoryExpenses || [];
+      handleChange('mandatoryExpenses', currentExpenses.filter(e => e.id !== id));
+  };
 
   const toggleArrayItem = (key: 'enabledWidgets' | 'enabledTabs' | 'enabledServices', id: string) => {
     const current = settings[key] || [];
@@ -175,6 +196,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const SECTIONS: { id: SectionType, label: string, icon: React.ReactNode }[] = [
       { id: 'general', label: 'Общие', icon: <Globe size={18} className="text-blue-500" /> },
+      { id: 'budget', label: 'Бюджет и Лимиты', icon: <Calculator size={18} className="text-green-600" /> },
       { id: 'family', label: 'Семейный доступ', icon: <Users size={18} className="text-pink-600" /> },
       { id: 'navigation', label: 'Навигация', icon: <Wallet size={18} className="text-green-500" /> },
       { id: 'services', label: 'Сервисы', icon: <Grip size={18} className="text-indigo-500" /> },
@@ -206,37 +228,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Название семьи</label>
                     <input type="text" value={settings.familyName} onChange={(e) => handleChange('familyName', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" />
                   </div>
-                  <div className="flex gap-4">
-                    <div className="flex-1 space-y-2">
+                  <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Валюта</label>
-                      <input type="text" value={settings.currency} onChange={(e) => handleChange('currency', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Начало мес.</label>
-                      <input type="number" min="1" max="31" value={settings.startOfMonthDay} onChange={(e) => handleChange('startOfMonthDay', Number(e.target.value))} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни Зарплаты / Аванса</label>
-                    <input 
-                        type="text" 
-                        placeholder="Например: 10, 25"
-                        value={settings.salaryDates?.join(', ') || ''} 
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            const dates = val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0 && n <= 31);
-                            handleChange('salaryDates', dates);
-                        }} 
-                        className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" 
-                    />
-                    <p className="text-[9px] text-gray-400 px-2">Укажите числа месяца через запятую для расчета дней до ЗП.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center px-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Процент в копилку</label>
-                      <span className="text-sm font-black text-blue-500">{savingsRate}%</span>
-                    </div>
-                    <input type="range" min="0" max="50" step="1" value={savingsRate} onChange={(e) => setSavingsRate(Number(e.target.value))} className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                      <input type="text" value={settings.currency} onChange={(e) => handleChange('currency', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" />
                   </div>
                   <div className="flex items-center justify-between p-2">
                     <div className="flex items-center gap-3">
@@ -261,6 +255,92 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       {settings.isPinEnabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                     </button>
                   </div>
+                </div>
+            </div>
+        );
+        case 'budget': return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] mb-2">Расчет бюджета</h3>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Начальный баланс</label>
+                        <div className="flex gap-2">
+                           <div className="flex-1 space-y-1">
+                              <input type="number" value={settings.initialBalance} onChange={e => handleChange('initialBalance', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none" placeholder="Сумма" />
+                              <div className="text-[9px] font-black text-gray-300 uppercase text-center">Сумма</div>
+                           </div>
+                           <div className="flex-1 space-y-1">
+                              <input type="date" value={settings.initialBalanceDate || ''} onChange={e => handleChange('initialBalanceDate', e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none" />
+                              <div className="text-[9px] font-black text-gray-300 uppercase text-center">Дата старта</div>
+                           </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-1 space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Число начала месяца</label>
+                          <input type="number" min="1" max="31" value={settings.startOfMonthDay} onChange={(e) => handleChange('startOfMonthDay', Number(e.target.value))} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни Зарплаты</label>
+                          <input 
+                              type="text" 
+                              placeholder="10, 25"
+                              value={settings.salaryDates?.join(', ') || ''} 
+                              onChange={(e) => {
+                                  const val = e.target.value;
+                                  const dates = val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0 && n <= 31);
+                                  handleChange('salaryDates', dates);
+                              }} 
+                              className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" 
+                          />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center px-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Процент в копилку</label>
+                          <span className="text-sm font-black text-blue-500">{savingsRate}%</span>
+                        </div>
+                        <input type="range" min="0" max="50" step="1" value={savingsRate} onChange={(e) => setSavingsRate(Number(e.target.value))} className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                        <p className="text-[9px] text-gray-400 px-2">Этот % вычитается из баланса при расчете доступного лимита.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl space-y-4 border border-gray-100 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] mb-2 flex items-center gap-2"><DollarSign size={20} className="text-red-500"/> Обязательные расходы</h3>
+                    <p className="text-xs text-gray-400 leading-tight">Укажите ежемесячные платежи (аренда, интернет, кредиты). Они будут вычитаться из доступного дневного лимита.</p>
+                    
+                    <div className="space-y-2">
+                        {(settings.mandatoryExpenses || []).map((exp) => (
+                            <div key={exp.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                <span className="font-bold text-sm text-[#1C1C1E] pl-2">{exp.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-black text-sm">{exp.amount.toLocaleString()} {settings.currency}</span>
+                                    <button onClick={() => handleDeleteMandatoryExpense(exp.id)} className="text-gray-400 hover:text-red-500"><X size={16}/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-gray-50">
+                        <input 
+                            type="text" 
+                            placeholder="Название (напр. Аренда)" 
+                            value={newExpenseName} 
+                            onChange={(e) => setNewExpenseName(e.target.value)} 
+                            className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"
+                        />
+                        <input 
+                            type="number" 
+                            placeholder="Сумма" 
+                            value={newExpenseAmount} 
+                            onChange={(e) => setNewExpenseAmount(e.target.value)} 
+                            className="w-24 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"
+                        />
+                        <button onClick={handleAddMandatoryExpense} className="bg-black text-white p-3 rounded-xl flex items-center justify-center shadow-lg"><Plus size={18}/></button>
+                    </div>
                 </div>
             </div>
         );
@@ -456,20 +536,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Начало дня</label><input type="number" value={settings.dayStartHour} onChange={e => handleChange('dayStartHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div>
                     <div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Конец дня</label><input type="number" value={settings.dayEndHour} onChange={e => handleChange('dayEndHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div>
-                  </div>
-                  
-                  <div className="border-t border-gray-50 pt-4 space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Начальный баланс</label>
-                    <div className="flex gap-2">
-                       <div className="flex-1 space-y-1">
-                          <input type="number" value={settings.initialBalance} onChange={e => handleChange('initialBalance', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none" placeholder="Сумма" />
-                          <div className="text-[9px] font-black text-gray-300 uppercase text-center">Сумма</div>
-                       </div>
-                       <div className="flex-1 space-y-1">
-                          <input type="date" value={settings.initialBalanceDate || ''} onChange={e => handleChange('initialBalanceDate', e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none" />
-                          <div className="text-[9px] font-black text-gray-300 uppercase text-center">Дата старта</div>
-                       </div>
-                    </div>
                   </div>
 
                   <div className="border-t border-gray-50 pt-4 space-y-3">

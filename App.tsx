@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   initialBalance: 0,
   initialBalanceDate: new Date().toISOString().split('T')[0], // Default to today
   salaryDates: [10, 25], // Default salary dates
+  mandatoryExpenses: [], // Default empty
   alfaMapping: {
     date: 'дата',
     amount: 'сумма',
@@ -59,7 +60,7 @@ const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boole
   return (
     <div className="min-h-screen relative flex items-center justify-center p-6 overflow-hidden">
       {/* Background Gradient Mesh */}
-      <div className="absolute inset-0 bg-[#FBFDFF]">
+      <div className="absolute inset-0 bg-[#EBEFF5]">
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-400/20 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-400/20 rounded-full blur-[120px]" />
       </div>
@@ -345,6 +346,16 @@ const App: React.FC = () => {
       setPinStatus('unlocked');
   };
 
+  const togglePrivacy = () => {
+      const newMode = !settings.privacyMode;
+      // Optimistic update for UI responsiveness
+      setSettings(prev => ({...prev, privacyMode: newMode}));
+      // Persist
+      if (familyId) {
+          saveSettings(familyId, {...settings, privacyMode: newMode});
+      }
+  };
+
   useEffect(() => {
     const savedPin = localStorage.getItem('family_budget_pin');
     setPinCode(savedPin);
@@ -602,14 +613,38 @@ const App: React.FC = () => {
       <header className="flex justify-between items-start mb-10 text-[#1C1C1E]">
         <div>
           {/* Family name removed as requested */}
-          <div className="flex items-center gap-3 h-10">
+          <div className="flex items-center gap-4 h-10">
              <h1 className="text-4xl font-black tracking-tight text-[#1C1C1E]">
                 {NAV_TABS.find(t => t.id === activeTab)?.label || 'Обзор'}
              </h1>
              {(activeTab === 'overview' || activeTab === 'budget') ? (
-                 <div className="flex bg-gray-100 p-1 rounded-2xl h-10 items-center">
-                    <button onClick={() => setBudgetMode('personal')} className={`px-4 h-8 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center ${budgetMode === 'personal' ? 'bg-white text-[#1C1C1E] shadow-sm ml-1' : 'text-gray-400'}`}>Мой</button>
-                    <button onClick={() => setBudgetMode('family')} className={`px-4 h-8 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center ${budgetMode === 'family' ? 'bg-white text-blue-600 shadow-sm mr-1' : 'text-gray-400'}`}>Общий</button>
+                 <div className="flex bg-gray-100/50 p-1 rounded-full relative h-9 items-center border border-gray-100">
+                    <button 
+                      onClick={() => setBudgetMode('personal')} 
+                      className={`relative z-10 px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'personal' ? 'text-black' : 'text-gray-400'}`}
+                    >
+                      Мой
+                      {budgetMode === 'personal' && (
+                        <motion.div 
+                          layoutId="budget-toggle"
+                          className="absolute inset-0 bg-white rounded-full shadow-sm -z-10"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setBudgetMode('family')} 
+                      className={`relative z-10 px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'family' ? 'text-blue-600' : 'text-gray-400'}`}
+                    >
+                      Общий
+                      {budgetMode === 'family' && (
+                        <motion.div 
+                          layoutId="budget-toggle"
+                          className="absolute inset-0 bg-white rounded-full shadow-sm -z-10"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        />
+                      )}
+                    </button>
                  </div>
              ) : (
                  <div className="h-10 w-0" /> // Placeholder to maintain vertical alignment
@@ -627,35 +662,53 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
-              {settings.enabledWidgets.includes('balance') && <SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} />}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                {settings.enabledWidgets.includes('daily') && <Widget className="col-span-1" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />}
-                {settings.enabledWidgets.includes('spent') && <Widget className="col-span-1" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />}
-              </div>
-              {settings.enabledWidgets.includes('charts') && <ChartsSection transactions={filteredTransactions} settings={settings} />}
-              {settings.enabledWidgets.includes('goals') && (
-                <GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} />
-              )}
-              {settings.enabledWidgets.includes('shopping') && (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                          <h2 className="text-xl font-black text-[#1C1C1E]">Нужно купить</h2>
-                          <button onClick={() => setActiveTab('shopping')} className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl">Весь список</button>
+              {settings.enabledWidgets.includes('balance') && <SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} />}
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                {/* Daily Widget (Standalone) - Only if balance widget is NOT active, to avoid duplication */}
+                {settings.enabledWidgets.includes('daily') && !settings.enabledWidgets.includes('balance') && (
+                    <Widget className="md:col-span-1" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />
+                )}
+                
+                {/* Spent Widget */}
+                {settings.enabledWidgets.includes('spent') && <Widget className="md:col-span-1" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />}
+                
+                {/* Charts Widget */}
+                {settings.enabledWidgets.includes('charts') && (
+                    <div className="md:col-span-1">
+                        <ChartsSection transactions={filteredTransactions} settings={settings} />
                     </div>
-                    {shoppingPreview.length === 0 ? (
-                        <div className="bg-white p-6 rounded-[2rem] border border-white shadow-soft text-center text-gray-400 font-bold text-xs uppercase tracking-widest">Список пуст</div>
-                    ) : (
-                      <div className="bg-white p-2 rounded-[2.5rem] border border-white shadow-soft md:grid md:grid-cols-2 md:gap-2">
-                          {shoppingPreview.map(item => (
-                              <div key={item.id} className="p-4 flex items-center gap-3 border-b border-gray-50 last:border-none md:border-none md:bg-gray-50 md:rounded-2xl">
-                                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                  <span className="font-bold text-sm text-[#1C1C1E]">{item.title}</span>
-                              </div>
-                          ))}
+                )}
+
+                {/* Goals Widget */}
+                {settings.enabledWidgets.includes('goals') && (
+                  <div className="md:col-span-1">
+                    <GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} />
+                  </div>
+                )}
+
+                {/* Shopping Widget */}
+                {settings.enabledWidgets.includes('shopping') && (
+                  <div className="md:col-span-1 space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                            <h2 className="text-xl font-black text-[#1C1C1E]">Нужно купить</h2>
+                            <button onClick={() => setActiveTab('shopping')} className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl">Весь список</button>
                       </div>
-                    )}
-                </div>
-              )}
+                      {shoppingPreview.length === 0 ? (
+                          <div className="bg-white p-6 rounded-[2rem] border border-white shadow-soft text-center text-gray-400 font-bold text-xs uppercase tracking-widest">Список пуст</div>
+                      ) : (
+                        <div className="bg-white p-2 rounded-[2.5rem] border border-white shadow-soft grid gap-2">
+                            {shoppingPreview.map(item => (
+                                <div key={item.id} className="p-4 flex items-center gap-3 border-b border-gray-50 last:border-none bg-gray-50/50 rounded-2xl">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                    <span className="font-bold text-sm text-[#1C1C1E]">{item.title}</span>
+                                </div>
+                            ))}
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
               
               {/* FAB Menu */}
               <div className="fixed bottom-32 right-8 z-[100] flex flex-col items-end gap-3 pointer-events-none">

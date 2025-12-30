@@ -31,9 +31,9 @@ export const parseAlfaStatement = (
         let maxScore = 0;
 
         // Расширенные ключевые слова
-        const dateKeywords = ['дата', 'date', 'transaction date', 'время', 'data', 'проводка'];
-        const amountKeywords = ['сумма', 'amount', 'сумма операции', 'sum', 'приход', 'расход', 'дебет', 'кредит', 'списано', 'зачислено', 'value', 'summa'];
-        const noteKeywords = ['описание', 'note', 'назначение', 'реквизиты', 'контрагент', 'details', 'комментарий', 'место'];
+        const dateKeywords = ['дата', 'date', 'transaction date', 'время', 'data', 'проводка', 'дата операции', 'time'];
+        const amountKeywords = ['сумма', 'amount', 'сумма операции', 'sum', 'приход', 'расход', 'дебет', 'кредит', 'списано', 'зачислено', 'value', 'summa', 'сумма платежа'];
+        const noteKeywords = ['описание', 'note', 'назначение', 'реквизиты', 'контрагент', 'details', 'комментарий', 'место', 'основание', 'description'];
         const mccKeywords = ['mcc', 'мсс', 'код категории'];
         const catKeywords = ['категория', 'category', 'тип', 'группа'];
 
@@ -64,10 +64,16 @@ export const parseAlfaStatement = (
         const headers = rawHeaders.map(h => (h !== null && h !== undefined) ? String(h).toLowerCase().trim() : "");
         
         const findCol = (userTerm: string, defaultTerms: string[]) => {
-          const terms = [userTerm.toLowerCase(), ...defaultTerms.map(t => t.toLowerCase())];
-          let idx = headers.findIndex(h => terms.some(t => h === t));
+          // Если пользователь задал явный маппинг, ищем сначала его
+          if (userTerm) {
+             const exactIdx = headers.findIndex(h => h === userTerm.toLowerCase().trim());
+             if (exactIdx !== -1) return exactIdx;
+          }
+
+          const terms = [userTerm?.toLowerCase(), ...defaultTerms.map(t => t.toLowerCase())].filter(Boolean);
+          let idx = headers.findIndex(h => terms.some(t => h === t)); // Точное совпадение
           if (idx === -1) {
-             idx = headers.findIndex(h => terms.some(t => h.includes(t)));
+             idx = headers.findIndex(h => terms.some(t => h.includes(t))); // Частичное
           }
           return idx;
         };
@@ -83,53 +89,63 @@ export const parseAlfaStatement = (
         }
 
         const transactions: Omit<Transaction, 'id'>[] = [];
-        
-        // Set to track used existing transaction IDs to avoid double-matching duplicates
         const matchedExistingIds = new Set<string>();
 
         for (let i = bestHeaderRowIndex + 1; i < json.length; i++) {
           const row = json[i];
           if (!row) continue;
 
-          // 1. Дата
-          let date: string;
+          // 1. Дата и Время
+          let date: string | null = null;
           const rawDate = row[colDate];
           
           if (!rawDate) continue; 
 
           try {
             if (typeof rawDate === 'number') {
-              date = new Date((rawDate - 25569) * 86400 * 1000).toISOString();
+              // Excel Serial Date (включает время как дробную часть)
+              // Вычитаем поправку на часовой пояс, чтобы получить UTC корректно, или используем локальное время
+              const jsDate = new Date((rawDate - 25569) * 86400 * 1000);
+              // Корректируем, так как Excel считает в UTC/Local специфично
+              // Обычно достаточно просто toISOString, но иногда бывает сдвиг на минуты
+              const offset = jsDate.getTimezoneOffset() * 60000;
+              date = new Date(jsDate.getTime() + offset).toISOString(); // Сохраняем "как есть" визуально
             } else {
-              const s = String(rawDate).trim().replace(/['"]/g, '');
+              let s = String(rawDate).trim().replace(/['"]/g, '');
               if (!s) continue;
               
-              let parsedDate = new Date(s);
+              // Пробуем распознать формат DD.MM.YYYY HH:MM:SS
+              // Regex для "DD.MM.YYYY" или "DD/MM/YYYY" с опциональным временем
+              const dmyMatch = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?/);
               
-              if (isNaN(parsedDate.getTime())) {
-                 const parts = s.split(/[.\s/-]/); 
-                 if (parts.length >= 3) {
-                     const part1 = parseInt(parts[0]);
-                     const part2 = parseInt(parts[1]);
-                     const part3 = parseInt(parts[2]);
+              if (dmyMatch) {
+                  const day = parseInt(dmyMatch[1]);
+                  const month = parseInt(dmyMatch[2]) - 1; // JS months are 0-based
+                  let year = parseInt(dmyMatch[3]);
+                  if (year < 100) year += 2000; // Handle 2-digit years
 
-                     if (part1 > 1900) {
-                         parsedDate = new Date(part1, part2 - 1, part3);
-                     } else {
-                         const year = parts[2].length === 2 ? 2000 + part3 : part3;
-                         parsedDate = new Date(year, part2 - 1, part1);
-                     }
-                 }
-              }
-              
-              if (!isNaN(parsedDate.getTime())) {
+                  const hour = dmyMatch[4] ? parseInt(dmyMatch[4]) : 0;
+                  const minute = dmyMatch[5] ? parseInt(dmyMatch[5]) : 0;
+                  const second = dmyMatch[6] ? parseInt(dmyMatch[6]) : 0;
+
+                  const parsedDate = new Date(year, month, day, hour, minute, second);
+                  // Приводим к ISO, корректируя смещение, чтобы дата осталась той же, что в файле (локальной)
                   const offset = parsedDate.getTimezoneOffset() * 60000;
                   date = new Date(parsedDate.getTime() - offset).toISOString();
               } else {
-                  continue; 
+                  // Fallback для ISO форматов или US форматов
+                  const fallbackDate = new Date(s);
+                  if (!isNaN(fallbackDate.getTime())) {
+                      date = fallbackDate.toISOString();
+                  }
               }
             }
-          } catch (e) { continue; }
+          } catch (e) {
+              console.warn("Date parse error for row", i, rawDate);
+              continue; 
+          }
+
+          if (!date) continue;
 
           // 2. Сумма
           let amountValue = 0;
@@ -139,10 +155,12 @@ export const parseAlfaStatement = (
           } else {
             let clean = String(rawAmount || '0')
                 .replace(/\s/g, '')
-                .replace(/\u00A0/g, '')
+                .replace(/\u00A0/g, '') // Non-breaking space
                 .replace(/[^\d,.+-]/g, '')
                 .replace(',', '.');
             
+            // Handle cases like "1.200,00" vs "1,200.00" vs "1200.00"
+            // Simple heuristic: if multiple dots, remove all but last.
             if ((clean.match(/\./g) || []).length > 1) {
                 const parts = clean.split('.');
                 clean = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
@@ -156,7 +174,7 @@ export const parseAlfaStatement = (
           const amount = Math.abs(amountValue);
           const type = amountValue < 0 ? 'expense' : 'income';
 
-          // 3. Данные для категоризации
+          // 3. Категоризация
           const rawNoteStr = colNote !== -1 && row[colNote] !== undefined ? String(row[colNote]).trim() : '';
           const rawCatStr = colCategory !== -1 && row[colCategory] !== undefined ? String(row[colCategory]).trim() : '';
           const rawMCC = colMCC !== -1 && row[colMCC] !== undefined ? String(row[colMCC]).trim() : undefined;
@@ -165,25 +183,32 @@ export const parseAlfaStatement = (
           const finalNote = cleanMerchantName(rawMerchantRef, learnedRules);
 
           // 4. Проверка на дубликат (УЛУЧШЕННАЯ)
-          const importDateStr = date.split('T')[0];
-          const importRawLower = rawMerchantRef.toLowerCase().replace(/\s/g, '');
-
-          // Ищем совпадение в базе, которое еще НЕ было использовано для матчинга в этом проходе
+          const importDatePart = date.split('T')[0]; // YYYY-MM-DD
+          
+          // Ищем дубликат в базе
           const duplicateMatch = existingTransactions.find(tx => {
-             if (matchedExistingIds.has(tx.id)) return false; // Уже сматчили с другой строкой
+             if (matchedExistingIds.has(tx.id)) return false;
 
-             const txDateStr = new Date(tx.date).toISOString().split('T')[0];
-             if (txDateStr !== importDateStr) return false;
+             const txDatePart = new Date(tx.date).toISOString().split('T')[0];
              
+             // 1. Совпадение даты (день)
+             if (txDatePart !== importDatePart) return false;
+             
+             // 2. Совпадение суммы (с точностью до копеек)
              if (Math.abs(tx.amount - amount) > 0.01) return false;
+             
+             // 3. Совпадение типа
              if (tx.type !== type) return false;
 
-             const txRawLower = (tx.rawNote || tx.note || '').toLowerCase().replace(/\s/g, '');
-             return txRawLower === importRawLower;
+             // 4. Мягкое сравнение описания (если оно есть)
+             // Если описания очень похожи, считаем дублем
+             const txRawLower = (tx.rawNote || tx.note || '').toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+             const importRawLower = rawMerchantRef.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+             
+             return txRawLower === importRawLower || importRawLower.includes(txRawLower) || txRawLower.includes(importRawLower);
           });
 
           if (duplicateMatch) {
-            // Помечаем транзакцию как "найденную", чтобы следующая такая же строка в файле не сматчилась с ней же
             matchedExistingIds.add(duplicateMatch.id);
             continue;
           }

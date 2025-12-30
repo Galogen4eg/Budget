@@ -544,20 +544,51 @@ const App: React.FC = () => {
             </motion.div>
           )}
           {activeTab === 'budget' && (
-            <motion.div key="budget" className="space-y-10 w-full">
-              {/* Mandatory Expenses Block */}
-              <section className="w-full">
-                  <MandatoryExpensesList 
-                      expenses={settings.mandatoryExpenses || []} 
-                      transactions={transactions} 
-                      settings={settings}
-                      currentMonth={currentMonth}
-                  />
+            <motion.div key="budget" className="space-y-6 w-full">
+              {/* Calendar & Import */}
+              <section className="flex flex-col gap-6 w-full">
+                  <div className="flex justify-between items-center px-1">
+                      <h2 className="text-xl font-black text-[#1C1C1E]">
+                          {selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}
+                      </h2>
+                      <div className="flex gap-2">
+                          <button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active">
+                              <Plus size={20} />
+                          </button>
+                          <button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}
+                          </button>
+                      </div>
+                  </div>
+                  <SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
               </section>
 
-              <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
-              <section className="w-full"><div className="flex items-center gap-2 mb-5 px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2><span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span></div><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
-              <section className="w-full"><h2 className="text-xl font-black mb-5 px-1 text-[#1C1C1E]">{selectedDate ? 'Категории дня' : 'Категории месяца'}</h2><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></section>
+              {/* Transaction History (Full Width) */}
+              <section className="w-full">
+                  <div className="flex items-center gap-2 mb-5 px-1">
+                      <h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2>
+                      <span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span>
+                  </div>
+                  <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} />
+              </section>
+
+              {/* Grid: Mandatory Expenses & Categories */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Mandatory Expenses Block (Half Width) */}
+                  <div className="w-full min-w-0">
+                      <MandatoryExpensesList 
+                          expenses={settings.mandatoryExpenses || []} 
+                          transactions={transactions} 
+                          settings={settings}
+                          currentMonth={currentMonth}
+                      />
+                  </div>
+
+                  {/* Categories Block (Half Width) */}
+                  <div className="w-full min-w-0">
+                      <CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} />
+                  </div>
+              </div>
             </motion.div>
           )}
           {activeTab === 'plans' && (

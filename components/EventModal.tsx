@@ -55,8 +55,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     if (success) { 
         setSent(true); 
         setTimeout(() => setSent(false), 2000); 
-    } else {
-        alert("Не удалось отправить. Проверьте настройки Telegram (Token/ChatID).");
     }
   };
 
@@ -76,10 +74,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   const toggleReminder = (minutes: number) => {
-    if (minutes === 0) {
-        setReminders([]);
-        return;
-    }
+    if (minutes === 0) { setReminders([]); return; }
     if (reminders.includes(minutes)) {
         setReminders(reminders.filter(r => r !== minutes));
     } else {
@@ -88,8 +83,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   const validateAndSave = () => {
-    const yearMatch = date.match(/^(\d+)-/);
-    if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
     if (!title.trim()) { alert("Введите название события"); return; }
     onSave({ 
       id: event?.id || Date.now().toString(), 
@@ -98,21 +91,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
       date, time, duration: dur, 
       memberIds: mIds, isTemplate: isT, checklist,
       reminders,
-      userId: auth.currentUser?.uid // Add current user ID
+      userId: auth.currentUser?.uid
     });
     onClose();
-  };
-
-  const handleCopy = () => {
-      onSave({
-          id: Date.now().toString(),
-          title: `${title} (Копия)`,
-          description: desc,
-          date, time, duration: dur,
-          memberIds: mIds, isTemplate: isT, checklist, reminders,
-          userId: auth.currentUser?.uid
-      });
-      onClose();
   };
 
   return (
@@ -122,29 +103,16 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
-            <button 
-                type="button" 
-                onClick={handleManualSend} 
-                disabled={loading}
-                className={`p-2.5 rounded-full transition-colors ${sent ? 'bg-green-500 text-white' : 'bg-blue-50 text-blue-500'}`}
-                title="Отправить в Telegram"
-            >
+            <button type="button" onClick={handleManualSend} disabled={loading} className={`p-2.5 rounded-full transition-colors ${sent ? 'bg-green-500 text-white' : 'bg-blue-50 text-blue-500'}`}>
                 {loading ? <Loader2 size={20} className="animate-spin"/> : sent ? <Check size={20}/> : <Send size={20} />}
             </button>
-
             {templates.length > 0 && (
               <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-500'}`}><Sparkles size={20} /></button>
             )}
-            
-            {event && (
-                <button type="button" onClick={handleCopy} className="p-2.5 bg-gray-100 rounded-full text-gray-500" title="Копировать"><Copy size={20} /></button>
-            )}
-
-            <button type="button" onClick={onClose} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 active:scale-75 transition-all flex items-center justify-center text-gray-500"><X size={22}/></button>
+            <button type="button" onClick={onClose} className="p-3 bg-gray-100 rounded-full text-gray-500"><X size={22}/></button>
           </div>
         </div>
 
-        {/* Templates Dropdown */}
         <AnimatePresence>
             {showTemplates && (
                 <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-white border-b border-gray-100 overflow-hidden shrink-0">
@@ -161,14 +129,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
 
         <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
-            <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" style={{ color: mIds.length > 0 ? (members.find(m => m.id === mIds[0])?.color) : '#1C1C1E' }} />
+            <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" />
             <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 p-4 rounded-2xl resize-none h-24 text-[#1C1C1E]" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
              <div className="bg-white p-5 rounded-[2rem] border border-white">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
-               <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
+               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
              </div>
              <div className="bg-white p-5 rounded-[2rem] border border-white">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Время начала</span>
@@ -185,20 +153,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                 {REMINDER_OPTIONS.map(opt => {
                     const isActive = opt.value === 0 ? reminders.length === 0 : reminders.includes(opt.value);
                     return (
-                        <button 
-                            key={opt.value}
-                            type="button"
-                            onClick={() => toggleReminder(opt.value)}
-                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}
-                        >
+                        <button key={opt.value} type="button" onClick={() => toggleReminder(opt.value)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 text-gray-400'}`} >
                             {opt.label}
                         </button>
                     );
                 })}
              </div>
-             {!settings.telegramChatId && (
-                 <p className="text-[10px] text-red-400 font-bold px-1 flex items-center gap-1"><Smartphone size={10}/> Требуется настройка Telegram</p>
-             )}
           </div>
 
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
@@ -225,16 +185,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             <span className="text-[10px] font-black text-gray-400 uppercase">Участники</span>
             <div className="flex flex-wrap gap-4">{members.map(m => (<button key={m.id} type="button" onClick={() => setMIds(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} className={`flex flex-col items-center gap-2 transition-all ${mIds.includes(m.id) ? 'opacity-100 scale-110' : 'opacity-40 grayscale scale-95'}`}><MemberMarker member={m} size="md" /><span className="text-[9px] font-black uppercase tracking-wider text-gray-400">{m.name}</span></button>))}</div>
           </div>
-          
-          <div className="flex items-center gap-3 px-2">
-             <button onClick={() => setIsT(!isT)} className={`flex items-center gap-2 transition-colors ${isT ? 'text-yellow-500' : 'text-gray-400'}`}>
-                {isT ? <Bookmark fill="currentColor" size={20} /> : <Bookmark size={20} />}
-                <span className="text-xs font-bold uppercase tracking-wide">Сохранить как шаблон</span>
-             </button>
-          </div>
         </div>
 
-        {/* Footer with Actions */}
         <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
              <button type="button" onClick={validateAndSave} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}

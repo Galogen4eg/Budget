@@ -12,6 +12,7 @@ interface FamilyPlansProps {
   setEvents: (events: FamilyEvent[]) => void;
   settings: AppSettings;
   members: FamilyMember[];
+  onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
 }
 
 type ViewMode = 'month' | 'week' | 'day' | 'list';
@@ -19,7 +20,7 @@ type ListFilter = 'upcoming' | 'past';
 
 const ROW_HEIGHT = 80;
 
-const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members }) => {
+const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month'); 
   const [listFilter, setListFilter] = useState<ListFilter>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -55,40 +56,22 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setActiveEvent(null);
   };
 
-  // --- Voice Logic ---
   const processVoiceWithGemini = async (text: string) => {
     setIsProcessingVoice(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Get today's date for context
       const today = new Date().toISOString().split('T')[0];
-      
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Today is ${today}. Parse this event description into JSON: "${text}".
-        Fields needed: 
-        - title (string)
-        - date (YYYY-MM-DD)
-        - time (HH:MM)
-        - duration (number, hours, default 1)
-        If date is missing, assume today or tomorrow based on context. 
-        Return JSON object ONLY. No markdown.`,
+        Fields needed: title, date (YYYY-MM-DD), time (HH:MM). Return JSON object ONLY.`,
         config: { responseMimeType: "application/json" }
       });
 
       let jsonText = response.text || '{}';
-      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const firstBrace = jsonText.indexOf('{');
-      const lastBrace = jsonText.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1) {
-          jsonText = jsonText.substring(firstBrace, lastBrace + 1);
-      }
-
       const data = JSON.parse(jsonText);
       
       if (data.title) {
-          // IMPORTANT: Open modal immediately with parsed data
           setActiveEvent({
               event: null,
               prefill: {
@@ -101,7 +84,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       } else {
           showNotify('Не удалось понять детали события', 'error');
       }
-
     } catch (err) {
       console.error(err);
       showNotify(`Ошибка ИИ: ${err instanceof Error ? err.message : 'Unknown'}`, 'error');
@@ -111,60 +93,23 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   const startListening = () => {
-    // Cross-browser compatibility check
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SR) { 
-        showNotify('Ваш браузер не поддерживает голосовой ввод', 'error'); 
-        return; 
-    }
-    
-    if (isListening) { 
-        recognitionRef.current?.stop(); 
-        setIsListening(false);
-        return; 
-    }
-
+    if (!SR) { showNotify('Ваш браузер не поддерживает голос', 'error'); return; }
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     try {
         const r = new SR();
         recognitionRef.current = r;
         r.lang = 'ru-RU';
-        r.continuous = false;
-        r.interimResults = false;
-
-        r.onstart = () => { setIsListening(true); };
-        r.onend = () => { 
-            // Only set listening false if we aren't moving to processing phase
-            if (!isProcessingVoice) setIsListening(false); 
-        };
-        
-        r.onerror = (e: any) => { 
-            console.error(e); 
-            setIsListening(false);
-            let msg = 'Ошибка распознавания';
-            switch (e.error) {
-                case 'not-allowed': msg = 'Доступ к микрофону запрещен'; break;
-                case 'no-speech': msg = 'Речь не обнаружена'; break;
-                case 'network': msg = 'Ошибка сети'; break;
-                case 'audio-capture': msg = 'Микрофон не найден'; break;
-                case 'aborted': msg = 'Прервано'; break;
-                default: msg = `Ошибка: ${e.error}`;
-            }
-            showNotify(msg, 'error');
-        };
-        
+        r.onstart = () => setIsListening(true);
+        r.onend = () => { if (!isProcessingVoice) setIsListening(false); };
+        r.onerror = () => setIsListening(false);
         r.onresult = (e: any) => {
             const transcript = e.results[0][0].transcript;
             if (transcript) processVoiceWithGemini(transcript);
         };
-        
         r.start();
-    } catch (e) {
-        console.error(e);
-        showNotify('Ошибка запуска микрофона', 'error');
-    }
+    } catch (e) { showNotify('Ошибка микрофона', 'error'); }
   };
-  // -------------------
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
@@ -242,7 +187,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 <button onClick={() => setListFilter('upcoming')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${listFilter === 'upcoming' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-400'}`}><FastForward size={14} /> Будущие</button>
                 <button onClick={() => setListFilter('past')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${listFilter === 'past' ? 'bg-gray-400 text-white shadow-sm' : 'text-gray-400'}`}><History size={14} /> Прошедшие</button>
               </div>
-              {filteredListEvents.length === 0 ? <EmptyPlansState /> : filteredListEvents.map(event => (
+              {filteredListEvents.length === 0 ? <div className="p-12 text-center text-gray-400">Нет планов</div> : filteredListEvents.map(event => (
                 <EventCard key={event.id} event={event} members={members} settings={settings} onClick={() => setActiveEvent({ event })} />
               ))}
             </motion.div>
@@ -263,7 +208,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             <motion.div key="week" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                <div className="flex items-center gap-2 px-1">
                  <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }} className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm ios-btn-active"><ChevronLeft size={20} /></button>
-                 {/* Fixed overflow padding to prevent clipping shadow */}
                  <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar py-2 px-1">
                    {weekDays.map((d, i) => {
                       const isSelected = d.toDateString() === selectedDate.toDateString();
@@ -289,9 +233,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                     <span className="font-black text-xs uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</span>
                     <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth() + 1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full"><ChevronRight size={20}/></button>
                   </div>
-                  
                   <div className="grid grid-cols-7 gap-2 text-center mb-2 shrink-0">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (<span key={d} className="text-[10px] font-black text-gray-300 uppercase">{d}</span>))}</div>
-                  
                   <div className="flex-1 grid grid-cols-7 grid-rows-6 gap-2 min-h-[300px]">
                     {(() => {
                       const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -302,15 +244,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         const dayEvents = sortedEvents.filter(e => e.date === ds);
                         const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
                         const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === month;
-                        
                         cells.push(
-                            <button 
-                                key={d} 
-                                onClick={() => {
-                                    setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } });
-                                }} 
-                                className={`w-full h-full flex flex-col items-center justify-center rounded-xl border relative transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`}
-                            >
+                            <button key={d} onClick={() => { setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } }); }} className={`w-full h-full flex flex-col items-center justify-center rounded-xl border transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`} >
                                 <span className={`text-[10px] font-black ${isToday ? 'text-blue-600' : ''}`}>{d}</span>
                                 <div className="flex gap-0.5 mt-1 overflow-hidden px-1 h-1.5 w-full justify-center">
                                     {dayEvents.slice(0, 3).map(e => (<div key={e.id} className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: members.find(m => m.id === (e.memberIds?.[0] || ''))?.color || '#8E8E93' }} />))}
@@ -322,7 +257,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                     })()}
                   </div>
                 </div>
-                
                 <div className="w-full md:w-80 space-y-4 overflow-y-auto no-scrollbar md:h-full shrink-0">
                   <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 sticky top-0 bg-[#EBEFF5] py-2 z-10">События в этом месяце</h3>
                   {sortedEvents.filter(e => e.date.startsWith(selectedDate.toISOString().slice(0,7))).length === 0 ? 
@@ -346,12 +280,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             members={members}
             onClose={() => setActiveEvent(null)}
             onSave={handleSaveEvent}
-            // Ensure delete handler is passed correctly
-            onDelete={(id) => { 
-                setEvents(events.filter(e => e.id !== id)); 
-                setActiveEvent(null); 
-            }}
-            onSendToTelegram={async () => false}
+            onDelete={(id) => { setEvents(events.filter(e => e.id !== id)); setActiveEvent(null); }}
+            onSendToTelegram={onSendToTelegram}
             templates={events.filter(e => e.isTemplate)}
             settings={settings}
           />
@@ -378,8 +308,8 @@ const TimeGridView: React.FC<{ date: Date; events: FamilyEvent[]; settings: AppS
           const participants = members.filter(m => event.memberIds?.includes(m.id));
           const color = participants.length > 0 ? participants[0].color : '#8E8E93';
           return (
-            <motion.div key={event.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onEdit(event); }} className={`absolute left-2 right-2 rounded-2xl p-3 flex flex-col justify-between overflow-hidden cursor-pointer shadow-sm border border-white/20 ios-btn-active z-10 ${participants.length === 0 ? 'grayscale' : ''}`} style={{ top, height: Math.max(height - 4, 30), background: participants.length > 1 ? `linear-gradient(135deg, ${participants.map(p => p.color).join(', ')})` : color, color: '#fff' }}>
-              <div className="relative z-10 flex flex-col"><div className="flex justify-between items-start"><span className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-0.5">{event.time}</span>{participants.length === 0 && <AlertCircle size={12} className="opacity-60" />}</div><h5 className="font-black text-xs leading-tight line-clamp-2">{event.title}</h5></div>
+            <motion.div key={event.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onEdit(event); }} className={`absolute left-2 right-2 rounded-2xl p-3 flex flex-col justify-between overflow-hidden cursor-pointer shadow-sm border border-white/20 ios-btn-active z-10`} style={{ top, height: Math.max(height - 4, 30), background: participants.length > 1 ? `linear-gradient(135deg, ${participants.map(p => p.color).join(', ')})` : color, color: '#fff' }}>
+              <div className="relative z-10 flex flex-col"><div className="flex justify-between items-start"><span className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-0.5">{event.time}</span></div><h5 className="font-black text-xs leading-tight line-clamp-2">{event.title}</h5></div>
               <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px] pointer-events-none" />
             </motion.div>
           );
@@ -392,31 +322,18 @@ const TimeGridView: React.FC<{ date: Date; events: FamilyEvent[]; settings: AppS
 const EventCard: React.FC<{ event: FamilyEvent; members: FamilyMember[]; settings: AppSettings; onClick: () => void; }> = ({ event, members, settings, onClick }) => {
   const participants = members.filter(m => event.memberIds?.includes(m.id));
   const date = new Date(event.date);
-  const checklistStats = event.checklist ? {
-    total: event.checklist.length,
-    completed: event.checklist.filter(c => c.completed).length
-  } : null;
-
   return (
-    <motion.div whileTap={{ scale: 0.98 }} onClick={onClick} className={`bg-white p-5 rounded-[2rem] border border-white shadow-sm flex items-center gap-4 relative overflow-hidden ${participants.length === 0 ? 'grayscale' : ''}`}>
+    <motion.div whileTap={{ scale: 0.98 }} onClick={onClick} className={`bg-white p-5 rounded-[2rem] border border-white shadow-sm flex items-center gap-4 relative overflow-hidden`}>
       <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: participants.length > 1 ? `linear-gradient(to bottom, ${participants.map(p => p.color).join(', ')})` : (participants[0]?.color || '#8E8E93') }} />
       <div className="w-12 h-12 rounded-2xl bg-gray-50 flex flex-col items-center justify-center border border-gray-100 flex-shrink-0"><span className="text-[10px] font-black text-blue-500 uppercase leading-none">{date.toLocaleDateString('ru-RU', { month: 'short' })}</span><span className="text-lg font-black leading-none">{date.getDate()}</span></div>
       <div className="flex-1 min-w-0">
         <h4 className="font-black text-[15px] truncate" style={{ color: participants[0]?.color || '#1C1C1E' }}>{event.title}</h4>
         <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-gray-400">
           <Clock size={10} /> {event.time} • {participants.length > 0 ? (participants.length === 1 ? participants[0].name : `${participants.length} уч.`) : 'Без уч.'}
-          {checklistStats && checklistStats.total > 0 && (
-            <div className="flex items-center gap-1 text-blue-500 ml-1">
-              <ListChecks size={10} />
-              <span>{checklistStats.completed}/{checklistStats.total}</span>
-            </div>
-          )}
         </div>
       </div>
     </motion.div>
   );
 };
-
-const EmptyPlansState = () => (<div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100"><p className="text-gray-400 font-bold text-center">Планы пока отсутствуют... 🌅</p></div>);
 
 export default FamilyPlans;

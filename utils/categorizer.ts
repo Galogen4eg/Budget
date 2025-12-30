@@ -1,236 +1,117 @@
 
 import { Category, LearnedRule } from '../types';
 
-// Расширенная база данных мерчантов: [Красивое название, Логотип/Эмодзи]
-export const MERCHANT_DATA: Record<string, [string, string]> = {
-  // --- ЯРОСЛАВЛЬ SPECIFIC (GROCERIES) ---
-  'lotos': ['Лотос', '🛒'],
-  'лотос': ['Лотос', '🛒'],
-  'vysshaya liga': ['Высшая Лига', '🛒'],
-  'высшая лига': ['Высшая Лига', '🛒'],
-  'atrus': ['Атрус', '🥩'],
-  'атрус': ['Атрус', '🥩'],
-  'yaroslavskiy broiler': ['Яр. Бройлер', '🍗'],
-  'broiler': ['Яр. Бройлер', '🍗'],
-  'maksi': ['Макси', '🛒'],
-  'maxi': ['Макси', '🛒'],
-
-  // --- ЯРОСЛАВЛЬ SPECIFIC (RESTAURANTS) ---
-  'mamuka': ['Мамука', '🥟'],
-  'мамука': ['Мамука', '🥟'],
-  'maneki': ['Манеки', '🍜'],
-  'манеки': ['Манеки', '🍜'],
-  'pizzafabrika': ['ПиццаФабрика', '🍕'],
-  'пиццафабрика': ['ПиццаФабрика', '🍕'],
-  'tashir': ['Ташир Пицца', '🍕'],
-  'ташир': ['Ташир Пицца', '🍕'],
-  'bazar': ['Базар', '🥗'],
-  'gastromarket': ['Гастромаркет', '🥗'],
-  'dudki': ['Дудки Бар', '🍸'],
-  'дудки': ['Дудки Бар', '🍸'],
-  'rogi': ['Рога и Копыта', '🍽️'],
-  'рога и копыта': ['Рога и Копыта', '🍽️'],
-  'skazka': ['Сказка', '🍽️'],
-  'chestniy steak': ['Честный Стейк', '🥩'],
-  'steak': ['Стейк Хаус', '🥩'],
-  'kuzevan': ['Кузеван', '🥘'],
-  'shesh-besh': ['Шеш-Беш', '🍖'],
-  'ioann': ['Иоанн Васильевич', '👑'],
-  'lapsha': ['Лапша на ушах', '🥡'],
-  'noodles': ['Лапша на ушах', '🥡'],
-  'bugel': ['Бугель Вугель', '🍻'],
-  'pinta': ['Пинта', '🍺'],
+// [Pretty Name, Brand Key (optional), Brand Color (optional)]
+export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
+  // --- GROCERIES ---
+  'lotos': ['Лотос', undefined, '#00A651'],
+  'vysshaya liga': ['Высшая Лига', undefined, '#ED1C24'],
+  'atrus': ['Атрус', undefined, '#ED1C24'],
+  'broiler': ['Яр. Бройлер', undefined, '#F39200'],
+  'maksi': ['Макси', undefined, '#00A651'],
   
-  // --- ТОРГОВЫЕ ЦЕНТРЫ ЯРОСЛАВЛЯ (SHOPPING/PARKING) ---
-  'aura': ['ТЦ Аура', '🛍️'],
-  'аура': ['ТЦ Аура', '🛍️'],
-  'altair': ['ТЦ Альтаир', '🛍️'],
-  'альтаир': ['ТЦ Альтаир', '🛍️'],
-  'rio': ['ТЦ РИО', '🛍️'],
-  'vernisazh': ['ТЦ Вернисаж', '🛍️'],
-  'вернисаж': ['ТЦ Вернисаж', '🛍️'],
+  'magnit': ['Магнит', 'magnit', '#E62E2D'],
+  'магнит': ['Магнит', 'magnit', '#E62E2D'],
+  'pyaterochka': ['Пятерочка', 'pyaterochka', '#2FAC66'],
+  'пятерочка': ['Пятерочка', 'pyaterochka', '#2FAC66'],
+  'perekrestok': ['Перекресток', 'perekrestok', '#003366'],
+  'перекресток': ['Перекресток', 'perekrestok', '#003366'],
+  'ashan': ['Ашан', 'auchan', '#E7292C'],
+  'auchan': ['Ашан', 'auchan', '#E7292C'],
+  'lenta': ['Лента', 'lenta', '#003399'],
+  'лента': ['Лента', 'lenta', '#003399'],
+  'dixy': ['Дикси', undefined, '#F58220'],
+  'vkusvill': ['ВкусВилл', 'vkusvill', '#00704A'],
+  'metro': ['Metro', 'metro', '#002D72'],
+  'okey': ['Окей', undefined, '#DA291C'],
+  'chizhik': ['Чижик', undefined, '#FFCC00'],
+  'svetofor': ['Светофор', undefined, '#FFED00'],
+  'vernyi': ['Верный', undefined, '#DA291C'],
+  'bristol': ['Бристоль', undefined, '#DA291C'],
+  'krasnoe': ['Красное & Белое', undefined, '#DA291C'],
+  'kib': ['Красное & Белое', undefined, '#DA291C'],
+  'fix price': ['Fix Price', 'fixprice', '#0056A3'],
+  'samokat': ['Самокат', 'samokat', '#FF4D6D'],
+  'kuper': ['Купер', 'sber', '#21A038'], // Using Sber generic
+  'sbermarket': ['Купер', 'sber', '#21A038'],
+  'spar': ['Spar', undefined, '#006233'],
 
-  // --- ЖКХ ЯРОСЛАВЛЬ ---
-  'tns energo': ['ТНС Энерго', '💡'],
-  'тнс энерго': ['ТНС Энерго', '💡'],
-  'yarobleirc': ['ЯрОблЕИРЦ', '📄'],
-  'eirc': ['ЕИРЦ', '📄'],
-  'gazprom mezhregiongaz': ['Газпром Газ', '🔥'],
+  // --- RESTAURANTS ---
+  'burger king': ['Burger King', 'burgerking', '#D62300'],
+  'kfc': ['KFC', 'kfc', '#E4002B'],
+  'rostics': ['Rostics', 'kfc', '#E4002B'],
+  'vnoit': ['Вкусно и точка', 'vnoit', '#FB542B'],
+  'вкусно и точка': ['Вкусно и точка', 'vnoit', '#FB542B'],
+  'dodo': ['Додо Пицца', 'dodo', '#FF6900'],
+  'teremok': ['Теремок', undefined, '#DA291C'],
+  'shokoladnitsa': ['Шоколадница', undefined, '#6B4C4F'],
+  'cofix': ['Cofix', undefined, '#000000'],
+  'starbucks': ['Starbucks', undefined, '#00704A'],
+  'papa johns': ['Папа Джонс', undefined, '#00923F'],
+  'dominospizza': ['Dominos', undefined, '#006491'],
+  'yakitoriya': ['Якитория', undefined, '#DA291C'],
+  'tanuki': ['Тануки', undefined, '#DA291C'],
 
-  // --- ФЕДЕРАЛЬНЫЕ ПРОДУКТЫ ---
-  'magnit': ['Магнит', '🔴'],
-  'магнит': ['Магнит', '🔴'],
-  'pyaterochka': ['Пятерочка', '🍀'],
-  'пятерочка': ['Пятерочка', '🍀'],
-  'perekrestok': ['Перекресток', '🔵'],
-  'перекресток': ['Перекресток', '🔵'],
-  'ashan': ['Ашан', '🐦'],
-  'ашан': ['Ашан', '🐦'],
-  'auchan': ['Ашан', '🐦'],
-  'lenta': ['Лента', '🌻'],
-  'лента': ['Лента', '🌻'],
-  'dixy': ['Дикси', '🟠'],
-  'дикси': ['Дикси', '🟠'],
-  'vkusvill': ['ВкусВилл', '🌿'],
-  'вкусвилл': ['ВкусВилл', '🌿'],
-  'globus': ['Глобус', '🌍'],
-  'глобус': ['Глобус', '🌍'],
-  'metro': ['Metro', 'Ⓜ️'],
-  'метро': ['Metro', 'Ⓜ️'],
-  'okey': ['Окей', '🆗'],
-  'окей': ['Окей', '🆗'],
-  'chizhik': ['Чижик', '🐤'],
-  'чижик': ['Чижик', '🐤'],
-  'svetofor': ['Светофор', '🚦'],
-  'светофор': ['Светофор', '🚦'],
-  'vernyi': ['Верный', '🔴'],
-  'верный': ['Верный', '🔴'],
-  'bristol': ['Бристоль', '🍷'],
-  'bri': ['Бристоль', '🍷'], 
-  'krasnoe i beloe': ['Красное & Белое', '🍷'],
-  'krasnoe&beloe': ['Красное & Белое', '🍷'],
-  'красное и белое': ['Красное & Белое', '🍷'],
-  'kib': ['Красное & Белое', '🍷'],
-  'fix price': ['Fix Price', '🔵'],
-  'фикс прайс': ['Fix Price', '🔵'],
-  'samokat': ['Самокат', '🚲'],
-  'самокат': ['Самокат', '🚲'],
-  'kuper': ['Купер', '📦'],
-  'sbermarket': ['Купер', '📦'],
-  'atack': ['Атак', '🐦'],
-  'атак': ['Атак', '🐦'],
-  'karusel': ['Карусель', '🎠'],
-  'spar': ['Spar', '🌲'],
-  'eurospar': ['Spar', '🌲'],
+  // --- MARKETPLACES & SHOPS ---
+  'wildberries': ['Wildberries', 'wildberries', '#CB11AB'],
+  'wb': ['Wildberries', 'wildberries', '#CB11AB'],
+  'ozon': ['Ozon', 'ozon', '#005BFF'],
+  'aliexpress': ['AliExpress', undefined, '#E62E04'],
+  'lamoda': ['Lamoda', undefined, '#000000'],
+  'mvideo': ['М.Видео', undefined, '#DA291C'],
+  'eldorado': ['Эльдорадо', undefined, '#74AC00'],
+  'dns': ['DNS', undefined, '#F48220'],
+  'leroy': ['Лемана ПРО', undefined, '#66CC00'],
+  'lemana': ['Лемана ПРО', undefined, '#66CC00'],
+  'sportmaster': ['Спортмастер', undefined, '#0055AA'],
+  'detmir': ['Детский Мир', undefined, '#0099CC'],
+  'zara': ['Zara', undefined, '#000000'],
+  'hm': ['H&M', undefined, '#DA291C'],
 
-  // --- ФЕДЕРАЛЬНЫЕ РЕСТОРАНЫ ---
-  'burger king': ['Burger King', '🍔'],
-  'бургер кинг': ['Burger King', '🍔'],
-  'kfc': ['KFC', '🍗'],
-  'rostics': ['Rostics', '🍗'],
-  'ростикс': ['Rostics', '🍗'],
-  'vnoit': ['Вкусно и точка', '🍟'],
-  'вкусно и точка': ['Вкусно и точка', '🍟'],
-  'dodo': ['Додо Пицца', '🍕'],
-  'додо': ['Додо Пицца', '🍕'],
-  'teremok': ['Теремок', '🥞'],
-  'теремок': ['Теремок', '🥞'],
-  'shokoladnitsa': ['Шоколадница', '☕'],
-  'шоколадница': ['Шоколадница', '☕'],
-  'cofix': ['Cofix', '☕'],
-  'one price coffee': ['One Price', '☕'],
-  'coffee like': ['Coffee Like', '💚'],
-  'surf coffee': ['Surf Coffee', '🏄'],
-  'yakitoriya': ['Якитория', '🍣'],
-  'якитория': ['Якитория', '🍣'],
-  'tanuki': ['Тануки', '🍣'],
-  'тануки': ['Тануки', '🍣'],
-  'subway': ['Subway', '🥖'],
-  'starbucks': ['Starbucks', '☕'],
-  'papa johns': ['Папа Джонс', '🍕'],
-  'shaurma': ['Шаурма', '🌯'],
-  'шаурма': ['Шаурма', '🌯'],
-  'stolovaya': ['Столовая', '🍲'],
-  'столовая': ['Столовая', '🍲'],
-  'bakery': ['Пекарня', '🥐'],
-  'пекарня': ['Пекарня', '🥐'],
-  'dominospizza': ['Dominos', '🍕'],
-  'kroshka kartoshka': ['Крошка Картошка', '🥔'],
+  // --- SERVICES & TRANSPORT ---
+  'yandex.go': ['Яндекс Go', 'yandex', '#FC3F1D'],
+  'yandex.taxi': ['Яндекс Такси', 'yandex', '#FC3F1D'],
+  'uber': ['Uber', undefined, '#000000'],
+  'rzd': ['РЖД', undefined, '#E21A1A'],
+  'aeroflot': ['Аэрофлот', undefined, '#0055AA'],
+  's7': ['S7 Airlines', undefined, '#97C93D'],
+  'mts': ['МТС', undefined, '#E30613'],
+  'beeline': ['Билайн', undefined, '#FFCC00'],
+  'megafon': ['Мегафон', undefined, '#00B956'],
+  'tele2': ['Tele2', undefined, '#1F2229'],
+  'rostelecom': ['Ростелеком', undefined, '#7700FF'],
+  'yandex plus': ['Яндекс Плюс', 'yandex', '#FC3F1D'],
 
-  // --- АВТО (AUTO) ---
-  'lukoil': ['Лукойл', '⛽'],
-  'лукойл': ['Лукойл', '⛽'],
-  'rosneft': ['Роснефть', '⛽'],
-  'роснефть': ['Роснефть', '⛽'],
-  'gazpromneft': ['Газпромнефть', '⛽'],
-  'gpn': ['Газпромнефть', '⛽'],
-  'gazprom': ['Газпром', '⛽'],
-  'shell': ['Shell', '🐚'],
-  'teboil': ['Teboil', '⛽'],
-  'tatneft': ['Татнефть', '⛽'],
-  'bashneft': ['Башнефть', '⛽'],
-  'neftmagistral': ['Нефтьмагистраль', '⛽'],
-  'trassa': ['Трасса', '⛽'],
-  'azs': ['АЗС', '⛽'],
-  'autodoc': ['Autodoc', '🔧'],
-  'exist': ['Exist', '🔧'],
-  'emex': ['Emex', '🔧'],
-  'kolesa': ['Колеса Даром', '🛞'],
-  'shinomontazh': ['Шиномонтаж', '🛞'],
-  'moyka': ['Автомойка', '💦'],
-  'car wash': ['Автомойка', '💦'],
-  'parking': ['Парковка', '🅿️'],
-  'parkovka': ['Парковка', '🅿️'],
-  'avtozapchasti': ['Автозапчасти', '⚙️'],
+  // --- FINANCE ---
+  'sber': ['Сбербанк', 'sber', '#21A038'],
+  'tinkoff': ['Т-Банк', 'tinkoff', '#FFDD2D'],
+  'alfa': ['Альфа-Банк', 'alfa', '#EF3124'],
+  'vtb': ['ВТБ', undefined, '#002882'],
 
-  // --- ТРАНСПОРТ (PUBLIC TRANSPORT) ---
-  'yandex.go': ['Яндекс Go', '🚕'],
-  'yandex.taxi': ['Яндекс Такси', '🚕'],
-  'яндекс такси': ['Яндекс Такси', '🚕'],
-  'uber': ['Uber', '⬛'],
-  'citymobil': ['Ситимобил', '🚕'],
-  'ситимобил': ['Ситимобил', '🚕'],
-  'moscow metro': ['Метро Москвы', '🚇'],
-  'метрополитен': ['Метро', '🚇'],
-  'transport': ['Оплата проезда', '🚇'],
-  'mosgortrans': ['Мосгортранс', '🚌'],
-  'мосгортранс': ['Мосгортранс', '🚌'],
-  'rzd': ['РЖД', '🚄'],
-  'ржд': ['РЖД', '🚄'],
-  'aeroflot': ['Аэрофлот', '✈️'],
-  's7': ['S7 Airlines', '✈️'],
-  'troyka': ['Тройка', '🚇'],
-  'strelka': ['Стрелка', '🚌'],
-
-  // --- ШОППИНГ И МАРКЕТПЛЕЙСЫ ---
-  'wildberries': ['Wildberries', '🟣'],
-  'wb': ['Wildberries', '🟣'],
-  'ozon': ['Ozon', '🔵'],
-  'озон': ['Ozon', '🔵'],
-  'aliexpress': ['AliExpress', '🔴'],
-  'lamoda': ['Lamoda', '👗'],
-  'mvideo': ['М.Видео', '🟥'],
-  'eldorado': ['Эльдорадо', '🟧'],
-  'dns': ['DNS', '🟧'],
-  'leroy merlin': ['Леруа Мерлен', '🔨'],
-  'leroymerlin': ['Леруа Мерлен', '🔨'],
-  'lemana': ['Лемана ПРО', '🔨'],
-  'sportmaster': ['Спортмастер', '👟'],
-  'hm': ['H&M', '👔'],
-  'zara': ['Zara', '👗'],
-  'detmir': ['Детский Мир', '🧸'],
-
-  // --- СЕРВИСЫ И СВЯЗЬ ---
-  'mts': ['МТС', '🔴'],
-  'мтс': ['МТС', '🔴'],
-  'beeline': ['Билайн', '🐝'],
-  'билайн': ['Билайн', '🐝'],
-  'megafon': ['Мегафон', '🟢'],
-  'мегафон': ['Мегафон', '🟢'],
-  'tele2': ['Tele2', '⚫'],
-  'теле2': ['Tele2', '⚫'],
-  'rostelecom': ['Ростелеком', '📞'],
-  'netflix': ['Netflix', '🎬'],
-  'spotify': ['Spotify', '🎧'],
-  'yandex plus': ['Яндекс Плюс', '➕'],
+  // --- FUEL ---
+  'lukoil': ['Лукойл', 'lukoil', '#ED1C24'],
+  'rosneft': ['Роснефть', undefined, '#FFCC00'],
+  'gazprom': ['Газпром', 'gazprom', '#007CC3'],
+  'gpn': ['Газпромнефть', 'gazprom', '#007CC3'],
+  'shell': ['Shell', undefined, '#FFD500'],
+  'teboil': ['Teboil', 'lukoil', '#ED1C24'], // Often rebranded
+  'tatneft': ['Татнефть', undefined, '#009139'],
 };
 
 /**
- * Получает логотип для мерчанта
+ * Получает ключ бренда (brandKey) для логотипа.
+ * Возвращает undefined, если бренд не найден или нет специфичного лого.
  */
-export const getMerchantLogo = (name: string): string => {
+export const getMerchantBrandKey = (name: string): string | undefined => {
   const lowName = name.toLowerCase();
   
-  if (lowName.includes('transport') || lowName.includes('metro') || lowName.includes('оплата проезда')) {
-    return '🚇';
-  }
+  if (lowName.includes('yandex') || lowName.includes('яндекс')) return 'yandex';
+  if (lowName.includes('sber') || lowName.includes('сбер')) return 'sber';
 
   for (const [key, data] of Object.entries(MERCHANT_DATA)) {
     if (lowName.includes(key)) return data[1];
   }
-
-  if (lowName.includes('сбп') || lowName.includes('перевод')) return '📲';
-  return '';
+  return undefined;
 };
 
 /**
@@ -263,7 +144,7 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
       } else if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
         formattedPhone = `+7${rawPhone.slice(1)}`;
       }
-      if (formattedPhone) return `Перевод по СБП: ${formattedPhone}`;
+      if (formattedPhone) return `СБП: ${formattedPhone}`;
     }
     if (lowNote.includes('сбп') || lowNote.includes('sbp')) return "Перевод по СБП";
   }
@@ -294,12 +175,11 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
 };
 
 /**
- * Умная категоризация
+ * Умная категоризация (без изменений логики, только типы)
  */
 export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [], categories: Category[], mcc?: string, bankCategory?: string): string => {
   const cleanNote = note.toLowerCase();
   
-  // 0. Проверка пользовательских правил
   for (const rule of learnedRules) {
     if (cleanNote.includes(rule.keyword.toLowerCase())) {
       return rule.categoryId;
@@ -317,7 +197,8 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
       'ashan', 'auchan', 'ашан', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл',
       'globus', 'глобус', 'metro', 'метро', 'okey', 'окей', 'chizhik', 'чижик',
       'svetofor', 'светофор', 'vernyi', 'верный', 'bristol', 'krasnoe', 'spar', 'atack',
-      'lotos', 'лотос', 'vysshaya liga', 'высшая лига', 'atrus', 'атрус', 'broiler', 'maksi'
+      'lotos', 'лотос', 'vysshaya liga', 'высшая лига', 'atrus', 'атрус', 'broiler', 'maksi',
+      'samokat', 'самокат'
     ],
     'restaurants': [
       'burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 
@@ -349,18 +230,16 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
     ]
   };
 
-  // Проверяем ключевые слова
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some(k => cleanNote.includes(k))) return catId;
   }
 
-  // Маппинг MCC кодов
   const MCC_MAP: Record<string, string> = {
-    '5411': 'food', '5499': 'food', '5441': 'food', '5451': 'food', '5331': 'food', // Супермаркеты
-    '5812': 'restaurants', '5813': 'restaurants', '5814': 'restaurants', // Общепит
-    '4121': 'transport', '4111': 'transport', // Такси и транспорт
-    '5541': 'auto', '5542': 'auto', '7523': 'auto', '7538': 'auto', // АЗС, Парковки, СТО
-    '5912': 'health', '8099': 'health', '8011': 'health', '8021': 'health', // Аптеки
+    '5411': 'food', '5499': 'food', '5441': 'food', '5451': 'food', '5331': 'food',
+    '5812': 'restaurants', '5813': 'restaurants', '5814': 'restaurants',
+    '4121': 'transport', '4111': 'transport',
+    '5541': 'auto', '5542': 'auto', '7523': 'auto', '7538': 'auto',
+    '5912': 'health', '8099': 'health', '8011': 'health', '8021': 'health',
     '5311': 'shopping', '5621': 'shopping', '5651': 'shopping', '5691': 'shopping', '5944': 'shopping', '5200': 'shopping',
     '4812': 'utilities', '4814': 'utilities', '4900': 'utilities',
     '7832': 'entertainment', '7996': 'entertainment', '7997': 'entertainment',
@@ -369,7 +248,6 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
 
   if (mcc && MCC_MAP[mcc]) return MCC_MAP[mcc];
 
-  // Резервная проверка по категории из банка
   const cleanBankCat = bankCategory?.toLowerCase() || '';
   for (const cat of categories) {
     if (cleanBankCat.includes(cat.label.toLowerCase())) return cat.id;

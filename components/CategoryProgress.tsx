@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, Category } from '../types';
 import { getIconById } from '../constants';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { getMerchantLogo } from '../utils/categorizer';
+import { getMerchantBrandKey } from '../utils/categorizer';
+import BrandIcon from './BrandIcon';
 
 interface CategoryProgressProps {
   transactions: Transaction[];
@@ -28,10 +29,10 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
       if (existing) {
         existing.value += t.amount;
       } else {
-        acc.push({ name, value: t.amount, logo: getMerchantLogo(name) });
+        acc.push({ name, value: t.amount, brandKey: getMerchantBrandKey(name) });
       }
       return acc;
-    }, [] as { name: string; value: number; logo: string }[])
+    }, [] as { name: string; value: number; brandKey?: string }[])
     .sort((a, b) => b.value - a.value);
 
     return {
@@ -120,7 +121,12 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                   {item.merchants.map((merchant, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-gray-50 shadow-sm">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{merchant.logo}</span>
+                        <BrandIcon 
+                            name={merchant.name} 
+                            brandKey={merchant.brandKey}
+                            category={item} // Pass category to generate colored fallback
+                            size="sm"
+                        />
                         <span className="text-[11px] font-bold text-[#1C1C1E]">{merchant.name}</span>
                       </div>
                       <span className="text-[11px] font-black text-gray-500 tabular-nums">

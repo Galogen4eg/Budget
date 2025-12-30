@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
 import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Calendar } from 'lucide-react';
-import { getMerchantLogo } from '../utils/categorizer';
+import { getMerchantBrandKey } from '../utils/categorizer';
+import BrandIcon from './BrandIcon';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -112,7 +113,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     const category = categories.find(c => c.id === tx.category);
     const member = members.find(m => m.id === tx.memberId);
     const displayTitle = tx.note || category?.label || 'Операция';
-    const merchantLogo = getMerchantLogo(displayTitle);
+    const brandKey = getMerchantBrandKey(displayTitle);
     const isUnrecognized = tx.category === 'other';
     const timeString = new Date(tx.date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
@@ -125,21 +126,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         onClick={() => onEditTransaction && onEditTransaction(tx)}
         className={`group flex items-center gap-4 p-4 bg-white hover:bg-gray-50 rounded-[1.8rem] transition-all shadow-sm border border-transparent cursor-pointer ios-btn-active ${isUnrecognized ? 'border-yellow-100/50 bg-yellow-50/10' : 'hover:border-blue-100'}`}
       >
-        <div 
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white flex-shrink-0 shadow-lg relative overflow-hidden"
-          style={{ 
-            backgroundColor: category?.color,
-            backgroundImage: `linear-gradient(135deg, ${category?.color}ee, ${category?.color})` 
-          }}
-        >
-          {merchantLogo ? (
-            <span className="text-xl relative z-10">{merchantLogo}</span>
-          ) : (
-            <div className="relative z-10">
-              {getIconById(category?.icon || 'Other', 20)}
-            </div>
-          )}
-          <div className="absolute inset-0 bg-black/5" />
+        <div className="flex-shrink-0">
+            <BrandIcon 
+                name={displayTitle} 
+                brandKey={brandKey} 
+                category={category} 
+                size="md" 
+            />
         </div>
         
         <div className="flex-1 min-w-0">

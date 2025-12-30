@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, currency, privacyMode }: any) => {
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
   return (
-    <g>
+    <g style={{ outline: 'none' }}>
       <Sector
         cx={cx}
         cy={cy}
@@ -39,6 +39,7 @@ const renderActiveShape = (props: any) => {
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
+        style={{ outline: 'none' }}
       />
       <Sector
         cx={cx}
@@ -48,6 +49,7 @@ const renderActiveShape = (props: any) => {
         innerRadius={outerRadius + 10}
         outerRadius={outerRadius + 12}
         fill={fill}
+        style={{ outline: 'none' }}
       />
     </g>
   );
@@ -103,6 +105,11 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
     setActiveIndex(-1);
   };
 
+  const onPieClick = (_: any, index: number) => {
+    // Toggle active index on mobile clicks/taps
+    setActiveIndex(prev => prev === index ? -1 : index);
+  };
+
   return (
     <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-gray-100 shadow-soft transition-all flex flex-col h-full relative group">
         <div className="flex justify-between items-center mb-2">
@@ -132,11 +139,17 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
                             stroke="none"
                             onMouseEnter={onPieEnter}
                             onMouseLeave={onPieLeave}
+                            onClick={onPieClick}
                             animationBegin={0}
                             animationDuration={1000}
+                            style={{ outline: 'none' }}
                             >
                             {expenseData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={entry.color} 
+                                    style={{ outline: 'none' }} 
+                                />
                             ))}
                             </Pie>
                             <Tooltip content={<CustomTooltip currency={settings.currency} privacyMode={settings.privacyMode} />} />
@@ -148,6 +161,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
                         <div key={item.name} 
                              onMouseEnter={() => setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
                              onMouseLeave={() => setActiveIndex(-1)}
+                             onClick={() => setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
                              className={`flex items-start gap-1.5 transition-opacity duration-300 ${activeIndex !== -1 && activeIndex !== expenseData.findIndex(e => e.name === item.name) ? 'opacity-30' : 'opacity-100'}`}>
                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: item.color }} />
                             <div className="flex flex-col min-w-0">

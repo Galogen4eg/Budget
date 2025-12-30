@@ -105,7 +105,7 @@ const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boole
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-400/20 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-400/20 rounded-full blur-[120px]" />
       </div>
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease: "easeOut" }} className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] w-full max-w-md md:max-w-4xl md:flex overflow-hidden">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease: "easeOut" }} className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] w-full max-md:max-w-md md:max-w-4xl md:flex overflow-hidden">
         <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-600 to-purple-700 p-12 flex-col justify-between text-white relative overflow-hidden">
            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
            <div className="relative z-10">
@@ -425,7 +425,9 @@ const App: React.FC = () => {
 
   const totalBalance = useMemo(() => { let txsToCount = transactions; if (budgetMode === 'personal' && user) { txsToCount = transactions.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } const startDate = settings.initialBalanceDate ? new Date(settings.initialBalanceDate) : new Date(0); startDate.setHours(0, 0, 0, 0); const txSum = txsToCount.reduce((acc, tx) => { const txDate = new Date(tx.date); if (txDate < startDate) return acc; return tx.type === 'income' ? acc + tx.amount : acc - tx.amount; }, 0); return settings.initialBalance + txSum; }, [transactions, settings.initialBalance, settings.initialBalanceDate, budgetMode, user]);
   const currentMonthExpenses = useMemo(() => { const now = new Date(); return filteredTransactions.filter(t => t.type === 'expense' && new Date(t.date).getMonth() === now.getMonth()).reduce((acc, t) => acc + t.amount, 0); }, [filteredTransactions]);
-  const shoppingPreview = useMemo(() => shoppingItems.filter(i => !i.completed).slice(0, 4), [shoppingItems]);
+  
+  // Adjusted for higher density widget
+  const shoppingPreview = useMemo(() => shoppingItems.filter(i => !i.completed).slice(0, 8), [shoppingItems]);
 
   const NAV_TABS = [ { id: 'overview', label: 'Обзор', icon: <LayoutGrid size={22} /> }, { id: 'budget', label: 'Бюджет', icon: <Wallet size={22} /> }, { id: 'plans', label: 'Планы', icon: <CalendarDays size={22} /> }, { id: 'shopping', label: 'Покупки', icon: <ShoppingBag size={22} /> }, { id: 'services', label: 'Сервисы', icon: <Grip size={22} /> } ];
   const visibleTabs = NAV_TABS.filter(tab => settings.enabledTabs?.includes(tab.id));
@@ -461,7 +463,36 @@ const App: React.FC = () => {
                     if (id === 'charts') return (<div key={id} className={`${colClass} ${rowClass}`}><ChartsSection transactions={filteredTransactions} settings={settings} /></div>);
                     if (id === 'month_chart') return (<div key={id} className={`${colClass} ${rowClass}`}><MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} /></div>);
                     if (id === 'goals') return (<div key={id} className={`${colClass} ${rowClass}`}><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>);
-                    if (id === 'shopping') return (<div key={id} className={`${colClass} ${rowClass} bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col transition-all hover:scale-[1.01]`}><div className="flex items-center justify-between mb-4"><h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Нужно купить</h3><button onClick={() => setActiveTab('shopping')} className="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center hover:bg-blue-100 transition-colors ios-btn-active"><ShoppingBag size={20}/></button></div>{shoppingPreview.length === 0 ? (<div className="flex-1 flex flex-col items-center justify-center text-center text-gray-300 border-2 border-dashed border-gray-100 rounded-2xl"><ShoppingBag size={20} className="mb-2 opacity-50"/><span className="font-bold text-[9px] uppercase">Список пуст</span></div>) : (<div className="grid gap-2 overflow-y-auto no-scrollbar">{shoppingPreview.map(item => (<div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50/50 rounded-2xl border border-gray-100"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" /><span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span></div>))}</div>)}</div>);
+                    if (id === 'shopping') return (
+                        <div key={id} className={`${colClass} ${rowClass} bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col transition-all hover:scale-[1.01] overflow-hidden`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Купить</h3>
+                                <button onClick={() => setActiveTab('shopping')} className="w-8 h-8 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-100 transition-colors ios-btn-active">
+                                    <ShoppingBag size={16}/>
+                                </button>
+                            </div>
+                            {shoppingPreview.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-300 border-2 border-dashed border-gray-100 rounded-2xl">
+                                    <ShoppingBag size={18} className="mb-1 opacity-50"/>
+                                    <span className="font-bold text-[8px] uppercase tracking-wider">Список пуст</span>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-1.5 overflow-hidden">
+                                    {shoppingPreview.map(item => (
+                                        <div key={item.id} className="px-2.5 py-1.5 flex items-center gap-1.5 bg-gray-50 rounded-xl border border-gray-100/50">
+                                            <div className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />
+                                            <span className="font-bold text-[10px] text-[#1C1C1E] whitespace-nowrap">{item.title}</span>
+                                        </div>
+                                    ))}
+                                    {shoppingItems.filter(i => !i.completed).length > 8 && (
+                                        <div className="px-2.5 py-1.5 bg-white rounded-xl border border-dashed border-gray-200">
+                                            <span className="text-[10px] font-black text-gray-300">...</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
                     return null;
                 })}
               </div>

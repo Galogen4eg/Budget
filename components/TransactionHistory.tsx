@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
-import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Calendar } from 'lucide-react';
+import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Search, X, CalendarDays } from 'lucide-react';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
 
@@ -22,29 +22,38 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
   const [learningCat, setLearningCat] = useState('food');
   const [learningName, setLearningName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
   
-  // 1. Calculate General Summary
-  const summary = useMemo(() => {
-    const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    return { income, expense, total: income - expense };
-  }, [transactions]);
+  // 1. Filter by search query
+  const searchedTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return transactions;
+    const query = searchQuery.toLowerCase();
+    return transactions.filter(tx => {
+        const category = categories.find(c => c.id === tx.category)?.label || '';
+        return (tx.note || '').toLowerCase().includes(query) || 
+               (tx.rawNote || '').toLowerCase().includes(query) ||
+               category.toLowerCase().includes(query) ||
+               tx.amount.toString().includes(query);
+    });
+  }, [transactions, searchQuery, categories]);
 
-  // 2. Identify Uncategorized Items
-  const uncategorizedTransactions = useMemo(() => {
-    return transactions.filter(t => t.category === 'other');
-  }, [transactions]);
+  // 2. Calculate General Summary
+  const summary = useMemo(() => {
+    const income = searchedTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const expense = searchedTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    return { income, expense, total: income - expense };
+  }, [searchedTransactions]);
 
   // 3. Group Transactions by Date
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
-    transactions.forEach(tx => {
-      const dateKey = new Date(tx.date).toDateString(); // Group by date string
+    searchedTransactions.forEach(tx => {
+      const dateKey = new Date(tx.date).toDateString();
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(tx);
     });
     
-    // Sort dates descending
     const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     
     return sortedDates.map(date => {
@@ -59,7 +68,18 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         count: dayTxs.length
       };
     });
-  }, [transactions]);
+  }, [searchedTransactions]);
+
+  // 4. Determine visible groups (last 3 days logic)
+  const visibleGroups = useMemo(() => {
+    // If searching, show everything. If not month view, show everything.
+    if (searchQuery.trim() || filterMode === 'day' || showAll) {
+      return groupedTransactions;
+    }
+    return groupedTransactions.slice(0, 3);
+  }, [groupedTransactions, searchQuery, filterMode, showAll]);
+
+  const hiddenCount = groupedTransactions.length - visibleGroups.length;
 
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
@@ -69,36 +89,19 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   const handleFinishLearning = () => {
     if (!learningTx || !learningName.trim()) return;
-
-    // Use raw note for the keyword, strip unique identifiers (numbers at the end) if possible
     let keyword = (learningTx.rawNote || learningTx.note).trim();
-    
-    // Heuristic: Remove long digits at the end which are usually unique tx IDs
     if (/\d{4,}$/.test(keyword)) {
         keyword = keyword.replace(/\s?\d+$/, '').trim();
     }
-    
     const newRule: LearnedRule = {
       id: Date.now().toString(),
       keyword: keyword,
       cleanName: learningName.trim(),
       categoryId: learningCat
     };
-
-    // This now updates Firestore AND matches all current transactions in App.tsx
     onLearnRule(newRule);
     setLearningTx(null);
   };
-
-  if (transactions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm w-full">
-        <p className="text-gray-400 font-bold text-center leading-relaxed text-sm uppercase tracking-widest">
-          В этот {filterMode === 'day' ? 'день' : 'период'}<br/>операций не было
-        </p>
-      </div>
-    );
-  }
 
   const renderTransactionCard = (tx: Transaction) => {
     const category = categories.find(c => c.id === tx.category);
@@ -118,28 +121,19 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         className={`group flex items-center gap-4 p-4 bg-white hover:bg-gray-50 rounded-[1.8rem] transition-all shadow-sm border border-transparent cursor-pointer ios-btn-active ${isUnrecognized ? 'border-yellow-100/50 bg-yellow-50/10' : 'hover:border-blue-100'}`}
       >
         <div className="flex-shrink-0">
-            <BrandIcon 
-                name={displayTitle} 
-                brandKey={brandKey} 
-                category={category} 
-                size="md" 
-            />
+            <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="md" />
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start mb-1">
             <div className="flex flex-col min-w-0 mr-2">
-                <h4 className="font-bold text-[#1C1C1E] text-base truncate leading-tight">
-                  {displayTitle}
-                </h4>
+                <h4 className="font-bold text-[#1C1C1E] text-base truncate leading-tight">{displayTitle}</h4>
                 <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs font-bold text-gray-400 flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md">
                        <Clock size={10}/> {timeString}
                     </span>
                     {isUnrecognized && (
-                        <span className="text-[9px] font-black text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-md uppercase tracking-tight">
-                            Нужна категория
-                        </span>
+                        <span className="text-[9px] font-black text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-md uppercase tracking-tight">Категория?</span>
                     )}
                 </div>
             </div>
@@ -154,13 +148,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
           <div className="flex items-center justify-between mt-1.5">
             <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: member?.color || '#CCC' }} />
-                <span className="text-[10px] font-bold text-gray-400">
-                  {member?.name}
-                </span>
+                <span className="text-[10px] font-bold text-gray-400">{member?.name}</span>
                 <span className="text-gray-300 text-[8px]">•</span>
-                <span className="text-[10px] font-bold text-gray-400">
-                  {category?.label}
-                </span>
+                <span className="text-[10px] font-bold text-gray-400">{category?.label}</span>
             </div>
           </div>
         </div>
@@ -170,41 +160,85 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-6 w-full">
-      {/* Timeline */}
-      <div className="space-y-8">
-        {groupedTransactions.map((group, index) => (
-            <div key={group.date} className="space-y-3">
-                {/* Date Separator & Daily Summary */}
-                <div className="flex items-end justify-between px-3 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-3 z-10 border-b border-gray-200/50">
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide">
-                                {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
-                            </span>
-                            {(new Date(group.date).toDateString() === new Date().toDateString()) && (
-                                <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
-                            )}
-                        </div>
-                        <span className="text-xs font-bold text-gray-400">
-                            {group.count} {group.count === 1 ? 'операция' : (group.count > 1 && group.count < 5) ? 'операции' : 'операций'}
-                        </span>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                        {group.dayIncome > 0 && <span className="text-xs font-black text-green-500">+{group.dayIncome.toLocaleString()}</span>}
-                        {group.dayExpense > 0 && <span className="text-base font-black text-[#1C1C1E] tabular-nums">-{group.dayExpense.toLocaleString()}</span>}
-                    </div>
-                </div>
-
-                {/* Transactions Grid for this day */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
-                    {group.transactions.map(tx => renderTransactionCard(tx))}
-                </div>
-            </div>
-        ))}
+      {/* Search Bar */}
+      <div className="px-1">
+        <div className="relative group">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-blue-500">
+            <Search size={18} />
+          </div>
+          <input 
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Поиск по названию или сумме..."
+            className="w-full bg-white border border-gray-100 py-4 pl-12 pr-12 rounded-[1.8rem] text-sm font-bold text-[#1C1C1E] outline-none shadow-soft focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5 transition-all"
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Uncategorized Registry (Action Area) */}
-      {uncategorizedTransactions.length > 0 && (
+      {transactions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm w-full">
+          <p className="text-gray-400 font-bold text-center leading-relaxed text-sm uppercase tracking-widest">
+            В этот {filterMode === 'day' ? 'день' : 'период'}<br/>операций не было
+          </p>
+        </div>
+      ) : searchedTransactions.length === 0 ? (
+        <div className="text-center py-12">
+            <p className="text-gray-400 font-bold text-sm">Ничего не найдено по запросу "{searchQuery}"</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-8">
+            {visibleGroups.map((group) => (
+                <div key={group.date} className="space-y-3">
+                    <div className="flex items-end justify-between px-3 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-3 z-10 border-b border-gray-200/50">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide">
+                                    {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
+                                </span>
+                                {(new Date(group.date).toDateString() === new Date().toDateString()) && (
+                                    <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
+                                )}
+                            </div>
+                            <span className="text-xs font-bold text-gray-400">{group.count} опер.</span>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5">
+                            {group.dayIncome > 0 && <span className="text-xs font-black text-green-500">+{group.dayIncome.toLocaleString()}</span>}
+                            {group.dayExpense > 0 && <span className="text-base font-black text-[#1C1C1E] tabular-nums">-{group.dayExpense.toLocaleString()}</span>}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
+                        {group.transactions.map(tx => renderTransactionCard(tx))}
+                    </div>
+                </div>
+            ))}
+          </div>
+
+          {hiddenCount > 0 && (
+            <motion.button 
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowAll(true)}
+              className="w-full py-6 mt-4 bg-white/60 hover:bg-white rounded-[2rem] border border-gray-100 text-blue-500 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm transition-all"
+            >
+              <CalendarDays size={16} />
+              Показать историю за {hiddenCount} {hiddenCount === 1 ? 'день' : (hiddenCount > 1 && hiddenCount < 5) ? 'дня' : 'дней'}
+            </motion.button>
+          )}
+        </>
+      )}
+
+      {/* Uncategorized Alerts */}
+      {transactions.filter(t => t.category === 'other').length > 0 && !searchQuery && (
           <div className="bg-yellow-50/50 p-6 rounded-[2.5rem] border border-yellow-100 mt-4">
               <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center">
@@ -212,27 +246,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                   </div>
                   <div>
                       <h3 className="font-black text-sm text-[#1C1C1E] uppercase tracking-wide">Требует внимания</h3>
-                      <p className="text-[10px] font-bold text-gray-400">Найдено {uncategorizedTransactions.length} операций без категории</p>
+                      <p className="text-[10px] font-bold text-gray-400">Найдено {transactions.filter(t => t.category === 'other').length} операций без категории</p>
                   </div>
-              </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
-                  {uncategorizedTransactions.map(tx => (
-                      <div key={'uncat-'+tx.id} className="bg-white p-3 rounded-2xl border border-yellow-100 flex items-center justify-between shadow-sm">
-                          <div className="flex flex-col">
-                              <span className="font-bold text-xs text-[#1C1C1E]">{tx.note || 'Неизвестно'}</span>
-                              <span className="text-[10px] text-gray-400">{new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric', month:'short'})}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                              <span className="font-black text-xs">-{tx.amount}</span>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleStartLearning(tx); }}
-                                className="bg-yellow-500 text-white p-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-1 shadow-lg shadow-yellow-500/20"
-                              >
-                                  <Sparkles size={12}/> Обучить
-                              </button>
-                          </div>
-                      </div>
-                  ))}
               </div>
           </div>
       )}
@@ -258,13 +273,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
          </div>
 
          <div className="relative z-10 w-full md:w-auto pt-4 md:pt-0 border-t border-white/10 md:border-none flex justify-between md:block items-center">
-             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Итого за {filterMode === 'day' ? 'день' : 'период'} <Wallet size={10} /></span>
+             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Итого за {searchQuery ? 'поиск' : filterMode === 'day' ? 'день' : 'период'} <Wallet size={10} /></span>
              <span className={`text-2xl font-black tabular-nums ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
                 {settings.privacyMode ? '••••••' : `${summary.total > 0 ? '+' : ''}${summary.total.toLocaleString()} ${settings.currency}`}
              </span>
          </div>
       </div>
 
+      {/* Learning Modal */}
       <AnimatePresence>
         {learningTx && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">
@@ -278,14 +294,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                     "{learningTx.rawNote || learningTx.note}"
                 </p>
-                <p className="text-[9px] text-gray-400 leading-tight px-4">
-                    Мы запомним это название, чтобы автоматически определять категорию в будущем.
-                </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Как называть?</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Название</label>
                   <input 
                     type="text" 
                     value={learningName}

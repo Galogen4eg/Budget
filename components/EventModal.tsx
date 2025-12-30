@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
+import { auth } from '../firebase'; // Import auth
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -19,10 +20,11 @@ interface EventModalProps {
 
 const REMINDER_OPTIONS = [
   { label: 'Нет', value: 0 },
-  { label: '15 мин', value: 15 },
-  { label: '1 час', value: 60 },
-  { label: '2 часа', value: 120 },
-  { label: '1 день', value: 1440 },
+  { label: 'За 15 мин', value: 15 },
+  { label: 'За 1 час', value: 60 },
+  { label: 'За 2 часа', value: 120 },
+  { label: 'За 1 день', value: 1440 },
+  { label: 'За 2 дня', value: 2880 },
 ];
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
@@ -36,7 +38,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || []);
-  const [customReminder, setCustomReminder] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -87,14 +88,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     }
   };
 
-  const addCustomReminder = () => {
-      const min = parseInt(customReminder);
-      if (!isNaN(min) && min > 0) {
-          toggleReminder(min);
-          setCustomReminder('');
-      }
-  };
-
   const validateAndSave = () => {
     const yearMatch = date.match(/^(\d+)-/);
     if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
@@ -105,15 +98,28 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
       description: desc, 
       date, time, duration: dur, 
       memberIds: mIds, isTemplate: isT, checklist,
-      reminders
+      reminders,
+      userId: auth.currentUser?.uid // Add current user ID
     });
     onClose();
   };
 
+  const handleCopy = () => {
+      onSave({
+          id: Date.now().toString(),
+          title: `${title} (Копия)`,
+          description: desc,
+          date, time, duration: dur,
+          memberIds: mIds, isTemplate: isT, checklist, reminders,
+          userId: auth.currentUser?.uid
+      });
+      onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-[600] flex items-center justify-center">
+    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] my-auto" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
@@ -131,6 +137,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             {templates.length > 0 && (
               <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-500'}`}><Sparkles size={20} /></button>
             )}
+            
+            {event && (
+                <button type="button" onClick={handleCopy} className="p-2.5 bg-gray-100 rounded-full text-gray-500" title="Копировать"><Copy size={20} /></button>
+            )}
+
             <button type="button" onClick={onClose} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 active:scale-75 transition-all flex items-center justify-center text-gray-500"><X size={22}/></button>
           </div>
         </div>
@@ -167,18 +178,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              </div>
           </div>
           
-          <div className="bg-white p-5 rounded-[2rem] border border-white flex items-center justify-between">
-             <div className="flex items-center gap-2">
-                <Timer size={18} className="text-gray-400"/>
-                <span className="font-bold text-sm">Продолжительность</span>
-             </div>
-             <div className="flex items-center gap-3">
-                <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"><Minus size={14}/></button>
-                <span className="font-black text-lg w-12 text-center">{dur} ч</span>
-                <button onClick={() => setDur(dur + 0.5)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"><Plus size={14}/></button>
-             </div>
-          </div>
-          
           {/* Reminders Section */}
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
              <div className="flex items-center gap-2 mb-2">
@@ -199,26 +198,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                         </button>
                     );
                 })}
-                {/* Custom Reminder Input */}
-                <div className="flex items-center gap-1 bg-gray-50 rounded-xl px-2">
-                    <input 
-                        type="number" 
-                        placeholder="мин" 
-                        value={customReminder} 
-                        onChange={(e) => setCustomReminder(e.target.value)} 
-                        className="w-10 bg-transparent text-[10px] font-black outline-none text-center"
-                    />
-                    <button onClick={addCustomReminder} disabled={!customReminder} className="text-blue-500 disabled:opacity-30"><Plus size={14}/></button>
-                </div>
              </div>
-             {reminders.length > 0 && reminders.some(r => !REMINDER_OPTIONS.find(opt => opt.value === r)) && (
-                 <div className="flex flex-wrap gap-2">
-                     {reminders.filter(r => !REMINDER_OPTIONS.find(opt => opt.value === r)).map(r => (
-                         <button key={r} onClick={() => toggleReminder(r)} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase bg-orange-500 text-white shadow-md flex items-center gap-1">
-                             {r} мин <X size={10} />
-                         </button>
-                     ))}
-                 </div>
+             {!settings.telegramChatId && (
+                 <p className="text-[10px] text-red-400 font-bold px-1 flex items-center gap-1"><Smartphone size={10}/> Требуется настройка Telegram</p>
              )}
           </div>
 
@@ -245,6 +227,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           <div className="space-y-4 px-2">
             <span className="text-[10px] font-black text-gray-400 uppercase">Участники</span>
             <div className="flex flex-wrap gap-4">{members.map(m => (<button key={m.id} type="button" onClick={() => setMIds(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} className={`flex flex-col items-center gap-2 transition-all ${mIds.includes(m.id) ? 'opacity-100 scale-110' : 'opacity-40 grayscale scale-95'}`}><MemberMarker member={m} size="md" /><span className="text-[9px] font-black uppercase tracking-wider text-gray-400">{m.name}</span></button>))}</div>
+          </div>
+          
+          <div className="flex items-center gap-3 px-2">
+             <button onClick={() => setIsT(!isT)} className={`flex items-center gap-2 transition-colors ${isT ? 'text-yellow-500' : 'text-gray-400'}`}>
+                {isT ? <Bookmark fill="currentColor" size={20} /> : <Bookmark size={20} />}
+                <span className="text-xs font-bold uppercase tracking-wide">Сохранить как шаблон</span>
+             </button>
           </div>
 
           <div className="flex flex-col gap-3 pt-4">

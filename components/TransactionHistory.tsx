@@ -58,7 +58,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   if (transactions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm">
+      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm w-full">
         <p className="text-gray-400 font-bold text-center leading-relaxed text-sm uppercase tracking-widest">
           В этот {filterMode === 'day' ? 'день' : 'период'}<br/>операций не было
         </p>
@@ -67,7 +67,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
       {transactions.map((tx, index) => {
         const category = categories.find(c => c.id === tx.category);
@@ -108,9 +108,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                 <h4 className="font-bold text-[#1C1C1E] break-words whitespace-normal leading-tight flex-1 mr-2 text-[15px]">
                   {displayTitle}
                 </h4>
-                <div className={`transition-all duration-500 flex-shrink-0 ${settings.privacyMode ? 'blur-md' : ''}`}>
+                <div className="flex-shrink-0">
                   <span className={`text-lg font-black tabular-nums ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E]'}`}>
-                    {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {settings.currency}
+                    {settings.privacyMode ? '••••••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()} ${settings.currency}`}
                   </span>
                 </div>
               </div>
@@ -151,19 +151,23 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
          <div className="relative z-10 flex gap-6">
             <div className="flex flex-col">
                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1"><ArrowUpRight size={10} className="text-green-500"/> Доход</span>
-               <span className={`text-lg font-black text-green-400 tabular-nums ${settings.privacyMode ? 'blur-sm' : ''}`}>+{summary.income.toLocaleString()}</span>
+               <span className="text-lg font-black text-green-400 tabular-nums">
+                   {settings.privacyMode ? '•••' : `+${summary.income.toLocaleString()}`}
+               </span>
             </div>
             <div className="w-px bg-white/10" />
             <div className="flex flex-col">
                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1"><ArrowDownRight size={10} className="text-red-500"/> Расход</span>
-               <span className={`text-lg font-black text-white tabular-nums ${settings.privacyMode ? 'blur-sm' : ''}`}>{summary.expense.toLocaleString()}</span>
+               <span className="text-lg font-black text-white tabular-nums">
+                   {settings.privacyMode ? '•••' : summary.expense.toLocaleString()}
+               </span>
             </div>
          </div>
 
          <div className="relative z-10 text-right">
              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-end gap-1">Итого за {filterMode === 'day' ? 'день' : 'период'} <Wallet size={10} /></span>
-             <span className={`text-2xl font-black tabular-nums ${settings.privacyMode ? 'blur-md' : ''} ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
-                {summary.total > 0 ? '+' : ''}{summary.total.toLocaleString()} {settings.currency}
+             <span className={`text-2xl font-black tabular-nums ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
+                {settings.privacyMode ? '••••••' : `${summary.total > 0 ? '+' : ''}${summary.total.toLocaleString()} ${settings.currency}`}
              </span>
          </div>
       </div>

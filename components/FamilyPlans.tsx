@@ -76,7 +76,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      const data = JSON.parse(response.text || '{}');
+      const responseText = response.text || '{}';
+      // Clean potential markdown blocks
+      let jsonText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+          jsonText = jsonText.substring(start, end + 1);
+      }
+
+      const data = JSON.parse(jsonText);
       
       if (data.title) {
           setActiveEvent({
@@ -85,8 +94,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                   title: data.title,
                   date: data.date || today,
                   time: data.time || '12:00',
-                  // We can add duration to prefill if EventModal supports it, 
-                  // for now let's just stick to basics
               }
           });
           showNotify('Событие распознано!');
@@ -158,7 +165,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   }, [selectedDate]);
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative w-full">
       <AnimatePresence>
         {notification && (
           <motion.div initial={{ opacity: 0, y: -20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: -20, x: '-50%' }} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-600 text-white border-blue-400'}`}>
@@ -264,8 +271,20 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         const dayEvents = sortedEvents.filter(e => e.date === ds);
                         const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
                         const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === month;
+                        
                         cells.push(
-                            <button key={d} onClick={() => setSelectedDate(new Date(year, month, d))} className={`w-full h-full flex flex-col items-center justify-center rounded-xl border relative transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`}>
+                            <button 
+                                key={d} 
+                                onClick={() => {
+                                    if (isSelected) {
+                                        // Already selected, create event
+                                        setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } });
+                                    } else {
+                                        setSelectedDate(new Date(year, month, d));
+                                    }
+                                }} 
+                                className={`w-full h-full flex flex-col items-center justify-center rounded-xl border relative transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`}
+                            >
                                 <span className={`text-[10px] font-black ${isToday ? 'text-blue-600' : ''}`}>{d}</span>
                                 <div className="flex gap-0.5 mt-1 overflow-hidden px-1 h-1.5 w-full justify-center">
                                     {dayEvents.slice(0, 3).map(e => (<div key={e.id} className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: members.find(m => m.id === (e.memberIds?.[0] || ''))?.color || '#8E8E93' }} />))}
@@ -281,7 +300,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 <div className="w-full md:w-80 space-y-4 overflow-y-auto no-scrollbar md:h-full shrink-0">
                   <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 sticky top-0 bg-[#EBEFF5] py-2 z-10">События {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long'})}</h3>
                   {sortedEvents.filter(e => e.date === selectedDate.toISOString().split('T')[0]).length === 0 ? 
-                      <div className="p-8 text-center bg-white rounded-[2rem] text-gray-300 font-black uppercase text-[10px] border border-dashed border-gray-200">Нет событий на этот день</div> : 
+                      <div className="p-8 text-center bg-white rounded-[2rem] text-gray-300 font-black uppercase text-[10px] border border-dashed border-gray-200">
+                          <p className="mb-2">Нет событий</p>
+                          <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0], time: '12:00' } })} className="text-blue-500">Добавить +</button>
+                      </div> : 
                       sortedEvents.filter(e => e.date === selectedDate.toISOString().split('T')[0]).map(event => (<EventCard key={event.id} event={event} members={members} settings={settings} onClick={() => setActiveEvent({ event })} />))
                   }
                   

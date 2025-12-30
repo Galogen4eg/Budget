@@ -61,15 +61,19 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
             )}
           </div>
           <div className="flex items-center justify-center gap-2">
-            <div className={`transition-all duration-500 ${settings.privacyMode ? 'blur-xl select-none' : ''}`}>
-              <motion.div 
-                key={balance}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-5xl md:text-6xl font-black text-[#1C1C1E] text-center tracking-tighter tabular"
-              >
-                {balance.toLocaleString('ru-RU')}
-              </motion.div>
+            <div className="transition-all duration-300">
+              {settings.privacyMode ? (
+                  <div className="h-14 bg-gray-100 rounded-xl w-40 animate-pulse" /> 
+              ) : (
+                  <motion.div 
+                    key={balance}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-5xl md:text-6xl font-black text-[#1C1C1E] text-center tracking-tighter tabular"
+                  >
+                    {balance.toLocaleString('ru-RU')}
+                  </motion.div>
+              )}
             </div>
             <span className="text-3xl font-black text-blue-500/20 mb-2">{settings.currency}</span>
           </div>
@@ -79,7 +83,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
                   <div className="bg-gray-50 px-4 py-2 rounded-2xl flex items-center gap-2 border border-gray-100">
                       <Lock size={12} className="text-gray-400" />
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-wide">
-                          Резерв: {Math.round(reservedAmount).toLocaleString()}
+                          Резерв: {settings.privacyMode ? '••••••' : Math.round(reservedAmount).toLocaleString()}
                       </span>
                   </div>
               </div>
@@ -98,10 +102,14 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
             <Coins size={14} className="text-blue-100" />
             <p className="text-[10px] font-black text-blue-100 uppercase tracking-widest">Бюджет на сегодня</p>
           </div>
-          <div className={`transition-all duration-500 ${settings.privacyMode ? 'blur-md select-none' : ''}`}>
-            <p className="text-5xl font-black text-white tracking-tighter tabular">
-              {dailyBudget.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} {settings.currency}
-            </p>
+          <div className="transition-all duration-300">
+            {settings.privacyMode ? (
+                <p className="text-5xl font-black text-white/50 tracking-tighter tabular">••••••</p>
+            ) : (
+                <p className="text-5xl font-black text-white tracking-tighter tabular">
+                  {dailyBudget.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} {settings.currency}
+                </p>
+            )}
           </div>
           <div className="flex flex-wrap justify-center gap-3 mt-6">
             <div className="bg-white/15 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20">

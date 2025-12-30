@@ -5,13 +5,14 @@ import {
   Trash2, CheckCircle2, Circle, 
   Mic, BrainCircuit,
   X, Plus, ScanBarcode, Loader2,
-  Receipt, MicOff, Maximize2, ShoppingBag,
-  Scale, Hash, Globe, WifiOff, Search, Star, Archive, Edit2, Check
+  MicOff, Maximize2, ShoppingBag,
+  Star, Archive, Edit2, Check, TrendingUp
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { Html5Qrcode } from 'html5-qrcode';
 import { lookupBarcodeOffline, searchOnlineDatabase, ProductData } from '../utils/barcodeLookup';
+import { auth } from '../firebase'; // Import auth to get current userId
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -36,20 +37,10 @@ const STORE_AISLES = [
 
 const UNITS: ('шт' | 'кг' | 'уп' | 'л')[] = ['шт', 'кг', 'уп', 'л'];
 
-const TOP_PURCHASES = [
-  { title: 'Молоко', icon: '🥛', category: 'dairy', unit: 'л' },
-  { title: 'Хлеб', icon: '🍞', category: 'bakery', unit: 'шт' },
-  { title: 'Яйца', icon: '🥚', category: 'dairy', unit: 'уп' },
-  { title: 'Бананы', icon: '🍌', category: 'produce', unit: 'кг' },
-  { title: 'Вода', icon: '💧', category: 'drinks', unit: 'л' },
-];
-
 const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, members, onCompletePurchase, transactions = [], onMoveToPantry }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(false);
-  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [totalCostInput, setTotalCostInput] = useState('');
   
   // Modal Form State
   const [title, setTitle] = useState('');
@@ -66,6 +57,38 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
+
+  // --- ANALYTICS: Top Purchases for Current Month ---
+  const topMonthPurchases = useMemo(() => {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const itemCounts: Record<string, number> = {};
+
+      transactions.forEach(t => {
+          const tDate = new Date(t.date);
+          // Filter only this month and relevant categories
+          if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear && t.type === 'expense') {
+              if (['food', 'shopping', 'household'].includes(t.category) || t.category === 'other') {
+                  // Normalize item names (split commas, trim)
+                  const parts = (t.note || '').split(',').map(s => s.trim().toLowerCase());
+                  parts.forEach(p => {
+                      if (p.length > 2) { // Filter out short junk
+                          const capitalName = p.charAt(0).toUpperCase() + p.slice(1);
+                          itemCounts[capitalName] = (itemCounts[capitalName] || 0) + 1;
+                      }
+                  });
+              }
+          }
+      });
+
+      // Convert to array and sort
+      return Object.entries(itemCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5) // Top 5
+          .map(([name, count]) => ({ title: name, count }));
+  }, [transactions]);
 
   // Price History Logic for Modal
   const lastPrice = useMemo(() => {
@@ -107,7 +130,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       });
 
       let rawText = response.text || '[]';
-      rawText = rawText.replace(/```json|```/g, '').trim();
+      // More robust JSON cleaning
+      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const start = rawText.indexOf('[');
+      const end = rawText.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        rawText = rawText.substring(start, end + 1);
+      }
 
       const parsedData = JSON.parse(rawText) as any[];
       if (Array.isArray(parsedData) && parsedData.length > 0) {
@@ -118,6 +147,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           unit: item.unit || 'шт',
           completed: false,
           memberId: members[0]?.id || 'papa',
+          userId: auth.currentUser?.uid,
           priority: 'medium',
           category: item.aisle || 'other'
         }));
@@ -148,6 +178,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     r.start();
   };
 
+  // ... (Rest of component unchanged) ...
   const startScanner = () => { 
     setScannerStatus('Наведите камеру на штрихкод');
     isScanningLocked.current = false; 
@@ -169,6 +200,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         unit: prod.unit,
         completed: false,
         memberId: members[0]?.id || 'papa',
+        userId: auth.currentUser?.uid,
         priority: 'medium',
         category: prod.category
       };
@@ -235,7 +267,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             title: title.trim(),
             amount: amount || '1',
             unit: unit,
-            category: selectedAisle
+            category: selectedAisle,
+            userId: auth.currentUser?.uid
         } : i));
     } else {
         const newItem: ShoppingItem = {
@@ -245,6 +278,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           unit: unit,
           completed: false,
           memberId: members[0]?.id || 'papa',
+          userId: auth.currentUser?.uid,
           priority: 'medium',
           category: selectedAisle
         };
@@ -254,29 +288,21 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     setTitle(''); setAmount('1'); setUnit('шт'); setEditingItemId(null); setIsModalOpen(false); vibrate('light');
   };
 
-  const handleQuickAdd = (topItem: typeof TOP_PURCHASES[0]) => {
-    const exists = items.find(i => i.title === topItem.title && !i.completed);
-    if (exists) { showNotify('info', `"${topItem.title}" уже в списке`); vibrate('medium'); return; }
+  const handleQuickAdd = (title: string) => {
+    const exists = items.find(i => i.title === title && !i.completed);
+    if (exists) { showNotify('info', `"${title}" уже в списке`); vibrate('medium'); return; }
     const newItem: ShoppingItem = {
       id: Math.random().toString(36).substr(2, 9),
-      title: topItem.title,
+      title: title,
       amount: '1',
-      unit: topItem.unit as any,
+      unit: 'шт',
       completed: false,
       memberId: members[0]?.id || 'papa',
+      userId: auth.currentUser?.uid,
       priority: 'medium',
-      category: topItem.category
+      category: 'other'
     };
-    setItems([newItem, ...items]); vibrate('success'); showNotify('success', `Добавлено: ${topItem.title}`);
-  };
-
-  const handleFinishShopping = () => {
-    const cost = parseFloat(totalCostInput);
-    if (isNaN(cost)) return;
-    const completed = items.filter(i => i.completed);
-    onCompletePurchase(cost, 'shopping', completed.map(i => i.title).join(', '));
-    setItems(items.filter(i => !i.completed));
-    setIsFinishModalOpen(false); setTotalCostInput(''); vibrate('success');
+    setItems([newItem, ...items]); vibrate('success'); showNotify('success', `Добавлено: ${title}`);
   };
 
   const activeItems = useMemo(() => items.filter(i => !i.completed), [items]);
@@ -284,7 +310,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const progress = items.length > 0 ? Math.round((completedItems.length / items.length) * 100) : 0;
 
   return (
-    <div className="relative space-y-8 pb-36">
+    <div className="relative space-y-8 pb-36 w-full">
       <AnimatePresence>
         {/* ADD/EDIT ITEM MODAL */}
         {isModalOpen && (
@@ -306,7 +332,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                              type="text" 
                              value={title} 
                              onChange={(e) => setTitle(e.target.value)} 
-                             placeholder="Что купить? (напр. Молоко)" 
+                             placeholder="Что купить?" 
                              className="w-full bg-white p-5 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] border border-white focus:border-blue-200 transition-all shadow-sm" 
                              autoFocus
                            />
@@ -319,7 +345,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                         
                         <div className="grid grid-cols-2 gap-4">
                           <div className="bg-white p-4 rounded-2xl flex items-center gap-3 border border-white focus-within:border-blue-200 transition-all shadow-sm">
-                            <Scale size={18} className="text-gray-400" />
+                            {/* Scale Icon Removed here */}
                             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-lg text-[#1C1C1E] w-full" />
                           </div>
                           <div className="flex bg-gray-200/50 p-1.5 rounded-2xl border border-transparent">
@@ -412,18 +438,24 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           </div>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 flex items-center gap-2"><Star size={12} className="text-yellow-500 fill-yellow-500" /> Частые покупки</h3>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
-          {TOP_PURCHASES.map(item => (
-            <button key={item.title} onClick={() => handleQuickAdd(item)} className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2 flex-shrink-0 active:scale-95 transition-transform">
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-xs font-bold text-[#1C1C1E]">{item.title}</span>
-              <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center"><Plus size={12} className="text-blue-500" strokeWidth={3} /></div>
-            </button>
-          ))}
+      {/* DYNAMIC TOP PURCHASES */}
+      {topMonthPurchases.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 flex items-center gap-2"><TrendingUp size={12} className="text-purple-500" /> Топ месяца</h3>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
+            {topMonthPurchases.map((item, i) => (
+              <button key={i} onClick={() => handleQuickAdd(item.title)} className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2 flex-shrink-0 active:scale-95 transition-transform">
+                <span className="text-xl">⭐</span>
+                <div className="flex flex-col items-start">
+                    <span className="text-xs font-bold text-[#1C1C1E]">{item.title}</span>
+                    <span className="text-[8px] font-bold text-gray-400">{item.count} раз(а)</span>
+                </div>
+                <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center"><Plus size={12} className="text-blue-500" strokeWidth={3} /></div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-6">
         {activeItems.map(item => (
@@ -433,7 +465,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       {completedItems.length > 0 && (
         <div className="mt-14 pt-8 border-t border-gray-100 space-y-4">
-          <button onClick={() => setIsFinishModalOpen(true)} className="w-full py-4 bg-green-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-green-500/20">Завершить закупку</button>
           <div className="opacity-40 space-y-3">
             {completedItems.map(item => (
               <ShoppingCard 
@@ -447,8 +478,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           </div>
         </div>
       )}
-
-      <AnimatePresence>{isFinishModalOpen && (<div className="fixed inset-0 z-[750] flex items-center justify-center p-6"><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" onClick={() => setIsFinishModalOpen(false)} /><motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl"><h3 className="text-2xl font-black text-center mb-6 text-[#1C1C1E]">Итого чека?</h3><input type="number" value={totalCostInput} onChange={(e) => setTotalCostInput(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 p-6 rounded-2xl text-3xl font-black text-center mb-8 outline-none text-[#1C1C1E]" /><div className="flex gap-4"><button onClick={() => setIsFinishModalOpen(false)} className="flex-1 py-5 bg-gray-100 rounded-2xl font-black uppercase text-gray-400">Отмена</button><button onClick={handleFinishShopping} className="flex-1 py-5 bg-green-500 rounded-2xl font-black uppercase text-white shadow-xl">Списать</button></div></motion.div></div>)}</AnimatePresence>
     </div>
   );
 };

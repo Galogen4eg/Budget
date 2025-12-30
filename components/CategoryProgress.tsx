@@ -54,13 +54,11 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
   }
 
   return (
-    <div className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-white shadow-soft space-y-4 transition-all">
+    <div className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-white shadow-soft space-y-4 transition-all w-full">
       {categoryData.map((item) => {
         const percentage = totalExpense > 0 ? (item.totalValue / totalExpense) * 100 : 0;
         const isExpanded = expandedCategoryId === item.id;
         
-        // Условие: показывать разбивку только если мерчантов больше 1 
-        // или если единственный мерчант не совпадает по имени с категорией
         const canExpand = item.merchants.length > 1 || 
                          (item.merchants.length === 1 && item.merchants[0].name !== item.label);
 
@@ -88,8 +86,10 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`text-right transition-all duration-300 ${settings.privacyMode ? 'blur-md' : ''}`}>
-                    <span className="text-sm font-black text-[#1C1C1E]">{item.totalValue.toLocaleString()} {settings.currency}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-[#1C1C1E]">
+                        {settings.privacyMode ? '••••••' : `${item.totalValue.toLocaleString()} ${settings.currency}`}
+                    </span>
                   </div>
                   {canExpand && (
                     <div className="text-gray-300">
@@ -123,8 +123,8 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                         <span className="text-lg">{merchant.logo}</span>
                         <span className="text-[11px] font-bold text-[#1C1C1E]">{merchant.name}</span>
                       </div>
-                      <span className={`text-[11px] font-black text-gray-500 tabular-nums ${settings.privacyMode ? 'blur-[4px]' : ''}`}>
-                        {merchant.value.toLocaleString()} {settings.currency}
+                      <span className="text-[11px] font-black text-gray-500 tabular-nums">
+                        {settings.privacyMode ? '•••' : `${merchant.value.toLocaleString()} ${settings.currency}`}
                       </span>
                     </div>
                   ))}

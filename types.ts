@@ -46,6 +46,7 @@ export interface ShoppingItem {
   estimatedPrice?: number;
   completed: boolean;
   memberId: string;
+  userId?: string; // Кто добавил (Firebase UID)
   priority: 'low' | 'medium' | 'high';
   category: string;
 }
@@ -64,6 +65,7 @@ export interface FamilyEvent {
   time: string;
   duration?: number;
   memberIds: string[];
+  userId?: string; // Кто создал (Firebase UID)
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
   reminders?: number[]; // Array of minutes before event (e.g. [60, 1440])

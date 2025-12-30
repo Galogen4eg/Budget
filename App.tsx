@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff } from 'lucide-react';
-import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig } from './types';
+import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
 import TransactionHistory from './components/TransactionHistory';
@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   privacyMode: false,
   widgets: DEFAULT_WIDGETS,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat'],
+  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters'],
   isPinEnabled: true, 
   defaultBudgetMode: 'family',
   telegramBotToken: '',
@@ -164,6 +164,7 @@ const App: React.FC = () => {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
+  const [meterReadings, setMeterReadings] = useState<MeterReading[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   
@@ -247,6 +248,8 @@ const App: React.FC = () => {
     const unsubDebts = subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[]));
     const unsubPantry = subscribeToCollection(familyId, 'pantry', (data) => setPantry(data as PantryItem[]));
     const unsubCards = subscribeToCollection(familyId, 'cards', (data) => setLoyaltyCards(data as LoyaltyCard[]));
+    const unsubMeters = subscribeToCollection(familyId, 'meters', (data) => setMeterReadings(data as MeterReading[]));
+
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
         const loadedSettings = data as any;
         // Migrate old 'enabledWidgets' (string[]) to 'widgets' (WidgetConfig[]) if needed
@@ -271,7 +274,7 @@ const App: React.FC = () => {
         }
     });
 
-    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubSettings(); };
+    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubMeters(); unsubSettings(); };
   }, [familyId, user]);
 
   useEffect(() => { if (user && familyId && membersLoaded) { const me = familyMembers.find(m => m.userId === user.uid || m.id === user.uid); setIsOnboarding(!me); } }, [user, familyId, membersLoaded, familyMembers]);
@@ -555,7 +558,24 @@ const App: React.FC = () => {
           )}
           {activeTab === 'services' && (
             <motion.div key="services" className="w-full">
-               <ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards)} />
+               <ServicesHub 
+                 events={events} 
+                 setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} 
+                 settings={settings} 
+                 members={familyMembers} 
+                 subscriptions={subscriptions} 
+                 setSubscriptions={createSyncHandler('subscriptions', subscriptions)} 
+                 debts={debts} 
+                 setDebts={createSyncHandler('debts', debts)} 
+                 pantry={pantry} 
+                 setPantry={createSyncHandler('pantry', pantry)} 
+                 transactions={transactions} 
+                 goals={goals} 
+                 loyaltyCards={loyaltyCards} 
+                 setLoyaltyCards={createSyncHandler('cards', loyaltyCards)}
+                 readings={meterReadings}
+                 setReadings={createSyncHandler('meters', meterReadings)}
+               />
             </motion.div>
           )}
         </AnimatePresence>

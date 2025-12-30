@@ -15,7 +15,7 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "" }) =
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`glass p-5 rounded-[2rem] flex flex-col justify-between h-32 ${className} border-white shadow-soft transition-all`}
+      className={`glass p-5 rounded-[2rem] flex flex-col justify-between h-full min-h-[9rem] ${className} border-white shadow-soft transition-all`}
     >
       <div className="flex justify-between items-start">
         <span className="text-gray-400 text-[11px] font-black uppercase tracking-widest">{label}</span>

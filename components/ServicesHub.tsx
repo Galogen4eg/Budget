@@ -2,11 +2,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Box, CreditCard, Repeat, Bot, ChevronLeft, Wallet } from 'lucide-react';
-import { AppSettings, FamilyEvent, FamilyMember, Subscription, Debt, PantryItem, MeterReading, Transaction, SavingsGoal, LoyaltyCard } from '../types';
+import { AppSettings, FamilyEvent, FamilyMember, Subscription, Debt, PantryItem, Transaction, SavingsGoal, LoyaltyCard } from '../types';
 import SubscriptionTracker from './SubscriptionTracker';
 import DebtSnowball from './DebtSnowball';
 import SmartPantry from './SmartPantry';
-import MeterReadings from './MeterReadings';
 import AIChat from './AIChat';
 import WalletApp from './Wallet';
 
@@ -22,15 +21,13 @@ interface ServicesHubProps {
   setDebts: (d: Debt[]) => void;
   pantry: PantryItem[];
   setPantry: (p: PantryItem[]) => void;
-  meterReadings: MeterReading[];
-  setMeterReadings: (m: MeterReading[]) => void;
   transactions: Transaction[];
   goals: SavingsGoal[];
   loyaltyCards: LoyaltyCard[];
   setLoyaltyCards: (c: LoyaltyCard[]) => void;
 }
 
-type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'meters' | 'chat' | 'wallet';
+type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'chat' | 'wallet';
 
 const ServicesHub: React.FC<ServicesHubProps> = (props) => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
@@ -44,7 +41,6 @@ const ServicesHub: React.FC<ServicesHubProps> = (props) => {
     { id: 'wallet', label: 'Wallet', desc: 'Карты лояльности', icon: <Wallet size={24} />, color: '#1C1C1E', component: <WalletApp cards={props.loyaltyCards} setCards={props.setLoyaltyCards} /> },
     { id: 'subs', label: 'Подписки', desc: 'Регулярные платежи', icon: <Repeat size={24} />, color: '#AF52DE', component: <SubscriptionTracker subscriptions={props.subscriptions} setSubscriptions={props.setSubscriptions} settings={props.settings} /> },
     { id: 'chat', label: 'AI Советник', desc: 'Анализ и Календарь', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} onCreateEvent={handleCreateEvent} /> },
-    { id: 'meters', label: 'Счетчики', desc: 'Вода, Свет, Газ', icon: <Zap size={24} />, color: '#FF9500', component: <MeterReadings readings={props.meterReadings} setReadings={props.setMeterReadings} settings={props.settings} /> },
     { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <Box size={24} />, color: '#34C759', component: <SmartPantry items={props.pantry} setItems={props.setPantry} /> },
     { id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', component: <DebtSnowball debts={props.debts} setDebts={props.setDebts} settings={props.settings} /> },
   ];

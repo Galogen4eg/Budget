@@ -20,7 +20,7 @@ type ListFilter = 'upcoming' | 'past';
 const ROW_HEIGHT = 80;
 
 const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members }) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('month'); // Changed default to 'month'
   const [listFilter, setListFilter] = useState<ListFilter>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
   
@@ -72,17 +72,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         - time (HH:MM)
         - duration (number, hours, default 1)
         If date is missing, assume today or tomorrow based on context. 
-        Return JSON object ONLY.`,
+        Return JSON object ONLY. No markdown.`,
         config: { responseMimeType: "application/json" }
       });
 
-      const responseText = response.text || '{}';
-      // Clean potential markdown blocks
-      let jsonText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const start = jsonText.indexOf('{');
-      const end = jsonText.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
-          jsonText = jsonText.substring(start, end + 1);
+      let jsonText = response.text || '{}';
+      
+      // Robust Cleaning for parsing
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1) {
+          jsonText = jsonText.substring(firstBrace, lastBrace + 1);
       }
 
       const data = JSON.parse(jsonText);
@@ -165,7 +166,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   }, [selectedDate]);
 
   return (
-    <div className="space-y-6 relative w-full">
+    <div className="space-y-6 relative w-full h-full flex flex-col">
       <AnimatePresence>
         {notification && (
           <motion.div initial={{ opacity: 0, y: -20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: -20, x: '-50%' }} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-600 text-white border-blue-400'}`}>
@@ -186,7 +187,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 flex-shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-4 px-1">
           <div className="flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-hidden flex-nowrap shrink-0">
             {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
@@ -251,8 +252,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
           )}
 
           {viewMode === 'month' && (
-             <motion.div key="month" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col md:flex-row gap-6 h-[calc(100vh-180px)] overflow-hidden">
-                <div className="flex-1 bg-white p-6 rounded-[2.5rem] shadow-soft border border-white flex flex-col h-full overflow-hidden">
+             <motion.div key="month" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col md:flex-row gap-6 h-auto md:h-[calc(100vh-180px)]">
+                <div className="flex-1 bg-white p-6 rounded-[2.5rem] shadow-soft border border-white flex flex-col h-full">
                   <div className="flex justify-between items-center mb-4 px-1 shrink-0">
                     <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth() - 1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full"><ChevronLeft size={20}/></button>
                     <span className="font-black text-xs uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</span>
@@ -261,7 +262,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                   
                   <div className="grid grid-cols-7 gap-2 text-center mb-2 shrink-0">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (<span key={d} className="text-[10px] font-black text-gray-300 uppercase">{d}</span>))}</div>
                   
-                  <div className="flex-1 grid grid-cols-7 grid-rows-6 gap-2 min-h-0">
+                  <div className="flex-1 grid grid-cols-7 grid-rows-6 gap-2 min-h-[300px]">
                     {(() => {
                       const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate();
                       const firstDay = new Date(year, month, 1).getDay(); const offset = firstDay === 0 ? 6 : firstDay - 1;
@@ -276,12 +277,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             <button 
                                 key={d} 
                                 onClick={() => {
-                                    if (isSelected) {
-                                        // Already selected, create event
-                                        setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } });
-                                    } else {
-                                        setSelectedDate(new Date(year, month, d));
-                                    }
+                                    // Modified: Immediate event creation on first click
+                                    setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } });
                                 }} 
                                 className={`w-full h-full flex flex-col items-center justify-center rounded-xl border relative transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`}
                             >
@@ -298,19 +295,13 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 </div>
                 
                 <div className="w-full md:w-80 space-y-4 overflow-y-auto no-scrollbar md:h-full shrink-0">
-                  <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 sticky top-0 bg-[#EBEFF5] py-2 z-10">События {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long'})}</h3>
-                  {sortedEvents.filter(e => e.date === selectedDate.toISOString().split('T')[0]).length === 0 ? 
+                  <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 sticky top-0 bg-[#EBEFF5] py-2 z-10">События в этом месяце</h3>
+                  {sortedEvents.filter(e => e.date.startsWith(selectedDate.toISOString().slice(0,7))).length === 0 ? 
                       <div className="p-8 text-center bg-white rounded-[2rem] text-gray-300 font-black uppercase text-[10px] border border-dashed border-gray-200">
                           <p className="mb-2">Нет событий</p>
                           <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0], time: '12:00' } })} className="text-blue-500">Добавить +</button>
                       </div> : 
-                      sortedEvents.filter(e => e.date === selectedDate.toISOString().split('T')[0]).map(event => (<EventCard key={event.id} event={event} members={members} settings={settings} onClick={() => setActiveEvent({ event })} />))
-                  }
-                  
-                  <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 mt-6">Другие в этом месяце</h3>
-                  {sortedEvents.filter(e => e.date.startsWith(selectedDate.toISOString().slice(0,7)) && e.date !== selectedDate.toISOString().split('T')[0]).length === 0 ? 
-                      <div className="p-4 text-center text-gray-300 font-bold text-[10px] uppercase">Пусто</div> :
-                      sortedEvents.filter(e => e.date.startsWith(selectedDate.toISOString().slice(0,7)) && e.date !== selectedDate.toISOString().split('T')[0]).map(event => (<EventCard key={event.id} event={event} members={members} settings={settings} onClick={() => setActiveEvent({ event })} />))
+                      sortedEvents.filter(e => e.date.startsWith(selectedDate.toISOString().slice(0,7))).map(event => (<EventCard key={event.id} event={event} members={members} settings={settings} onClick={() => setActiveEvent({ event })} />))
                   }
                 </div>
              </motion.div>

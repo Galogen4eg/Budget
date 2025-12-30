@@ -6,7 +6,7 @@ import {
   Mic, BrainCircuit,
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
-  Star, Archive, Edit2, Check, TrendingUp
+  Star, Archive, Edit2, Check, TrendingUp, Send
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -22,6 +22,7 @@ interface ShoppingListProps {
   onCompletePurchase: (amount: number, category: string, note: string) => void;
   transactions?: Transaction[];
   onMoveToPantry?: (item: ShoppingItem) => void;
+  onSendToTelegram?: (items: ShoppingItem[]) => Promise<boolean>;
 }
 
 const STORE_AISLES = [
@@ -37,7 +38,7 @@ const STORE_AISLES = [
 
 const UNITS: ('шт' | 'кг' | 'уп' | 'л')[] = ['шт', 'кг', 'уп', 'л'];
 
-const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, members, onCompletePurchase, transactions = [], onMoveToPantry }) => {
+const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, members, onCompletePurchase, transactions = [], onMoveToPantry, onSendToTelegram }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -53,6 +54,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const [isListening, setIsListening] = useState(false);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [scannerStatus, setScannerStatus] = useState<string>('Сканирование...');
+  const [isSending, setIsSending] = useState(false);
   
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -68,13 +70,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       transactions.forEach(t => {
           const tDate = new Date(t.date);
-          // Filter only this month and relevant categories
+          // Filter only this month and broaden category filter to catch more items
+          // Include 'food', 'shopping', 'household', 'other' and check for specific keywords if category is generic
           if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear && t.type === 'expense') {
-              if (['food', 'shopping', 'household'].includes(t.category) || t.category === 'other') {
+              if (['food', 'shopping', 'household', 'other'].includes(t.category)) {
                   // Normalize item names (split commas, trim)
                   const parts = (t.note || '').split(',').map(s => s.trim().toLowerCase());
                   parts.forEach(p => {
-                      if (p.length > 2) { // Filter out short junk
+                      // Filter out short junk and very generic terms unless they are the only thing
+                      if (p.length > 2 && !['покупка', 'оплата', 'списание'].includes(p)) { 
                           const capitalName = p.charAt(0).toUpperCase() + p.slice(1);
                           itemCounts[capitalName] = (itemCounts[capitalName] || 0) + 1;
                       }
@@ -86,7 +90,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       // Convert to array and sort
       return Object.entries(itemCounts)
           .sort(([, a], [, b]) => b - a)
-          .slice(0, 5) // Top 5
+          .slice(0, 6) // Top 6
           .map(([name, count]) => ({ title: name, count }));
   }, [transactions]);
 
@@ -125,17 +129,25 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Распознай продукты из текста: "${text}". Для каждого товара определи: title, amount, unit, aisle (один из: ${STORE_AISLES.map(a => a.id).join(', ')}). Верни ТОЛЬКО JSON массив объектов.`,
+        contents: `Распознай продукты из текста: "${text}". Для каждого товара определи: title, amount, unit, aisle (один из: ${STORE_AISLES.map(a => a.id).join(', ')}). 
+        Верни ТОЛЬКО JSON массив объектов. Без markdown, без комментариев.`,
         config: { responseMimeType: "application/json" }
       });
 
       let rawText = response.text || '[]';
-      // More robust JSON cleaning
-      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const start = rawText.indexOf('[');
-      const end = rawText.lastIndexOf(']');
-      if (start !== -1 && end !== -1) {
-        rawText = rawText.substring(start, end + 1);
+      
+      // Robust Cleaning
+      const firstBracket = rawText.indexOf('[');
+      const lastBracket = rawText.lastIndexOf(']');
+      
+      if (firstBracket !== -1 && lastBracket !== -1) {
+          rawText = rawText.substring(firstBracket, lastBracket + 1);
+      } else {
+          const firstBrace = rawText.indexOf('{');
+          const lastBrace = rawText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+              rawText = `[${rawText.substring(firstBrace, lastBrace + 1)}]`;
+          }
       }
 
       const parsedData = JSON.parse(rawText) as any[];
@@ -158,7 +170,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         showNotify('warning', 'Не удалось найти товары в тексте');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Gemini Parse Error:", err);
       showNotify('error', 'Ошибка распознавания');
     } finally {
       setIsProcessingAI(false);
@@ -178,7 +190,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     r.start();
   };
 
-  // ... (Rest of component unchanged) ...
   const startScanner = () => { 
     setScannerStatus('Наведите камеру на штрихкод');
     isScanningLocked.current = false; 
@@ -305,6 +316,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     setItems([newItem, ...items]); vibrate('success'); showNotify('success', `Добавлено: ${title}`);
   };
 
+  const handleSendList = async () => {
+      if (!onSendToTelegram || activeItems.length === 0) return;
+      setIsSending(true);
+      await onSendToTelegram(activeItems);
+      setIsSending(false);
+  };
+
   const activeItems = useMemo(() => items.filter(i => !i.completed), [items]);
   const completedItems = useMemo(() => items.filter(i => i.completed), [items]);
   const progress = items.length > 0 ? Math.round((completedItems.length / items.length) * 100) : 0;
@@ -345,7 +363,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                         
                         <div className="grid grid-cols-2 gap-4">
                           <div className="bg-white p-4 rounded-2xl flex items-center gap-3 border border-white focus-within:border-blue-200 transition-all shadow-sm">
-                            {/* Scale Icon Removed here */}
                             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-lg text-[#1C1C1E] w-full" />
                           </div>
                           <div className="flex bg-gray-200/50 p-1.5 rounded-2xl border border-transparent">
@@ -423,6 +440,11 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           <div><h2 className="text-2xl font-black tracking-tight text-[#1C1C1E]">Покупки</h2><p className="text-[10px] font-black text-gray-400 uppercase">{items.length} поз.</p></div>
         </div>
         <div className="flex gap-2">
+           {activeItems.length > 0 && onSendToTelegram && (
+               <button onClick={handleSendList} disabled={isSending} className="px-3 py-3.5 bg-blue-50 text-blue-500 rounded-2xl shadow-sm font-black text-[11px] uppercase flex items-center justify-center transition-all active:scale-95 disabled:opacity-50">
+                   {isSending ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} />}
+               </button>
+           )}
            <button onClick={() => setIsStoreMode(true)} className="px-5 py-3.5 bg-blue-500 rounded-2xl text-white shadow-lg font-black text-[11px] uppercase flex items-center gap-2"><Maximize2 size={16} /> Магазин</button>
         </div>
       </div>

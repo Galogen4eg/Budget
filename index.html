@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Семейный Бюджет</title>
     <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" href="https://cdn3d.iconscout.com/3d/premium/thumb/piggy-bank-2872365-2389510.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
@@ -23,6 +24,11 @@
         line-height: 1.5;
         text-rendering: optimizeLegibility;
         overscroll-behavior-y: none;
+        -webkit-tap-highlight-color: transparent; /* Fix for black frame on tap */
+      }
+      
+      * {
+        -webkit-tap-highlight-color: transparent;
       }
       
       .tabular {

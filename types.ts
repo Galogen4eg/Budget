@@ -102,14 +102,6 @@ export interface PantryItem {
   addedDate: string;
 }
 
-export interface MeterReading {
-  id: string;
-  type: 'water_hot' | 'water_cold' | 'electricity' | 'gas';
-  value: number;
-  date: string;
-  prevValue?: number;
-}
-
 export interface LoyaltyCard {
   id: string;
   name: string;
@@ -123,6 +115,14 @@ export interface MandatoryExpense {
   id: string;
   name: string;
   amount: number;
+}
+
+export interface MeterReading {
+  id: string;
+  type: 'water_hot' | 'water_cold' | 'electricity' | 'gas';
+  value: number;
+  date: string;
+  prevValue?: number;
 }
 
 export interface AppSettings {
@@ -142,9 +142,12 @@ export interface AppSettings {
 
   telegramBotToken?: string;
   telegramChatId?: string;
+  autoSendEventsToTelegram: boolean;
+  eventTemplate?: string;
+  shoppingTemplate?: string;
+  
   dayStartHour: number;
   dayEndHour: number;
-  autoSendEventsToTelegram: boolean;
   
   // Salary / Balance Config
   initialBalance: number;

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell } from 'lucide-react';
-import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard } from './types';
+import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
 import TransactionHistory from './components/TransactionHistory';
@@ -35,11 +35,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   privacyMode: false,
   enabledWidgets: ['balance', 'daily', 'spent', 'goals', 'charts', 'shopping'],
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'meters', 'chat'],
+  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat'],
   isPinEnabled: true, 
   defaultBudgetMode: 'family',
   telegramBotToken: '',
   telegramChatId: '',
+  eventTemplate: '📅 *{{title}}*\n🗓 {{date}} {{time}}\n📝 {{description}}',
+  shoppingTemplate: '🛒 *Список покупок:*\n\n{{items}}',
   dayStartHour: 8,
   dayEndHour: 22,
   autoSendEventsToTelegram: false,
@@ -143,7 +145,6 @@ const App: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
-  const [meterReadings, setMeterReadings] = useState<MeterReading[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -200,11 +201,10 @@ const App: React.FC = () => {
     const unsubSubs = subscribeToCollection(familyId, 'subscriptions', (data) => setSubscriptions(data as Subscription[]));
     const unsubDebts = subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[]));
     const unsubPantry = subscribeToCollection(familyId, 'pantry', (data) => setPantry(data as PantryItem[]));
-    const unsubMeters = subscribeToCollection(familyId, 'meters', (data) => setMeterReadings(data as MeterReading[]));
     const unsubCards = subscribeToCollection(familyId, 'cards', (data) => setLoyaltyCards(data as LoyaltyCard[]));
     const unsubSettings = subscribeToSettings(familyId, (data) => { setSettings({ ...DEFAULT_SETTINGS, ...data }); });
 
-    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubMeters(); unsubCards(); unsubSettings(); };
+    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubSettings(); };
   }, [familyId, user]);
 
   useEffect(() => { if (user && familyId && membersLoaded) { const me = familyMembers.find(m => m.userId === user.uid || m.id === user.uid); setIsOnboarding(!me); } }, [user, familyId, membersLoaded, familyMembers]);
@@ -215,7 +215,52 @@ const App: React.FC = () => {
   const togglePrivacy = () => { const newMode = !settings.privacyMode; setSettings(prev => ({...prev, privacyMode: newMode})); if (familyId) { saveSettings(familyId, {...settings, privacyMode: newMode}); } };
   useEffect(() => { const savedPin = localStorage.getItem('family_budget_pin'); setPinCode(savedPin); if (savedPin) setPinStatus('locked'); else if (settings.isPinEnabled && !savedPin) { setPinStatus('create'); } else setPinStatus('unlocked'); }, []);
   const createSyncHandler = <T extends { id: string }>(collectionName: string, currentState: T[]) => { return (newStateOrUpdater: T[] | ((prev: T[]) => T[])) => { if (!familyId) return; let newState: T[]; if (typeof newStateOrUpdater === 'function') { newState = (newStateOrUpdater as Function)(currentState); } else { newState = newStateOrUpdater; } const newIds = new Set(newState.map(i => i.id)); currentState.forEach(item => { if (!newIds.has(item.id)) deleteItem(familyId, collectionName, item.id); }); newState.forEach(newItem => { const oldItem = currentState.find(i => i.id === newItem.id); if (!oldItem) { addItem(familyId, collectionName, newItem); } else if (JSON.stringify(oldItem) !== JSON.stringify(newItem)) { updateItem(familyId, collectionName, newItem.id, newItem); } }); }; };
-  const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { if (!settings.telegramBotToken || !settings.telegramChatId) return false; try { await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: settings.telegramChatId, text: `📅 *${event.title}*\n🗓 ${event.date} ${event.time}`, parse_mode: 'Markdown' }) }); return true; } catch (e) { return false; } };
+  
+  // Telegram Logic
+  const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { 
+    if (!settings.telegramBotToken || !settings.telegramChatId) return false; 
+    
+    // Parse template
+    let text = settings.eventTemplate || DEFAULT_SETTINGS.eventTemplate || "";
+    text = text.replace('{{title}}', event.title)
+               .replace('{{date}}', event.date)
+               .replace('{{time}}', event.time)
+               .replace('{{description}}', event.description || '');
+
+    try { 
+      await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'Markdown' }) 
+      }); 
+      return true; 
+    } catch (e) { return false; } 
+  };
+
+  const handleSendShoppingToTelegram = async (items: ShoppingItem[]): Promise<boolean> => {
+    if (!settings.telegramBotToken || !settings.telegramChatId) {
+      alert("Не настроен Telegram. Укажите Token и Chat ID в настройках.");
+      return false;
+    }
+
+    const listText = items.map(i => `- ${i.title} (${i.amount} ${i.unit})`).join('\n');
+    let text = settings.shoppingTemplate || DEFAULT_SETTINGS.shoppingTemplate || "";
+    text = text.replace('{{items}}', listText);
+
+    try {
+      await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'Markdown' }) 
+      });
+      setAppNotification({ message: "Список покупок отправлен в Telegram!" });
+      return true;
+    } catch (e) {
+      setAppNotification({ message: "Ошибка отправки в Telegram", type: "error" });
+      return false;
+    }
+  };
+
   const handleSaveTransaction = (tx: Omit<Transaction, 'id'>) => { if (!familyId) return; if (editingTransaction) { updateItem(familyId, 'transactions', editingTransaction.id, tx); } else { addItem(familyId, 'transactions', { ...tx, id: Date.now().toString(), userId: user?.uid }); } };
   const handleDeleteTransaction = (id: string) => { if (!familyId) return; deleteItem(familyId, 'transactions', id); setIsModalOpen(false); setEditingTransaction(null); };
   const handleGoogleLogin = async () => { setAuthErrorDomain(null); try { await signInWithPopup(auth, googleProvider); } catch (error: any) { if (error.code === 'auth/unauthorized-domain') { setAuthErrorDomain(window.location.hostname); return; } try { await signInWithRedirect(auth, googleProvider); } catch (e) {} } };
@@ -271,19 +316,19 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8 w-full">
-              {/* Changed grid-cols-1 to grid-cols-2 for mobile to allow side-by-side widgets */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 items-start w-full">
+              {/* Using auto-rows-fr to enforce equal height for grid items in the same row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 items-stretch auto-rows-fr w-full">
                 {settings.enabledWidgets.map(widgetId => {
                     // Balance: Full width (2 cols on mobile, 2 on desktop usually)
-                    if (widgetId === 'balance') return <SmartHeader key="balance" balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="col-span-2 w-full" />;
+                    if (widgetId === 'balance') return <SmartHeader key="balance" balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="col-span-2 w-full h-full" />;
                     // Daily & Spent: Half width (1 col on mobile)
-                    if (widgetId === 'daily' && !settings.enabledWidgets.includes('balance')) return <Widget key="daily" className="col-span-1 w-full" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />;
-                    if (widgetId === 'spent') return <Widget key="spent" className="col-span-1 w-full" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />;
+                    if (widgetId === 'daily' && !settings.enabledWidgets.includes('balance')) return <Widget key="daily" className="col-span-1 w-full h-full" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />;
+                    if (widgetId === 'spent') return <Widget key="spent" className="col-span-1 w-full h-full" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />;
                     // Charts: Full width on mobile (col-span-2) because charts are complex, 1 col on desktop
-                    if (widgetId === 'charts') return <div key="charts" className="col-span-2 md:col-span-1 w-full"><ChartsSection transactions={filteredTransactions} settings={settings} /></div>;
+                    if (widgetId === 'charts') return <div key="charts" className="col-span-2 md:col-span-1 w-full h-full"><ChartsSection transactions={filteredTransactions} settings={settings} /></div>;
                     // Goals & Shopping: Half width on mobile (col-span-1) to allow 2 rows effect
                     if (widgetId === 'goals') return <div key="goals" className="col-span-1 w-full h-full"><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>;
-                    if (widgetId === 'shopping') return <div key="shopping" className="col-span-1 w-full space-y-0 bg-white p-6 rounded-[2.5rem] border border-white shadow-soft h-full"><div className="flex items-center justify-between mb-4"><h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Нужно купить</h3><button onClick={() => setActiveTab('shopping')} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider">Все</button></div>{shoppingPreview.length === 0 ? <div className="flex flex-col items-center justify-center text-center text-gray-300 py-6 border-2 border-dashed border-gray-100 rounded-2xl"><ShoppingBag size={20} className="mb-2 opacity-50"/><span className="font-bold text-[10px] uppercase">Список пуст</span></div> : <div className="grid gap-2">{shoppingPreview.map(item => (<div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50 rounded-2xl border border-gray-100"><div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" /><span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span></div>))}</div>}</div>;
+                    if (widgetId === 'shopping') return <div key="shopping" className="col-span-1 w-full h-full space-y-0 bg-white p-6 rounded-[2.5rem] border border-white shadow-soft flex flex-col"><div className="flex items-center justify-between mb-4"><h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Нужно купить</h3><button onClick={() => setActiveTab('shopping')} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider">Все</button></div>{shoppingPreview.length === 0 ? <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-300 py-6 border-2 border-dashed border-gray-100 rounded-2xl"><ShoppingBag size={20} className="mb-2 opacity-50"/><span className="font-bold text-[10px] uppercase">Список пуст</span></div> : <div className="grid gap-2">{shoppingPreview.map(item => (<div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50 rounded-2xl border border-gray-100"><div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" /><span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span></div>))}</div>}</div>;
                     return null;
                 })}
               </div>
@@ -309,12 +354,12 @@ const App: React.FC = () => {
           )}
           {activeTab === 'shopping' && (
             <motion.div key="shopping" className="w-full">
-               <ShoppingList items={shoppingItems} setItems={createSyncHandler('shopping', shoppingItems)} settings={settings} members={familyMembers} transactions={transactions} onCompletePurchase={(a,c,n) => handleSaveTransaction({amount:a,category:c,note:n,type:'expense',memberId:user.uid,date:new Date().toISOString()})} onMoveToPantry={(item) => { const newItem: PantryItem = { id: Date.now().toString(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() }; if(familyId) addItem(familyId, 'pantry', newItem); }} />
+               <ShoppingList items={shoppingItems} setItems={createSyncHandler('shopping', shoppingItems)} settings={settings} members={familyMembers} transactions={transactions} onCompletePurchase={(a,c,n) => handleSaveTransaction({amount:a,category:c,note:n,type:'expense',memberId:user.uid,date:new Date().toISOString()})} onMoveToPantry={(item) => { const newItem: PantryItem = { id: Date.now().toString(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() }; if(familyId) addItem(familyId, 'pantry', newItem); }} onSendToTelegram={handleSendShoppingToTelegram} />
             </motion.div>
           )}
           {activeTab === 'services' && (
             <motion.div key="services" className="w-full">
-               <ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry)} meterReadings={meterReadings} setMeterReadings={createSyncHandler('meters', meterReadings)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards)} />
+               <ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards)} />
             </motion.div>
           )}
         </AnimatePresence>

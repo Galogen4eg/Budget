@@ -181,6 +181,7 @@ export interface AppSettings {
 
   alfaMapping: {
     date: string;
+    time: string;
     amount: string;
     category: string;
     note: string;

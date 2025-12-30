@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2, Link } from 'lucide-react';
+import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2, Link, Info } from 'lucide-react';
 import { Transaction, TransactionType, AppSettings, FamilyMember, Category, MandatoryExpense } from '../types';
 import { MemberMarker } from '../constants';
 import { GoogleGenAI } from "@google/genai";
@@ -41,7 +41,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || isNaN(Number(amount))) return;
-    // Always treat amount as positive here, logic handles negative based on type
     const absAmount = Math.abs(Number(amount));
     
     onSubmit({
@@ -196,7 +195,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                 type="number"
                 min="0"
                 value={amount}
-                onChange={(e) => setAmount(String(Math.abs(Number(e.target.value))))} // Prevent negative
+                onChange={(e) => setAmount(String(Math.abs(Number(e.target.value))))} 
                 placeholder="0"
                 className="text-6xl font-black bg-transparent text-center outline-none w-full placeholder:text-gray-200 tracking-tighter text-[#1C1C1E] tabular"
               />
@@ -212,6 +211,17 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
               />
             </div>
           </div>
+
+          {initialTransaction?.rawNote && initialTransaction.rawNote !== initialTransaction.note && (
+             <div className="bg-gray-100/50 p-5 rounded-[2rem] border border-gray-200/50 space-y-2">
+                <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                   <Info size={12}/> Исходное описание из выписки
+                </div>
+                <p className="text-[11px] font-medium text-gray-500 leading-relaxed italic px-1">
+                   {initialTransaction.rawNote}
+                </p>
+             </div>
+          )}
 
           <div className="flex bg-gray-200/40 p-1.5 rounded-[1.5rem] border border-gray-100">
             {(['expense', 'income'] as const).map((t) => (

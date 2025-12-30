@@ -61,7 +61,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   initialBalanceDate: new Date().toISOString().split('T')[0],
   salaryDates: [10, 25],
   mandatoryExpenses: [],
-  alfaMapping: { date: 'дата', amount: 'сумма', category: 'категория', note: 'описание' }
+  alfaMapping: { date: 'дата', time: 'время', amount: 'сумма', category: 'категория', note: 'описание' }
 };
 
 // Robust escaping for Telegram MarkdownV2

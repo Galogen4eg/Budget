@@ -89,6 +89,11 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   };
 
   const processVoiceWithGemini = async (text: string) => {
+    if (!process.env.API_KEY) {
+        showNotify('error', 'API Key не настроен');
+        return;
+    }
+    
     setIsProcessingAI(true);
     vibrate('medium');
     try {
@@ -101,23 +106,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       });
 
       let rawText = response.text || '[]';
+      const parsedData = JSON.parse(rawText.trim()) as any[];
       
-      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const firstBracket = rawText.indexOf('[');
-      const lastBracket = rawText.lastIndexOf(']');
-      
-      if (firstBracket !== -1 && lastBracket !== -1) {
-          rawText = rawText.substring(firstBracket, lastBracket + 1);
-      } else {
-          const firstBrace = rawText.indexOf('{');
-          const lastBrace = rawText.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1) {
-              rawText = `[${rawText.substring(firstBrace, lastBrace + 1)}]`;
-          }
-      }
-
-      const parsedData = JSON.parse(rawText) as any[];
       if (Array.isArray(parsedData) && parsedData.length > 0) {
         const newItems: ShoppingItem[] = parsedData.map((item: any) => ({
           id: Math.random().toString(36).substr(2, 9),
@@ -146,63 +136,27 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SR) { 
-        showNotify('error', 'Ваш браузер не поддерживает голосовой ввод'); 
-        return; 
-    }
-    
-    if (isListening) { 
-        recognitionRef.current?.stop(); 
-        setIsListening(false);
-        return; 
-    }
+    if (!SR) { showNotify('error', 'Браузер не поддерживает голосовой ввод'); return; }
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     
     try {
         const r = new SR();
         recognitionRef.current = r;
         r.lang = 'ru-RU';
         r.interimResults = false;
-        r.maxAlternatives = 1;
-
         r.onstart = () => { setIsListening(true); vibrate('light'); };
-        
         r.onresult = (e: any) => {
             const transcript = e.results[0][0].transcript;
-            if (transcript) {
-                processVoiceWithGemini(transcript);
-            } else {
-                showNotify('warning', 'Речь не распознана');
-            }
+            if (transcript) processVoiceWithGemini(transcript);
         };
-        
         r.onerror = (e: any) => {
             console.error("Speech Error:", e);
             setIsListening(false);
-            
-            let msg = 'Ошибка микрофона';
-            switch (e.error) {
-                case 'not-allowed': msg = 'Доступ к микрофону запрещен. Проверьте настройки браузера.'; break;
-                case 'no-speech': msg = 'Речь не обнаружена. Попробуйте громче.'; break;
-                case 'network': msg = 'Ошибка сети при распознавании.'; break;
-                case 'audio-capture': msg = 'Микрофон не найден.'; break;
-                case 'aborted': msg = 'Распознавание прервано.'; break;
-                default: msg = `Ошибка: ${e.error}`;
-            }
-            showNotify('error', msg);
-            vibrate('error');
+            showNotify('error', `Ошибка: ${e.error}`);
         };
-
-        r.onend = () => {
-            // Delay setting listening to false slightly to allow onresult to fire first if successful
-            setTimeout(() => {
-                if (!isProcessingAI) setIsListening(false);
-            }, 500);
-        };
-        
+        r.onend = () => { if (!isProcessingAI) setIsListening(false); };
         r.start();
     } catch (err) {
-        console.error(err);
         showNotify('error', 'Не удалось запустить распознавание');
     }
   };
@@ -242,11 +196,10 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     if (localProduct) { addProduct(localProduct); return; }
 
     if (!navigator.onLine) {
-       openModal(decodedText); showNotify('warning', 'Офлайн: товара нет в локальной базе'); setIsScannerOpen(false); return;
+       openModal(decodedText); showNotify('warning', 'Офлайн: товара нет в базе'); setIsScannerOpen(false); return;
     }
 
     setScannerStatus('Ищу в мировой базе...');
-    await new Promise(r => setTimeout(r, 600)); 
     const onlineProduct = await searchOnlineDatabase(decodedText);
     if (onlineProduct) { addProduct(onlineProduct); return; }
 
@@ -288,32 +241,17 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
   const handleSaveItem = () => {
     if (!title.trim()) return;
-    
     if (editingItemId) {
         setItems(items.map(i => i.id === editingItemId ? {
-            ...i,
-            title: title.trim(),
-            amount: amount || '1',
-            unit: unit,
-            category: selectedAisle,
-            userId: auth.currentUser?.uid
+            ...i, title: title.trim(), amount: amount || '1', unit: unit, category: selectedAisle, userId: auth.currentUser?.uid
         } : i));
     } else {
         const newItem: ShoppingItem = {
-          id: Math.random().toString(36).substr(2, 9),
-          title: title.trim(),
-          amount: amount || '1',
-          unit: unit,
-          completed: false,
-          memberId: members[0]?.id || 'papa',
-          userId: auth.currentUser?.uid,
-          priority: 'medium',
-          category: selectedAisle
+          id: Math.random().toString(36).substr(2, 9), title: title.trim(), amount: amount || '1', unit: unit, completed: false, memberId: members[0]?.id || 'papa', userId: auth.currentUser?.uid, priority: 'medium', category: selectedAisle
         };
         setItems([newItem, ...items]);
     }
-    
-    setTitle(''); setAmount('1'); setUnit('шт'); setEditingItemId(null); setIsModalOpen(false); vibrate('light');
+    setIsModalOpen(false); vibrate('light');
   };
 
   const handleSendList = async () => {
@@ -333,76 +271,34 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-4">
              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-             <motion.div 
-                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-                className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
-             >
+             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
                 <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100">
                    <h3 className="font-black text-xl text-[#1C1C1E]">{editingItemId ? 'Редактировать' : 'Добавить'}</h3>
                    <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><X size={20}/></button>
                 </div>
-                
-                <div className="p-8 space-y-6 overflow-y-auto">
+                <div className="p-8 space-y-6 overflow-y-auto no-scrollbar">
                     <div className="space-y-4">
                         <div className="relative">
-                           <input 
-                             type="text" 
-                             value={title} 
-                             onChange={(e) => setTitle(e.target.value)} 
-                             placeholder="Что купить?" 
-                             className="w-full bg-white p-5 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] border border-white focus:border-blue-200 transition-all shadow-sm" 
-                             autoFocus
-                           />
-                           {lastPrice && (
-                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
-                               Было: {lastPrice} {settings.currency}
-                             </div>
-                           )}
+                           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что купить?" className="w-full bg-white p-5 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] border border-white focus:border-blue-200 transition-all shadow-sm" autoFocus />
+                           {lastPrice && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">Было: {lastPrice} {settings.currency}</div>}
                         </div>
-                        
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-white p-4 rounded-2xl flex items-center gap-3 border border-white focus-within:border-blue-200 transition-all shadow-sm">
-                            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-lg text-[#1C1C1E] w-full" />
-                          </div>
-                          <div className="flex bg-gray-200/50 p-1.5 rounded-2xl border border-transparent">
+                          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-white p-4 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] shadow-sm border border-white" />
+                          <div className="flex bg-gray-200/50 p-1.5 rounded-2xl">
                             {UNITS.map(u => (<button key={u} onClick={() => setUnit(u)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all uppercase tracking-wider ${unit === u ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>{u}</button>))}
                           </div>
                         </div>
-                        
                         <div className="space-y-3">
                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Отдел</label>
                            <div className="flex flex-wrap gap-2">
-                             {STORE_AISLES.slice(0, 8).map(aisle => (
-                               <button 
-                                 key={aisle.id} 
-                                 onClick={() => setSelectedAisle(aisle.id)} 
-                                 className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all flex items-center gap-2 ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-white text-gray-400 shadow-sm'}`}
-                               >
-                                 <span className="text-sm">{aisle.icon}</span> {aisle.label}
-                               </button>
-                             ))}
+                             {STORE_AISLES.map(aisle => (<button key={aisle.id} onClick={() => setSelectedAisle(aisle.id)} className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all flex items-center gap-2 ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-white text-gray-400 shadow-sm'}`}><span className="text-sm">{aisle.icon}</span> {aisle.label}</button>))}
                            </div>
                         </div>
                     </div>
-                    
-                    <button onClick={handleSaveItem} className="w-full bg-blue-500 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-xs shadow-xl ios-btn-active flex items-center justify-center gap-2">
-                       <Check size={18} strokeWidth={3} />
-                       {editingItemId ? 'Сохранить' : 'Добавить в список'}
-                    </button>
+                    <button onClick={handleSaveItem} className="w-full bg-blue-500 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-xs shadow-xl ios-btn-active flex items-center justify-center gap-2"><Check size={18} strokeWidth={3} />{editingItemId ? 'Сохранить' : 'Добавить в список'}</button>
                 </div>
              </motion.div>
           </div>
-        )}
-
-        {isStoreMode && (
-          <StoreModeOverlay items={items} setItems={setItems} onClose={() => setIsStoreMode(false)} groupedByAisle={activeItems.reduce((acc:any, i) => { (acc[i.category] = acc[i.category] || []).push(i); return acc; }, {})} vibrate={vibrate} />
-        )}
-        {notification && (
-          <motion.div initial={{ opacity: 0, y: -40, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, scale: 0.8 }} className="fixed top-28 left-1/2 z-[700] min-w-[240px]">
-            <div className={`p-4 rounded-3xl shadow-2xl flex items-center gap-4 border backdrop-blur-2xl ${notification.type === 'success' ? 'bg-green-500/95 text-white' : notification.type === 'warning' ? 'bg-orange-500/95 text-white' : notification.type === 'error' ? 'bg-red-500/95 text-white' : 'bg-blue-600/95 text-white'}`}>
-              <CheckCircle2 size={20} /> <span className="text-xs font-black uppercase tracking-wider">{notification.message}</span>
-            </div>
-          </motion.div>
         )}
         {(isProcessingAI || isListening) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[550] bg-white/70 backdrop-blur-xl flex flex-col items-center justify-center p-10">
@@ -410,19 +306,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
               <div className="relative mb-8"><div className={`absolute inset-0 bg-blue-500/20 blur-2xl rounded-full ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <MicOff size={64} className="text-red-500 relative animate-pulse" /> : <BrainCircuit size={64} className="text-blue-500 relative animate-pulse" />}</div>
               <h3 className="text-2xl font-black text-[#1C1C1E]">{isListening ? 'Слушаю вас...' : 'Gemini думает...'}</h3>
             </div>
-          </motion.div>
-        )}
-        {isScannerOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[800] bg-[#1C1C1E] flex flex-col items-center justify-center">
-            <button onClick={() => setIsScannerOpen(false)} className="absolute top-10 right-6 p-4 bg-white/20 rounded-full text-white backdrop-blur-md z-50"><X size={24} /></button>
-            <div className="absolute top-24 text-center z-50 px-6 w-full pointer-events-none">
-                <h3 className="text-white font-black text-xl mb-2">Сканирование</h3>
-                <div className="flex items-center justify-center gap-2 bg-black/40 backdrop-blur-md py-2 px-4 rounded-full mx-auto w-fit">
-                   <Loader2 className="animate-spin text-blue-500" size={16} />
-                   <p className="text-white text-xs font-bold uppercase tracking-widest">{scannerStatus}</p>
-                </div>
-            </div>
-            <div id="reader" className="w-full h-full max-w-md relative overflow-hidden" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -439,16 +322,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           <div><h2 className="text-2xl font-black tracking-tight text-[#1C1C1E]">Покупки</h2><p className="text-[10px] font-black text-gray-400 uppercase">{items.length} поз.</p></div>
         </div>
         <div className="flex gap-2">
-           {activeItems.length > 0 && onSendToTelegram && (
-               <button onClick={handleSendList} disabled={isSending} className="px-3 py-3.5 bg-blue-50 text-blue-500 rounded-2xl shadow-sm font-black text-[11px] uppercase flex items-center justify-center transition-all active:scale-95 disabled:opacity-50">
-                   {isSending ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} />}
-               </button>
-           )}
+           {activeItems.length > 0 && onSendToTelegram && <button onClick={handleSendList} disabled={isSending} className="px-3 py-3.5 bg-blue-50 text-blue-500 rounded-2xl shadow-sm font-black text-[11px] uppercase flex items-center justify-center transition-all active:scale-95 disabled:opacity-50">{isSending ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} />}</button>}
            <button onClick={() => setIsStoreMode(true)} className="px-5 py-3.5 bg-blue-500 rounded-2xl text-white shadow-lg font-black text-[11px] uppercase flex items-center gap-2"><Maximize2 size={16} /> Магазин</button>
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-soft border border-white overflow-hidden transition-all p-7 flex items-center justify-between">
+      <div className="bg-white rounded-[2.5rem] shadow-soft border border-white p-7 flex items-center justify-between">
           <div className="flex items-center gap-4 cursor-pointer" onClick={() => openModal()}>
             <div className="w-11 h-11 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"><Plus size={24} strokeWidth={3} /></div>
             <span className="font-black text-lg text-[#1C1C1E]">Добавить товар</span>
@@ -459,71 +338,24 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {activeItems.map(item => (
           <ShoppingCard key={item.id} item={item} onToggle={() => setItems(items.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} onRemove={() => setItems(items.filter(i => i.id !== item.id))} onEdit={() => openEditModal(item)} />
         ))}
       </div>
-
-      {completedItems.length > 0 && (
-        <div className="mt-14 pt-8 border-t border-gray-100 space-y-4">
-          <div className="opacity-40 space-y-3">
-            {completedItems.map(item => (
-              <ShoppingCard 
-                 key={item.id} item={item} 
-                 onToggle={() => setItems(items.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} 
-                 onRemove={() => setItems(items.filter(i => i.id !== item.id))} 
-                 onPantry={onMoveToPantry}
-                 onEdit={() => openEditModal(item)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 const ShoppingCard = ({ item, onToggle, onRemove, onPantry, onEdit }: any) => (
-  <motion.div 
-    layout 
-    onClick={() => !item.completed && onEdit()} 
-    className="bg-white p-5 rounded-[1.8rem] border border-white shadow-soft flex items-center gap-5 transition-all cursor-pointer active:scale-[0.99]"
-  >
-    <button 
-      onClick={(e) => { e.stopPropagation(); onToggle(); }} 
-      className={`p-1 transition-colors flex-shrink-0 ${item.completed ? 'text-green-500' : 'text-gray-200 hover:text-green-400'}`}
-    >
-      {item.completed ? <CheckCircle2 size={26} fill="currentColor" className="text-white" /> : <Circle size={26} />}
-    </button>
+  <motion.div layout onClick={() => !item.completed && onEdit()} className="bg-white p-5 rounded-[1.8rem] border border-white shadow-soft flex items-center gap-5 transition-all cursor-pointer active:scale-[0.99]">
+    <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`p-1 flex-shrink-0 ${item.completed ? 'text-green-500' : 'text-gray-200'}`}>{item.completed ? <CheckCircle2 size={26} fill="currentColor" className="text-white" /> : <Circle size={26} />}</button>
     <div className="flex-1 min-w-0">
       <h5 className={`font-bold text-[15px] truncate ${item.completed ? 'line-through text-gray-400' : 'text-[#1C1C1E]'}`}>{item.title}</h5>
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{item.amount || '1'} {item.unit || 'шт'} • {STORE_AISLES.find(a => a.id === item.category)?.label || 'Прочее'}</p>
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5 whitespace-nowrap">{item.amount || '1'} {item.unit || 'шт'} • {STORE_AISLES.find(a => a.id === item.category)?.label || 'Прочее'}</p>
     </div>
-    <div className="flex gap-2">
-       {item.completed && onPantry && (
-         <button onClick={(e) => { e.stopPropagation(); onPantry(item); alert('Добавлено в кладовку'); }} className="p-2.5 text-blue-500 bg-blue-50 rounded-xl transition-colors">
-            <Archive size={18} />
-         </button>
-       )}
-       <button onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} className="p-2.5 text-gray-200 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={20} /></button>
-    </div>
+    <button onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} className="p-2.5 text-gray-200 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={20} /></button>
   </motion.div>
-);
-
-const StoreModeOverlay = ({ items, setItems, onClose, groupedByAisle, vibrate }: any) => (
-    <motion.div initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed inset-0 z-[550] bg-[#F2F2F7] flex flex-col">
-      <header className="bg-white p-7 border-b border-gray-100 flex justify-between items-center"><h2 className="text-xl font-black text-[#1C1C1E]">Режим закупки</h2><button onClick={onClose} className="p-3.5 bg-gray-100 rounded-full text-gray-500"><X size={24} /></button></header>
-      <div className="flex-1 overflow-y-auto p-7 space-y-12 no-scrollbar">
-        {Object.entries(groupedByAisle || {}).length === 0 ? <div className="flex flex-col items-center justify-center h-full opacity-20"><p className="mt-4 font-black uppercase tracking-widest">Список пуст</p></div> : Object.entries(groupedByAisle || {}).map(([aisleId, aisleItems]: [string, any]) => (
-            <div key={aisleId} className="space-y-5">
-              <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-400 ml-2">{STORE_AISLES.find(a => a.id === aisleId)?.label}</h4>
-              <div className="grid gap-4">{aisleItems.map((item: any) => (<motion.div key={item.id} onClick={() => { setItems(items.map((i:any) => i.id === item.id ? {...i, completed: true} : i)); vibrate('medium'); }} className="bg-white p-7 rounded-[2.5rem] shadow-sm flex items-center gap-6 ios-btn-active border border-white"><div className="w-10 h-10 border-2 border-gray-100 rounded-full flex-shrink-0" /><div className="flex-1"><h5 className="font-black text-xl text-[#1C1C1E] leading-tight">{item.title}</h5><p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">{item.amount} {item.unit}</p></div></motion.div>))}</div>
-            </div>
-          ))
-        }
-      </div>
-    </motion.div>
 );
 
 export default ShoppingList;

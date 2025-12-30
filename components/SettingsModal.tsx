@@ -100,7 +100,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     handleChange(key, next);
   };
 
-  // Widget Handling
   const moveWidget = (index: number, direction: 'up' | 'down') => {
       const widgets = [...settings.widgets];
       if (direction === 'up' && index > 0) {
@@ -125,7 +124,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       handleChange('widgets', widgets);
   };
 
-  // ... (rest of CRUD handlers same as before) ...
   const handleAddCategory = () => { if (!newCategory.label.trim()) return; const newCat: Category = { ...newCategory, id: newCategory.label.toLowerCase().replace(/\s/g, '_'), isCustom: true }; onUpdateCategories([...categories, newCat]); setNewCategory({ label: '', icon: PRESET_ICONS[0], color: PRESET_COLORS[5] }); };
   const handleDeleteCategory = (id: string) => { onUpdateCategories(categories.filter(c => c.id !== id)); onUpdateRules(learnedRules.filter(r => r.categoryId !== id)); };
   const handleAddRule = (categoryId: string) => { if (!newRule.keyword.trim() || !newRule.cleanName.trim()) return; const rule: LearnedRule = { id: Date.now().toString(), categoryId, ...newRule }; onUpdateRules([...learnedRules, rule]); setNewRule({ keyword: '', cleanName: '' }); };
@@ -142,29 +140,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const handleMassDelete = async () => {
     if (!currentFamilyId || !massDeleteStart || !massDeleteEnd) return;
-    
     const start = new Date(massDeleteStart);
     start.setHours(0,0,0,0);
     const end = new Date(massDeleteEnd);
     end.setHours(23,59,59,999);
-
     const toDelete = transactions.filter(t => {
         const d = new Date(t.date);
         return d >= start && d <= end;
     });
-
-    if (toDelete.length === 0) {
-        alert("За этот период операций не найдено");
-        return;
-    }
-
-    if (confirm(`Вы точно хотите удалить ${toDelete.length} операций? Это действие нельзя отменить.`)) {
+    if (toDelete.length === 0) { alert("За этот период операций не найдено"); return; }
+    if (confirm(`Вы точно хотите удалить ${toDelete.length} операций?`)) {
         setIsMassDeleting(true);
         try {
-            // Chunking because batch limit is 500
             const CHUNK_SIZE = 450;
             const ids = toDelete.map(t => t.id);
-            
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
                 await deleteItemsBatch(currentFamilyId, 'transactions', chunk);
@@ -172,12 +161,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             alert("Операции успешно удалены");
             setMassDeleteStart('');
             setMassDeleteEnd('');
-        } catch (e) {
-            console.error(e);
-            alert("Ошибка при удалении");
-        } finally {
-            setIsMassDeleting(false);
-        }
+        } catch (e) { console.error(e); alert("Ошибка при удалении"); } finally { setIsMassDeleting(false); }
     }
   };
 
@@ -200,89 +184,52 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
              <div className="space-y-6">
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                     <h3 className="text-lg font-black text-[#1C1C1E] mb-4">Настройка главной</h3>
-                    
                     <div className="space-y-3">
                         {settings.widgets.map((widgetConfig, index) => {
                             const meta = WIDGET_METADATA.find(m => m.id === widgetConfig.id);
                             if (!meta) return null;
                             const isEditing = editingWidgetId === widgetConfig.id;
-
                             return (
                                 <div key={widgetConfig.id} className={`rounded-2xl transition-all border ${isEditing ? 'bg-gray-50 border-blue-200' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    {/* Header Row */}
                                     <div className="flex items-center p-4 gap-3">
                                         <div className="flex flex-col gap-1">
                                             <button onClick={() => moveWidget(index, 'up')} disabled={index === 0} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ArrowUp size={14}/></button>
                                             <button onClick={() => moveWidget(index, 'down')} disabled={index === settings.widgets.length - 1} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ArrowDown size={14}/></button>
                                         </div>
-                                        
-                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm border border-gray-50">
-                                            {meta.icon}
-                                        </div>
-                                        
+                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm border border-gray-50">{meta.icon}</div>
                                         <div className="flex-1">
                                             <span className="font-bold text-sm text-[#1C1C1E] block">{meta.label}</span>
                                             <span className="text-[10px] text-gray-400">
-                                                {widgetConfig.isVisible ? 
-                                                    `📱 ${widgetConfig.mobile.colSpan}x${widgetConfig.mobile.rowSpan} • 🖥️ ${widgetConfig.desktop.colSpan}x${widgetConfig.desktop.rowSpan}` : 
-                                                    'Скрыт'
-                                                }
+                                                {widgetConfig.isVisible ? `📱 ${widgetConfig.mobile.colSpan}x${widgetConfig.mobile.rowSpan} • 🖥️ ${widgetConfig.desktop.colSpan}x${widgetConfig.desktop.rowSpan}` : 'Скрыт'}
                                             </span>
                                         </div>
-
                                         <button onClick={() => toggleWidgetVisibility(widgetConfig.id)} className={`transition-colors ${widgetConfig.isVisible ? 'text-green-500' : 'text-gray-300'}`}>
                                             {widgetConfig.isVisible ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                                         </button>
-                                        
-                                        <button onClick={() => setEditingWidgetId(isEditing ? null : widgetConfig.id)} className={`p-2 rounded-xl transition-colors ${isEditing ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                                            <Edit2 size={16} />
-                                        </button>
+                                        <button onClick={() => setEditingWidgetId(isEditing ? null : widgetConfig.id)} className={`p-2 rounded-xl transition-colors ${isEditing ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}><Edit2 size={16} /></button>
                                     </div>
-
-                                    {/* Editor Panel */}
                                     <AnimatePresence>
                                         {isEditing && (
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-gray-200/50">
                                                 <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {/* Mobile Config */}
                                                     <div className="space-y-2">
-                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                                                            <SmartphoneIcon size={12} /> Телефон
-                                                        </div>
+                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest"><SmartphoneIcon size={12} /> Телефон</div>
                                                         <div className="flex flex-wrap gap-2">
                                                             {GRID_SIZES.filter(s => !s.desktopOnly).map(size => {
                                                                 const isActive = widgetConfig.mobile.colSpan === size.w && widgetConfig.mobile.rowSpan === size.h;
                                                                 return (
-                                                                    <button 
-                                                                        type="button"
-                                                                        key={size.label}
-                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'mobile', size.w, size.h); }}
-                                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
-                                                                    >
-                                                                        {size.label}
-                                                                    </button>
+                                                                    <button type="button" key={size.label} onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'mobile', size.w, size.h); }} className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}>{size.label}</button>
                                                                 )
                                                             })}
                                                         </div>
                                                     </div>
-
-                                                    {/* Desktop Config */}
                                                     <div className="space-y-2">
-                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                                                            <Monitor size={12} /> Компьютер
-                                                        </div>
+                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest"><Monitor size={12} /> Компьютер</div>
                                                         <div className="flex flex-wrap gap-2">
                                                             {GRID_SIZES.map(size => {
                                                                 const isActive = widgetConfig.desktop.colSpan === size.w && widgetConfig.desktop.rowSpan === size.h;
                                                                 return (
-                                                                    <button 
-                                                                        type="button"
-                                                                        key={size.label}
-                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'desktop', size.w, size.h); }}
-                                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
-                                                                    >
-                                                                        {size.label}
-                                                                    </button>
+                                                                    <button type="button" key={size.label} onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'desktop', size.w, size.h); }} className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}>{size.label}</button>
                                                                 )
                                                             })}
                                                         </div>
@@ -320,11 +267,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="flex gap-4"><div className="flex-1 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Число начала месяца</label><input type="number" min="1" max="31" value={settings.startOfMonthDay} onChange={(e) => handleChange('startOfMonthDay', Number(e.target.value))} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" /></div><div className="flex-1 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни Зарплаты</label><input type="text" placeholder="10, 25" value={settings.salaryDates?.join(', ') || ''} onChange={(e) => { const val = e.target.value; const dates = val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0 && n <= 31); handleChange('salaryDates', dates); }} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" /></div></div>
                     <div className="space-y-2"><div className="flex justify-between items-center px-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Процент в копилку</label><span className="text-sm font-black text-blue-500">{savingsRate}%</span></div><input type="range" min="0" max="50" step="1" value={savingsRate} onChange={(e) => setSavingsRate(Number(e.target.value))} className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500" /><p className="text-[9px] text-gray-400 px-2">Этот % вычитается из баланса при расчете доступного лимита.</p></div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl space-y-4 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2 flex items-center gap-2"><DollarSign size={20} className="text-red-500"/> Обязательные расходы</h3><p className="text-xs text-gray-400 leading-tight">Укажите ежемесячные платежи. Они будут вычитаться из лимита.</p><div className="space-y-2">{(settings.mandatoryExpenses || []).map((exp) => (<div key={exp.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100"><span className="font-bold text-sm text-[#1C1C1E] pl-2">{exp.name}</span><div className="flex items-center gap-3"><span className="font-black text-sm">{exp.amount.toLocaleString()} {settings.currency}</span><button onClick={() => handleDeleteMandatoryExpense(exp.id)} className="text-gray-400 hover:text-red-500"><X size={16}/></button></div></div>))}</div><div className="flex gap-2 pt-2 border-t border-gray-50"><input type="text" placeholder="Название..." value={newExpenseName} onChange={(e) => setNewExpenseName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><input type="number" placeholder="Сумма" value={newExpenseAmount} onChange={(e) => setNewExpenseAmount(e.target.value)} className="w-24 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><button onClick={handleAddMandatoryExpense} className="bg-black text-white p-3 rounded-xl flex items-center justify-center shadow-lg"><Plus size={18}/></button></div></div>
+                <div className="bg-white p-6 rounded-3xl space-y-4 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2 flex items-center gap-2"><DollarSign size={20} className="text-red-500"/> Обязательные расходы</h3><div className="space-y-2">{(settings.mandatoryExpenses || []).map((exp) => (<div key={exp.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100"><span className="font-bold text-sm text-[#1C1C1E] pl-2">{exp.name}</span><div className="flex items-center gap-3"><span className="font-black text-sm">{exp.amount.toLocaleString()} {settings.currency}</span><button onClick={() => handleDeleteMandatoryExpense(exp.id)} className="text-gray-400 hover:text-red-500"><X size={16}/></button></div></div>))}</div><div className="flex gap-2 pt-2 border-t border-gray-50"><input type="text" placeholder="Название..." value={newExpenseName} onChange={(e) => setNewExpenseName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><input type="number" placeholder="Сумма" value={newExpenseAmount} onChange={(e) => setNewExpenseAmount(e.target.value)} className="w-24 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><button onClick={handleAddMandatoryExpense} className="bg-black text-white p-3 rounded-xl flex items-center justify-center shadow-lg"><Plus size={18}/></button></div></div>
             </div>
         );
         case 'family': return (
-            <div className="space-y-6"><div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2">Приглашения</h3><div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Пригласить в семью</label><div className="flex gap-2"><div className="flex-1 bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] break-all border border-gray-100 flex items-center">{currentFamilyId}</div><button onClick={shareInviteLink} className="p-4 bg-blue-500 text-white hover:bg-blue-600 rounded-2xl transition-colors shadow-lg shadow-blue-500/20"><Share size={18} /></button><button onClick={() => currentFamilyId && copyToClipboard(currentFamilyId)} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors text-gray-500"><Copy size={18} /></button></div><p className="text-[10px] text-gray-400 px-2 leading-tight">Отправьте ссылку или ID члену семьи.</p></div><div className="border-t border-gray-50 pt-4 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Присоединиться к другой семье</label><input type="text" placeholder="Вставьте ID семьи..." value={targetFamilyId} onChange={(e) => setTargetFamilyId(e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-xs outline-none" /><button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId || targetFamilyId === currentFamilyId} className="w-full bg-pink-500 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-pink-500/20 disabled:opacity-50 disabled:shadow-none">Присоединиться</button></div></div></div>
+            <div className="space-y-6"><div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2">Приглашения</h3><div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Пригласить в семью</label><div className="flex gap-2"><div className="flex-1 bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] break-all border border-gray-100 flex items-center">{currentFamilyId}</div><button onClick={shareInviteLink} className="p-4 bg-blue-500 text-white hover:bg-blue-600 rounded-2xl transition-colors shadow-lg shadow-blue-500/20"><Share size={18} /></button><button onClick={() => currentFamilyId && copyToClipboard(currentFamilyId)} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors text-gray-500"><Copy size={18} /></button></div></div><div className="border-t border-gray-50 pt-4 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Присоединиться к другой семье</label><input type="text" placeholder="Вставьте ID семьи..." value={targetFamilyId} onChange={(e) => setTargetFamilyId(e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-xs outline-none" /><button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId || targetFamilyId === currentFamilyId} className="w-full bg-pink-500 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-pink-500/20 disabled:opacity-50 disabled:shadow-none">Присоединиться</button></div></div></div>
         );
         case 'navigation': return (
              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1">{TABS_CONFIG.map(tab => (<button key={tab.id} onClick={() => toggleArrayItem('enabledTabs', tab.id)} className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors ${tab.id === 'overview' ? 'opacity-50 cursor-not-allowed' : ''}`}><div className="flex items-center gap-4"><span className="text-xl">{tab.icon}</span><span className="text-sm font-bold">{tab.label}</span></div>{settings.enabledTabs.includes(tab.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}</button>))}</div>
@@ -356,30 +303,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         </button>
                     </div>
                 </div>
-
                 <div className="border-t border-gray-100 pt-6 space-y-6">
                     <h3 className="font-black text-sm text-[#1C1C1E]">Шаблоны сообщений</h3>
-                    
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Событие</label>
-                        <textarea 
-                            value={settings.eventTemplate || '📅 *{{title}}*\n🗓 {{date}} {{time}}\n📝 {{description}}'} 
-                            onChange={(e) => handleChange('eventTemplate', e.target.value)}
-                            className="w-full bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] outline-none h-24 resize-none leading-relaxed"
-                            placeholder="Шаблон события..."
-                        />
-                        <p className="text-[9px] text-gray-400 px-2">Переменные: {'{{title}}, {{date}}, {{time}}, {{description}}'}</p>
+                        <textarea value={settings.eventTemplate || '📅 *{{title}}*\n🗓 {{date}} {{time}}\n📝 {{description}}'} onChange={(e) => handleChange('eventTemplate', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] outline-none h-24 resize-none leading-relaxed" placeholder="Шаблон события..." />
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Список покупок</label>
-                        <textarea 
-                            value={settings.shoppingTemplate || '🛒 *Список покупок:*\n\n{{items}}'} 
-                            onChange={(e) => handleChange('shoppingTemplate', e.target.value)}
-                            className="w-full bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] outline-none h-24 resize-none leading-relaxed"
-                            placeholder="Шаблон покупок..."
-                        />
-                        <p className="text-[9px] text-gray-400 px-2">Переменные: {'{{items}}'}</p>
+                        <textarea value={settings.shoppingTemplate || '🛒 *Список покупок:*\n\n{{items}}'} onChange={(e) => handleChange('shoppingTemplate', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] outline-none h-24 resize-none leading-relaxed" placeholder="Шаблон покупок..." />
                     </div>
                 </div>
             </div>
@@ -401,42 +333,41 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="border-t border-gray-50 pt-4 space-y-3">
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Маппинг CSV/Excel</h4>
                         <div className="grid grid-cols-2 gap-3">
-                            <input type="text" value={settings.alfaMapping.date} onChange={e => handleAlfaMappingChange('date', e.target.value)} placeholder="Колонка даты" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
-                            <input type="text" value={settings.alfaMapping.amount} onChange={e => handleAlfaMappingChange('amount', e.target.value)} placeholder="Колонка суммы" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
-                            <input type="text" value={settings.alfaMapping.category} onChange={e => handleAlfaMappingChange('category', e.target.value)} placeholder="Колонка категории" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
-                            <input type="text" value={settings.alfaMapping.note} onChange={e => handleAlfaMappingChange('note', e.target.value)} placeholder="Колонка описания" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            <div className="space-y-1">
+                                <label className="text-[8px] font-black text-gray-300 uppercase pl-1">Колонка Дата</label>
+                                <input type="text" value={settings.alfaMapping.date} onChange={e => handleAlfaMappingChange('date', e.target.value)} placeholder="Дата" className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[8px] font-black text-gray-300 uppercase pl-1">Колонка Время</label>
+                                <input type="text" value={settings.alfaMapping.time} onChange={e => handleAlfaMappingChange('time', e.target.value)} placeholder="Время" className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[8px] font-black text-gray-300 uppercase pl-1">Колонка Сумма</label>
+                                <input type="text" value={settings.alfaMapping.amount} onChange={e => handleAlfaMappingChange('amount', e.target.value)} placeholder="Сумма" className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[8px] font-black text-gray-300 uppercase pl-1">Колонка Категория</label>
+                                <input type="text" value={settings.alfaMapping.category} onChange={e => handleAlfaMappingChange('category', e.target.value)} placeholder="Категория" className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-[8px] font-black text-gray-300 uppercase pl-1">Колонка Описание</label>
+                                <input type="text" value={settings.alfaMapping.note} onChange={e => handleAlfaMappingChange('note', e.target.value)} placeholder="Описание" className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            </div>
                         </div>
                     </div>
 
                     <div className="border-t border-gray-50 pt-4 space-y-3">
                         <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2"><Trash2 size={12}/> Массовое удаление</h4>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-[9px] font-bold text-gray-400">С даты</label>
-                                <input type="date" value={massDeleteStart} onChange={e => setMassDeleteStart(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[9px] font-bold text-gray-400">По дату</label>
-                                <input type="date" value={massDeleteEnd} onChange={e => setMassDeleteEnd(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" />
-                            </div>
+                            <div className="space-y-1"><label className="text-[9px] font-bold text-gray-400">С даты</label><input type="date" value={massDeleteStart} onChange={e => setMassDeleteStart(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" /></div>
+                            <div className="space-y-1"><label className="text-[9px] font-bold text-gray-400">По дату</label><input type="date" value={massDeleteEnd} onChange={e => setMassDeleteEnd(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" /></div>
                         </div>
-                        <button 
-                            onClick={handleMassDelete} 
-                            disabled={isMassDeleting || !massDeleteStart || !massDeleteEnd}
-                            className="w-full bg-red-50 text-red-500 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {isMassDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                            Удалить операции
+                        <button onClick={handleMassDelete} disabled={isMassDeleting || !massDeleteStart || !massDeleteEnd} className="w-full bg-red-50 text-red-500 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                            {isMassDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Удалить операции
                         </button>
                     </div>
                 </div>
-                
-                <div className="pt-4">
-                    <button onClick={onReset} className="w-full p-4 flex items-center justify-center gap-2 text-red-500 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors">
-                        <Trash2 size={18} />
-                        <span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span>
-                    </button>
-                </div>
+                <div className="pt-4"><button onClick={onReset} className="w-full p-4 flex items-center justify-center gap-2 text-red-500 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors"><Trash2 size={18} /><span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span></button></div>
             </div>
         );
         default: return null;

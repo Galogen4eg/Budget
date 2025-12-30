@@ -12,7 +12,8 @@ import WalletApp from './Wallet';
 
 interface ServicesHubProps {
   events: FamilyEvent[];
-  setEvents: (e: FamilyEvent[]) => void;
+  // Adjusted to accept a functional update or direct array for easier sync
+  setEvents: (e: FamilyEvent[] | ((prev: FamilyEvent[]) => FamilyEvent[])) => void;
   settings: AppSettings;
   members: FamilyMember[];
   subscriptions: Subscription[];
@@ -34,11 +35,15 @@ type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'meters' | 'chat' | 'w
 const ServicesHub: React.FC<ServicesHubProps> = (props) => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
 
-  // Removed Plans from here as it moved back to main tabs
+  const handleCreateEvent = (newEvent: FamilyEvent) => {
+     // Using functional update to ensure we have latest state if passed
+     props.setEvents((prev) => [...prev, newEvent]);
+  };
+
   const ALL_APPS = [
     { id: 'wallet', label: 'Wallet', desc: 'Карты лояльности', icon: <Wallet size={24} />, color: '#1C1C1E', component: <WalletApp cards={props.loyaltyCards} setCards={props.setLoyaltyCards} /> },
     { id: 'subs', label: 'Подписки', desc: 'Регулярные платежи', icon: <Repeat size={24} />, color: '#AF52DE', component: <SubscriptionTracker subscriptions={props.subscriptions} setSubscriptions={props.setSubscriptions} settings={props.settings} /> },
-    { id: 'chat', label: 'AI Советник', desc: 'Анализ финансов', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} /> },
+    { id: 'chat', label: 'AI Советник', desc: 'Анализ и Календарь', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} onCreateEvent={handleCreateEvent} /> },
     { id: 'meters', label: 'Счетчики', desc: 'Вода, Свет, Газ', icon: <Zap size={24} />, color: '#FF9500', component: <MeterReadings readings={props.meterReadings} setReadings={props.setMeterReadings} settings={props.settings} /> },
     { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <Box size={24} />, color: '#34C759', component: <SmartPantry items={props.pantry} setItems={props.setPantry} /> },
     { id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', component: <DebtSnowball debts={props.debts} setDebts={props.setDebts} settings={props.settings} /> },

@@ -66,6 +66,7 @@ export interface FamilyEvent {
   memberIds: string[];
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
+  reminders?: number[]; // Array of minutes before event (e.g. [60, 1440])
 }
 
 export interface Subscription {
@@ -122,7 +123,7 @@ export interface AppSettings {
   startOfMonthDay: number;
   privacyMode: boolean;
   enabledWidgets: string[];
-  isPinEnabled: boolean; // New field for PIN logic
+  isPinEnabled: boolean;
   
   // Конфигурация видимости
   enabledTabs: string[];
@@ -137,9 +138,10 @@ export interface AppSettings {
   dayEndHour: number;
   autoSendEventsToTelegram: boolean;
   
-  // Initial Balance Config
+  // Salary / Balance Config
   initialBalance: number;
-  initialBalanceDate?: string; // Date string YYYY-MM-DD
+  initialBalanceDate?: string;
+  salaryDates: number[]; // Array of days (e.g., [10, 25])
 
   alfaMapping: {
     date: string;

@@ -59,11 +59,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm">
-        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-          <Coffee size={24} className="text-gray-300" />
-        </div>
-        <p className="text-gray-400 font-bold text-center leading-relaxed">
-          В этот {filterMode === 'day' ? 'день' : 'период'} операций не было 🍃<br/>
+        <p className="text-gray-400 font-bold text-center leading-relaxed text-sm uppercase tracking-widest">
+          В этот {filterMode === 'day' ? 'день' : 'период'}<br/>операций не было
         </p>
       </div>
     );

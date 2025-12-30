@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ChevronLeft, ChevronRight, X, Trash2, Copy, Bookmark, Calendar, Clock, User, Check, Timer, Minus, History, FastForward, Mic, MicOff, Loader2, AlertCircle, Send, Sparkles, ListChecks, CheckCircle2, Circle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Trash2, Copy, Bookmark, Calendar, Clock, User, Check, Timer, Minus, History, FastForward, Mic, MicOff, Loader2, AlertCircle, Send, Sparkles, ListChecks, CheckCircle2, Circle, BrainCircuit } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { MemberMarker } from '../constants';
 import EventModal from './EventModal';
@@ -54,6 +55,80 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setActiveEvent(null);
   };
 
+  // --- Voice Logic ---
+  const processVoiceWithGemini = async (text: string) => {
+    setIsProcessingVoice(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Get today's date for context
+      const today = new Date().toISOString().split('T')[0];
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Today is ${today}. Parse this event description into JSON: "${text}".
+        Fields needed: 
+        - title (string)
+        - date (YYYY-MM-DD)
+        - time (HH:MM)
+        - duration (number, hours, default 1)
+        If date is missing, assume today or tomorrow based on context. 
+        Return JSON object ONLY.`,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const data = JSON.parse(response.text || '{}');
+      
+      if (data.title) {
+          setActiveEvent({
+              event: null,
+              prefill: {
+                  title: data.title,
+                  date: data.date || today,
+                  time: data.time || '12:00',
+                  // We can add duration to prefill if EventModal supports it, 
+                  // for now let's just stick to basics
+              }
+          });
+          showNotify('Событие распознано!');
+      } else {
+          showNotify('Не удалось понять детали события', 'error');
+      }
+
+    } catch (err) {
+      console.error(err);
+      showNotify('Ошибка обработки голоса', 'error');
+    } finally {
+      setIsProcessingVoice(false);
+    }
+  };
+
+  const startListening = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { showNotify('Голосовой ввод не поддерживается браузером', 'error'); return; }
+    
+    if (isListening) { 
+        recognitionRef.current?.stop(); 
+        setIsListening(false);
+        return; 
+    }
+
+    const r = new SR();
+    recognitionRef.current = r;
+    r.lang = 'ru-RU';
+    r.continuous = false;
+    r.interimResults = false;
+
+    r.onstart = () => setIsListening(true);
+    r.onend = () => setIsListening(false);
+    r.onresult = (e: any) => {
+        const transcript = e.results[0][0].transcript;
+        processVoiceWithGemini(transcript);
+    };
+    
+    r.start();
+  };
+  // -------------------
+
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
       const dateTimeA = new Date(`${a.date}T${a.time}`).getTime();
@@ -83,12 +158,24 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   }, [selectedDate]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <AnimatePresence>
         {notification && (
           <motion.div initial={{ opacity: 0, y: -20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: -20, x: '-50%' }} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-600 text-white border-blue-400'}`}>
             <span className="text-xs font-black uppercase tracking-widest">{notification.message}</span>
           </motion.div>
+        )}
+        {(isListening || isProcessingVoice) && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[700] bg-white/60 backdrop-blur-md flex flex-col items-center justify-center">
+                <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-gray-100 flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />
+                        {isListening ? <Mic size={48} className="text-blue-500 relative z-10" /> : <BrainCircuit size={48} className="text-purple-500 relative z-10 animate-pulse" />}
+                    </div>
+                    <p className="font-black text-lg text-[#1C1C1E]">{isListening ? 'Говорите...' : 'Обрабатываю...'}</p>
+                    <button onClick={() => { recognitionRef.current?.stop(); setIsListening(false); setIsProcessingVoice(false); }} className="text-xs font-bold text-gray-400 uppercase tracking-widest">Отмена</button>
+                </div>
+            </motion.div>
         )}
       </AnimatePresence>
 
@@ -97,13 +184,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
           <div className="flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-hidden flex-nowrap shrink-0">
             {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
               <button key={mode} onClick={() => setViewMode(mode)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
-                {mode === 'month' ? 'Мес.' : mode === 'week' ? 'Нед.' : mode === 'day' ? 'День' : 'Спис.'}
+                {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : mode === 'day' ? 'День' : 'Список'}
               </button>
             ))}
           </div>
-          <button onClick={() => setActiveEvent({ event: null })} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 ios-btn-active">
-            <Plus size={24} strokeWidth={3} />
-          </button>
+          <div className="flex gap-2">
+            <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-blue-500 border border-blue-100'}`}>
+               {isListening ? <MicOff size={22} /> : <Mic size={22} />}
+            </button>
+            <button onClick={() => setActiveEvent({ event: null })} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 ios-btn-active">
+                <Plus size={24} strokeWidth={3} />
+            </button>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -260,6 +352,6 @@ const EventCard: React.FC<{ event: FamilyEvent; members: FamilyMember[]; setting
   );
 };
 
-const EmptyPlansState = () => (<div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100"><Calendar size={24} className="text-gray-300 mb-4" /><p className="text-gray-400 font-bold text-center">Планы пока отсутствуют... 🌅</p></div>);
+const EmptyPlansState = () => (<div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100"><p className="text-gray-400 font-bold text-center">Планы пока отсутствуют... 🌅</p></div>);
 
 export default FamilyPlans;

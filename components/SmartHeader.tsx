@@ -12,15 +12,31 @@ interface SmartHeaderProps {
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, settings }) => {
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
   
-  let targetDate = new Date(currentYear, currentMonth, settings.startOfMonthDay);
-  if (now.getDate() >= settings.startOfMonthDay) {
-    targetDate = new Date(currentYear, currentMonth + 1, settings.startOfMonthDay);
+  // Logic to find closest salary date
+  const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
+    ? settings.salaryDates 
+    : [settings.startOfMonthDay]; // Fallback
+
+  // Sort dates to be sure
+  const sortedDates = [...salaryDates].sort((a, b) => a - b);
+  
+  let nextSalaryDate: Date | null = null;
+  
+  // Find first date in current month that is upcoming
+  for (const day of sortedDates) {
+      if (day > now.getDate()) {
+          nextSalaryDate = new Date(now.getFullYear(), now.getMonth(), day);
+          break;
+      }
+  }
+
+  // If no date found in current month, take the first date of next month
+  if (!nextSalaryDate) {
+      nextSalaryDate = new Date(now.getFullYear(), now.getMonth() + 1, sortedDates[0]);
   }
   
-  const diffTime = Math.abs(targetDate.getTime() - now.getTime());
+  const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   const dailyBudget = Math.max(0, (balance * (1 - savingsRate / 100)) / daysRemaining);
 

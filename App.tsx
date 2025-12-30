@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle } from 'lucide-react';
+import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight } from 'lucide-react';
 import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
@@ -20,7 +20,7 @@ import Widget from './components/Widget';
 import ChartsSection from './components/ChartsSection';
 import ServicesHub from './components/ServicesHub';
 import PinScreen from './components/PinScreen';
-import OnboardingModal from './components/OnboardingModal'; // Import new component
+import OnboardingModal from './components/OnboardingModal';
 import { parseAlfaStatement } from './utils/alfaParser';
 
 // Firebase Imports
@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSendEventsToTelegram: false,
   initialBalance: 0,
   initialBalanceDate: new Date().toISOString().split('T')[0], // Default to today
+  salaryDates: [10, 25], // Default salary dates
   alfaMapping: {
     date: 'дата',
     amount: 'сумма',
@@ -56,31 +57,68 @@ const DEFAULT_SETTINGS: AppSettings = {
 // --- Firebase Login Component ---
 const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boolean }) => {
   return (
-    <div className="min-h-screen bg-[#FBFDFF] flex flex-col items-center justify-center p-6">
-      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-blue-500/30">
-        <Sparkles size={48} />
+    <div className="min-h-screen relative flex items-center justify-center p-6 overflow-hidden">
+      {/* Background Gradient Mesh */}
+      <div className="absolute inset-0 bg-[#FBFDFF]">
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-400/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-400/20 rounded-full blur-[120px]" />
       </div>
-      <h1 className="text-3xl font-black text-[#1C1C1E] mb-2 text-center tracking-tight">Family Budget</h1>
-      <p className="text-gray-400 font-bold mb-12 text-center text-sm max-w-xs">Синхронизация, аналитика и контроль финансов в одном месте.</p>
-      
-      <button 
-        onClick={onLogin}
-        disabled={loading}
-        className="bg-white text-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 shadow-xl flex items-center gap-4 hover:scale-[1.02] transition-transform active:scale-95 w-full max-w-xs justify-center relative overflow-hidden"
+
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] w-full max-w-md md:max-w-4xl md:flex overflow-hidden"
       >
-        {loading ? (
-           <Loader2 className="animate-spin text-blue-500" />
-        ) : (
-           <>
-             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="G" />
-             <span className="font-black text-lg">Войти через Google</span>
-           </>
-        )}
-      </button>
-      
-      <p className="mt-12 text-[10px] font-black text-gray-300 uppercase tracking-widest flex items-center gap-2">
-        <Cloud size={12} /> Powered by Firebase
-      </p>
+        {/* Left Side (Visual) */}
+        <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-600 to-purple-700 p-12 flex-col justify-between text-white relative overflow-hidden">
+           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+           <div className="relative z-10">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
+                 <Sparkles size={32} className="text-white" />
+              </div>
+              <h2 className="text-4xl font-black tracking-tight leading-tight mb-4">Управляйте семейным бюджетом вместе.</h2>
+              <p className="text-blue-100 font-medium text-lg leading-relaxed opacity-90">Синхронизация, аналитика и умные советы в одном приложении.</p>
+           </div>
+           <div className="relative z-10 flex gap-2">
+              <div className="w-2 h-2 bg-white rounded-full opacity-100" />
+              <div className="w-2 h-2 bg-white rounded-full opacity-50" />
+              <div className="w-2 h-2 bg-white rounded-full opacity-50" />
+           </div>
+        </div>
+
+        {/* Right Side (Action) */}
+        <div className="p-10 md:p-14 md:w-1/2 flex flex-col justify-center items-center text-center">
+          <div className="md:hidden w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-[2rem] flex items-center justify-center text-white mb-8 shadow-xl shadow-blue-500/20">
+            <Sparkles size={40} />
+          </div>
+          
+          <h1 className="text-3xl font-black text-[#1C1C1E] mb-3 tracking-tight">Family Budget</h1>
+          <p className="text-gray-400 font-bold mb-10 text-sm md:text-base">Вход в пространство вашей семьи</p>
+          
+          <button 
+            onClick={onLogin}
+            disabled={loading}
+            className="group w-full bg-[#1C1C1E] hover:bg-black text-white p-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-4 transition-all active:scale-95 relative overflow-hidden"
+          >
+            {loading ? (
+               <Loader2 className="animate-spin text-white" />
+            ) : (
+               <>
+                 <div className="bg-white p-1.5 rounded-full">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
+                 </div>
+                 <span className="font-bold text-base">Войти через Google</span>
+                 <ArrowRight size={20} className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-6 text-gray-400" />
+               </>
+            )}
+          </button>
+          
+          <p className="mt-12 text-[10px] font-black text-gray-300 uppercase tracking-widest flex items-center gap-2">
+            <Cloud size={12} /> Powered by Firebase
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 };
@@ -125,6 +163,7 @@ const App: React.FC = () => {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
   const [isOnboarding, setIsOnboarding] = useState(false);
+  const [pendingMember, setPendingMember] = useState<FamilyMember | null>(null);
   
   // --- App State ---
   const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'plans' | 'shopping' | 'services'>('overview');
@@ -134,7 +173,6 @@ const App: React.FC = () => {
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   
-  // Start with empty array to avoid flashes of dummy data
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
 
@@ -154,12 +192,14 @@ const App: React.FC = () => {
   const [pinCode, setPinCode] = useState<string | null>(null);
   const [pinStatus, setPinStatus] = useState<'locked' | 'unlocked' | 'create' | 'disable_confirm'>('unlocked');
 
+  // PWA Install Prompt
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
-  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -167,6 +207,9 @@ const App: React.FC = () => {
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoal | null>(null);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[]>([]);
   const [savingsRate, setSavingsRate] = useState(20);
+  
+  // FAB Menu
+  const [fabOpen, setFabOpen] = useState(false);
   
   // Calendar
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -177,6 +220,16 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
+
+  // --- PWA INSTALL LISTENER ---
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   // --- CHECK FOR INVITE LINK ON LOAD ---
   useEffect(() => {
@@ -189,7 +242,6 @@ const App: React.FC = () => {
 
   // --- FIREBASE AUTH LISTENER ---
   useEffect(() => {
-    // Check for redirect result (e.g. returning from Google login)
     getRedirectResult(auth).catch((error) => {
         console.error("Redirect Login Error:", error);
         if (error.code === 'auth/unauthorized-domain') {
@@ -200,13 +252,11 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Fetch the user's mapped family ID
         try {
           const fid = await getOrInitUserFamily(currentUser);
           setFamilyId(fid);
         } catch (e) {
           console.error("Error fetching family ID", e);
-          // Fallback
           setFamilyId(currentUser.uid);
         }
       } else {
@@ -220,10 +270,8 @@ const App: React.FC = () => {
   // --- DATA SYNC (FIRESTORE) ---
   useEffect(() => {
     if (!familyId) return;
-
-    // Clear previous state before sync to avoid flashing old data if switching families
     setTransactions([]);
-    setMembersLoaded(false); // Reset loading state
+    setMembersLoaded(false); 
     
     const unsubTx = subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]));
     const unsubMembers = subscribeToCollection(familyId, 'members', (data) => {
@@ -236,7 +284,6 @@ const App: React.FC = () => {
     const unsubCats = subscribeToCollection(familyId, 'categories', (data) => { if(data.length > 0) setCategories(data as Category[]); });
     const unsubRules = subscribeToCollection(familyId, 'rules', (data) => setLearnedRules(data as LearnedRule[]));
     
-    // Services
     const unsubSubs = subscribeToCollection(familyId, 'subscriptions', (data) => setSubscriptions(data as Subscription[]));
     const unsubDebts = subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[]));
     const unsubPantry = subscribeToCollection(familyId, 'pantry', (data) => setPantry(data as PantryItem[]));
@@ -251,7 +298,7 @@ const App: React.FC = () => {
       unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules();
       unsubSubs(); unsubDebts(); unsubPantry(); unsubMeters(); unsubCards(); unsubSettings();
     };
-  }, [familyId]); // Re-run when familyId changes
+  }, [familyId]); 
 
   // --- ONBOARDING CHECK ---
   useEffect(() => {
@@ -265,50 +312,64 @@ const App: React.FC = () => {
     }
   }, [user, familyId, membersLoaded, familyMembers]);
 
-  const handleOnboardingComplete = (name: string, color: string) => {
+  const handleOnboardingStep1 = (name: string, color: string) => {
     if (!user || !familyId) return;
     
+    // Create member object but don't save yet
     const newMember: FamilyMember = {
       id: user.uid,
       userId: user.uid,
       name,
       color,
-      avatar: user.photoURL || undefined,
-      isAdmin: familyMembers.length === 0 // Admin if first
+      isAdmin: familyMembers.length === 0,
+      avatar: user.photoURL || undefined
     };
     
-    addItem(familyId, 'members', newMember);
+    setPendingMember(newMember);
     setIsOnboarding(false);
+    
+    // Force PIN creation
+    setPinStatus('create');
   };
 
-  // --- PIN Logic Initialization ---
+  const handlePinCreated = (pin: string) => {
+      localStorage.setItem('family_budget_pin', pin); 
+      setPinCode(pin); 
+      
+      // If we came from onboarding (pendingMember exists), save the user now
+      if (pendingMember && familyId) {
+          addItem(familyId, 'members', pendingMember);
+          setPendingMember(null);
+      }
+      
+      setPinStatus('unlocked');
+  };
+
   useEffect(() => {
     const savedPin = localStorage.getItem('family_budget_pin');
     setPinCode(savedPin);
     if (savedPin) setPinStatus('locked');
-    else if (settings.isPinEnabled && !savedPin) setPinStatus('create');
+    else if (settings.isPinEnabled && !savedPin) {
+        // Only force create here if NOT onboarding (onboarding handles it manually)
+        // We check isOnboarding indirectly via familyMembers check usually
+        setPinStatus('create'); 
+    }
     else setPinStatus('unlocked');
   }, []);
 
-  // --- GENERIC SYNC HANDLER ---
   const createSyncHandler = <T extends { id: string }>(collectionName: string, currentState: T[]) => {
     return (newStateOrUpdater: T[] | ((prev: T[]) => T[])) => {
       if (!familyId) return;
-
       let newState: T[];
       if (typeof newStateOrUpdater === 'function') {
          newState = (newStateOrUpdater as Function)(currentState);
       } else {
          newState = newStateOrUpdater;
       }
-
-      // 1. Находим удаленные (есть в текущем, нет в новом)
       const newIds = new Set(newState.map(i => i.id));
       currentState.forEach(item => {
          if (!newIds.has(item.id)) deleteItem(familyId, collectionName, item.id);
       });
-
-      // 2. Находим добавленные и измененные
       newState.forEach(newItem => {
          const oldItem = currentState.find(i => i.id === newItem.id);
          if (!oldItem) {
@@ -320,7 +381,40 @@ const App: React.FC = () => {
     };
   };
 
-  // --- DATA HANDLERS ---
+  // --- TELEGRAM LOGIC ---
+  const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => {
+    if (!settings.telegramBotToken || !settings.telegramChatId) {
+        return false;
+    }
+
+    let message = `📅 *${event.title}*\n`;
+    message += `🗓 ${new Date(event.date).toLocaleDateString('ru-RU')}\n`;
+    message += `⏰ ${event.time}\n`;
+    if (event.description) message += `📝 ${event.description}\n`;
+    
+    // Format reminders for text
+    if (event.reminders && event.reminders.length > 0) {
+        message += `🔔 Напоминание установлено`;
+    }
+
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: settings.telegramChatId,
+                text: message,
+                parse_mode: 'Markdown'
+            })
+        });
+        const data = await response.json();
+        return data.ok;
+    } catch (e) {
+        console.error("Failed to send telegram message", e);
+        return false;
+    }
+  };
+
   const handleSaveTransaction = (tx: Omit<Transaction, 'id'>) => {
     if (!familyId) return;
     if (editingTransaction) {
@@ -343,22 +437,18 @@ const App: React.FC = () => {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Login Error:", error);
-
       if (error.code === 'auth/unauthorized-domain') {
         setAuthErrorDomain(window.location.hostname);
         return;
       }
-
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         try {
-           // Fallback to redirect
            await signInWithRedirect(auth, googleProvider);
         } catch (redirectError: any) {
-           console.error("Redirect login failed", redirectError);
            if (redirectError.code === 'auth/unauthorized-domain') {
              setAuthErrorDomain(window.location.hostname);
            } else {
-             alert("Не удалось войти. Пожалуйста, разрешите всплывающие окна или используйте другой браузер.");
+             alert("Не удалось войти.");
            }
         }
       } else {
@@ -371,6 +461,7 @@ const App: React.FC = () => {
     await signOut(auth);
     setUser(null);
     setFamilyId(null);
+    setIsSettingsOpen(false);
   };
 
   const updateSettings = (newSettings: AppSettings) => {
@@ -379,20 +470,16 @@ const App: React.FC = () => {
     saveSettings(familyId, newSettings);
   };
 
-  // --- Join Family Handler ---
   const handleJoinFamily = async (targetId: string) => {
     if (!user) return;
     try {
       await joinFamily(user, targetId);
-      setFamilyId(targetId); // Update local state to trigger DB sync switch
+      setFamilyId(targetId); 
       setIsSettingsOpen(false);
-      setPendingInviteId(null); // Clear pending invite
-      
-      // Clean up URL
+      setPendingInviteId(null); 
       const url = new URL(window.location.href);
       url.searchParams.delete('join');
       window.history.replaceState({}, '', url);
-
       alert("Вы успешно присоединились к семье! Данные обновлены.");
     } catch (e) {
       console.error(e);
@@ -407,7 +494,6 @@ const App: React.FC = () => {
     window.history.replaceState({}, '', url);
   };
 
-  // ... (File Import Logic remains same)
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !familyId) return;
@@ -430,7 +516,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ... (Filtering logic remains same)
   const filteredTransactions = useMemo(() => {
     let txs = transactions.filter(t => {
       const tDate = new Date(t.date);
@@ -457,18 +542,13 @@ const App: React.FC = () => {
     if (budgetMode === 'personal' && user) {
         txsToCount = transactions.filter(t => (t.userId === user.uid) || (t.memberId === user.uid));
     }
-    
-    // Determine start date for calculation
     const startDate = settings.initialBalanceDate ? new Date(settings.initialBalanceDate) : new Date(0);
     startDate.setHours(0, 0, 0, 0);
-
     const txSum = txsToCount.reduce((acc, tx) => {
-      // Ignore transactions before the initial balance date
       const txDate = new Date(tx.date);
       if (txDate < startDate) return acc;
       return tx.type === 'income' ? acc + tx.amount : acc - tx.amount;
     }, 0);
-
     return settings.initialBalance + txSum;
   }, [transactions, settings.initialBalance, settings.initialBalanceDate, budgetMode, user]);
 
@@ -490,18 +570,19 @@ const App: React.FC = () => {
   ];
   const visibleTabs = NAV_TABS.filter(tab => settings.enabledTabs?.includes(tab.id));
 
-  // --- DOMAIN ERROR SCREEN ---
-  if (authErrorDomain) {
-    return <DomainErrorScreen domain={authErrorDomain} />;
-  }
+  // --- RENDER ---
+  if (authErrorDomain) return <DomainErrorScreen domain={authErrorDomain} />;
+  
+  if (isOnboarding) return <OnboardingModal initialName={user?.displayName || ''} onSave={handleOnboardingStep1} />;
 
-  // --- PIN SCREEN ---
   if (pinStatus !== 'unlocked') {
     return (
         <PinScreen 
             mode={pinStatus === 'create' ? 'create' : pinStatus === 'disable_confirm' ? 'disable' : 'unlock'} 
             onSuccess={(pin) => {
-               if(pinStatus === 'create') { localStorage.setItem('family_budget_pin', pin); setPinCode(pin); setPinStatus('unlocked'); }
+               if(pinStatus === 'create') { 
+                   handlePinCreated(pin);
+               }
                else if(pinStatus === 'disable_confirm') { localStorage.removeItem('family_budget_pin'); setPinCode(null); setPinStatus('unlocked'); }
                else setPinStatus('unlocked');
             }}
@@ -510,21 +591,7 @@ const App: React.FC = () => {
         />
     );
   }
-
-  // --- LOGIN ---
-  if (!user) {
-    return <LoginScreen onLogin={handleGoogleLogin} loading={authLoading} />;
-  }
-
-  // --- ONBOARDING ---
-  if (isOnboarding) {
-    return (
-      <OnboardingModal 
-        initialName={user.displayName || ''} 
-        onSave={handleOnboardingComplete} 
-      />
-    );
-  }
+  if (!user) return <LoginScreen onLogin={handleGoogleLogin} loading={authLoading} />;
 
   return (
     <div className="min-h-screen pb-44 md:pb-24 max-w-2xl mx-auto px-6 pt-12 text-[#1C1C1E]">
@@ -536,32 +603,21 @@ const App: React.FC = () => {
             <Sparkles size={14} className="text-yellow-600 fill-yellow-600" />
             <span className="text-sm font-bold text-gray-400">Бюджет {settings.familyName}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 h-10">
              <h1 className="text-4xl font-black tracking-tight text-[#1C1C1E]">
                 {NAV_TABS.find(t => t.id === activeTab)?.label || 'Обзор'}
              </h1>
-             {(activeTab === 'overview' || activeTab === 'budget') && (
-                 <div className="flex bg-gray-100 p-1 rounded-xl">
-                    <button 
-                      onClick={() => setBudgetMode('personal')}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${budgetMode === 'personal' ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-400'}`}
-                    >
-                      Мой
-                    </button>
-                    <button 
-                      onClick={() => setBudgetMode('family')}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${budgetMode === 'family' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}
-                    >
-                      Общий
-                    </button>
+             {(activeTab === 'overview' || activeTab === 'budget') ? (
+                 <div className="flex bg-gray-100 p-1 rounded-2xl h-10 items-center">
+                    <button onClick={() => setBudgetMode('personal')} className={`px-4 h-8 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center ${budgetMode === 'personal' ? 'bg-white text-[#1C1C1E] shadow-sm ml-1' : 'text-gray-400'}`}>Мой</button>
+                    <button onClick={() => setBudgetMode('family')} className={`px-4 h-8 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center ${budgetMode === 'family' ? 'bg-white text-blue-600 shadow-sm mr-1' : 'text-gray-400'}`}>Общий</button>
                  </div>
+             ) : (
+                 <div className="h-10 w-0" /> // Placeholder to maintain vertical alignment
              )}
           </div>
         </div>
         <div className="flex gap-2">
-            <button onClick={handleLogout} className="p-4 bg-gray-100 rounded-3xl text-gray-400 hover:bg-gray-200 transition-colors ios-btn-active">
-               <LogOut size={22} />
-            </button>
             <button onClick={() => setIsSettingsOpen(true)} className="p-4 bg-white shadow-soft rounded-3xl text-gray-400 border border-white hover:bg-gray-50 transition-colors ios-btn-active">
                <SettingsIcon size={22} />
             </button>
@@ -601,7 +657,32 @@ const App: React.FC = () => {
                     )}
                 </div>
               )}
-              <button onClick={() => setIsActionMenuOpen(true)} className="fixed bottom-32 right-8 w-16 h-16 bg-blue-500 text-white rounded-[1.8rem] flex items-center justify-center shadow-[0_15px_30px_rgba(59,130,246,0.3)] z-[100] ios-btn-active"><Plus size={32} strokeWidth={3} /></button>
+              
+              {/* FAB Menu */}
+              <div className="fixed bottom-32 right-8 z-[100] flex flex-col items-end gap-3 pointer-events-none">
+                 <AnimatePresence>
+                   {fabOpen && (
+                     <>
+                        <motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:20, scale:0.8}} transition={{delay:0.05}} onClick={() => { setFabOpen(false); setIsEventModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50">
+                           <div className="w-10 h-10 bg-purple-500 text-white rounded-xl flex items-center justify-center"><Calendar size={20} /></div>
+                           <span className="font-black text-sm text-[#1C1C1E]">Событие</span>
+                        </motion.button>
+                        <motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} onClick={() => { setFabOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50">
+                           <div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><CreditCard size={20} /></div>
+                           <span className="font-black text-sm text-[#1C1C1E]">Операция</span>
+                        </motion.button>
+                     </>
+                   )}
+                 </AnimatePresence>
+                 <button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-[0_15px_30px_rgba(59,130,246,0.3)] transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white' : 'bg-blue-500 text-white'}`}>
+                    <Plus size={32} strokeWidth={3} />
+                 </button>
+              </div>
+              
+              {/* Overlay for FAB */}
+              <AnimatePresence>
+                 {fabOpen && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setFabOpen(false)} className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[90]" />}
+              </AnimatePresence>
             </motion.div>
           )}
           {activeTab === 'budget' && (
@@ -612,7 +693,7 @@ const App: React.FC = () => {
                     {selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}
                   </h2>
                   <div className="flex gap-2">
-                    <button onClick={() => { setIsActionMenuOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button>
+                    <button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button>
                     <button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}
                     </button>
@@ -671,7 +752,19 @@ const App: React.FC = () => {
           {activeTab === 'services' && (
             <motion.div key="services">
                <ServicesHub 
-                 events={events} setEvents={createSyncHandler('events', events)}
+                 events={events} setEvents={(newEvents) => {
+                     // Handle events creation from AIChat or other services
+                     // If it's a function, execute it to get new array, else use it
+                     const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents;
+                     // Use the createSyncHandler logic
+                     createSyncHandler('events', events)(evs);
+                     
+                     // Check if any new event has auto-send enabled or needs to be sent
+                     const newItems = evs.filter(e => !events.find(old => old.id === e.id));
+                     newItems.forEach(e => {
+                         if (settings.autoSendEventsToTelegram) handleSendToTelegram(e);
+                     });
+                 }}
                  settings={settings} members={familyMembers}
                  subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions)}
                  debts={debts} setDebts={createSyncHandler('debts', debts)}
@@ -694,8 +787,25 @@ const App: React.FC = () => {
       {/* Modals - wired to DB handlers */}
       <AnimatePresence>
         {isModalOpen && <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onSubmit={handleSaveTransaction} onDelete={handleDeleteTransaction} settings={settings} members={familyMembers} categories={categories} initialTransaction={editingTransaction} />}
-        {isEventModalOpen && <EventModal event={null} members={familyMembers} onClose={() => setIsEventModalOpen(false)} onSave={(e) => { if(familyId) addItem(familyId, 'events', e); setIsEventModalOpen(false); }} onSendToTelegram={async () => false} templates={events.filter(e => e.isTemplate)} settings={settings} />}
+        
+        {isEventModalOpen && (
+          <EventModal 
+            event={null} 
+            members={familyMembers} 
+            onClose={() => setIsEventModalOpen(false)} 
+            onSave={(e) => { 
+                if(familyId) addItem(familyId, 'events', e); 
+                if (settings.autoSendEventsToTelegram) handleSendToTelegram(e);
+                setIsEventModalOpen(false); 
+            }} 
+            onSendToTelegram={handleSendToTelegram} 
+            templates={events.filter(e => e.isTemplate)} 
+            settings={settings} 
+          />
+        )}
+
         {isGoalModalOpen && <GoalModal goal={selectedGoal} onClose={() => { setIsGoalModalOpen(false); setSelectedGoal(null); }} onSave={(g) => { if(familyId) { if(selectedGoal) updateItem(familyId, 'goals', g.id, g); else addItem(familyId, 'goals', g); } setIsGoalModalOpen(false); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'goals', id); setIsGoalModalOpen(false); }} settings={settings} />}
+        
         {isSettingsOpen && (
           <SettingsModal 
             settings={settings} 
@@ -714,11 +824,12 @@ const App: React.FC = () => {
             onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }}
             currentFamilyId={familyId}
             onJoinFamily={handleJoinFamily}
+            onLogout={handleLogout}
+            installPrompt={installPrompt} // Pass prompt
           />
         )}
         {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={() => { importPreview.forEach(t => handleSaveTransaction(t)); setIsImportModalOpen(false); }} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} />}
         
-        {/* Invitation Confirmation Modal */}
         {pendingInviteId && pendingInviteId !== familyId && (
            <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">
               <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" />

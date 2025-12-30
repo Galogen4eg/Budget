@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share } from 'lucide-react';
+import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule } from '../types';
 import { MemberMarker } from '../constants';
 import { getIconById } from '../constants';
@@ -23,6 +23,8 @@ interface SettingsModalProps {
   onDisablePin?: () => void;
   currentFamilyId: string | null;
   onJoinFamily: (id: string) => void;
+  onLogout: () => void;
+  installPrompt?: any; // PWA Install Event
 }
 
 const DASHBOARD_WIDGETS = [ 
@@ -48,7 +50,7 @@ const SERVICES_CONFIG = [
     { id: 'debts', label: 'Долги', icon: '📉' },
     { id: 'pantry', label: 'Кладовка', icon: '📦' },
     { id: 'meters', label: 'Счетчики', icon: '⚡' },
-    { id: 'chat', label: 'AI Советник', icon: '🤖' }
+    { id: 'chat', label: 'AI Советник', icon: '🤖' },
 ];
 
 const PRESET_COLORS = [ '#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2' ];
@@ -56,8 +58,8 @@ const PRESET_ICONS = [ 'Utensils', 'Car', 'Home', 'ShoppingBag', 'Heart', 'Zap',
 
 type SectionType = 'general' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'advanced' | 'family';
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily }) => {
-  const [activeSection, setActiveSection] = useState<SectionType | null>('general');
+const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt }) => {
+  const [activeSection, setActiveSection] = useState<SectionType>('general');
   
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
@@ -77,11 +79,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     onUpdate({ ...settings, alfaMapping: { ...settings.alfaMapping, [key]: value } });
   };
 
-  const toggleSection = (section: SectionType) => {
-    setActiveSection(activeSection === section ? null : section);
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
   };
 
-  // --- Logic for Categories ---
+  // ... (Other handlers same as before)
   const handleAddCategory = () => {
     if (!newCategory.label.trim()) return;
     const newCat: Category = { ...newCategory, id: newCategory.label.toLowerCase().replace(/\s/g, '_'), isCustom: true };
@@ -103,7 +108,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   
   const handleDeleteRule = (id: string) => onUpdateRules(learnedRules.filter(r => r.id !== id));
 
-  // --- Logic for Members ---
   const handleAddMember = () => {
     if (!newMemberName.trim()) return;
     const newMember: FamilyMember = { id: Math.random().toString(36).substr(2, 9), name: newMemberName.trim(), color: newMemberColor };
@@ -113,12 +117,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const handleUpdateMember = (id: string, updates: Partial<FamilyMember>) => { onUpdateMembers(members.map(m => m.id === id ? { ...m, ...updates } : m)); };
   const handleDeleteMember = (id: string) => { if (members.length <= 1) { alert("Должен остаться хотя бы один участник"); return; } onUpdateMembers(members.filter(m => m.id !== id)); };
 
-  // --- Logic for Arrays (Widgets, Tabs, Services) ---
   const toggleArrayItem = (key: 'enabledWidgets' | 'enabledTabs' | 'enabledServices', id: string) => {
     const current = settings[key] || [];
-    // Ensure 'overview' tab cannot be disabled
     if (key === 'enabledTabs' && id === 'overview') return;
-
     const next = current.includes(id) ? current.filter(w => w !== id) : [...current, id];
     handleChange(key, next);
   };
@@ -131,7 +132,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const shareInviteLink = async () => {
     if (!currentFamilyId) return;
     const link = `${window.location.origin}/?join=${currentFamilyId}`;
-    
     if (navigator.share) {
       try {
         await navigator.share({
@@ -139,37 +139,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           text: `Перейди по ссылке, чтобы вести бюджет вместе!`,
           url: link,
         });
-      } catch (err) {
-        console.error('Error sharing', err);
-      }
+      } catch (err) { console.error('Error sharing', err); }
     } else {
       copyToClipboard(link);
       alert("Ссылка-приглашение скопирована!");
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center p-0 md:p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/10 backdrop-blur-sm" />
-      <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="relative bg-[#F8F9FB] w-full max-w-lg md:rounded-[3rem] h-[90vh] md:h-auto overflow-hidden rounded-t-[3rem] shadow-2xl flex flex-col">
-        <div className="p-8 flex justify-between items-center bg-white border-b border-gray-100">
-          <h2 className="text-2xl font-black text-[#1C1C1E] tracking-tight">Настройки</h2>
-          <button onClick={onClose} className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors text-gray-500"><X size={20} /></button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-12 text-[#1C1C1E]">
-          
-          {/* GENERAL SECTION */}
-          <SectionButton 
-            icon={<Globe size={20} className="text-blue-500" />} 
-            label="Общие" 
-            isActive={activeSection === 'general'} 
-            onClick={() => toggleSection('general')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'general' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm mx-2 mb-2">
+  const SECTIONS: { id: SectionType, label: string, icon: React.ReactNode }[] = [
+      { id: 'general', label: 'Общие', icon: <Globe size={18} className="text-blue-500" /> },
+      { id: 'family', label: 'Семейный доступ', icon: <Users size={18} className="text-pink-600" /> },
+      { id: 'navigation', label: 'Навигация', icon: <Wallet size={18} className="text-green-500" /> },
+      { id: 'services', label: 'Сервисы', icon: <Grip size={18} className="text-indigo-500" /> },
+      { id: 'members', label: 'Участники', icon: <User size={18} className="text-purple-500" /> },
+      { id: 'categories', label: 'Категории и Правила', icon: <Tag size={18} className="text-orange-500" /> },
+      { id: 'widgets', label: 'Виджеты', icon: <LayoutGrid size={18} className="text-pink-500" /> },
+      { id: 'telegram', label: 'Telegram', icon: <Smartphone size={18} className="text-blue-400" /> },
+      { id: 'advanced', label: 'Импорт и Прочее', icon: <FileJson size={18} className="text-gray-500" /> },
+  ];
+
+  const renderContent = () => {
+    switch (activeSection) {
+        case 'general': return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                  <h3 className="text-lg font-black text-[#1C1C1E] mb-2">Основные настройки</h3>
+                  
+                  {installPrompt && (
+                     <div className="bg-blue-50 p-4 rounded-2xl flex items-center justify-between border border-blue-100">
+                        <div className="flex items-center gap-3">
+                           <Download size={20} className="text-blue-500"/>
+                           <span className="text-sm font-bold text-blue-700">Установить как приложение</span>
+                        </div>
+                        <button onClick={handleInstallApp} className="bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase">Установить</button>
+                     </div>
+                  )}
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Название семьи</label>
                     <input type="text" value={settings.familyName} onChange={(e) => handleChange('familyName', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" />
@@ -183,6 +188,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Начало мес.</label>
                       <input type="number" min="1" max="31" value={settings.startOfMonthDay} onChange={(e) => handleChange('startOfMonthDay', Number(e.target.value))} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни Зарплаты / Аванса</label>
+                    <input 
+                        type="text" 
+                        placeholder="Например: 10, 25"
+                        value={settings.salaryDates?.join(', ') || ''} 
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            const dates = val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0 && n <= 31);
+                            handleChange('salaryDates', dates);
+                        }} 
+                        className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" 
+                    />
+                    <p className="text-[9px] text-gray-400 px-2">Укажите числа месяца через запятую для расчета дней до ЗП.</p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-2">
@@ -208,302 +228,175 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       <span className="font-bold text-sm">Вход по PIN-коду</span>
                     </div>
                     <button 
-                      onClick={() => {
-                        if (settings.isPinEnabled) {
-                          onDisablePin?.();
-                        } else {
-                          onEnablePin?.();
-                        }
-                      }} 
+                      onClick={() => { if (settings.isPinEnabled) { onDisablePin?.(); } else { onEnablePin?.(); } }} 
                       className={`transition-colors ${settings.isPinEnabled ? 'text-green-500' : 'text-gray-300'}`}
                     >
                       {settings.isPinEnabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                     </button>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* FAMILY ACCESS SECTION */}
-          <SectionButton 
-            icon={<Users size={20} className="text-pink-600" />} 
-            label="Семейный доступ" 
-            isActive={activeSection === 'family'} 
-            onClick={() => toggleSection('family')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'family' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm mx-2 mb-2">
+            </div>
+        );
+        case 'family': return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                  <h3 className="text-lg font-black text-[#1C1C1E] mb-2">Приглашения и доступ</h3>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Пригласить в семью</label>
                     <div className="flex gap-2">
                       <div className="flex-1 bg-gray-50 p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] break-all border border-gray-100 flex items-center">
                         {currentFamilyId}
                       </div>
-                      <button onClick={shareInviteLink} className="p-4 bg-blue-500 text-white hover:bg-blue-600 rounded-2xl transition-colors shadow-lg shadow-blue-500/20">
-                        <Share size={18} />
-                      </button>
-                      <button onClick={() => currentFamilyId && copyToClipboard(currentFamilyId)} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors text-gray-500">
-                        <Copy size={18} />
-                      </button>
+                      <button onClick={shareInviteLink} className="p-4 bg-blue-500 text-white hover:bg-blue-600 rounded-2xl transition-colors shadow-lg shadow-blue-500/20"><Share size={18} /></button>
+                      <button onClick={() => currentFamilyId && copyToClipboard(currentFamilyId)} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors text-gray-500"><Copy size={18} /></button>
                     </div>
                     <p className="text-[10px] text-gray-400 px-2 leading-tight">Отправьте ссылку или ID члену семьи, чтобы объединить бюджеты.</p>
                   </div>
 
                   <div className="border-t border-gray-50 pt-4 space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Присоединиться к другой семье</label>
-                    <input 
-                      type="text" 
-                      placeholder="Вставьте ID семьи..." 
-                      value={targetFamilyId}
-                      onChange={(e) => setTargetFamilyId(e.target.value)}
-                      className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-xs outline-none" 
-                    />
-                    <button 
-                      onClick={() => onJoinFamily(targetFamilyId)} 
-                      disabled={!targetFamilyId || targetFamilyId === currentFamilyId}
-                      className="w-full bg-pink-500 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-pink-500/20 disabled:opacity-50 disabled:shadow-none"
-                    >
-                      Присоединиться
-                    </button>
-                    <p className="text-[10px] text-red-400 px-2 leading-tight font-bold">Внимание: Ваши текущие данные будут скрыты, вы начнете видеть данные новой семьи.</p>
+                    <input type="text" placeholder="Вставьте ID семьи..." value={targetFamilyId} onChange={(e) => setTargetFamilyId(e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-xs outline-none" />
+                    <button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId || targetFamilyId === currentFamilyId} className="w-full bg-pink-500 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-pink-500/20 disabled:opacity-50 disabled:shadow-none">Присоединиться</button>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          {/* NAVIGATION SECTION (TABS) */}
-          <SectionButton 
-            icon={<Wallet size={20} className="text-green-500" />} 
-            label="Навигация" 
-            isActive={activeSection === 'navigation'} 
-            onClick={() => toggleSection('navigation')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'navigation' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1 mx-2 mb-2">
-                  {TABS_CONFIG.map(tab => (
-                    <button 
-                       key={tab.id} 
-                       onClick={() => toggleArrayItem('enabledTabs', tab.id)} 
-                       className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors ${tab.id === 'overview' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+            </div>
+        );
+        case 'navigation': return (
+             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1">
+                {TABS_CONFIG.map(tab => (
+                    <button key={tab.id} onClick={() => toggleArrayItem('enabledTabs', tab.id)} className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors ${tab.id === 'overview' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       <div className="flex items-center gap-4"><span className="text-xl">{tab.icon}</span><span className="text-sm font-bold">{tab.label}</span></div>
                       {settings.enabledTabs.includes(tab.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
                     </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* SERVICES SECTION */}
-          <SectionButton 
-            icon={<Grip size={20} className="text-indigo-500" />} 
-            label="Сервисы" 
-            isActive={activeSection === 'services'} 
-            onClick={() => toggleSection('services')} 
-          />
-          <AnimatePresence>
-             {activeSection === 'services' && (
-               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1 mx-2 mb-2">
-                   {SERVICES_CONFIG.map(srv => (
-                     <button key={srv.id} onClick={() => toggleArrayItem('enabledServices', srv.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
-                       <div className="flex items-center gap-4"><span className="text-xl">{srv.icon}</span><span className="text-sm font-bold">{srv.label}</span></div>
-                       {settings.enabledServices.includes(srv.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
-                     </button>
-                   ))}
-                 </div>
-               </motion.div>
-             )}
-          </AnimatePresence>
-
-          {/* MEMBERS SECTION */}
-          <SectionButton 
-            icon={<User size={20} className="text-purple-500" />} 
-            label="Участники семьи" 
-            isActive={activeSection === 'members'} 
-            onClick={() => toggleSection('members')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'members' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm mx-2 mb-2 space-y-2">
-                  {members.map(member => (
-                    <div key={member.id} className="p-3 flex items-center gap-3 hover:bg-gray-50 rounded-2xl transition-all">
-                      <MemberMarker member={member} size="sm" />
-                      <div className="flex-1">
-                        {editingMemberId === member.id ? (
-                          <div className="flex flex-col gap-2">
-                            <input 
-                              type="text" 
-                              value={member.name} 
-                              onChange={(e) => handleUpdateMember(member.id, { name: e.target.value })}
-                              className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-bold outline-none border border-blue-500 text-[#1C1C1E]"
-                            />
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {PRESET_COLORS.map(c => (
-                                <button 
-                                  key={c} 
-                                  onClick={() => handleUpdateMember(member.id, { color: c })}
-                                  className={`w-5 h-5 rounded-full border-2 ${member.color === c ? 'border-[#1C1C1E]' : 'border-white'}`}
-                                  style={{ backgroundColor: c }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="font-bold text-sm">{member.name}</span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)} className="p-2 text-blue-500 bg-blue-50 rounded-xl ios-btn-active">{editingMemberId === member.id ? <Check size={18}/> : <Edit2 size={18} />}</button>
-                        <button onClick={() => handleDeleteMember(member.id)} className="p-2 text-red-500 bg-red-50 rounded-xl ios-btn-active"><Trash2 size={18} /></button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="p-3 border-t border-gray-50 space-y-3 mt-2">
-                    <div className="flex gap-2">
-                      <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: newMemberColor }} />
-                      <input type="text" placeholder="Имя..." value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]"/>
-                      <button onClick={handleAddMember} className="p-2.5 bg-blue-500 text-white rounded-xl ios-btn-active shadow-lg shadow-blue-500/20"><Plus size={20} /></button>
-                    </div>
-                    <div className="flex flex-wrap gap-2 px-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewMemberColor(c)} className={`w-6 h-6 rounded-full border-2 ${newMemberColor === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{ backgroundColor: c }} />))}</div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* CATEGORIES SECTION (Collapsed by default) */}
-          <SectionButton 
-            icon={<Tag size={20} className="text-orange-500" />} 
-            label="Категории и Правила" 
-            isActive={activeSection === 'categories'} 
-            onClick={() => toggleSection('categories')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'categories' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-2 mx-2 mb-2">
-                  {categories.map(cat => {
-                    const isExpanded = expandedCatId === cat.id;
-                    const rules = learnedRules.filter(r => r.categoryId === cat.id);
-                    return (
-                      <div key={cat.id} className={`p-2 rounded-2xl ${isExpanded ? 'bg-gray-50' : ''}`}>
-                        <div className="flex items-center gap-4 cursor-pointer p-2" onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}>
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{backgroundColor: cat.color}}>{getIconById(cat.icon, 20)}</div>
-                          <span className="flex-1 font-bold text-sm">{cat.label}</span>
-                          {cat.isCustom && <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-2 text-red-500"><Trash2 size={16}/></button>}
-                          <ChevronDown size={20} className={`transition-transform text-gray-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                ))}
+             </div>
+        );
+        case 'services': return (
+             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1">
+               {SERVICES_CONFIG.map(srv => (
+                 <button key={srv.id} onClick={() => toggleArrayItem('enabledServices', srv.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
+                   <div className="flex items-center gap-4"><span className="text-xl">{srv.icon}</span><span className="text-sm font-bold">{srv.label}</span></div>
+                   {settings.enabledServices.includes(srv.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
+                 </button>
+               ))}
+             </div>
+        );
+        case 'members': return (
+            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-2">
+              {members.map(member => (
+                <div key={member.id} className="p-3 flex items-center gap-3 hover:bg-gray-50 rounded-2xl transition-all">
+                  <MemberMarker member={member} size="sm" />
+                  <div className="flex-1">
+                    {editingMemberId === member.id ? (
+                      <div className="flex flex-col gap-2">
+                        <input type="text" value={member.name} onChange={(e) => handleUpdateMember(member.id, { name: e.target.value })} className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-bold outline-none border border-blue-500 text-[#1C1C1E]" />
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {PRESET_COLORS.map(c => (<button key={c} onClick={() => handleUpdateMember(member.id, { color: c })} className={`w-5 h-5 rounded-full border-2 ${member.color === c ? 'border-[#1C1C1E]' : 'border-white'}`} style={{ backgroundColor: c }} />))}
                         </div>
-                        <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="p-4 mt-2 border-t border-gray-200 space-y-4">
-                              {rules.map(rule => (
-                                 <div key={rule.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100">
-                                   <Sparkles size={16} className="text-yellow-500"/>
-                                   <div className="flex-1 text-xs"><span className="font-bold">"{rule.keyword}"</span> → <span className="font-bold text-blue-500">"{rule.cleanName}"</span></div>
-                                   <button onClick={() => handleDeleteRule(rule.id)} className="text-gray-300 hover:text-red-500"><X size={14}/></button>
-                                 </div>
-                              ))}
-                              <div className="bg-white p-4 rounded-2xl border border-dashed border-gray-200 space-y-3">
-                                 <p className="text-[10px] font-black uppercase text-gray-400">Добавить правило</p>
-                                 <input type="text" value={newRule.keyword} onChange={(e) => setNewRule({...newRule, keyword: e.target.value})} placeholder="Ключевое слово..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/>
-                                 <input type="text" value={newRule.cleanName} onChange={(e) => setNewRule({...newRule, cleanName: e.target.value})} placeholder="Назвать как..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/>
-                                 <button onClick={() => handleAddRule(cat.id)} className="w-full bg-blue-50 text-blue-500 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-100 transition-colors">Сохранить</button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                        </AnimatePresence>
                       </div>
-                    );
-                  })}
-                  <div className="p-4 border-t border-gray-100 space-y-4">
-                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Новая категория</h4>
-                    <div className="flex gap-2">
-                      <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white" style={{backgroundColor: newCategory.color}}>{getIconById(newCategory.icon, 20)}</div>
-                      <input type="text" value={newCategory.label} onChange={e => setNewCategory({...newCategory, label: e.target.value})} placeholder="Название..." className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none"/>
-                      <button onClick={handleAddCategory} className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20}/></button>
+                    ) : (
+                      <span className="font-bold text-sm">{member.name}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)} className="p-2 text-blue-500 bg-blue-50 rounded-xl ios-btn-active">{editingMemberId === member.id ? <Check size={18}/> : <Edit2 size={18} />}</button>
+                    <button onClick={() => handleDeleteMember(member.id)} className="p-2 text-red-500 bg-red-50 rounded-xl ios-btn-active"><Trash2 size={18} /></button>
+                  </div>
+                </div>
+              ))}
+              <div className="p-3 border-t border-gray-50 space-y-3 mt-2">
+                <div className="flex gap-2">
+                  <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: newMemberColor }} />
+                  <input type="text" placeholder="Имя..." value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]"/>
+                  <button onClick={handleAddMember} className="p-2.5 bg-blue-500 text-white rounded-xl ios-btn-active shadow-lg shadow-blue-500/20"><Plus size={20} /></button>
+                </div>
+                <div className="flex flex-wrap gap-2 px-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewMemberColor(c)} className={`w-6 h-6 rounded-full border-2 ${newMemberColor === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{ backgroundColor: c }} />))}</div>
+              </div>
+            </div>
+        );
+        case 'categories': return (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-2">
+              {categories.map(cat => {
+                const isExpanded = expandedCatId === cat.id;
+                const rules = learnedRules.filter(r => r.categoryId === cat.id);
+                return (
+                  <div key={cat.id} className={`p-2 rounded-2xl ${isExpanded ? 'bg-gray-50' : ''}`}>
+                    <div className="flex items-center gap-4 cursor-pointer p-2" onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{backgroundColor: cat.color}}>{getIconById(cat.icon, 20)}</div>
+                      <span className="flex-1 font-bold text-sm">{cat.label}</span>
+                      {cat.isCustom && <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-2 text-red-500"><Trash2 size={16}/></button>}
+                      <ChevronDown size={20} className={`transition-transform text-gray-300 ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
-                    <div className="flex flex-wrap gap-2">{PRESET_ICONS.map(i => (<button key={i} onClick={() => setNewCategory({...newCategory, icon: i})} className={`w-8 h-8 rounded-lg flex items-center justify-center ${newCategory.icon === i ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{getIconById(i, 16)}</button>))}</div>
-                    <div className="flex flex-wrap gap-2">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewCategory({...newCategory, color: c})} className={`w-6 h-6 rounded-full border-2 ${newCategory.color === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{backgroundColor: c}} />))}</div>
+                    <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="p-4 mt-2 border-t border-gray-200 space-y-4">
+                          {rules.map(rule => (
+                             <div key={rule.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100">
+                               <Sparkles size={16} className="text-yellow-500"/>
+                               <div className="flex-1 text-xs"><span className="font-bold">"{rule.keyword}"</span> → <span className="font-bold text-blue-500">"{rule.cleanName}"</span></div>
+                               <button onClick={() => handleDeleteRule(rule.id)} className="text-gray-300 hover:text-red-500"><X size={14}/></button>
+                             </div>
+                          ))}
+                          <div className="bg-white p-4 rounded-2xl border border-dashed border-gray-200 space-y-3">
+                             <p className="text-[10px] font-black uppercase text-gray-400">Добавить правило</p>
+                             <input type="text" value={newRule.keyword} onChange={(e) => setNewRule({...newRule, keyword: e.target.value})} placeholder="Ключевое слово..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/>
+                             <input type="text" value={newRule.cleanName} onChange={(e) => setNewRule({...newRule, cleanName: e.target.value})} placeholder="Назвать как..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/>
+                             <button onClick={() => handleAddRule(cat.id)} className="w-full bg-blue-50 text-blue-500 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-100 transition-colors">Сохранить</button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                    </AnimatePresence>
                   </div>
-               </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* WIDGETS SECTION */}
-          <SectionButton 
-            icon={<LayoutGrid size={20} className="text-pink-500" />} 
-            label="Виджеты (Обзор)" 
-            isActive={activeSection === 'widgets'} 
-            onClick={() => toggleSection('widgets')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'widgets' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1 mx-2 mb-2">
-                  {DASHBOARD_WIDGETS.map(widget => (
-                    <button key={widget.id} onClick={() => toggleArrayItem('enabledWidgets', widget.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
-                      <div className="flex items-center gap-4"><span className="text-xl">{widget.icon}</span><span className="text-sm font-bold">{widget.label}</span></div>
-                      {settings.enabledWidgets.includes(widget.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
+                );
+              })}
+              <div className="p-4 border-t border-gray-100 space-y-4">
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Новая категория</h4>
+                <div className="flex gap-2">
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white" style={{backgroundColor: newCategory.color}}>{getIconById(newCategory.icon, 20)}</div>
+                  <input type="text" value={newCategory.label} onChange={e => setNewCategory({...newCategory, label: e.target.value})} placeholder="Название..." className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none"/>
+                  <button onClick={handleAddCategory} className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20}/></button>
+                </div>
+                <div className="flex flex-wrap gap-2">{PRESET_ICONS.map(i => (<button key={i} onClick={() => setNewCategory({...newCategory, icon: i})} className={`w-8 h-8 rounded-lg flex items-center justify-center ${newCategory.icon === i ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{getIconById(i, 16)}</button>))}</div>
+                <div className="flex flex-wrap gap-2">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewCategory({...newCategory, color: c})} className={`w-6 h-6 rounded-full border-2 ${newCategory.color === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{backgroundColor: c}} />))}</div>
+              </div>
+            </div>
+        );
+        case 'widgets': return (
+             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1">
+                {DASHBOARD_WIDGETS.map(widget => (
+                  <button key={widget.id} onClick={() => toggleArrayItem('enabledWidgets', widget.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
+                    <div className="flex items-center gap-4"><span className="text-xl">{widget.icon}</span><span className="text-sm font-bold">{widget.label}</span></div>
+                    {settings.enabledWidgets.includes(widget.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
+                  </button>
+                ))}
+             </div>
+        );
+        case 'telegram': return (
+            <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Bot Token</label>
+                  <input type="text" value={settings.telegramBotToken} onChange={(e) => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-xs" placeholder="123456:ABC-DEF..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Chat ID</label>
+                  <input type="text" value={settings.telegramChatId} onChange={(e) => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-xs" placeholder="-100..." />
+                </div>
+                <div className="flex items-center justify-between p-2">
+                    <span className="font-bold text-sm">Авто-отправка событий</span>
+                    <button onClick={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} className={`transition-colors ${settings.autoSendEventsToTelegram ? 'text-blue-500' : 'text-gray-300'}`}>
+                      {settings.autoSendEventsToTelegram ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                     </button>
-                  ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* TELEGRAM SECTION */}
-          <SectionButton 
-            icon={<Smartphone size={20} className="text-blue-400" />} 
-            label="Telegram" 
-            isActive={activeSection === 'telegram'} 
-            onClick={() => toggleSection('telegram')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'telegram' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm mx-2 mb-2">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Bot Token</label>
-                    <input type="text" value={settings.telegramBotToken} onChange={(e) => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-xs" placeholder="123456:ABC-DEF..." />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Chat ID</label>
-                    <input type="text" value={settings.telegramChatId} onChange={(e) => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-xs" placeholder="-100..." />
-                  </div>
-                  <div className="flex items-center justify-between p-2">
-                     <span className="font-bold text-sm">Авто-отправка событий</span>
-                     <button onClick={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} className={`transition-colors ${settings.autoSendEventsToTelegram ? 'text-blue-500' : 'text-gray-300'}`}>
-                        {settings.autoSendEventsToTelegram ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
-                     </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ADVANCED / IMPORT SECTION */}
-          <SectionButton 
-            icon={<FileJson size={20} className="text-gray-500" />} 
-            label="Импорт и Прочее" 
-            isActive={activeSection === 'advanced'} 
-            onClick={() => toggleSection('advanced')} 
-          />
-          <AnimatePresence>
-            {activeSection === 'advanced' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm mx-2 mb-2">
+                <p className="text-xs text-gray-400 leading-relaxed">
+                   Добавьте бота в ваш чат/группу и дайте ему права администратора для отправки сообщений. Chat ID можно узнать у @userinfobot.
+                </p>
+            </div>
+        );
+        case 'advanced': return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Начало дня</label><input type="number" value={settings.dayStartHour} onChange={e => handleChange('dayStartHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div>
                     <div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Конец дня</label><input type="number" value={settings.dayEndHour} onChange={e => handleChange('dayEndHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div>
@@ -521,9 +414,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                           <div className="text-[9px] font-black text-gray-300 uppercase text-center">Дата старта</div>
                        </div>
                     </div>
-                    <p className="text-[10px] text-gray-400 font-medium leading-tight px-1">
-                       Текущий баланс = Начальная сумма + Доходы/Расходы после указанной даты.
-                    </p>
                   </div>
 
                   <div className="border-t border-gray-50 pt-4 space-y-3">
@@ -536,25 +426,100 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <div className="pt-4"><button onClick={onReset} className="w-full p-4 flex items-center justify-center gap-2 text-red-500 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors"><Trash2 size={18} /><span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span></button></div>
+            </div>
+        );
+        default: return null;
+    }
+  };
 
-          <section className="pt-4"><button onClick={onReset} className="w-full p-6 flex items-center gap-4 text-red-500 bg-red-50/50 rounded-3xl border border-red-100 hover:bg-red-100 transition-colors"><Trash2 size={24} /><span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span></button></section>
+  return (
+    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center p-0 md:p-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
+      
+      <motion.div 
+         initial={{ y: "100%", opacity: 0 }} 
+         animate={{ y: 0, opacity: 1 }} 
+         exit={{ y: "100%", opacity: 0 }} 
+         transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
+         className="relative bg-[#F8F9FB] w-full max-w-5xl md:h-[85vh] h-[95vh] rounded-t-[3rem] md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row"
+      >
+        {/* SIDEBAR (Desktop) / NAV (Mobile) */}
+        <div className="md:w-72 bg-white border-r border-gray-100 flex flex-col h-full flex-shrink-0">
+           <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 md:border-none">
+              <h2 className="text-2xl font-black text-[#1C1C1E] tracking-tight">Настройки</h2>
+              <button onClick={onClose} className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors text-gray-500 md:hidden"><X size={20} /></button>
+           </div>
+           
+           {/* Desktop Navigation */}
+           <div className="hidden md:flex flex-col flex-1 p-4 space-y-1 overflow-y-auto">
+              {SECTIONS.map(section => (
+                 <button 
+                    key={section.id} 
+                    onClick={() => setActiveSection(section.id)} 
+                    className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all text-left ${activeSection === section.id ? 'bg-gray-100 font-bold text-[#1C1C1E]' : 'text-gray-500 hover:bg-gray-50'}`}
+                 >
+                    {section.icon}
+                    <span className="text-sm">{section.label}</span>
+                    {activeSection === section.id && <ChevronRight size={16} className="ml-auto text-gray-400" />}
+                 </button>
+              ))}
+              
+              <div className="mt-auto pt-4 border-t border-gray-100">
+                  <button onClick={onLogout} className="w-full p-4 rounded-2xl flex items-center gap-3 text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut size={18} />
+                      <span className="text-sm font-bold">Выйти из аккаунта</span>
+                  </button>
+              </div>
+           </div>
+           
+           {/* Mobile Navigation (Accordion Style in main view for mobile usually, but keeping structure clean here) */}
+           <div className="md:hidden overflow-y-auto flex-1 p-4 space-y-2">
+               {SECTIONS.map(section => (
+                   <div key={section.id}>
+                       <button onClick={() => setActiveSection(activeSection === section.id ? null : section.id) as any} className={`w-full p-4 rounded-2xl flex items-center justify-between transition-all ${activeSection === section.id ? 'bg-white shadow-sm' : 'bg-white/50'}`}>
+                           <div className="flex items-center gap-3">{section.icon}<span className="font-bold text-sm text-[#1C1C1E]">{section.label}</span></div>
+                           <ChevronDown size={20} className={`text-gray-400 transition-transform ${activeSection === section.id ? 'rotate-180' : ''}`} />
+                       </button>
+                       <AnimatePresence>
+                           {activeSection === section.id && (
+                               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                   <div className="pt-2 pb-4">
+                                       {renderContent()}
+                                   </div>
+                               </motion.div>
+                           )}
+                       </AnimatePresence>
+                   </div>
+               ))}
+               <div className="pt-4 mt-4 border-t border-gray-200">
+                  <button onClick={onLogout} className="w-full p-4 rounded-2xl flex items-center justify-center gap-3 text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                      <LogOut size={18} />
+                      <span className="text-sm font-bold">Выйти из аккаунта</span>
+                  </button>
+               </div>
+           </div>
         </div>
+
+        {/* MAIN CONTENT (Desktop Only view, on mobile it's inside accordion) */}
+        <div className="hidden md:flex flex-1 flex-col h-full overflow-hidden bg-[#F8F9FB]">
+            <div className="p-8 flex items-center justify-between border-b border-gray-200/50 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+               <h3 className="text-xl font-bold text-gray-500 flex items-center gap-2">
+                   {SECTIONS.find(s => s.id === activeSection)?.icon}
+                   {SECTIONS.find(s => s.id === activeSection)?.label}
+               </h3>
+               <button onClick={onClose} className="p-2.5 bg-white hover:bg-gray-100 rounded-full transition-colors text-gray-400 shadow-sm border border-gray-100"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="max-w-2xl mx-auto">
+                    {renderContent()}
+                </div>
+            </div>
+        </div>
+
       </motion.div>
     </div>
   );
 };
-
-const SectionButton = ({ icon, label, isActive, onClick }: any) => (
-  <button onClick={onClick} className={`w-full p-5 rounded-3xl flex items-center justify-between transition-all ${isActive ? 'bg-white shadow-md scale-[1.02]' : 'bg-white/50 hover:bg-white border border-transparent'}`}>
-    <div className="flex items-center gap-4">
-      <div className={`p-2 rounded-xl transition-colors ${isActive ? 'bg-gray-50' : 'bg-transparent'}`}>{icon}</div>
-      <span className="font-bold text-[#1C1C1E]">{label}</span>
-    </div>
-    <ChevronDown size={20} className={`text-gray-400 transition-transform duration-300 ${isActive ? 'rotate-180' : ''}`} />
-  </button>
-);
 
 export default SettingsModal;

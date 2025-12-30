@@ -341,7 +341,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         </div>
         <AnimatePresence>
           {isManualOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-7 pb-7 space-y-6">
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }} 
+                animate={{ height: 'auto', opacity: 1 }} 
+                exit={{ height: 0, opacity: 0 }} 
+                className="px-7 pb-20 space-y-6 max-h-[60vh] overflow-y-auto"
+            >
               <div className="space-y-4">
                 <div className="relative">
                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что купить? (напр. Молоко)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none font-bold text-[#1C1C1E] border border-transparent focus:border-blue-100 transition-all" />
@@ -354,7 +359,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-transparent focus-within:border-blue-100 transition-all">
-                    <Hash size={18} className="text-gray-400" />
+                    <Scale size={18} className="text-gray-400" />
                     <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-transparent outline-none font-bold text-[#1C1C1E] w-full" />
                   </div>
                   <div className="flex bg-gray-100/50 p-1.5 rounded-2xl border border-gray-100">
@@ -443,7 +448,7 @@ const StoreModeOverlay = ({ items, setItems, onClose, groupedByAisle, vibrate }:
     <motion.div initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed inset-0 z-[550] bg-[#F2F2F7] flex flex-col">
       <header className="bg-white p-7 border-b border-gray-100 flex justify-between items-center"><h2 className="text-xl font-black text-[#1C1C1E]">Режим закупки</h2><button onClick={onClose} className="p-3.5 bg-gray-100 rounded-full text-gray-500"><X size={24} /></button></header>
       <div className="flex-1 overflow-y-auto p-7 space-y-12 no-scrollbar">
-        {Object.entries(groupedByAisle || {}).length === 0 ? <div className="flex flex-col items-center justify-center h-full opacity-20"><ShoppingBag size={80} /><p className="mt-4 font-black uppercase tracking-widest">Список пуст</p></div> : Object.entries(groupedByAisle || {}).map(([aisleId, aisleItems]: [string, any]) => (
+        {Object.entries(groupedByAisle || {}).length === 0 ? <div className="flex flex-col items-center justify-center h-full opacity-20"><p className="mt-4 font-black uppercase tracking-widest">Список пуст</p></div> : Object.entries(groupedByAisle || {}).map(([aisleId, aisleItems]: [string, any]) => (
             <div key={aisleId} className="space-y-5">
               <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-400 ml-2">{STORE_AISLES.find(a => a.id === aisleId)?.label}</h4>
               <div className="grid gap-4">{aisleItems.map((item: any) => (<motion.div key={item.id} onClick={() => { setItems(items.map((i:any) => i.id === item.id ? {...i, completed: true} : i)); vibrate('medium'); }} className="bg-white p-7 rounded-[2.5rem] shadow-sm flex items-center gap-6 ios-btn-active border border-white"><div className="w-10 h-10 border-2 border-gray-100 rounded-full flex-shrink-0" /><div className="flex-1"><h5 className="font-black text-xl text-[#1C1C1E] leading-tight">{item.title}</h5><p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">{item.amount} {item.unit}</p></div></motion.div>))}</div>

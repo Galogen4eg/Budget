@@ -49,6 +49,19 @@ const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, savedP
     setPin(pin.slice(0, -1));
   };
 
+  // Keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key >= '0' && e.key <= '9') {
+            handleNum(parseInt(e.key));
+        } else if (e.key === 'Backspace') {
+            handleDelete();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pin]);
+
   const processPin = (inputPin: string) => {
     if (mode === 'unlock' || mode === 'disable') {
       if (inputPin === savedPin) {

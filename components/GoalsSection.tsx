@@ -28,7 +28,6 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {goals.length === 0 ? (
           <div className="col-span-full py-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-gray-300">
-            <Target size={32} className="mb-2 opacity-20" />
             <p className="text-xs font-black uppercase tracking-widest">Нет активных целей</p>
           </div>
         ) : (

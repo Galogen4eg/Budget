@@ -5,6 +5,7 @@ import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Image as Ima
 import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface WalletProps {
   cards: LoyaltyCard[];
@@ -88,8 +89,22 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     if (!file) return;
 
     setIsAnalyzing(true);
+    let detectedBarcode = '';
+    let aiData: any = {};
+
     try {
-      // 1. Convert to Base64
+      // 1. Try to decode barcode using Html5Qrcode first (Local processing)
+      try {
+          const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
+          // scanFile returns the decoded text
+          detectedBarcode = await html5QrCode.scanFile(file, true);
+          console.log("Barcode detected locally:", detectedBarcode);
+          html5QrCode.clear();
+      } catch (err) {
+          console.log("No barcode detected by library, falling back to AI visual analysis", err);
+      }
+
+      // 2. Use Gemini for Visual Analysis (Name, Color, Icon, and fallback OCR for number)
       const base64Data = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -99,13 +114,12 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         reader.readAsDataURL(file);
       });
 
-      // 2. Call Gemini
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Analyze this loyalty card image. Extract the following information:
-      1. Store Name (name)
-      2. Card Number (number). If there is a barcode but no visible number, try to read the digits below it. If nothing found, leave empty.
-      3. Dominant Color (hex code) (color).
-      4. Best fitting icon name from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase] (icon). Default to 'ShoppingBag'.
+      const prompt = `Analyze this loyalty card image.
+      1. Extract the Store Name (name).
+      2. If you see a card number printed (digits), extract it (number).
+      3. Pick the Dominant Color as a hex code (color).
+      4. Choose the best icon from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase]. Default: ShoppingBag.
       
       Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
 
@@ -120,25 +134,31 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         config: { responseMimeType: "application/json" }
       });
 
-      const data = JSON.parse(response.text || '{}');
+      aiData = JSON.parse(response.text || '{}');
       
-      if (data.name) setNewName(data.name);
-      if (data.number) setNewNumber(data.number.replace(/\s/g, '')); // Remove spaces from number
-      if (data.color) setNewColor(data.color);
-      if (data.icon && CARD_ICONS.includes(data.icon)) setNewIcon(data.icon);
+      // 3. Merge Results
+      if (aiData.name) setNewName(aiData.name);
+      if (aiData.color) setNewColor(aiData.color);
+      if (aiData.icon && CARD_ICONS.includes(aiData.icon)) setNewIcon(aiData.icon);
+      
+      // Prefer the actual decoded barcode, fallback to AI OCR
+      const finalNumber = detectedBarcode || (aiData.number ? aiData.number.replace(/\s/g, '') : '');
+      setNewNumber(finalNumber);
       
     } catch (err) {
-      alert("Не удалось распознать карту. Попробуйте ввести данные вручную.");
+      alert("Не удалось обработать изображение. Попробуйте вручную.");
       console.error(err);
     } finally {
       setIsAnalyzing(false);
-      // Reset input so same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   return (
     <div className="space-y-4">
+       {/* Hidden div for barcode reader instance */}
+       <div id="wallet-reader-hidden" className="hidden"></div>
+
        {/* Header Card */}
       <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
         <div className="flex justify-between items-center mb-6">
@@ -253,7 +273,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                 </div>
 
                 <button onClick={handleSave} disabled={isAnalyzing} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-transform disabled:opacity-50">
-                  {isAnalyzing ? 'Анализирую карту...' : (editingCardId ? 'Сохранить изменения' : 'Сохранить карту')}
+                  {isAnalyzing ? 'Сканирую карту...' : (editingCardId ? 'Сохранить изменения' : 'Сохранить карту')}
                 </button>
              </motion.div>
           </div>

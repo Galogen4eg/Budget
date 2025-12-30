@@ -19,11 +19,10 @@ interface EventModalProps {
 
 const REMINDER_OPTIONS = [
   { label: 'Нет', value: 0 },
-  { label: 'За 15 мин', value: 15 },
-  { label: 'За 1 час', value: 60 },
-  { label: 'За 2 часа', value: 120 },
-  { label: 'За 1 день', value: 1440 },
-  { label: 'За 2 дня', value: 2880 },
+  { label: '15 мин', value: 15 },
+  { label: '1 час', value: 60 },
+  { label: '2 часа', value: 120 },
+  { label: '1 день', value: 1440 },
 ];
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
@@ -37,6 +36,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || []);
+  const [customReminder, setCustomReminder] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -87,6 +87,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     }
   };
 
+  const addCustomReminder = () => {
+      const min = parseInt(customReminder);
+      if (!isNaN(min) && min > 0) {
+          toggleReminder(min);
+          setCustomReminder('');
+      }
+  };
+
   const validateAndSave = () => {
     const yearMatch = date.match(/^(\d+)-/);
     if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
@@ -103,9 +111,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   return (
-    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
+    <div className="fixed inset-0 z-[600] flex items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
@@ -159,6 +167,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              </div>
           </div>
           
+          <div className="bg-white p-5 rounded-[2rem] border border-white flex items-center justify-between">
+             <div className="flex items-center gap-2">
+                <Timer size={18} className="text-gray-400"/>
+                <span className="font-bold text-sm">Продолжительность</span>
+             </div>
+             <div className="flex items-center gap-3">
+                <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"><Minus size={14}/></button>
+                <span className="font-black text-lg w-12 text-center">{dur} ч</span>
+                <button onClick={() => setDur(dur + 0.5)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"><Plus size={14}/></button>
+             </div>
+          </div>
+          
           {/* Reminders Section */}
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
              <div className="flex items-center gap-2 mb-2">
@@ -179,9 +199,26 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                         </button>
                     );
                 })}
+                {/* Custom Reminder Input */}
+                <div className="flex items-center gap-1 bg-gray-50 rounded-xl px-2">
+                    <input 
+                        type="number" 
+                        placeholder="мин" 
+                        value={customReminder} 
+                        onChange={(e) => setCustomReminder(e.target.value)} 
+                        className="w-10 bg-transparent text-[10px] font-black outline-none text-center"
+                    />
+                    <button onClick={addCustomReminder} disabled={!customReminder} className="text-blue-500 disabled:opacity-30"><Plus size={14}/></button>
+                </div>
              </div>
-             {!settings.telegramChatId && (
-                 <p className="text-[10px] text-red-400 font-bold px-1 flex items-center gap-1"><Smartphone size={10}/> Требуется настройка Telegram</p>
+             {reminders.length > 0 && reminders.some(r => !REMINDER_OPTIONS.find(opt => opt.value === r)) && (
+                 <div className="flex flex-wrap gap-2">
+                     {reminders.filter(r => !REMINDER_OPTIONS.find(opt => opt.value === r)).map(r => (
+                         <button key={r} onClick={() => toggleReminder(r)} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase bg-orange-500 text-white shadow-md flex items-center gap-1">
+                             {r} мин <X size={10} />
+                         </button>
+                     ))}
+                 </div>
              )}
           </div>
 

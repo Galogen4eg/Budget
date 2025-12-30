@@ -68,7 +68,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
       {transactions.map((tx, index) => {
         const category = categories.find(c => c.id === tx.category);
         const member = members.find(m => m.id === tx.memberId);

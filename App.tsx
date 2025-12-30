@@ -384,6 +384,7 @@ const App: React.FC = () => {
   // --- TELEGRAM LOGIC ---
   const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => {
     if (!settings.telegramBotToken || !settings.telegramChatId) {
+        console.error("Missing Telegram Settings in handleSendToTelegram", settings);
         return false;
     }
 
@@ -408,6 +409,7 @@ const App: React.FC = () => {
             })
         });
         const data = await response.json();
+        if (!data.ok) console.error("Telegram API Error:", data);
         return data.ok;
     } catch (e) {
         console.error("Failed to send telegram message", e);
@@ -594,15 +596,12 @@ const App: React.FC = () => {
   if (!user) return <LoginScreen onLogin={handleGoogleLogin} loading={authLoading} />;
 
   return (
-    <div className="min-h-screen pb-44 md:pb-24 max-w-2xl mx-auto px-6 pt-12 text-[#1C1C1E]">
+    <div className="min-h-screen pb-44 md:pb-24 max-w-7xl mx-auto px-6 pt-12 text-[#1C1C1E]">
       <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx,.xls,.csv" className="hidden" />
       
       <header className="flex justify-between items-start mb-10 text-[#1C1C1E]">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={14} className="text-yellow-600 fill-yellow-600" />
-            <span className="text-sm font-bold text-gray-400">Бюджет {settings.familyName}</span>
-          </div>
+          {/* Family name removed as requested */}
           <div className="flex items-center gap-3 h-10">
              <h1 className="text-4xl font-black tracking-tight text-[#1C1C1E]">
                 {NAV_TABS.find(t => t.id === activeTab)?.label || 'Обзор'}
@@ -629,9 +628,9 @@ const App: React.FC = () => {
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
               {settings.enabledWidgets.includes('balance') && <SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} />}
-              <div className="grid grid-cols-2 gap-5">
-                {settings.enabledWidgets.includes('daily') && <Widget label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />}
-                {settings.enabledWidgets.includes('spent') && <Widget label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                {settings.enabledWidgets.includes('daily') && <Widget className="col-span-1" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />}
+                {settings.enabledWidgets.includes('spent') && <Widget className="col-span-1" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />}
               </div>
               {settings.enabledWidgets.includes('charts') && <ChartsSection transactions={filteredTransactions} settings={settings} />}
               {settings.enabledWidgets.includes('goals') && (
@@ -646,9 +645,9 @@ const App: React.FC = () => {
                     {shoppingPreview.length === 0 ? (
                         <div className="bg-white p-6 rounded-[2rem] border border-white shadow-soft text-center text-gray-400 font-bold text-xs uppercase tracking-widest">Список пуст</div>
                     ) : (
-                      <div className="bg-white p-2 rounded-[2.5rem] border border-white shadow-soft">
+                      <div className="bg-white p-2 rounded-[2.5rem] border border-white shadow-soft md:grid md:grid-cols-2 md:gap-2">
                           {shoppingPreview.map(item => (
-                              <div key={item.id} className="p-4 flex items-center gap-3 border-b border-gray-50 last:border-none">
+                              <div key={item.id} className="p-4 flex items-center gap-3 border-b border-gray-50 last:border-none md:border-none md:bg-gray-50 md:rounded-2xl">
                                   <div className="w-2 h-2 rounded-full bg-blue-500" />
                                   <span className="font-bold text-sm text-[#1C1C1E]">{item.title}</span>
                               </div>
@@ -753,13 +752,8 @@ const App: React.FC = () => {
             <motion.div key="services">
                <ServicesHub 
                  events={events} setEvents={(newEvents) => {
-                     // Handle events creation from AIChat or other services
-                     // If it's a function, execute it to get new array, else use it
                      const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents;
-                     // Use the createSyncHandler logic
                      createSyncHandler('events', events)(evs);
-                     
-                     // Check if any new event has auto-send enabled or needs to be sent
                      const newItems = evs.filter(e => !events.find(old => old.id === e.id));
                      newItems.forEach(e => {
                          if (settings.autoSendEventsToTelegram) handleSendToTelegram(e);

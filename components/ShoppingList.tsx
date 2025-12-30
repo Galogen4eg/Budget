@@ -105,7 +105,11 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      const parsedData = JSON.parse(response.text || '[]') as any[];
+      // Clean up markdown ticks if present
+      let rawText = response.text || '[]';
+      rawText = rawText.replace(/```json|```/g, '').trim();
+
+      const parsedData = JSON.parse(rawText) as any[];
       if (Array.isArray(parsedData) && parsedData.length > 0) {
         const newItems: ShoppingItem[] = parsedData.map((item: any) => ({
           id: Math.random().toString(36).substr(2, 9),
@@ -120,9 +124,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         setItems([...newItems, ...items]);
         showNotify('success', `Добавлено товаров: ${newItems.length}`);
         vibrate('success');
+      } else {
+        showNotify('warning', 'Не удалось найти товары в тексте');
       }
     } catch (err) {
-      showNotify('error', 'Не удалось распознать товары');
+      console.error(err);
+      showNotify('error', 'Ошибка распознавания');
     } finally {
       setIsProcessingAI(false);
     }

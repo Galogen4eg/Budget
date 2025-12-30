@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download } from 'lucide-react';
+import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule } from '../types';
 import { MemberMarker } from '../constants';
 import { getIconById } from '../constants';
@@ -70,6 +70,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [newCategory, setNewCategory] = useState({ label: '', icon: PRESET_ICONS[0], color: PRESET_COLORS[5] });
   
   const [targetFamilyId, setTargetFamilyId] = useState('');
+  
+  const [draggedWidgetIndex, setDraggedWidgetIndex] = useState<number | null>(null);
 
   const handleChange = (key: keyof AppSettings, value: any) => {
     onUpdate({ ...settings, [key]: value });
@@ -122,6 +124,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     if (key === 'enabledTabs' && id === 'overview') return;
     const next = current.includes(id) ? current.filter(w => w !== id) : [...current, id];
     handleChange(key, next);
+  };
+  
+  // Widget Drag and Drop
+  const handleDragStart = (index: number) => {
+      setDraggedWidgetIndex(index);
+  };
+  
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      if (draggedWidgetIndex === null || draggedWidgetIndex === index) return;
+      
+      const currentWidgets = [...settings.enabledWidgets];
+      const draggedItem = currentWidgets[draggedWidgetIndex];
+      
+      // Remove dragged item
+      currentWidgets.splice(draggedWidgetIndex, 1);
+      // Insert at new position
+      currentWidgets.splice(index, 0, draggedItem);
+      
+      handleChange('enabledWidgets', currentWidgets);
+      setDraggedWidgetIndex(index);
+  };
+  
+  const handleDragEnd = () => {
+      setDraggedWidgetIndex(null);
   };
 
   const copyToClipboard = (text: string) => {
@@ -365,12 +392,41 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         );
         case 'widgets': return (
              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-1">
-                {DASHBOARD_WIDGETS.map(widget => (
-                  <button key={widget.id} onClick={() => toggleArrayItem('enabledWidgets', widget.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
-                    <div className="flex items-center gap-4"><span className="text-xl">{widget.icon}</span><span className="text-sm font-bold">{widget.label}</span></div>
-                    {settings.enabledWidgets.includes(widget.id) ? <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-100" />}
-                  </button>
-                ))}
+                <p className="text-[10px] font-black text-gray-400 uppercase px-4 py-2">Активные (перетащите для сортировки)</p>
+                {settings.enabledWidgets.map((widgetId, index) => {
+                    const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId);
+                    if (!widget) return null;
+                    return (
+                      <div 
+                        key={widgetId} 
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all cursor-move border ${draggedWidgetIndex === index ? 'opacity-50 bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50 border-transparent'}`}
+                      >
+                        <div className="flex items-center gap-4">
+                            <Grip size={16} className="text-gray-300" />
+                            <span className="text-xl">{widget.icon}</span>
+                            <span className="text-sm font-bold">{widget.label}</span>
+                        </div>
+                        <button onClick={() => toggleArrayItem('enabledWidgets', widgetId)}>
+                            <CheckCircle2 size={24} className="text-blue-500 fill-blue-500/10" />
+                        </button>
+                      </div>
+                    );
+                })}
+                
+                {/* Disabled Widgets */}
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                    <p className="text-[10px] font-black text-gray-400 uppercase px-4 py-2">Скрытые</p>
+                    {DASHBOARD_WIDGETS.filter(w => !settings.enabledWidgets.includes(w.id)).map(widget => (
+                      <button key={widget.id} onClick={() => toggleArrayItem('enabledWidgets', widget.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl transition-colors">
+                        <div className="flex items-center gap-4 ml-8"><span className="text-xl">{widget.icon}</span><span className="text-sm font-bold">{widget.label}</span></div>
+                        <div className="w-6 h-6 rounded-full border-2 border-gray-100" />
+                      </button>
+                    ))}
+                </div>
              </div>
         );
         case 'telegram': return (

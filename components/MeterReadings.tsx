@@ -13,6 +13,7 @@ interface Props {
 const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newReading, setNewReading] = useState<Partial<MeterReading>>({ type: 'water_cold' });
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   // UseEffect to verify props are updated (for debugging if needed, but logic relies on setReadings being a sync handler)
   useEffect(() => {
@@ -34,7 +35,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
       id: Date.now().toString(),
       type: newReading.type || 'water_cold',
       value: Number(newReading.value),
-      date: new Date().toISOString(),
+      date: selectedDate || new Date().toISOString(), // Use selected date or now
       prevValue: prev?.value
     };
     
@@ -44,6 +45,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
     
     setIsModalOpen(false);
     setNewReading({ type: 'water_cold' });
+    setSelectedDate(new Date().toISOString().split('T')[0]);
   };
 
   const getIcon = (type: string) => {
@@ -79,7 +81,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
                       <div>
                          <div className="font-black text-sm text-[#1C1C1E]">{getName(r.type)}</div>
                          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">
-                            {new Date(r.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                            {new Date(r.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                          </div>
                       </div>
                    </div>
@@ -107,6 +109,12 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
                       </button>
                    ))}
                 </div>
+                <input 
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E]"
+                />
                 <input 
                     type="number" 
                     placeholder="Значение" 

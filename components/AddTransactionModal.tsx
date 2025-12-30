@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -27,7 +28,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
   useEffect(() => {
     if (initialTransaction) {
-        setAmount(String(initialTransaction.amount));
+        setAmount(String(Math.abs(initialTransaction.amount)));
         setType(initialTransaction.type);
         setMemberId(initialTransaction.memberId);
         setNote(initialTransaction.note);
@@ -38,8 +39,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || isNaN(Number(amount))) return;
+    // Always treat amount as positive here, logic handles negative based on type
+    const absAmount = Math.abs(Number(amount));
+    
     onSubmit({
-      amount: Number(amount),
+      amount: absAmount,
       type,
       category: selectedCategory, 
       memberId,
@@ -62,18 +66,15 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
     setIsProcessing(true);
     try {
-      // 1. Convert to Base64
       const base64Data = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
            const result = reader.result as string;
-           // Remove data:image/jpeg;base64, part
            resolve(result.split(',')[1]);
         };
         reader.readAsDataURL(file);
       });
 
-      // 2. Call Gemini
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -87,7 +88,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
       });
 
       const data = JSON.parse(response.text || '{}');
-      if (data.amount) setAmount(String(data.amount));
+      if (data.amount) setAmount(String(Math.abs(data.amount)));
       if (data.shopName) setNote(data.shopName);
       if (data.category && data.category !== 'other') {
          setSelectedCategory(data.category);
@@ -128,7 +129,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto no-scrollbar">
-          <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-white text-center relative overflow-hidden group">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-white text-center relative overflow-hidden group">
             <div className="flex justify-between items-start mb-4">
                <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Сумма ({settings.currency})</span>
                <button 
@@ -149,14 +150,25 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                />
             </div>
             
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center mb-6">
                <input
                 autoFocus
                 type="number"
+                min="0"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(String(Math.abs(Number(e.target.value))))} // Prevent negative
                 placeholder="0"
-                className="text-7xl font-black bg-transparent text-center outline-none w-full placeholder:text-gray-200 tracking-tighter text-[#1C1C1E] tabular"
+                className="text-6xl font-black bg-transparent text-center outline-none w-full placeholder:text-gray-200 tracking-tighter text-[#1C1C1E] tabular"
+              />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-[2rem] border border-gray-100">
+               <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="На что потратили?"
+                className="w-full bg-transparent outline-none text-sm font-bold text-[#1C1C1E] tracking-normal text-center"
               />
             </div>
           </div>
@@ -180,7 +192,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
           <div className="space-y-5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar px-1 pb-2">
+            {/* Grid for desktop, horizontal scroll for mobile if needed, or just wrap for both for better visibility */}
+            <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[200px] overflow-y-auto no-scrollbar md:max-h-none">
                {categories.map(cat => (
                   <button 
                     key={cat.id} 
@@ -199,7 +212,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
           <div className="space-y-5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Кто платит?</label>
-            <div className="flex flex-wrap gap-5 px-3">
+            <div className="flex flex-wrap gap-5 px-3 justify-center">
               {members.map((member) => (
                 <button
                   key={member.id}
@@ -214,16 +227,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2rem] border border-white shadow-sm">
-             <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="На что потратили? (например: Кофе)"
-              className="w-full bg-transparent outline-none text-sm font-bold text-[#1C1C1E] tracking-normal"
-            />
           </div>
 
           <div className="flex flex-col gap-3">

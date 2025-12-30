@@ -3,42 +3,49 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#FBFDFF" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Семейный Бюджет</title>
+    <link rel="manifest" href="/manifest.json" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
       :root {
-        --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        /* Используем системные шрифты для идеального отображения кириллицы на любой ОС */
+        --system-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
       }
       body {
-        font-family: var(--apple-font);
+        font-family: var(--system-font);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         background-color: #FBFDFF;
-        letter-spacing: -0.015em; /* Стандарт для SF Pro на больших экранах */
-        line-height: 1.45;
+        letter-spacing: normal; /* Исправлено слипание букв */
+        line-height: 1.5;
         text-rendering: optimizeLegibility;
+        overscroll-behavior-y: none;
       }
-      /* Оптимизация для сумм */
+      
+      /* Оптимизация для цифр (моноширинные цифры в таблицах) */
       .tabular {
         font-variant-numeric: tabular-nums;
-        font-feature-settings: "tnum", "kern";
+        letter-spacing: -0.01em; /* Для цифр легкая плотность допустима */
       }
-      /* Улучшение кириллицы */
-      .typography-optimized {
-        font-feature-settings: "cv11", "ss01", "ss02", "kern";
-      }
+
+      /* Эффект стекла */
       .glass {
-        background: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
-        border: 1px solid rgba(255, 255, 255, 0.6);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
       }
+      
       .shadow-soft {
-        box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
       }
+      
+      /* Скрытие скроллбара */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -46,21 +53,31 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
-      @keyframes soft-pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.015); opacity: 0.95; }
-        100% { transform: scale(1); opacity: 1; }
-      }
-      .animate-soft {
-        animation: soft-pulse 4s infinite ease-in-out;
-      }
+      
+      /* Анимация нажатия в стиле iOS */
       .ios-btn-active:active {
         transform: scale(0.96);
-        opacity: 0.8;
+        opacity: 0.9;
+        transition: transform 0.1s ease;
       }
+      
+      /* Настройка сканера */
       #reader video {
-        border-radius: 2rem !important;
+        border-radius: 1.5rem !important;
         object-fit: cover !important;
+      }
+      
+      /* Заголовки */
+      h1, h2, h3, h4, h5, h6 {
+        letter-spacing: -0.01em; /* Убрана излишняя плотность */
+      }
+      
+      /* Мелкий текст капсом - делаем читаемее */
+      .text-xs.uppercase, 
+      .text-\[10px\].uppercase, 
+      .text-\[9px\].uppercase {
+        letter-spacing: 0.05em;
+        font-weight: 700;
       }
     </style>
   <script type="importmap">
@@ -74,13 +91,14 @@
     "recharts": "https://esm.sh/recharts@^3.6.0",
     "xlsx": "https://esm.sh/xlsx@0.18.5",
     "html5-qrcode": "https://esm.sh/html5-qrcode@2.3.8",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/"
   }
 }
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="text-[#1C1C1E] typography-optimized">
+  <body class="text-[#1C1C1E]">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

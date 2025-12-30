@@ -6,16 +6,27 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: string;
-  memberId: string;
+  memberId: string; // Ссылка на FamilyMember (для отображения иконки)
+  userId?: string;  // Реальный UID пользователя из Firebase (для прав доступа)
   note: string;
   date: string;
+  rawNote?: string;
+}
+
+export interface LearnedRule {
+  id: string;
+  keyword: string;
+  cleanName: string;
+  categoryId: string;
 }
 
 export interface FamilyMember {
   id: string;
+  userId?: string; // Связь с Firebase Auth UID
   name: string;
   color: string;
   avatar?: string;
+  isAdmin?: boolean;
 }
 
 export interface SavingsGoal {
@@ -57,18 +68,79 @@ export interface FamilyEvent {
   checklist?: ChecklistItem[];
 }
 
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly';
+  nextPaymentDate: string;
+  category: string;
+  icon: string;
+}
+
+export interface Debt {
+  id: string;
+  name: string;
+  totalAmount: number;
+  currentBalance: number;
+  interestRate?: number;
+  minPayment?: number;
+  color: string;
+}
+
+export interface PantryItem {
+  id: string;
+  title: string;
+  amount: string;
+  unit: string;
+  category: string;
+  expiryDate?: string;
+  addedDate: string;
+}
+
+export interface MeterReading {
+  id: string;
+  type: 'water_hot' | 'water_cold' | 'electricity' | 'gas';
+  value: number;
+  date: string;
+  prevValue?: number;
+}
+
+export interface LoyaltyCard {
+  id: string;
+  name: string;
+  number: string;
+  color: string;
+  icon: string; // Emoji or Lucide icon name
+  barcodeType?: 'code128' | 'qr'; 
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;
   startOfMonthDay: number;
   privacyMode: boolean;
   enabledWidgets: string[];
+  isPinEnabled: boolean; // New field for PIN logic
+  
+  // Конфигурация видимости
+  enabledTabs: string[];
+  enabledServices: string[];
+  
+  // Режим бюджета по умолчанию
+  defaultBudgetMode: 'personal' | 'family'; 
+
   telegramBotToken?: string;
   telegramChatId?: string;
   dayStartHour: number;
   dayEndHour: number;
   autoSendEventsToTelegram: boolean;
-  initialBalance: number; // Начальная сумма для расчетов
+  
+  // Initial Balance Config
+  initialBalance: number;
+  initialBalanceDate?: string; // Date string YYYY-MM-DD
+
   alfaMapping: {
     date: string;
     amount: string;
@@ -82,6 +154,7 @@ export interface Category {
   label: string;
   icon: string;
   color: string;
+  isCustom?: boolean;
 }
 
 export enum Type {

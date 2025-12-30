@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ChevronLeft, ChevronRight, X, Trash2, Copy, Bookmark, Calendar, Clock, User, Check, Timer, Minus, History, FastForward, Mic, MicOff, Loader2, AlertCircle, Send, Sparkles, ListChecks, CheckCircle2, Circle } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
-import { MemberMarker } from '../App';
+import { MemberMarker } from '../constants';
 import EventModal from './EventModal';
 import { GoogleGenAI } from "@google/genai";
 

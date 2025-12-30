@@ -2,7 +2,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Transaction, AppSettings } from '../types';
-import { CATEGORIES } from '../constants';
+import { INITIAL_CATEGORIES as CATEGORIES } from '../constants';
 
 interface ChartsSectionProps {
   transactions: Transaction[];

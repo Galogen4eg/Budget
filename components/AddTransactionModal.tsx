@@ -1,22 +1,39 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Check } from 'lucide-react';
-import { Transaction, TransactionType, AppSettings, FamilyMember } from '../types';
-import { MemberMarker } from '../App';
+import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Transaction, TransactionType, AppSettings, FamilyMember, Category } from '../types';
+import { MemberMarker } from '../constants';
+import { GoogleGenAI } from "@google/genai";
+import { getIconById } from '../constants';
 
 interface AddTransactionModalProps {
   onClose: () => void;
   onSubmit: (tx: Omit<Transaction, 'id'>) => void;
+  onDelete?: (id: string) => void;
   settings: AppSettings;
   members: FamilyMember[];
+  categories: Category[];
+  initialTransaction?: Transaction | null;
 }
 
-const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSubmit, settings, members }) => {
+const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSubmit, onDelete, settings, members, categories, initialTransaction }) => {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [memberId, setMemberId] = useState(members[0]?.id || '');
   const [note, setNote] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('other');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (initialTransaction) {
+        setAmount(String(initialTransaction.amount));
+        setType(initialTransaction.type);
+        setMemberId(initialTransaction.memberId);
+        setNote(initialTransaction.note);
+        setSelectedCategory(initialTransaction.category);
+    }
+  }, [initialTransaction]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +41,64 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
     onSubmit({
       amount: Number(amount),
       type,
-      category: 'other',
+      category: selectedCategory, 
       memberId,
       note,
-      date: new Date().toISOString(),
+      date: initialTransaction ? initialTransaction.date : new Date().toISOString(),
+      rawNote: initialTransaction?.rawNote || note,
     });
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (initialTransaction && onDelete) {
+        onDelete(initialTransaction.id);
+    }
+  };
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    try {
+      // 1. Convert to Base64
+      const base64Data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+           const result = reader.result as string;
+           // Remove data:image/jpeg;base64, part
+           resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // 2. Call Gemini
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: {
+          parts: [
+            { inlineData: { mimeType: file.type, data: base64Data } },
+            { text: "Parse this receipt. Return JSON: { amount: number, date: 'YYYY-MM-DD', shopName: string, category: string (one of: food, restaurants, auto, transport, housing, shopping, health, utilities) }." }
+          ]
+        },
+        config: { responseMimeType: "application/json" }
+      });
+
+      const data = JSON.parse(response.text || '{}');
+      if (data.amount) setAmount(String(data.amount));
+      if (data.shopName) setNote(data.shopName);
+      if (data.category && data.category !== 'other') {
+         setSelectedCategory(data.category);
+      }
+      
+    } catch (err) {
+      alert("Не удалось распознать чек. Попробуйте вручную.");
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -51,7 +120,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
       >
         <div className="bg-white p-7 flex justify-between items-center border-b border-gray-100">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-black text-[#1C1C1E] tracking-tight">Новая операция</h2>
+            <h2 className="text-xl font-black text-[#1C1C1E] tracking-tight">{initialTransaction ? 'Редактирование' : 'Новая операция'}</h2>
           </div>
           <button onClick={onClose} className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-500 ios-btn-active">
             <X size={22} strokeWidth={2.5} />
@@ -60,7 +129,26 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto no-scrollbar">
           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-white text-center relative overflow-hidden group">
-            <span className="text-gray-400 text-[10px] font-black mb-4 block uppercase tracking-widest">Сумма ({settings.currency})</span>
+            <div className="flex justify-between items-start mb-4">
+               <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Сумма ({settings.currency})</span>
+               <button 
+                 type="button" 
+                 onClick={() => fileInputRef.current?.click()}
+                 className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                 title="Сканировать чек"
+               >
+                 {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+               </button>
+               <input 
+                 ref={fileInputRef} 
+                 type="file" 
+                 accept="image/*" 
+                 capture="environment" 
+                 className="hidden" 
+                 onChange={handleReceiptUpload} 
+               />
+            </div>
+            
             <div className="flex items-center justify-center">
                <input
                 autoFocus
@@ -88,6 +176,25 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                 {t === 'expense' ? '💸 Расход' : '💰 Доход'}
               </button>
             ))}
+          </div>
+
+          <div className="space-y-5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar px-1 pb-2">
+               {categories.map(cat => (
+                  <button 
+                    key={cat.id} 
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex flex-col items-center gap-1.5 min-w-[60px] p-2 rounded-2xl border transition-all ${selectedCategory === cat.id ? 'bg-white border-blue-200 shadow-sm scale-110' : 'bg-transparent border-transparent opacity-60'}`}
+                  >
+                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: cat.color }}>
+                        {getIconById(cat.icon, 18)}
+                     </div>
+                     <span className="text-[9px] font-bold text-[#1C1C1E] whitespace-nowrap">{cat.label}</span>
+                  </button>
+               ))}
+            </div>
           </div>
 
           <div className="space-y-5">
@@ -119,12 +226,24 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white font-black py-6 rounded-[2.5rem] shadow-2xl shadow-blue-500/40 text-lg uppercase tracking-widest ios-btn-active"
-          >
-            Сохранить
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="w-full bg-blue-500 text-white font-black py-6 rounded-[2.5rem] shadow-2xl shadow-blue-500/40 text-lg uppercase tracking-widest ios-btn-active disabled:opacity-50"
+            >
+              {isProcessing ? 'Обработка чека...' : (initialTransaction ? 'Сохранить изменения' : 'Сохранить')}
+            </button>
+            {initialTransaction && onDelete && (
+                <button 
+                  type="button" 
+                  onClick={handleDelete}
+                  className="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-50 rounded-[2rem] transition-colors"
+                >
+                  Удалить операцию
+                </button>
+            )}
+          </div>
         </form>
       </motion.div>
     </div>

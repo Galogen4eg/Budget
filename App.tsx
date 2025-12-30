@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultBudgetMode: 'family',
   telegramBotToken: '',
   telegramChatId: '',
-  eventTemplate: '📅 *{{title}}*\n🗓 {{date}} {{time}}\n📝 {{description}}',
+  eventTemplate: '*Событие*\n{{title}}\n{{date}} {{time}}\n{{members}}\n{{duration}}',
   shoppingTemplate: '🛒 *Список покупок:*\n\n{{items}}',
   dayStartHour: 8,
   dayEndHour: 22,
@@ -64,10 +64,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   alfaMapping: { date: 'дата', amount: 'сумма', category: 'категория', note: 'описание' }
 };
 
-// More aggressive escaping for Telegram MarkdownV2
+// Robust escaping for Telegram MarkdownV2
 const escapeMarkdown = (text: string) => {
   if (!text) return '';
-  return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+  // Avoid literal backtick in regex to prevent SyntaxErrors in some parsers
+  const specialChars = /[_*[\]()~`>#+\-=|{}.!]/g;
+  return String(text).replace(specialChars, '\\$&');
 };
 
 const NotificationToast = ({ notification, onClose }: { notification: { message: string, type?: string }, onClose: () => void }) => {
@@ -228,7 +230,7 @@ const App: React.FC = () => {
     const unsubMeters = subscribeToCollection(familyId, 'meters', (data) => setMeterReadings(data as MeterReading[]));
     const unsubWishlist = subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[]));
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
-        const loadedSettings = data as AppSettings; 
+        const loadedSettings = { ...DEFAULT_SETTINGS, ...data } as AppSettings; 
         setSettings(loadedSettings); 
         settingsRef.current = loadedSettings;
     });
@@ -245,21 +247,35 @@ const App: React.FC = () => {
   
   const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { 
     const currentSettings = settingsRef.current;
+    
     if (!currentSettings.telegramBotToken || !currentSettings.telegramChatId) {
-        console.warn("Telegram settings are missing");
+        console.error("Telegram settings missing");
+        setAppNotification({ message: "Настройте Token и Chat ID в настройках", type: 'error' });
         return false;
     }
 
-    const template = (currentSettings.eventTemplate && currentSettings.eventTemplate.trim() !== '') 
-        ? currentSettings.eventTemplate 
-        : (DEFAULT_SETTINGS.eventTemplate || "");
+    // Format date to DD.MM.YYYY
+    const formattedDate = event.date ? event.date.split('-').reverse().join('.') : '';
     
-    // Applying escaping to all content fields for MarkdownV2
-    const text = template
-        .replace(/{{title}}/g, escapeMarkdown(event.title))
-        .replace(/{{date}}/g, escapeMarkdown(event.date))
-        .replace(/{{time}}/g, escapeMarkdown(event.time))
-        .replace(/{{description}}/g, escapeMarkdown(event.description || ''));
+    // Get member names
+    const participantNames = (event.memberIds || [])
+        .map(id => familyMembersRef.current.find(m => m.id === id)?.name)
+        .filter(Boolean);
+    const membersText = participantNames.length > 0 ? `участники: ${participantNames.join(', ')}` : '';
+    
+    // Duration text
+    const durationText = event.duration ? `Продолжительность: ${event.duration} ч.` : '';
+
+    // Multi-line strictly structured text
+    const lines = [
+      '*Событие*',
+      escapeMarkdown(event.title),
+      `${escapeMarkdown(formattedDate)} ${escapeMarkdown(event.time)}`,
+      membersText ? escapeMarkdown(membersText) : null,
+      durationText ? escapeMarkdown(durationText) : null
+    ].filter(l => l !== null);
+
+    const text = lines.join('\n');
 
     try { 
       const response = await fetch(`https://api.telegram.org/bot${currentSettings.telegramBotToken}/sendMessage`, { 
@@ -272,16 +288,16 @@ const App: React.FC = () => {
         }) 
       }); 
       
+      const resData = await response.json();
       if (!response.ok) {
-        const errData = await response.json();
-        console.error("Telegram API Error:", errData);
-        setAppNotification({ message: `Telegram: ${errData.description}`, type: 'error' });
+        console.error("Telegram API Error:", resData);
+        setAppNotification({ message: `Telegram: ${resData.description}`, type: 'error' });
         return false;
       }
       return true; 
     } catch (e) { 
       console.error("Network Error sending to Telegram:", e); 
-      setAppNotification({ message: "Ошибка сети при отправке в Telegram", type: 'error' });
+      setAppNotification({ message: "Ошибка сети Telegram", type: 'error' });
       return false; 
     } 
   };
@@ -289,7 +305,7 @@ const App: React.FC = () => {
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]): Promise<boolean> => {
     const currentSettings = settingsRef.current;
     if (!currentSettings.telegramBotToken || !currentSettings.telegramChatId) { 
-        alert("Не настроен Telegram. Укажите Token и Chat ID в настройках."); 
+        setAppNotification({ message: "Настройте Telegram в настройках", type: "error" });
         return false; 
     }
     const listText = items.map(i => `\\- ${escapeMarkdown(i.title)} \\(${escapeMarkdown(i.amount || '')} ${escapeMarkdown(i.unit)}\\)`).join('\n');
@@ -329,6 +345,33 @@ const App: React.FC = () => {
       setAppNotification({ message: "Ошибка при сохранении данных", type: "error" });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleLearnRule = async (rule: LearnedRule) => {
+    if (!familyId) return;
+
+    try {
+        await addItem(familyId, 'rules', rule);
+        const matchingTxs = transactions.filter(t => {
+            const raw = (t.rawNote || t.note || '').toLowerCase();
+            return raw.includes(rule.keyword.toLowerCase());
+        });
+
+        if (matchingTxs.length > 0) {
+            const updates = matchingTxs.map(t => ({
+                ...t,
+                category: rule.categoryId,
+                note: rule.cleanName
+            }));
+            await addItemsBatch(familyId, 'transactions', updates);
+            setAppNotification({ message: `Правило сохранено. Обновлено ${matchingTxs.length} аналогичных операций.`, type: 'success' });
+        } else {
+            setAppNotification({ message: "Правило сохранено", type: 'success' });
+        }
+    } catch (e) {
+        console.error("Rule save error:", e);
+        setAppNotification({ message: "Ошибка при сохранении правила", type: 'error' });
     }
   };
 
@@ -422,14 +465,14 @@ const App: React.FC = () => {
                     return null;
                 })}
               </div>
-              <div className="fixed bottom-32 right-8 z-[100] flex flex-col items-end gap-3 pointer-events-none"><AnimatePresence>{fabOpen && (<><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:20, scale:0.8}} transition={{delay:0.05}} onClick={() => { setFabOpen(false); setIsEventModalOpen(true); setActiveEventToEdit(null); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-purple-500 text-white rounded-xl flex items-center justify-center"><Calendar size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Событие</span></motion.button><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} onClick={() => { setFabOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><CreditCard size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Операция</span></motion.button></>)}</AnimatePresence><button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-[0_15px_30px_rgba(59,130,246,0.3)] transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white' : 'bg-blue-500 text-white'}`}><Plus size={32} strokeWidth={3} /></button></div>
+              <div className="fixed bottom-32 right-8 z-[100] flex flex-col items-end gap-3 pointer-events-none"><AnimatePresence>{fabOpen && (<><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:20, scale:0.8}} transition={{delay:0.05}} onClick={() => { setFabOpen(false); setIsEventModalOpen(true); setActiveEventToEdit(null); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-purple-500 text-white rounded-xl flex items-center justify-center"><Calendar size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Событие</span></motion.button><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} onClick={() => { setFabOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><CreditCard size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Операция</span></motion.button></>)}</AnimatePresence><button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-[0_15px_30px_rgba(59,130,246,0.3)] transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white' : 'bg-blue-50 text-white'}`}><Plus size={32} strokeWidth={3} /></button></div>
               <AnimatePresence>{fabOpen && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setFabOpen(false)} className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[90]" />}</AnimatePresence>
             </motion.div>
           )}
           {activeTab === 'budget' && (
             <motion.div key="budget" className="space-y-6 w-full">
               <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
-              <section className="w-full"><div className="flex items-center gap-2 mb-5 px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2><span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span></div><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
+              <section className="w-full"><div className="flex items-center gap-2 mb-5 px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2><span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span></div><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={handleLearnRule} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
               <div className="grid grid-cols-2 gap-2 md:gap-4"><div className="w-full min-w-0"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /></div><div className="w-full min-w-0"><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></div></div>
             </motion.div>
           )}
@@ -446,7 +489,7 @@ const App: React.FC = () => {
         {isEventModalOpen && <EventModal event={activeEventToEdit} members={familyMembers} onClose={() => { setIsEventModalOpen(false); setActiveEventToEdit(null); }} onSave={(e) => { if(familyId) { if(activeEventToEdit) updateItem(familyId, 'events', e.id, e); else addItem(familyId, 'events', e); } if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); setIsEventModalOpen(false); setActiveEventToEdit(null); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'events', id); setIsEventModalOpen(false); setActiveEventToEdit(null); }} onSendToTelegram={handleSendToTelegram} templates={events.filter(e => e.isTemplate)} settings={settings} />}
         {isGoalModalOpen && <GoalModal goal={selectedGoal} onClose={() => { setIsGoalModalOpen(false); setSelectedGoal(null); }} onSave={(g) => { if(familyId) { if(selectedGoal) updateItem(familyId, 'goals', g.id, g); else addItem(familyId, 'goals', g); } setIsGoalModalOpen(false); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'goals', id); setIsGoalModalOpen(false); }} settings={settings} />}
         {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={updateSettings} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={familyMembers} onUpdateMembers={createSyncHandler('members', familyMembers)} categories={categories} onUpdateCategories={createSyncHandler('categories', categories)} learnedRules={learnedRules} onUpdateRules={createSyncHandler('rules', learnedRules)} onEnablePin={() => { setIsSettingsOpen(false); setPinStatus('create'); }} onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }} currentFamilyId={familyId} onJoinFamily={handleJoinFamily} onLogout={handleLogout} installPrompt={installPrompt} transactions={transactions} />}
-        {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={handleConfirmImport} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} onAddCategory={handleAddCategory} />}
+        {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={handleConfirmImport} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={handleLearnRule} categories={categories} onAddCategory={handleAddCategory} />}
         {pendingInviteId && pendingInviteId !== familyId && (<div className="fixed inset-0 z-[700] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" /><motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl text-center space-y-4"><div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-2"><Users size={32} /></div><h3 className="font-black text-xl text-[#1C1C1E]">Приглашение в семью</h3><p className="text-sm font-medium text-gray-500">Вы перешли по ссылке-приглашению. Хотите присоединиться к бюджету этой семьи?</p><div className="font-mono bg-gray-50 p-3 rounded-xl text-xs">{pendingInviteId}</div><div className="flex gap-3 mt-4"><button onClick={rejectInvite} className="flex-1 py-4 bg-gray-100 rounded-xl font-black uppercase text-xs text-gray-400">Отмена</button><button onClick={() => handleJoinFamily(pendingInviteId)} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-pink-500/30">Вступить</button></div></motion.div></div>)}
       </AnimatePresence>
     </div>

@@ -15,16 +15,18 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "" }) =
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white p-6 rounded-[2.5rem] flex flex-col justify-between h-full ${className} border border-gray-100 shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98]`}
+      className={`bg-white p-5 md:p-6 rounded-[2.5rem] flex flex-col justify-between h-full ${className} border border-gray-100 shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden`}
     >
-      <div className="flex justify-between items-start gap-3">
-        <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest mt-1.5">{label}</span>
-        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0">
-          {icon}
+      <div className="flex justify-between items-start gap-2">
+        <span className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1 leading-tight break-words max-w-[70%]">{label}</span>
+        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0">
+          {React.cloneElement(icon as React.ReactElement, { size: 16 })}
         </div>
       </div>
-      <div className="flex-1 flex items-end">
-         <div className="text-2xl font-black tracking-tight text-[#1C1C1E] leading-none">{value}</div>
+      <div className="flex items-end mt-2">
+         <div className="text-xl md:text-2xl font-black tracking-tight text-[#1C1C1E] leading-none whitespace-nowrap overflow-hidden text-ellipsis">
+           {value}
+         </div>
       </div>
     </motion.div>
   );

@@ -15,10 +15,9 @@ interface SmartHeaderProps {
 const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, settings, onTogglePrivacy, className = '' }) => {
   const now = new Date();
   
-  // Logic to find closest salary date
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
     ? settings.salaryDates 
-    : [settings.startOfMonthDay]; // Fallback
+    : [settings.startOfMonthDay];
 
   const sortedDates = [...salaryDates].sort((a, b) => a - b);
   let nextSalaryDate: Date | null = null;
@@ -44,11 +43,11 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
   const dailyBudget = availableBalance / daysRemaining;
 
   return (
-    <div className={`relative overflow-hidden bg-white rounded-[2.5rem] p-6 shadow-soft border border-gray-100 flex flex-col justify-between transition-all hover:scale-[1.01] ${className}`}>
+    <div className={`relative overflow-hidden bg-white rounded-[2.5rem] p-5 md:p-6 shadow-soft border border-gray-100 flex flex-col justify-between transition-all hover:scale-[1.01] ${className}`}>
         <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Общий баланс</span>
+                    <span className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest">Общий баланс</span>
                     {onTogglePrivacy && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); onTogglePrivacy(); }}
@@ -58,25 +57,25 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
                         </button>
                     )}
                 </div>
-                <div className="text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight">
-                    {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')} <span className="text-gray-300 text-xl font-bold">{settings.currency}</span>
+                <div className="text-2xl md:text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight whitespace-nowrap">
+                    {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')} <span className="text-gray-300 text-lg font-bold">{settings.currency}</span>
                 </div>
             </div>
-            <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
-                <Wallet size={20} />
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 flex-shrink-0">
+                <Wallet size={18} className="md:w-5 md:h-5" />
             </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-4">
-            <div>
-                <span className="text-[9px] font-bold text-gray-400 uppercase block mb-1">На сегодня</span>
-                <div className="text-lg font-black text-[#1C1C1E] tabular-nums">
+        <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-2 md:gap-4">
+            <div className="min-w-0">
+                <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase block mb-1 truncate">На сегодня</span>
+                <div className="text-base md:text-lg font-black text-[#1C1C1E] tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
                     {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()} {settings.currency}
                 </div>
             </div>
-            <div>
-                <span className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Резерв</span>
-                <div className="text-lg font-black text-gray-300 tabular-nums">
+            <div className="min-w-0 border-l border-gray-50 pl-2 md:pl-4">
+                <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase block mb-1 truncate">Резерв</span>
+                <div className="text-base md:text-lg font-black text-gray-300 tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
                     {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                 </div>
             </div>

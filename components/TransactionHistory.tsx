@@ -23,8 +23,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const [learningCat, setLearningCat] = useState('food');
   const [learningName, setLearningName] = useState('');
   
-  // Removed isExpanded state as we now show all items by default to avoid confusion
-
   // 1. Calculate General Summary
   const summary = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -72,10 +70,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const handleFinishLearning = () => {
     if (!learningTx || !learningName.trim()) return;
 
-    // Use raw note for the keyword, but try to strip unique identifiers if possible to make the rule generic
-    // However, for precise matching, sticking to the raw start is usually safer, 
-    // but here we trust the user wants to map "Uber 123" -> "Taxi".
-    const keyword = learningTx.rawNote || learningTx.note;
+    // Use raw note for the keyword, strip unique identifiers (numbers at the end) if possible
+    let keyword = (learningTx.rawNote || learningTx.note).trim();
+    
+    // Heuristic: Remove long digits at the end which are usually unique tx IDs
+    if (/\d{4,}$/.test(keyword)) {
+        keyword = keyword.replace(/\s?\d+$/, '').trim();
+    }
     
     const newRule: LearnedRule = {
       id: Date.now().toString(),
@@ -84,18 +85,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       categoryId: learningCat
     };
 
+    // This now updates Firestore AND matches all current transactions in App.tsx
     onLearnRule(newRule);
-    
-    // Update all matching transactions currently in view
-    setTransactions(prev => prev.map(t => {
-        const raw = t.rawNote || t.note;
-        // Simple check: if the transaction note contains the keyword (case-insensitive)
-        if (raw.toLowerCase().includes(keyword.toLowerCase()) || t.id === learningTx.id) {
-            return { ...t, category: learningCat, note: learningName.trim() };
-        }
-        return t;
-    }));
-    
     setLearningTx(null);
   };
 

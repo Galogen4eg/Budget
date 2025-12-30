@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign, GripVertical } from 'lucide-react';
-import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense } from '../types';
+import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign, GripVertical, Loader2, Monitor, Smartphone as SmartphoneIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker } from '../constants';
 import { getIconById } from '../constants';
+import { deleteItemsBatch } from '../utils/db';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -25,15 +26,25 @@ interface SettingsModalProps {
   onJoinFamily: (id: string) => void;
   onLogout: () => void;
   installPrompt?: any;
+  transactions?: Transaction[];
 }
 
-const DASHBOARD_WIDGETS = [ 
+const WIDGET_METADATA = [ 
   { id: 'balance', label: 'Баланс', icon: '💳' }, 
   { id: 'daily', label: 'Бюджет', icon: '💰' }, 
   { id: 'spent', label: 'Траты', icon: '📉' }, 
   { id: 'goals', label: 'Цели', icon: '🎯' }, 
-  { id: 'charts', label: 'Графики', icon: '📊' }, 
+  { id: 'charts', label: 'Структура', icon: '📊' }, 
+  { id: 'month_chart', label: 'График месяца', icon: '📅' },
   { id: 'shopping', label: 'Покупки', icon: '🛒' }
+];
+
+const GRID_SIZES = [
+    { label: '1x1', w: 1, h: 1 },
+    { label: '2x1', w: 2, h: 1 },
+    { label: '1x2', w: 1, h: 2 },
+    { label: '2x2', w: 2, h: 2 },
+    { label: '4x2', w: 4, h: 2, desktopOnly: true }, // Full width desktop
 ];
 
 const TABS_CONFIG = [
@@ -58,7 +69,7 @@ const PRESET_ICONS = [ 'Utensils', 'Car', 'Home', 'ShoppingBag', 'Heart', 'Zap',
 
 type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'advanced' | 'family';
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [] }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
@@ -70,39 +81,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   
-  // Drag State
-  const [draggedWidgetIndex, setDraggedWidgetIndex] = useState<number | null>(null);
+  // Mass Delete State
+  const [massDeleteStart, setMassDeleteStart] = useState('');
+  const [massDeleteEnd, setMassDeleteEnd] = useState('');
+  const [isMassDeleting, setIsMassDeleting] = useState(false);
+  
+  // Widget Editor State
+  const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
 
   const handleChange = (key: keyof AppSettings, value: any) => {
     onUpdate({ ...settings, [key]: value });
   };
 
-  const handleDragStart = (index: number) => {
-      setDraggedWidgetIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-      e.preventDefault();
-      if (draggedWidgetIndex === null || draggedWidgetIndex === index) return;
-      
-      const items = [...settings.enabledWidgets];
-      const draggedItem = items[draggedWidgetIndex];
-      items.splice(draggedWidgetIndex, 1);
-      items.splice(index, 0, draggedItem);
-      
-      handleChange('enabledWidgets', items);
-      setDraggedWidgetIndex(index);
-  };
-
-  const handleDragEnd = () => {
-      setDraggedWidgetIndex(null);
-  };
-
-  const toggleArrayItem = (key: 'enabledWidgets' | 'enabledTabs' | 'enabledServices', id: string) => {
+  const toggleArrayItem = (key: 'enabledTabs' | 'enabledServices', id: string) => {
     const current = settings[key] || [];
     if (key === 'enabledTabs' && id === 'overview') return;
     const next = current.includes(id) ? current.filter(w => w !== id) : [...current, id];
     handleChange(key, next);
+  };
+
+  // Widget Handling
+  const moveWidget = (index: number, direction: 'up' | 'down') => {
+      const widgets = [...settings.widgets];
+      if (direction === 'up' && index > 0) {
+          [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
+      } else if (direction === 'down' && index < widgets.length - 1) {
+          [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
+      }
+      handleChange('widgets', widgets);
+  };
+
+  const toggleWidgetVisibility = (id: string) => {
+      const widgets = settings.widgets.map(w => w.id === id ? { ...w, isVisible: !w.isVisible } : w);
+      handleChange('widgets', widgets);
+  };
+
+  const updateWidgetSize = (id: string, device: 'mobile' | 'desktop', w: number, h: number) => {
+      const widgets = settings.widgets.map(widget => 
+          widget.id === id 
+              ? { ...widget, [device]: { colSpan: w, rowSpan: h } }
+              : widget
+      );
+      handleChange('widgets', widgets);
   };
 
   // ... (rest of CRUD handlers same as before) ...
@@ -119,6 +139,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const shareInviteLink = async () => { if (!currentFamilyId) return; const link = `${window.location.origin}/?join=${currentFamilyId}`; if (navigator.share) { try { await navigator.share({ title: `Присоединяйся к семейному бюджету ${settings.familyName}`, text: `Перейди по ссылке, чтобы вести бюджет вместе!`, url: link, }); } catch (err) { console.error('Error sharing', err); } } else { copyToClipboard(link); alert("Ссылка-приглашение скопирована!"); } };
   const handleAlfaMappingChange = (key: keyof AppSettings['alfaMapping'], value: string) => { onUpdate({ ...settings, alfaMapping: { ...settings.alfaMapping, [key]: value } }); };
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); };
+
+  const handleMassDelete = async () => {
+    if (!currentFamilyId || !massDeleteStart || !massDeleteEnd) return;
+    
+    const start = new Date(massDeleteStart);
+    start.setHours(0,0,0,0);
+    const end = new Date(massDeleteEnd);
+    end.setHours(23,59,59,999);
+
+    const toDelete = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= start && d <= end;
+    });
+
+    if (toDelete.length === 0) {
+        alert("За этот период операций не найдено");
+        return;
+    }
+
+    if (confirm(`Вы точно хотите удалить ${toDelete.length} операций? Это действие нельзя отменить.`)) {
+        setIsMassDeleting(true);
+        try {
+            // Chunking because batch limit is 500
+            const CHUNK_SIZE = 450;
+            const ids = toDelete.map(t => t.id);
+            
+            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                const chunk = ids.slice(i, i + CHUNK_SIZE);
+                await deleteItemsBatch(currentFamilyId, 'transactions', chunk);
+            }
+            alert("Операции успешно удалены");
+            setMassDeleteStart('');
+            setMassDeleteEnd('');
+        } catch (e) {
+            console.error(e);
+            alert("Ошибка при удалении");
+        } finally {
+            setIsMassDeleting(false);
+        }
+    }
+  };
 
   const SECTIONS: { id: SectionType, label: string, icon: React.ReactNode }[] = [
       { id: 'general', label: 'Общие', icon: <Globe size={18} className="text-blue-500" /> },
@@ -138,73 +199,99 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         case 'widgets': return (
              <div className="space-y-6">
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-black text-[#1C1C1E]">Порядок виджетов</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase">Перетащите для изменения</p>
-                    </div>
+                    <h3 className="text-lg font-black text-[#1C1C1E] mb-4">Настройка главной</h3>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                        {settings.enabledWidgets.map((widgetId, index) => {
-                            const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId);
-                            if (!widget) return null;
-                            const isBalance = widgetId === 'balance';
-                            
+                    <div className="space-y-3">
+                        {settings.widgets.map((widgetConfig, index) => {
+                            const meta = WIDGET_METADATA.find(m => m.id === widgetConfig.id);
+                            if (!meta) return null;
+                            const isEditing = editingWidgetId === widgetConfig.id;
+
                             return (
-                                <div 
-                                    key={widgetId}
-                                    draggable
-                                    onDragStart={() => handleDragStart(index)}
-                                    onDragOver={(e) => handleDragOver(e, index)}
-                                    onDragEnd={handleDragEnd}
-                                    className={`
-                                        relative group cursor-grab active:cursor-grabbing p-4 rounded-2xl border shadow-sm transition-all flex flex-col items-center justify-center gap-2
-                                        ${isBalance ? 'col-span-2 bg-blue-50 border-blue-200' : 'col-span-1 bg-white border-white'}
-                                        ${draggedWidgetIndex === index ? 'opacity-50 scale-95' : ''}
-                                    `}
-                                >
-                                    <div className="absolute top-2 right-2 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <GripVertical size={16} />
+                                <div key={widgetConfig.id} className={`rounded-2xl transition-all border ${isEditing ? 'bg-gray-50 border-blue-200' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    {/* Header Row */}
+                                    <div className="flex items-center p-4 gap-3">
+                                        <div className="flex flex-col gap-1">
+                                            <button onClick={() => moveWidget(index, 'up')} disabled={index === 0} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ArrowUp size={14}/></button>
+                                            <button onClick={() => moveWidget(index, 'down')} disabled={index === settings.widgets.length - 1} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ArrowDown size={14}/></button>
+                                        </div>
+                                        
+                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm border border-gray-50">
+                                            {meta.icon}
+                                        </div>
+                                        
+                                        <div className="flex-1">
+                                            <span className="font-bold text-sm text-[#1C1C1E] block">{meta.label}</span>
+                                            <span className="text-[10px] text-gray-400">
+                                                {widgetConfig.isVisible ? 
+                                                    `📱 ${widgetConfig.mobile.colSpan}x${widgetConfig.mobile.rowSpan} • 🖥️ ${widgetConfig.desktop.colSpan}x${widgetConfig.desktop.rowSpan}` : 
+                                                    'Скрыт'
+                                                }
+                                            </span>
+                                        </div>
+
+                                        <button onClick={() => toggleWidgetVisibility(widgetConfig.id)} className={`transition-colors ${widgetConfig.isVisible ? 'text-green-500' : 'text-gray-300'}`}>
+                                            {widgetConfig.isVisible ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                                        </button>
+                                        
+                                        <button onClick={() => setEditingWidgetId(isEditing ? null : widgetConfig.id)} className={`p-2 rounded-xl transition-colors ${isEditing ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                                            <Edit2 size={16} />
+                                        </button>
                                     </div>
-                                    <span className="text-2xl">{widget.icon}</span>
-                                    <span className="text-xs font-bold text-[#1C1C1E]">{widget.label}</span>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); toggleArrayItem('enabledWidgets', widgetId); }}
-                                        className="absolute top-[-8px] left-[-8px] bg-red-500 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <X size={12} strokeWidth={3} />
-                                    </button>
+
+                                    {/* Editor Panel */}
+                                    <AnimatePresence>
+                                        {isEditing && (
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-gray-200/50">
+                                                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {/* Mobile Config */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                                                            <SmartphoneIcon size={12} /> Телефон
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {GRID_SIZES.filter(s => !s.desktopOnly).map(size => {
+                                                                const isActive = widgetConfig.mobile.colSpan === size.w && widgetConfig.mobile.rowSpan === size.h;
+                                                                return (
+                                                                    <button 
+                                                                        key={size.label}
+                                                                        onClick={() => updateWidgetSize(widgetConfig.id, 'mobile', size.w, size.h)}
+                                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
+                                                                    >
+                                                                        {size.label}
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Desktop Config */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                                                            <Monitor size={12} /> Компьютер
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {GRID_SIZES.map(size => {
+                                                                const isActive = widgetConfig.desktop.colSpan === size.w && widgetConfig.desktop.rowSpan === size.h;
+                                                                return (
+                                                                    <button 
+                                                                        key={size.label}
+                                                                        onClick={() => updateWidgetSize(widgetConfig.id, 'desktop', size.w, size.h)}
+                                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
+                                                                    >
+                                                                        {size.label}
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             );
                         })}
-                        {settings.enabledWidgets.length === 0 && (
-                            <div className="col-span-full py-8 text-center text-gray-400 font-bold text-xs uppercase">
-                                Виджетов нет. Добавьте их снизу.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Доступные виджеты</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {DASHBOARD_WIDGETS.filter(w => !settings.enabledWidgets.includes(w.id)).map(widget => (
-                            <button 
-                                key={widget.id}
-                                onClick={() => toggleArrayItem('enabledWidgets', widget.id)}
-                                className="flex items-center gap-3 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-colors text-left"
-                            >
-                                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm text-lg">
-                                    {widget.icon}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-xs font-bold text-[#1C1C1E] block">{widget.label}</span>
-                                    <span className="text-[9px] font-bold text-green-500 uppercase">Добавить +</span>
-                                </div>
-                            </button>
-                        ))}
-                        {DASHBOARD_WIDGETS.every(w => settings.enabledWidgets.includes(w.id)) && (
-                            <div className="col-span-full text-center py-4 text-gray-300 font-bold text-xs">Все виджеты активны</div>
-                        )}
                     </div>
                 </div>
              </div>
@@ -296,7 +383,59 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             </div>
         );
         case 'advanced': return (
-            <div className="space-y-6"><div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm"><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Начало дня</label><input type="number" value={settings.dayStartHour} onChange={e => handleChange('dayStartHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div><div className="space-y-2"><label className="text-[9px] font-black uppercase text-gray-400">Конец дня</label><input type="number" value={settings.dayEndHour} onChange={e => handleChange('dayEndHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" /></div></div><div className="border-t border-gray-50 pt-4 space-y-3"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Маппинг CSV/Excel</h4><div className="grid grid-cols-2 gap-3"><input type="text" value={settings.alfaMapping.date} onChange={e => handleAlfaMappingChange('date', e.target.value)} placeholder="Колонка даты" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" /><input type="text" value={settings.alfaMapping.amount} onChange={e => handleAlfaMappingChange('amount', e.target.value)} placeholder="Колонка суммы" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" /><input type="text" value={settings.alfaMapping.category} onChange={e => handleAlfaMappingChange('category', e.target.value)} placeholder="Колонка категории" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" /><input type="text" value={settings.alfaMapping.note} onChange={e => handleAlfaMappingChange('note', e.target.value)} placeholder="Колонка описания" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" /></div></div></div><div className="pt-4"><button onClick={onReset} className="w-full p-4 flex items-center justify-center gap-2 text-red-500 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors"><Trash2 size={18} /><span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span></button></div></div>
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase text-gray-400">Начало дня</label>
+                            <input type="number" value={settings.dayStartHour} onChange={e => handleChange('dayStartHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase text-gray-400">Конец дня</label>
+                            <input type="number" value={settings.dayEndHour} onChange={e => handleChange('dayEndHour', Number(e.target.value))} className="w-full bg-gray-50 p-3 rounded-xl font-bold" />
+                        </div>
+                    </div>
+                    
+                    <div className="border-t border-gray-50 pt-4 space-y-3">
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Маппинг CSV/Excel</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input type="text" value={settings.alfaMapping.date} onChange={e => handleAlfaMappingChange('date', e.target.value)} placeholder="Колонка даты" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            <input type="text" value={settings.alfaMapping.amount} onChange={e => handleAlfaMappingChange('amount', e.target.value)} placeholder="Колонка суммы" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            <input type="text" value={settings.alfaMapping.category} onChange={e => handleAlfaMappingChange('category', e.target.value)} placeholder="Колонка категории" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                            <input type="text" value={settings.alfaMapping.note} onChange={e => handleAlfaMappingChange('note', e.target.value)} placeholder="Колонка описания" className="bg-gray-50 p-3 rounded-xl text-xs font-bold" />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-50 pt-4 space-y-3">
+                        <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2"><Trash2 size={12}/> Массовое удаление</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-gray-400">С даты</label>
+                                <input type="date" value={massDeleteStart} onChange={e => setMassDeleteStart(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-gray-400">По дату</label>
+                                <input type="date" value={massDeleteEnd} onChange={e => setMassDeleteEnd(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl text-xs font-bold outline-none" />
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleMassDelete} 
+                            disabled={isMassDeleting || !massDeleteStart || !massDeleteEnd}
+                            className="w-full bg-red-50 text-red-500 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isMassDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            Удалить операции
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="pt-4">
+                    <button onClick={onReset} className="w-full p-4 flex items-center justify-center gap-2 text-red-500 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors">
+                        <Trash2 size={18} />
+                        <span className="font-black uppercase text-xs tracking-widest">Сбросить всё</span>
+                    </button>
+                </div>
+            </div>
         );
         default: return null;
     }

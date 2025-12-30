@@ -136,6 +136,9 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       let rawText = response.text || '[]';
       
+      // Clean Markdown wrappers if present
+      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
       // Robust Cleaning
       const firstBracket = rawText.indexOf('[');
       const lastBracket = rawText.lastIndexOf(']');

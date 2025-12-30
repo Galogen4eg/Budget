@@ -30,22 +30,24 @@ export const parseAlfaStatement = (
         let bestHeaderRowIndex = -1;
         let maxScore = 0;
 
-        const dateKeywords = ['дата', 'date', 'transaction date', 'время'];
-        const amountKeywords = ['сумма', 'amount', 'сумма операции', 'sum', 'приход', 'расход', 'дебет', 'кредит', 'списано', 'зачислено', 'value'];
-        const noteKeywords = ['описание', 'note', 'назначение', 'реквизиты', 'контрагент', 'details'];
+        // Расширенные ключевые слова
+        const dateKeywords = ['дата', 'date', 'transaction date', 'время', 'data', 'проводка'];
+        const amountKeywords = ['сумма', 'amount', 'сумма операции', 'sum', 'приход', 'расход', 'дебет', 'кредит', 'списано', 'зачислено', 'value', 'summa'];
+        const noteKeywords = ['описание', 'note', 'назначение', 'реквизиты', 'контрагент', 'details', 'комментарий', 'место'];
         const mccKeywords = ['mcc', 'мсс', 'код категории'];
         const catKeywords = ['категория', 'category', 'тип', 'группа'];
 
-        for (let i = 0; i < Math.min(json.length, 50); i++) {
+        // Ищем строку заголовка более тщательно
+        for (let i = 0; i < Math.min(json.length, 30); i++) {
           const row = json[i];
           if (!row || !Array.isArray(row)) continue;
 
           let currentScore = 0;
-          const rowStrings = row.map(cell => String(cell || '').toLowerCase());
+          const rowStrings = row.map(cell => String(cell || '').toLowerCase().trim());
 
           if (rowStrings.some(s => dateKeywords.some(k => s.includes(k)))) currentScore += 2;
           if (rowStrings.some(s => amountKeywords.some(k => s.includes(k)))) currentScore += 2;
-          if (rowStrings.some(s => noteKeywords.some(k => s.includes(k)))) currentScore += 1.5;
+          if (rowStrings.some(s => noteKeywords.some(k => s.includes(k)))) currentScore += 1;
 
           if (currentScore > maxScore) {
             maxScore = currentScore;
@@ -53,8 +55,9 @@ export const parseAlfaStatement = (
           }
         }
 
-        if (bestHeaderRowIndex === -1 || maxScore < 3) {
-          throw new Error("Не удалось надежно определить заголовки столбцов.");
+        if (bestHeaderRowIndex === -1 || maxScore < 2) {
+          console.warn("Заголовки не найдены с высокой точностью. Используем 0 строку.");
+          bestHeaderRowIndex = 0;
         }
 
         const rawHeaders = json[bestHeaderRowIndex];
@@ -62,10 +65,11 @@ export const parseAlfaStatement = (
         
         const findCol = (userTerm: string, defaultTerms: string[]) => {
           const terms = [userTerm.toLowerCase(), ...defaultTerms.map(t => t.toLowerCase())];
-          return headers.findIndex(h => {
-            if (!h) return false;
-            return terms.some(t => h === t || h.includes(t));
-          });
+          let idx = headers.findIndex(h => terms.some(t => h === t));
+          if (idx === -1) {
+             idx = headers.findIndex(h => terms.some(t => h.includes(t)));
+          }
+          return idx;
         };
 
         const colDate = findCol(mapping.date, dateKeywords);
@@ -75,36 +79,54 @@ export const parseAlfaStatement = (
         const colMCC = findCol('', mccKeywords);
 
         if (colDate === -1 || colAmount === -1) {
-          throw new Error(`Не найдены обязательные столбцы.`);
+          throw new Error(`Не найдены обязательные столбцы (Дата и Сумма). Проверьте файл.`);
         }
 
         const transactions: Omit<Transaction, 'id'>[] = [];
+        
+        // Set to track used existing transaction IDs to avoid double-matching duplicates
+        const matchedExistingIds = new Set<string>();
 
         for (let i = bestHeaderRowIndex + 1; i < json.length; i++) {
           const row = json[i];
-          if (!row || row[colDate] === null || row[colDate] === undefined) continue;
+          if (!row) continue;
 
           // 1. Дата
           let date: string;
           const rawDate = row[colDate];
+          
+          if (!rawDate) continue; 
+
           try {
             if (typeof rawDate === 'number') {
               date = new Date((rawDate - 25569) * 86400 * 1000).toISOString();
             } else {
-              const s = String(rawDate).trim();
+              const s = String(rawDate).trim().replace(/['"]/g, '');
               if (!s) continue;
-              const parts = s.split(/[./-]/);
-              if (parts.length === 3) {
-                if (parts[0].length === 4) {
-                  date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).toISOString();
-                } else {
-                  const d = parseInt(parts[0], 10);
-                  const m = parseInt(parts[1], 10);
-                  const y = parts[2].length === 2 ? 2000 + parseInt(parts[2], 10) : parseInt(parts[2], 10);
-                  date = new Date(y, m - 1, d).toISOString();
-                }
+              
+              let parsedDate = new Date(s);
+              
+              if (isNaN(parsedDate.getTime())) {
+                 const parts = s.split(/[.\s/-]/); 
+                 if (parts.length >= 3) {
+                     const part1 = parseInt(parts[0]);
+                     const part2 = parseInt(parts[1]);
+                     const part3 = parseInt(parts[2]);
+
+                     if (part1 > 1900) {
+                         parsedDate = new Date(part1, part2 - 1, part3);
+                     } else {
+                         const year = parts[2].length === 2 ? 2000 + part3 : part3;
+                         parsedDate = new Date(year, part2 - 1, part1);
+                     }
+                 }
+              }
+              
+              if (!isNaN(parsedDate.getTime())) {
+                  const offset = parsedDate.getTimezoneOffset() * 60000;
+                  date = new Date(parsedDate.getTime() - offset).toISOString();
               } else {
-                date = new Date(s).toISOString();
+                  continue; 
               }
             }
           } catch (e) { continue; }
@@ -115,7 +137,17 @@ export const parseAlfaStatement = (
           if (typeof rawAmount === 'number') {
             amountValue = rawAmount;
           } else {
-            const clean = String(rawAmount || '0').replace(/[^\d,.+-]/g, '').replace(',', '.');
+            let clean = String(rawAmount || '0')
+                .replace(/\s/g, '')
+                .replace(/\u00A0/g, '')
+                .replace(/[^\d,.+-]/g, '')
+                .replace(',', '.');
+            
+            if ((clean.match(/\./g) || []).length > 1) {
+                const parts = clean.split('.');
+                clean = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+            }
+            
             amountValue = parseFloat(clean);
           }
 
@@ -124,41 +156,38 @@ export const parseAlfaStatement = (
           const amount = Math.abs(amountValue);
           const type = amountValue < 0 ? 'expense' : 'income';
 
-          // 3. Данные для категоризации и очистки
+          // 3. Данные для категоризации
           const rawNoteStr = colNote !== -1 && row[colNote] !== undefined ? String(row[colNote]).trim() : '';
           const rawCatStr = colCategory !== -1 && row[colCategory] !== undefined ? String(row[colCategory]).trim() : '';
           const rawMCC = colMCC !== -1 && row[colMCC] !== undefined ? String(row[colMCC]).trim() : undefined;
 
-          // Ключевое сырое название для обучения
           const rawMerchantRef = rawNoteStr || rawCatStr || 'Банковская операция';
-
-          // Интеллектуальная очистка названия с учетом обученных правил
           const finalNote = cleanMerchantName(rawMerchantRef, learnedRules);
 
-          // Проверка на дубликат (Улучшенная)
-          const isDuplicate = existingTransactions.some(tx => {
-             // Сравниваем даты (только YYYY-MM-DD)
-             const txDate = new Date(tx.date).toISOString().split('T')[0];
-             const importDate = new Date(date).toISOString().split('T')[0];
+          // 4. Проверка на дубликат (УЛУЧШЕННАЯ)
+          const importDateStr = date.split('T')[0];
+          const importRawLower = rawMerchantRef.toLowerCase().replace(/\s/g, '');
+
+          // Ищем совпадение в базе, которое еще НЕ было использовано для матчинга в этом проходе
+          const duplicateMatch = existingTransactions.find(tx => {
+             if (matchedExistingIds.has(tx.id)) return false; // Уже сматчили с другой строкой
+
+             const txDateStr = new Date(tx.date).toISOString().split('T')[0];
+             if (txDateStr !== importDateStr) return false;
              
-             if (txDate !== importDate) return false;
              if (Math.abs(tx.amount - amount) > 0.01) return false;
              if (tx.type !== type) return false;
 
-             // Если есть исходный сырой текст (rawNote) в существующей транзакции, сравниваем с ним
-             // Это самый надежный способ отсечь повторный импорт того же файла
-             if (tx.rawNote && rawMerchantRef) {
-                // Удаляем лишние пробелы для надежности
-                return tx.rawNote.replace(/\s+/g, '').toLowerCase() === rawMerchantRef.replace(/\s+/g, '').toLowerCase();
-             }
-
-             // Иначе сравниваем очищенные имена
-             return tx.note.toLowerCase() === finalNote.toLowerCase();
+             const txRawLower = (tx.rawNote || tx.note || '').toLowerCase().replace(/\s/g, '');
+             return txRawLower === importRawLower;
           });
 
-          if (isDuplicate) continue;
+          if (duplicateMatch) {
+            // Помечаем транзакцию как "найденную", чтобы следующая такая же строка в файле не сматчилась с ней же
+            matchedExistingIds.add(duplicateMatch.id);
+            continue;
+          }
 
-          // Умная категория с учетом обученных правил
           const categoryId = getSmartCategory(rawMerchantRef, learnedRules, categories, rawMCC, rawCatStr);
 
           transactions.push({
@@ -174,6 +203,7 @@ export const parseAlfaStatement = (
 
         resolve(transactions);
       } catch (err) {
+        console.error("Parse Error:", err);
         reject(err instanceof Error ? err : new Error("Ошибка при парсинге"));
       }
     };

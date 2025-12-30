@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
-import { auth } from '../firebase'; // Import auth
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -98,22 +97,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
       description: desc, 
       date, time, duration: dur, 
       memberIds: mIds, isTemplate: isT, checklist,
-      reminders,
-      userId: auth.currentUser?.uid // Add current user ID
+      reminders
     });
     onClose();
-  };
-
-  const handleCopy = () => {
-      onSave({
-          id: Date.now().toString(),
-          title: `${title} (Копия)`,
-          description: desc,
-          date, time, duration: dur,
-          memberIds: mIds, isTemplate: isT, checklist, reminders,
-          userId: auth.currentUser?.uid
-      });
-      onClose();
   };
 
   return (
@@ -137,11 +123,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             {templates.length > 0 && (
               <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-500'}`}><Sparkles size={20} /></button>
             )}
-            
-            {event && (
-                <button type="button" onClick={handleCopy} className="p-2.5 bg-gray-100 rounded-full text-gray-500" title="Копировать"><Copy size={20} /></button>
-            )}
-
             <button type="button" onClick={onClose} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 active:scale-75 transition-all flex items-center justify-center text-gray-500"><X size={22}/></button>
           </div>
         </div>
@@ -227,13 +208,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           <div className="space-y-4 px-2">
             <span className="text-[10px] font-black text-gray-400 uppercase">Участники</span>
             <div className="flex flex-wrap gap-4">{members.map(m => (<button key={m.id} type="button" onClick={() => setMIds(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} className={`flex flex-col items-center gap-2 transition-all ${mIds.includes(m.id) ? 'opacity-100 scale-110' : 'opacity-40 grayscale scale-95'}`}><MemberMarker member={m} size="md" /><span className="text-[9px] font-black uppercase tracking-wider text-gray-400">{m.name}</span></button>))}</div>
-          </div>
-          
-          <div className="flex items-center gap-3 px-2">
-             <button onClick={() => setIsT(!isT)} className={`flex items-center gap-2 transition-colors ${isT ? 'text-yellow-500' : 'text-gray-400'}`}>
-                {isT ? <Bookmark fill="currentColor" size={20} /> : <Bookmark size={20} />}
-                <span className="text-xs font-bold uppercase tracking-wide">Сохранить как шаблон</span>
-             </button>
           </div>
 
           <div className="flex flex-col gap-3 pt-4">

@@ -83,6 +83,16 @@ export const deleteItem = async (familyId: string, collectionName: string, id: s
   await deleteDoc(doc(db, 'families', familyId, collectionName, id));
 };
 
+// Batch Delete
+export const deleteItemsBatch = async (familyId: string, collectionName: string, ids: string[]) => {
+  const batch = writeBatch(db);
+  ids.forEach(id => {
+    const ref = doc(db, 'families', familyId, collectionName, id);
+    batch.delete(ref);
+  });
+  await batch.commit();
+};
+
 // Special: Save Settings
 export const saveSettings = async (familyId: string, settings: AppSettings) => {
   await setDoc(doc(db, 'families', familyId, 'config', 'settings'), settings, { merge: true });

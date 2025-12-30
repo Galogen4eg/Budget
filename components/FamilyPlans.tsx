@@ -78,6 +78,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
       let jsonText = response.text || '{}';
       
+      // Clean Markdown wrappers if present
+      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
       // Robust Cleaning for parsing
       const firstBrace = jsonText.indexOf('{');
       const lastBrace = jsonText.lastIndexOf('}');

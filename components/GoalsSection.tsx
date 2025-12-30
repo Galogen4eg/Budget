@@ -15,22 +15,22 @@ interface GoalsSectionProps {
 
 const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal, onAddGoal, className = '' }) => {
   return (
-    <div className={`bg-white p-6 rounded-[2.5rem] border border-white shadow-soft transition-all h-full ${className}`}>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Наши цели</h3>
+    <div className={`bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-soft transition-all h-full flex flex-col ${className}`}>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Наши цели</h3>
         <button 
           onClick={onAddGoal}
-          className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors ios-btn-active"
+          className="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center hover:bg-blue-100 transition-colors ios-btn-active"
         >
-          <Plus size={16} strokeWidth={3} />
+          <Plus size={20} strokeWidth={3} />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-3">
         {goals.length === 0 ? (
-          <div className="py-8 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-300">
-            <Target size={24} className="mb-2 opacity-50"/>
-            <p className="text-[10px] font-black uppercase tracking-widest">Нет целей</p>
+          <div className="h-full border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-300 min-h-[100px]">
+            <Target size={20} className="mb-2 opacity-50"/>
+            <p className="text-[9px] font-black uppercase tracking-widest">Нет целей</p>
           </div>
         ) : (
           goals.map((goal, index) => {

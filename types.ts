@@ -51,6 +51,19 @@ export interface ShoppingItem {
   category: string;
 }
 
+export interface WishlistItem {
+  id: string;
+  title: string;
+  price?: number;
+  currency: string;
+  url?: string; // Ссылка на магазин
+  imageUrl?: string; // Фото желания
+  ownerId: string; // Чье желание
+  reservedBy?: string; // Кто обещал подарить (ID члена семьи)
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+}
+
 export interface ChecklistItem {
   id: string;
   text: string;

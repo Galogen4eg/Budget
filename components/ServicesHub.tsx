@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Box, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge } from 'lucide-react';
-import { AppSettings, FamilyEvent, FamilyMember, Subscription, Debt, PantryItem, Transaction, SavingsGoal, LoyaltyCard, MeterReading } from '../types';
+import { Zap, Box, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift } from 'lucide-react';
+import { AppSettings, FamilyEvent, FamilyMember, Subscription, Debt, PantryItem, Transaction, SavingsGoal, LoyaltyCard, MeterReading, WishlistItem } from '../types';
 import SubscriptionTracker from './SubscriptionTracker';
 import DebtSnowball from './DebtSnowball';
 import SmartPantry from './SmartPantry';
 import AIChat from './AIChat';
 import WalletApp from './Wallet';
 import MeterReadings from './MeterReadings';
+import WishlistApp from './WishlistApp';
 
 interface ServicesHubProps {
   events: FamilyEvent[];
@@ -29,9 +30,12 @@ interface ServicesHubProps {
   // Added Meter Readings Props
   readings: MeterReading[];
   setReadings: (r: MeterReading[]) => void;
+  // Added Wishlist Props
+  wishlist: WishlistItem[];
+  setWishlist: (w: WishlistItem[]) => void;
 }
 
-type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters';
+type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters' | 'wishlist';
 
 const ServicesHub: React.FC<ServicesHubProps> = (props) => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
@@ -45,6 +49,7 @@ const ServicesHub: React.FC<ServicesHubProps> = (props) => {
     { id: 'wallet', label: 'Wallet', desc: 'Карты лояльности', icon: <Wallet size={24} />, color: '#1C1C1E', component: <WalletApp cards={props.loyaltyCards} setCards={props.setLoyaltyCards} /> },
     { id: 'meters', label: 'Счетчики', desc: 'Показания ЖКХ', icon: <Gauge size={24} />, color: '#FF9500', component: <MeterReadings readings={props.readings} setReadings={props.setReadings} settings={props.settings} /> },
     { id: 'subs', label: 'Подписки', desc: 'Регулярные платежи', icon: <Repeat size={24} />, color: '#AF52DE', component: <SubscriptionTracker subscriptions={props.subscriptions} setSubscriptions={props.setSubscriptions} settings={props.settings} /> },
+    { id: 'wishlist', label: 'Wishlist', desc: 'Подарки и желания', icon: <Gift size={24} />, color: '#FF2D55', component: <WishlistApp wishlist={props.wishlist} setWishlist={props.setWishlist} members={props.members} settings={props.settings} /> },
     { id: 'chat', label: 'AI Советник', desc: 'Анализ и Календарь', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} onCreateEvent={handleCreateEvent} /> },
     { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <Box size={24} />, color: '#34C759', component: <SmartPantry items={props.pantry} setItems={props.setPantry} /> },
     { id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', component: <DebtSnowball debts={props.debts} setDebts={props.setDebts} settings={props.settings} /> },

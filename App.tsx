@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff } from 'lucide-react';
-import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading } from './types';
+import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading, WishlistItem } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
 import TransactionHistory from './components/TransactionHistory';
@@ -47,7 +47,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   privacyMode: false,
   widgets: DEFAULT_WIDGETS,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters'],
+  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters', 'wishlist'],
   isPinEnabled: true, 
   defaultBudgetMode: 'family',
   telegramBotToken: '',
@@ -69,7 +69,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   }
 };
 
-// Helper to escape Markdown special characters for Telegram
+// Robust Helper to escape Markdown special characters for Telegram V2
 const escapeMarkdown = (text: string) => {
   if (!text) return '';
   // Escape characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
@@ -90,11 +90,11 @@ const NotificationToast = ({ notification, onClose }: { notification: { message:
       exit={{ opacity: 0, y: -50, x: '-50%' }}
       className="fixed top-0 left-1/2 z-[1000] px-6 py-3 rounded-[2rem] bg-white/90 backdrop-blur-xl shadow-2xl border border-white/50 flex items-center gap-3 min-w-[280px]"
     >
-      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-blue-500/30">
-        <Bell size={18} />
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-lg ${notification.type === 'error' ? 'bg-red-500 shadow-red-500/30' : 'bg-blue-500 shadow-blue-500/30'}`}>
+        {notification.type === 'error' ? <AlertTriangle size={18} /> : <Bell size={18} />}
       </div>
       <div className="flex-1">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Обновление</p>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{notification.type === 'error' ? 'Ошибка' : 'Обновление'}</p>
         <p className="text-xs font-bold text-[#1C1C1E]">{notification.message}</p>
       </div>
       <button onClick={onClose} className="p-1 text-gray-300 hover:text-gray-500"><X size={16}/></button>
@@ -166,6 +166,7 @@ const App: React.FC = () => {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
   const [meterReadings, setMeterReadings] = useState<MeterReading[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   
@@ -251,6 +252,7 @@ const App: React.FC = () => {
     const unsubPantry = subscribeToCollection(familyId, 'pantry', (data) => setPantry(data as PantryItem[]));
     const unsubCards = subscribeToCollection(familyId, 'cards', (data) => setLoyaltyCards(data as LoyaltyCard[]));
     const unsubMeters = subscribeToCollection(familyId, 'meters', (data) => setMeterReadings(data as MeterReading[]));
+    const unsubWishlist = subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[]));
 
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
         const loadedSettings = data as any;
@@ -276,7 +278,7 @@ const App: React.FC = () => {
         }
     });
 
-    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubMeters(); unsubSettings(); };
+    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubMeters(); unsubSettings(); unsubWishlist(); };
   }, [familyId, user]);
 
   useEffect(() => { if (user && familyId && membersLoaded) { const me = familyMembers.find(m => m.userId === user.uid || m.id === user.uid); setIsOnboarding(!me); } }, [user, familyId, membersLoaded, familyMembers]);
@@ -291,13 +293,19 @@ const App: React.FC = () => {
   // Telegram Logic
   const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { 
     if (!settings.telegramBotToken || !settings.telegramChatId) return false; 
-    let text = settings.eventTemplate || DEFAULT_SETTINGS.eventTemplate || "";
     
-    // Escape variable content to prevent Markdown errors
-    text = text.replace('{{title}}', escapeMarkdown(event.title))
-               .replace('{{date}}', escapeMarkdown(event.date))
-               .replace('{{time}}', escapeMarkdown(event.time))
-               .replace('{{description}}', escapeMarkdown(event.description || ''));
+    // Get valid template or default
+    const template = (settings.eventTemplate && settings.eventTemplate.trim() !== '')
+        ? settings.eventTemplate 
+        : (DEFAULT_SETTINGS.eventTemplate || "");
+    
+    // Use regex with 'g' (global) flag to replace ALL occurrences, not just the first one
+    // Also use robust escapeMarkdown for all injected values
+    const text = template
+        .replace(/{{title}}/g, escapeMarkdown(event.title))
+        .replace(/{{date}}/g, escapeMarkdown(event.date))
+        .replace(/{{time}}/g, escapeMarkdown(event.time))
+        .replace(/{{description}}/g, escapeMarkdown(event.description || ''));
 
     try { 
       const res = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
@@ -307,7 +315,9 @@ const App: React.FC = () => {
       }); 
       
       if (!res.ok) {
-          console.error("Telegram send failed:", await res.text());
+          const errorData = await res.text();
+          console.error("Telegram send failed:", errorData);
+          setAppNotification({ message: `Ошибка отправки: ${errorData}`, type: 'error' });
           return false;
       }
       return true; 
@@ -326,7 +336,8 @@ const App: React.FC = () => {
     const listText = items.map(i => `\\- ${escapeMarkdown(i.title)} \\(${escapeMarkdown(i.amount || '')} ${escapeMarkdown(i.unit)}\\)`).join('\n');
     let text = settings.shoppingTemplate || DEFAULT_SETTINGS.shoppingTemplate || "";
     
-    text = text.replace('{{items}}', listText);
+    // Use global replace here as well for consistency
+    text = text.replace(/{{items}}/g, listText);
     
     try {
       const res = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
@@ -356,7 +367,27 @@ const App: React.FC = () => {
   const updateSettings = (newSettings: AppSettings) => { if(!familyId) return; setSettings(newSettings); saveSettings(familyId, newSettings); };
   const handleJoinFamily = async (targetId: string) => { if (!user) return; try { await joinFamily(user, targetId); setFamilyId(targetId); setIsSettingsOpen(false); setPendingInviteId(null); } catch (e) { console.error(e); } };
   const rejectInvite = () => { setPendingInviteId(null); };
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file || !familyId) return; setIsImporting(true); try { const parsed = await parseAlfaStatement(file, settings.alfaMapping, familyId, learnedRules, categories, transactions); if (parsed.length > 0) { const withUser = parsed.map(p => ({ ...p, userId: user?.uid })); setImportPreview(withUser); setIsImportModalOpen(true); } else { alert("Новых операций не найдено."); } } catch (err) { console.error(err); alert("Ошибка файла или нет новых данных"); } finally { setIsImporting(false); if (e.target) e.target.value = ''; } };
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => { 
+      const file = e.target.files?.[0]; 
+      if (!file || !familyId) return; 
+      setIsImporting(true); 
+      try { 
+          const parsed = await parseAlfaStatement(file, settings.alfaMapping, familyId, learnedRules, categories, transactions); 
+          if (parsed.length > 0) { 
+              const withUser = parsed.map(p => ({ ...p, userId: user?.uid })); 
+              setImportPreview(withUser); 
+              setIsImportModalOpen(true); 
+          } else { 
+              setAppNotification({ message: "Новых операций не найдено", type: "warning" }); 
+          } 
+      } catch (err) { 
+          console.error(err); 
+          setAppNotification({ message: err instanceof Error ? err.message : "Ошибка файла", type: "error" }); 
+      } finally { 
+          setIsImporting(false); 
+          if (e.target) e.target.value = ''; 
+      } 
+  };
 
   // New handler for creating categories
   const handleAddCategory = (cat: Category) => {
@@ -573,7 +604,7 @@ const App: React.FC = () => {
               </section>
 
               {/* Grid: Mandatory Expenses & Categories */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
                   {/* Mandatory Expenses Block (Half Width) */}
                   <div className="w-full min-w-0">
                       <MandatoryExpensesList 
@@ -620,6 +651,8 @@ const App: React.FC = () => {
                  setLoyaltyCards={createSyncHandler('cards', loyaltyCards)}
                  readings={meterReadings}
                  setReadings={createSyncHandler('meters', meterReadings)}
+                 wishlist={wishlist}
+                 setWishlist={createSyncHandler('wishlist', wishlist)}
                />
             </motion.div>
           )}

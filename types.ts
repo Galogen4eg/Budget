@@ -115,6 +115,7 @@ export interface MandatoryExpense {
   id: string;
   name: string;
   amount: number;
+  keywords?: string[]; // Array of keywords to match transactions automatically
 }
 
 export interface MeterReading {

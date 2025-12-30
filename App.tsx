@@ -22,6 +22,7 @@ import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
 import ServicesHub from './components/ServicesHub';
 import PinScreen from './components/PinScreen';
 import OnboardingModal from './components/OnboardingModal';
+import MandatoryExpensesList from './components/MandatoryExpensesList';
 import { parseAlfaStatement } from './utils/alfaParser';
 
 // Firebase Imports
@@ -179,6 +180,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [activeEventToEdit, setActiveEventToEdit] = useState<FamilyEvent | null>(null);
   
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoal | null>(null);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[]>([]);
@@ -324,12 +326,7 @@ const App: React.FC = () => {
     const listText = items.map(i => `\\- ${escapeMarkdown(i.title)} \\(${escapeMarkdown(i.amount || '')} ${escapeMarkdown(i.unit)}\\)`).join('\n');
     let text = settings.shoppingTemplate || DEFAULT_SETTINGS.shoppingTemplate || "";
     
-    // Note: If user edited the template and removed placeholders, this might break.
-    // Assuming template is also markdown compatible or simple text.
-    // For safety, we only escape the inserted list content here.
     text = text.replace('{{items}}', listText);
-
-    // If template has other static markdown chars, they are fine.
     
     try {
       const res = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
@@ -364,6 +361,21 @@ const App: React.FC = () => {
   // New handler for creating categories
   const handleAddCategory = (cat: Category) => {
     if (familyId) addItem(familyId, 'categories', cat);
+  };
+
+  // Handler for linking mandatory expenses
+  const handleLinkMandatory = (expenseId: string, keyword: string) => {
+      const expenses = settings.mandatoryExpenses || [];
+      const updatedExpenses = expenses.map(exp => {
+          if (exp.id === expenseId) {
+              const currentKeywords = exp.keywords || [];
+              if (!currentKeywords.includes(keyword)) {
+                  return { ...exp, keywords: [...currentKeywords, keyword] };
+              }
+          }
+          return exp;
+      });
+      updateSettings({ ...settings, mandatoryExpenses: updatedExpenses });
   };
 
   // Memoized & Sorted Transactions
@@ -414,18 +426,18 @@ const App: React.FC = () => {
   if (!user) return <LoginScreen onLogin={handleGoogleLogin} loading={authLoading} />;
 
   return (
-    <div className="min-h-screen pb-44 md:pb-24 max-w-7xl mx-auto px-6 pt-12 text-[#1C1C1E]">
+    <div className="min-h-screen pb-44 md:pb-24 max-w-7xl mx-auto px-4 md:px-6 pt-12 text-[#1C1C1E]">
       <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx,.xls,.csv" className="hidden" />
       <AnimatePresence>{appNotification && <NotificationToast notification={appNotification} onClose={() => setAppNotification(null)} />}</AnimatePresence>
 
-      <header className="flex justify-between items-start mb-10 text-[#1C1C1E]">
+      <header className="flex justify-between items-start mb-8 md:mb-10 text-[#1C1C1E]">
         <div>
           <div className="flex items-center gap-4 h-10">
-             <h1 className="text-4xl font-black tracking-tight text-[#1C1C1E]">{NAV_TABS.find(t => t.id === activeTab)?.label || 'Обзор'}</h1>
+             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-[#1C1C1E]">{NAV_TABS.find(t => t.id === activeTab)?.label || 'Обзор'}</h1>
              {(activeTab === 'overview' || activeTab === 'budget') ? (
                  <div className="flex bg-gray-100/50 p-1 rounded-full relative h-9 items-center border border-gray-100">
-                    <button onClick={() => setBudgetMode('personal')} className={`relative z-10 px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'personal' ? 'text-black' : 'text-gray-400'}`}>Мой{budgetMode === 'personal' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}</button>
-                    <button onClick={() => setBudgetMode('family')} className={`relative z-10 px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'family' ? 'text-blue-600' : 'text-gray-400'}`}>Общий{budgetMode === 'family' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}</button>
+                    <button onClick={() => setBudgetMode('personal')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'personal' ? 'text-black' : 'text-gray-400'}`}>Мой{budgetMode === 'personal' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}</button>
+                    <button onClick={() => setBudgetMode('family')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${budgetMode === 'family' ? 'text-blue-600' : 'text-gray-400'}`}>Общий{budgetMode === 'family' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}</button>
                  </div>
              ) : (<div className="h-10 w-0" />)}
           </div>
@@ -436,7 +448,7 @@ const App: React.FC = () => {
                     <WifiOff size={20} />
                 </div>
             )}
-            <button onClick={() => setIsSettingsOpen(true)} className="p-4 bg-white shadow-soft rounded-3xl text-gray-400 border border-white hover:bg-gray-50 transition-colors ios-btn-active"><SettingsIcon size={22} /></button>
+            <button onClick={() => setIsSettingsOpen(true)} className="p-3 md:p-4 bg-white shadow-soft rounded-3xl text-gray-400 border border-white hover:bg-gray-50 transition-colors ios-btn-active"><SettingsIcon size={20} /></button>
         </div>
       </header>
 
@@ -450,14 +462,6 @@ const App: React.FC = () => {
                     if (!widget.isVisible) return null;
                     const { id } = widget;
                     
-                    // Generate style based on config
-                    const style = {
-                        gridColumn: `span ${widget.mobile.colSpan} / span ${widget.mobile.colSpan}`,
-                        gridRow: `span ${widget.mobile.rowSpan} / span ${widget.mobile.rowSpan}`,
-                    };
-                    
-                    // Desktop styles via media query emulation in standard style logic is tricky for CSS Grid in JS directly if using simple classes.
-                    // We will use classes for breakpoints.
                     const colClass = `col-span-${widget.mobile.colSpan} md:col-span-${widget.desktop.colSpan}`;
                     const rowClass = `row-span-${widget.mobile.rowSpan} md:row-span-${widget.desktop.rowSpan}`;
 
@@ -533,7 +537,7 @@ const App: React.FC = () => {
               </div>
               
               <div className="fixed bottom-32 right-8 z-[100] flex flex-col items-end gap-3 pointer-events-none">
-                 <AnimatePresence>{fabOpen && (<><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:20, scale:0.8}} transition={{delay:0.05}} onClick={() => { setFabOpen(false); setIsEventModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-purple-500 text-white rounded-xl flex items-center justify-center"><Calendar size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Событие</span></motion.button><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} onClick={() => { setFabOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><CreditCard size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Операция</span></motion.button></>)}</AnimatePresence>
+                 <AnimatePresence>{fabOpen && (<><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:20, scale:0.8}} transition={{delay:0.05}} onClick={() => { setFabOpen(false); setIsEventModalOpen(true); setActiveEventToEdit(null); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-purple-500 text-white rounded-xl flex items-center justify-center"><Calendar size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Событие</span></motion.button><motion.button initial={{opacity:0, y:20, scale:0.8}} animate={{opacity:1, y:0, scale:1}} onClick={() => { setFabOpen(false); setEditingTransaction(null); setIsModalOpen(true); }} className="pointer-events-auto flex items-center gap-3 bg-white p-3 pr-5 rounded-2xl shadow-xl border border-gray-50"><div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><CreditCard size={20} /></div><span className="font-black text-sm text-[#1C1C1E]">Операция</span></motion.button></>)}</AnimatePresence>
                  <button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-[0_15px_30px_rgba(59,130,246,0.3)] transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white' : 'bg-blue-500 text-white'}`}><Plus size={32} strokeWidth={3} /></button>
               </div>
               <AnimatePresence>{fabOpen && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setFabOpen(false)} className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[90]" />}</AnimatePresence>
@@ -541,6 +545,16 @@ const App: React.FC = () => {
           )}
           {activeTab === 'budget' && (
             <motion.div key="budget" className="space-y-10 w-full">
+              {/* Mandatory Expenses Block */}
+              <section className="w-full">
+                  <MandatoryExpensesList 
+                      expenses={settings.mandatoryExpenses || []} 
+                      transactions={transactions} 
+                      settings={settings}
+                      currentMonth={currentMonth}
+                  />
+              </section>
+
               <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
               <section className="w-full"><div className="flex items-center gap-2 mb-5 px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2><span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span></div><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
               <section className="w-full"><h2 className="text-xl font-black mb-5 px-1 text-[#1C1C1E]">{selectedDate ? 'Категории дня' : 'Категории месяца'}</h2><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></section>
@@ -581,11 +595,11 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
       
-      {/* ... (Navigation and Modals unchanged) ... */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/80 backdrop-blur-2xl border border-white/50 rounded-[2.5rem] p-1.5 shadow-soft z-[100] flex justify-between items-center">{visibleTabs.map(tab => (<NavButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id as any)} icon={tab.icon} label={tab.label} />))}</nav>
+      
       <AnimatePresence>
-        {isModalOpen && <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onSubmit={handleSaveTransaction} onDelete={handleDeleteTransaction} settings={settings} members={familyMembers} categories={categories} initialTransaction={editingTransaction} />}
-        {isEventModalOpen && <EventModal event={null} members={familyMembers} onClose={() => setIsEventModalOpen(false)} onSave={(e) => { if(familyId) addItem(familyId, 'events', e); if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); setIsEventModalOpen(false); }} onSendToTelegram={handleSendToTelegram} templates={events.filter(e => e.isTemplate)} settings={settings} />}
+        {isModalOpen && <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onSubmit={handleSaveTransaction} onDelete={handleDeleteTransaction} settings={settings} members={familyMembers} categories={categories} initialTransaction={editingTransaction} onLinkMandatory={handleLinkMandatory} />}
+        {isEventModalOpen && <EventModal event={activeEventToEdit} members={familyMembers} onClose={() => { setIsEventModalOpen(false); setActiveEventToEdit(null); }} onSave={(e) => { if(familyId) { if(activeEventToEdit) updateItem(familyId, 'events', e.id, e); else addItem(familyId, 'events', e); } if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); setIsEventModalOpen(false); setActiveEventToEdit(null); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'events', id); setIsEventModalOpen(false); setActiveEventToEdit(null); }} onSendToTelegram={handleSendToTelegram} templates={events.filter(e => e.isTemplate)} settings={settings} />}
         {isGoalModalOpen && <GoalModal goal={selectedGoal} onClose={() => { setIsGoalModalOpen(false); setSelectedGoal(null); }} onSave={(g) => { if(familyId) { if(selectedGoal) updateItem(familyId, 'goals', g.id, g); else addItem(familyId, 'goals', g); } setIsGoalModalOpen(false); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'goals', id); setIsGoalModalOpen(false); }} settings={settings} />}
         {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={updateSettings} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={familyMembers} onUpdateMembers={createSyncHandler('members', familyMembers)} categories={categories} onUpdateCategories={createSyncHandler('categories', categories)} learnedRules={learnedRules} onUpdateRules={createSyncHandler('rules', learnedRules)} onEnablePin={() => { setIsSettingsOpen(false); setPinStatus('create'); }} onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }} currentFamilyId={familyId} onJoinFamily={handleJoinFamily} onLogout={handleLogout} installPrompt={installPrompt} transactions={transactions} />}
         {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={() => { importPreview.forEach(t => handleSaveTransaction(t)); setIsImportModalOpen(false); }} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} onAddCategory={handleAddCategory} />}

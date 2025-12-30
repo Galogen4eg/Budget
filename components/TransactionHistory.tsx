@@ -22,7 +22,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
   const [learningCat, setLearningCat] = useState('food');
   const [learningName, setLearningName] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Removed isExpanded state as we now show all items by default to avoid confusion
 
   // 1. Calculate General Summary
   const summary = useMemo(() => {
@@ -56,17 +57,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         date,
         transactions: dayTxs,
         dayIncome,
-        dayExpense
+        dayExpense,
+        count: dayTxs.length
       };
     });
   }, [transactions]);
-
-  // 4. Determine Visible Groups (Collapsible Logic)
-  const visibleGroups = useMemo(() => {
-    if (filterMode === 'day') return groupedTransactions;
-    if (isExpanded) return groupedTransactions;
-    return groupedTransactions.slice(0, 2); // Show only last 2 days by default
-  }, [groupedTransactions, isExpanded, filterMode]);
 
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
@@ -77,7 +72,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const handleFinishLearning = () => {
     if (!learningTx || !learningName.trim()) return;
 
+    // Use raw note for the keyword, but try to strip unique identifiers if possible to make the rule generic
+    // However, for precise matching, sticking to the raw start is usually safer, 
+    // but here we trust the user wants to map "Uber 123" -> "Taxi".
     const keyword = learningTx.rawNote || learningTx.note;
+    
     const newRule: LearnedRule = {
       id: Date.now().toString(),
       keyword: keyword,
@@ -90,7 +89,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     // Update all matching transactions currently in view
     setTransactions(prev => prev.map(t => {
         const raw = t.rawNote || t.note;
-        if (raw === keyword || t.id === learningTx.id) {
+        // Simple check: if the transaction note contains the keyword (case-insensitive)
+        if (raw.toLowerCase().includes(keyword.toLowerCase()) || t.id === learningTx.id) {
             return { ...t, category: learningCat, note: learningName.trim() };
         }
         return t;
@@ -138,11 +138,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start mb-1">
             <div className="flex flex-col min-w-0 mr-2">
-                <h4 className="font-bold text-[#1C1C1E] text-sm truncate leading-tight">
+                <h4 className="font-bold text-[#1C1C1E] text-base truncate leading-tight">
                   {displayTitle}
                 </h4>
-                <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-bold text-gray-400 flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md">
                        <Clock size={10}/> {timeString}
                     </span>
                     {isUnrecognized && (
@@ -154,20 +154,20 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
             </div>
             
             <div className="flex-shrink-0 text-right">
-              <span className={`text-sm font-black tabular-nums block ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E]'}`}>
+              <span className={`text-base font-black tabular-nums block ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E]'}`}>
                 {settings.privacyMode ? '••••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()} ${settings.currency}`}
               </span>
             </div>
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-1.5">
             <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member?.color || '#CCC' }} />
-                <span className="text-[9px] font-bold text-gray-400">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: member?.color || '#CCC' }} />
+                <span className="text-[10px] font-bold text-gray-400">
                   {member?.name}
                 </span>
                 <span className="text-gray-300 text-[8px]">•</span>
-                <span className="text-[9px] font-bold text-gray-400">
+                <span className="text-[10px] font-bold text-gray-400">
                   {category?.label}
                 </span>
             </div>
@@ -180,46 +180,37 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   return (
     <div className="space-y-6 w-full">
       {/* Timeline */}
-      <div className="space-y-6">
-        {visibleGroups.map((group, index) => (
+      <div className="space-y-8">
+        {groupedTransactions.map((group, index) => (
             <div key={group.date} className="space-y-3">
                 {/* Date Separator & Daily Summary */}
-                <div className="flex items-center justify-between px-2 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-2 z-10">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                            {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
+                <div className="flex items-end justify-between px-3 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-3 z-10 border-b border-gray-200/50">
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide">
+                                {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
+                            </span>
+                            {(new Date(group.date).toDateString() === new Date().toDateString()) && (
+                                <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
+                            )}
+                        </div>
+                        <span className="text-xs font-bold text-gray-400">
+                            {group.count} {group.count === 1 ? 'операция' : (group.count > 1 && group.count < 5) ? 'операции' : 'операций'}
                         </span>
-                        {(new Date(group.date).toDateString() === new Date().toDateString()) && (
-                            <span className="bg-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
-                        )}
                     </div>
-                    <div className="flex gap-3 text-[10px] font-bold">
-                        {group.dayIncome > 0 && <span className="text-green-500">+{group.dayIncome.toLocaleString()}</span>}
-                        {group.dayExpense > 0 && <span className="text-gray-500">-{group.dayExpense.toLocaleString()}</span>}
+                    <div className="flex flex-col items-end gap-0.5">
+                        {group.dayIncome > 0 && <span className="text-xs font-black text-green-500">+{group.dayIncome.toLocaleString()}</span>}
+                        {group.dayExpense > 0 && <span className="text-base font-black text-[#1C1C1E] tabular-nums">-{group.dayExpense.toLocaleString()}</span>}
                     </div>
                 </div>
 
                 {/* Transactions Grid for this day */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
                     {group.transactions.map(tx => renderTransactionCard(tx))}
                 </div>
             </div>
         ))}
       </div>
-
-      {/* Expand/Collapse Button */}
-      {groupedTransactions.length > 2 && filterMode === 'month' && (
-          <button 
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full py-3 flex items-center justify-center gap-2 text-xs font-black text-blue-500 bg-blue-50/50 hover:bg-blue-50 rounded-2xl transition-colors uppercase tracking-widest"
-          >
-             {isExpanded ? (
-                 <><ChevronUp size={14}/> Свернуть</>
-             ) : (
-                 <><ChevronDown size={14}/> Показать остальные дни ({groupedTransactions.length - 2})</>
-             )}
-          </button>
-      )}
 
       {/* Uncategorized Registry (Action Area) */}
       {uncategorizedTransactions.length > 0 && (
@@ -293,7 +284,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                   <Sparkles size={32} />
                 </div>
                 <h3 className="text-xl font-black text-[#1C1C1E]">Обучение мерчанта</h3>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">"{learningTx.rawNote || learningTx.note}"</p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                    "{learningTx.rawNote || learningTx.note}"
+                </p>
+                <p className="text-[9px] text-gray-400 leading-tight px-4">
+                    Мы запомним это название, чтобы автоматически определять категорию в будущем.
+                </p>
               </div>
 
               <div className="space-y-4">

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, FileText, ArrowDownRight, ArrowUpRight, Sparkles, ChevronDown, Plus } from 'lucide-react';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
+import { cleanMerchantName } from '../utils/categorizer'; 
 
 interface ImportModalProps {
   preview: Omit<Transaction, 'id'>[];
@@ -41,11 +42,21 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
     const item = preview[idx];
     onUpdateItem(idx, { category: catId });
     
+    // Only learn if it was previously unknown or different
     if (item.category === 'other' || catId !== item.category) {
+       // Attempt to create a cleaner keyword for the rule
+       // If the raw note contains unique IDs (digits at end), strip them
+       let keywordToLearn = (item.rawNote || item.note).trim();
+       
+       // Heuristic: If it ends with >3 digits, remove them to make rule generic
+       if (/\d{4,}$/.test(keywordToLearn)) {
+           keywordToLearn = keywordToLearn.replace(/\d+$/, '').trim();
+       }
+       
        onLearnRule({
          id: Date.now().toString(),
-         keyword: item.rawNote || item.note,
-         cleanName: item.note,
+         keyword: keywordToLearn,
+         cleanName: item.note, // Use the cleaned visible name
          categoryId: catId
        });
     }

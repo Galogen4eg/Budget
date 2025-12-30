@@ -57,7 +57,7 @@ export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
   'wb': ['Wildberries', 'wildberries', '#CB11AB'],
   'ozon': ['Ozon', 'ozon', '#005BFF'],
   'aliexpress': ['AliExpress', undefined, '#E62E04'],
-  'lamoda': ['Lamoda', undefined, '#000000'],
+  'lamoda': ['Lamoda', 'lamoda', '#000000'],
   'mvideo': ['М.Видео', undefined, '#DA291C'],
   'eldorado': ['Эльдорадо', undefined, '#74AC00'],
   'dns': ['DNS', undefined, '#F48220'],
@@ -86,7 +86,7 @@ export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
   'sber': ['Сбербанк', 'sber', '#21A038'],
   'tinkoff': ['Т-Банк', 'tinkoff', '#FFDD2D'],
   'alfa': ['Альфа-Банк', 'alfa', '#EF3124'],
-  'vtb': ['ВТБ', undefined, '#002882'],
+  'vtb': ['ВТБ', 'vtb', '#002882'],
 
   // --- FUEL ---
   'lukoil': ['Лукойл', 'lukoil', '#ED1C24'],
@@ -122,6 +122,7 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
   const lowNote = name.toLowerCase();
 
   // 0. Сначала проверяем пользовательские правила (Learned Rules)
+  // Правила применяются к "сырому" тексту, чтобы поймать уникальные идентификаторы
   for (const rule of learnedRules) {
     if (lowNote.includes(rule.keyword.toLowerCase())) {
       return rule.cleanName;
@@ -133,20 +134,44 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     return "Оплата проезда";
   }
 
-  // 2. Проверка на СБП
-  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод')) {
-    const phoneMatch = name.match(/(?:7|8|9)\d{9,10}/);
-    if (phoneMatch) {
-      let rawPhone = phoneMatch[0].replace(/\D/g, '');
+  // 2. Проверка на СБП и Переводы (Улучшенная)
+  // Ищем телефоны в любых форматах (10-11 цифр, возможно с пробелами или тире)
+  // Strip non-digits to check length first
+  const digitsOnly = name.replace(/\D/g, '');
+  
+  // Basic Regex for loosely capturing phones inside text
+  // Matches +7, 8, 7, 9 followed by 9-10 digits, allowing spaces/dashes
+  const loosePhoneRegex = /(?:(?:\+?7|8)[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
+  const phoneMatch = name.match(loosePhoneRegex);
+  
+  if (phoneMatch) {
+      const rawPhone = phoneMatch[0].replace(/\D/g, '');
       let formattedPhone = '';
+      
+      // Valid RU mobile numbers are usually 11 digits (start with 7 or 8) or 10 digits (start with 9)
       if (rawPhone.length === 10 && rawPhone.startsWith('9')) {
         formattedPhone = `+7${rawPhone}`;
       } else if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
         formattedPhone = `+7${rawPhone.slice(1)}`;
       }
-      if (formattedPhone) return `СБП: ${formattedPhone}`;
-    }
-    if (lowNote.includes('сбп') || lowNote.includes('sbp')) return "Перевод по СБП";
+      
+      if (formattedPhone) {
+          // Ищем имя получателя (обычно заглавные буквы ИМЯ О.)
+          const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
+          if (nameMatch) {
+              return `${nameMatch[1]} ${nameMatch[2]}. (${formattedPhone})`;
+          }
+          return `Перевод: ${formattedPhone}`;
+      }
+  }
+
+  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer')) {
+      // Пытаемся найти имя без телефона
+      const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
+      if (nameMatch) {
+          return `Перевод: ${nameMatch[1]} ${nameMatch[2]}.`;
+      }
+      return "Перевод средств";
   }
 
   // 3. Поиск в базе брендов
@@ -156,15 +181,30 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     }
   }
 
-  // 4. Общая очистка
+  // 4. Общая очистка (Удаление мусора)
+  // Удаляем префиксы платежных систем
   name = name.replace(/^(Retail|Rus|Oplata|Покупка|Оплата|Списание|Зачисление|C2C|Card2Card|Transfer|Card to Card|Retail Rus|RUS)\s+/gi, '');
+  
+  // Удаляем города
   const cityNoise = /\s(MOSCOW|RU|RUS|SPB|EKATERINBURG|KAZAN|SAMARA|OMSK|ROSTOV|UFA|PERM|VOLGOGRAD|KRASNODAR|CHELYABINSK|NOVOSIBIRSK|YAROSLAVL)$/i;
   name = name.replace(cityNoise, '');
+  
+  // Удаляем даты и время
   name = name.replace(/\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2}/g, ''); 
+  
+  // Удаляем маски карт
   name = name.replace(/[*/]{1,}\d{4}/g, ''); 
-  name = name.replace(/\s[A-Z0-9]{8,}\s/g, ' '); 
-  name = name.replace(/\s(OOO|IP|ООО|ИП)\s/gi, ' '); 
+  
+  // Удаляем длинные цифробуквенные ID (обычно ID терминала)
+  name = name.replace(/\s[A-Z0-9]{6,}\s?/g, ' '); 
+  
+  // Удаляем юридические формы
+  name = name.replace(/\s(OOO|IP|ООО|ИП|AO)\s/gi, ' '); 
+  
+  // Удаляем спецсимволы
   name = name.replace(/[>|_\\/]/g, ' ');
+  
+  // Схлопываем пробелы
   name = name.replace(/\s+/g, ' ').trim();
   
   if (name.length > 0) {
@@ -175,7 +215,7 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
 };
 
 /**
- * Умная категоризация (без изменений логики, только типы)
+ * Умная категоризация
  */
 export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [], categories: Category[], mcc?: string, bankCategory?: string): string => {
   const cleanNote = note.toLowerCase();
@@ -186,7 +226,7 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
     }
   }
 
-  if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод')) {
+  if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer')) {
     return 'transfer';
   }
 

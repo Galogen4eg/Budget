@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { Transaction, TransactionType, AppSettings, FamilyMember, Category } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2, Link } from 'lucide-react';
+import { Transaction, TransactionType, AppSettings, FamilyMember, Category, MandatoryExpense } from '../types';
 import { MemberMarker } from '../constants';
 import { GoogleGenAI } from "@google/genai";
 import { getIconById } from '../constants';
@@ -15,15 +15,17 @@ interface AddTransactionModalProps {
   members: FamilyMember[];
   categories: Category[];
   initialTransaction?: Transaction | null;
+  onLinkMandatory?: (expenseId: string, keyword: string) => void;
 }
 
-const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSubmit, onDelete, settings, members, categories, initialTransaction }) => {
+const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSubmit, onDelete, settings, members, categories, initialTransaction, onLinkMandatory }) => {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [memberId, setMemberId] = useState(members[0]?.id || '');
   const [note, setNote] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('other');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showLinkMenu, setShowLinkMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,6 +60,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
     if (initialTransaction && onDelete) {
         onDelete(initialTransaction.id);
     }
+  };
+
+  const handleLink = (expenseId: string) => {
+      if (onLinkMandatory && note) {
+          onLinkMandatory(expenseId, note.trim());
+          setShowLinkMenu(false);
+          alert(`Транзакции с описанием "${note}" теперь будут считаться оплатой этого расхода.`);
+      }
   };
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,14 +142,26 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-white text-center relative overflow-hidden group">
             <div className="flex justify-between items-start mb-4">
                <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Сумма ({settings.currency})</span>
-               <button 
-                 type="button" 
-                 onClick={() => fileInputRef.current?.click()}
-                 className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
-                 title="Сканировать чек"
-               >
-                 {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
-               </button>
+               <div className="flex gap-2">
+                   {initialTransaction && type === 'expense' && settings.mandatoryExpenses && settings.mandatoryExpenses.length > 0 && (
+                       <button
+                         type="button"
+                         onClick={() => setShowLinkMenu(!showLinkMenu)}
+                         className={`p-2 rounded-xl transition-colors ${showLinkMenu ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400 hover:text-red-500'}`}
+                         title="Это обязательный платеж?"
+                       >
+                           <Link size={18} />
+                       </button>
+                   )}
+                   <button 
+                     type="button" 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                     title="Сканировать чек"
+                   >
+                     {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+                   </button>
+               </div>
                <input 
                  ref={fileInputRef} 
                  type="file" 
@@ -149,6 +171,24 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                  onChange={handleReceiptUpload} 
                />
             </div>
+            
+            {showLinkMenu && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="mb-4 bg-red-50 rounded-2xl p-2 border border-red-100 text-left">
+                    <p className="text-[10px] font-bold text-red-400 uppercase mb-2 px-2">Связать с расходом:</p>
+                    <div className="flex flex-wrap gap-2">
+                        {settings.mandatoryExpenses?.map(exp => (
+                            <button 
+                                key={exp.id}
+                                type="button"
+                                onClick={() => handleLink(exp.id)}
+                                className="bg-white px-3 py-2 rounded-xl text-[10px] font-bold text-[#1C1C1E] border border-red-100 hover:border-red-300"
+                            >
+                                {exp.name}
+                            </button>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
             
             <div className="flex items-center justify-center mb-6">
                <input
@@ -192,7 +232,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
           <div className="space-y-5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
-            {/* Grid for desktop, horizontal scroll for mobile if needed, or just wrap for both for better visibility */}
             <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[200px] overflow-y-auto no-scrollbar md:max-h-none">
                {categories.map(cat => (
                   <button 

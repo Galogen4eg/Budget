@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
-import { auth } from '../firebase'; // Import auth
+import { auth } from '../firebase'; 
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -44,7 +44,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [showTemplates, setShowTemplates] = useState(false);
 
   const handleManualSend = async () => {
-    // Construct a temporary event object to send
     const tempEvent: FamilyEvent = {
         id: event?.id || 'temp',
         title, description: desc, date, time, duration: dur, memberIds: mIds, isTemplate: isT, checklist, reminders
@@ -119,11 +118,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   return (
     <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20">
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
-             {/* Telegram Button */}
             <button 
                 type="button" 
                 onClick={handleManualSend} 
@@ -149,7 +147,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         {/* Templates Dropdown */}
         <AnimatePresence>
             {showTemplates && (
-                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-white border-b border-gray-100 overflow-hidden">
+                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-white border-b border-gray-100 overflow-hidden shrink-0">
                     <div className="p-4 flex gap-2 overflow-x-auto no-scrollbar">
                         {templates.map(t => (
                             <button key={t.id} onClick={() => applyTemplate(t)} className="bg-purple-50 text-purple-600 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
@@ -161,7 +159,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             )}
         </AnimatePresence>
 
-        <div className="p-6 space-y-6 overflow-y-auto no-scrollbar pb-12">
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
             <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" style={{ color: mIds.length > 0 ? (members.find(m => m.id === mIds[0])?.color) : '#1C1C1E' }} />
             <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 p-4 rounded-2xl resize-none h-24 text-[#1C1C1E]" />
@@ -178,7 +176,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              </div>
           </div>
           
-          {/* Reminders Section */}
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
              <div className="flex items-center gap-2 mb-2">
                <Bell size={16} className="text-orange-500" />
@@ -235,13 +232,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                 <span className="text-xs font-bold uppercase tracking-wide">Сохранить как шаблон</span>
              </button>
           </div>
+        </div>
 
-          <div className="flex flex-col gap-3 pt-4">
+        {/* Footer with Actions */}
+        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
              <button type="button" onClick={validateAndSave} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
-             {event && onDelete && (<button type="button" onClick={() => onDelete(event.id)} className="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest">Удалить событие</button>)}
-          </div>
+             {event && onDelete && (
+                 <button type="button" onClick={() => onDelete(event.id)} className="w-full py-3 text-red-500 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 rounded-2xl transition-colors">
+                    <Trash2 size={14}/> Удалить событие
+                 </button>
+             )}
         </div>
       </motion.div>
     </div>

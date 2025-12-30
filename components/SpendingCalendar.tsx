@@ -57,7 +57,7 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
   const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 shadow-soft border border-white overflow-hidden transition-all">
+    <div className="bg-white rounded-[2.5rem] p-4 md:p-6 shadow-soft border border-white overflow-hidden transition-all">
       <div className="flex justify-between items-center mb-6">
          <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
             <ChevronLeft size={20} className="text-gray-400" />
@@ -85,12 +85,12 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
 
       <div className="grid grid-cols-7 gap-1 mb-2">
         {weekdays.map(d => (
-          <div key={d} className="text-[10px] font-black text-gray-300 text-center py-1 uppercase tracking-widest">
+          <div key={d} className="text-[9px] md:text-[10px] font-black text-gray-300 text-center py-1 uppercase tracking-widest">
             {d}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 md:gap-2">
         {padding.map((_, i) => <div key={`pad-${i}`} />)}
         {days.map(day => {
           const total = getDayTotal(day);
@@ -109,7 +109,7 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
                     onSelectDate(new Date(year, month, day));
                 }
               }}
-              className={`relative flex flex-col items-center justify-center h-14 rounded-2xl transition-all duration-300 group ${
+              className={`relative flex flex-col items-center justify-center aspect-square md:aspect-auto md:h-14 rounded-xl md:rounded-2xl transition-all duration-300 group ${
                 isSelected 
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105 z-10' 
                   : isToday 
@@ -117,18 +117,18 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
                     : 'bg-gray-50/50 hover:bg-gray-100 text-[#1C1C1E] border border-transparent'
               }`}
             >
-              <span className={`text-xs ${isSelected ? 'font-black' : 'font-bold'}`}>
+              <span className={`text-[10px] md:text-xs ${isSelected ? 'font-black' : 'font-bold'}`}>
                 {day}
               </span>
               <div className={`transition-all duration-300 ${settings.privacyMode ? 'blur-[3px]' : ''}`}>
                 {total > 0 && (
-                  <span className={`text-[8px] mt-0.5 font-black leading-none ${isSelected ? 'text-white/90' : 'text-gray-400'}`}>
+                  <span className={`text-[7px] md:text-[8px] mt-0.5 font-black leading-none hidden sm:block ${isSelected ? 'text-white/90' : 'text-gray-400'}`}>
                     {total >= 1000 ? `${(total/1000).toFixed(1)}k` : total}
                   </span>
                 )}
               </div>
               {total > 0 && !isSelected && (
-                 <div className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-500/40" />
+                 <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-blue-500/40 sm:hidden" />
               )}
             </button>
           );

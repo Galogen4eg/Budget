@@ -254,8 +254,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                                                                 const isActive = widgetConfig.mobile.colSpan === size.w && widgetConfig.mobile.rowSpan === size.h;
                                                                 return (
                                                                     <button 
+                                                                        type="button"
                                                                         key={size.label}
-                                                                        onClick={() => updateWidgetSize(widgetConfig.id, 'mobile', size.w, size.h)}
+                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'mobile', size.w, size.h); }}
                                                                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
                                                                     >
                                                                         {size.label}
@@ -275,8 +276,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                                                                 const isActive = widgetConfig.desktop.colSpan === size.w && widgetConfig.desktop.rowSpan === size.h;
                                                                 return (
                                                                     <button 
+                                                                        type="button"
                                                                         key={size.label}
-                                                                        onClick={() => updateWidgetSize(widgetConfig.id, 'desktop', size.w, size.h)}
+                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateWidgetSize(widgetConfig.id, 'desktop', size.w, size.h); }}
                                                                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}
                                                                     >
                                                                         {size.label}

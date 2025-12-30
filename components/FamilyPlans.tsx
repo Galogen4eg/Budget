@@ -20,7 +20,7 @@ type ListFilter = 'upcoming' | 'past';
 const ROW_HEIGHT = 80;
 
 const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members }) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('month'); // Changed default to 'month'
+  const [viewMode, setViewMode] = useState<ViewMode>('month'); 
   const [listFilter, setListFilter] = useState<ListFilter>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
   
@@ -77,14 +77,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       });
 
       let jsonText = response.text || '{}';
-      
-      // Clean Markdown wrappers if present
       jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
       
-      // Robust Cleaning for parsing
       const firstBrace = jsonText.indexOf('{');
       const lastBrace = jsonText.lastIndexOf('}');
-      
       if (firstBrace !== -1 && lastBrace !== -1) {
           jsonText = jsonText.substring(firstBrace, lastBrace + 1);
       }
@@ -92,6 +88,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       const data = JSON.parse(jsonText);
       
       if (data.title) {
+          // IMPORTANT: Open modal immediately with parsed data
           setActiveEvent({
               event: null,
               prefill: {
@@ -107,15 +104,20 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
     } catch (err) {
       console.error(err);
-      showNotify('Ошибка обработки голоса', 'error');
+      showNotify(`Ошибка ИИ: ${err instanceof Error ? err.message : 'Unknown'}`, 'error');
     } finally {
       setIsProcessingVoice(false);
     }
   };
 
   const startListening = () => {
+    // Cross-browser compatibility check
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { showNotify('Голосовой ввод не поддерживается браузером', 'error'); return; }
+    
+    if (!SR) { 
+        showNotify('Ваш браузер не поддерживает голосовой ввод', 'error'); 
+        return; 
+    }
     
     if (isListening) { 
         recognitionRef.current?.stop(); 
@@ -123,20 +125,44 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         return; 
     }
 
-    const r = new SR();
-    recognitionRef.current = r;
-    r.lang = 'ru-RU';
-    r.continuous = false;
-    r.interimResults = false;
+    try {
+        const r = new SR();
+        recognitionRef.current = r;
+        r.lang = 'ru-RU';
+        r.continuous = false;
+        r.interimResults = false;
 
-    r.onstart = () => setIsListening(true);
-    r.onend = () => setIsListening(false);
-    r.onresult = (e: any) => {
-        const transcript = e.results[0][0].transcript;
-        processVoiceWithGemini(transcript);
-    };
-    
-    r.start();
+        r.onstart = () => { setIsListening(true); };
+        r.onend = () => { 
+            // Only set listening false if we aren't moving to processing phase
+            if (!isProcessingVoice) setIsListening(false); 
+        };
+        
+        r.onerror = (e: any) => { 
+            console.error(e); 
+            setIsListening(false);
+            let msg = 'Ошибка распознавания';
+            switch (e.error) {
+                case 'not-allowed': msg = 'Доступ к микрофону запрещен'; break;
+                case 'no-speech': msg = 'Речь не обнаружена'; break;
+                case 'network': msg = 'Ошибка сети'; break;
+                case 'audio-capture': msg = 'Микрофон не найден'; break;
+                case 'aborted': msg = 'Прервано'; break;
+                default: msg = `Ошибка: ${e.error}`;
+            }
+            showNotify(msg, 'error');
+        };
+        
+        r.onresult = (e: any) => {
+            const transcript = e.results[0][0].transcript;
+            if (transcript) processVoiceWithGemini(transcript);
+        };
+        
+        r.start();
+    } catch (e) {
+        console.error(e);
+        showNotify('Ошибка запуска микрофона', 'error');
+    }
   };
   // -------------------
 
@@ -235,14 +261,15 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
           {viewMode === 'week' && (
             <motion.div key="week" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-               <div className="flex items-center gap-4 px-1">
+               <div className="flex items-center gap-2 px-1">
                  <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }} className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm ios-btn-active"><ChevronLeft size={20} /></button>
-                 <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                 {/* Fixed overflow padding to prevent clipping shadow */}
+                 <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar py-2 px-1">
                    {weekDays.map((d, i) => {
                       const isSelected = d.toDateString() === selectedDate.toDateString();
                       return (
-                        <button key={i} onClick={() => setSelectedDate(new Date(d))} className={`flex-shrink-0 w-20 p-4 rounded-3xl border transition-all flex flex-col items-center shadow-sm ${isSelected ? 'bg-blue-500 text-white border-blue-500 scale-105' : 'bg-white text-[#1C1C1E] border-white'}`}>
-                          <span className={`text-[10px] font-black uppercase ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>{d.toLocaleDateString('ru-RU', { weekday: 'short' })}</span>
+                        <button key={i} onClick={() => setSelectedDate(new Date(d))} className={`flex-shrink-0 w-16 md:w-20 p-3 md:p-4 rounded-3xl border transition-all flex flex-col items-center shadow-sm ${isSelected ? 'bg-blue-500 text-white border-blue-500 scale-105' : 'bg-white text-[#1C1C1E] border-white'}`}>
+                          <span className={`text-[9px] font-black uppercase ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>{d.toLocaleDateString('ru-RU', { weekday: 'short' })}</span>
                           <span className="text-lg font-black">{d.getDate()}</span>
                         </button>
                       )
@@ -280,7 +307,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             <button 
                                 key={d} 
                                 onClick={() => {
-                                    // Modified: Immediate event creation on first click
                                     setActiveEvent({ event: null, prefill: { date: ds, time: '12:00' } });
                                 }} 
                                 className={`w-full h-full flex flex-col items-center justify-center rounded-xl border relative transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100'}`}
@@ -320,7 +346,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             members={members}
             onClose={() => setActiveEvent(null)}
             onSave={handleSaveEvent}
-            onDelete={(id) => { setEvents(events.filter(e => e.id !== id)); setActiveEvent(null); }}
+            // Ensure delete handler is passed correctly
+            onDelete={(id) => { 
+                setEvents(events.filter(e => e.id !== id)); 
+                setActiveEvent(null); 
+            }}
             onSendToTelegram={async () => false}
             templates={events.filter(e => e.isTemplate)}
             settings={settings}

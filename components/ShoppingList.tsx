@@ -6,13 +6,13 @@ import {
   Mic, BrainCircuit,
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
-  Star, Archive, Edit2, Check, TrendingUp, Send
+  Archive, Edit2, Check, Send
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { Html5Qrcode } from 'html5-qrcode';
 import { lookupBarcodeOffline, searchOnlineDatabase, ProductData } from '../utils/barcodeLookup';
-import { auth } from '../firebase'; // Import auth to get current userId
+import { auth } from '../firebase'; 
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -60,40 +60,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
 
-  // --- ANALYTICS: Top Purchases for Current Month ---
-  const topMonthPurchases = useMemo(() => {
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-
-      const itemCounts: Record<string, number> = {};
-
-      transactions.forEach(t => {
-          const tDate = new Date(t.date);
-          // Filter only this month and broaden category filter to catch more items
-          // Include 'food', 'shopping', 'household', 'other' and check for specific keywords if category is generic
-          if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear && t.type === 'expense') {
-              if (['food', 'shopping', 'household', 'other'].includes(t.category)) {
-                  // Normalize item names (split commas, trim)
-                  const parts = (t.note || '').split(',').map(s => s.trim().toLowerCase());
-                  parts.forEach(p => {
-                      // Filter out short junk and very generic terms unless they are the only thing
-                      if (p.length > 2 && !['покупка', 'оплата', 'списание'].includes(p)) { 
-                          const capitalName = p.charAt(0).toUpperCase() + p.slice(1);
-                          itemCounts[capitalName] = (itemCounts[capitalName] || 0) + 1;
-                      }
-                  });
-              }
-          }
-      });
-
-      // Convert to array and sort
-      return Object.entries(itemCounts)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 6) // Top 6
-          .map(([name, count]) => ({ title: name, count }));
-  }, [transactions]);
-
   // Price History Logic for Modal
   const lastPrice = useMemo(() => {
     if (!title || title.length < 3) return null;
@@ -136,10 +102,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       let rawText = response.text || '[]';
       
-      // Clean Markdown wrappers if present
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       
-      // Robust Cleaning
       const firstBracket = rawText.indexOf('[');
       const lastBracket = rawText.lastIndexOf(']');
       
@@ -174,7 +138,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       }
     } catch (err) {
       console.error("Gemini Parse Error:", err);
-      showNotify('error', 'Ошибка распознавания');
+      showNotify('error', `Ошибка ИИ: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
     } finally {
       setIsProcessingAI(false);
     }
@@ -182,15 +146,65 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { showNotify('error', 'Голосовой ввод не поддерживается'); return; }
-    if (isListening) { recognitionRef.current?.stop(); return; }
-    const r = new SR();
-    recognitionRef.current = r;
-    r.lang = 'ru-RU';
-    r.onstart = () => { setIsListening(true); vibrate('light'); };
-    r.onresult = (e: any) => processVoiceWithGemini(e.results[0][0].transcript);
-    r.onend = () => setIsListening(false);
-    r.start();
+    
+    if (!SR) { 
+        showNotify('error', 'Ваш браузер не поддерживает голосовой ввод'); 
+        return; 
+    }
+    
+    if (isListening) { 
+        recognitionRef.current?.stop(); 
+        setIsListening(false);
+        return; 
+    }
+    
+    try {
+        const r = new SR();
+        recognitionRef.current = r;
+        r.lang = 'ru-RU';
+        r.interimResults = false;
+        r.maxAlternatives = 1;
+
+        r.onstart = () => { setIsListening(true); vibrate('light'); };
+        
+        r.onresult = (e: any) => {
+            const transcript = e.results[0][0].transcript;
+            if (transcript) {
+                processVoiceWithGemini(transcript);
+            } else {
+                showNotify('warning', 'Речь не распознана');
+            }
+        };
+        
+        r.onerror = (e: any) => {
+            console.error("Speech Error:", e);
+            setIsListening(false);
+            
+            let msg = 'Ошибка микрофона';
+            switch (e.error) {
+                case 'not-allowed': msg = 'Доступ к микрофону запрещен. Проверьте настройки браузера.'; break;
+                case 'no-speech': msg = 'Речь не обнаружена. Попробуйте громче.'; break;
+                case 'network': msg = 'Ошибка сети при распознавании.'; break;
+                case 'audio-capture': msg = 'Микрофон не найден.'; break;
+                case 'aborted': msg = 'Распознавание прервано.'; break;
+                default: msg = `Ошибка: ${e.error}`;
+            }
+            showNotify('error', msg);
+            vibrate('error');
+        };
+
+        r.onend = () => {
+            // Delay setting listening to false slightly to allow onresult to fire first if successful
+            setTimeout(() => {
+                if (!isProcessingAI) setIsListening(false);
+            }, 500);
+        };
+        
+        r.start();
+    } catch (err) {
+        console.error(err);
+        showNotify('error', 'Не удалось запустить распознавание');
+    }
   };
 
   const startScanner = () => { 
@@ -302,23 +316,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     setTitle(''); setAmount('1'); setUnit('шт'); setEditingItemId(null); setIsModalOpen(false); vibrate('light');
   };
 
-  const handleQuickAdd = (title: string) => {
-    const exists = items.find(i => i.title === title && !i.completed);
-    if (exists) { showNotify('info', `"${title}" уже в списке`); vibrate('medium'); return; }
-    const newItem: ShoppingItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: title,
-      amount: '1',
-      unit: 'шт',
-      completed: false,
-      memberId: members[0]?.id || 'papa',
-      userId: auth.currentUser?.uid,
-      priority: 'medium',
-      category: 'other'
-    };
-    setItems([newItem, ...items]); vibrate('success'); showNotify('success', `Добавлено: ${title}`);
-  };
-
   const handleSendList = async () => {
       if (!onSendToTelegram || activeItems.length === 0) return;
       setIsSending(true);
@@ -333,7 +330,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   return (
     <div className="relative space-y-8 pb-36 w-full">
       <AnimatePresence>
-        {/* ADD/EDIT ITEM MODAL */}
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-4">
              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
@@ -462,25 +458,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             <button onClick={startScanner} className="w-11 h-11 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 shadow-sm ios-btn-active"><ScanBarcode size={22} /></button>
           </div>
       </div>
-
-      {/* DYNAMIC TOP PURCHASES */}
-      {topMonthPurchases.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 flex items-center gap-2"><TrendingUp size={12} className="text-purple-500" /> Топ месяца</h3>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
-            {topMonthPurchases.map((item, i) => (
-              <button key={i} onClick={() => handleQuickAdd(item.title)} className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2 flex-shrink-0 active:scale-95 transition-transform">
-                <span className="text-xl">⭐</span>
-                <div className="flex flex-col items-start">
-                    <span className="text-xs font-bold text-[#1C1C1E]">{item.title}</span>
-                    <span className="text-[8px] font-bold text-gray-400">{item.count} раз(а)</span>
-                </div>
-                <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center"><Plus size={12} className="text-blue-500" strokeWidth={3} /></div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="space-y-6">
         {activeItems.map(item => (

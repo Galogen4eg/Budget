@@ -85,7 +85,7 @@ const NotificationToast = ({ notification, onClose }: { notification: { message:
       exit={{ opacity: 0, y: -50, x: '-50%' }}
       className="fixed top-0 left-1/2 z-[1000] px-6 py-3 rounded-[2rem] bg-white/90 backdrop-blur-xl shadow-2xl border border-white/50 flex items-center gap-3 min-w-[280px]"
     >
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-lg ${notification.type === 'error' ? 'bg-red-500 shadow-red-500/30' : (notification.type === 'warning' ? 'bg-orange-500 shadow-orange-500/30' : 'bg-blue-500 shadow-blue-500/30')}`}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-lg ${notification.type === 'error' ? 'bg-red-50 shadow-red-500/30' : (notification.type === 'warning' ? 'bg-orange-500 shadow-orange-500/30' : 'bg-blue-500 shadow-blue-500/30')}`}>
         {notification.type === 'error' ? <AlertTriangle size={18} /> : (notification.type === 'warning' ? <AlertTriangle size={18} /> : <Bell size={18} />)}
       </div>
       <div className="flex-1">
@@ -476,7 +476,27 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 md:gap-4"><div className="w-full min-w-0"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /></div><div className="w-full min-w-0"><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></div></div>
             </motion.div>
           )}
-          {activeTab === 'plans' && (<motion.div key="plans" className="w-full"><FamilyPlans events={events} setEvents={createSyncHandler('events', events)} settings={settings} members={familyMembers} onSendToTelegram={handleSendToTelegram} /></motion.div>)}
+          {activeTab === 'plans' && (
+            <motion.div key="plans" className="w-full">
+              <FamilyPlans 
+                events={events} 
+                setEvents={(newEventsOrUpdater) => {
+                  const currentEvents = events;
+                  const newEvents = typeof newEventsOrUpdater === 'function' ? (newEventsOrUpdater as Function)(currentEvents) : newEventsOrUpdater;
+                  createSyncHandler('events', currentEvents)(newEvents);
+                  
+                  // Trigger Telegram auto-send if a new event is added
+                  if (settings.autoSendEventsToTelegram) {
+                    const added = newEvents.filter((ne: FamilyEvent) => !currentEvents.find(ce => ce.id === ne.id));
+                    added.forEach((e: FamilyEvent) => handleSendToTelegram(e));
+                  }
+                }} 
+                settings={settings} 
+                members={familyMembers} 
+                onSendToTelegram={handleSendToTelegram} 
+              />
+            </motion.div>
+          )}
           {activeTab === 'shopping' && (<motion.div key="shopping" className="w-full"><ShoppingList items={shoppingItems} setItems={createSyncHandler('shopping', shoppingItems)} settings={settings} members={familyMembers} transactions={transactions} onCompletePurchase={(a,c,n) => handleSaveTransaction({amount:a,category:c,note:n,type:'expense',memberId:user.uid,date:new Date().toISOString()})} onMoveToPantry={(item) => { const newItem: PantryItem = { id: generateUniqueId(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() }; if(familyId) addItem(familyId, 'pantry', newItem); }} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>)}
           {activeTab === 'services' && (<motion.div key="services" className="w-full"><ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards)} readings={meterReadings} setReadings={createSyncHandler('meters', meterReadings)} wishlist={wishlist} setWishlist={createSyncHandler('wishlist', wishlist)} /></motion.div>)}
         </AnimatePresence>
@@ -490,7 +510,7 @@ const App: React.FC = () => {
         {isGoalModalOpen && <GoalModal goal={selectedGoal} onClose={() => { setIsGoalModalOpen(false); setSelectedGoal(null); }} onSave={(g) => { if(familyId) { if(selectedGoal) updateItem(familyId, 'goals', g.id, g); else addItem(familyId, 'goals', g); } setIsGoalModalOpen(false); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'goals', id); setIsGoalModalOpen(false); }} settings={settings} />}
         {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={updateSettings} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={familyMembers} onUpdateMembers={createSyncHandler('members', familyMembers)} categories={categories} onUpdateCategories={createSyncHandler('categories', categories)} learnedRules={learnedRules} onUpdateRules={createSyncHandler('rules', learnedRules)} onEnablePin={() => { setIsSettingsOpen(false); setPinStatus('create'); }} onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }} currentFamilyId={familyId} onJoinFamily={handleJoinFamily} onLogout={handleLogout} installPrompt={installPrompt} transactions={transactions} />}
         {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={handleConfirmImport} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={handleLearnRule} categories={categories} onAddCategory={handleAddCategory} />}
-        {pendingInviteId && pendingInviteId !== familyId && (<div className="fixed inset-0 z-[700] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" /><motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl text-center space-y-4"><div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-2"><Users size={32} /></div><h3 className="font-black text-xl text-[#1C1C1E]">Приглашение в семью</h3><p className="text-sm font-medium text-gray-500">Вы перешли по ссылке-приглашению. Хотите присоединиться к бюджету этой семьи?</p><div className="font-mono bg-gray-50 p-3 rounded-xl text-xs">{pendingInviteId}</div><div className="flex gap-3 mt-4"><button onClick={rejectInvite} className="flex-1 py-4 bg-gray-100 rounded-xl font-black uppercase text-xs text-gray-400">Отмена</button><button onClick={() => handleJoinFamily(pendingInviteId)} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-pink-500/30">Вступить</button></div></motion.div></div>)}
+        {pendingInviteId && pendingInviteId !== familyId && (<div className="fixed inset-0 z-[700] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" /><motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-sm rounded-[2.5rem] p-8 shadow-2xl text-center space-y-4"><div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-2"><Users size={32} /></div><h3 className="font-black text-xl text-[#1C1C1E]">Приглашение в семью</h3><p className="text-sm font-medium text-gray-500">Вы перешли по ссылке-приглашению. Хотите присоединиться к бюджету этой семьи?</p><div className="font-mono bg-gray-50 p-3 rounded-xl text-xs">{pendingInviteId}</div><div className="flex gap-3 mt-4"><button onClick={rejectInvite} className="flex-1 py-4 bg-gray-100 rounded-xl font-black uppercase text-xs text-gray-400">Отмена</button><button onClick={() => handleJoinFamily(pendingInviteId)} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-pink-500/30">Вступить</button></div></motion.div></div>)}
       </AnimatePresence>
     </div>
   );

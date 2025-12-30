@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 
 interface FamilyPlansProps {
   events: FamilyEvent[];
-  setEvents: (events: FamilyEvent[]) => void;
+  setEvents: (events: FamilyEvent[] | ((prev: FamilyEvent[]) => FamilyEvent[])) => void;
   settings: AppSettings;
   members: FamilyMember[];
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
@@ -84,7 +84,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   return (
     <div className="space-y-6 relative w-full h-full flex flex-col">
       <AnimatePresence>
-        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
+        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-50 text-white' : 'bg-blue-600 text-white'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
         {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/60 backdrop-blur-md flex flex-col items-center justify-center"><div className="bg-white p-8 rounded-[3rem] shadow-2xl border flex flex-col items-center gap-4"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={48} className="text-blue-500 relative" /> : <BrainCircuit size={48} className="text-purple-500 relative animate-pulse" />}</div><p className="font-black text-lg text-[#1C1C1E]">{isListening ? 'Говорите...' : 'Обрабатываю...'}</p></div></motion.div>}
       </AnimatePresence>
 
@@ -128,7 +128,33 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       </div>
 
       <AnimatePresence>
-        {activeEvent && <EventModal event={activeEvent.event} prefill={activeEvent.prefill} members={members} onClose={() => setActiveEvent(null)} onSave={e => { setEvents([...events, e]); setActiveEvent(null); }} onSendToTelegram={onSendToTelegram} templates={[]} settings={settings} />}
+        {activeEvent && (
+          <EventModal 
+            event={activeEvent.event} 
+            prefill={activeEvent.prefill} 
+            members={members} 
+            onClose={() => setActiveEvent(null)} 
+            onSave={e => { 
+              setEvents(prev => {
+                const updated = Array.isArray(prev) ? [...prev] : [];
+                const existingIndex = updated.findIndex(ev => ev.id === e.id);
+                if (existingIndex > -1) {
+                  updated[existingIndex] = e;
+                } else {
+                  updated.push(e);
+                }
+                return updated;
+              }); 
+              
+              // Note: Explicit auto-sending to Telegram for new events
+              // The App.tsx wrapper handles this generally, but we can also ensure it here.
+              setActiveEvent(null); 
+            }} 
+            onSendToTelegram={onSendToTelegram} 
+            templates={events.filter(ev => ev.isTemplate)} 
+            settings={settings} 
+          />
+        )}
       </AnimatePresence>
     </div>
   );

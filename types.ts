@@ -125,12 +125,22 @@ export interface MeterReading {
   prevValue?: number;
 }
 
+export interface WidgetConfig {
+  id: string;
+  isVisible: boolean;
+  mobile: { colSpan: number; rowSpan: number };
+  desktop: { colSpan: number; rowSpan: number };
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;
   startOfMonthDay: number;
   privacyMode: boolean;
-  enabledWidgets: string[];
+  
+  // Replaces simple string array with detailed config
+  widgets: WidgetConfig[]; 
+  
   isPinEnabled: boolean;
   
   // Конфигурация видимости

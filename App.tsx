@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell } from 'lucide-react';
-import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard } from './types';
+import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff } from 'lucide-react';
+import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
 import TransactionHistory from './components/TransactionHistory';
@@ -18,6 +18,7 @@ import EventModal from './components/EventModal';
 import GoalModal from './components/GoalModal';
 import Widget from './components/Widget';
 import ChartsSection from './components/ChartsSection';
+import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
 import ServicesHub from './components/ServicesHub';
 import PinScreen from './components/PinScreen';
 import OnboardingModal from './components/OnboardingModal';
@@ -28,12 +29,22 @@ import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, getRedirectResult, User as FirebaseUser } from 'firebase/auth';
 import { subscribeToCollection, subscribeToSettings, addItem, updateItem, deleteItem, saveSettings, syncInitialData, getOrInitUserFamily, joinFamily } from './utils/db';
 
+const DEFAULT_WIDGETS: WidgetConfig[] = [
+  { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 2 } },
+  { id: 'daily', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+  { id: 'spent', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+  { id: 'goals', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+  { id: 'shopping', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+];
+
 const DEFAULT_SETTINGS: AppSettings = {
   familyName: 'Семья',
   currency: '₽',
   startOfMonthDay: 1,
   privacyMode: false,
-  enabledWidgets: ['balance', 'daily', 'spent', 'goals', 'charts', 'shopping'],
+  widgets: DEFAULT_WIDGETS,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
   enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat'],
   isPinEnabled: true, 
@@ -55,6 +66,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     category: 'категория',
     note: 'описание'
   }
+};
+
+// Helper to escape Markdown special characters for Telegram
+const escapeMarkdown = (text: string) => {
+  if (!text) return '';
+  // Escape characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
+  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
 };
 
 // --- Notification Toast Component ---
@@ -83,7 +101,6 @@ const NotificationToast = ({ notification, onClose }: { notification: { message:
   );
 };
 
-// ... (LoginScreen and DomainErrorScreen unchanged) ...
 // --- Firebase Login Component ---
 const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boolean }) => {
   return (
@@ -126,6 +143,7 @@ const App: React.FC = () => {
   const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [pendingMember, setPendingMember] = useState<FamilyMember | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'plans' | 'shopping' | 'services'>('overview');
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('family'); 
@@ -176,6 +194,18 @@ const App: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- Network Status Listener ---
+  useEffect(() => {
+    const handleOnline = () => { setIsOnline(true); setAppNotification({ message: "Соединение восстановлено", type: "success" }); };
+    const handleOffline = () => { setIsOnline(false); setAppNotification({ message: "Офлайн режим. Данные сохраняются локально.", type: "warning" }); };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // ... (Effect hooks same as before) ...
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [activeTab]);
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
@@ -196,13 +226,50 @@ const App: React.FC = () => {
     const unsubGoals = subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[]));
     const unsubShopping = subscribeToCollection(familyId, 'shopping', (data) => { const items = data as ShoppingItem[]; setShoppingItems(items); if (!isFirstLoad.current.shopping && user) { const newItems = items.filter(item => !prevShoppingRef.current.find(prev => prev.id === item.id)); const externalItems = newItems.filter(item => item.userId && item.userId !== user.uid); if (externalItems.length > 0) { const authorName = familyMembersRef.current.find(m => m.userId === externalItems[0].userId)?.name || 'Кто-то'; setAppNotification({ message: `${authorName} добавил(а): ${externalItems[0].title}` }); } } prevShoppingRef.current = items; isFirstLoad.current.shopping = false; });
     const unsubEvents = subscribeToCollection(familyId, 'events', (data) => { const evs = data as FamilyEvent[]; setEvents(evs); if (!isFirstLoad.current.events && user) { const newEvents = evs.filter(e => !prevEventsRef.current.find(prev => prev.id === e.id)); const externalEvents = newEvents.filter(e => e.userId && e.userId !== user.uid); if (externalEvents.length > 0) { const authorName = familyMembersRef.current.find(m => m.userId === externalEvents[0].userId)?.name || 'Кто-то'; setAppNotification({ message: `${authorName} создал(а) событие: ${externalEvents[0].title}` }); } } prevEventsRef.current = evs; isFirstLoad.current.events = false; });
-    const unsubCats = subscribeToCollection(familyId, 'categories', (data) => { if(data.length > 0) setCategories(data as Category[]); });
+    
+    // Improved Categories Sync Logic
+    const unsubCats = subscribeToCollection(familyId, 'categories', (data) => { 
+        const dbCats = data as Category[];
+        if(dbCats.length > 0) {
+            const hasStandard = dbCats.some(c => INITIAL_CATEGORIES.some(ic => ic.id === c.id));
+            if (!hasStandard) {
+                setCategories([...INITIAL_CATEGORIES, ...dbCats]);
+            } else {
+                setCategories(dbCats);
+            }
+        } else {
+            setCategories(INITIAL_CATEGORIES);
+        }
+    });
+
     const unsubRules = subscribeToCollection(familyId, 'rules', (data) => setLearnedRules(data as LearnedRule[]));
     const unsubSubs = subscribeToCollection(familyId, 'subscriptions', (data) => setSubscriptions(data as Subscription[]));
     const unsubDebts = subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[]));
     const unsubPantry = subscribeToCollection(familyId, 'pantry', (data) => setPantry(data as PantryItem[]));
     const unsubCards = subscribeToCollection(familyId, 'cards', (data) => setLoyaltyCards(data as LoyaltyCard[]));
-    const unsubSettings = subscribeToSettings(familyId, (data) => { setSettings({ ...DEFAULT_SETTINGS, ...data }); });
+    const unsubSettings = subscribeToSettings(familyId, (data) => { 
+        const loadedSettings = data as any;
+        // Migrate old 'enabledWidgets' (string[]) to 'widgets' (WidgetConfig[]) if needed
+        if (loadedSettings.enabledWidgets && Array.isArray(loadedSettings.enabledWidgets)) {
+            const newWidgets = DEFAULT_WIDGETS.map(w => ({
+                ...w,
+                isVisible: loadedSettings.enabledWidgets.includes(w.id)
+            }));
+            setSettings({ ...DEFAULT_SETTINGS, ...data, widgets: newWidgets });
+        } else if (loadedSettings.widgets) {
+            // Merge potentially new default widgets
+            const currentWidgets = loadedSettings.widgets as WidgetConfig[];
+            const missingWidgets = DEFAULT_WIDGETS.filter(dw => !currentWidgets.find(cw => cw.id === dw.id));
+            
+            if (missingWidgets.length > 0) {
+                setSettings({ ...DEFAULT_SETTINGS, ...data, widgets: [...currentWidgets, ...missingWidgets] });
+            } else {
+                setSettings({ ...DEFAULT_SETTINGS, ...data }); 
+            }
+        } else {
+            setSettings({ ...DEFAULT_SETTINGS, ...data }); 
+        }
+    });
 
     return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubSettings(); };
   }, [familyId, user]);
@@ -219,22 +286,30 @@ const App: React.FC = () => {
   // Telegram Logic
   const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { 
     if (!settings.telegramBotToken || !settings.telegramChatId) return false; 
-    
-    // Parse template
     let text = settings.eventTemplate || DEFAULT_SETTINGS.eventTemplate || "";
-    text = text.replace('{{title}}', event.title)
-               .replace('{{date}}', event.date)
-               .replace('{{time}}', event.time)
-               .replace('{{description}}', event.description || '');
+    
+    // Escape variable content to prevent Markdown errors
+    text = text.replace('{{title}}', escapeMarkdown(event.title))
+               .replace('{{date}}', escapeMarkdown(event.date))
+               .replace('{{time}}', escapeMarkdown(event.time))
+               .replace('{{description}}', escapeMarkdown(event.description || ''));
 
     try { 
-      await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
+      const res = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'Markdown' }) 
+        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'MarkdownV2' }) 
       }); 
+      
+      if (!res.ok) {
+          console.error("Telegram send failed:", await res.text());
+          return false;
+      }
       return true; 
-    } catch (e) { return false; } 
+    } catch (e) { 
+        console.error("Telegram network error:", e);
+        return false; 
+    } 
   };
 
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]): Promise<boolean> => {
@@ -243,16 +318,29 @@ const App: React.FC = () => {
       return false;
     }
 
-    const listText = items.map(i => `- ${i.title} (${i.amount} ${i.unit})`).join('\n');
+    const listText = items.map(i => `\\- ${escapeMarkdown(i.title)} \\(${escapeMarkdown(i.amount || '')} ${escapeMarkdown(i.unit)}\\)`).join('\n');
     let text = settings.shoppingTemplate || DEFAULT_SETTINGS.shoppingTemplate || "";
+    
+    // Note: If user edited the template and removed placeholders, this might break.
+    // Assuming template is also markdown compatible or simple text.
+    // For safety, we only escape the inserted list content here.
     text = text.replace('{{items}}', listText);
 
+    // If template has other static markdown chars, they are fine.
+    
     try {
-      await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
+      const res = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'Markdown' }) 
+        body: JSON.stringify({ chat_id: settings.telegramChatId, text: text, parse_mode: 'MarkdownV2' }) 
       });
+      
+      if (!res.ok) {
+          console.error("Telegram shopping send failed:", await res.text());
+          setAppNotification({ message: "Ошибка отправки в Telegram", type: "error" });
+          return false;
+      }
+
       setAppNotification({ message: "Список покупок отправлен в Telegram!" });
       return true;
     } catch (e) {
@@ -268,9 +356,41 @@ const App: React.FC = () => {
   const updateSettings = (newSettings: AppSettings) => { if(!familyId) return; setSettings(newSettings); saveSettings(familyId, newSettings); };
   const handleJoinFamily = async (targetId: string) => { if (!user) return; try { await joinFamily(user, targetId); setFamilyId(targetId); setIsSettingsOpen(false); setPendingInviteId(null); } catch (e) { console.error(e); } };
   const rejectInvite = () => { setPendingInviteId(null); };
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file || !familyId) return; setIsImporting(true); try { const parsed = await parseAlfaStatement(file, settings.alfaMapping, familyId, learnedRules, categories, transactions); if (parsed.length > 0) { const withUser = parsed.map(p => ({ ...p, userId: user?.uid })); setImportPreview(withUser); setIsImportModalOpen(true); } else { alert("Новых операций не найдено."); } } catch (err) { alert("Ошибка файла"); } finally { setIsImporting(false); if (e.target) e.target.value = ''; } };
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file || !familyId) return; setIsImporting(true); try { const parsed = await parseAlfaStatement(file, settings.alfaMapping, familyId, learnedRules, categories, transactions); if (parsed.length > 0) { const withUser = parsed.map(p => ({ ...p, userId: user?.uid })); setImportPreview(withUser); setIsImportModalOpen(true); } else { alert("Новых операций не найдено."); } } catch (err) { console.error(err); alert("Ошибка файла или нет новых данных"); } finally { setIsImporting(false); if (e.target) e.target.value = ''; } };
 
-  const filteredTransactions = useMemo(() => { let txs = transactions.filter(t => { const tDate = new Date(t.date); if (selectedDate) { return tDate.getDate() === selectedDate.getDate() && tDate.getMonth() === selectedDate.getMonth() && tDate.getFullYear() === selectedDate.getFullYear(); } return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear(); }); if (budgetMode === 'personal' && user) { txs = txs.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } return txs; }, [transactions, selectedDate, currentMonth, budgetMode, user]);
+  // New handler for creating categories
+  const handleAddCategory = (cat: Category) => {
+    if (familyId) addItem(familyId, 'categories', cat);
+  };
+
+  // Memoized & Sorted Transactions
+  const filteredTransactions = useMemo(() => { 
+    let txs = transactions.filter(t => { 
+      const tDate = new Date(t.date); 
+      if (selectedDate) { 
+        return tDate.getDate() === selectedDate.getDate() && tDate.getMonth() === selectedDate.getMonth() && tDate.getFullYear() === selectedDate.getFullYear(); 
+      } 
+      return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear(); 
+    }); 
+    if (budgetMode === 'personal' && user) { 
+      txs = txs.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); 
+    } 
+    // SORT DESCENDING (Newest first)
+    return txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, selectedDate, currentMonth, budgetMode, user]);
+
+  // Separate set of transactions strictly for current month analytics (ignoring day selection)
+  const monthTransactions = useMemo(() => {
+    let txs = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear();
+    });
+    if (budgetMode === 'personal' && user) {
+        txs = txs.filter(t => (t.userId === user.uid) || (t.memberId === user.uid));
+    }
+    return txs;
+  }, [transactions, currentMonth, budgetMode, user]);
+
   const totalBalance = useMemo(() => { let txsToCount = transactions; if (budgetMode === 'personal' && user) { txsToCount = transactions.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } const startDate = settings.initialBalanceDate ? new Date(settings.initialBalanceDate) : new Date(0); startDate.setHours(0, 0, 0, 0); const txSum = txsToCount.reduce((acc, tx) => { const txDate = new Date(tx.date); if (txDate < startDate) return acc; return tx.type === 'income' ? acc + tx.amount : acc - tx.amount; }, 0); return settings.initialBalance + txSum; }, [transactions, settings.initialBalance, settings.initialBalanceDate, budgetMode, user]);
   const currentMonthExpenses = useMemo(() => { const now = new Date(); return filteredTransactions.filter(t => t.type === 'expense' && new Date(t.date).getMonth() === now.getMonth()).reduce((acc, t) => acc + t.amount, 0); }, [filteredTransactions]);
   const shoppingPreview = useMemo(() => shoppingItems.filter(i => !i.completed).slice(0, 4), [shoppingItems]);
@@ -308,6 +428,11 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2">
+            {!isOnline && (
+                <div className="w-11 h-11 bg-orange-50 text-orange-500 rounded-3xl flex items-center justify-center animate-pulse" title="Нет интернета">
+                    <WifiOff size={20} />
+                </div>
+            )}
             <button onClick={() => setIsSettingsOpen(true)} className="p-4 bg-white shadow-soft rounded-3xl text-gray-400 border border-white hover:bg-gray-50 transition-colors ios-btn-active"><SettingsIcon size={22} /></button>
         </div>
       </header>
@@ -316,19 +441,90 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8 w-full">
-              {/* Using auto-rows-fr to enforce equal height for grid items in the same row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 items-stretch auto-rows-fr w-full">
-                {settings.enabledWidgets.map(widgetId => {
-                    // Balance: Full width (2 cols on mobile, 2 on desktop usually)
-                    if (widgetId === 'balance') return <SmartHeader key="balance" balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="col-span-2 w-full h-full" />;
-                    // Daily & Spent: Half width (1 col on mobile)
-                    if (widgetId === 'daily' && !settings.enabledWidgets.includes('balance')) return <Widget key="daily" className="col-span-1 w-full h-full" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />;
-                    if (widgetId === 'spent') return <Widget key="spent" className="col-span-1 w-full h-full" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />;
-                    // Charts: Full width on mobile (col-span-2) because charts are complex, 1 col on desktop
-                    if (widgetId === 'charts') return <div key="charts" className="col-span-2 md:col-span-1 w-full h-full"><ChartsSection transactions={filteredTransactions} settings={settings} /></div>;
-                    // Goals & Shopping: Half width on mobile (col-span-1) to allow 2 rows effect
-                    if (widgetId === 'goals') return <div key="goals" className="col-span-1 w-full h-full"><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>;
-                    if (widgetId === 'shopping') return <div key="shopping" className="col-span-1 w-full h-full space-y-0 bg-white p-6 rounded-[2.5rem] border border-white shadow-soft flex flex-col"><div className="flex items-center justify-between mb-4"><h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Нужно купить</h3><button onClick={() => setActiveTab('shopping')} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider">Все</button></div>{shoppingPreview.length === 0 ? <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-300 py-6 border-2 border-dashed border-gray-100 rounded-2xl"><ShoppingBag size={20} className="mb-2 opacity-50"/><span className="font-bold text-[10px] uppercase">Список пуст</span></div> : <div className="grid gap-2">{shoppingPreview.map(item => (<div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50 rounded-2xl border border-gray-100"><div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" /><span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span></div>))}</div>}</div>;
+              {/* Changed: DYNAMIC BENTO GRID LAYOUT */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[160px] md:auto-rows-[180px] w-full">
+                {settings.widgets.map(widget => {
+                    if (!widget.isVisible) return null;
+                    const { id } = widget;
+                    
+                    // Generate style based on config
+                    const style = {
+                        gridColumn: `span ${widget.mobile.colSpan} / span ${widget.mobile.colSpan}`,
+                        gridRow: `span ${widget.mobile.rowSpan} / span ${widget.mobile.rowSpan}`,
+                    };
+                    
+                    // Desktop styles via media query emulation in standard style logic is tricky for CSS Grid in JS directly if using simple classes.
+                    // We will use classes for breakpoints.
+                    const colClass = `col-span-${widget.mobile.colSpan} md:col-span-${widget.desktop.colSpan}`;
+                    const rowClass = `row-span-${widget.mobile.rowSpan} md:row-span-${widget.desktop.rowSpan}`;
+
+                    // HERO WIDGET (Balance)
+                    if (id === 'balance') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="h-full" />
+                        </div>
+                    );
+                    
+                    // SMALL STATS (Daily)
+                    if (id === 'daily') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <Widget label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} className="h-full" />
+                        </div>
+                    );
+                    
+                    // SMALL STATS (Spent)
+                    if (id === 'spent') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <Widget label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} className="h-full" />
+                        </div>
+                    );
+                    
+                    // CHARTS (Wide)
+                    if (id === 'charts') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <ChartsSection transactions={filteredTransactions} settings={settings} />
+                        </div>
+                    );
+
+                    // NEW: MONTHLY ANALYTICS
+                    if (id === 'month_chart') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} />
+                        </div>
+                    );
+                    
+                    // LISTS (Goals)
+                    if (id === 'goals') return (
+                        <div key={id} className={`${colClass} ${rowClass}`}>
+                            <GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" />
+                        </div>
+                    );
+                    
+                    // LISTS (Shopping)
+                    if (id === 'shopping') return (
+                        <div key={id} className={`${colClass} ${rowClass} bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col transition-all hover:scale-[1.01]`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Нужно купить</h3>
+                                <button onClick={() => setActiveTab('shopping')} className="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center hover:bg-blue-100 transition-colors ios-btn-active"><ShoppingBag size={20}/></button>
+                            </div>
+                            {shoppingPreview.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-300 border-2 border-dashed border-gray-100 rounded-2xl">
+                                    <ShoppingBag size={20} className="mb-2 opacity-50"/>
+                                    <span className="font-bold text-[9px] uppercase">Список пуст</span>
+                                </div>
+                            ) : (
+                                <div className="grid gap-2 overflow-y-auto no-scrollbar">
+                                    {shoppingPreview.map(item => (
+                                        <div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50/50 rounded-2xl border border-gray-100">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                                            <span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                    
                     return null;
                 })}
               </div>
@@ -371,8 +567,8 @@ const App: React.FC = () => {
         {isModalOpen && <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onSubmit={handleSaveTransaction} onDelete={handleDeleteTransaction} settings={settings} members={familyMembers} categories={categories} initialTransaction={editingTransaction} />}
         {isEventModalOpen && <EventModal event={null} members={familyMembers} onClose={() => setIsEventModalOpen(false)} onSave={(e) => { if(familyId) addItem(familyId, 'events', e); if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); setIsEventModalOpen(false); }} onSendToTelegram={handleSendToTelegram} templates={events.filter(e => e.isTemplate)} settings={settings} />}
         {isGoalModalOpen && <GoalModal goal={selectedGoal} onClose={() => { setIsGoalModalOpen(false); setSelectedGoal(null); }} onSave={(g) => { if(familyId) { if(selectedGoal) updateItem(familyId, 'goals', g.id, g); else addItem(familyId, 'goals', g); } setIsGoalModalOpen(false); }} onDelete={(id) => { if(familyId) deleteItem(familyId, 'goals', id); setIsGoalModalOpen(false); }} settings={settings} />}
-        {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={updateSettings} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={familyMembers} onUpdateMembers={createSyncHandler('members', familyMembers)} categories={categories} onUpdateCategories={createSyncHandler('categories', categories)} learnedRules={learnedRules} onUpdateRules={createSyncHandler('rules', learnedRules)} onEnablePin={() => { setIsSettingsOpen(false); setPinStatus('create'); }} onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }} currentFamilyId={familyId} onJoinFamily={handleJoinFamily} onLogout={handleLogout} installPrompt={installPrompt} />}
-        {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={() => { importPreview.forEach(t => handleSaveTransaction(t)); setIsImportModalOpen(false); }} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} />}
+        {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={updateSettings} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={familyMembers} onUpdateMembers={createSyncHandler('members', familyMembers)} categories={categories} onUpdateCategories={createSyncHandler('categories', categories)} learnedRules={learnedRules} onUpdateRules={createSyncHandler('rules', learnedRules)} onEnablePin={() => { setIsSettingsOpen(false); setPinStatus('create'); }} onDisablePin={() => { setIsSettingsOpen(false); setPinStatus('disable_confirm'); }} currentFamilyId={familyId} onJoinFamily={handleJoinFamily} onLogout={handleLogout} installPrompt={installPrompt} transactions={transactions} />}
+        {isImportModalOpen && <ImportModal preview={importPreview} onConfirm={() => { importPreview.forEach(t => handleSaveTransaction(t)); setIsImportModalOpen(false); }} onCancel={() => setIsImportModalOpen(false)} settings={settings} onUpdateItem={(idx, updates) => { setImportPreview(prev => prev.map((item, i) => i === idx ? { ...item, ...updates } : item)); }} onLearnRule={(rule) => { if(familyId) addItem(familyId, 'rules', rule); }} categories={categories} onAddCategory={handleAddCategory} />}
         {pendingInviteId && pendingInviteId !== familyId && (<div className="fixed inset-0 z-[700] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" /><motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl text-center space-y-4"><div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-2"><Users size={32} /></div><h3 className="font-black text-xl text-[#1C1C1E]">Приглашение в семью</h3><p className="text-sm font-medium text-gray-500">Вы перешли по ссылке-приглашению. Хотите присоединиться к бюджету этой семьи?</p><div className="font-mono bg-gray-50 p-3 rounded-xl text-xs">{pendingInviteId}</div><div className="flex gap-3 mt-4"><button onClick={rejectInvite} className="flex-1 py-4 bg-gray-100 rounded-xl font-black uppercase text-xs text-gray-400">Отмена</button><button onClick={() => handleJoinFamily(pendingInviteId)} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-pink-500/30">Вступить</button></div></motion.div></div>)}
       </AnimatePresence>
     </div>

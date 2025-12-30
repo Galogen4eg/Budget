@@ -10,26 +10,27 @@ interface GoalsSectionProps {
   settings: AppSettings;
   onEditGoal: (goal: SavingsGoal) => void;
   onAddGoal: () => void;
+  className?: string;
 }
 
-const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal, onAddGoal }) => {
+const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal, onAddGoal, className = '' }) => {
   return (
-    <section className="space-y-4">
-      <div className="flex justify-between items-center px-1">
-        <h2 className="text-xl font-black">Наши цели</h2>
+    <div className={`bg-white p-6 rounded-[2.5rem] border border-white shadow-soft transition-all h-full ${className}`}>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Наши цели</h3>
         <button 
           onClick={onAddGoal}
-          className="p-2.5 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors ios-btn-active"
+          className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors ios-btn-active"
         >
-          <Plus size={20} strokeWidth={3} />
+          <Plus size={16} strokeWidth={3} />
         </button>
       </div>
 
-      {/* Grid is 1 column by default to handle narrow widget spaces, expanded on larger screens if container allows */}
       <div className="grid grid-cols-1 gap-4">
         {goals.length === 0 ? (
-          <div className="col-span-full py-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-gray-300">
-            <p className="text-xs font-black uppercase tracking-widest">Нет активных целей</p>
+          <div className="py-8 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-300">
+            <Target size={24} className="mb-2 opacity-50"/>
+            <p className="text-[10px] font-black uppercase tracking-widest">Нет целей</p>
           </div>
         ) : (
           goals.map((goal, index) => {
@@ -42,17 +43,17 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onEditGoal(goal)}
                 key={goal.id} 
-                className="bg-white p-5 rounded-[2.2rem] border border-white shadow-soft cursor-pointer group"
+                className="bg-gray-50/50 p-4 rounded-[1.5rem] border border-gray-100 cursor-pointer group hover:bg-gray-50 transition-colors"
               >
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center gap-3 mb-3">
                   <div 
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110"
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-110"
                     style={{ 
                       backgroundColor: goal.color,
                       backgroundImage: `linear-gradient(135deg, ${goal.color}aa, ${goal.color})`
                     }}
                   >
-                    {getIconById(goal.icon, 20)}
+                    {getIconById(goal.icon, 18)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-black text-xs text-[#1C1C1E] leading-none mb-1 truncate">{goal.title}</h4>
@@ -60,31 +61,25 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                       {goal.targetAmount.toLocaleString()} {settings.currency}
                     </p>
                   </div>
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                  <span className="text-[9px] font-black text-blue-600 bg-white px-2 py-1 rounded-lg shadow-sm">
                     {Math.round(progress)}%
                   </span>
                 </div>
                 
-                <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden mb-2 p-0.5 border border-gray-100">
+                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mb-1">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
-                    className="h-full rounded-full shadow-sm"
+                    className="h-full rounded-full"
                     style={{ backgroundColor: goal.color }}
                   />
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Накоплено</span>
-                  <span className="text-[10px] text-[#1C1C1E] font-black">
-                    {goal.currentAmount.toLocaleString()} {settings.currency}
-                  </span>
                 </div>
               </motion.div>
             );
           })
         )}
       </div>
-    </section>
+    </div>
   );
 };
 

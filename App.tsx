@@ -292,6 +292,7 @@ const App: React.FC = () => {
     const unsubCards = subscribeToCollection(familyId, 'cards', (data) => setLoyaltyCards(data as LoyaltyCard[]));
 
     const unsubSettings = subscribeToSettings(familyId, (data) => {
+       // Merge to ensure no missing keys if schema updated
        setSettings({ ...DEFAULT_SETTINGS, ...data });
     });
 
@@ -662,52 +663,73 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
-              {settings.enabledWidgets.includes('balance') && <SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} />}
-              
+              {/* Dynamic Grid Layout based on User Order */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
-                {/* Daily Widget (Standalone) - Only if balance widget is NOT active, to avoid duplication */}
-                {settings.enabledWidgets.includes('daily') && !settings.enabledWidgets.includes('balance') && (
-                    <Widget className="md:col-span-1" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />
-                )}
-                
-                {/* Spent Widget */}
-                {settings.enabledWidgets.includes('spent') && <Widget className="md:col-span-1" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />}
-                
-                {/* Charts Widget */}
-                {settings.enabledWidgets.includes('charts') && (
-                    <div className="md:col-span-1">
-                        <ChartsSection transactions={filteredTransactions} settings={settings} />
-                    </div>
-                )}
+                {settings.enabledWidgets.map(widgetId => {
+                    // 1. Balance Widget (Double Width)
+                    if (widgetId === 'balance') {
+                        return <SmartHeader key="balance" balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="md:col-span-2" />;
+                    }
+                    
+                    // 2. Daily Budget Widget (Single Width)
+                    // Note: If SmartHeader is enabled, it contains daily budget visually, so maybe hide standalone unless user really wants it.
+                    // But for constructor logic, we render what is enabled.
+                    if (widgetId === 'daily' && !settings.enabledWidgets.includes('balance')) {
+                        return (
+                            <Widget key="daily" className="md:col-span-1" label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} />
+                        );
+                    }
 
-                {/* Goals Widget */}
-                {settings.enabledWidgets.includes('goals') && (
-                  <div className="md:col-span-1">
-                    <GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} />
-                  </div>
-                )}
+                    // 3. Spent Widget (Single Width)
+                    if (widgetId === 'spent') {
+                        return (
+                            <Widget key="spent" className="md:col-span-1" label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} />
+                        );
+                    }
 
-                {/* Shopping Widget */}
-                {settings.enabledWidgets.includes('shopping') && (
-                  <div className="md:col-span-1 space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                            <h2 className="text-xl font-black text-[#1C1C1E]">Нужно купить</h2>
-                            <button onClick={() => setActiveTab('shopping')} className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl">Весь список</button>
-                      </div>
-                      {shoppingPreview.length === 0 ? (
-                          <div className="bg-white p-6 rounded-[2rem] border border-white shadow-soft text-center text-gray-400 font-bold text-xs uppercase tracking-widest">Список пуст</div>
-                      ) : (
-                        <div className="bg-white p-2 rounded-[2.5rem] border border-white shadow-soft grid gap-2">
-                            {shoppingPreview.map(item => (
-                                <div key={item.id} className="p-4 flex items-center gap-3 border-b border-gray-50 last:border-none bg-gray-50/50 rounded-2xl">
-                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                    <span className="font-bold text-sm text-[#1C1C1E]">{item.title}</span>
+                    // 4. Charts Widget (Single Width)
+                    if (widgetId === 'charts') {
+                        return <div key="charts" className="md:col-span-1"><ChartsSection transactions={filteredTransactions} settings={settings} /></div>;
+                    }
+
+                    // 5. Goals Widget (Single Width)
+                    if (widgetId === 'goals') {
+                        return (
+                            <div key="goals" className="md:col-span-1 h-full">
+                                <GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" />
+                            </div>
+                        );
+                    }
+
+                    // 6. Shopping Widget (Single Width)
+                    if (widgetId === 'shopping') {
+                        return (
+                            <div key="shopping" className="md:col-span-1 space-y-0 bg-white p-6 rounded-[2.5rem] border border-white shadow-soft h-full">
+                                <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Нужно купить</h3>
+                                        <button onClick={() => setActiveTab('shopping')} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider">Все</button>
                                 </div>
-                            ))}
-                        </div>
-                      )}
-                  </div>
-                )}
+                                {shoppingPreview.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center text-center text-gray-300 py-6 border-2 border-dashed border-gray-100 rounded-2xl">
+                                        <ShoppingBag size={20} className="mb-2 opacity-50"/>
+                                        <span className="font-bold text-[10px] uppercase">Список пуст</span>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-2">
+                                        {shoppingPreview.map(item => (
+                                            <div key={item.id} className="p-3 flex items-center gap-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                                <span className="font-bold text-xs text-[#1C1C1E] truncate">{item.title}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }
+                    
+                    return null;
+                })}
               </div>
               
               {/* FAB Menu */}

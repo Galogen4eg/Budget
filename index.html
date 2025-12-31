@@ -86,6 +86,28 @@
         letter-spacing: 0.05em;
         font-weight: 700;
       }
+
+      /* Snowfall Animation */
+      .snowflake {
+        position: fixed;
+        top: -20px;
+        color: #FFF;
+        font-size: 1em;
+        font-family: Arial, sans-serif;
+        text-shadow: 0 0 5px #000;
+        user-select: none;
+        z-index: 0;
+        pointer-events: none;
+        animation-name: fall;
+        animation-duration: 10s;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+
+      @keyframes fall {
+        0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+        100% { transform: translateY(105vh) rotate(360deg); opacity: 0.2; }
+      }
     </style>
   <script type="importmap">
 {

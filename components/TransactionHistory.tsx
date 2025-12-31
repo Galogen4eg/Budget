@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
-import { Sparkles, Check, Clock, AlertTriangle, Search, X, CalendarDays, TrendingDown, TrendingUp, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
+import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Search, X, CalendarDays, Filter, TrendingDown, TrendingUp } from 'lucide-react';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
 
@@ -20,14 +20,13 @@ interface TransactionHistoryProps {
 
 const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, categories, filterMode = 'month', onEditTransaction }) => {
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
-  const [learningStep, setLearningStep] = useState<'category' | 'rule'>('category'); // New state for 2-step process
   const [learningCat, setLearningCat] = useState('food');
   const [learningName, setLearningName] = useState('');
-  const [learningKeyword, setLearningKeyword] = useState(''); // Separate keyword state
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  
+  // State for collapsed days (key: date string)
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
   const toggleDayCollapse = (dateKey: string) => {
@@ -38,9 +37,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       return transactions.filter(tx => tx.category === 'other');
   }, [transactions]);
   
+  // Main list (Categorized + Filtered by Type + Search)
   const searchedTransactions = useMemo(() => {
-    let filtered = transactions.filter(tx => tx.category !== 'other');
+    let filtered = transactions.filter(tx => tx.category !== 'other'); // Exclude 'other' from main list
 
+    // Apply Type Filter
     if (typeFilter !== 'all') {
         filtered = filtered.filter(tx => tx.type === typeFilter);
     }
@@ -94,27 +95,18 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
     setLearningName(tx.note || '');
-    // Pre-calculate keyword
-    let keyword = (tx.rawNote || tx.note).trim();
-    if (/\d{4,}$/.test(keyword)) {
-        keyword = keyword.replace(/\s?\d+$/, '').trim();
-    }
-    setLearningKeyword(keyword);
-    setLearningCat('food'); // Default reset
-    setLearningStep('category'); // Start at step 1
-  };
-
-  const handleCategorySelect = (catId: string) => {
-      setLearningCat(catId);
-      setLearningStep('rule');
+    setLearningCat(tx.category === 'other' ? 'food' : tx.category);
   };
 
   const handleFinishLearning = () => {
-    if (!learningTx || !learningName.trim() || !learningKeyword.trim()) return;
-    
+    if (!learningTx || !learningName.trim()) return;
+    let keyword = (learningTx.rawNote || learningTx.note).trim();
+    if (/\d{4,}$/.test(keyword)) {
+        keyword = keyword.replace(/\s?\d+$/, '').trim();
+    }
     const newRule: LearnedRule = {
       id: Date.now().toString(),
-      keyword: learningKeyword.trim(),
+      keyword: keyword,
       cleanName: learningName.trim(),
       categoryId: learningCat
     };
@@ -211,6 +203,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </div>
       </div>
 
+      {/* NEEDS ATTENTION SECTION */}
       {uncategorizedTransactions.length > 0 && (
           <div className="bg-yellow-50/60 p-4 rounded-[2.5rem] border border-yellow-200 space-y-3">
               <div className="flex items-center gap-3 px-2">
@@ -228,6 +221,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
           </div>
       )}
 
+      {/* TYPE FILTERS */}
       <div className="flex gap-2 px-1">
           <button 
             onClick={() => setTypeFilter('all')}
@@ -318,86 +312,56 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </>
       )}
 
-      {/* TRAINING MODAL */}
       <AnimatePresence>
         {learningTx && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLearningTx(null)} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-0 shadow-2xl overflow-hidden">
-              
-              {/* Header */}
-              <div className="bg-gray-50 p-6 flex items-center justify-between border-b border-gray-100">
-                  <div className="flex items-center gap-3">
-                      {learningStep === 'rule' && (
-                          <button onClick={() => setLearningStep('category')} className="p-2 -ml-2 hover:bg-gray-200 rounded-full transition-colors">
-                              <ArrowLeft size={20} className="text-gray-500"/>
-                          </button>
-                      )}
-                      <div>
-                          <h3 className="text-lg font-black text-[#1C1C1E]">{learningStep === 'category' ? 'Выбор категории' : 'Создание правила'}</h3>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate max-w-[150px]">
-                             {learningTx.rawNote || learningTx.note}
-                          </p>
-                      </div>
-                  </div>
-                  <button onClick={() => setLearningTx(null)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-400 shadow-sm"><X size={16}/></button>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLearningTx(null)} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-yellow-50 text-yellow-500 rounded-3xl flex items-center justify-center mx-auto mb-2">
+                  <Sparkles size={32} />
+                </div>
+                <h3 className="text-xl font-black text-[#1C1C1E]">Обучение мерчанта</h3>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest break-words">
+                    "{learningTx.rawNote || learningTx.note}"
+                </p>
               </div>
 
-              {/* Step 1: Category Selection */}
-              {learningStep === 'category' && (
-                  <div className="p-6">
-                      <p className="text-sm text-gray-500 font-medium mb-4 text-center">Выберите категорию для этой операции:</p>
-                      <div className="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto no-scrollbar">
-                        {categories.filter(c => c.id !== 'other').map(cat => (
-                          <button 
-                            key={cat.id}
-                            onClick={() => handleCategorySelect(cat.id)}
-                            className="p-3 rounded-2xl flex flex-col items-center gap-2 transition-all border bg-white border-gray-100 hover:border-blue-200 hover:bg-blue-50 active:scale-95"
-                          >
-                            <div style={{ color: cat.color }}>{getIconById(cat.icon, 24)}</div>
-                            <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-tight text-[#1C1C1E]">{cat.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                  </div>
-              )}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Название</label>
+                  <input 
+                    type="text" 
+                    value={learningName}
+                    onChange={(e) => setLearningName(e.target.value)}
+                    placeholder="Напр. Любимая кофейня"
+                    className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-transparent focus:border-yellow-200 transition-all text-[#1C1C1E]"
+                  />
+                </div>
 
-              {/* Step 2: Rule Definition */}
-              {learningStep === 'rule' && (
-                  <div className="p-8 space-y-6">
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Если описание содержит</label>
-                        <input 
-                            type="text" 
-                            value={learningKeyword}
-                            onChange={(e) => setLearningKeyword(e.target.value)}
-                            className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-transparent focus:border-yellow-200 transition-all text-[#1C1C1E]"
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Переименовать в</label>
-                        <input 
-                            type="text" 
-                            value={learningName}
-                            onChange={(e) => setLearningName(e.target.value)}
-                            placeholder="Напр. Продукты"
-                            className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-transparent focus:border-yellow-200 transition-all text-[#1C1C1E]"
-                        />
-                      </div>
-                      
-                      <div className="bg-yellow-50 p-4 rounded-2xl flex items-center gap-3">
-                          <Sparkles size={20} className="text-yellow-600 shrink-0"/>
-                          <p className="text-[10px] font-bold text-yellow-800 leading-tight">
-                              Приложение запомнит это и пересчитает прошлые операции.
-                          </p>
-                      </div>
-
-                      <button onClick={handleFinishLearning} className="w-full py-4 bg-yellow-500 text-white font-black rounded-2xl uppercase text-xs tracking-widest shadow-lg shadow-yellow-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                        <Check size={18} strokeWidth={3} /> Запомнить и Обновить
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Категория</label>
+                  <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto no-scrollbar">
+                    {categories.filter(c => c.id !== 'other').map(cat => (
+                      <button 
+                        key={cat.id}
+                        onClick={() => setLearningCat(cat.id)}
+                        className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition-all border ${learningCat === cat.id ? 'bg-blue-50 border-blue-200 scale-105' : 'bg-gray-50 border-transparent text-gray-400'}`}
+                      >
+                        <span style={{ color: learningCat === cat.id ? cat.color : undefined }}>{getIconById(cat.icon, 18)}</span>
+                        <span className="text-[8px] font-black uppercase tracking-tighter text-center leading-tight">{cat.label}</span>
                       </button>
+                    ))}
                   </div>
-              )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setLearningTx(null)} className="flex-1 py-4 bg-gray-100 text-gray-400 font-black rounded-2xl uppercase text-[10px] tracking-widest">Отмена</button>
+                <button onClick={handleFinishLearning} className="flex-1 py-4 bg-yellow-500 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-lg shadow-yellow-500/20 flex items-center justify-center gap-2">
+                  <Check size={16} strokeWidth={3} /> Запомнить
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -81,6 +81,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   
+  // Mandatory Expense Editing
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editExpenseName, setEditExpenseName] = useState('');
+  const [editExpenseAmount, setEditExpenseAmount] = useState('');
+
   // Mass Delete State
   const [massDeleteStart, setMassDeleteStart] = useState('');
   const [massDeleteEnd, setMassDeleteEnd] = useState('');
@@ -131,8 +136,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const handleAddMember = () => { if (!newMemberName.trim()) return; const newMember: FamilyMember = { id: Math.random().toString(36).substr(2, 9), name: newMemberName.trim(), color: newMemberColor }; onUpdateMembers([...members, newMember]); setNewMemberName(''); setNewMemberColor(PRESET_COLORS[0]); };
   const handleUpdateMember = (id: string, updates: Partial<FamilyMember>) => { onUpdateMembers(members.map(m => m.id === id ? { ...m, ...updates } : m)); };
   const handleDeleteMember = (id: string) => { if (members.length <= 1) { alert("Должен остаться хотя бы один участник"); return; } onUpdateMembers(members.filter(m => m.id !== id)); };
+  
   const handleAddMandatoryExpense = () => { if (!newExpenseName.trim() || !newExpenseAmount) return; const newExpense: MandatoryExpense = { id: Date.now().toString(), name: newExpenseName.trim(), amount: parseFloat(newExpenseAmount) }; const currentExpenses = settings.mandatoryExpenses || []; handleChange('mandatoryExpenses', [...currentExpenses, newExpense]); setNewExpenseName(''); setNewExpenseAmount(''); };
   const handleDeleteMandatoryExpense = (id: string) => { const currentExpenses = settings.mandatoryExpenses || []; handleChange('mandatoryExpenses', currentExpenses.filter(e => e.id !== id)); };
+  
+  const startEditingExpense = (expense: MandatoryExpense) => {
+      setEditingExpenseId(expense.id);
+      setEditExpenseName(expense.name);
+      setEditExpenseAmount(String(expense.amount));
+  };
+
+  const saveEditingExpense = () => {
+      if (!editExpenseName.trim() || !editExpenseAmount) return;
+      const currentExpenses = settings.mandatoryExpenses || [];
+      const updated = currentExpenses.map(e => 
+          e.id === editingExpenseId 
+              ? { ...e, name: editExpenseName.trim(), amount: parseFloat(editExpenseAmount) }
+              : e
+      );
+      handleChange('mandatoryExpenses', updated);
+      setEditingExpenseId(null);
+  };
+
   const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); alert("ID скопирован в буфер обмена"); };
   const shareInviteLink = async () => { if (!currentFamilyId) return; const link = `${window.location.origin}/?join=${currentFamilyId}`; if (navigator.share) { try { await navigator.share({ title: `Присоединяйся к семейному бюджету ${settings.familyName}`, text: `Перейди по ссылке, чтобы вести бюджет вместе!`, url: link, }); } catch (err) { console.error('Error sharing', err); } } else { copyToClipboard(link); alert("Ссылка-приглашение скопирована!"); } };
   const handleAlfaMappingChange = (key: keyof AppSettings['alfaMapping'], value: string) => { onUpdate({ ...settings, alfaMapping: { ...settings.alfaMapping, [key]: value } }); };
@@ -276,7 +301,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="flex gap-4"><div className="flex-1 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Число начала месяца</label><input type="number" min="1" max="31" value={settings.startOfMonthDay} onChange={(e) => handleChange('startOfMonthDay', Number(e.target.value))} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" /></div><div className="flex-1 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни Зарплаты</label><input type="text" placeholder="10, 25" value={settings.salaryDates?.join(', ') || ''} onChange={(e) => { const val = e.target.value; const dates = val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0 && n <= 31); handleChange('salaryDates', dates); }} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none text-center" /></div></div>
                     <div className="space-y-2"><div className="flex justify-between items-center px-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Процент в копилку</label><span className="text-sm font-black text-blue-500">{savingsRate}%</span></div><input type="range" min="0" max="50" step="1" value={savingsRate} onChange={(e) => setSavingsRate(Number(e.target.value))} className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500" /><p className="text-[9px] text-gray-400 px-2">Этот % вычитается из баланса при расчете доступного лимита.</p></div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl space-y-4 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2 flex items-center gap-2"><DollarSign size={20} className="text-red-500"/> Обязательные расходы</h3><div className="space-y-2">{(settings.mandatoryExpenses || []).map((exp) => (<div key={exp.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100"><span className="font-bold text-sm text-[#1C1C1E] pl-2">{exp.name}</span><div className="flex items-center gap-3"><span className="font-black text-sm">{exp.amount.toLocaleString()} {settings.currency}</span><button onClick={() => handleDeleteMandatoryExpense(exp.id)} className="text-gray-400 hover:text-red-500"><X size={16}/></button></div></div>))}</div><div className="flex gap-2 pt-2 border-t border-gray-50"><input type="text" placeholder="Название..." value={newExpenseName} onChange={(e) => setNewExpenseName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><input type="number" placeholder="Сумма" value={newExpenseAmount} onChange={(e) => setNewExpenseAmount(e.target.value)} className="w-24 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none"/><button onClick={handleAddMandatoryExpense} className="bg-black text-white p-3 rounded-xl flex items-center justify-center shadow-lg"><Plus size={18}/></button></div></div>
+                <div className="bg-white p-6 rounded-3xl space-y-4 border border-gray-100 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] mb-2 flex items-center gap-2"><DollarSign size={20} className="text-red-500"/> Обязательные расходы</h3>
+                    <div className="space-y-2">
+                        {(settings.mandatoryExpenses || []).map((exp) => {
+                            if (editingExpenseId === exp.id) {
+                                return (
+                                    <div key={exp.id} className="flex items-center gap-2 p-2 bg-blue-50 rounded-2xl border border-blue-200">
+                                        <input autoFocus className="flex-1 bg-white px-2 py-2 rounded-lg text-xs font-bold outline-none text-[#1C1C1E]" value={editExpenseName} onChange={e => setEditExpenseName(e.target.value)} />
+                                        <input type="number" className="w-20 bg-white px-2 py-2 rounded-lg text-xs font-bold outline-none text-[#1C1C1E]" value={editExpenseAmount} onChange={e => setEditExpenseAmount(e.target.value)} />
+                                        <button onClick={saveEditingExpense} className="p-2 text-green-600 bg-white rounded-lg shadow-sm"><Check size={14}/></button>
+                                        <button onClick={() => setEditingExpenseId(null)} className="p-2 text-red-500 hover:bg-white rounded-lg"><X size={14}/></button>
+                                    </div>
+                                )
+                            }
+                            return (
+                                <div key={exp.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <span className="font-bold text-sm text-[#1C1C1E] pl-2 truncate flex-1">{exp.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-black text-sm whitespace-nowrap">{exp.amount.toLocaleString()} {settings.currency}</span>
+                                        <button onClick={() => startEditingExpense(exp)} className="p-1.5 text-gray-400 hover:text-blue-500 bg-white rounded-lg shadow-sm"><Edit2 size={14}/></button>
+                                        <button onClick={() => handleDeleteMandatoryExpense(exp.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-gray-50">
+                        <input type="text" placeholder="Название..." value={newExpenseName} onChange={(e) => setNewExpenseName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none text-[#1C1C1E]"/>
+                        <input type="number" placeholder="Сумма" value={newExpenseAmount} onChange={(e) => setNewExpenseAmount(e.target.value)} className="w-24 bg-gray-50 px-4 py-3 rounded-xl text-xs font-bold outline-none text-[#1C1C1E]"/>
+                        <button onClick={handleAddMandatoryExpense} className="bg-black text-white p-3 rounded-xl flex items-center justify-center shadow-lg"><Plus size={18}/></button>
+                    </div>
+                </div>
             </div>
         );
         case 'family': return (

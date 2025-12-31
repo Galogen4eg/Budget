@@ -113,6 +113,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     const brandKey = getMerchantBrandKey(displayTitle);
     const isUnrecognized = tx.category === 'other';
     const timeString = new Date(tx.date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const showTime = timeString !== '00:00';
 
     return (
       <motion.div 
@@ -132,9 +133,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
             <div className="flex flex-col min-w-0 mr-2">
                 <h4 className="font-bold text-[#1C1C1E] text-base truncate leading-tight">{displayTitle}</h4>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs font-bold text-gray-400 flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md">
-                       <Clock size={10}/> {timeString}
-                    </span>
+                    {showTime && (
+                        <span className="text-xs font-bold text-gray-400 flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md">
+                           <Clock size={10}/> {timeString}
+                        </span>
+                    )}
                     {isUnrecognized && (
                         <span className="text-[9px] font-black text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-md uppercase tracking-tight">Категория?</span>
                     )}

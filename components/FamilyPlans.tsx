@@ -1,10 +1,11 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ChevronLeft, ChevronRight, X, Trash2, Calendar, Clock, Mic, MicOff, BrainCircuit, FastForward, History } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Clock, Mic, BrainCircuit, Calendar as CalendarIcon, MapPin } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import EventModal from './EventModal';
 import { GoogleGenAI } from "@google/genai";
+import { MemberMarker } from '../constants';
 
 interface FamilyPlansProps {
   events: FamilyEvent[];
@@ -29,12 +30,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const processVoiceWithGemini = async (text: string) => {
     if (!process.env.API_KEY) {
-        showNotify('API Key не настроен', 'error');
+        showNotify('API Key не настроен в .env', 'error');
         return;
     }
     
@@ -48,15 +49,29 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      const data = JSON.parse(response.text || '{}');
+      const responseText = response.text;
+      if (!responseText) throw new Error("Пустой ответ от AI");
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        throw new Error("Ошибка парсинга JSON от AI");
+      }
+
       if (data.title) {
           setActiveEvent({ event: null, prefill: { title: data.title, date: data.date || today, time: data.time || '12:00' } });
           showNotify('Событие распознано!');
       } else {
-          showNotify('Не удалось понять детали', 'error');
+          showNotify('Не удалось понять детали события', 'error');
       }
-    } catch (err) {
-      showNotify('Ошибка AI', 'error');
+    } catch (err: any) {
+      console.error("Voice AI Error:", err);
+      let errorMsg = "Неизвестная ошибка AI";
+      if (err instanceof Error) errorMsg = err.message;
+      else if (typeof err === 'string') errorMsg = err;
+      
+      showNotify(`Ошибка: ${errorMsg}`, 'error');
     } finally {
       setIsProcessingVoice(false);
     }
@@ -64,7 +79,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { showNotify('Голос не поддерживается', 'error'); return; }
+    if (!SR) { showNotify('Ваш браузер не поддерживает голосовой ввод', 'error'); return; }
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     try {
         const r = new SR();
@@ -75,31 +90,132 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             const transcript = e.results[0][0].transcript;
             if (transcript) processVoiceWithGemini(transcript);
         };
+        r.onerror = (e: any) => {
+            console.error("Speech Error:", e);
+            showNotify(`Ошибка микрофона: ${e.error}`, 'error');
+            setIsListening(false);
+        };
         r.start();
-    } catch (e) { showNotify('Ошибка микрофона', 'error'); }
+    } catch (e) { showNotify('Не удалось запустить микрофон', 'error'); }
   };
 
-  const sortedEvents = useMemo(() => [...events].sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime()), [events]);
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  // Helper to get events for a specific date object
+  const getEventsForDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+  };
+
+  // Generate days for Month View
+  const monthDays = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
+  }, [selectedDate]);
+
+  // Generate days for Week View
+  const weekDays = useMemo(() => {
+    const startOfWeek = new Date(selectedDate);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+    
+    return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        return d;
+    });
+  }, [selectedDate]);
+
+  const renderEventsList = (dateToRender: Date) => {
+    const daysEvents = getEventsForDate(dateToRender);
+    const isToday = new Date().toDateString() === dateToRender.toDateString();
+
+    return (
+        <div className="space-y-3 mt-4">
+             <div className="flex items-center gap-2 mb-2 px-2">
+                <h3 className="font-black text-lg text-[#1C1C1E]">
+                    {isToday ? 'Сегодня, ' : ''}
+                    {dateToRender.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                </h3>
+                <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
+                    {daysEvents.length}
+                </span>
+             </div>
+
+             {daysEvents.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center p-8 bg-white rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                    <CalendarIcon size={24} className="text-gray-300 mb-2" />
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Нет событий</p>
+                    <button onClick={() => setActiveEvent({ event: null, prefill: { date: dateToRender.toISOString().split('T')[0] } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-4 py-2 rounded-xl">
+                        Создать
+                    </button>
+                 </div>
+             ) : (
+                 daysEvents.map(event => {
+                     const eventMembers = members.filter(m => event.memberIds.includes(m.id));
+                     return (
+                        <div key={event.id} onClick={() => setActiveEvent({ event })} className="bg-white p-5 rounded-[2rem] border shadow-sm hover:scale-[1.01] transition-transform cursor-pointer relative overflow-hidden group">
+                            <div className="flex items-start gap-4">
+                                <div className="flex flex-col items-center gap-1 min-w-[3rem]">
+                                    <div className="text-sm font-black text-[#1C1C1E]">{event.time}</div>
+                                    <div className="text-[10px] font-bold text-gray-400">{event.duration ? `${event.duration}ч` : '1ч'}</div>
+                                    <div className={`w-0.5 h-full bg-gray-100 rounded-full mt-1 group-hover:bg-blue-200 transition-colors`}/>
+                                </div>
+                                <div className="flex-1 min-w-0 pb-2">
+                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] mb-1">{event.title}</h4>
+                                    {event.description && <p className="text-xs text-gray-500 line-clamp-2 mb-2">{event.description}</p>}
+                                    
+                                    <div className="flex items-center justify-between mt-2">
+                                        <div className="flex -space-x-2">
+                                            {eventMembers.map(m => (
+                                                <div key={m.id} className="border-2 border-white rounded-[1rem] relative z-10">
+                                                    <MemberMarker member={m} size="sm" />
+                                                </div>
+                                            ))}
+                                            {eventMembers.length === 0 && <span className="text-[10px] text-gray-400 italic">Нет участников</span>}
+                                        </div>
+                                        {event.checklist && event.checklist.length > 0 && (
+                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
+                                                <span className={event.checklist.every(i => i.completed) ? 'text-green-500' : ''}>
+                                                    {event.checklist.filter(i => i.completed).length}/{event.checklist.length}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                     );
+                 })
+             )}
+        </div>
+    );
+  };
 
   return (
-    <div className="space-y-6 relative w-full h-full flex flex-col">
+    <div className="space-y-6 relative w-full h-full flex flex-col pb-20">
       <AnimatePresence>
-        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md ${notification.type === 'error' ? 'bg-red-50 text-white' : 'bg-blue-600 text-white'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
-        {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/60 backdrop-blur-md flex flex-col items-center justify-center"><div className="bg-white p-8 rounded-[3rem] shadow-2xl border flex flex-col items-center gap-4"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={48} className="text-blue-500 relative" /> : <BrainCircuit size={48} className="text-purple-500 relative animate-pulse" />}</div><p className="font-black text-lg text-[#1C1C1E]">{isListening ? 'Говорите...' : 'Обрабатываю...'}</p></div></motion.div>}
+        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md whitespace-nowrap ${notification.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-[#1C1C1E] text-white border-transparent'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
+        {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/80 backdrop-blur-xl flex flex-col items-center justify-center"><div className="bg-white p-10 rounded-[3rem] shadow-2xl border flex flex-col items-center gap-6"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={56} className="text-blue-500 relative" /> : <BrainCircuit size={56} className="text-purple-500 relative animate-pulse" />}</div><div className="text-center"><p className="font-black text-xl text-[#1C1C1E] mb-2">{isListening ? 'Говорите...' : 'Анализирую...'}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-[200px]">Например: "Записаться к врачу завтра в 14:00"</p></div></div></motion.div>}
       </AnimatePresence>
 
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4 px-1">
           <div className="flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-x-auto no-scrollbar shrink-0">
-            {(['month', 'week', 'list'] as ViewMode[]).map((mode) => (
+            {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
               <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
-                {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : 'Список'}
+                {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : mode === 'day' ? 'День' : 'Все'}
               </button>
             ))}
           </div>
           <div className="flex gap-2">
             <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-blue-500 border'}`}><Mic size={22} /></button>
-            <button onClick={() => setActiveEvent({ event: null })} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
+            <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0] } })} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
           </div>
         </div>
 
@@ -109,21 +225,124 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
               <button onClick={() => setListFilter('upcoming')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'upcoming' ? 'bg-blue-500 text-white' : 'text-gray-400'}`}>Будущие</button>
               <button onClick={() => setListFilter('past')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'past' ? 'bg-gray-400 text-white' : 'text-gray-400'}`}>Прошедшие</button>
             </div>
-            {sortedEvents.map(event => <div key={event.id} onClick={() => setActiveEvent({ event })} className="bg-white p-5 rounded-[2rem] border shadow-sm flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-gray-50 flex flex-col items-center justify-center border shrink-0"><span className="text-[10px] font-black text-blue-500 uppercase leading-none">{new Date(event.date).toLocaleDateString('ru-RU', {month:'short'})}</span><span className="text-lg font-black">{new Date(event.date).getDate()}</span></div><div className="flex-1 min-w-0"><h4 className="font-black text-[15px] truncate">{event.title}</h4><div className="text-[10px] font-bold text-gray-400"><Clock size={10} className="inline mr-1"/>{event.time}</div></div></div>)}
+            {events
+              .filter(e => {
+                  const eDate = new Date(`${e.date}T${e.time}`);
+                  const now = new Date();
+                  return listFilter === 'upcoming' ? eDate >= now : eDate < now;
+              })
+              .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+              .map(event => (
+                <div key={event.id} onClick={() => setActiveEvent({ event })} className="bg-white p-5 rounded-[2rem] border shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl bg-gray-50 flex flex-col items-center justify-center border shrink-0">
+                        <span className="text-[9px] font-black text-blue-500 uppercase leading-none mb-1">{new Date(event.date).toLocaleDateString('ru-RU', {month:'short'})}</span>
+                        <span className="text-xl font-black text-[#1C1C1E] leading-none">{new Date(event.date).getDate()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-black text-[15px] truncate text-[#1C1C1E]">{event.title}</h4>
+                        <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2 mt-1">
+                            <span className="flex items-center gap-1"><Clock size={10}/> {event.time}</span>
+                            {event.checklist && event.checklist.length > 0 && <span className="bg-gray-100 px-1.5 rounded text-[9px]">{event.checklist.filter(c=>c.completed).length}/{event.checklist.length}</span>}
+                        </div>
+                    </div>
+                </div>
+            ))}
+            {events.length === 0 && <div className="text-center py-10 text-gray-400 font-bold text-xs uppercase">Список пуст</div>}
           </div>
         )}
 
         {viewMode === 'month' && (
-            <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
-                <div className="flex justify-between items-center mb-6">
-                    <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2"><ChevronLeft size={20}/></button>
-                    <span className="font-black text-sm uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', {month:'long', year:'numeric'})}</span>
-                    <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()+1); setSelectedDate(d); }} className="p-2"><ChevronRight size={20}/></button>
+            <>
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+                    <div className="flex justify-between items-center mb-6">
+                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>
+                        <span className="font-black text-sm uppercase tracking-widest text-[#1C1C1E]">{selectedDate.toLocaleDateString('ru-RU', {month:'long', year:'numeric'})}</span>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()+1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ChevronRight size={20} className="text-gray-400"/></button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-y-4 gap-x-2">
+                        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="text-center text-[9px] font-black text-gray-300 uppercase">{d}</div>)}
+                        {/* Empty cells for padding */}
+                        {Array.from({ length: (new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).getDay() + 6) % 7 }).map((_, i) => <div key={`pad-${i}`} />)}
+                        
+                        {monthDays.map((date) => {
+                            const isSelected = date.toDateString() === selectedDate.toDateString();
+                            const isToday = date.toDateString() === new Date().toDateString();
+                            const dayEvents = getEventsForDate(date);
+                            const hasEvents = dayEvents.length > 0;
+
+                            return (
+                                <button 
+                                    key={date.toISOString()} 
+                                    onClick={() => handleDateSelect(date)}
+                                    className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 text-blue-500' : 'text-[#1C1C1E] hover:bg-gray-50'}`}
+                                >
+                                    <span className={`text-xs ${isSelected || isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
+                                    {hasEvents && !isSelected && (
+                                        <div className="absolute bottom-1.5 flex gap-0.5">
+                                            <div className="w-1 h-1 rounded-full bg-blue-500/50" />
+                                            {dayEvents.length > 1 && <div className="w-1 h-1 rounded-full bg-blue-500/50" />}
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
-                <div className="grid grid-cols-7 gap-2 h-[300px]">
-                    {Array.from({length: 31}).map((_, i) => (<button key={i} className="flex flex-col items-center justify-center rounded-xl bg-gray-50/50 border border-transparent"><span className="text-[10px] font-black">{i+1}</span></button>))}
+                {renderEventsList(selectedDate)}
+            </>
+        )}
+
+        {viewMode === 'week' && (
+            <>
+                <div className="bg-white p-4 rounded-[2rem] shadow-soft border border-white overflow-hidden">
+                     <div className="flex justify-between items-center mb-4 px-2">
+                         <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
+                         <div className="flex gap-1">
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
+                         </div>
+                     </div>
+                     <div className="flex justify-between items-center">
+                         {weekDays.map(date => {
+                             const isSelected = date.toDateString() === selectedDate.toDateString();
+                             const isToday = date.toDateString() === new Date().toDateString();
+                             const hasEvents = getEventsForDate(date).length > 0;
+                             
+                             return (
+                                 <button 
+                                     key={date.toISOString()} 
+                                     onClick={() => setSelectedDate(date)}
+                                     className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all min-w-[44px] ${isSelected ? 'bg-blue-500 text-white shadow-lg' : 'hover:bg-gray-50'}`}
+                                 >
+                                     <span className={`text-[9px] font-black uppercase ${isSelected ? 'text-blue-200' : 'text-gray-300'}`}>{date.toLocaleDateString('ru-RU', {weekday:'short'})}</span>
+                                     <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black ${isSelected ? 'bg-white text-blue-500' : isToday ? 'text-blue-500' : 'text-[#1C1C1E]'}`}>
+                                         {date.getDate()}
+                                     </div>
+                                     <div className={`w-1 h-1 rounded-full ${hasEvents ? (isSelected ? 'bg-white' : 'bg-blue-500') : 'bg-transparent'}`} />
+                                 </button>
+                             )
+                         })}
+                     </div>
                 </div>
-            </div>
+                {renderEventsList(selectedDate)}
+            </>
+        )}
+
+        {viewMode === 'day' && (
+            <>
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white text-center">
+                    <div className="flex items-center justify-between mb-4">
+                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronLeft size={20}/></button>
+                         <div className="flex flex-col items-center">
+                             <span className="text-sm font-black text-gray-400 uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', {weekday:'long'})}</span>
+                             <span className="text-4xl font-black text-[#1C1C1E]">{selectedDate.getDate()}</span>
+                             <span className="text-sm font-bold text-blue-500 uppercase tracking-wide">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
+                         </div>
+                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronRight size={20}/></button>
+                    </div>
+                </div>
+                {renderEventsList(selectedDate)}
+            </>
         )}
       </div>
 
@@ -145,10 +364,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 }
                 return updated;
               }); 
-              
-              // Note: Explicit auto-sending to Telegram for new events
-              // The App.tsx wrapper handles this generally, but we can also ensure it here.
               setActiveEvent(null); 
+              if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
             }} 
             onSendToTelegram={onSendToTelegram} 
             templates={events.filter(ev => ev.isTemplate)} 

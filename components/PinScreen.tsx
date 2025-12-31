@@ -7,10 +7,11 @@ interface PinScreenProps {
   mode: 'create' | 'unlock' | 'disable';
   onSuccess: (pin: string) => void;
   onCancel?: () => void;
+  onForgot?: () => void;
   savedPin?: string;
 }
 
-const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, savedPin }) => {
+const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, onForgot, savedPin }) => {
   const [pin, setPin] = useState('');
   const [step, setStep] = useState<'enter' | 'confirm'>('enter');
   const [firstPin, setFirstPin] = useState('');
@@ -180,6 +181,17 @@ const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, savedP
                     <Delete size={28} strokeWidth={1.5} />
                 </button>
             </div>
+            
+            {mode === 'unlock' && onForgot && (
+                <div className="flex justify-center mt-8">
+                    <button 
+                        onClick={onForgot} 
+                        className="text-xs font-bold text-blue-500 uppercase tracking-widest hover:text-blue-600 transition-colors"
+                    >
+                        Забыли код?
+                    </button>
+                </div>
+            )}
         </div>
       </motion.div>
     </div>

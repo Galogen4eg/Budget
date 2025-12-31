@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Snowflake, Gift } from 'lucide-react';
+import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Snowflake, Gift, ChevronDown } from 'lucide-react';
 import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading, WishlistItem } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
@@ -33,10 +33,10 @@ import { subscribeToCollection, subscribeToSettings, addItem, addItemsBatch, upd
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
-  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 2 } },
+  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } },
   { id: 'daily', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   { id: 'spent', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
-  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 1 } },
   { id: 'goals', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
   { id: 'shopping', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
 ];
@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgets: DEFAULT_WIDGETS,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
   enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters', 'wishlist'],
-  isPinEnabled: true, 
+  isPinEnabled: false, 
   defaultBudgetMode: 'personal',
   telegramBotToken: '',
   telegramChatId: '',
@@ -205,6 +205,7 @@ const App: React.FC = () => {
   
   const [enlargedWidget, setEnlargedWidget] = useState<string | null>(null);
   const [detailCategory, setDetailCategory] = useState<string | null>(null);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -258,16 +259,52 @@ const App: React.FC = () => {
     const unsubWishlist = subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[]));
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
         const loadedSettings = { ...DEFAULT_SETTINGS, ...data } as AppSettings; 
+        if (data.widgets && data.widgets.length > 0) {
+            loadedSettings.widgets = data.widgets;
+        }
         setSettings(loadedSettings); 
         settingsRef.current = loadedSettings;
     });
-    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubMeters(); unsubSettings(); unsubWishlist(); };
+    
+    // Check if settings require PIN when settings are loaded/changed
+    const unsubscribeSettingsCheck = subscribeToSettings(familyId, (data) => {
+        if (data && data.isPinEnabled !== undefined) {
+            const savedPin = localStorage.getItem('family_budget_pin');
+            if (data.isPinEnabled && !savedPin && !isOnboarding) {
+                // If remote settings say PIN is ON, but we don't have it locally, prompt creation
+                // setPinStatus('create'); // This can be annoying if sync happens unexpectedly, use with caution or user prompt
+            }
+        }
+    });
+
+    return () => { unsubTx(); unsubMembers(); unsubGoals(); unsubShopping(); unsubEvents(); unsubCats(); unsubRules(); unsubSubs(); unsubDebts(); unsubPantry(); unsubCards(); unsubMeters(); unsubSettings(); unsubWishlist(); unsubscribeSettingsCheck(); };
   }, [familyId, user]);
 
   useEffect(() => { if (user && familyId && membersLoaded) { const me = familyMembers.find(m => m.userId === user.uid || m.id === user.uid); setIsOnboarding(!me); } }, [user, familyId, membersLoaded, familyMembers]);
 
   const handleOnboardingStep1 = (name: string, color: string) => { if (!user || !familyId) return; const newMember: FamilyMember = { id: user.uid, userId: user.uid, name, color, isAdmin: familyMembers.length === 0, avatar: user.photoURL || undefined }; setPendingMember(newMember); setIsOnboarding(false); setPinStatus('create'); };
-  const handlePinCreated = (pin: string) => { localStorage.setItem('family_budget_pin', pin); setPinCode(pin); if (pendingMember && familyId) { addItem(familyId, 'members', pendingMember); setPendingMember(null); } setPinStatus('unlocked'); };
+  
+  const handlePinCreated = (pin: string) => { 
+      localStorage.setItem('family_budget_pin', pin); 
+      setPinCode(pin); 
+      // Also enable PIN in settings if it's the first time
+      updateSettings({ ...settings, isPinEnabled: true });
+      
+      if (pendingMember && familyId) { 
+          addItem(familyId, 'members', pendingMember); 
+          setPendingMember(null); 
+      } 
+      setPinStatus('unlocked'); 
+  };
+  
+  const handleForgotPin = async () => {
+      if (window.confirm("Чтобы сбросить код-пароль, необходимо заново войти в аккаунт. Продолжить?")) {
+          localStorage.removeItem('family_budget_pin');
+          await signOut(auth);
+          window.location.reload();
+      }
+  };
+  
   const togglePrivacy = () => { const newMode = !settings.privacyMode; setSettings(prev => ({...prev, privacyMode: newMode})); if (familyId) { saveSettings(familyId, {...settings, privacyMode: newMode}); } };
   useEffect(() => { const savedPin = localStorage.getItem('family_budget_pin'); setPinCode(savedPin); if (savedPin) setPinStatus('locked'); else if (settings.isPinEnabled && !savedPin) { setPinStatus('create'); } else setPinStatus('unlocked'); }, []);
   const createSyncHandler = <T extends { id: string }>(collectionName: string, currentState: T[]) => { return (newStateOrUpdater: T[] | ((prev: T[]) => T[])) => { if (!familyId) return; let newState: T[]; if (typeof newStateOrUpdater === 'function') { newState = (newStateOrUpdater as Function)(currentState); } else { newState = newStateOrUpdater; } const newIds = new Set(newState.map(i => i.id)); currentState.forEach(item => { if (!newIds.has(item.id)) deleteItem(familyId, collectionName, item.id); }); newState.forEach(newItem => { const oldItem = currentState.find(i => i.id === newItem.id); if (!oldItem) { addItem(familyId, collectionName, newItem); } else if (JSON.stringify(oldItem) !== JSON.stringify(newItem)) { updateItem(familyId, collectionName, newItem.id, newItem); } }); }; };
@@ -336,7 +373,7 @@ const App: React.FC = () => {
 
   if (authErrorDomain) return <DomainErrorScreen domain={authErrorDomain} />;
   if (isOnboarding) return <OnboardingModal initialName={user?.displayName || ''} onSave={handleOnboardingStep1} />;
-  if (pinStatus !== 'unlocked') return <PinScreen mode={pinStatus === 'create' ? 'create' : (pinStatus === 'disable_confirm' ? 'disable' : 'unlock')} onSuccess={(pin) => { if(pinStatus === 'create') handlePinCreated(pin); else if(pinStatus === 'disable_confirm') { localStorage.removeItem('family_budget_pin'); setPinCode(null); setPinStatus('unlocked'); } else setPinStatus('unlocked'); }} onCancel={pinStatus === 'disable_confirm' ? () => { setPinStatus('unlocked'); setIsSettingsOpen(true); } : undefined} savedPin={pinCode || undefined} />;
+  if (pinStatus !== 'unlocked') return <PinScreen mode={pinStatus === 'create' ? 'create' : (pinStatus === 'disable_confirm' ? 'disable' : 'unlock')} onSuccess={(pin) => { if(pinStatus === 'create') handlePinCreated(pin); else if(pinStatus === 'disable_confirm') { localStorage.removeItem('family_budget_pin'); setPinCode(null); setPinStatus('unlocked'); updateSettings({ ...settings, isPinEnabled: false }); } else setPinStatus('unlocked'); }} onCancel={pinStatus === 'disable_confirm' ? () => { setPinStatus('unlocked'); setIsSettingsOpen(true); } : undefined} onForgot={handleForgotPin} savedPin={pinCode || undefined} />;
   if (!user) return <LoginScreen onLogin={handleGoogleLogin} loading={authLoading} />;
 
   return (
@@ -382,7 +419,37 @@ const App: React.FC = () => {
           {activeTab === 'budget' && (
             <motion.div key="budget" className="space-y-6 w-full">
               <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className={`p-3 bg-white border border-gray-100 ${themeText} rounded-2xl shadow-sm ios-btn-active`}><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 ${themeText} font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
-              <section className="w-full"><div className="flex items-center gap-2 mb-5 px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? 'Операции дня' : 'Операции месяца'}</h2><span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{filteredTransactions.length}</span></div><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={handleLearnRule} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
+              <section className="w-full">
+                  <div 
+                      className="flex items-center justify-between mb-5 px-1 cursor-pointer"
+                      onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                  >
+                      <div className="flex items-center gap-2">
+                          <h2 className="text-xl font-black text-[#1C1C1E]">
+                              {selectedDate ? 'Операции дня' : 'Операции месяца'}
+                          </h2>
+                          <span className="bg-gray-100 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase">
+                              {filteredTransactions.length}
+                          </span>
+                      </div>
+                      <div className={`p-2 bg-gray-50 rounded-full transition-transform duration-300 ${isHistoryExpanded ? 'rotate-180' : ''}`}>
+                          <ChevronDown size={20} className="text-gray-400" />
+                      </div>
+                  </div>
+                  
+                  <AnimatePresence>
+                      {isHistoryExpanded && (
+                          <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                          >
+                              <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={handleLearnRule} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} />
+                          </motion.div>
+                      )}
+                  </AnimatePresence>
+              </section>
               <div className="grid grid-cols-2 gap-2 md:gap-4"><div className="w-full min-w-0"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /></div><div className="w-full min-w-0"><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></div></div>
             </motion.div>
           )}

@@ -2,11 +2,28 @@
 import { Category, LearnedRule } from '../types';
 
 export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
+  // YAROSLAVL & REGIONAL
   'lotos': ['Лотос', undefined, '#00A651'],
   'vysshaya liga': ['Высшая Лига', undefined, '#ED1C24'],
   'atrus': ['Атрус', undefined, '#ED1C24'],
   'broiler': ['Яр. Бройлер', undefined, '#F39200'],
   'maksi': ['Макси', undefined, '#00A651'],
+  'aura': ['ТРЦ Аура', undefined, '#E91E63'],
+  'altair': ['ТРК Альтаир', undefined, '#3F51B5'],
+  'globus': ['Глобус', undefined, '#FF6600'],
+  'rio': ['РИО', undefined, '#FFC107'],
+  'vernisazh': ['Вернисаж', undefined, '#9C27B0'],
+  'mamuka': ['Мамука', 'restaurants', '#000000'],
+  'maneki': ['Манеки', 'restaurants', '#D32F2F'],
+  'bazar': ['Базар', 'restaurants', '#4CAF50'],
+  'yarneft': ['Ярнефть', 'lukoil', '#FF5722'],
+  'apteka 76': ['Аптека 76', 'health', '#4CAF50'],
+  'farma': ['Ярославская фармация', 'health', '#2196F3'],
+  'yar.energo': ['ТНС Энерго', 'utilities', '#FFC107'],
+  'tgk-2': ['ТГК-2', 'utilities', '#FF5722'],
+  'vodokanal': ['Водоканал', 'utilities', '#03A9F4'],
+
+  // FEDERAL
   'magnit': ['Магнит', 'magnit', '#E62E2D'],
   'магнит': ['Магнит', 'magnit', '#E62E2D'],
   'pyaterochka': ['Пятерочка', 'pyaterochka', '#2FAC66'],
@@ -65,38 +82,38 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     if (lowNote.includes(rule.keyword.toLowerCase())) return rule.cleanName;
   }
 
-  // SBP Recognition with phone number
-  // Formats: +79991234567, 89991234567, 9991234567, (999) 123-45-67
-  // Also catch contiguous 10-11 digit numbers
+  // Improved SBP Recognition
+  const sbpRegex = /(?:через|via)?\s*(?:Систему|Система)\s*быстрых\s*платежей.*?(?:\+7|8|7)?\s*(\d{10})/i;
+  const sbpMatch = name.match(sbpRegex);
+
+  if (sbpMatch) {
+      const phone = sbpMatch[1];
+      const formatted = `+7 ${phone.slice(0,3)} ${phone.slice(3,6)}-${phone.slice(6,8)}-${phone.slice(8)}`;
+      
+      // Try to find a name if present (e.g., Ivan I.)
+      const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
+      const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
+      
+      return `Перевод СБП ${formatted}${person}`;
+  }
+
+  // Generic SBP / Transfer catch
   const phoneRegex = /(?:(?:\+?7|8)[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}|\b\d{10,11}\b/;
   const phoneMatch = name.match(phoneRegex);
   
-  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer') || lowNote.includes('client')) {
+  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer')) {
       if (phoneMatch) {
           const rawPhone = phoneMatch[0].replace(/\D/g, '');
-          let formattedPhone = rawPhone;
-          
-          if (rawPhone.length >= 10) {
-              // Normalize to +7
-              let clean = rawPhone;
-              if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
-                  clean = rawPhone.slice(1);
-              }
-                  
-              if (clean.length === 10) {
-                  formattedPhone = `+7 ${clean.slice(0, 3)} ${clean.slice(3, 6)}-${clean.slice(6, 8)}-${clean.slice(8)}`;
-              }
+          let clean = rawPhone;
+          if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
+              clean = rawPhone.slice(1);
           }
-
-          // Try to find a name if present (e.g., Ivan I.)
-          const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
-          const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
-          
-          return `Перевод по СБП ${formattedPhone}${person}`;
+          if (clean.length === 10) {
+              const formattedPhone = `+7 ${clean.slice(0, 3)} ${clean.slice(3, 6)}-${clean.slice(6, 8)}-${clean.slice(8)}`;
+              return `Перевод ${formattedPhone}`;
+          }
       }
-      if (lowNote.includes('сбп') || lowNote.includes('sbp')) {
-          return "Перевод по СБП";
-      }
+      if (lowNote.includes('сбп') || lowNote.includes('sbp')) return "Перевод по СБП";
       return "Перевод средств";
   }
 
@@ -117,15 +134,18 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
   for (const rule of learnedRules) {
     if (cleanNote.includes(rule.keyword.toLowerCase())) return rule.categoryId;
   }
-  if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer')) return 'transfer';
+  
+  // SBP logic for categories
+  if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer') || cleanNote.includes('систему быстрых платежей')) return 'transfer';
 
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
-    'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат'],
-    'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан'],
-    'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто'],
+    'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'lotos', 'лотос', 'atrus', 'атрус'],
+    'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан', 'mamuka', 'maneki', 'bazar', 'мамука', 'манеки'],
+    'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто', 'yarneft', 'ярнефть'],
     'transport': ['yandex.go', 'yandex.taxi', 'uber', 'taxi', 'такси', 'metro', 'метро', 'rzd', 'ржд'],
-    'shopping': ['wildberries', 'wb', 'ozon', 'aliexpress', 'lamoda', 'dns', 'mvideo', 'eldorado', 'leroy', 'lemana'],
-    'health': ['apteka', 'аптека', 'doctor', 'clinic', 'med', 'vita', 'aprel']
+    'shopping': ['wildberries', 'wb', 'ozon', 'aliexpress', 'lamoda', 'dns', 'mvideo', 'eldorado', 'leroy', 'lemana', 'aura', 'altair', 'rio', 'аура', 'альтаир'],
+    'health': ['apteka', 'аптека', 'doctor', 'clinic', 'med', 'vita', 'aprel', 'farma', 'фармация'],
+    'utilities': ['energo', 'энерго', 'vodokanal', 'водоканал', 'tgk', 'тгк', 'dom.ru', 'mts', 'beeline', 'megafon', 'tele2', 'rostelecom']
   };
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {

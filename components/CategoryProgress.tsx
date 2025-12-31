@@ -11,9 +11,10 @@ interface CategoryProgressProps {
   transactions: Transaction[];
   settings: AppSettings;
   categories: Category[];
+  onCategoryClick?: (categoryId: string) => void;
 }
 
-const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories }) => {
+const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick }) => {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
   const expenses = transactions.filter(t => t.type === 'expense');
@@ -59,18 +60,16 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
       {categoryData.map((item) => {
         const percentage = totalExpense > 0 ? (item.totalValue / totalExpense) * 100 : 0;
         const isExpanded = expandedCategoryId === item.id;
-        
-        const canExpand = item.merchants.length > 1 || 
-                         (item.merchants.length === 1 && item.merchants[0].name !== item.label);
+        const canExpand = item.merchants.length > 0;
 
         return (
           <div key={item.id} className="border-b border-gray-50 last:border-none pb-3 last:pb-0">
-            <div 
-              className={`flex flex-col gap-2 p-2 rounded-2xl transition-all cursor-pointer ${isExpanded ? 'bg-gray-50/50' : ''}`}
-              onClick={() => canExpand && setExpandedCategoryId(isExpanded ? null : item.id)}
-            >
+            <div className={`flex flex-col gap-2 p-2 rounded-2xl transition-all ${isExpanded ? 'bg-gray-50/50' : ''}`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 overflow-hidden">
+                <div 
+                    className="flex items-center gap-2 overflow-hidden flex-1 cursor-pointer"
+                    onClick={() => onCategoryClick && onCategoryClick(item.id)}
+                >
                   <div 
                     className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0"
                     style={{ backgroundColor: item.color }}
@@ -87,20 +86,23 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <div className="text-right">
+                  <div className="text-right cursor-pointer" onClick={() => onCategoryClick && onCategoryClick(item.id)}>
                     <span className="text-[10px] md:text-xs font-black text-[#1C1C1E] tabular-nums">
                         {settings.privacyMode ? '•••' : `${item.totalValue.toLocaleString()}`}
                     </span>
                   </div>
                   {canExpand && (
-                    <div className="text-gray-300">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setExpandedCategoryId(isExpanded ? null : item.id); }}
+                        className="text-gray-300 hover:text-blue-500 p-1 rounded-full transition-colors"
+                    >
                       {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
               
-              <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden" onClick={() => onCategoryClick && onCategoryClick(item.id)}>
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${percentage}%` }}

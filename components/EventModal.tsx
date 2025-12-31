@@ -104,7 +104,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   return (
     <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] md:max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
@@ -132,7 +132,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             )}
         </AnimatePresence>
 
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar pb-24">
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
             <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" />
             <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 p-4 rounded-2xl resize-none h-24 text-[#1C1C1E]" />
@@ -192,7 +192,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
         </div>
 
-        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
+        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3 relative z-30 shadow-2xl">
              <button type="button" onClick={validateAndSave} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>

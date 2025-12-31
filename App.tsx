@@ -481,7 +481,7 @@ const App: React.FC = () => {
                       )}
                   </AnimatePresence>
               </section>
-              <div className="grid grid-cols-2 gap-2 md:gap-4"><div className="w-full min-w-0"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /></div><div className="w-full min-w-0"><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></div></div>
+              <div className="grid grid-cols-2 gap-2 md:gap-4"><div className="w-full min-w-0"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /></div><div className="w-full min-w-0"><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} onCategoryClick={(id) => setDetailCategory(id)} /></div></div>
             </motion.div>
           )}
           {activeTab === 'plans' && (<motion.div key="plans" className="w-full"><FamilyPlans events={events} setEvents={createSyncHandler('events', events)} settings={settings} members={familyMembers} onSendToTelegram={handleSendToTelegram} /></motion.div>)}

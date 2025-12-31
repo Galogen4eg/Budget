@@ -119,24 +119,55 @@ const NotificationToast = ({ notification, onClose }: { notification: { message:
 };
 
 const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boolean }) => (
-  <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center p-6 text-center">
-    <div className="w-24 h-24 bg-blue-500 rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-blue-500/20">
-      <Wallet size={48} strokeWidth={2.5} />
-    </div>
-    <h1 className="text-4xl font-black text-[#1C1C1E] mb-4 tracking-tight">Family Budget</h1>
-    <p className="text-gray-400 font-bold mb-10 max-w-xs">Управляйте семейными финансами вместе. Просто, красиво, эффективно.</p>
-    <button 
-      onClick={onLogin} 
-      disabled={loading}
-      className="w-full max-w-xs bg-white text-[#1C1C1E] font-black py-5 rounded-[2rem] shadow-soft border border-gray-100 flex items-center justify-center gap-3 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
+  <div className="fixed inset-0 bg-[#EBEFF5] flex flex-col items-center justify-center p-6 overflow-hidden">
+    {/* Animated Background Blobs */}
+    <motion.div 
+      animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
+      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+      className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-[100px] pointer-events-none" 
+    />
+    <motion.div 
+      animate={{ scale: [1, 1.1, 1], rotate: [0, -45, 0] }}
+      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+      className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-400/20 rounded-full blur-[120px] pointer-events-none" 
+    />
+
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", damping: 20 }}
+      className="relative z-10 w-full max-w-sm"
     >
-      {loading ? <Loader2 size={24} className="animate-spin" /> : (
-        <>
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          Войти через Google
-        </>
-      )}
-    </button>
+      <div className="bg-white/60 backdrop-blur-xl rounded-[3rem] p-10 shadow-2xl border border-white/50 flex flex-col items-center text-center">
+        <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-blue-600 rounded-[2rem] flex items-center justify-center text-white mb-8 shadow-lg shadow-blue-500/30">
+          <Wallet size={48} strokeWidth={2.5} />
+        </div>
+        
+        <h1 className="text-3xl font-black text-[#1C1C1E] mb-3 tracking-tight">Family Budget</h1>
+        <p className="text-gray-500 font-bold text-sm mb-10 leading-relaxed">
+          Семейные финансы,<br/>которые приятно вести.
+        </p>
+        
+        <button 
+          onClick={onLogin} 
+          disabled={loading}
+          className="w-full bg-[#1C1C1E] text-white font-black py-5 rounded-[2rem] shadow-xl shadow-black/10 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:scale-100"
+        >
+          {loading ? (
+            <Loader2 size={24} className="animate-spin" />
+          ) : (
+            <>
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 rounded-full bg-white p-0.5" alt="Google" />
+              <span>Войти через Google</span>
+            </>
+          )}
+        </button>
+        
+        <p className="mt-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+          Secure & Private
+        </p>
+      </div>
+    </motion.div>
   </div>
 );
 
@@ -403,8 +434,8 @@ const App: React.FC = () => {
                     const colClass = `col-span-${widget.mobile.colSpan} md:col-span-${widget.desktop.colSpan}`;
                     const rowClass = `row-span-${widget.mobile.rowSpan} md:row-span-${widget.desktop.rowSpan}`;
                     if (id === 'balance') return (<div key={id} className={`${colClass} ${rowClass}`}><SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="h-full" /></div>);
-                    if (id === 'daily') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} className="h-full" /></div>);
-                    if (id === 'spent') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} className="h-full" /></div>);
+                    if (id === 'daily') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} className="h-full" accentColor="green" /></div>);
+                    if (id === 'spent') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} className="h-full" accentColor="red" /></div>);
                     if (id === 'charts') return (<div key={id} onClick={() => setEnlargedWidget('charts')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><ChartsSection transactions={filteredTransactions} settings={settings} /></div>);
                     if (id === 'month_chart') return (<div key={id} onClick={() => setEnlargedWidget('month_chart')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} /></div>);
                     if (id === 'goals') return (<div key={id} className={`${colClass} ${rowClass}`}><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>);

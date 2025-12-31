@@ -14,7 +14,7 @@ const CustomAnalyticsTooltip = ({ active, payload, currentMonth, privacyMode, cu
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-white/50 flex flex-col gap-0.5">
+            <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-white/50 flex flex-col gap-0.5 z-50">
                 <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest">
                     {data.day} {currentMonth.toLocaleString('ru-RU', { month: 'long' })}
                 </p>
@@ -34,7 +34,6 @@ const CustomAnalyticsTooltip = ({ active, payload, currentMonth, privacyMode, cu
 };
 
 const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transactions, currentMonth, settings }) => {
-  // Fix: Added state for activeIndex to track bar hover index
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const data = useMemo(() => {
@@ -74,8 +73,8 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
   const total = data.reduce((acc, item) => acc + item.value, 0);
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col h-full relative group transition-all hover:scale-[1.01]">
-        <div className="flex justify-between items-start mb-2 md:mb-4">
+    <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col h-full relative group transition-all hover:scale-[1.01] overflow-hidden">
+        <div className="flex justify-between items-start mb-2 shrink-0">
             <div className="min-w-0 flex-1">
                 <h3 className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5 truncate">
                     Траты: {currentMonth.toLocaleString('ru-RU', { month: 'long' })}
@@ -85,45 +84,47 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                 </div>
             </div>
             <div className="w-7 h-7 md:w-10 md:h-10 bg-purple-50 rounded-lg md:rounded-2xl flex items-center justify-center text-purple-500 flex-shrink-0 ml-2">
-                {/* Fix: Icon Calendar now correctly imported from lucide-react */}
                 <Calendar size={16} />
             </div>
         </div>
 
-        <div className="flex-1 min-h-[100px] w-full">
+        <div className="flex-1 min-h-0 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} margin={{ top: 10, right: 0, left: -30, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f3f4f6" />
+                <BarChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis 
                         dataKey="day" 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fontSize: 6, fontWeight: 700, fill: '#D1D5DB' }} 
-                        interval={data.length > 20 ? 6 : 3} 
+                        tick={{ fontSize: 8, fontWeight: 700, fill: '#D1D5DB' }} 
+                        interval={data.length > 20 ? 4 : 1}
                         dy={5}
+                        height={20}
                     />
                     <YAxis 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fontSize: 6, fontWeight: 700, fill: '#D1D5DB' }}
+                        tick={{ fontSize: 8, fontWeight: 700, fill: '#D1D5DB' }}
+                        width={30}
                     />
                     <Tooltip 
-                        cursor={{ fill: '#F9FAFB', radius: 10 }}
+                        cursor={{ fill: '#F9FAFB', radius: 4 }}
                         content={<CustomAnalyticsTooltip currentMonth={currentMonth} privacyMode={settings.privacyMode} currency={settings.currency} />}
+                        allowEscapeViewBox={{ x: false, y: false }}
                     />
-                    {/* Fix: Added activeIndex logic and mouse events for interactivity */}
                     <Bar 
                         dataKey="value" 
-                        radius={[4, 4, 4, 4]} 
-                        animationDuration={1500}
+                        radius={[3, 3, 3, 3]} 
+                        animationDuration={1000}
                         onMouseEnter={(_, index) => setActiveIndex(index)}
                         onMouseLeave={() => setActiveIndex(-1)}
+                        maxBarSize={40}
                     >
                         {data.map((entry, index) => (
                             <Cell 
                                 key={`cell-${index}`} 
                                 fill={entry.isHigh ? '#FF3B30' : '#007AFF'} 
-                                opacity={activeIndex !== -1 && activeIndex !== index ? 0.6 : 1} 
+                                opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1} 
                             />
                         ))}
                     </Bar>

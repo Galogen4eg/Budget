@@ -14,7 +14,7 @@ const CustomTooltip = ({ active, payload, currency, privacyMode }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-white/50 flex flex-col gap-1">
+            <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-white/50 flex flex-col gap-1 z-50">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{data.name}</p>
                 <p className="text-sm font-black text-[#1C1C1E] tabular-nums">
                     {privacyMode ? '••••••' : `${data.value.toLocaleString()} ${currency}`}
@@ -83,18 +83,23 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
   }
 
   const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index);
+    // Only highlight if we are not navigating
+    if (!onCategoryClick) setActiveIndex(index);
   };
 
   const onPieLeave = () => {
-    setActiveIndex(-1);
+    if (!onCategoryClick) setActiveIndex(-1);
   };
 
-  const onPieClick = (data: any, index: number) => {
-    setActiveIndex(prev => prev === index ? -1 : index);
-    if (onCategoryClick && data && data.payload && data.payload.id) {
-        onCategoryClick(data.payload.id);
-    }
+  const handleClick = (data: any, index: number) => {
+      if (onCategoryClick && data.id) {
+          // If we have a navigation handler, call it immediately.
+          // No need to set active index as we are navigating away or opening modal
+          onCategoryClick(data.id);
+      } else {
+          // Toggle selection mode
+          setActiveIndex(prev => prev === index ? -1 : index);
+      }
   };
 
   return (
@@ -121,7 +126,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         stroke="none"
                         onMouseEnter={onPieEnter}
                         onMouseLeave={onPieLeave}
-                        onClick={onPieClick}
+                        onClick={(data, index) => handleClick(data.payload, index)}
                         animationBegin={0}
                         animationDuration={1000}
                         style={{ outline: 'none', cursor: 'pointer' }}
@@ -141,11 +146,11 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                 <div className="w-[50%] pl-3 md:pl-4 flex flex-col justify-center gap-2 overflow-hidden">
                     {expenseData.sort((a, b) => b.value - a.value).slice(0, 4).map((item, idx) => (
                     <div key={item.name} 
-                            onMouseEnter={() => setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
-                            onMouseLeave={() => setActiveIndex(-1)}
-                            onClick={() => {
-                                setActiveIndex(expenseData.findIndex(e => e.name === item.name));
-                                if (onCategoryClick) onCategoryClick(item.id);
+                            onMouseEnter={() => !onCategoryClick && setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
+                            onMouseLeave={() => !onCategoryClick && setActiveIndex(-1)}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Stop bubbling
+                                handleClick(item, expenseData.findIndex(e => e.name === item.name));
                             }}
                             className={`flex items-start gap-1.5 transition-opacity duration-300 cursor-pointer ${activeIndex !== -1 && activeIndex !== expenseData.findIndex(e => e.name === item.name) ? 'opacity-30' : 'opacity-100'}`}>
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: item.color }} />
@@ -165,4 +170,3 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 };
 
 export default ChartsSection;
-    

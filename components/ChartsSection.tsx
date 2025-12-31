@@ -86,6 +86,8 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
     if (onCategoryClick) onCategoryClick(data.id);
   };
 
+  const cursorStyle = onCategoryClick ? 'pointer' : 'default';
+
   return (
     <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-gray-100 shadow-soft transition-all flex flex-col h-full relative group">
         <div className="flex justify-between items-center mb-2">
@@ -116,7 +118,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         style={{ outline: 'none' }}
                         >
                         {expenseData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none', cursor: 'pointer' }} />
+                            <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none', cursor: cursorStyle }} />
                         ))}
                         </Pie>
                         <Tooltip content={<CustomTooltip currency={settings.currency} privacyMode={settings.privacyMode} />} />
@@ -127,7 +129,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                     {expenseData.sort((a, b) => b.value - a.value).slice(0, 6).map((item, idx) => (
                     <div key={item.name} 
                          onClick={() => handleSliceClick(item)}
-                         className={`flex items-start gap-3 p-2 rounded-2xl transition-all cursor-pointer hover:bg-gray-50 ${activeIndex === expenseData.findIndex(e => e.name === item.name) ? 'bg-gray-50 scale-[1.02]' : 'opacity-100'}`}>
+                         className={`flex items-start gap-3 p-2 rounded-2xl transition-all ${onCategoryClick ? 'cursor-pointer hover:bg-gray-50' : ''} ${activeIndex === expenseData.findIndex(e => e.name === item.name) ? 'bg-gray-50 scale-[1.02]' : 'opacity-100'}`}>
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 shadow-sm" style={{ backgroundColor: item.color }} />
                         <div className="flex flex-col min-w-0">
                             <span className="text-[10px] text-gray-400 font-black uppercase tracking-tight truncate leading-none mb-1">{item.name}</span>

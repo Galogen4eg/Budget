@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
   enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters', 'wishlist'],
   isPinEnabled: true, 
-  defaultBudgetMode: 'family',
+  defaultBudgetMode: 'personal',
   telegramBotToken: '',
   telegramChatId: '',
   eventTemplate: '*Событие*\n{{title}}\n{{date}} {{time}}\n{{members}}\n{{duration}}',
@@ -137,7 +137,7 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'plans' | 'shopping' | 'services'>('overview');
-  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('family'); 
+  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal'); 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [events, setEvents] = useState<FamilyEvent[]>([]);
@@ -304,7 +304,7 @@ const App: React.FC = () => {
                     if (id === 'balance') return (<div key={id} className={`${colClass} ${rowClass}`}><SmartHeader balance={totalBalance} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="h-full" /></div>);
                     if (id === 'daily') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Общий лимит" : "Мой лимит"} value={`${(totalBalance * (1 - savingsRate/100) / 30).toLocaleString('ru-RU', {maximumFractionDigits: 0})} ${settings.currency}`} icon={<TrendingUp size={18}/>} className="h-full" /></div>);
                     if (id === 'spent') return (<div key={id} className={`${colClass} ${rowClass}`}><Widget label={budgetMode === 'family' ? "Траты семьи" : "Мои траты"} value={`${currentMonthExpenses.toLocaleString('ru-RU')} ${settings.currency}`} icon={<LayoutGrid size={18}/>} className="h-full" /></div>);
-                    if (id === 'charts') return (<div key={id} onClick={() => setEnlargedWidget('charts')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><ChartsSection transactions={filteredTransactions} settings={settings} onCategoryClick={(catId) => { setDetailCategory(catId); setEnlargedWidget(null); }} /></div>);
+                    if (id === 'charts') return (<div key={id} onClick={() => setEnlargedWidget('charts')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><ChartsSection transactions={filteredTransactions} settings={settings} /></div>);
                     if (id === 'month_chart') return (<div key={id} onClick={() => setEnlargedWidget('month_chart')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} /></div>);
                     if (id === 'goals') return (<div key={id} className={`${colClass} ${rowClass}`}><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>);
                     if (id === 'shopping') return (<div key={id} onClick={() => setActiveTab('shopping')} className={`${colClass} ${rowClass} bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col transition-all hover:scale-[1.01] overflow-hidden cursor-pointer`}><div className="flex items-center justify-between mb-3"><h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Купить</h3><div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center"><ShoppingBag size={16}/></div></div><div className="flex flex-wrap gap-1.5 overflow-hidden">{shoppingItems.filter(i => !i.completed).slice(0, 8).map(item => (<div key={item.id} className="px-2.5 py-1.5 flex items-center gap-1.5 bg-gray-50 rounded-xl border border-gray-100/50"><div className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" /><span className="font-bold text-[10px] text-[#1C1C1E] whitespace-nowrap">{item.title}</span></div>))}</div></div>);

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, TrendingDown, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Snowflake, Gift, ChevronDown } from 'lucide-react';
+import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, TrendingDown, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Gift, ChevronDown } from 'lucide-react';
 import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading, WishlistItem } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
@@ -71,37 +71,6 @@ const escapeMarkdown = (text: string) => {
   if (!text) return '';
   const specialChars = /[_*[\]()~`>#+\-=|{}.!]/g;
   return String(text).replace(specialChars, '\\$&');
-};
-
-const Snowfall = () => {
-  const snowflakes = useMemo(() => Array.from({ length: 30 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    animationDuration: `${Math.random() * 5 + 5}s`,
-    animationDelay: `${Math.random() * 5}s`,
-    opacity: Math.random() * 0.5 + 0.3,
-    size: Math.random() * 10 + 10 + 'px'
-  })), []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {snowflakes.map(flake => (
-        <div
-          key={flake.id}
-          className="snowflake"
-          style={{
-            left: flake.left,
-            animationDuration: flake.animationDuration,
-            animationDelay: flake.animationDelay,
-            opacity: flake.opacity,
-            fontSize: flake.size
-          }}
-        >
-          ❄
-        </div>
-      ))}
-    </div>
-  );
 };
 
 const NotificationToast = ({ notification, onClose }: { notification: { message: string, type?: string }, onClose: () => void }) => {
@@ -259,17 +228,6 @@ const App: React.FC = () => {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // New Year Logic
-  const isNewYear = useMemo(() => {
-    const now = new Date();
-    const endDate = new Date('2026-01-10');
-    return now < endDate;
-  }, []);
-
-  const themeColor = isNewYear ? 'rose-500' : 'blue-600';
-  const themeBg = isNewYear ? 'bg-rose-500' : 'bg-blue-600';
-  const themeText = isNewYear ? 'text-rose-500' : 'text-blue-600';
 
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); setAppNotification({ message: "Соединение восстановлено", type: "success" }); };
@@ -490,9 +448,7 @@ const App: React.FC = () => {
   const isTabEnabled = (tab: string) => settings.enabledTabs.includes(tab);
 
   return (
-    <div className={`min-h-screen ${themeBg} text-[#1C1C1E] font-sans selection:bg-blue-100 pb-24 md:pb-0 md:pl-24`}>
-        {/* ... (Snowfall, Notification, Modals render code remains the same) ... */}
-        {isNewYear && <Snowfall />}
+    <div className="min-h-screen bg-[#EBEFF5] text-[#1C1C1E] font-sans selection:bg-blue-100 pb-24 md:pb-0 md:pl-24">
         {appNotification && <NotificationToast notification={appNotification} onClose={() => setAppNotification(null)} />}
         <AnimatePresence>
             {isModalOpen && <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onSubmit={editingTransaction ? (data) => { handleUpdateTransaction({...data, id: editingTransaction.id} as Transaction); setIsModalOpen(false); setEditingTransaction(null); } : handleAddTransaction} onDelete={(id) => { if(familyId) deleteItem(familyId, 'transactions', id); setIsModalOpen(false); setEditingTransaction(null); }} settings={settings} members={familyMembers} categories={categories} initialTransaction={editingTransaction} />}

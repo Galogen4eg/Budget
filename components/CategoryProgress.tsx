@@ -12,9 +12,10 @@ interface CategoryProgressProps {
   settings: AppSettings;
   categories: Category[];
   onCategoryClick?: (categoryId: string) => void;
+  onMerchantClick?: (merchantName: string) => void;
 }
 
-const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick }) => {
+const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onMerchantClick }) => {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
   const expenses = transactions.filter(t => t.type === 'expense');
@@ -23,7 +24,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
     const catTransactions = expenses.filter(t => t.category === cat.id);
     const totalValue = catTransactions.reduce((acc, t) => acc + t.amount, 0);
     
-    // Группировка по мерчантам внутри категории
+    // Group by merchant inside category
     const merchants = catTransactions.reduce((acc, t) => {
       const name = t.note || cat.label;
       const existing = acc.find(m => m.name === name);
@@ -121,7 +122,11 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                   className="overflow-hidden mt-2 px-1 space-y-2"
                 >
                   {item.merchants.map((merchant, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-white rounded-xl border border-gray-50 shadow-sm">
+                    <div 
+                        key={idx} 
+                        onClick={(e) => { e.stopPropagation(); onMerchantClick && onMerchantClick(merchant.name); }}
+                        className="flex items-center justify-between p-2 bg-white rounded-xl border border-gray-50 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <div className="shrink-0">
                             <BrandIcon 

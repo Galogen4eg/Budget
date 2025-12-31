@@ -406,6 +406,10 @@ const App: React.FC = () => {
         text += `*Время события* \\- ${escapeMarkdown(event.time)}\n`;
         text += `*Участники* \\- ${escapeMarkdown(memberNames)}\n`;
         
+        if (event.description && event.description.trim()) {
+            text += `*Описание* \\- ${escapeMarkdown(event.description)}\n`;
+        }
+        
         if (event.checklist && event.checklist.length > 0) {
             text += `\n*Список задач:*\n`;
             event.checklist.forEach(item => {

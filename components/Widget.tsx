@@ -22,7 +22,7 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "" }) =
           {label}
         </span>
         <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0">
-          {React.cloneElement(icon as React.ReactElement, { size: 16 })}
+          {React.cloneElement(icon as React.ReactElement<any>, { size: 16 })}
         </div>
       </div>
       

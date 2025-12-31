@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign, GripVertical, Loader2, Monitor, Smartphone as SmartphoneIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
@@ -254,6 +254,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   )}
                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Название семьи</label><input type="text" value={settings.familyName} onChange={(e) => handleChange('familyName', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" /></div>
                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Валюта</label><input type="text" value={settings.currency} onChange={(e) => handleChange('currency', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" /></div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Режим при входе</label>
+                    <div className="flex bg-gray-50 p-1 rounded-2xl">
+                      <button onClick={() => handleChange('defaultBudgetMode', 'personal')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${settings.defaultBudgetMode === 'personal' ? 'bg-white shadow-sm text-[#1C1C1E]' : 'text-gray-400'}`}>Мой</button>
+                      <button onClick={() => handleChange('defaultBudgetMode', 'family')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${settings.defaultBudgetMode === 'family' ? 'bg-white shadow-sm text-[#1C1C1E]' : 'text-gray-400'}`}>Общий</button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between p-2"><div className="flex items-center gap-3"><Shield size={20} className="text-gray-400" /><span className="font-bold text-sm">Приватный режим</span></div><button onClick={() => handleChange('privacyMode', !settings.privacyMode)} className={`transition-colors ${settings.privacyMode ? 'text-blue-500' : 'text-gray-300'}`}>{settings.privacyMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}</button></div>
                   <div className="flex items-center justify-between p-2 border-t border-gray-50 pt-4"><div className="flex items-center gap-3"><Lock size={20} className="text-gray-400" /><span className="font-bold text-sm">Вход по PIN-коду</span></div><button onClick={() => { if (settings.isPinEnabled) { onDisablePin?.(); } else { onEnablePin?.(); } }} className={`transition-colors ${settings.isPinEnabled ? 'text-green-500' : 'text-gray-300'}`}>{settings.isPinEnabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}</button></div>
                 </div>

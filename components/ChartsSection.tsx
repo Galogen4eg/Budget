@@ -7,6 +7,7 @@ import { INITIAL_CATEGORIES as CATEGORIES } from '../constants';
 interface ChartsSectionProps {
   transactions: Transaction[];
   settings: AppSettings;
+  onCategoryClick?: (categoryId: string) => void;
 }
 
 const CustomTooltip = ({ active, payload, currency, privacyMode }: any) => {
@@ -55,7 +56,7 @@ const renderActiveShape = (props: any) => {
   );
 };
 
-const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings }) => {
+const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, onCategoryClick }) => {
   const [activeChart, setActiveChart] = useState<'pie' | 'bar'>('pie');
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -64,14 +65,15 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
     .reduce((acc, tx) => {
       const category = CATEGORIES.find(c => c.id === tx.category);
       const label = category?.label || 'Прочее';
+      const catId = category?.id || 'other';
       const existing = acc.find(item => item.name === label);
       if (existing) {
         existing.value += tx.amount;
       } else {
-        acc.push({ name: label, value: tx.amount, color: category?.color || '#888' });
+        acc.push({ name: label, value: tx.amount, color: category?.color || '#888', id: catId });
       }
       return acc;
-    }, [] as { name: string; value: number; color: string }[]);
+    }, [] as { name: string; value: number; color: string; id: string }[]);
 
   const dynamicsData = React.useMemo(() => {
     const days = [];
@@ -105,9 +107,11 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
     setActiveIndex(-1);
   };
 
-  const onPieClick = (_: any, index: number) => {
-    // Toggle active index on mobile clicks/taps
+  const onPieClick = (data: any, index: number) => {
     setActiveIndex(prev => prev === index ? -1 : index);
+    if (onCategoryClick && data && data.payload && data.payload.id) {
+        onCategoryClick(data.payload.id);
+    }
   };
 
   return (
@@ -129,7 +133,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
                         <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
-                            activeIndex={activeIndex}
+                            {...{ activeIndex } as any}
                             activeShape={renderActiveShape}
                             data={expenseData}
                             innerRadius="65%"
@@ -142,7 +146,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
                             onClick={onPieClick}
                             animationBegin={0}
                             animationDuration={1000}
-                            style={{ outline: 'none' }}
+                            style={{ outline: 'none', cursor: 'pointer' }}
                             >
                             {expenseData.map((entry, index) => (
                                 <Cell 
@@ -161,8 +165,11 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings })
                         <div key={item.name} 
                              onMouseEnter={() => setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
                              onMouseLeave={() => setActiveIndex(-1)}
-                             onClick={() => setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
-                             className={`flex items-start gap-1.5 transition-opacity duration-300 ${activeIndex !== -1 && activeIndex !== expenseData.findIndex(e => e.name === item.name) ? 'opacity-30' : 'opacity-100'}`}>
+                             onClick={() => {
+                                 setActiveIndex(expenseData.findIndex(e => e.name === item.name));
+                                 if (onCategoryClick) onCategoryClick(item.id);
+                             }}
+                             className={`flex items-start gap-1.5 transition-opacity duration-300 cursor-pointer ${activeIndex !== -1 && activeIndex !== expenseData.findIndex(e => e.name === item.name) ? 'opacity-30' : 'opacity-100'}`}>
                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: item.color }} />
                             <div className="flex flex-col min-w-0">
                                 <span className="text-[7px] md:text-[8px] text-gray-400 font-bold uppercase truncate whitespace-nowrap tracking-tighter">{item.name}</span>

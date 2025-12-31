@@ -25,7 +25,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const [searchQuery, setSearchQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   
-  // 1. Filter by search query
+  // State for collapsed days (key: date string)
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
+
+  const toggleDayCollapse = (dateKey: string) => {
+      setCollapsedDays(prev => ({ ...prev, [dateKey]: !prev[dateKey] }));
+  };
+  
   const searchedTransactions = useMemo(() => {
     if (!searchQuery.trim()) return transactions;
     const query = searchQuery.toLowerCase();
@@ -38,14 +44,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     });
   }, [transactions, searchQuery, categories]);
 
-  // 2. Calculate General Summary
   const summary = useMemo(() => {
     const income = searchedTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const expense = searchedTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
     return { income, expense, total: income - expense };
   }, [searchedTransactions]);
 
-  // 3. Group Transactions by Date
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
     searchedTransactions.forEach(tx => {
@@ -65,14 +69,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         transactions: dayTxs,
         dayIncome,
         dayExpense,
+        net: dayIncome - dayExpense,
         count: dayTxs.length
       };
     });
   }, [searchedTransactions]);
 
-  // 4. Determine visible groups (last 3 days logic)
   const visibleGroups = useMemo(() => {
-    // If searching, show everything. If not month view, show everything.
     if (searchQuery.trim() || filterMode === 'day' || showAll) {
       return groupedTransactions;
     }
@@ -160,7 +163,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-6 w-full">
-      {/* Search Bar */}
       <div className="px-1">
         <div className="relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-blue-500">
@@ -197,31 +199,50 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       ) : (
         <>
           <div className="space-y-8">
-            {visibleGroups.map((group) => (
-                <div key={group.date} className="space-y-3">
-                    <div className="flex items-end justify-between px-3 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-3 z-10 border-b border-gray-200/50">
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide">
-                                    {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
-                                </span>
-                                {(new Date(group.date).toDateString() === new Date().toDateString()) && (
-                                    <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
-                                )}
+            {visibleGroups.map((group) => {
+                const isCollapsed = collapsedDays[group.date];
+                
+                return (
+                    <div key={group.date} className="space-y-3">
+                        <div onClick={() => toggleDayCollapse(group.date)} className="flex items-end justify-between px-3 sticky top-0 bg-[#EBEFF5]/95 backdrop-blur-sm py-3 z-10 border-b border-gray-200/50 cursor-pointer hover:bg-gray-100/50 transition-colors rounded-xl">
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-2 mb-1">
+                                    {isCollapsed ? <ChevronDown size={14} className="text-gray-400"/> : <ChevronUp size={14} className="text-gray-400"/>}
+                                    <span className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide">
+                                        {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
+                                    </span>
+                                    {(new Date(group.date).toDateString() === new Date().toDateString()) && (
+                                        <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase">Сегодня</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-400">{group.count} опер.</span>
+                                    <span className={`text-[10px] font-black uppercase ${group.net >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                        Итог: {group.net > 0 ? '+' : ''}{group.net.toLocaleString()}
+                                    </span>
+                                </div>
                             </div>
-                            <span className="text-xs font-bold text-gray-400">{group.count} опер.</span>
+                            <div className="flex flex-col items-end gap-0.5">
+                                {group.dayIncome > 0 && <span className="text-xs font-black text-green-500">+{group.dayIncome.toLocaleString()}</span>}
+                                {group.dayExpense > 0 && <span className="text-base font-black text-[#1C1C1E] tabular-nums">-{group.dayExpense.toLocaleString()}</span>}
+                            </div>
                         </div>
-                        <div className="flex flex-col items-end gap-0.5">
-                            {group.dayIncome > 0 && <span className="text-xs font-black text-green-500">+{group.dayIncome.toLocaleString()}</span>}
-                            {group.dayExpense > 0 && <span className="text-base font-black text-[#1C1C1E] tabular-nums">-{group.dayExpense.toLocaleString()}</span>}
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
-                        {group.transactions.map(tx => renderTransactionCard(tx))}
+                        <AnimatePresence>
+                            {!isCollapsed && (
+                                <motion.div 
+                                    initial={{ height: 0, opacity: 0 }} 
+                                    animate={{ height: 'auto', opacity: 1 }} 
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1"
+                                >
+                                    {group.transactions.map(tx => renderTransactionCard(tx))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                </div>
-            ))}
+                );
+            })}
           </div>
 
           {hiddenCount > 0 && (
@@ -237,7 +258,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </>
       )}
 
-      {/* Uncategorized Alerts */}
       {transactions.filter(t => t.category === 'other').length > 0 && !searchQuery && (
           <div className="bg-yellow-50/50 p-6 rounded-[2.5rem] border border-yellow-100 mt-4">
               <div className="flex items-center gap-3 mb-4">
@@ -252,7 +272,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
           </div>
       )}
 
-      {/* Total Summary Footer */}
       <div className="bg-[#1C1C1E] rounded-[2.2rem] p-6 text-white shadow-xl mt-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden gap-4 md:gap-0">
          <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-[#1C1C1E] opacity-50 pointer-events-none" />
          
@@ -280,7 +299,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
          </div>
       </div>
 
-      {/* Learning Modal */}
       <AnimatePresence>
         {learningTx && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
-import { auth } from '../firebase'; 
+import { auth } from '../firebase';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -74,7 +74,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   const toggleReminder = (minutes: number) => {
-    if (minutes === 0) { setReminders([]); return; }
+    if (minutes === 0) {
+        setReminders([]);
+        return;
+    }
     if (reminders.includes(minutes)) {
         setReminders(reminders.filter(r => r !== minutes));
     } else {
@@ -83,6 +86,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   const validateAndSave = () => {
+    const yearMatch = date.match(/^(\d+)-/);
+    if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
     if (!title.trim()) { alert("Введите название события"); return; }
     onSave({ 
       id: event?.id || Date.now().toString(), 
@@ -99,7 +104,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   return (
     <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
           <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
@@ -136,7 +141,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           <div className="grid grid-cols-2 gap-4">
              <div className="bg-white p-5 rounded-[2rem] border border-white">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
-               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
+               <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
              </div>
              <div className="bg-white p-5 rounded-[2rem] border border-white">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Время начала</span>

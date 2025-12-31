@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ChevronLeft, ChevronRight, Clock, Mic, BrainCircuit, Calendar as CalendarIcon, MapPin } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
@@ -27,6 +27,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const [isListening, setIsListening] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Time grid configuration from settings or defaults
+  const startHour = settings.dayStartHour ?? 8;
+  const endHour = settings.dayEndHour ?? 22;
+  const hours = useMemo(() => Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i), [startHour, endHour]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -109,6 +114,20 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     return events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   };
 
+  const getEventStyle = (event: FamilyEvent) => {
+      const [h, m] = event.time.split(':').map(Number);
+      if (h < startHour || h > endHour) return null; // Event out of view bounds (simplified)
+      
+      const startMinutes = (h - startHour) * 60 + m;
+      const durationMinutes = (event.duration || 1) * 60;
+      
+      // Calculate pixels (assuming 60px per hour height)
+      const top = (startMinutes / 60) * 64; // 64px is height of hour row (h-16)
+      const height = (durationMinutes / 60) * 64;
+      
+      return { top: `${top}px`, height: `${height}px` };
+  };
+
   // Generate days for Month View
   const monthDays = useMemo(() => {
     const year = selectedDate.getFullYear();
@@ -130,6 +149,105 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         return d;
     });
   }, [selectedDate]);
+
+  const renderTimeGrid = (days: Date[]) => {
+      const hourHeight = 64; // h-16
+      
+      return (
+          <div className="flex flex-col h-[600px] bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden relative">
+              {/* Header Days */}
+              <div className="flex border-b border-gray-100 bg-gray-50/50 shrink-0 z-10 sticky top-0">
+                  <div className="w-12 shrink-0 border-r border-gray-100 bg-white" /> {/* Time column header */}
+                  <div className="flex flex-1 overflow-x-auto no-scrollbar">
+                      {days.map((day, idx) => {
+                          const isToday = day.toDateString() === new Date().toDateString();
+                          return (
+                              <div key={idx} className="flex-1 min-w-[80px] p-2 text-center border-r border-gray-100 last:border-0">
+                                  <div className={`text-[9px] font-black uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
+                                      {day.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                                  </div>
+                                  <div className={`text-sm font-black ${isToday ? 'text-blue-600' : 'text-[#1C1C1E]'}`}>
+                                      {day.getDate()}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+
+              {/* Time Grid Body */}
+              <div className="flex-1 overflow-y-auto no-scrollbar relative">
+                  <div className="flex min-h-full">
+                      {/* Time Labels Column */}
+                      <div className="w-12 shrink-0 border-r border-gray-100 bg-white z-10 sticky left-0">
+                          {hours.map(hour => (
+                              <div key={hour} className="h-16 text-[9px] font-bold text-gray-400 text-center pt-2 relative">
+                                  {hour}:00
+                                  <div className="absolute top-0 right-0 w-2 h-[1px] bg-gray-200" />
+                              </div>
+                          ))}
+                      </div>
+
+                      {/* Columns Container */}
+                      <div className="flex flex-1 relative">
+                          {/* Grid Lines Background */}
+                          <div className="absolute inset-0 flex flex-col">
+                              {hours.map(hour => (
+                                  <div key={`line-${hour}`} className="h-16 border-b border-gray-50 w-full" />
+                              ))}
+                          </div>
+
+                          {days.map((day, dIdx) => {
+                              const dayEvents = getEventsForDate(day);
+                              
+                              return (
+                                  <div key={dIdx} className="flex-1 min-w-[80px] relative border-r border-gray-50 last:border-0">
+                                      {/* Clickable Slots */}
+                                      {hours.map(hour => (
+                                          <div 
+                                              key={`slot-${dIdx}-${hour}`}
+                                              onClick={() => {
+                                                  const dateStr = day.toISOString().split('T')[0];
+                                                  const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                                                  setActiveEvent({ event: null, prefill: { date: dateStr, time: timeStr } });
+                                              }}
+                                              className="h-16 w-full cursor-pointer hover:bg-blue-50/30 transition-colors"
+                                          />
+                                      ))}
+
+                                      {/* Events Overlay */}
+                                      {dayEvents.map(ev => {
+                                          const style = getEventStyle(ev);
+                                          if (!style) return null;
+                                          const isShort = (ev.duration || 1) < 1;
+                                          
+                                          return (
+                                              <div 
+                                                  key={ev.id}
+                                                  onClick={(e) => { e.stopPropagation(); setActiveEvent({ event: ev }); }}
+                                                  className="absolute left-1 right-1 rounded-lg bg-blue-100/90 border border-blue-200 p-1 cursor-pointer hover:brightness-95 transition-all overflow-hidden shadow-sm z-10"
+                                                  style={style}
+                                              >
+                                                  <div className="flex flex-col h-full">
+                                                      <span className="text-[9px] font-black text-blue-700 leading-tight truncate">{ev.title}</span>
+                                                      {!isShort && (
+                                                          <div className="text-[8px] text-blue-500 font-bold truncate">
+                                                              {ev.time}
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
 
   const renderEventsList = (dateToRender: Date) => {
     const daysEvents = getEventsForDate(dateToRender);
@@ -294,7 +412,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
         {viewMode === 'week' && (
             <>
-                <div className="bg-white p-4 rounded-[2rem] shadow-soft border border-white overflow-hidden">
+                <div className="bg-white p-4 rounded-[2rem] shadow-soft border border-white overflow-hidden mb-4">
                      <div className="flex justify-between items-center mb-4 px-2">
                          <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
                          <div className="flex gap-1">
@@ -324,14 +442,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                          })}
                      </div>
                 </div>
-                {renderEventsList(selectedDate)}
+                {renderTimeGrid(weekDays)}
             </>
         )}
 
         {viewMode === 'day' && (
             <>
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white text-center">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white text-center mb-4">
+                    <div className="flex items-center justify-between">
                          <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronLeft size={20}/></button>
                          <div className="flex flex-col items-center">
                              <span className="text-sm font-black text-gray-400 uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', {weekday:'long'})}</span>
@@ -341,7 +459,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                          <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronRight size={20}/></button>
                     </div>
                 </div>
-                {renderEventsList(selectedDate)}
+                {renderTimeGrid([selectedDate])}
             </>
         )}
       </div>

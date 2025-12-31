@@ -33,12 +33,12 @@ import { subscribeToCollection, subscribeToSettings, addItem, addItemsBatch, upd
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
-  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } },
+  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 3 }, desktop: { colSpan: 2, rowSpan: 3 } }, // Increased rowSpan due to smaller base row height
   { id: 'daily', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   { id: 'spent', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
-  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 1 } },
-  { id: 'goals', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
-  { id: 'shopping', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } },
+  { id: 'goals', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 1, rowSpan: 3 } }, // Adjusted
+  { id: 'shopping', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 1, rowSpan: 3 } }, // Adjusted
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -396,7 +396,7 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8 w-full">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[160px] md:auto-rows-[180px] w-full">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[115px] md:auto-rows-[135px] w-full">
                 {settings.widgets.map(widget => {
                     if (!widget.isVisible) return null;
                     const { id } = widget;

@@ -39,7 +39,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   
   // Main list (Categorized + Filtered by Type + Search)
   const searchedTransactions = useMemo(() => {
-    let filtered = transactions.filter(tx => tx.category !== 'other'); // Exclude 'other' from main list
+    let filtered = transactions;
 
     // Apply Type Filter
     if (typeFilter !== 'all') {
@@ -180,6 +180,28 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-6 w-full">
+      {/* TYPE FILTERS */}
+      <div className="flex gap-2 px-1">
+          <button 
+            onClick={() => setTypeFilter('all')}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${typeFilter === 'all' ? 'bg-[#1C1C1E] text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
+          >
+            Все
+          </button>
+          <button 
+            onClick={() => setTypeFilter('expense')}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${typeFilter === 'expense' ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
+          >
+            <TrendingDown size={14} strokeWidth={3} /> Списания
+          </button>
+          <button 
+            onClick={() => setTypeFilter('income')}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${typeFilter === 'income' ? 'bg-green-500 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
+          >
+            <TrendingUp size={14} strokeWidth={3} /> Пополнения
+          </button>
+      </div>
+
       <div className="px-1 flex items-center gap-2">
         <div className="relative group flex-1">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-blue-500">
@@ -220,28 +242,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
               </div>
           </div>
       )}
-
-      {/* TYPE FILTERS */}
-      <div className="flex gap-2 px-1">
-          <button 
-            onClick={() => setTypeFilter('all')}
-            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${typeFilter === 'all' ? 'bg-[#1C1C1E] text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
-          >
-            Все
-          </button>
-          <button 
-            onClick={() => setTypeFilter('expense')}
-            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${typeFilter === 'expense' ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
-          >
-            <TrendingDown size={14} strokeWidth={3} /> Списания
-          </button>
-          <button 
-            onClick={() => setTypeFilter('income')}
-            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${typeFilter === 'income' ? 'bg-green-500 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
-          >
-            <TrendingUp size={14} strokeWidth={3} /> Пополнения
-          </button>
-      </div>
 
       {transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm w-full">
@@ -329,18 +329,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Название</label>
-                  <input 
-                    type="text" 
-                    value={learningName}
-                    onChange={(e) => setLearningName(e.target.value)}
-                    placeholder="Напр. Любимая кофейня"
-                    className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-transparent focus:border-yellow-200 transition-all text-[#1C1C1E]"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Категория</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Выберите категорию</label>
                   <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto no-scrollbar">
                     {categories.filter(c => c.id !== 'other').map(cat => (
                       <button 
@@ -353,6 +342,17 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Правило (название)</label>
+                  <input 
+                    type="text" 
+                    value={learningName}
+                    onChange={(e) => setLearningName(e.target.value)}
+                    placeholder="Напр. Любимая кофейня"
+                    className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-transparent focus:border-yellow-200 transition-all text-[#1C1C1E]"
+                  />
                 </div>
               </div>
 

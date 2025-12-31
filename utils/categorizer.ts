@@ -65,19 +65,15 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     if (lowNote.includes(rule.keyword.toLowerCase())) return rule.cleanName;
   }
 
-  // SBP Recognition with phone number
+  // Improved SBP Recognition with phone number formatting
   const phoneRegex = /(?:(?:\+?7|8)[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
   const phoneMatch = name.match(phoneRegex);
   
   if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer')) {
       if (phoneMatch) {
           const rawPhone = phoneMatch[0].replace(/\D/g, '');
+          // Standardize to +7 XXX XXX XX XX
           let formattedPhone = rawPhone.length === 10 ? `+7${rawPhone}` : (rawPhone.length === 11 ? `+7${rawPhone.slice(1)}` : rawPhone);
-          // Format visually if needed, e.g. +7 (XXX) ...
-          if (formattedPhone.length === 12) {
-             formattedPhone = `${formattedPhone.slice(0,2)} (${formattedPhone.slice(2,5)}) ${formattedPhone.slice(5,8)}-${formattedPhone.slice(8,10)}-${formattedPhone.slice(10,12)}`;
-          }
-
           const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
           const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
           return `Перевод по СБП ${formattedPhone}${person}`;

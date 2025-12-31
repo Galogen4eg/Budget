@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Snowflake, Gift } from 'lucide-react';
+import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft } from 'lucide-react';
 import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading, WishlistItem } from './types';
 import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES } from './constants';
 import AddTransactionModal from './components/AddTransactionModal';
@@ -62,37 +62,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   salaryDates: [10, 25],
   mandatoryExpenses: [],
   alfaMapping: { date: 'дата', time: 'время', amount: 'сумма', category: 'категория', note: 'описание' }
-};
-
-const Snowfall = () => {
-  const snowflakes = useMemo(() => Array.from({ length: 30 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    animationDuration: `${Math.random() * 5 + 5}s`,
-    animationDelay: `${Math.random() * 5}s`,
-    opacity: Math.random() * 0.5 + 0.3,
-    size: Math.random() * 10 + 10 + 'px'
-  })), []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {snowflakes.map(flake => (
-        <div
-          key={flake.id}
-          className="snowflake"
-          style={{
-            left: flake.left,
-            animationDuration: flake.animationDuration,
-            animationDelay: flake.animationDelay,
-            opacity: flake.opacity,
-            fontSize: flake.size
-          }}
-        >
-          ❄
-        </div>
-      ))}
-    </div>
-  );
 };
 
 const LoginScreen = ({ onLogin, loading }: { onLogin: () => void, loading: boolean }) => (
@@ -178,17 +147,6 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [pendingMember, setPendingMember] = useState<FamilyMember | null>(null);
-
-  // New Year Logic
-  const isNewYear = useMemo(() => {
-    const now = new Date();
-    const endDate = new Date('2026-01-10');
-    return now < endDate;
-  }, []);
-
-  const themeColor = isNewYear ? 'rose-500' : 'blue-600';
-  const themeBg = isNewYear ? 'bg-rose-500' : 'bg-blue-600';
-  const themeText = isNewYear ? 'text-rose-500' : 'text-blue-600';
 
   const visibleTabs = useMemo(() => {
     const allTabs = [
@@ -276,22 +234,16 @@ const App: React.FC = () => {
   const createSyncHandler = <T extends { id: string }>(collectionName: string, currentState: T[]) => { return (newStateOrUpdater: T[] | ((prev: T[]) => T[])) => { if (!familyId) return; let newState: T[]; if (typeof newStateOrUpdater === 'function') { newState = (newStateOrUpdater as Function)(currentState); } else { newState = newStateOrUpdater; } const newIds = new Set(newState.map(i => i.id)); currentState.forEach(item => { if (!newIds.has(item.id)) deleteItem(familyId, collectionName, item.id); }); newState.forEach(newItem => { const oldItem = currentState.find(i => i.id === newItem.id); if (!oldItem) { addItem(familyId, collectionName, newItem); } else if (JSON.stringify(oldItem) !== JSON.stringify(newItem)) { updateItem(familyId, collectionName, newItem.id, newItem); } }); }; };
 
   return (
-    <div className={`min-h-screen pb-44 md:pb-24 max-w-7xl mx-auto px-4 md:px-6 pt-12 text-[#1C1C1E] relative ${isNewYear ? 'bg-gradient-to-b from-[#EBEFF5] to-[#E3E8F0]' : ''}`}>
-      {isNewYear && <Snowfall />}
+    <div className="min-h-screen pb-44 md:pb-24 max-w-7xl mx-auto px-4 md:px-6 pt-12 text-[#1C1C1E] relative">
       <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx,.xls,.csv" className="hidden" />
       <AnimatePresence>{appNotification && <NotificationToast notification={appNotification} onClose={() => setAppNotification(null)} />}</AnimatePresence>
 
-      <header className="flex justify-between items-start mb-8 md:mb-10 text-[#1C1C1E] relative z-10">
-        <div><div className="flex items-center gap-4 h-10">
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-[#1C1C1E] flex items-center gap-2">
-                {isNewYear ? 'С Новым Годом!' : (activeTab === 'overview' ? 'Обзор' : activeTab === 'budget' ? 'Бюджет' : activeTab === 'plans' ? 'Планы' : activeTab === 'shopping' ? 'Покупки' : 'Сервисы')}
-                {isNewYear && <Gift className="text-red-500 animate-bounce" />}
-            </h1>
-            {(activeTab === 'overview' || activeTab === 'budget') && (<div className="flex bg-gray-100/50 p-1 rounded-full relative h-9 items-center border border-gray-100"><button onClick={() => setBudgetMode('personal')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${budgetMode === 'personal' ? 'text-black' : 'text-gray-400'}`}>Мой{budgetMode === 'personal' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" />}</button><button onClick={() => setBudgetMode('family')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${budgetMode === 'family' ? themeText : 'text-gray-400'}`}>Общий{budgetMode === 'family' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" />}</button></div>)}</div></div>
+      <header className="flex justify-between items-start mb-8 md:mb-10 text-[#1C1C1E]">
+        <div><div className="flex items-center gap-4 h-10"><h1 className="text-3xl md:text-4xl font-black tracking-tight text-[#1C1C1E]">{activeTab === 'overview' ? 'Обзор' : activeTab === 'budget' ? 'Бюджет' : activeTab === 'plans' ? 'Планы' : activeTab === 'shopping' ? 'Покупки' : 'Сервисы'}</h1>{(activeTab === 'overview' || activeTab === 'budget') && (<div className="flex bg-gray-100/50 p-1 rounded-full relative h-9 items-center border border-gray-100"><button onClick={() => setBudgetMode('personal')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${budgetMode === 'personal' ? 'text-black' : 'text-gray-400'}`}>Мой{budgetMode === 'personal' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" />}</button><button onClick={() => setBudgetMode('family')} className={`relative z-10 px-3 md:px-4 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${budgetMode === 'family' ? 'text-blue-600' : 'text-gray-400'}`}>Общий{budgetMode === 'family' && <motion.div layoutId="budget-toggle" className="absolute inset-0 bg-white rounded-full shadow-sm -z-10" />}</button></div>)}</div></div>
         <div className="flex gap-2">{!isOnline && (<div className="w-11 h-11 bg-orange-50 text-orange-500 rounded-3xl flex items-center justify-center animate-pulse"><WifiOff size={20} /></div>)}<button onClick={() => setIsSettingsOpen(true)} className="p-3 md:p-4 bg-white shadow-soft rounded-3xl text-gray-400 border border-white hover:bg-gray-50 transition-colors ios-btn-active"><SettingsIcon size={20} /></button></div>
       </header>
 
-      <main className="relative z-10">
+      <main>
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8 w-full">
@@ -328,7 +280,7 @@ const App: React.FC = () => {
                     </>
                   )}
                 </AnimatePresence>
-                <button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-2xl transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white shadow-black/20' : `${themeBg} text-white shadow-lg`}`}>
+                <button onClick={() => setFabOpen(!fabOpen)} className={`pointer-events-auto w-16 h-16 rounded-[1.8rem] flex items-center justify-center shadow-2xl transition-all duration-300 ${fabOpen ? 'bg-black rotate-45 text-white shadow-black/20' : 'bg-blue-500 text-white shadow-blue-500/40'}`}>
                   <Plus size={32} strokeWidth={3} />
                 </button>
               </div>
@@ -337,7 +289,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'budget' && (
             <motion.div key="budget" className="space-y-6 w-full">
-              <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className={`p-3 bg-white border border-gray-100 ${themeText} rounded-2xl shadow-sm ios-btn-active`}><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 ${themeText} font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
+              <section className="flex flex-col gap-6 w-full"><div className="flex justify-between items-center px-1"><h2 className="text-xl font-black text-[#1C1C1E]">{selectedDate ? `Траты за ${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : 'Календарь трат'}</h2><div className="flex gap-2"><button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="p-3 bg-white border border-gray-100 text-blue-500 rounded-2xl shadow-sm ios-btn-active"><Plus size={20} /></button><button disabled={isImporting} onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 text-blue-500 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl shadow-sm ios-btn-active ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isImporting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {isImporting ? 'Загрузка...' : 'Импорт'}</button></div></div><SpendingCalendar transactions={filteredTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} /></section>
               <section className="w-full"><TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={familyMembers} onLearnRule={() => {}} categories={categories} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} /></section>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={transactions} settings={settings} currentMonth={currentMonth} /><CategoryProgress transactions={filteredTransactions} settings={settings} categories={categories} /></div>
             </motion.div>
@@ -348,7 +300,7 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/80 backdrop-blur-2xl border border-white/50 rounded-[2.5rem] p-1.5 shadow-soft z-[100] flex justify-between items-center">{visibleTabs.map(tab => (<NavButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id as any)} icon={tab.icon} label={tab.label} activeColor={themeText} />))}</nav>
+      <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/80 backdrop-blur-2xl border border-white/50 rounded-[2.5rem] p-1.5 shadow-soft z-[100] flex justify-between items-center">{visibleTabs.map(tab => (<NavButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id as any)} icon={tab.icon} label={tab.label} />))}</nav>
 
       {/* Enlarged Widget Modal */}
       <AnimatePresence>
@@ -400,5 +352,5 @@ const App: React.FC = () => {
   );
 };
 
-const NavButton = ({ active, onClick, icon, label, activeColor }: any) => <button onClick={onClick} className={`flex-1 flex flex-col items-center gap-1.5 py-4 rounded-[1.8rem] transition-all ${active ? `${activeColor} bg-blue-50/50 scale-100 font-black` : 'text-gray-400'}`}>{React.cloneElement(icon, { strokeWidth: active ? 3 : 2 })}<span className="text-[10px] uppercase tracking-widest font-black leading-none">{label}</span></button>;
+const NavButton = ({ active, onClick, icon, label }: any) => <button onClick={onClick} className={`flex-1 flex flex-col items-center gap-1.5 py-4 rounded-[1.8rem] transition-all ${active ? 'text-blue-600 bg-blue-50/50 scale-100 font-black' : 'text-gray-400'}`}>{React.cloneElement(icon, { strokeWidth: active ? 3 : 2 })}<span className="text-[10px] uppercase tracking-widest font-black leading-none">{label}</span></button>;
 export default App;

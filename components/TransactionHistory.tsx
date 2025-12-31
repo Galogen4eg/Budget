@@ -51,6 +51,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       groups[dateKey].push(tx);
     });
     
+    // Sort keys by date descending
     const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     
     return sortedDates.map(date => {
@@ -77,22 +78,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   }, [groupedTransactions, searchQuery, filterMode, showAll]);
 
   const hiddenCount = groupedTransactions.length - visibleGroups.length;
-
-  const handleFinishLearning = () => {
-    if (!learningTx || !learningName.trim()) return;
-    let keyword = (learningTx.rawNote || learningTx.note).trim();
-    if (/\d{4,}$/.test(keyword)) {
-        keyword = keyword.replace(/\s?\d+$/, '').trim();
-    }
-    const newRule: LearnedRule = {
-      id: Date.now().toString(),
-      keyword: keyword,
-      cleanName: learningName.trim(),
-      categoryId: learningCat
-    };
-    onLearnRule(newRule);
-    setLearningTx(null);
-  };
 
   const renderTransactionCard = (tx: Transaction) => {
     const category = categories.find(c => c.id === tx.category);
@@ -157,14 +142,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск по названию или сумме..."
-            className="w-full bg-white border border-gray-100 py-4 pl-12 pr-12 rounded-[1.8rem] text-sm font-bold text-[#1C1C1E] outline-none shadow-soft focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5 transition-all"
+            placeholder="Поиск операций..."
+            className="w-full bg-white border border-gray-100 py-4 pl-12 pr-12 rounded-[1.8rem] text-sm font-bold text-[#1C1C1E] outline-none shadow-soft focus:border-blue-200 transition-all"
           />
           {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
-            >
+            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
               <X size={18} />
             </button>
           )}
@@ -194,7 +176,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                                 </span>
                             </div>
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                Итого: <span className={group.dayNet >= 0 ? 'text-green-500' : 'text-red-400'}>
+                                Чистый итог: <span className={group.dayNet >= 0 ? 'text-green-500' : 'text-red-400'}>
                                     {group.dayNet > 0 ? '+' : ''}{group.dayNet.toLocaleString()} {settings.currency}
                                 </span>
                             </span>
@@ -219,7 +201,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
               className="w-full py-6 mt-4 bg-white/60 hover:bg-white rounded-[2rem] border border-gray-100 text-blue-500 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm transition-all"
             >
               <CalendarDays size={16} />
-              Показать историю за {hiddenCount} {hiddenCount === 1 ? 'день' : (hiddenCount > 1 && hiddenCount < 5) ? 'дня' : 'дней'}
+              Показать еще {hiddenCount} {hiddenCount === 1 ? 'день' : 'дней'}
             </motion.button>
           )}
           
@@ -255,7 +237,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
          </div>
 
          <div className="relative z-10 w-full md:w-auto pt-4 md:pt-0 border-t border-white/10 md:border-none flex justify-between md:block items-center">
-             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Чистый итог <Wallet size={10} /></span>
+             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Итого <Wallet size={10} /></span>
              <span className={`text-2xl font-black tabular-nums ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
                 {settings.privacyMode ? '••••••' : `${summary.total > 0 ? '+' : ''}${summary.total.toLocaleString()} ${settings.currency}`}
              </span>

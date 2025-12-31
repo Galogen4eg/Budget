@@ -83,7 +83,9 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
   }
 
   const handleSliceClick = (data: any) => {
-    if (onCategoryClick) onCategoryClick(data.id);
+    if (onCategoryClick) {
+        onCategoryClick(data.id);
+    }
   };
 
   return (

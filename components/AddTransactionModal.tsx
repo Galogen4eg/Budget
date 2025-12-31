@@ -65,7 +65,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
           <div className="space-y-4">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
-            <div className="grid grid-cols-4 md:grid-cols-5 gap-3 px-1">
+            <div className="grid grid-cols-4 gap-3 px-1">
                {categories.map(cat => (
                   <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.id)} className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border transition-all ${selectedCategory === cat.id ? 'bg-white border-blue-200 shadow-sm scale-105' : 'bg-transparent border-transparent opacity-60'}`}>
                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: cat.color }}>{getIconById(cat.icon, 20)}</div>
@@ -81,6 +81,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           </div>
 
           <button type="submit" className="w-full bg-blue-500 text-white font-black py-6 rounded-[2.5rem] shadow-2xl shadow-blue-500/40 text-lg uppercase tracking-widest ios-btn-active">Сохранить</button>
+          {initialTransaction && onDelete && (
+              <button type="button" onClick={() => onDelete(initialTransaction.id)} className="w-full py-3 text-red-500 font-bold uppercase text-[10px] tracking-widest">Удалить операцию</button>
+          )}
         </form>
       </motion.div>
     </div>

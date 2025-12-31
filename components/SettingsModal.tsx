@@ -39,9 +39,13 @@ const SECTIONS: { id: string, label: string, icon: any }[] = [
 const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, savingsRate, setSavingsRate, currentFamilyId, onLogout }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
-  // Auto-expand first section only on desktop
+  // Auto-expand first section ONLY on desktop
   useEffect(() => {
-    if (window.innerWidth > 768) setActiveSection('general');
+    if (window.innerWidth > 768) {
+        setActiveSection('general');
+    } else {
+        setActiveSection(null); // Collapsed on mobile
+    }
   }, []);
 
   const handleChange = (key: keyof AppSettings, value: any) => {
@@ -56,7 +60,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase ml-2">Валюта</label><input type="text" value={settings.currency} onChange={(e) => handleChange('currency', e.target.value)} className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" /></div>
                 <div className="flex items-center justify-between p-2"><div className="flex items-center gap-3"><Shield size={20} className="text-gray-400" /><span className="font-bold text-sm">Приватный режим</span></div><button onClick={() => handleChange('privacyMode', !settings.privacyMode)} className={`transition-colors ${settings.privacyMode ? 'text-blue-500' : 'text-gray-300'}`}>{settings.privacyMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}</button></div>
             </div>
-            <button onClick={onLogout} className="w-full p-5 bg-red-50 text-red-500 rounded-3xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-sm"><LogOut size={16}/> Выйти из аккаунта</button>
+            <button onClick={onLogout} className="w-full p-5 bg-red-50 text-red-500 rounded-3xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"><LogOut size={16}/> Выйти из аккаунта</button>
         </div>
     );
     if (sectionId === 'budget') return (
@@ -67,7 +71,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             </div>
         </div>
     );
-    return null;
+    return <div className="text-center py-8 text-gray-300 font-bold uppercase text-xs">Раздел в разработке 🛠️</div>;
   };
 
   return (

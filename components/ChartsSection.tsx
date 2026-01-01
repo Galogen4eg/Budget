@@ -93,11 +93,10 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
   const handleClick = (data: any, index: number) => {
       if (onCategoryClick && data.id) {
-          // If we have a navigation handler, call it immediately.
-          // No need to set active index as we are navigating away or opening modal
+          // Trigger navigation immediately
           onCategoryClick(data.id);
       } else {
-          // Toggle selection mode
+          // Toggle selection mode (only for non-interactive mode)
           setActiveIndex(prev => prev === index ? -1 : index);
       }
   };
@@ -149,7 +148,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             onMouseEnter={() => !onCategoryClick && setActiveIndex(expenseData.findIndex(e => e.name === item.name))}
                             onMouseLeave={() => !onCategoryClick && setActiveIndex(-1)}
                             onClick={(e) => {
-                                e.stopPropagation(); // Stop bubbling
+                                e.stopPropagation(); 
                                 handleClick(item, expenseData.findIndex(e => e.name === item.name));
                             }}
                             className={`flex items-start gap-1.5 transition-opacity duration-300 cursor-pointer ${activeIndex !== -1 && activeIndex !== expenseData.findIndex(e => e.name === item.name) ? 'opacity-30' : 'opacity-100'}`}>

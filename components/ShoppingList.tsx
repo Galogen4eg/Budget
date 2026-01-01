@@ -268,6 +268,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   return (
     <div className="relative space-y-8 pb-36 w-full">
       <AnimatePresence>
+        {isScannerOpen && (
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[800] bg-black flex flex-col items-center justify-center p-4">
+                <div id="reader" className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20"></div>
+                <button onClick={() => setIsScannerOpen(false)} className="mt-8 p-4 bg-white/20 backdrop-blur-md rounded-full text-white"><X size={32}/></button>
+                <p className="mt-4 text-white font-bold text-center">{scannerStatus}</p>
+            </motion.div>
+        )}
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-4">
              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />

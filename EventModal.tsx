@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
@@ -180,7 +179,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                 <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-2xl">
                   <button type="button" onClick={() => setChecklist(checklist.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} className={`${item.completed ? 'text-green-500' : 'text-gray-300'}`}>{item.completed ? <CheckCircle2 size={22} fill="currentColor" className="text-white" /> : <Circle size={22} />}</button>
                   <span className={`flex-1 text-sm font-bold ${item.completed ? 'line-through text-gray-400' : 'text-[#1C1C1E]'}`}>{item.text}</span>
-                  <button type="button" onClick={setChecklist(checklist.filter(i => i.id !== item.id))} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                  <button type="button" onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                 </div>
               ))}
             </div>
@@ -193,7 +192,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         </div>
 
         <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
-             <button type="button" onClick={validateAndSave} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
+             <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
              {event && onDelete && (

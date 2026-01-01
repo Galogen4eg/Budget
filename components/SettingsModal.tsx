@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign, GripVertical, Loader2, Monitor, Smartphone as SmartphoneIcon, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
+import { X, User, Trash2, CheckCircle2, Plus, Palette, Edit2, Check, Clock, Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, FileJson, LayoutGrid, ToggleLeft, ToggleRight, Shield, Grip, Lock, Copy, Users, Share, LogOut, ChevronRight, Download, Move, Calculator, DollarSign, GripVertical, Loader2, Monitor, Smartphone as SmartphoneIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker } from '../constants';
 import { getIconById } from '../constants';
-import { deleteItemsBatch, updateItem, addItemsBatch } from '../utils/db';
-import { getSmartCategory, cleanMerchantName } from '../utils/categorizer';
+import { deleteItemsBatch } from '../utils/db';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -91,7 +90,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [massDeleteStart, setMassDeleteStart] = useState('');
   const [massDeleteEnd, setMassDeleteEnd] = useState('');
   const [isMassDeleting, setIsMassDeleting] = useState(false);
-  const [isRescanning, setIsRescanning] = useState(false);
   
   // Widget Editor State
   const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
@@ -192,42 +190,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     }
   };
 
-  const handleRescanTransactions = async () => {
-      if (!currentFamilyId || transactions.length === 0) return;
-      if (!confirm("Это действие перепроверит все операции с учетом новых правил. Продолжить?")) return;
-      
-      setIsRescanning(true);
-      let updatedCount = 0;
-      const updates = [];
-
-      for (const tx of transactions) {
-          const cleanNote = cleanMerchantName(tx.rawNote || tx.note, learnedRules);
-          const newCategory = getSmartCategory(tx.rawNote || tx.note, learnedRules, categories);
-          
-          if (cleanNote !== tx.note || newCategory !== tx.category) {
-              updates.push({ ...tx, note: cleanNote, category: newCategory });
-              updatedCount++;
-          }
-      }
-
-      if (updates.length > 0) {
-          try {
-              const CHUNK_SIZE = 450;
-              for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
-                  const chunk = updates.slice(i, i + CHUNK_SIZE);
-                  await addItemsBatch(currentFamilyId, 'transactions', chunk);
-              }
-              alert(`Обновлено ${updatedCount} операций.`);
-          } catch (e) {
-              console.error(e);
-              alert("Ошибка при обновлении операций");
-          }
-      } else {
-          alert("Изменений не найдено.");
-      }
-      setIsRescanning(false);
-  };
-
   const SECTIONS: { id: SectionType, label: string, icon: React.ReactNode }[] = [
       { id: 'general', label: 'Общие', icon: <Globe size={18} className="text-blue-500" /> },
       { id: 'budget', label: 'Бюджет и Лимиты', icon: <Calculator size={18} className="text-green-600" /> },
@@ -243,7 +205,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const renderContent = () => {
     switch (activeSection) {
-        // ... other sections ...
         case 'widgets': return (
              <div className="space-y-6">
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
@@ -387,14 +348,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-2">{members.map(member => (<div key={member.id} className="p-3 flex items-center gap-3 hover:bg-gray-50 rounded-2xl transition-all"><MemberMarker member={member} size="sm" /><div className="flex-1">{editingMemberId === member.id ? (<div className="flex flex-col gap-2"><input type="text" value={member.name} onChange={(e) => handleUpdateMember(member.id, { name: e.target.value })} className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-bold outline-none border border-blue-500 text-[#1C1C1E]" /><div className="flex flex-wrap gap-2 mt-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => handleUpdateMember(member.id, { color: c })} className={`w-5 h-5 rounded-full border-2 ${member.color === c ? 'border-[#1C1C1E]' : 'border-white'}`} style={{ backgroundColor: c }} />))}</div></div>) : (<span className="font-bold text-sm">{member.name}</span>)}</div><div className="flex gap-2"><button onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)} className="p-2 text-blue-500 bg-blue-50 rounded-xl ios-btn-active">{editingMemberId === member.id ? <Check size={18}/> : <Edit2 size={18} />}</button><button onClick={() => handleDeleteMember(member.id)} className="p-2 text-red-500 bg-red-50 rounded-xl ios-btn-active"><Trash2 size={18} /></button></div></div>))}<div className="p-3 border-t border-gray-50 space-y-3 mt-2"><div className="flex gap-2"><div className="w-10 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: newMemberColor }} /><input type="text" placeholder="Имя..." value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]"/><button onClick={handleAddMember} className="p-2.5 bg-blue-500 text-white rounded-xl ios-btn-active shadow-lg shadow-blue-500/20"><Plus size={20} /></button></div><div className="flex flex-wrap gap-2 px-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewMemberColor(c)} className={`w-6 h-6 rounded-full border-2 ${newMemberColor === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{ backgroundColor: c }} />))}</div></div></div>
         );
         case 'categories': return (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-2">
-                <button onClick={handleRescanTransactions} disabled={isRescanning} className="w-full p-3 bg-blue-50 text-blue-500 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 mb-2 hover:bg-blue-100 transition-colors disabled:opacity-50">
-                    {isRescanning ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} 
-                    Применить правила к истории
-                </button>
-                {categories.map(cat => {const isExpanded = expandedCatId === cat.id; const rules = learnedRules.filter(r => r.categoryId === cat.id); return (<div key={cat.id} className={`p-2 rounded-2xl ${isExpanded ? 'bg-gray-50' : ''}`}><div className="flex items-center gap-4 cursor-pointer p-2" onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}><div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{backgroundColor: cat.color}}>{getIconById(cat.icon, 20)}</div><span className="flex-1 font-bold text-sm">{cat.label}</span>{cat.isCustom && <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-2 text-red-500"><Trash2 size={16}/></button>}<ChevronDown size={20} className={`transition-transform text-gray-300 ${isExpanded ? 'rotate-180' : ''}`} /></div><AnimatePresence>{isExpanded && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="p-4 mt-2 border-t border-gray-200 space-y-4">{rules.map(rule => (<div key={rule.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100"><Sparkles size={16} className="text-yellow-500"/><div className="flex-1 text-xs"><span className="font-bold">"{rule.keyword}"</span> → <span className="font-bold text-blue-500">"{rule.cleanName}"</span></div><button onClick={() => handleDeleteRule(rule.id)} className="text-gray-300 hover:text-red-500"><X size={14}/></button></div>))}<div className="bg-white p-4 rounded-2xl border border-dashed border-gray-200 space-y-3"><p className="text-[10px] font-black uppercase text-gray-400">Добавить правило</p><input type="text" value={newRule.keyword} onChange={(e) => setNewRule({...newRule, keyword: e.target.value})} placeholder="Ключевое слово..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/><input type="text" value={newRule.cleanName} onChange={(e) => setNewRule({...newRule, cleanName: e.target.value})} placeholder="Назвать как..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/><button onClick={() => handleAddRule(cat.id)} className="w-full bg-blue-50 text-blue-500 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-100 transition-colors">Сохранить</button></div></div></motion.div>)}</AnimatePresence></div>);})}
-                <div className="p-4 border-t border-gray-100 space-y-4"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Новая категория</h4><div className="flex gap-2"><div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white" style={{backgroundColor: newCategory.color}}>{getIconById(newCategory.icon, 20)}</div><input type="text" value={newCategory.label} onChange={e => setNewCategory({...newCategory, label: e.target.value})} placeholder="Название..." className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none"/><button onClick={handleAddCategory} className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20}/></button></div><div className="flex flex-wrap gap-2">{PRESET_ICONS.map(i => (<button key={i} onClick={() => setNewCategory({...newCategory, icon: i})} className={`w-8 h-8 rounded-lg flex items-center justify-center ${newCategory.icon === i ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{getIconById(i, 16)}</button>))}</div><div className="flex flex-wrap gap-2">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewCategory({...newCategory, color: c})} className={`w-6 h-6 rounded-full border-2 ${newCategory.color === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{backgroundColor: c}} />))}</div></div>
-            </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 space-y-2">{categories.map(cat => {const isExpanded = expandedCatId === cat.id; const rules = learnedRules.filter(r => r.categoryId === cat.id); return (<div key={cat.id} className={`p-2 rounded-2xl ${isExpanded ? 'bg-gray-50' : ''}`}><div className="flex items-center gap-4 cursor-pointer p-2" onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}><div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{backgroundColor: cat.color}}>{getIconById(cat.icon, 20)}</div><span className="flex-1 font-bold text-sm">{cat.label}</span>{cat.isCustom && <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-2 text-red-500"><Trash2 size={16}/></button>}<ChevronDown size={20} className={`transition-transform text-gray-300 ${isExpanded ? 'rotate-180' : ''}`} /></div><AnimatePresence>{isExpanded && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="p-4 mt-2 border-t border-gray-200 space-y-4">{rules.map(rule => (<div key={rule.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100"><Sparkles size={16} className="text-yellow-500"/><div className="flex-1 text-xs"><span className="font-bold">"{rule.keyword}"</span> → <span className="font-bold text-blue-500">"{rule.cleanName}"</span></div><button onClick={() => handleDeleteRule(rule.id)} className="text-gray-300 hover:text-red-500"><X size={14}/></button></div>))}<div className="bg-white p-4 rounded-2xl border border-dashed border-gray-200 space-y-3"><p className="text-[10px] font-black uppercase text-gray-400">Добавить правило</p><input type="text" value={newRule.keyword} onChange={(e) => setNewRule({...newRule, keyword: e.target.value})} placeholder="Ключевое слово..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/><input type="text" value={newRule.cleanName} onChange={(e) => setNewRule({...newRule, cleanName: e.target.value})} placeholder="Назвать как..." className="w-full bg-gray-50 px-3 py-2 text-xs rounded-lg font-bold outline-none"/><button onClick={() => handleAddRule(cat.id)} className="w-full bg-blue-50 text-blue-500 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-100 transition-colors">Сохранить</button></div></div></motion.div>)}</AnimatePresence></div>);})}<div className="p-4 border-t border-gray-100 space-y-4"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Новая категория</h4><div className="flex gap-2"><div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white" style={{backgroundColor: newCategory.color}}>{getIconById(newCategory.icon, 20)}</div><input type="text" value={newCategory.label} onChange={e => setNewCategory({...newCategory, label: e.target.value})} placeholder="Название..." className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none"/><button onClick={handleAddCategory} className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20}/></button></div><div className="flex flex-wrap gap-2">{PRESET_ICONS.map(i => (<button key={i} onClick={() => setNewCategory({...newCategory, icon: i})} className={`w-8 h-8 rounded-lg flex items-center justify-center ${newCategory.icon === i ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{getIconById(i, 16)}</button>))}</div><div className="flex flex-wrap gap-2">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewCategory({...newCategory, color: c})} className={`w-6 h-6 rounded-full border-2 ${newCategory.color === c ? 'border-blue-500' : 'border-white shadow-sm'}`} style={{backgroundColor: c}} />))}</div></div></div>
         );
         case 'telegram': return (
             <div className="bg-white p-6 rounded-3xl space-y-6 border border-gray-100 shadow-sm">

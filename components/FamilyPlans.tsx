@@ -412,34 +412,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
         {viewMode === 'week' && (
             <>
-                <div className="bg-white p-4 rounded-[2rem] shadow-soft border border-white overflow-hidden mb-4">
-                     <div className="flex justify-between items-center mb-4 px-2">
-                         <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
-                         <div className="flex gap-1">
-                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
-                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
-                         </div>
-                     </div>
-                     <div className="flex justify-between items-center">
-                         {weekDays.map(date => {
-                             const isSelected = date.toDateString() === selectedDate.toDateString();
-                             const isToday = date.toDateString() === new Date().toDateString();
-                             const hasEvents = getEventsForDate(date).length > 0;
-                             
-                             return (
-                                 <button 
-                                     key={date.toISOString()} 
-                                     onClick={() => setSelectedDate(date)}
-                                     className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all min-w-[44px] ${isSelected ? 'bg-blue-500 text-white shadow-lg' : 'hover:bg-gray-50'}`}
-                                 >
-                                     <span className={`text-[9px] font-black uppercase ${isSelected ? 'text-blue-200' : 'text-gray-300'}`}>{date.toLocaleDateString('ru-RU', {weekday:'short'})}</span>
-                                     <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black ${isSelected ? 'bg-white text-blue-500' : isToday ? 'text-blue-500' : 'text-[#1C1C1E]'}`}>
-                                         {date.getDate()}
-                                     </div>
-                                     <div className={`w-1 h-1 rounded-full ${hasEvents ? (isSelected ? 'bg-white' : 'bg-blue-500') : 'bg-transparent'}`} />
-                                 </button>
-                             )
-                         })}
+                <div className="flex justify-between items-center mb-4 px-2">
+                     <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
+                     <div className="flex gap-1">
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
                      </div>
                 </div>
                 {renderTimeGrid(weekDays)}

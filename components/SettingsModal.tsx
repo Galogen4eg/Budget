@@ -97,6 +97,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [newCategory, setNewCategory] = useState({ label: '', icon: PRESET_ICONS[0], color: PRESET_COLORS[5] });
   const [newRuleKeyword, setNewRuleKeyword] = useState('');
   
+  // Member Edit State
+  const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<FamilyMember | null>(null);
+  
   // Selection Expansion State
   const [showAllIcons, setShowAllIcons] = useState(false);
 
@@ -198,6 +201,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const handleAddMember = () => { if (!newMemberName.trim()) return; const newMember: FamilyMember = { id: Math.random().toString(36).substr(2, 9), name: newMemberName.trim(), color: newMemberColor }; onUpdateMembers([...members, newMember]); setNewMemberName(''); setNewMemberColor(PRESET_COLORS[0]); };
   const handleDeleteMember = (id: string) => { if (members.length <= 1) { alert("Должен остаться хотя бы один участник"); return; } onUpdateMembers(members.filter(m => m.id !== id)); };
   
+  const handleUpdateMember = (updated: FamilyMember) => {
+      const newMembers = members.map(m => m.id === updated.id ? updated : m);
+      onUpdateMembers(newMembers);
+      setSelectedMemberForEdit(updated);
+  };
+
   const handleAddMandatoryExpense = () => { if (!newExpenseName.trim() || !newExpenseAmount) return; const newExpense: MandatoryExpense = { id: Date.now().toString(), name: newExpenseName.trim(), amount: parseFloat(newExpenseAmount) }; const currentExpenses = settings.mandatoryExpenses || []; handleChange('mandatoryExpenses', [...currentExpenses, newExpense]); setNewExpenseName(''); setNewExpenseAmount(''); };
   const handleDeleteMandatoryExpense = (id: string) => { const currentExpenses = settings.mandatoryExpenses || []; handleChange('mandatoryExpenses', currentExpenses.filter(e => e.id !== id)); };
   
@@ -392,46 +401,110 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         case 'family': return (
             <div className="space-y-6"><div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm"><h3 className="text-lg font-black text-[#1C1C1E] mb-2">Приглашения</h3><div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Пригласить в семью</label><div className="flex gap-2"><div className="flex-1 bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-mono text-xs text-[#1C1C1E] break-all flex items-center">{currentFamilyId}</div><button onClick={shareInviteLink} className="p-4 bg-blue-500 text-white hover:bg-blue-600 rounded-2xl transition-colors shadow-lg shadow-blue-500/20"><Share size={18} /></button><button onClick={() => currentFamilyId && copyToClipboard(currentFamilyId)} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors text-gray-500"><Copy size={18} /></button></div></div><div className="border-t border-gray-50 pt-4 space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Присоединиться к другой семье</label><input type="text" placeholder="Вставьте ID семьи..." value={targetFamilyId} onChange={(e) => setTargetFamilyId(e.target.value)} className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-xs outline-none focus:border-blue-200 transition-all" /><button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId || targetFamilyId === currentFamilyId} className="w-full bg-pink-500 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-pink-500/20 disabled:opacity-50 disabled:shadow-none">Присоединиться</button></div></div></div>
         );
-        case 'members': return (
-            <div className="space-y-6">
-                <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
-                    <h3 className="text-lg font-black text-[#1C1C1E] mb-2">Управление участниками</h3>
-                    <div className="space-y-3">
-                        {members.map(member => (
-                            <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                                <div className="flex items-center gap-3">
-                                    <MemberMarker member={member} size="sm" />
-                                    <span className="font-bold text-sm text-[#1C1C1E]">{member.name}</span>
-                                    {member.isAdmin && <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg font-black uppercase">Admin</span>}
+        case 'members':
+            if (selectedMemberForEdit) {
+                return (
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm relative">
+                             <button onClick={() => setSelectedMemberForEdit(null)} className="absolute top-6 left-6 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
+                                <ChevronLeft size={20} />
+                            </button>
+                            
+                            <div className="text-center pt-8 pb-4">
+                                <div className="w-20 h-20 mx-auto rounded-[1.5rem] flex items-center justify-center text-white text-3xl shadow-xl mb-4 relative overflow-hidden" style={{ backgroundColor: selectedMemberForEdit.color }}>
+                                    {selectedMemberForEdit.avatar ? (
+                                        <img src={selectedMemberForEdit.avatar} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="font-black uppercase">{selectedMemberForEdit.name.charAt(0)}</span>
+                                    )}
                                 </div>
-                                <button onClick={() => handleDeleteMember(member.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                                <h3 className="text-xl font-black text-[#1C1C1E]">Редактирование</h3>
                             </div>
-                        ))}
-                    </div>
-                    <div className="pt-4 border-t border-gray-50 space-y-3">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Добавить участника</label>
-                        <div className="flex flex-col gap-3">
-                            <input type="text" placeholder="Имя" value={newMemberName} onChange={e => setNewMemberName(e.target.value)} className="w-full bg-white border border-gray-100 p-3 rounded-xl font-bold text-sm outline-none shadow-sm" />
-                            <div className="flex items-start gap-2">
-                                <div className="flex-1 py-2">
+
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Имя</label>
+                                    <input 
+                                        type="text" 
+                                        value={selectedMemberForEdit.name} 
+                                        onChange={e => handleUpdateMember({...selectedMemberForEdit, name: e.target.value})} 
+                                        className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none transition-all focus:border-blue-200" 
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Цвет</label>
                                     <div className="flex flex-wrap gap-3 items-center">
                                         {PRESET_COLORS.map(c => (
                                             <button 
                                                 key={c} 
-                                                onClick={() => setNewMemberColor(c)} 
-                                                className={`w-8 h-8 rounded-full shrink-0 transition-transform ${newMemberColor === c ? 'scale-110 border-2 border-white shadow-md ring-1 ring-gray-200' : 'border-2 border-transparent'}`} 
+                                                onClick={() => handleUpdateMember({...selectedMemberForEdit, color: c})} 
+                                                className={`w-10 h-10 rounded-full shrink-0 transition-transform ${selectedMemberForEdit.color === c ? 'scale-125 border-4 border-white shadow-md ring-1 ring-gray-100' : 'border-2 border-transparent'}`} 
                                                 style={{ backgroundColor: c }} 
                                             />
                                         ))}
                                     </div>
                                 </div>
-                                <button onClick={handleAddMember} className="shrink-0 bg-blue-600 text-white w-12 h-12 flex items-center justify-center rounded-xl shadow-lg mt-0"><Plus size={20} /></button>
+                                
+                                <div className="space-y-2">
+                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Аватар (URL)</label>
+                                     <input 
+                                        type="text" 
+                                        placeholder="https://..."
+                                        value={selectedMemberForEdit.avatar || ''} 
+                                        onChange={e => handleUpdateMember({...selectedMemberForEdit, avatar: e.target.value})} 
+                                        className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl font-bold text-xs text-[#1C1C1E] outline-none transition-all focus:border-blue-200" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
+                        <h3 className="text-lg font-black text-[#1C1C1E] mb-2">Управление участниками</h3>
+                        <div className="space-y-3">
+                            {members.map(member => (
+                                <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <MemberMarker member={member} size="sm" />
+                                        <span className="font-bold text-sm text-[#1C1C1E]">{member.name}</span>
+                                        {member.isAdmin && <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg font-black uppercase">Admin</span>}
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedMemberForEdit(member)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors bg-white rounded-xl shadow-sm"><Edit2 size={16} /></button>
+                                        <button onClick={() => handleDeleteMember(member.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="pt-4 border-t border-gray-50 space-y-3">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Добавить участника</label>
+                            <div className="flex flex-col gap-3">
+                                <input type="text" placeholder="Имя" value={newMemberName} onChange={e => setNewMemberName(e.target.value)} className="w-full bg-white border border-gray-100 p-3 rounded-xl font-bold text-sm outline-none shadow-sm" />
+                                <div className="flex items-start gap-2">
+                                    <div className="flex-1 py-2">
+                                        <div className="flex flex-wrap gap-3 items-center">
+                                            {PRESET_COLORS.map(c => (
+                                                <button 
+                                                    key={c} 
+                                                    onClick={() => setNewMemberColor(c)} 
+                                                    className={`w-8 h-8 rounded-full shrink-0 transition-transform ${newMemberColor === c ? 'scale-110 border-2 border-white shadow-md ring-1 ring-gray-200' : 'border-2 border-transparent'}`} 
+                                                    style={{ backgroundColor: c }} 
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <button onClick={handleAddMember} className="shrink-0 bg-blue-600 text-white w-12 h-12 flex items-center justify-center rounded-xl shadow-lg mt-0"><Plus size={20} /></button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        );
+            );
         case 'navigation': return (
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-3xl space-y-5 border border-gray-100 shadow-sm">
@@ -696,7 +769,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                  {SECTIONS.map(section => (
                      <button
                         key={section.id}
-                        onClick={() => { setActiveSection(section.id); setSelectedCategoryForEdit(null); }}
+                        onClick={() => { setActiveSection(section.id); setSelectedCategoryForEdit(null); setSelectedMemberForEdit(null); }}
                         className={`flex-shrink-0 md:w-full p-3 rounded-2xl flex flex-col md:flex-row items-center gap-2 md:gap-3 transition-all ${activeSection === section.id ? 'bg-[#F2F2F7] shadow-inner' : 'hover:bg-gray-50'}`}
                      >
                          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${activeSection === section.id ? 'bg-white shadow-sm' : 'bg-gray-50 text-gray-400'}`}>

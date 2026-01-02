@@ -15,6 +15,13 @@ interface WalletProps {
 const CARD_COLORS = ['#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#1C1C1E', '#8E8E93', '#FFCC00', '#5856D6', '#00C7BE'];
 const CARD_ICONS = ['ShoppingBag', 'Utensils', 'Car', 'Star', 'Coffee', 'Tv', 'Zap', 'Briefcase'];
 
+// Polyfill-like declaration for TypeScript
+declare class BarcodeDetector {
+  constructor(options?: { formats: string[] });
+  detect(image: ImageBitmapSource): Promise<Array<{ rawValue: string; format: string }>>;
+  static getSupportedFormats(): Promise<string[]>;
+}
+
 const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<LoyaltyCard | null>(null);
@@ -84,73 +91,105 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     setEditingCardId(null);
   };
 
+  const scanBarcodeFromImage = async (file: File): Promise<string> => {
+      // 1. Try Native BarcodeDetector (Fastest, supported in Chrome/Android/macOS)
+      try {
+          if ('BarcodeDetector' in window) {
+              const formats = await BarcodeDetector.getSupportedFormats();
+              if (formats.length > 0) {
+                  const detector = new BarcodeDetector({ formats });
+                  const bitmap = await createImageBitmap(file);
+                  const barcodes = await detector.detect(bitmap);
+                  if (barcodes.length > 0) {
+                      return barcodes[0].rawValue;
+                  }
+              }
+          }
+      } catch (e) {
+          console.warn("Native barcode detection failed, falling back...", e);
+      }
+
+      // 2. Fallback to Html5Qrcode (Slower, but works everywhere else)
+      try {
+          const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
+          const result = await html5QrCode.scanFile(file, false);
+          html5QrCode.clear();
+          return result;
+      } catch (e) {
+          console.log("Html5Qrcode failed to detect barcode in file.");
+          return '';
+      }
+  };
+
+  const analyzeImageWithGemini = async (file: File): Promise<any> => {
+      try {
+          const base64Data = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+               const result = reader.result as string;
+               resolve(result.split(',')[1]);
+            };
+            reader.readAsDataURL(file);
+          });
+
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const prompt = `Analyze this loyalty card image.
+          1. Extract the Store Name (name).
+          2. EXTRACT VISIBLE CARD NUMBER (digits) using OCR. Even if small. (number).
+          3. Pick the Dominant Color as a hex code (color).
+          4. Choose the best icon from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase]. Default: ShoppingBag.
+          
+          Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: {
+              parts: [
+                { inlineData: { mimeType: file.type, data: base64Data } },
+                { text: prompt }
+              ]
+            },
+            config: { responseMimeType: "application/json" }
+          });
+
+          return JSON.parse(response.text || '{}');
+      } catch (e) {
+          console.error("Gemini analysis failed", e);
+          return {};
+      }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsAnalyzing(true);
-    let detectedBarcode = '';
-    let aiData: any = {};
 
     try {
-      // 1. Try to decode barcode using Html5Qrcode first (Local processing)
-      try {
-          const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
-          // scanFile returns the decoded text
-          detectedBarcode = await html5QrCode.scanFile(file, true);
-          console.log("Barcode detected locally:", detectedBarcode);
-          html5QrCode.clear();
-      } catch (err) {
-          console.log("No barcode detected by library, falling back to AI visual analysis", err);
-      }
+        // Run both scan and analysis in parallel for speed
+        const [barcodeResult, aiResult] = await Promise.all([
+            scanBarcodeFromImage(file),
+            analyzeImageWithGemini(file)
+        ]);
 
-      // 2. Use Gemini for Visual Analysis (Name, Color, Icon, and fallback OCR for number)
-      const base64Data = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-           const result = reader.result as string;
-           resolve(result.split(',')[1]);
-        };
-        reader.readAsDataURL(file);
-      });
+        console.log("Barcode:", barcodeResult);
+        console.log("AI:", aiResult);
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Analyze this loyalty card image.
-      1. Extract the Store Name (name).
-      2. If you see a card number printed (digits), extract it (number).
-      3. Pick the Dominant Color as a hex code (color).
-      4. Choose the best icon from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase]. Default: ShoppingBag.
-      
-      Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
+        // Merge Logic
+        if (aiResult.name) setNewName(aiResult.name);
+        if (aiResult.color) setNewColor(aiResult.color);
+        if (aiResult.icon && CARD_ICONS.includes(aiResult.icon)) setNewIcon(aiResult.icon);
+        
+        // Prioritize actual barcode scan, fallback to AI OCR
+        const finalNumber = barcodeResult || (aiResult.number ? aiResult.number.replace(/\s/g, '') : '');
+        setNewNumber(finalNumber);
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: {
-          parts: [
-            { inlineData: { mimeType: file.type, data: base64Data } },
-            { text: prompt }
-          ]
-        },
-        config: { responseMimeType: "application/json" }
-      });
-
-      aiData = JSON.parse(response.text || '{}');
-      
-      // 3. Merge Results
-      if (aiData.name) setNewName(aiData.name);
-      if (aiData.color) setNewColor(aiData.color);
-      if (aiData.icon && CARD_ICONS.includes(aiData.icon)) setNewIcon(aiData.icon);
-      
-      // Prefer the actual decoded barcode, fallback to AI OCR
-      const finalNumber = detectedBarcode || (aiData.number ? aiData.number.replace(/\s/g, '') : '');
-      setNewNumber(finalNumber);
-      
     } catch (err) {
-      alert("Не удалось обработать изображение. Попробуйте вручную.");
-      console.error(err);
+        alert("Ошибка обработки изображения. Попробуйте ввести данные вручную.");
+        console.error(err);
     } finally {
-      setIsAnalyzing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+        setIsAnalyzing(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 

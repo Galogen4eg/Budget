@@ -17,6 +17,8 @@ export const subscribeToCollection = (familyId: string, collectionName: string, 
   return onSnapshot(q, (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(data);
+  }, (error) => {
+    console.error(`Error subscribing to ${collectionName}:`, error);
   });
 };
 
@@ -33,13 +35,42 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
-    return userSnap.data().familyId;
+    const data = userSnap.data();
+    const familyId = data.familyId;
+    
+    // Self-healing: Ensure family document actually exists
+    if (familyId) {
+       const familyRef = doc(db, 'families', familyId);
+       const familySnap = await getDoc(familyRef);
+       if (!familySnap.exists()) {
+           // Create missing family doc to satisfy security rules
+           await setDoc(familyRef, {
+               ownerId: user.uid,
+               createdAt: new Date().toISOString(),
+               name: 'Моя семья',
+               members: [user.uid]
+           });
+       }
+    }
+    return familyId;
   } else {
     const defaultFamilyId = user.uid;
+    
+    // 1. Create User Link
     await setDoc(userRef, { 
       email: user.email, 
       familyId: defaultFamilyId 
     });
+
+    // 2. Create Family Document (Critical for Security Rules)
+    const familyRef = doc(db, 'families', defaultFamilyId);
+    await setDoc(familyRef, {
+        ownerId: user.uid,
+        createdAt: new Date().toISOString(),
+        name: 'Моя семья',
+        members: [user.uid] // Initial member list
+    });
+
     return defaultFamilyId;
   }
 };
@@ -47,11 +78,18 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
   const userRef = doc(db, 'users', user.uid);
   await updateDoc(userRef, { familyId: targetFamilyId });
+  
+  // Also add user to the family members list (if permissions allow, otherwise Cloud Function needed)
+  // For this app, we assume security rules allow joining if you have the ID, 
+  // or we might need to handle this via invite logic later.
+  // Ideally: updateDoc(doc(db, 'families', targetFamilyId), { members: arrayUnion(user.uid) });
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   const id = item.id || generateUniqueId();
-  await setDoc(doc(db, 'families', familyId, collectionName, id), { ...item, id });
+  // Sanitize undefined values which Firestore hates
+  const cleanItem = JSON.parse(JSON.stringify(item));
+  await setDoc(doc(db, 'families', familyId, collectionName, id), { ...cleanItem, id });
 };
 
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
@@ -59,14 +97,17 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
   items.forEach(item => {
     const id = item.id || generateUniqueId();
     const docRef = doc(db, 'families', familyId, collectionName, id);
-    batch.set(docRef, { ...item, id });
+    const cleanItem = JSON.parse(JSON.stringify(item));
+    batch.set(docRef, { ...cleanItem, id });
   });
   await batch.commit();
 };
 
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {
   const docRef = doc(db, 'families', familyId, collectionName, id);
-  await updateDoc(docRef, updates);
+  // Sanitize undefined values
+  const cleanUpdates = JSON.parse(JSON.stringify(updates));
+  await updateDoc(docRef, cleanUpdates);
 };
 
 export const deleteItem = async (familyId: string, collectionName: string, id: string) => {
@@ -83,7 +124,8 @@ export const deleteItemsBatch = async (familyId: string, collectionName: string,
 };
 
 export const saveSettings = async (familyId: string, settings: AppSettings) => {
-  await setDoc(doc(db, 'families', familyId, 'config', 'settings'), settings, { merge: true });
+  const cleanSettings = JSON.parse(JSON.stringify(settings));
+  await setDoc(doc(db, 'families', familyId, 'config', 'settings'), cleanSettings, { merge: true });
 };
 
 export const syncInitialData = async (familyId: string, data: any) => {

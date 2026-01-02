@@ -316,7 +316,16 @@ const App: React.FC = () => {
     prevEventsRef.current = [];
 
     const unsubTx = subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]));
-    const unsubMembers = subscribeToCollection(familyId, 'members', (data) => { const newMembers = data as FamilyMember[]; setFamilyMembers(newMembers); familyMembersRef.current = newMembers; setMembersLoaded(true); });
+    const unsubMembers = subscribeToCollection(familyId, 'members', (data) => { 
+        const newMembers = data as FamilyMember[]; 
+        setFamilyMembers(newMembers); 
+        familyMembersRef.current = newMembers; 
+        setMembersLoaded(true);
+        // Force onboarding if no members found (first login for new family)
+        if (newMembers.length === 0 && !isDemoMode) {
+            setIsOnboarding(true);
+        }
+    });
     const unsubGoals = subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[]));
     const unsubShopping = subscribeToCollection(familyId, 'shopping', (data) => { const items = data as ShoppingItem[]; setShoppingItems(items); if (!isFirstLoad.current.shopping && user) { const newItems = items.filter(item => !prevShoppingRef.current.find(prev => prev.id === item.id)); const externalItems = newItems.filter(item => item.userId && item.userId !== user.uid); if (externalItems.length > 0) { const authorName = familyMembersRef.current.find(m => m.userId === externalItems[0].userId)?.name || 'Кто-то'; setAppNotification({ message: `${authorName} добавил(а): ${externalItems[0].title}` }); } } prevShoppingRef.current = items; isFirstLoad.current.shopping = false; });
     const unsubEvents = subscribeToCollection(familyId, 'events', (data) => { const evs = data as FamilyEvent[]; setEvents(evs); if (!isFirstLoad.current.events && user) { const newEvents = evs.filter(e => !prevEventsRef.current.find(prev => prev.id === e.id)); const externalEvents = newEvents.filter(e => e.userId && e.userId !== user.uid); if (externalEvents.length > 0) { const authorName = familyMembersRef.current.find(m => m.userId === externalEvents[0].userId)?.name || 'Кто-то'; setAppNotification({ message: `${authorName} создал(а) событие: ${externalEvents[0].title}` }); } } prevEventsRef.current = evs; isFirstLoad.current.events = false; });
@@ -330,33 +339,16 @@ const App: React.FC = () => {
     const unsubWishlist = subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[]));
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
         const loadedSettings = { ...DEFAULT_SETTINGS, ...data } as AppSettings; 
-        
         if (data.widgets && data.widgets.length > 0) {
-            // MERGE LOGIC:
-            // We want to keep the user's "isVisible" state and the order of widgets.
-            // But we want to enforce the new Layout/Dimensions from DEFAULT_WIDGETS
-            // because the design system changed (prevents squashed widgets from old DB data).
-
             const mergedWidgets = data.widgets.map((savedW: WidgetConfig) => {
                 const defaultW = DEFAULT_WIDGETS.find(w => w.id === savedW.id);
-                // If the widget exists in defaults, apply the default sizes
-                if (defaultW) {
-                    return {
-                        ...savedW,
-                        mobile: defaultW.mobile,
-                        desktop: defaultW.desktop
-                    };
-                }
+                if (defaultW) return { ...savedW, mobile: defaultW.mobile, desktop: defaultW.desktop };
                 return savedW;
             });
-
-            // Also check if there are NEW widgets in default that aren't in saved
             const savedIds = data.widgets.map((w: any) => w.id);
             const newWidgets = DEFAULT_WIDGETS.filter(w => !savedIds.includes(w.id));
-
             loadedSettings.widgets = [...mergedWidgets, ...newWidgets];
         }
-        
         setSettings(loadedSettings); 
         settingsRef.current = loadedSettings;
     });
@@ -380,7 +372,42 @@ const App: React.FC = () => {
   const createSyncHandler = <T extends { id: string }>(collectionName: string, currentState: T[], setter?: (data: T[]) => void) => { return (newStateOrUpdater: T[] | ((prev: T[]) => T[])) => { let newState: T[]; if (typeof newStateOrUpdater === 'function') { newState = (newStateOrUpdater as Function)(currentState); } else { newState = newStateOrUpdater; } if (isDemoMode) { if (setter) setter(newState); return; } if (!familyId) return; const newIds = new Set(newState.map(i => i.id)); currentState.forEach(item => { if (!newIds.has(item.id)) deleteItem(familyId, collectionName, item.id); }); newState.forEach(newItem => { const oldItem = currentState.find(i => i.id === newItem.id); if (!oldItem) { addItem(familyId, collectionName, newItem); } else if (JSON.stringify(oldItem) !== JSON.stringify(newItem)) { updateItem(familyId, collectionName, newItem.id, newItem); } }); }; };
   const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { if (isDemoMode) { setAppNotification({ message: "Отправлено в демо-чат" }); return true; } const currentSettings = settingsRef.current; if (!currentSettings.telegramBotToken || !currentSettings.telegramChatId) { setAppNotification({ message: "Настройте Telegram", type: 'error' }); return false; } const formattedDate = event.date ? event.date.split('-').reverse().join('.') : 'не указано'; const time = event.time || 'не указано'; const description = event.description || 'не указано'; const participantNames = (event.memberIds || []).map(id => familyMembersRef.current.find(m => m.id === id)?.name).filter(Boolean); const membersText = participantNames.length > 0 ? participantNames.join(', ') : 'не указано'; const lines = ['*Событие*', escapeMarkdown(event.title), `📅 ${escapeMarkdown(formattedDate)} ${escapeMarkdown(time)}`, `👥 ${escapeMarkdown(membersText)}`, `📝 ${escapeMarkdown(description)}`]; try { const response = await fetch(`https://api.telegram.org/bot${currentSettings.telegramBotToken}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: currentSettings.telegramChatId, text: lines.join('\n'), parse_mode: 'MarkdownV2' }) }); if (!response.ok) { setAppNotification({ message: "Ошибка Telegram API", type: 'error' }); return false; } return true; } catch (e) { setAppNotification({ message: "Ошибка сети", type: 'error' }); return false; } };
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]): Promise<boolean> => { if (isDemoMode) { setAppNotification({ message: "Список отправлен" }); return true; } const currentSettings = settingsRef.current; if (!currentSettings.telegramBotToken || !currentSettings.telegramChatId) { setAppNotification({ message: "Настройте Telegram", type: "error" }); return false; } const listText = items.map(i => `\\- ${escapeMarkdown(i.title)} \\(${escapeMarkdown(i.amount || '')} ${escapeMarkdown(i.unit)}\\)`).join('\n'); let text = currentSettings.shoppingTemplate || DEFAULT_SETTINGS.shoppingTemplate || ""; text = text.replace(/{{items}}/g, listText); try { const res = await fetch(`https://api.telegram.org/bot${currentSettings.telegramBotToken}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: currentSettings.telegramChatId, text: text, parse_mode: 'MarkdownV2' }) }); if (!res.ok) return false; setAppNotification({ message: "Отправлено!" }); return true; } catch (e) { return false; } };
-  const handleSaveTransaction = (tx: Omit<Transaction, 'id'>) => { if (isDemoMode) { const newTx = { ...tx, id: generateUniqueId(), userId: 'demo_user' }; if (editingTransaction) { setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? { ...newTx, id: editingTransaction.id } : t)); } else { setTransactions(prev => [newTx, ...prev]); } return; } if (!familyId) return; if (editingTransaction) updateItem(familyId, 'transactions', editingTransaction.id, tx); else addItem(familyId, 'transactions', { ...tx, id: generateUniqueId(), userId: user?.uid }); };
+  
+  // FIX: Use auth.currentUser directly and add error handling
+  const handleSaveTransaction = async (tx: Omit<Transaction, 'id'>) => { 
+      if (isDemoMode) { 
+          const newTx = { ...tx, id: generateUniqueId(), userId: 'demo_user' }; 
+          if (editingTransaction) { 
+              setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? { ...newTx, id: editingTransaction.id } : t)); 
+          } else { 
+              setTransactions(prev => [newTx, ...prev]); 
+          } 
+          return; 
+      } 
+      
+      if (!familyId) return; 
+      
+      try {
+          const currentUid = auth.currentUser?.uid;
+          if (!currentUid) throw new Error("Пользователь не авторизован");
+
+          if (editingTransaction) {
+              await updateItem(familyId, 'transactions', editingTransaction.id, tx);
+          } else {
+              await addItem(familyId, 'transactions', { 
+                  ...tx, 
+                  id: generateUniqueId(), 
+                  userId: currentUid 
+              });
+          }
+      } catch (error: any) {
+          console.error("Save Transaction Error:", error);
+          let msg = "Не удалось сохранить операцию";
+          if (error.code === 'permission-denied') msg = "Нет прав на запись (Permission Denied)";
+          setAppNotification({ message: msg, type: "error" });
+      }
+  };
+
   const handleConfirmImport = async () => { if (isDemoMode) { const itemsToSave = importPreview.map(tx => ({ ...tx, id: generateUniqueId(), userId: 'demo_user' })); setTransactions(prev => [...itemsToSave, ...prev]); setAppNotification({ message: `Импортировано ${itemsToSave.length}`, type: "success" }); setIsImportModalOpen(false); return; } if (!familyId || importPreview.length === 0) return; try { setIsImporting(true); const itemsToSave = importPreview.map(tx => ({ ...tx, id: generateUniqueId(), userId: user?.uid })); await addItemsBatch(familyId, 'transactions', itemsToSave); setAppNotification({ message: `Импортировано ${itemsToSave.length}`, type: "success" }); setIsImportModalOpen(false); } catch (e) { setAppNotification({ message: "Ошибка", type: "error" }); } finally { setIsImporting(false); } };
   const handleLearnRule = async (rule: LearnedRule) => { if (isDemoMode) { setLearnedRules(prev => [...prev, rule]); const matchingTxs = transactions.filter(t => (t.rawNote || t.note || '').toLowerCase().includes(rule.keyword.toLowerCase())); if (matchingTxs.length > 0) { const updates = matchingTxs.map(t => ({ ...t, category: rule.categoryId, note: rule.cleanName })); setTransactions(prev => prev.map(t => updates.find(u => u.id === t.id) || t)); setAppNotification({ message: `Обновлено ${matchingTxs.length} операций`, type: 'success' }); } return; } if (!familyId) return; try { await addItem(familyId, 'rules', rule); const matchingTxs = transactions.filter(t => (t.rawNote || t.note || '').toLowerCase().includes(rule.keyword.toLowerCase())); if (matchingTxs.length > 0) { const updates = matchingTxs.map(t => ({ ...t, category: rule.categoryId, note: rule.cleanName })); await addItemsBatch(familyId, 'transactions', updates); setAppNotification({ message: `Обновлено ${matchingTxs.length} операций`, type: 'success' }); } } catch (e) { setAppNotification({ message: "Ошибка", type: 'error' }); } };
   const handleDeleteTransaction = (id: string) => { if (isDemoMode) { setTransactions(prev => prev.filter(t => t.id !== id)); setIsModalOpen(false); setEditingTransaction(null); return; } if (!familyId) return; deleteItem(familyId, 'transactions', id); setIsModalOpen(false); setEditingTransaction(null); };
@@ -629,7 +656,7 @@ const App: React.FC = () => {
                     settings={settings} 
                     members={familyMembers} 
                     transactions={transactions} 
-                    onCompletePurchase={(a,c,n) => handleSaveTransaction({amount:a,category:c,note:n,type:'expense',memberId:user.uid,date:new Date().toISOString()})} 
+                    onCompletePurchase={(a,c,n) => handleSaveTransaction({amount:a,category:c,note:n,type:'expense',memberId:user?.uid || '',date:new Date().toISOString()})} 
                     onMoveToPantry={(item) => { 
                         const newItem: PantryItem = { id: generateUniqueId(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() }; 
                         if(familyId && !isDemoMode) addItem(familyId, 'pantry', newItem); 

@@ -434,15 +434,27 @@ const App: React.FC = () => {
                 {settings.widgets.map(widget => {
                     if (!widget.isVisible) return null;
                     const { id } = widget;
-                    const colClass = `col-span-${widget.mobile.colSpan} md:col-span-${widget.desktop.colSpan}`;
-                    const rowClass = `row-span-${widget.mobile.rowSpan} md:row-span-${widget.desktop.rowSpan}`;
-                    if (id === 'balance') return (<div key={id} className={`${colClass} ${rowClass}`}><SmartHeader balance={totalBalance} spent={currentMonthExpenses} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="h-full" /></div>);
-                    if (id === 'charts') return (<div key={id} onClick={() => setEnlargedWidget('charts')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><ChartsSection transactions={filteredTransactions} settings={settings} /></div>);
-                    if (id === 'month_chart') return (<div key={id} onClick={() => setEnlargedWidget('month_chart')} className={`${colClass} ${rowClass} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} /></div>);
-                    if (id === 'goals') return (<div key={id} className={`${colClass} ${rowClass}`}><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>);
-                    if (id === 'recent_transactions') return (<div key={id} className={`${colClass} ${rowClass}`}><RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={familyMembers} settings={settings} onTransactionClick={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} onViewAllClick={() => setActiveTab('budget')} /></div>);
+                    
+                    // Helper to generate static classes for Tailwind JIT
+                    const getClasses = () => {
+                        const mc = widget.mobile.colSpan === 2 ? 'col-span-2' : 'col-span-1';
+                        const mr = widget.mobile.rowSpan === 3 ? 'row-span-3' : widget.mobile.rowSpan === 2 ? 'row-span-2' : 'row-span-1';
+                        
+                        const dc = widget.desktop.colSpan === 4 ? 'md:col-span-4' : widget.desktop.colSpan === 2 ? 'md:col-span-2' : 'md:col-span-1';
+                        const dr = widget.desktop.rowSpan === 3 ? 'md:row-span-3' : widget.desktop.rowSpan === 2 ? 'md:row-span-2' : 'md:row-span-1';
+                        
+                        return `${mc} ${mr} ${dc} ${dr}`;
+                    };
+                    
+                    const gridClasses = getClasses();
+
+                    if (id === 'balance') return (<div key={id} className={gridClasses}><SmartHeader balance={totalBalance} spent={currentMonthExpenses} savingsRate={savingsRate} settings={settings} onTogglePrivacy={togglePrivacy} className="h-full" /></div>);
+                    if (id === 'charts') return (<div key={id} onClick={() => setEnlargedWidget('charts')} className={`${gridClasses} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><ChartsSection transactions={filteredTransactions} settings={settings} /></div>);
+                    if (id === 'month_chart') return (<div key={id} onClick={() => setEnlargedWidget('month_chart')} className={`${gridClasses} cursor-pointer group relative`}><div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-2 rounded-xl backdrop-blur-md shadow-sm"><Maximize2 size={16} className="text-gray-400" /></div><MonthlyAnalyticsWidget transactions={monthTransactions} currentMonth={currentMonth} settings={settings} /></div>);
+                    if (id === 'goals') return (<div key={id} className={gridClasses}><GoalsSection goals={goals} settings={settings} onAddGoal={() => { setSelectedGoal(null); setIsGoalModalOpen(true); }} onEditGoal={(goal) => { setSelectedGoal(goal); setIsGoalModalOpen(true); }} className="h-full" /></div>);
+                    if (id === 'recent_transactions') return (<div key={id} className={gridClasses}><RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={familyMembers} settings={settings} onTransactionClick={(tx) => { setEditingTransaction(tx); setIsModalOpen(true); }} onViewAllClick={() => setActiveTab('budget')} /></div>);
                     if (id === 'shopping') return (
-                        <div key={id} onClick={() => setActiveTab('shopping')} className={`${colClass} ${rowClass} bg-white p-5 rounded-[2.5rem] border border-white shadow-soft flex flex-col cursor-pointer relative overflow-hidden group hover:scale-[1.01] transition-all`}>
+                        <div key={id} onClick={() => setActiveTab('shopping')} className={`${gridClasses} bg-white p-5 rounded-[2.5rem] border border-white shadow-soft flex flex-col cursor-pointer relative overflow-hidden group hover:scale-[1.01] transition-all`}>
                             {/* Shopping Widget Content ... */}
                             <div className="flex justify-between items-center mb-3 relative z-10 shrink-0">
                                 <div className="flex items-center gap-2">

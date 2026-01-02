@@ -7,7 +7,7 @@ import {
   Mic, BrainCircuit,
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
-  Archive, Edit2, Check, Send, ChevronDown, ChevronUp, Sparkles, ArrowLeft, CloudDownload, PieChart
+  Archive, Edit2, Check, Send, ChevronDown, ChevronUp, Sparkles, ArrowLeft, CloudDownload, PieChart, Keyboard
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -44,6 +44,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(initialStoreMode);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isSmartTextOpen, setIsSmartTextOpen] = useState(false);
+  const [smartTextInput, setSmartTextInput] = useState('');
   
   // Modal Form State
   const [title, setTitle] = useState('');
@@ -87,18 +89,14 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const progress = items.length > 0 ? Math.round((completedItems.length / items.length) * 100) : 0;
 
   const analyticsData = useMemo(() => {
-      // 1. Total spent on current list (estimated based on previous transactions if possible, otherwise just count)
       let estimatedTotal = 0;
       let itemsBoughtCount = completedItems.length;
 
-      // Try to find price for completed items in transactions history
       completedItems.forEach(item => {
           const match = transactions.find(t => t.note && t.note.toLowerCase().includes(item.title.toLowerCase()));
           if (match) estimatedTotal += match.amount;
       });
 
-      // 2. Total all-time shopping spend from transactions (category-based)
-      // Assuming 'food', 'household', 'grocery' are main shopping categories
       const shoppingCategories = ['food', 'grocery', 'household', 'drinks', 'dairy', 'meat', 'bakery', 'produce'];
       const allTimeShoppingSpend = transactions
         .filter(t => t.type === 'expense' && shoppingCategories.includes(t.category))
@@ -128,10 +126,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     setNotification({ type, message });
   };
 
-  // Background AI Categorizer
   const categorizeItemWithAI = async (item: ShoppingItem) => {
       if (!process.env.API_KEY) return;
-
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
@@ -142,10 +138,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
               Default to "other".`,
               config: { responseMimeType: "application/json" }
           });
-          
           const result = JSON.parse(response.text || '{}');
           if (result.category && result.category !== 'other' && STORE_AISLES.some(a => a.id === result.category)) {
-              // Use ref to get the latest setItems handler, ensuring we have the latest state (including the just-added item)
               setItemsRef.current((currentItems: ShoppingItem[]) => 
                   currentItems.map(i => i.id === item.id ? { ...i, category: result.category } : i)
               );
@@ -160,43 +154,30 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           showNotify('error', 'Сначала настройте Telegram в Настройках');
           return;
       }
-
       setIsImportingTg(true);
       try {
-          // 1. Get Updates from Telegram
-          // We use localStorage to keep track of the last offset so we don't import old messages
           const lastUpdateId = parseInt(localStorage.getItem('tg_last_update_id') || '0');
           const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getUpdates?offset=${lastUpdateId + 1}&allowed_updates=["message"]`);
           const data = await response.json();
-
           if (!data.ok || !data.result || data.result.length === 0) {
               showNotify('info', 'Нет новых сообщений в боте');
               setIsImportingTg(false);
               return;
           }
-
-          // 2. Filter messages from the family chat
           const relevantMessages = data.result
               .filter((u: any) => u.message && String(u.message.chat.id) === settings.telegramChatId && u.message.text)
               .map((u: any) => u.message.text)
               .join('\n');
-
           if (!relevantMessages) {
-              // Updates were there, but not from our chat or text
               const maxId = data.result.reduce((max: number, u: any) => Math.max(max, u.update_id), 0);
               localStorage.setItem('tg_last_update_id', maxId.toString());
               showNotify('info', 'Нет сообщений из вашего чата');
               setIsImportingTg(false);
               return;
           }
-
-          // 3. Process with Gemini
-          await processVoiceWithGemini(relevantMessages);
-
-          // 4. Update Offset
+          await processSmartInput(relevantMessages);
           const maxId = data.result.reduce((max: number, u: any) => Math.max(max, u.update_id), 0);
           localStorage.setItem('tg_last_update_id', maxId.toString());
-
       } catch (e) {
           console.error(e);
           showNotify('error', 'Ошибка связи с Telegram');
@@ -205,13 +186,17 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       }
   };
 
-  const processVoiceWithGemini = async (text: string) => {
+  const processSmartInput = async (text: string) => {
     if (!process.env.API_KEY) {
         showNotify('error', 'API Key не настроен');
         return;
     }
     
     setIsProcessingAI(true);
+    // Close modal if open
+    setIsSmartTextOpen(false);
+    setSmartTextInput('');
+    
     vibrate('medium');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -222,547 +207,433 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      let rawText = response.text || '[]';
-      const parsedData = JSON.parse(rawText.trim()) as any[];
+      const responseText = response.text || "[]";
+      const newItemsRaw: any[] = JSON.parse(responseText);
       
-      if (Array.isArray(parsedData) && parsedData.length > 0) {
-        const newItems: ShoppingItem[] = parsedData.map((item: any) => ({
-          id: Math.random().toString(36).substr(2, 9),
-          title: item.title || 'Товар',
-          amount: String(item.amount || '1'),
-          unit: item.unit || 'шт',
+      const newItems: ShoppingItem[] = newItemsRaw.map(i => ({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          title: i.title,
+          amount: i.amount || '1',
+          unit: i.unit || 'шт',
+          category: i.aisle || 'other',
           completed: false,
-          memberId: members[0]?.id || 'papa',
-          userId: auth.currentUser?.uid,
-          priority: 'medium',
-          category: item.aisle || 'other'
-        }));
-        // Use ref here too for safety
-        setItemsRef.current((prev: ShoppingItem[]) => [...newItems, ...prev]);
-        showNotify('success', `Добавлено товаров: ${newItems.length}`);
-        vibrate('success');
+          memberId: auth.currentUser?.uid || 'unknown',
+          priority: 'medium'
+      }));
+
+      if (newItems.length > 0) {
+          setItems([...items, ...newItems]);
+          showNotify('success', `Добавлено ${newItems.length} товаров`);
+          vibrate('success');
       } else {
-        showNotify('warning', 'Не удалось найти товары в тексте');
+          showNotify('warning', 'Не удалось найти товары в тексте');
       }
-    } catch (err) {
-      console.error("Gemini Parse Error:", err);
-      showNotify('error', `Ошибка ИИ: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
+
+    } catch (e) {
+        console.error(e);
+        showNotify('error', 'Ошибка обработки ИИ');
+        vibrate('error');
     } finally {
-      setIsProcessingAI(false);
+        setIsProcessingAI(false);
     }
   };
-
-  const startListening = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { showNotify('error', 'Браузер не поддерживает голосовой ввод'); return; }
-    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
-    
-    try {
-        const r = new SR();
-        recognitionRef.current = r;
-        r.lang = 'ru-RU';
-        r.interimResults = false;
-        r.onstart = () => { setIsListening(true); vibrate('light'); };
-        r.onresult = (e: any) => {
-            const transcript = e.results[0][0].transcript;
-            if (transcript) processVoiceWithGemini(transcript);
-        };
-        r.onerror = (e: any) => {
-            console.error("Speech Error:", e);
-            setIsListening(false);
-            showNotify('error', `Ошибка: ${e.error}`);
-        };
-        r.onend = () => { if (!isProcessingAI) setIsListening(false); };
-        r.start();
-    } catch (err) {
-        showNotify('error', 'Не удалось запустить распознавание');
-    }
-  };
-
-  const startScanner = () => { 
-    setScannerStatus('Наведите камеру на штрихкод');
-    isScanningLocked.current = false; 
-    setIsScannerOpen(true); 
-    vibrate('light'); 
-  };
-
-  const handleBarcodeDetected = async (decodedText: string) => {
-    if (isScanningLocked.current) return;
-    isScanningLocked.current = true;
-    vibrate('medium');
-    if (scannerRef.current) try { await scannerRef.current.stop(); } catch (e) {}
-
-    const addProduct = (prod: ProductData) => {
-      const newItem: ShoppingItem = {
-        id: Math.random().toString(36).substr(2, 9),
-        title: prod.title,
-        amount: prod.amount,
-        unit: prod.unit,
-        completed: false,
-        memberId: members[0]?.id || 'papa',
-        userId: auth.currentUser?.uid,
-        priority: 'medium',
-        category: prod.category
-      };
-      setItemsRef.current((prev: ShoppingItem[]) => [newItem, ...prev]);
-      showNotify('success', `Добавлено: ${prod.title}`);
-      vibrate('success');
-      setIsScannerOpen(false);
-    };
-
-    const localProduct = lookupBarcodeOffline(decodedText);
-    if (localProduct) { addProduct(localProduct); return; }
-
-    if (!navigator.onLine) {
-       openModal(decodedText); showNotify('warning', 'Офлайн: товара нет в базе'); setIsScannerOpen(false); return;
-    }
-
-    setScannerStatus('Ищу в мировой базе...');
-    const onlineProduct = await searchOnlineDatabase(decodedText);
-    if (onlineProduct) { addProduct(onlineProduct); return; }
-
-    setIsScannerOpen(false);
-    openModal(decodedText);
-    showNotify('warning', 'Товар не найден, введите название');
-  };
-  
-  const openModal = (code?: string) => {
-    setTitle(code ? `Товар #${code}` : '');
-    setAmount('1');
-    setUnit('шт');
-    setSelectedAisle('other');
-    setEditingItemId(null);
-    setIsModalOpen(true);
-  };
-  
-  const openEditModal = (item: ShoppingItem) => {
-    setTitle(item.title);
-    setAmount(item.amount || '1');
-    setUnit(item.unit || 'шт');
-    setSelectedAisle(item.category);
-    setEditingItemId(item.id);
-    setIsModalOpen(true);
-  };
-
-  useEffect(() => {
-    if (isScannerOpen) {
-      setTimeout(() => {
-        if (!document.getElementById("reader")) return;
-        const html5QrCode = new Html5Qrcode("reader");
-        scannerRef.current = html5QrCode;
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, handleBarcodeDetected, () => {})
-        .catch(() => { setIsScannerOpen(false); showNotify('error', 'Ошибка доступа к камере'); });
-      }, 100);
-    }
-    return () => { if (scannerRef.current && scannerRef.current.isScanning) scannerRef.current.stop().catch(console.error); };
-  }, [isScannerOpen]);
 
   const handleSaveItem = () => {
-    if (!title.trim()) return;
-    
-    // Check if we need to auto-categorize
-    const shouldCategorize = selectedAisle === 'other';
-
-    if (editingItemId) {
-        setItems(prev => prev.map(i => i.id === editingItemId ? {
-            ...i, title: title.trim(), amount: amount || '1', unit: unit, category: selectedAisle, userId: auth.currentUser?.uid
-        } : i));
-        
-        if (shouldCategorize) {
-            // Trigger background AI update
-            categorizeItemWithAI({ id: editingItemId, title: title.trim(), category: 'other' } as ShoppingItem);
-        }
-    } else {
-        const newItem: ShoppingItem = {
-          id: Math.random().toString(36).substr(2, 9), 
-          title: title.trim(), 
-          amount: amount || '1', 
-          unit: unit, 
-          completed: false, 
-          memberId: members[0]?.id || 'papa', 
-          userId: auth.currentUser?.uid, 
-          priority: 'medium', 
-          category: selectedAisle
-        };
-        setItems(prev => [newItem, ...prev]);
-        
-        if (shouldCategorize) {
-            // Trigger background AI update for new item
-            categorizeItemWithAI(newItem);
-        }
-    }
-    setIsModalOpen(false); vibrate('light');
+      if (!title.trim()) return;
+      
+      if (editingItemId) {
+          setItems(items.map(i => i.id === editingItemId ? {
+              ...i,
+              title, amount, unit, category: selectedAisle
+          } : i));
+          showNotify('success', 'Товар обновлен');
+      } else {
+          const newItem: ShoppingItem = {
+              id: Date.now().toString(),
+              title: title.trim(),
+              amount,
+              unit,
+              category: selectedAisle,
+              completed: false,
+              memberId: auth.currentUser?.uid || 'unknown',
+              priority: 'medium'
+          };
+          setItems([...items, newItem]);
+          showNotify('success', 'Товар добавлен');
+      }
+      setIsModalOpen(false);
+      resetForm();
   };
 
-  const handleSendList = async () => {
-      if (!onSendToTelegram || activeItems.length === 0) return;
-      setIsSending(true);
-      await onSendToTelegram(activeItems);
-      setIsSending(false);
+  const deleteItem = (id: string) => {
+      setItems(items.filter(i => i.id !== id));
+      showNotify('info', 'Товар удален');
   };
-
-  // Items grouped by aisle for Store Mode
-  const groupedItems = useMemo(() => {
-      const groups: Record<string, ShoppingItem[]> = {};
-      activeItems.forEach(item => {
-          // Normalize category: if it's not in our known list, put it in 'other'
-          const cat = STORE_AISLES.some(a => a.id === item.category) ? item.category : 'other';
-          if (!groups[cat]) groups[cat] = [];
-          groups[cat].push(item);
-      });
-      return groups;
-  }, [activeItems]);
 
   const toggleItem = (id: string) => {
-      setItems(prev => prev.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
+      setItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
       vibrate('light');
   };
 
+  const resetForm = () => {
+      setTitle('');
+      setAmount('1');
+      setUnit('шт');
+      setSelectedAisle('other');
+      setEditingItemId(null);
+  };
+
+  const openEditModal = (item: ShoppingItem) => {
+      setEditingItemId(item.id);
+      setTitle(item.title);
+      setAmount(item.amount || '1');
+      setUnit(item.unit);
+      setSelectedAisle(item.category);
+      setIsModalOpen(true);
+  };
+
+  // SCANNER LOGIC
+  const startScanner = () => {
+      setIsScannerOpen(true);
+      setScannerStatus('Запуск камеры...');
+      
+      setTimeout(() => {
+          const scanner = new Html5Qrcode("reader");
+          scannerRef.current = scanner;
+          
+          scanner.start(
+              { facingMode: "environment" },
+              { fps: 10, qrbox: { width: 250, height: 250 } },
+              async (decodedText) => {
+                  if (isScanningLocked.current) return;
+                  isScanningLocked.current = true;
+                  vibrate('medium');
+                  setScannerStatus('Штрихкод найден! Поиск...');
+                  
+                  // 1. Offline Lookup
+                  let product = lookupBarcodeOffline(decodedText);
+                  
+                  // 2. Online Lookup (if not found locally)
+                  if (!product) {
+                      try {
+                          product = await searchOnlineDatabase(decodedText);
+                      } catch (e) {
+                          console.error(e);
+                      }
+                  }
+
+                  if (product) {
+                      setTitle(product.title);
+                      setAmount(product.amount);
+                      setUnit(product.unit);
+                      setSelectedAisle(product.category);
+                      setIsScannerOpen(false);
+                      setIsModalOpen(true);
+                      stopScanner();
+                  } else {
+                      setScannerStatus('Товар не найден. Введите название.');
+                      setTimeout(() => {
+                          setIsScannerOpen(false);
+                          setIsModalOpen(true);
+                          setTitle(`Товар ${decodedText}`); // Pre-fill barcode as name placeholder
+                          stopScanner();
+                      }, 1500);
+                  }
+                  isScanningLocked.current = false;
+              },
+              (errorMessage) => {
+                  // ignore frame errors
+              }
+          ).catch(err => {
+              console.error(err);
+              setScannerStatus('Ошибка камеры. Разрешите доступ.');
+          });
+      }, 500);
+  };
+
+  const stopScanner = () => {
+      if (scannerRef.current) {
+          scannerRef.current.stop().then(() => {
+              scannerRef.current?.clear();
+              scannerRef.current = null;
+          }).catch(console.error);
+      }
+      setIsScannerOpen(false);
+  };
+
+  const startVoiceInput = () => {
+      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SR) {
+          showNotify('error', 'Голосовой ввод не поддерживается');
+          return;
+      }
+      
+      const r = new SR();
+      recognitionRef.current = r;
+      r.lang = 'ru-RU';
+      r.interimResults = false;
+      r.onstart = () => setIsListening(true);
+      r.onend = () => setIsListening(false);
+      r.onresult = (e: any) => {
+          const transcript = e.results[0][0].transcript;
+          if (transcript) processSmartInput(transcript);
+      };
+      r.start();
+  };
+
+  const handleSendListToTelegram = async () => {
+      if (!onSendToTelegram) return;
+      setIsSending(true);
+      const success = await onSendToTelegram(activeItems);
+      setIsSending(false);
+      if (success) {
+          showNotify('success', 'Список отправлен в Telegram');
+          vibrate('success');
+      } else {
+          showNotify('error', 'Ошибка отправки');
+      }
+  };
+
   return (
-    <div className="relative space-y-8 pb-36 w-full">
-      <AnimatePresence>
-        {isScannerOpen && (
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[800] bg-black flex flex-col items-center justify-center p-4">
-                <div id="reader" className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20"></div>
-                <button onClick={() => setIsScannerOpen(false)} className="mt-8 p-4 bg-white/20 backdrop-blur-md rounded-full text-white"><X size={32}/></button>
-                <p className="mt-4 text-white font-bold text-center">{scannerStatus}</p>
-            </motion.div>
+    <div className="relative h-full flex flex-col">
+        {/* Render Scanner Portal */}
+        {isScannerOpen && createPortal(
+            <div className="fixed inset-0 z-[2000] bg-black flex flex-col">
+                <div className="flex justify-between items-center p-4 text-white">
+                    <button onClick={stopScanner}><X size={24}/></button>
+                    <span className="font-bold">{scannerStatus}</span>
+                    <div className="w-6"/>
+                </div>
+                <div id="reader" className="w-full flex-1 bg-black"></div>
+            </div>,
+            document.body
         )}
 
-        {(isProcessingAI || isListening || isImportingTg) && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[550] bg-white/70 backdrop-blur-xl flex flex-col items-center justify-center p-10">
-            <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-blue-50 flex flex-col items-center">
-              <div className="relative mb-8">
-                  <div className={`absolute inset-0 bg-blue-500/20 blur-2xl rounded-full ${isListening ? 'animate-ping' : 'animate-pulse'}`} />
-                  {isListening ? <MicOff size={64} className="text-red-500 relative animate-pulse" /> : 
-                   isImportingTg ? <CloudDownload size={64} className="text-blue-500 relative animate-bounce" /> :
-                   <BrainCircuit size={64} className="text-blue-500 relative animate-pulse" />}
-              </div>
-              <h3 className="text-2xl font-black text-[#1C1C1E]">
-                  {isListening ? 'Слушаю вас...' : isImportingTg ? 'Читаю Telegram...' : 'Gemini думает...'}
-              </h3>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Top Controls */}
+        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2 px-1">
+            <button onClick={() => setIsStoreMode(!isStoreMode)} className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isStoreMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white border border-gray-100 text-gray-500'}`}>
+                {isStoreMode ? <Maximize2 size={16}/> : <ShoppingBag size={16}/>}
+                {isStoreMode ? 'В магазине' : 'Списком'}
+            </button>
+            <button onClick={() => setIsSmartTextOpen(true)} className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-gray-100 font-black text-xs uppercase tracking-widest text-purple-600 hover:bg-purple-50 transition-colors">
+                <Sparkles size={16}/> AI Ввод
+            </button>
+            <button onClick={startScanner} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-gray-500 hover:text-blue-500">
+                <ScanBarcode size={20}/>
+            </button>
+            <button onClick={handleTelegramImport} disabled={isImportingTg} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50">
+                {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
+            </button>
+        </div>
 
-      {/* Store Mode Portal */}
-      {createPortal(
-        <AnimatePresence>
-          {isStoreMode && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-0 z-[2500] bg-[#F2F2F7] flex flex-col overflow-hidden"
-            >
-              {/* Header */}
-              <div className="bg-white p-6 pb-4 shadow-sm z-10 shrink-0 rounded-b-[2rem]">
-                 <div className="flex justify-between items-center mb-4">
-                    <div>
-                        <h2 className="text-2xl font-black text-[#1C1C1E]">Магазин</h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{activeItems.length} товаров осталось</p>
+        {/* List Content */}
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 pb-24">
+            {activeItems.length === 0 && completedItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                    <ShoppingBag size={48} className="mb-4 opacity-20"/>
+                    <p className="font-bold text-sm uppercase tracking-widest">Список пуст</p>
+                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, чтобы добавить товары, или используйте AI ввод</p>
+                </div>
+            ) : (
+                <>
+                    {/* Active Items */}
+                    <div className="space-y-3">
+                        {isStoreMode ? (
+                            // Store Mode: Simple list with big checkboxes
+                            activeItems.map(item => (
+                                <div key={item.id} onClick={() => toggleItem(item.id)} className="bg-white p-4 rounded-[1.5rem] border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer active:scale-95 transition-transform">
+                                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${item.completed ? 'bg-green-500 border-green-500' : 'border-gray-200'}`}>
+                                        {item.completed && <Check size={16} className="text-white" strokeWidth={4}/>}
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className={`text-lg font-bold text-[#1C1C1E] ${item.completed ? 'line-through text-gray-300' : ''}`}>{item.title}</span>
+                                        <div className="text-xs font-bold text-gray-400 mt-0.5">{item.amount} {item.unit}</div>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-lg shadow-sm">
+                                        {STORE_AISLES.find(a => a.id === item.category)?.icon || '📦'}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            // Normal Mode: Grouped by Aisle
+                            STORE_AISLES.map(aisle => {
+                                const aisleItems = activeItems.filter(i => i.category === aisle.id);
+                                if (aisleItems.length === 0) return null;
+                                return (
+                                    <div key={aisle.id} className="bg-white p-5 rounded-[2rem] border border-white shadow-soft">
+                                        <h4 className="font-black text-xs uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                                            <span>{aisle.icon}</span> {aisle.label}
+                                        </h4>
+                                        <div className="space-y-2">
+                                            {aisleItems.map(item => (
+                                                <div key={item.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                                                    <button onClick={() => toggleItem(item.id)} className="text-gray-300 hover:text-green-500 transition-colors">
+                                                        <Circle size={20} />
+                                                    </button>
+                                                    <div className="flex-1" onClick={() => openEditModal(item)}>
+                                                        <div className="font-bold text-sm text-[#1C1C1E]">{item.title}</div>
+                                                        <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded w-fit mt-1">{item.amount} {item.unit}</div>
+                                                    </div>
+                                                    <button onClick={() => deleteItem(item.id)} className="text-gray-300 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
-                    <button onClick={() => setIsStoreMode(false)} className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-[#1C1C1E] shadow-sm"><X size={24} /></button>
-                 </div>
-                 {/* Progress Bar */}
-                 <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${progress}%` }} />
-                 </div>
-              </div>
 
-              {/* List */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
-                 {activeItems.length === 0 ? (
-                     <div className="h-full flex flex-col items-center justify-center opacity-40">
-                         <ShoppingBag size={64} className="text-gray-300 mb-4" />
-                         <h3 className="font-black text-xl text-gray-300 uppercase">Всё куплено!</h3>
-                         <button onClick={() => setIsStoreMode(false)} className="mt-8 bg-blue-500 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs">Закрыть</button>
-                     </div>
-                 ) : (
-                     STORE_AISLES.map(aisle => {
-                        const itemsInAisle = groupedItems[aisle.id] || [];
-                        if (itemsInAisle.length === 0) return null;
-                        
-                        return (
-                            <div key={aisle.id} className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-100">
-                                <h3 className="font-black text-sm text-[#1C1C1E] uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <span className="text-xl p-1.5 bg-gray-50 rounded-lg">{aisle.icon}</span> {aisle.label}
-                                </h3>
-                                <div className="space-y-4">
-                                    {itemsInAisle.map(item => (
-                                        <div 
-                                            key={item.id} 
-                                            onClick={() => toggleItem(item.id)}
-                                            className="flex items-center gap-4 p-2 rounded-xl active:bg-gray-50 transition-colors cursor-pointer"
-                                        >
-                                            <div className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0">
-                                                {/* Empty circle, turns green when checked via main logic logic which removes it from this view */}
+                    {/* Completed Items */}
+                    {completedItems.length > 0 && (
+                        <div className="mt-8">
+                            <button onClick={() => setShowCompletedHistory(!showCompletedHistory)} className="flex items-center gap-2 text-gray-400 font-bold text-xs uppercase tracking-widest mb-4 w-full justify-center">
+                                {showCompletedHistory ? 'Скрыть купленные' : `Показать купленные (${completedItems.length})`}
+                                {showCompletedHistory ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                            </button>
+                            
+                            {showCompletedHistory && (
+                                <div className="space-y-2 opacity-60">
+                                    {completedItems.map(item => (
+                                        <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-2xl">
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => toggleItem(item.id)} className="text-green-500"><CheckCircle2 size={20}/></button>
+                                                <span className="font-bold text-sm line-through text-gray-400">{item.title}</span>
                                             </div>
-                                            <div className="flex-1">
-                                                <span className="text-lg font-bold text-[#1C1C1E] leading-tight block">{item.title}</span>
-                                                {(item.amount !== '1' || item.unit !== 'шт') && (
-                                                    <span className="text-xs font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-lg mt-1 inline-block">
-                                                        {item.amount} {item.unit}
-                                                    </span>
-                                                )}
+                                            <div className="flex gap-2">
+                                                {onMoveToPantry && <button onClick={() => onMoveToPantry(item)} className="p-2 bg-white rounded-lg text-green-600"><Archive size={14}/></button>}
+                                                <button onClick={() => deleteItem(item.id)} className="p-2 bg-white rounded-lg text-red-400"><Trash2 size={14}/></button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        )
-                     })
-                 )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+                            )}
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
 
-      {/* Render Modal via Portal to avoid z-index/stacking issues */}
-      {createPortal(
+        {/* Bottom Actions */}
+        <div className="fixed bottom-24 right-4 flex flex-col gap-3 items-end z-20">
+            {activeItems.length > 0 && onSendToTelegram && (
+                <button onClick={handleSendListToTelegram} disabled={isSending} className="w-12 h-12 bg-white text-blue-500 rounded-full shadow-lg flex items-center justify-center border border-blue-50">
+                    {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
+                </button>
+            )}
+            <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-14 h-14 bg-blue-600 text-white rounded-[1.5rem] shadow-xl shadow-blue-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+                <Plus size={28} strokeWidth={3} />
+            </button>
+        </div>
+
+        {/* Add/Edit Modal */}
         <AnimatePresence>
             {isModalOpen && (
-              <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
-                 <motion.div 
-                    initial={{opacity:0}} 
-                    animate={{opacity:1}} 
-                    exit={{opacity:0}} 
-                    className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" 
-                    onClick={() => setIsModalOpen(false)} 
-                 />
-                 <motion.div 
-                    initial={{ y: '100%' }} 
-                    animate={{ y: 0 }} 
-                    exit={{ y: '100%' }} 
-                    transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-                    className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden" 
-                    onClick={(e) => e.stopPropagation()}
-                 >
-                    <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 shrink-0">
-                       <h3 className="font-black text-xl text-[#1C1C1E]">{editingItemId ? 'Редактировать' : 'Добавить'}</h3>
-                       <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><X size={20}/></button>
-                    </div>
-                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar">
-                        <div className="space-y-4">
-                            <div className="relative">
-                               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что купить?" className="w-full bg-white p-5 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] border border-white focus:border-blue-200 transition-all shadow-sm" autoFocus />
-                               {lastPrice && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">Было: {lastPrice} {settings.currency}</div>}
+                <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-4">
+                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}/>
+                    <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-black text-xl text-[#1C1C1E]">{editingItemId ? 'Изменить' : 'Добавить товар'}</h3>
+                            <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 p-2 rounded-full text-gray-500"><X size={20}/></button>
+                        </div>
+                        
+                        <div className="space-y-4 overflow-y-auto no-scrollbar pb-20">
+                            <div className="bg-white p-4 rounded-[2rem] shadow-sm">
+                                <input 
+                                    type="text" 
+                                    placeholder="Название (Молоко)" 
+                                    value={title} 
+                                    onChange={e => setTitle(e.target.value)} 
+                                    className="w-full text-lg font-bold outline-none placeholder:text-gray-300 bg-transparent"
+                                    autoFocus
+                                />
+                                {lastPrice !== null && (
+                                    <div className="mt-2 text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded w-fit">
+                                        Последняя цена: {lastPrice} {settings.currency}
+                                    </div>
+                                )}
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Кол-во" className="bg-white p-4 rounded-2xl outline-none font-bold text-lg text-[#1C1C1E] shadow-sm border border-white" />
-                              <div className="flex bg-gray-200/50 p-1.5 rounded-2xl">
-                                {UNITS.map(u => (<button key={u} onClick={() => setUnit(u)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all uppercase tracking-wider ${unit === u ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>{u}</button>))}
-                              </div>
+
+                            <div className="flex gap-3">
+                                <div className="flex-1 bg-white p-4 rounded-[2rem] shadow-sm">
+                                    <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Кол-во</span>
+                                    <input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} className="w-full font-bold outline-none"/>
+                                </div>
+                                <div className="flex-1 bg-white p-4 rounded-[2rem] shadow-sm">
+                                    <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Ед. изм.</span>
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                                        {UNITS.map(u => (
+                                            <button key={u} onClick={() => setUnit(u)} className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors ${unit === u ? 'bg-blue-500 text-white' : 'bg-gray-50 text-gray-400'}`}>
+                                                {u}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-3">
-                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">
-                                   Отдел 
-                                   <span className="text-[8px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-md flex items-center gap-1"><Sparkles size={8}/> AI авто-подбор</span>
-                               </label>
-                               <div className="flex flex-wrap gap-2">
-                                 {STORE_AISLES.map(aisle => (<button key={aisle.id} onClick={() => setSelectedAisle(aisle.id)} className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all flex items-center gap-2 ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-white text-gray-400 shadow-sm'}`}><span className="text-sm">{aisle.icon}</span> {aisle.label}</button>))}
-                               </div>
+
+                            <div className="bg-white p-4 rounded-[2rem] shadow-sm">
+                                <span className="text-[9px] font-black text-gray-400 uppercase block mb-2">Категория</span>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {STORE_AISLES.map(aisle => (
+                                        <button 
+                                            key={aisle.id} 
+                                            onClick={() => setSelectedAisle(aisle.id)} 
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all border ${selectedAisle === aisle.id ? 'bg-blue-50 border-blue-200' : 'border-transparent hover:bg-gray-50'}`}
+                                        >
+                                            <span className="text-xl">{aisle.icon}</span>
+                                            <span className="text-[8px] font-bold text-gray-500 text-center leading-tight">{aisle.label.split(' ')[0]}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                        <button onClick={handleSaveItem} className="w-full bg-blue-500 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-xs shadow-xl ios-btn-active flex items-center justify-center gap-2"><Check size={18} strokeWidth={3} />{editingItemId ? 'Сохранить' : 'Добавить в список'}</button>
-                    </div>
-                 </motion.div>
-              </div>
+
+                        <div className="absolute bottom-6 left-6 right-6">
+                            <button onClick={handleSaveItem} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-transform">
+                                {editingItemId ? 'Сохранить' : 'Добавить'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
             )}
-        </AnimatePresence>,
-        document.body
-      )}
+        </AnimatePresence>
 
-      {/* Analytics Card */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none opacity-60" />
-          <div className="flex justify-between items-center mb-4 relative z-10">
-              <h3 className="font-black text-sm text-[#1C1C1E] uppercase tracking-widest flex items-center gap-2">
-                  <PieChart size={16} className="text-blue-500" />
-                  Аналитика покупок
-              </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4 relative z-10">
-              <div className="bg-gray-50 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-gray-400 block mb-1">Куплено сейчас</span>
-                  <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-black text-[#1C1C1E] tabular-nums">{analyticsData.itemsBoughtCount}</span>
-                      <span className="text-xs font-bold text-gray-400">шт.</span>
-                  </div>
-                  {analyticsData.estimatedTotal > 0 && (
-                      <span className="text-[10px] font-black text-blue-500 bg-blue-100/50 px-2 py-0.5 rounded-lg mt-1 inline-block">
-                          ~{analyticsData.estimatedTotal.toLocaleString()} {settings.currency}
-                      </span>
-                  )}
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-gray-400 block mb-1">Всего потрачено</span>
-                  <div className="flex items-baseline gap-1">
-                      <span className="text-lg md:text-xl font-black text-[#1C1C1E] tabular-nums">
-                          {settings.privacyMode ? '•••' : analyticsData.allTimeShoppingSpend.toLocaleString()}
-                      </span>
-                      <span className="text-[10px] font-bold text-gray-400">{settings.currency}</span>
-                  </div>
-                  <span className="text-[9px] font-bold text-gray-300 block mt-1">на продукты и быт</span>
-              </div>
-          </div>
-      </div>
-
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-5">
-          <div className="relative w-20 h-20">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15.5" fill="none" className="text-gray-200" strokeWidth="4" stroke="currentColor" />
-              <motion.circle cx="18" cy="18" r="15.5" fill="none" stroke="#007AFF" strokeWidth="4.2" strokeDasharray="97.39, 97.39" initial={{ strokeDashoffset: 97.39 }} animate={{ strokeDashoffset: 97.39 - (97.39 * progress / 100) }} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-[12px] font-black text-[#1C1C1E]">{progress}%</span></div>
-          </div>
-          <div><h2 className="text-2xl font-black tracking-tight text-[#1C1C1E]">Покупки</h2><p className="text-[10px] font-black text-gray-400 uppercase">{activeItems.length} активных</p></div>
-        </div>
-        <div className="flex gap-2">
-           <button onClick={handleTelegramImport} disabled={isImportingTg} className="px-3 py-3.5 bg-blue-50 text-blue-500 rounded-2xl shadow-sm font-black text-[11px] uppercase flex items-center justify-center transition-all active:scale-95 disabled:opacity-50" title="Загрузить из Telegram">
-               {isImportingTg ? <Loader2 size={16} className="animate-spin" /> : <CloudDownload size={16} />}
-           </button>
-           {activeItems.length > 0 && onSendToTelegram && <button onClick={handleSendList} disabled={isSending} className="px-3 py-3.5 bg-blue-50 text-blue-500 rounded-2xl shadow-sm font-black text-[11px] uppercase flex items-center justify-center transition-all active:scale-95 disabled:opacity-50">{isSending ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} />}</button>}
-           <button onClick={() => setIsStoreMode(true)} className="px-5 py-3.5 bg-blue-500 rounded-2xl text-white shadow-lg font-black text-[11px] uppercase flex items-center gap-2 active:scale-95 transition-transform">
-               <Maximize2 size={16} /> 
-               <span className="hidden md:inline">Магазин</span>
-           </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[2.5rem] shadow-soft border border-white p-7 flex items-center justify-between">
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => openModal()}>
-            <div className="w-11 h-11 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"><Plus size={24} strokeWidth={3} /></div>
-            <span className="font-black text-lg text-[#1C1C1E]">Добавить товар</span>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={startListening} className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-50 text-blue-500'}`}>{isListening ? <MicOff size={22} /> : <Mic size={22} />}</button>
-            <button onClick={startScanner} className="w-11 h-11 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 shadow-sm ios-btn-active"><ScanBarcode size={22} /></button>
-          </div>
-      </div>
-
-      <div className="space-y-4">
-        {activeItems.map(item => (
-          <ShoppingCard key={item.id} item={item} onToggle={() => setItems(prev => prev.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} onRemove={() => setItems(prev => prev.filter(i => i.id !== item.id))} onEdit={() => openEditModal(item)} />
-        ))}
-      </div>
-
-      {/* Completed Items Section */}
-      {completedItems.length > 0 && (
-          <div className="pt-4 border-t border-gray-100/50">
-              <button 
-                  onClick={() => setShowCompletedHistory(!showCompletedHistory)}
-                  className="w-full flex items-center justify-between p-2 mb-4 group"
-              >
-                  <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Куплено ({completedItems.length})</span>
-                  </div>
-                  <div className={`p-1.5 rounded-full bg-gray-100 text-gray-400 transition-all ${showCompletedHistory ? 'rotate-180 bg-gray-200 text-gray-600' : ''}`}>
-                      <ChevronDown size={16} />
-                  </div>
-              </button>
-
-              <AnimatePresence>
-                  {showCompletedHistory && (
-                      <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="space-y-2 overflow-hidden"
-                      >
-                          {completedItems.map(item => (
-                              <motion.div 
-                                  key={item.id}
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 0.7 }}
-                                  className="flex items-center justify-between p-3 bg-gray-50/50 rounded-2xl border border-transparent hover:bg-white hover:border-gray-100 transition-all"
-                              >
-                                  <div className="flex items-center gap-3 overflow-hidden">
-                                      <button 
-                                          onClick={() => setItems(prev => prev.map(i => i.id === item.id ? {...i, completed: false} : i))}
-                                          className="flex-shrink-0 text-green-500 hover:text-green-600"
-                                      >
-                                          <CheckCircle2 size={20} className="fill-current text-white bg-green-500 rounded-full" />
-                                      </button>
-                                      <div className="min-w-0">
-                                          <span className="text-sm font-bold text-gray-500 line-through decoration-gray-300 block truncate">
-                                              {item.title}
-                                          </span>
-                                          <span className="text-[9px] font-black text-gray-300 uppercase">
-                                              {item.amount} {item.unit}
-                                          </span>
-                                      </div>
-                                  </div>
-                                  <button 
-                                      onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))}
-                                      className="p-2 text-gray-300 hover:text-red-400 transition-colors"
-                                  >
-                                      <Trash2 size={16} />
-                                  </button>
-                              </motion.div>
-                          ))}
-                      </motion.div>
-                  )}
-              </AnimatePresence>
-          </div>
-      )}
+        {/* AI Text Input Modal */}
+        <AnimatePresence>
+            {isSmartTextOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSmartTextOpen(false)}/>
+                    <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-black text-lg flex items-center gap-2"><Sparkles size={20} className="text-purple-500"/> AI Список</h3>
+                            <button onClick={() => setIsSmartTextOpen(false)}><X size={20} className="text-gray-400"/></button>
+                        </div>
+                        <div className="bg-purple-50 p-4 rounded-2xl mb-4 relative">
+                            <textarea 
+                                value={smartTextInput} 
+                                onChange={e => setSmartTextInput(e.target.value)} 
+                                placeholder="Например: Купи хлеб, молоко, десяток яиц и корм для кота..."
+                                className="w-full bg-transparent border-none outline-none text-sm font-medium h-32 resize-none text-[#1C1C1E]"
+                                autoFocus
+                            />
+                            <button onClick={startVoiceInput} className={`absolute bottom-2 right-2 p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-purple-500 shadow-sm'}`}>
+                                {isListening ? <MicOff size={16}/> : <Mic size={16}/>}
+                            </button>
+                        </div>
+                        <button 
+                            onClick={() => processSmartInput(smartTextInput)} 
+                            disabled={isProcessingAI || !smartTextInput.trim()} 
+                            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isProcessingAI ? <Loader2 size={16} className="animate-spin"/> : <BrainCircuit size={16}/>}
+                            Разобрать список
+                        </button>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     </div>
   );
 };
-
-const ShoppingCard = ({ item, onToggle, onRemove, onPantry, onEdit }: any) => (
-  <motion.div layout onClick={() => !item.completed && onEdit()} className="bg-white p-5 rounded-[1.8rem] border border-white shadow-soft flex items-center gap-5 transition-all cursor-pointer active:scale-[0.99]">
-    <motion.button 
-      whileTap={{ scale: 0.8 }}
-      onClick={(e) => { e.stopPropagation(); onToggle(); }} 
-      className={`p-1 flex-shrink-0 w-8 h-8 flex items-center justify-center ${item.completed ? 'text-green-500' : 'text-gray-200'}`}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {item.completed ? (
-          <motion.div
-            key="checked"
-            initial={{ scale: 0, opacity: 0, rotate: -45 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          >
-            <CheckCircle2 size={26} fill="currentColor" className="text-white" />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="unchecked"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <Circle size={26} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.button>
-    <div className="flex-1 min-w-0">
-      <motion.h5 
-        className={`font-bold text-[15px] truncate`}
-        animate={{ 
-            color: item.completed ? "#9CA3AF" : "#1C1C1E",
-            textDecorationLine: item.completed ? "line-through" : "none",
-            opacity: item.completed ? 0.6 : 1
-        }}
-        transition={{ duration: 0.2 }}
-      >
-        {item.title}
-      </motion.h5>
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5 whitespace-nowrap flex items-center gap-1">
-          {item.amount || '1'} {item.unit || 'шт'} • <span className="flex items-center gap-1">{STORE_AISLES.find(a => a.id === item.category)?.icon} {STORE_AISLES.find(a => a.id === item.category)?.label || 'Прочее'}</span>
-      </p>
-    </div>
-    <button onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} className="p-2.5 text-gray-200 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={20} /></button>
-  </motion.div>
-);
 
 export default ShoppingList;

@@ -330,9 +330,33 @@ const App: React.FC = () => {
     const unsubWishlist = subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[]));
     const unsubSettings = subscribeToSettings(familyId, (data) => { 
         const loadedSettings = { ...DEFAULT_SETTINGS, ...data } as AppSettings; 
+        
         if (data.widgets && data.widgets.length > 0) {
-            loadedSettings.widgets = data.widgets;
+            // MERGE LOGIC:
+            // We want to keep the user's "isVisible" state and the order of widgets.
+            // But we want to enforce the new Layout/Dimensions from DEFAULT_WIDGETS
+            // because the design system changed (prevents squashed widgets from old DB data).
+
+            const mergedWidgets = data.widgets.map((savedW: WidgetConfig) => {
+                const defaultW = DEFAULT_WIDGETS.find(w => w.id === savedW.id);
+                // If the widget exists in defaults, apply the default sizes
+                if (defaultW) {
+                    return {
+                        ...savedW,
+                        mobile: defaultW.mobile,
+                        desktop: defaultW.desktop
+                    };
+                }
+                return savedW;
+            });
+
+            // Also check if there are NEW widgets in default that aren't in saved
+            const savedIds = data.widgets.map((w: any) => w.id);
+            const newWidgets = DEFAULT_WIDGETS.filter(w => !savedIds.includes(w.id));
+
+            loadedSettings.widgets = [...mergedWidgets, ...newWidgets];
         }
+        
         setSettings(loadedSettings); 
         settingsRef.current = loadedSettings;
     });
@@ -368,6 +392,27 @@ const App: React.FC = () => {
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file || (!familyId && !isDemoMode)) return; setIsImporting(true); try { const parsed = await parseAlfaStatement(file, settings.alfaMapping, familyId || 'demo', learnedRules, categories, transactions); if (parsed.length > 0) { const withUser = parsed.map(p => ({ ...p, userId: user?.uid })); setImportPreview(withUser); setIsImportModalOpen(true); } else { setAppNotification({ message: "Нет новых операций", type: "warning" }); } } catch (err) { setAppNotification({ message: "Ошибка импорта", type: "error" }); } finally { setIsImporting(false); if (e.target) e.target.value = ''; } };
   const handleAddCategory = (cat: Category) => { if (isDemoMode) { setCategories(prev => [...prev, cat]); return; } if (familyId) addItem(familyId, 'categories', cat); };
   const handleLinkMandatory = (expenseId: string, keyword: string) => { const expenses = settings.mandatoryExpenses || []; const updatedExpenses = expenses.map(exp => { if (exp.id === expenseId) { const currentKeywords = exp.keywords || []; if (!currentKeywords.includes(keyword)) { return { ...exp, keywords: [...currentKeywords, keyword] }; } } return exp; }); updateSettings({ ...settings, mandatoryExpenses: updatedExpenses }); };
+  
+  const handleAddShoppingItemsFromAI = (items: any[]) => {
+    const newItems = items.map(i => ({
+        id: generateUniqueId(),
+        title: i.title,
+        amount: i.amount || '1',
+        unit: i.unit || 'шт',
+        completed: false,
+        memberId: user?.uid || 'unknown',
+        priority: 'medium',
+        category: i.category || 'other'
+    }));
+    
+    if (familyId && !isDemoMode) {
+        addItemsBatch(familyId, 'shopping', newItems);
+    } else {
+        setShoppingItems(prev => [...prev, ...newItems]);
+    }
+    setAppNotification({ message: `Добавлено ${newItems.length} товаров в список`, type: 'success' });
+  };
+
   const filteredTransactions = useMemo(() => { let txs = transactions.filter(t => { const tDate = new Date(t.date); if (selectedDate) { return tDate.getDate() === selectedDate.getDate() && tDate.getMonth() === selectedDate.getMonth() && tDate.getFullYear() === selectedDate.getFullYear(); } return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear(); }); if (budgetMode === 'personal' && user) { txs = txs.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } return txs.sort((a, b) => new Date(b.date).getTime() - new Date(a).getTime()); }, [transactions, selectedDate, currentMonth, budgetMode, user]);
   const categoryTransactions = useMemo(() => { if (!detailCategory) return []; let baseTxs = transactions; if (budgetMode === 'personal' && user) { baseTxs = transactions.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } return baseTxs.filter(t => t.category === detailCategory); }, [transactions, detailCategory, budgetMode, user]);
   const monthTransactions = useMemo(() => { let txs = transactions.filter(t => { const tDate = new Date(t.date); return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear(); }); if (budgetMode === 'personal' && user) { txs = txs.filter(t => (t.userId === user.uid) || (t.memberId === user.uid)); } return txs; }, [transactions, currentMonth, budgetMode, user]);
@@ -430,7 +475,7 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8 w-full">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[115px] md:auto-rows-[135px] w-full">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[160px] md:auto-rows-[180px] w-full">
                 {settings.widgets.map(widget => {
                     if (!widget.isVisible) return null;
                     const { id } = widget;
@@ -595,7 +640,7 @@ const App: React.FC = () => {
                 />
             </motion.div>
           )}
-          {activeTab === 'services' && (<motion.div key="services" className="w-full"><ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events, setEvents)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions, setSubscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts, setDebts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry, setPantry)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards, setLoyaltyCards)} readings={meterReadings} setReadings={createSyncHandler('meters', meterReadings, setMeterReadings)} wishlist={wishlist} setWishlist={createSyncHandler('wishlist', wishlist, setWishlist)} /></motion.div>)}
+          {activeTab === 'services' && (<motion.div key="services" className="w-full"><ServicesHub events={events} setEvents={(newEvents) => { const evs = typeof newEvents === 'function' ? newEvents(events) : newEvents; createSyncHandler('events', events, setEvents)(evs); const newItems = evs.filter(e => !events.find(old => old.id === e.id)); newItems.forEach(e => { if (settings.autoSendEventsToTelegram) handleSendToTelegram(e); }); }} settings={settings} members={familyMembers} subscriptions={subscriptions} setSubscriptions={createSyncHandler('subscriptions', subscriptions, setSubscriptions)} debts={debts} setDebts={createSyncHandler('debts', debts, setDebts)} pantry={pantry} setPantry={createSyncHandler('pantry', pantry, setPantry)} transactions={transactions} goals={goals} loyaltyCards={loyaltyCards} setLoyaltyCards={createSyncHandler('cards', loyaltyCards, setLoyaltyCards)} readings={meterReadings} setReadings={createSyncHandler('meters', meterReadings, setMeterReadings)} wishlist={wishlist} setWishlist={createSyncHandler('wishlist', wishlist, setWishlist)} onAddShoppingItems={handleAddShoppingItemsFromAI} /></motion.div>)}
         </AnimatePresence>
       </main>
       
@@ -700,7 +745,14 @@ const App: React.FC = () => {
                         <button onClick={() => setIsAIModalOpen(false)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200"><X size={20}/></button>
                     </div>
                     <div className="h-[calc(100%-80px)]">
-                        <AIChat transactions={transactions} goals={goals} debts={debts} settings={settings} onCreateEvent={(e) => { setEvents(prev => [...prev, e]); setIsAIModalOpen(false); setAppNotification({ message: 'Событие создано!', type: 'success' }); }} />
+                        <AIChat 
+                            transactions={transactions} 
+                            goals={goals} 
+                            debts={debts} 
+                            settings={settings} 
+                            onCreateEvent={(e) => { setEvents(prev => [...prev, e]); setIsAIModalOpen(false); setAppNotification({ message: 'Событие создано!', type: 'success' }); }} 
+                            onAddShoppingItems={handleAddShoppingItemsFromAI}
+                        />
                     </div>
                 </motion.div>
             </div>

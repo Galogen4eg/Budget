@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Sparkles, AlertCircle, Mic, MicOff, ShoppingBag, Calendar } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { Transaction, SavingsGoal, Debt, AppSettings, FamilyEvent } from '../types';
 
@@ -10,27 +10,68 @@ interface AIChatProps {
   goals: SavingsGoal[];
   debts: Debt[];
   settings: AppSettings;
-  // Callback to create event from parent
   onCreateEvent?: (event: FamilyEvent) => void;
+  onAddShoppingItems?: (items: any[]) => void;
 }
 
 interface Message {
   role: 'user' | 'model';
   text: string;
   isEventSuccess?: boolean;
+  isShoppingSuccess?: boolean;
+  isError?: boolean;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ transactions, goals, debts, settings, onCreateEvent }) => {
+const AIChat: React.FC<AIChatProps> = ({ transactions, goals, debts, settings, onCreateEvent, onAddShoppingItems }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Привет! Я твой финансовый советник. Я могу проанализировать траты или создать событие в календаре. Просто напиши: "Напомни купить хлеб завтра в 10".' }
+    { role: 'model', text: 'Привет! Я твой финансовый и бытовой помощник. \n\nЯ могу:\n• Проанализировать траты 📊\n• Создать событие в календаре 📅\n• Добавить товары в список покупок 🛒\n\nПросто напиши: "Купи молоко и хлеб" или "Напомни про врач завтра в 10".' }
   ]);
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const startListening = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+        alert("Ваш браузер не поддерживает голосовой ввод");
+        return;
+    }
+    if (isListening) {
+        recognitionRef.current?.stop();
+        setIsListening(false);
+        return;
+    }
+
+    try {
+        const r = new SR();
+        recognitionRef.current = r;
+        r.lang = 'ru-RU';
+        r.interimResults = false;
+        
+        r.onstart = () => setIsListening(true);
+        r.onend = () => setIsListening(false);
+        r.onresult = (e: any) => {
+            const transcript = e.results[0][0].transcript;
+            if (transcript) {
+                setInput(prev => prev ? `${prev} ${transcript}` : transcript);
+            }
+        };
+        r.onerror = (e: any) => {
+            console.error(e);
+            setIsListening(false);
+        };
+        r.start();
+    } catch (e) {
+        console.error(e);
+        setIsListening(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -39,75 +80,122 @@ const AIChat: React.FC<AIChatProps> = ({ transactions, goals, debts, settings, o
     setInput('');
     setLoading(true);
 
+    // 1. Check API Key validity
+    const apiKey = process.env.API_KEY;
+    if (!apiKey || apiKey.includes('YOUR_GEMINI_API_KEY')) {
+        setMessages(prev => [...prev, { 
+            role: 'model', 
+            text: 'Ошибка: API ключ не найден или не настроен. Проверьте настройки хостинга.',
+            isError: true 
+        }]);
+        setLoading(false);
+        return;
+    }
+
     try {
-      // 1. Determine Intent (Create Event or Just Chat)
-      // We will ask Gemini to output JSON if it detects an event creation intent.
+      // 2. Prepare Context
+      const recentTxs = transactions.slice(0, 15).map(t => 
+          `${t.date.split('T')[0]}: ${t.note || t.category} (${t.amount} ${settings.currency})`
+      ).join('\n');
+
+      const goalsSummary = goals.map(g => `${g.title}: ${g.currentAmount}/${g.targetAmount}`).join('; ');
       
-      const context = `
-        Transactions summary (last 10): ${JSON.stringify(transactions.slice(0, 10))}
-        Goals: ${JSON.stringify(goals)}
-        Debts: ${JSON.stringify(debts)}
-        Current Date: ${new Date().toISOString()}
+      const contextData = `
+        Context Data:
+        - Current Date: ${new Date().toLocaleString('ru-RU')}
+        - Currency: ${settings.currency}
+        - Recent Transactions: \n${recentTxs}
+        - Savings Goals: ${goalsSummary}
       `;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      
+      // 3. Call API with System Instruction
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `
-          You are a helpful financial assistant.
-          Current Date: ${new Date().toISOString()}.
-          
-          User Input: "${userMsg}"
-          
-          If the user wants to CREATE A CALENDAR EVENT/REMINDER (e.g. "Remind me to...", "Meeting tomorrow at 5", "Buy milk on Friday"):
-          Return JSON ONLY: { "action": "create_event", "title": string, "date": "YYYY-MM-DD", "time": "HH:MM", "description": string }.
-          If date is missing, assume today or tomorrow based on context. Default time 12:00 if missing.
+        contents: `User Query: "${userMsg}"\n\n${contextData}`,
+        config: {
+            systemInstruction: `
+                You are a smart family assistant. You help with finances, calendar events, and shopping lists.
+                
+                RULES FOR OUTPUT:
+                1. If user asks to CREATE AN EVENT (e.g. "remind me", "schedule", "meeting at"):
+                   Return JSON: { "action": "create_event", "title": "...", "date": "YYYY-MM-DD", "time": "HH:MM", "description": "..." }
+                   - Default duration: 1 hour. Infer date/time from context (today is ${new Date().toISOString().split('T')[0]}).
 
-          Otherwise, analyze this financial data: ${context} and answer the user's question in Russian normally (plain text).
-        `
+                2. If user asks to ADD TO SHOPPING LIST (e.g. "buy milk", "add bread and cheese", "need eggs"):
+                   Return JSON: { "action": "add_shopping_items", "items": [ { "title": "Milk", "amount": "1", "unit": "l", "category": "dairy" }, ... ] }
+                   - Infer category from: produce, dairy, meat, bakery, grocery, drinks, household, other.
+                   - Default amount: "1", unit: "шт".
+
+                3. For other queries (finance analysis, general chat):
+                   Return a plain text response in Russian. Be helpful and concise.
+                
+                IMPORTANT: Return ONLY the JSON object if an action is detected. Do not add markdown formatting like \`\`\`json.
+            `,
+        }
       });
 
       const responseText = response.text || '';
       
-      // Try parsing as JSON for event creation
-      try {
-          // Find potential JSON block
-          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-              const data = JSON.parse(jsonMatch[0]);
+      // 4. Handle Response (JSON vs Text)
+      let handled = false;
+      
+      // Attempt to clean and parse JSON
+      const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      if (cleanJson.startsWith('{')) {
+          try {
+              const data = JSON.parse(cleanJson);
+              
+              // Handle Events
               if (data.action === 'create_event' && onCreateEvent) {
                   const newEvent: FamilyEvent = {
                       id: Date.now().toString(),
                       title: data.title || 'Событие',
                       description: data.description || 'Создано через AI',
-                      date: data.date,
+                      date: data.date || new Date().toISOString().split('T')[0],
                       time: data.time || '12:00',
                       duration: 1,
                       memberIds: [],
                       isTemplate: false,
                       checklist: [],
-                      reminders: [60] // Default reminder 1 hour
+                      reminders: [60]
                   };
                   onCreateEvent(newEvent);
-                  setMessages(prev => [...prev, { role: 'model', text: `✅ Событие "${data.title}" создано на ${data.date} в ${data.time}`, isEventSuccess: true }]);
-                  setLoading(false);
-                  return;
+                  setMessages(prev => [...prev, { role: 'model', text: `✅ Событие "${data.title}" запланировано на ${data.date} в ${data.time}`, isEventSuccess: true }]);
+                  handled = true;
               }
+              
+              // Handle Shopping List
+              if (data.action === 'add_shopping_items' && onAddShoppingItems && data.items) {
+                  onAddShoppingItems(data.items);
+                  const itemsSummary = data.items.map((i: any) => i.title).join(', ');
+                  setMessages(prev => [...prev, { role: 'model', text: `🛒 Добавлено в список покупок: ${itemsSummary}`, isShoppingSuccess: true }]);
+                  handled = true;
+              }
+
+          } catch (e) {
+              console.warn("AI returned malformed JSON, treating as text:", e);
           }
-      } catch (e) {
-          // Not JSON, ignore
       }
 
-      setMessages(prev => [...prev, { role: 'model', text: responseText }]);
-    } catch (e) {
-      setMessages(prev => [...prev, { role: 'model', text: 'Произошла ошибка соединения с ИИ.' }]);
+      if (!handled) {
+          setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+      }
+
+    } catch (e: any) {
+      console.error("AI Error:", e);
+      let errorMsg = 'Произошла ошибка соединения с ИИ.';
+      if (e.message) errorMsg = `Ошибка: ${e.message}`;
+      setMessages(prev => [...prev, { role: 'model', text: errorMsg, isError: true }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[70vh] bg-white rounded-[2.5rem] shadow-soft border border-gray-100 overflow-hidden">
+    <div className="flex flex-col h-full bg-white md:rounded-[2.5rem] rounded-none shadow-soft border border-gray-100 overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F2F2F7]">
         {messages.map((m, i) => (
           <motion.div 
@@ -116,18 +204,24 @@ const AIChat: React.FC<AIChatProps> = ({ transactions, goals, debts, settings, o
             animate={{ opacity: 1, y: 0 }}
             className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${m.role === 'model' ? 'bg-black text-white' : 'bg-blue-500 text-white'}`}>
-              {m.role === 'model' ? <Bot size={16} /> : <User size={16} />}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-black text-white') : 'bg-blue-500 text-white'}`}>
+              {m.isError ? <AlertCircle size={16} /> : m.role === 'model' ? <Bot size={16} /> : <User size={16} />}
             </div>
-            <div className={`p-4 rounded-2xl max-w-[80%] text-sm font-bold ${m.role === 'model' ? (m.isEventSuccess ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-white text-[#1C1C1E]') : 'bg-blue-500 text-white'}`}>
+            <div className={`p-4 rounded-2xl max-w-[85%] text-sm font-bold shadow-sm ${
+                m.role === 'model' 
+                    ? (m.isEventSuccess ? 'bg-blue-50 text-blue-900 border border-blue-100' : m.isShoppingSuccess ? 'bg-green-50 text-green-900 border border-green-100' : m.isError ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-white text-[#1C1C1E]') 
+                    : 'bg-blue-500 text-white'
+            }`}>
               {m.text}
+              {m.isEventSuccess && <div className="mt-2 flex gap-1"><Calendar size={14} className="opacity-50"/> <span className="text-[10px] uppercase opacity-50">Календарь</span></div>}
+              {m.isShoppingSuccess && <div className="mt-2 flex gap-1"><ShoppingBag size={14} className="opacity-50"/> <span className="text-[10px] uppercase opacity-50">Покупки</span></div>}
             </div>
           </motion.div>
         ))}
         {loading && (
           <div className="flex gap-3">
              <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center"><Bot size={16} className="text-white"/></div>
-             <div className="bg-white p-4 rounded-2xl flex gap-1 items-center">
+             <div className="bg-white p-4 rounded-2xl flex gap-1 items-center shadow-sm">
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"/>
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"/>
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"/>
@@ -136,16 +230,22 @@ const AIChat: React.FC<AIChatProps> = ({ transactions, goals, debts, settings, o
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+      <div className="p-4 bg-white border-t border-gray-100 flex gap-2 items-center">
+        <button 
+            onClick={startListening}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+        >
+            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
         <input 
            type="text" 
            value={input}
            onChange={e => setInput(e.target.value)}
            onKeyPress={e => e.key === 'Enter' && handleSend()}
-           placeholder="Спроси о финансах или создай событие..."
-           className="flex-1 bg-gray-50 rounded-2xl px-4 font-bold text-sm outline-none focus:bg-white focus:border-blue-200 border border-transparent transition-all"
+           placeholder="Спроси о финансах..."
+           className="flex-1 bg-gray-50 rounded-2xl px-4 py-3.5 font-bold text-sm outline-none focus:bg-white focus:border-blue-200 border border-transparent transition-all text-[#1C1C1E] placeholder:text-gray-400"
         />
-        <button onClick={handleSend} disabled={loading} className="w-12 h-12 bg-blue-500 rounded-2xl text-white flex items-center justify-center shadow-lg ios-btn-active disabled:opacity-50">
+        <button onClick={handleSend} disabled={loading || !input.trim()} className="w-12 h-12 bg-blue-500 rounded-2xl text-white flex items-center justify-center shadow-lg ios-btn-active disabled:opacity-50 disabled:shadow-none">
            <Send size={20} />
         </button>
       </div>

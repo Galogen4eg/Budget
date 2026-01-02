@@ -33,6 +33,8 @@ interface ServicesHubProps {
   // Added Wishlist Props
   wishlist: WishlistItem[];
   setWishlist: (w: WishlistItem[]) => void;
+  // Handler for adding shopping items from AI
+  onAddShoppingItems?: (items: any[]) => void;
 }
 
 type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters' | 'wishlist';
@@ -50,7 +52,7 @@ const ServicesHub: React.FC<ServicesHubProps> = (props) => {
     { id: 'meters', label: 'Счетчики', desc: 'Показания ЖКХ', icon: <Gauge size={24} />, color: '#FF9500', component: <MeterReadings readings={props.readings} setReadings={props.setReadings} settings={props.settings} /> },
     { id: 'subs', label: 'Подписки', desc: 'Регулярные платежи', icon: <Repeat size={24} />, color: '#AF52DE', component: <SubscriptionTracker subscriptions={props.subscriptions} setSubscriptions={props.setSubscriptions} settings={props.settings} /> },
     { id: 'wishlist', label: 'Wishlist', desc: 'Подарки и желания', icon: <Gift size={24} />, color: '#FF2D55', component: <WishlistApp wishlist={props.wishlist} setWishlist={props.setWishlist} members={props.members} settings={props.settings} /> },
-    { id: 'chat', label: 'AI Советник', desc: 'Анализ и Календарь', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} onCreateEvent={handleCreateEvent} /> },
+    { id: 'chat', label: 'AI Советник', desc: 'Анализ и Календарь', icon: <Bot size={24} />, color: '#1C1C1E', component: <AIChat transactions={props.transactions} goals={props.goals} debts={props.debts} settings={props.settings} onCreateEvent={handleCreateEvent} onAddShoppingItems={props.onAddShoppingItems} /> },
     { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <Box size={24} />, color: '#34C759', component: <SmartPantry items={props.pantry} setItems={props.setPantry} /> },
     { id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', component: <DebtSnowball debts={props.debts} setDebts={props.setDebts} settings={props.settings} /> },
   ];

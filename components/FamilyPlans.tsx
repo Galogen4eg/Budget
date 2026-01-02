@@ -40,7 +40,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const processVoiceWithGemini = async (text: string) => {
     if (!process.env.API_KEY) {
-        showNotify('API Key не настроен в .env', 'error');
+        showNotify('API Key не настроен. Проверьте настройки хостинга.', 'error');
         return;
     }
     
@@ -232,7 +232,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                                       <span className="text-[9px] font-black text-blue-700 leading-tight truncate">{ev.title}</span>
                                                       {!isShort && (
                                                           <div className="text-[8px] text-blue-500 font-bold truncate">
-                                                              {ev.time}
+                                                              {ev.time} ({ev.duration || 1}ч)
                                                           </div>
                                                       )}
                                                   </div>
@@ -281,7 +281,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             <div className="flex items-start gap-4">
                                 <div className="flex flex-col items-center gap-1 min-w-[3rem]">
                                     <div className="text-sm font-black text-[#1C1C1E]">{event.time}</div>
-                                    <div className="text-[10px] font-bold text-gray-400">{event.duration ? `${event.duration}ч` : '1ч'}</div>
+                                    <div className="flex items-center gap-1 text-[9px] font-black text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md">
+                                        <Clock size={10} />
+                                        {event.duration ? `${event.duration}ч` : '1ч'}
+                                    </div>
                                     <div className={`w-0.5 h-full bg-gray-100 rounded-full mt-1 group-hover:bg-blue-200 transition-colors`}/>
                                 </div>
                                 <div className="flex-1 min-w-0 pb-2">
@@ -323,15 +326,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       </AnimatePresence>
 
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-4 px-1">
-          <div className="flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-x-auto no-scrollbar shrink-0">
+        {/* Improved Header Layout for Mobile */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-1">
+          <div className="w-full md:w-auto flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-x-auto no-scrollbar shrink-0">
             {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
-              <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
+              <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 md:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${viewMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
                 {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : mode === 'day' ? 'День' : 'Все'}
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
+          <div className="w-full md:w-auto flex justify-end gap-2">
             <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-blue-500 border'}`}><Mic size={22} /></button>
             <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0] } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
           </div>
@@ -360,6 +364,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         <h4 className="font-black text-[15px] truncate text-[#1C1C1E]">{event.title}</h4>
                         <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2 mt-1">
                             <span className="flex items-center gap-1"><Clock size={10}/> {event.time}</span>
+                            <span className="flex items-center gap-1 bg-blue-50 text-blue-500 px-1.5 rounded-md"><Clock size={8}/> {event.duration || 1}ч</span>
                             {event.checklist && event.checklist.length > 0 && <span className="bg-gray-100 px-1.5 rounded text-[9px]">{event.checklist.filter(c=>c.completed).length}/{event.checklist.length}</span>}
                         </div>
                     </div>

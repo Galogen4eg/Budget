@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -149,6 +149,22 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
              </div>
           </div>
+
+          <div className="bg-white p-5 rounded-[2rem] border border-white">
+             <span className="text-[10px] font-black text-gray-400 uppercase mb-3 block flex items-center gap-2"><Timer size={12}/> Продолжительность</span>
+             <div className="flex items-center gap-4">
+                <input 
+                    type="range" 
+                    min="0.5" 
+                    max="8" 
+                    step="0.5" 
+                    value={dur} 
+                    onChange={e => setDur(parseFloat(e.target.value))}
+                    className="flex-1 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <span className="font-black text-lg w-16 text-right tabular-nums text-[#1C1C1E]">{dur} ч.</span>
+             </div>
+          </div>
           
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
              <div className="flex items-center gap-2 mb-2">
@@ -204,8 +220,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              )}
         </div>
       </motion.div>
-    </div>,
-    document.body
+    </div>
   );
 };
 

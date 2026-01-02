@@ -74,7 +74,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
        <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
           <div className="flex justify-between items-center mb-6">
              <h3 className="font-black text-xl text-[#1C1C1E]">Счетчики</h3>
-             <button onClick={() => setIsModalOpen(true)} className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"><Plus size={24}/></button>
+             <button onClick={() => setIsModalOpen(true)} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"><Plus size={24}/></button>
           </div>
           
           <div className="grid gap-4">

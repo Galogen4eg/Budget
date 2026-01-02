@@ -11,10 +11,11 @@ interface CategoryProgressProps {
   transactions: Transaction[];
   settings: AppSettings;
   categories: Category[];
+  onCategoryClick?: (categoryId: string) => void;
   onSubCategoryClick?: (catId: string, merchantName: string) => void;
 }
 
-const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onSubCategoryClick }) => {
+const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onSubCategoryClick }) => {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
   const expenses = transactions.filter(t => t.type === 'expense');
@@ -64,14 +65,30 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
         const canExpand = item.merchants.length > 1 || 
                          (item.merchants.length === 1 && item.merchants[0].name !== item.label);
 
+        const handleMainClick = () => {
+            if (onCategoryClick) {
+                onCategoryClick(item.id);
+            } else if (canExpand) {
+                setExpandedCategoryId(isExpanded ? null : item.id);
+            }
+        };
+
+        const toggleExpand = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            setExpandedCategoryId(isExpanded ? null : item.id);
+        };
+
         return (
           <div key={item.id} className="border-b border-gray-50 last:border-none pb-3 last:pb-0">
             <div 
-              className={`flex flex-col gap-2 p-2 rounded-2xl transition-all cursor-pointer ${isExpanded ? 'bg-gray-50/50' : ''}`}
-              onClick={() => canExpand && setExpandedCategoryId(isExpanded ? null : item.id)}
+              className={`flex flex-col gap-2 p-2 rounded-2xl transition-all ${isExpanded ? 'bg-gray-50/50' : ''}`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 overflow-hidden">
+                {/* Left Side: Click to Open History */}
+                <div 
+                    className="flex items-center gap-2 overflow-hidden flex-1 cursor-pointer p-1 -m-1"
+                    onClick={handleMainClick}
+                >
                   <div 
                     className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0"
                     style={{ backgroundColor: item.color }}
@@ -87,6 +104,8 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                     </span>
                   </div>
                 </div>
+
+                {/* Right Side: Amount & Expand Button */}
                 <div className="flex items-center gap-1 shrink-0">
                   <div className="text-right">
                     <span className="text-[10px] md:text-xs font-black text-[#1C1C1E] tabular-nums">
@@ -94,9 +113,12 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                     </span>
                   </div>
                   {canExpand && (
-                    <div className="text-gray-300">
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </div>
+                    <button 
+                        onClick={toggleExpand}
+                        className="p-1.5 -mr-1.5 text-gray-300 hover:text-blue-500 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
                   )}
                 </div>
               </div>

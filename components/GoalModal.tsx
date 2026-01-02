@@ -15,7 +15,10 @@ interface GoalModalProps {
 
 const PRESET_ICONS = [
   'Plane', 'Car', 'Home', 'ShoppingBag', 'Heart', 
-  'Zap', 'Briefcase', 'PiggyBank', 'Coffee', 'Tv'
+  'Zap', 'Briefcase', 'PiggyBank', 'Coffee', 'Tv',
+  'Shirt', 'Music', 'Gamepad2', 'Baby', 'Dog', 'Cat', 
+  'Flower2', 'Hammer', 'Wrench', 'BookOpen', 'GraduationCap', 
+  'Palmtree', 'Gift', 'Smartphone', 'Wifi', 'Scissors', 'Bike'
 ];
 
 const PRESET_COLORS = [
@@ -39,8 +42,8 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
     onSave({
       id: goal?.id || Date.now().toString(),
       title: title.trim(),
-      targetAmount: Number(targetAmount),
-      currentAmount: Number(currentAmount) || 0,
+      targetAmount: Math.abs(Number(targetAmount)),
+      currentAmount: Math.abs(Number(currentAmount)) || 0,
       icon,
       color
     });
@@ -88,20 +91,22 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-[2rem] border border-white">
+            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
               <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Цель ({settings.currency})</span>
               <input
                 type="number"
+                min="0"
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
                 placeholder="0"
                 className="w-full font-black text-xl outline-none text-[#1C1C1E]"
               />
             </div>
-            <div className="bg-white p-6 rounded-[2rem] border border-white">
+            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
               <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Уже есть</span>
               <input
                 type="number"
+                min="0"
                 value={currentAmount}
                 onChange={(e) => setCurrentAmount(e.target.value)}
                 placeholder="0"
@@ -117,7 +122,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
                 <button
                   key={i}
                   onClick={() => setIcon(i)}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${icon === i ? 'bg-blue-500 text-white scale-110 shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${icon === i ? 'bg-blue-500 text-white scale-110 shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'}`}
                 >
                   {getIconById(i, 20)}
                 </button>

@@ -333,7 +333,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
           </div>
           <div className="flex gap-2">
             <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-blue-500 border'}`}><Mic size={22} /></button>
-            <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0] } })} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
+            <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0] } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
           </div>
         </div>
 

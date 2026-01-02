@@ -1,18 +1,18 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { AppSettings } from '../types';
-import { Wallet, Coins, Lock, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight } from 'lucide-react';
 
 interface SmartHeaderProps {
   balance: number;
+  spent: number;
   savingsRate: number;
   settings: AppSettings;
   onTogglePrivacy?: () => void;
   className?: string;
 }
 
-const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, settings, onTogglePrivacy, className = '' }) => {
+const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, spent, savingsRate, settings, onTogglePrivacy, className = '' }) => {
   const now = new Date();
   
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
@@ -28,14 +28,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
           break;
       }
   }
-
   if (!nextSalaryDate) {
       nextSalaryDate = new Date(now.getFullYear(), now.getMonth() + 1, sortedDates[0]);
   }
-  
+
+  // Days calculations
   const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   
+  // Money calculations
   const fixedExpensesTotal = (settings.mandatoryExpenses || []).reduce((sum, item) => sum + item.amount, 0);
   const savingsAmount = balance * (savingsRate / 100);
   const reservedAmount = savingsAmount + fixedExpensesTotal;
@@ -43,40 +44,86 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, savingsRate, setting
   const dailyBudget = availableBalance / daysRemaining;
 
   return (
-    <div className={`relative overflow-hidden bg-white rounded-[2.5rem] p-5 md:p-6 shadow-soft border border-gray-100 flex flex-col justify-between transition-all hover:scale-[1.01] ${className}`}>
-        <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-0.5 min-w-0">
-                <div className="flex items-center gap-2">
-                    <span className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest">Общий баланс</span>
-                    {onTogglePrivacy && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onTogglePrivacy(); }}
-                            className="text-gray-300 hover:text-blue-500 transition-colors"
-                        >
-                            {settings.privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
-                        </button>
-                    )}
-                </div>
-                <div className="text-xl md:text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                    {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')} <span className="text-gray-300 text-lg font-bold">₽</span>
-                </div>
-            </div>
-            <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 flex-shrink-0 ml-2">
-                <Wallet size={18} className="md:w-5 md:h-5" />
-            </div>
-        </div>
+    <div className={`relative overflow-hidden rounded-[2.2rem] text-white shadow-xl ${className} group flex flex-col justify-between`}>
+        {/* Premium Dark Gradient Background */}
+        <div className="absolute inset-0 bg-[#151517] z-0" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-800/90 opacity-100 z-0" />
+        
+        {/* Decorative Blur Effects */}
+        <div className="absolute top-[-40px] right-[-20px] w-32 h-32 bg-pink-500 rounded-full blur-[60px] opacity-40 mix-blend-screen pointer-events-none" />
+        <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-blue-400 rounded-full blur-[50px] opacity-30 mix-blend-screen pointer-events-none" />
 
-        <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-2 md:gap-4">
-            <div className="min-w-0">
-                <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase block mb-1 truncate">На сегодня</span>
-                <div className="text-sm md:text-lg font-black text-[#1C1C1E] tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
-                    {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()} ₽
+        <div className="relative z-10 flex flex-col h-full p-5">
+            
+            {/* 1. TOP ROW: Title + Privacy + Days Badge */}
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-2 opacity-90">
+                    <div className="p-1.5 bg-white/10 rounded-lg backdrop-blur-md">
+                        <Wallet size={16} className="text-white" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-blue-100">
+                        Мои финансы
+                    </span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl px-3 py-1.5 flex items-center gap-1.5 border border-white/10">
+                        <CalendarClock size={12} className="text-blue-200" />
+                        <span className="text-[10px] font-bold text-white tabular-nums">
+                            {daysRemaining} дн.
+                        </span>
+                    </div>
+                    
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }}
+                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
+                    >
+                        {settings.privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
                 </div>
             </div>
-            <div className="min-w-0 border-l border-gray-50 pl-2 md:pl-4">
-                <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase block mb-1 truncate">Резерв</span>
-                <div className="text-sm md:text-lg font-black text-gray-300 tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
-                    {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
+
+            {/* 2. MIDDLE: Huge Balance */}
+            <div className="flex-1 flex items-center min-h-0 mb-4">
+                <div className="flex items-baseline gap-2 w-full">
+                    <span className={`font-black tracking-tighter tabular-nums leading-none truncate ${settings.privacyMode ? 'text-5xl' : 'text-6xl md:text-7xl'}`}>
+                        {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')}
+                    </span>
+                    <span className="text-2xl md:text-3xl font-medium text-blue-200/60 mb-2">{settings.currency}</span>
+                </div>
+            </div>
+
+            {/* 3. BOTTOM ROW: 3 Stats Grid - INCREASED SIZE */}
+            <div className="grid grid-cols-3 gap-3 h-24 md:h-28 mt-auto">
+                {/* Daily Limit - Primary */}
+                <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group/item shadow-lg">
+                    <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-green-400/20 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                    <span className="text-[10px] font-bold uppercase text-blue-100/80 tracking-wider flex items-center gap-1.5 truncate">
+                        <TrendingUp size={12} className="text-green-300" /> На день
+                    </span>
+                    <span className="text-xl md:text-2xl font-black text-white tabular-nums leading-none truncate mt-auto">
+                        {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()}
+                    </span>
+                </div>
+
+                {/* Spent - Alert/Action */}
+                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between group/item">
+                    <span className="text-[10px] font-bold uppercase text-red-100/70 tracking-wider flex items-center gap-1.5 truncate">
+                        <ArrowDownRight size={12} className="text-red-300" /> Траты
+                    </span>
+                    <span className="text-xl md:text-2xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
+                        {settings.privacyMode ? '•••' : Math.round(spent).toLocaleString()}
+                    </span>
+                </div>
+
+                {/* Reserve - Secondary */}
+                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1.5 truncate">
+                        <Lock size={12} /> Резерв
+                    </span>
+                    <span className="text-xl md:text-2xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
+                        {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
+                    </span>
                 </div>
             </div>
         </div>

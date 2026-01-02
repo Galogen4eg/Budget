@@ -14,15 +14,14 @@ interface WidgetProps {
 const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "", accentColor = "gray" }) => {
   
   // Determine gradient colors based on accentColor
-  // This supports basic tailwind colors mapping or generic fallback
   const getGradientClasses = () => {
       switch(accentColor) {
-          case 'blue': return { bg: 'from-blue-50/50', circle1: 'from-blue-100/40', circle2: 'from-blue-50/30' };
-          case 'red': return { bg: 'from-red-50/50', circle1: 'from-red-100/40', circle2: 'from-red-50/30' };
-          case 'green': return { bg: 'from-green-50/50', circle1: 'from-green-100/40', circle2: 'from-green-50/30' };
-          case 'purple': return { bg: 'from-purple-50/50', circle1: 'from-purple-100/40', circle2: 'from-purple-50/30' };
-          case 'orange': return { bg: 'from-orange-50/50', circle1: 'from-orange-100/40', circle2: 'from-orange-50/30' };
-          default: return { bg: 'from-gray-50/50', circle1: 'from-gray-100/40', circle2: 'from-gray-50/30' };
+          case 'blue': return { bg: 'from-blue-50/50', circle1: 'from-blue-100/40', circle2: 'from-blue-50/30', text: 'text-blue-500' };
+          case 'red': return { bg: 'from-red-50/50', circle1: 'from-red-100/40', circle2: 'from-red-50/30', text: 'text-red-500' };
+          case 'green': return { bg: 'from-green-50/50', circle1: 'from-green-100/40', circle2: 'from-green-50/30', text: 'text-green-500' };
+          case 'purple': return { bg: 'from-purple-50/50', circle1: 'from-purple-100/40', circle2: 'from-purple-50/30', text: 'text-purple-500' };
+          case 'orange': return { bg: 'from-orange-50/50', circle1: 'from-orange-100/40', circle2: 'from-orange-50/30', text: 'text-orange-500' };
+          default: return { bg: 'from-gray-50/50', circle1: 'from-gray-100/40', circle2: 'from-gray-50/30', text: 'text-gray-500' };
       }
   };
 
@@ -32,7 +31,7 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "", acc
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative bg-white p-5 md:p-6 rounded-[2.5rem] flex flex-col h-full ${className} border border-gray-100 shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden group`}
+      className={`relative bg-white p-3.5 md:p-5 rounded-[2.2rem] flex flex-col justify-between h-full ${className} border border-white shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden group`}
     >
       {/* Decorative Background */}
       <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${colors.circle1} to-transparent rounded-full -mr-10 -mt-10 opacity-60 pointer-events-none`} />
@@ -43,22 +42,20 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "", acc
          <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
       </svg>
 
-      <div className="relative z-10 flex justify-between items-start gap-2 mb-2">
-        <span className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-0.5 leading-tight break-words max-w-[70%]">
+      <div className="relative z-10 flex justify-between items-start gap-1">
+        <span className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1 leading-tight break-words max-w-[75%]">
           {label}
         </span>
-        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 border border-gray-50 ${accentColor === 'red' ? 'text-red-500' : accentColor === 'green' ? 'text-green-500' : 'text-blue-500'}`}>
+        <div className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 border border-gray-50 ${colors.text}`}>
           {React.cloneElement(icon as React.ReactElement<any>, { size: 16 })}
         </div>
       </div>
       
-      <div className="relative z-10 flex-1 flex flex-col justify-center">
-         <div className="text-xl md:text-2xl font-black tracking-tight text-[#1C1C1E] leading-none whitespace-nowrap overflow-hidden text-ellipsis tabular-nums">
+      <div className="relative z-10 mt-auto">
+         <div className="text-[1.6rem] md:text-3xl font-black tracking-tight text-[#1C1C1E] leading-none whitespace-nowrap overflow-hidden text-ellipsis tabular-nums -ml-0.5">
            {value}
          </div>
       </div>
-      
-      <div className="h-1" />
     </motion.div>
   );
 };

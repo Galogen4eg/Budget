@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
@@ -101,8 +102,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
@@ -132,7 +133,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             )}
         </AnimatePresence>
 
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar pb-32">
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
           <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
             <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" />
             <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 p-4 rounded-2xl resize-none h-24 text-[#1C1C1E]" />
@@ -172,7 +173,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
               <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Чек-лист</span>
             </div>
             <div className="flex gap-2">
-              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]" />
+              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] shadow-sm" />
               <button type="button" onClick={addChecklistItem} className="w-12 h-12 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
             </div>
             <div className="space-y-3">
@@ -192,7 +193,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
         </div>
 
-        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3 absolute bottom-0 left-0 right-0 z-20">
+        <div className="p-6 pb-8 md:pb-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
              <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
@@ -203,7 +204,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -207,13 +207,13 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                 <div className="space-y-4">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Что хочется?</label>
-                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Название (напр. Наушники)" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" autoFocus />
+                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Название (напр. Наушники)" className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" autoFocus />
                     </div>
                     
                     <div className="flex gap-4">
                         <div className="flex-1">
                             <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Цена</label>
-                            <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none" />
+                            <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" />
                         </div>
                         <div className="flex-1">
                             <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Приоритет</label>
@@ -233,7 +233,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
 
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Ссылка на товар</label>
-                        <div className="flex items-center bg-gray-50 rounded-2xl px-4">
+                        <div className="flex items-center bg-white border border-gray-100 shadow-sm rounded-2xl px-4">
                             <LinkIcon size={18} className="text-gray-400 mr-2"/>
                             <input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." className="w-full bg-transparent py-4 font-bold text-sm text-blue-500 outline-none" />
                         </div>
@@ -241,7 +241,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
 
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Ссылка на картинку (опционально)</label>
-                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-xs text-[#1C1C1E] outline-none" />
+                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-xs text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" />
                     </div>
 
                     <div>

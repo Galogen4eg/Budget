@@ -194,6 +194,33 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </div>
       </div>
 
+      <div className="bg-[#1C1C1E] rounded-[2.2rem] p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-center relative overflow-hidden gap-4 md:gap-0">
+         <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-[#1C1C1E] opacity-50 pointer-events-none" />
+         
+         <div className="relative z-10 flex w-full md:w-auto justify-between md:justify-start gap-8">
+            <div className="flex flex-col">
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1"><ArrowUpRight size={10} className="text-green-500"/> Доход</span>
+               <span className="text-lg font-black text-green-400 tabular-nums">
+                   {settings.privacyMode ? '•••' : `+${summary.income.toLocaleString()}`}
+               </span>
+            </div>
+            <div className="w-px bg-white/10 hidden md:block" />
+            <div className="flex flex-col text-right md:text-left">
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-end md:justify-start gap-1"><ArrowDownRight size={10} className="text-red-500"/> Расход</span>
+               <span className="text-lg font-black text-white tabular-nums">
+                   {settings.privacyMode ? '•••' : summary.expense.toLocaleString()}
+               </span>
+            </div>
+         </div>
+
+         <div className="relative z-10 w-full md:w-auto pt-4 md:pt-0 border-t border-white/10 md:border-none flex justify-between md:block items-center">
+             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Итого за {searchQuery ? 'поиск' : filterMode === 'day' ? 'день' : 'период'} <Wallet size={10} /></span>
+             <span className={`text-2xl font-black tabular-nums ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
+                {settings.privacyMode ? '••••••' : `${summary.total > 0 ? '+' : ''}${summary.total.toLocaleString()} ${settings.currency}`}
+             </span>
+         </div>
+      </div>
+
       {transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100 shadow-sm w-full">
           <p className="text-gray-400 font-bold text-center leading-relaxed text-sm uppercase tracking-widest">
@@ -276,33 +303,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
               </div>
           </div>
       )}
-
-      <div className="bg-[#1C1C1E] rounded-[2.2rem] p-6 text-white shadow-xl mt-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden gap-4 md:gap-0">
-         <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-[#1C1C1E] opacity-50 pointer-events-none" />
-         
-         <div className="relative z-10 flex w-full md:w-auto justify-between md:justify-start gap-8">
-            <div className="flex flex-col">
-               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1"><ArrowUpRight size={10} className="text-green-500"/> Доход</span>
-               <span className="text-lg font-black text-green-400 tabular-nums">
-                   {settings.privacyMode ? '•••' : `+${summary.income.toLocaleString()}`}
-               </span>
-            </div>
-            <div className="w-px bg-white/10 hidden md:block" />
-            <div className="flex flex-col text-right md:text-left">
-               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-end md:justify-start gap-1"><ArrowDownRight size={10} className="text-red-500"/> Расход</span>
-               <span className="text-lg font-black text-white tabular-nums">
-                   {settings.privacyMode ? '•••' : summary.expense.toLocaleString()}
-               </span>
-            </div>
-         </div>
-
-         <div className="relative z-10 w-full md:w-auto pt-4 md:pt-0 border-t border-white/10 md:border-none flex justify-between md:block items-center">
-             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">Итого за {searchQuery ? 'поиск' : filterMode === 'day' ? 'день' : 'период'} <Wallet size={10} /></span>
-             <span className={`text-2xl font-black tabular-nums ${summary.total >= 0 ? 'text-white' : 'text-red-400'}`}>
-                {settings.privacyMode ? '••••••' : `${summary.total > 0 ? '+' : ''}${summary.total.toLocaleString()} ${settings.currency}`}
-             </span>
-         </div>
-      </div>
 
       <AnimatePresence>
         {learningTx && (

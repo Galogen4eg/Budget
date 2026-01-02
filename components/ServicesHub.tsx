@@ -58,7 +58,7 @@ const ServicesHub: React.FC<ServicesHubProps> = (props) => {
   const visibleApps = ALL_APPS.filter(app => props.settings.enabledServices?.includes(app.id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <AnimatePresence mode="wait">
         {activeService === 'menu' ? (
           <motion.div 
@@ -66,7 +66,7 @@ const ServicesHub: React.FC<ServicesHubProps> = (props) => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="grid grid-cols-2 gap-4"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
             {visibleApps.map(app => (
               <button

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis, CartesianGrid } from 'recharts';
-import { Calendar } from 'lucide-react';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis, ReferenceLine } from 'recharts';
+import { CalendarDays, TrendingUp, TrendingDown, Target, Maximize2 } from 'lucide-react';
 import { Transaction, AppSettings } from '../types';
 
 interface MonthlyAnalyticsWidgetProps {
@@ -10,21 +10,24 @@ interface MonthlyAnalyticsWidgetProps {
   settings: AppSettings;
 }
 
-const CustomAnalyticsTooltip = ({ active, payload, currentMonth, privacyMode, currency }: any) => {
+const CustomAnalyticsTooltip = ({ active, payload, label, settings }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-white/50 flex flex-col gap-0.5 z-50">
-                <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest">
-                    {data.day} {currentMonth.toLocaleString('ru-RU', { month: 'long' })}
+            <div className="bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 z-50 min-w-[140px]">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                    {data.fullDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
-                <p className="text-sm font-black text-[#1C1C1E] tabular-nums">
-                    {privacyMode ? '••••••' : `${Number(payload[0].value).toLocaleString()} ${currency}`}
-                </p>
+                <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-black text-[#1C1C1E] tabular-nums">
+                        {settings.privacyMode ? '•••' : Number(payload[0].value).toLocaleString()}
+                    </span>
+                    <span className="text-xs font-bold text-gray-400">{settings.currency}</span>
+                </div>
                 {data.isHigh && (
-                    <div className="flex items-center gap-1 mt-1 text-[8px] font-black text-red-500 uppercase tracking-tighter">
-                        <div className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
-                        Аномальный расход
+                    <div className="mt-2 text-[9px] font-black text-orange-500 bg-orange-50 px-2 py-1 rounded-lg inline-flex items-center gap-1">
+                        <TrendingUp size={10} />
+                        Выше среднего
                     </div>
                 )}
             </div>
@@ -36,23 +39,28 @@ const CustomAnalyticsTooltip = ({ active, payload, currentMonth, privacyMode, cu
 const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transactions, currentMonth, settings }) => {
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  const data = useMemo(() => {
+  const analyticsData = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    
+    // Calculate total monthly expenses first to get accurate average
     const monthExpenses = transactions.filter(t => {
         const d = new Date(t.date);
         return t.type === 'expense' && d.getMonth() === month && d.getFullYear() === year;
     });
 
     const totalExpenses = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
-    const avgDaily = totalExpenses / (new Date().getMonth() === month ? new Date().getDate() : daysInMonth);
+    // Average based on days passed so far if current month, else total days
+    const isCurrentMonth = new Date().getMonth() === month && new Date().getFullYear() === year;
+    const daysPassed = isCurrentMonth ? new Date().getDate() : daysInMonth;
+    const avgDaily = totalExpenses / (daysPassed || 1);
     
-    return days.map(day => {
-      const dateStr = new Date(year, month, day).toLocaleDateString('ru-RU', { day: 'numeric' });
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const chartData = days.map(day => {
+      const dateObj = new Date(year, month, day);
+      const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric' });
       
       const dayTotal = monthExpenses
         .filter(t => {
@@ -61,75 +69,142 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
+      // Determine if spending is "High" (e.g., > 1.5x average)
+      const isHigh = dayTotal > (avgDaily * 1.5) && dayTotal > 0;
+
       return {
-        day: dateStr,
+        day: dateStr, // Label for X Axis
         value: dayTotal,
-        isHigh: dayTotal > (avgDaily * 1.8) && dayTotal > 1000,
-        fullDate: new Date(year, month, day)
+        isHigh: isHigh,
+        fullDate: dateObj,
+        avg: avgDaily // For reference line context if needed
       };
     });
+
+    return { chartData, totalExpenses, avgDaily, maxDay: Math.max(...chartData.map(d => d.value)) };
   }, [transactions, currentMonth]);
 
-  const total = data.reduce((acc, item) => acc + item.value, 0);
+  const { chartData, totalExpenses, avgDaily, maxDay } = analyticsData;
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-gray-100 shadow-soft flex flex-col h-full relative group transition-all hover:scale-[1.01] overflow-hidden">
-        <div className="flex justify-between items-start mb-2 shrink-0">
-            <div className="min-w-0 flex-1">
-                <h3 className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5 truncate">
-                    Траты: {currentMonth.toLocaleString('ru-RU', { month: 'long' })}
-                </h3>
-                <div className="text-lg md:text-2xl font-black text-[#1C1C1E] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis tabular-nums">
-                    {settings.privacyMode ? '••••••' : total.toLocaleString()} <span className="text-gray-300 text-xs md:text-lg font-bold">{settings.currency}</span>
+    <div className="bg-white p-5 rounded-[2.5rem] border border-white shadow-soft flex flex-col h-full relative overflow-hidden group">
+        {/* Subtle decorative background */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 rounded-full blur-[80px] -mr-10 -mt-10 pointer-events-none opacity-60" />
+
+        {/* Header */}
+        <div className="flex justify-between items-start mb-2 relative z-10 shrink-0">
+            <div>
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-blue-50 rounded-xl">
+                        <CalendarDays size={14} className="text-blue-500" />
+                    </div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {currentMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
+                    </span>
                 </div>
-            </div>
-            <div className="w-7 h-7 md:w-10 md:h-10 bg-purple-50 rounded-lg md:rounded-2xl flex items-center justify-center text-purple-500 flex-shrink-0 ml-2">
-                <Calendar size={16} />
+                <div className="flex items-baseline gap-2">
+                    <h2 className="text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight leading-none">
+                        {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
+                    </h2>
+                    <span className="text-sm font-bold text-gray-400">{settings.currency}</span>
+                </div>
             </div>
         </div>
 
-        <div className="flex-1 min-h-0 w-full min-w-0">
+        {/* Chart */}
+        <div className="flex-1 min-h-0 w-full relative z-10 -ml-1">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} barCategoryGap="20%">
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                        <linearGradient id="colorNormal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.8}/>
+                        </linearGradient>
+                        <linearGradient id="colorHigh" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F97316" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="#FDBA74" stopOpacity={0.8}/>
+                        </linearGradient>
+                    </defs>
+                    
                     <XAxis 
                         dataKey="day" 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fontSize: 8, fontWeight: 700, fill: '#D1D5DB' }} 
-                        interval={data.length > 20 ? 4 : 1}
-                        dy={5}
-                        height={20}
+                        tick={{ fontSize: 9, fontWeight: 800, fill: '#9CA3AF' }} 
+                        interval={chartData.length > 20 ? 4 : 1} // Adaptive interval
+                        dy={8}
                     />
-                    <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 8, fontWeight: 700, fill: '#D1D5DB' }}
-                        width={30}
-                    />
+                    
                     <Tooltip 
-                        cursor={{ fill: '#F9FAFB', radius: 4 }}
-                        content={<CustomAnalyticsTooltip currentMonth={currentMonth} privacyMode={settings.privacyMode} currency={settings.currency} />}
-                        allowEscapeViewBox={{ x: false, y: false }}
+                        content={<CustomAnalyticsTooltip settings={settings} />}
+                        cursor={{ fill: '#F3F4F6', radius: 8 }}
                     />
+
+                    {/* Average Line */}
+                    {avgDaily > 0 && (
+                        <ReferenceLine 
+                            y={avgDaily} 
+                            stroke="#CBD5E1" 
+                            strokeDasharray="3 3" 
+                            strokeWidth={1}
+                            label={{ 
+                                value: 'AVG', 
+                                position: 'right', 
+                                fill: '#94A3B8', 
+                                fontSize: 8, 
+                                fontWeight: 900 
+                            }} 
+                        />
+                    )}
+
                     <Bar 
                         dataKey="value" 
-                        radius={[3, 3, 3, 3]} 
-                        animationDuration={1000}
+                        radius={[4, 4, 4, 4]} 
+                        animationDuration={1200}
+                        animationBegin={200}
                         onMouseEnter={(_, index) => setActiveIndex(index)}
                         onMouseLeave={() => setActiveIndex(-1)}
-                        maxBarSize={40}
                     >
-                        {data.map((entry, index) => (
+                        {chartData.map((entry, index) => (
                             <Cell 
                                 key={`cell-${index}`} 
-                                fill={entry.isHigh ? '#FF3B30' : '#007AFF'} 
-                                opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1} 
+                                fill={entry.isHigh ? "url(#colorHigh)" : "url(#colorNormal)"}
+                                opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1}
+                                style={{ transition: 'opacity 0.3s ease' }}
                             />
                         ))}
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>
+        </div>
+
+        {/* Footer Stats */}
+        <div className="flex gap-3 mt-1 pt-3 border-t border-gray-50 relative z-10 shrink-0">
+            <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full bg-blue-100 relative overflow-hidden">
+                    <div className="absolute bottom-0 w-full bg-blue-500 h-1/2" />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Среднее</span>
+                    <span className="text-[10px] font-black text-[#1C1C1E] tabular-nums">
+                        {settings.privacyMode ? '•••' : Math.round(avgDaily).toLocaleString()}
+                    </span>
+                </div>
+            </div>
+            
+            <div className="w-px bg-gray-100 h-6 self-center" />
+
+            <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full bg-orange-100 relative overflow-hidden">
+                    <div className="absolute bottom-0 w-full bg-orange-500 h-full" />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Макс.</span>
+                    <span className="text-[10px] font-black text-[#1C1C1E] tabular-nums">
+                        {settings.privacyMode ? '•••' : Math.round(maxDay).toLocaleString()}
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
   );

@@ -1,9 +1,14 @@
+
 import React from 'react';
 import { 
   Utensils, Car, Home, ShoppingBag, 
   Heart, Zap, Plane, Briefcase, 
   PiggyBank, Coffee, Tv, MoreHorizontal,
-  ArrowRightLeft, Fuel, Bus, ShoppingBasket
+  ArrowRightLeft, Fuel, Bus, ShoppingBasket,
+  Shirt, Music, Gamepad2, Baby, Dog, Cat, 
+  Flower2, Hammer, Wrench, BookOpen, GraduationCap, 
+  Palmtree, Gift, Smartphone, Wifi, Scissors, 
+  Bath, Bed, Sofa, Bike, Drumstick
 } from 'lucide-react';
 import { Category, FamilyMember } from './types';
 
@@ -48,6 +53,28 @@ export const getIconById = (id: string, size = 20) => {
     case 'Coffee': return <Coffee size={size} />;
     case 'Tv': return <Tv size={size} />;
     case 'ArrowRightLeft': return <ArrowRightLeft size={size} />;
+    // New Icons
+    case 'Shirt': return <Shirt size={size} />;
+    case 'Music': return <Music size={size} />;
+    case 'Gamepad2': return <Gamepad2 size={size} />;
+    case 'Baby': return <Baby size={size} />;
+    case 'Dog': return <Dog size={size} />;
+    case 'Cat': return <Cat size={size} />;
+    case 'Flower2': return <Flower2 size={size} />;
+    case 'Hammer': return <Hammer size={size} />;
+    case 'Wrench': return <Wrench size={size} />;
+    case 'BookOpen': return <BookOpen size={size} />;
+    case 'GraduationCap': return <GraduationCap size={size} />;
+    case 'Palmtree': return <Palmtree size={size} />;
+    case 'Gift': return <Gift size={size} />;
+    case 'Smartphone': return <Smartphone size={size} />;
+    case 'Wifi': return <Wifi size={size} />;
+    case 'Scissors': return <Scissors size={size} />;
+    case 'Bath': return <Bath size={size} />;
+    case 'Bed': return <Bed size={size} />;
+    case 'Sofa': return <Sofa size={size} />;
+    case 'Bike': return <Bike size={size} />;
+    case 'Drumstick': return <Drumstick size={size} />;
     default: return <MoreHorizontal size={size} />;
   }
 };

@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Camera, Loader2, Image as ImageIcon, Trash2, Link, Info } from 'lucide-react';
 import { Transaction, TransactionType, AppSettings, FamilyMember, Category, MandatoryExpense } from '../types';
@@ -111,8 +112,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center p-0 md:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -194,14 +195,26 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                 autoFocus
                 type="number"
                 min="0"
+                step="any"
+                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(String(Math.abs(Number(e.target.value))))} 
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || (!isNaN(Number(val)) && Number(val) >= 0)) {
+                        setAmount(val);
+                    }
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                    }
+                }}
                 placeholder="0"
                 className="text-6xl font-black bg-transparent text-center outline-none w-full placeholder:text-gray-200 tracking-tighter text-[#1C1C1E] tabular"
               />
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-[2rem] border border-gray-100">
+            <div className="bg-white border border-gray-100 p-4 rounded-[2rem] shadow-sm">
                <input
                 type="text"
                 value={note}
@@ -212,7 +225,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
             </div>
           </div>
 
-          {initialTransaction?.rawNote && initialTransaction.rawNote !== initialTransaction.note && (
+          {initialTransaction?.rawNote && (
              <div className="bg-gray-100/50 p-5 rounded-[2rem] border border-gray-200/50 space-y-2">
                 <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                    <Info size={12}/> Исходное описание из выписки
@@ -298,7 +311,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           </div>
         </form>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

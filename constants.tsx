@@ -8,25 +8,65 @@ import {
   Shirt, Music, Gamepad2, Baby, Dog, Cat, 
   Flower2, Hammer, Wrench, BookOpen, GraduationCap, 
   Palmtree, Gift, Smartphone, Wifi, Scissors, 
-  Bath, Bed, Sofa, Bike, Drumstick
+  Bath, Bed, Sofa, Bike, Drumstick, Sparkles,
+  Pill, Stethoscope, Dumbbell, Ticket, Monitor, 
+  Footprints, Smile, HeartHandshake, FileText, ShieldCheck
 } from 'lucide-react';
 import { Category, FamilyMember } from './types';
 
 export const INITIAL_CATEGORIES: Category[] = [
-  { id: 'food', label: 'Продукты', icon: 'ShoppingBasket', color: '#34C759' }, // Зеленый для свежести
-  { id: 'restaurants', label: 'Кафе и еда', icon: 'Utensils', color: '#FF9500' }, // Оранжевый для аппетита
-  { id: 'auto', label: 'Авто', icon: 'Car', color: '#FF3B30' }, // Красный (важное/дорогое)
-  { id: 'transport', label: 'Транспорт', icon: 'Bus', color: '#007AFF' }, // Синий (общественный)
-  { id: 'housing', label: 'Жилье', icon: 'Home', color: '#AF52DE' },
-  { id: 'shopping', label: 'Покупки', icon: 'ShoppingBag', color: '#FF2D55' },
+  // Food & Dining
+  { id: 'food', label: 'Продукты', icon: 'ShoppingBasket', color: '#34C759' },
+  { id: 'restaurants', label: 'Кафе и еда', icon: 'Utensils', color: '#FF9500' },
+  { id: 'alcohol', label: 'Алкоголь', icon: 'GlassWater', color: '#AF52DE' }, // New
+
+  // Transport
+  { id: 'auto', label: 'Авто', icon: 'Car', color: '#FF3B30' },
+  { id: 'fuel', label: 'Бензин', icon: 'Fuel', color: '#FF3B30' }, // New
+  { id: 'car_service', label: 'Обслуживание авто', icon: 'Wrench', color: '#8E8E93' }, // New
+  { id: 'parking', label: 'Парковка', icon: 'Car', color: '#999999' }, // New
+  { id: 'transport', label: 'Общ. транспорт', icon: 'Bus', color: '#007AFF' },
+  { id: 'taxi', label: 'Такси', icon: 'Car', color: '#FFCC00' }, // New
+
+  // Housing & Utilities
+  { id: 'housing', label: 'Аренда/Ипотека', icon: 'Home', color: '#AF52DE' },
+  { id: 'utilities', label: 'ЖКХ', icon: 'Home', color: '#FF9500' }, // New
+  { id: 'internet', label: 'Связь и Интернет', icon: 'Wifi', color: '#007AFF' }, // New
+  { id: 'home_improvement', label: 'Ремонт и Дом', icon: 'Hammer', color: '#A2845E' }, // New
+
+  // Shopping & Personal
+  { id: 'shopping', label: 'Шоппинг', icon: 'ShoppingBag', color: '#FF2D55' },
+  { id: 'clothes', label: 'Одежда', icon: 'Shirt', color: '#5856D6' }, // New
+  { id: 'shoes', label: 'Обувь', icon: 'Footprints', color: '#AF52DE' }, // New
+  { id: 'electronics', label: 'Техника', icon: 'Monitor', color: '#1C1C1E' }, // New
+  { id: 'beauty', label: 'Красота', icon: 'Scissors', color: '#FF2D55' },
+
+  // Health
   { id: 'health', label: 'Здоровье', icon: 'Heart', color: '#FF3B30' },
-  { id: 'utilities', label: 'Коммунальные', icon: 'Zap', color: '#FFCC00' },
-  { id: 'transfer', label: 'Переводы', icon: 'ArrowRightLeft', color: '#8E8E93' },
-  { id: 'travel', label: 'Путешествия', icon: 'Plane', color: '#5856D6' },
-  { id: 'work', label: 'Работа', icon: 'Briefcase', color: '#34C759' },
-  { id: 'savings', label: 'Накопления', icon: 'PiggyBank', color: '#5AC8FA' },
+  { id: 'pharmacy', label: 'Аптека', icon: 'Pill', color: '#34C759' }, // New
+  { id: 'doctor', label: 'Врачи', icon: 'Stethoscope', color: '#007AFF' }, // New
+  { id: 'sport', label: 'Спорт', icon: 'Dumbbell', color: '#FF9500' }, // New
+
+  // Family & Development
+  { id: 'education', label: 'Образование', icon: 'GraduationCap', color: '#5856D6' },
+  { id: 'books', label: 'Книги', icon: 'BookOpen', color: '#A2845E' }, // New
+  { id: 'kids', label: 'Дети', icon: 'Baby', color: '#FFCC00' }, // New
+  { id: 'pets', label: 'Питомцы', icon: 'Dog', color: '#FF9500' },
+
+  // Entertainment
+  { id: 'entertainment', label: 'Развлечения', icon: 'Ticket', color: '#5856D6' }, // Updated Icon
+  { id: 'subscriptions', label: 'Подписки', icon: 'Zap', color: '#5AC8FA' },
   { id: 'leisure', label: 'Отдых', icon: 'Coffee', color: '#8E8E93' },
-  { id: 'entertainment', label: 'Развлечения', icon: 'Tv', color: '#4CD964' },
+  { id: 'travel', label: 'Путешествия', icon: 'Plane', color: '#007AFF' },
+
+  // Finance & Other
+  { id: 'savings', label: 'Накопления', icon: 'PiggyBank', color: '#5AC8FA' },
+  { id: 'transfer', label: 'Переводы', icon: 'ArrowRightLeft', color: '#8E8E93' },
+  { id: 'taxes', label: 'Налоги', icon: 'FileText', color: '#8E8E93' }, // New
+  { id: 'insurance', label: 'Страховка', icon: 'ShieldCheck', color: '#34C759' }, // New
+  { id: 'charity', label: 'Благотворительность', icon: 'HeartHandshake', color: '#FF2D55' }, // New
+  { id: 'gifts', label: 'Подарки', icon: 'Gift', color: '#FF2D55' },
+  { id: 'work', label: 'Расходы по работе', icon: 'Briefcase', color: '#34C759' },
   { id: 'other', label: 'Прочее', icon: 'MoreHorizontal', color: '#C7C7CC' },
 ];
 
@@ -53,7 +93,6 @@ export const getIconById = (id: string, size = 20) => {
     case 'Coffee': return <Coffee size={size} />;
     case 'Tv': return <Tv size={size} />;
     case 'ArrowRightLeft': return <ArrowRightLeft size={size} />;
-    // New Icons
     case 'Shirt': return <Shirt size={size} />;
     case 'Music': return <Music size={size} />;
     case 'Gamepad2': return <Gamepad2 size={size} />;
@@ -75,6 +114,17 @@ export const getIconById = (id: string, size = 20) => {
     case 'Sofa': return <Sofa size={size} />;
     case 'Bike': return <Bike size={size} />;
     case 'Drumstick': return <Drumstick size={size} />;
+    case 'Sparkles': return <Sparkles size={size} />;
+    case 'Pill': return <Pill size={size} />;
+    case 'Stethoscope': return <Stethoscope size={size} />;
+    case 'Dumbbell': return <Dumbbell size={size} />;
+    case 'Ticket': return <Ticket size={size} />;
+    case 'Monitor': return <Monitor size={size} />;
+    case 'Footprints': return <Footprints size={size} />;
+    case 'Smile': return <Smile size={size} />;
+    case 'HeartHandshake': return <HeartHandshake size={size} />;
+    case 'FileText': return <FileText size={size} />;
+    case 'ShieldCheck': return <ShieldCheck size={size} />;
     default: return <MoreHorizontal size={size} />;
   }
 };

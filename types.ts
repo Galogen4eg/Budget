@@ -6,8 +6,8 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: string;
-  memberId: string; // Ссылка на FamilyMember (для отображения иконки)
-  userId?: string;  // Реальный UID пользователя из Firebase (для прав доступа)
+  memberId: string;
+  userId?: string;
   note: string;
   date: string;
   rawNote?: string;
@@ -22,7 +22,7 @@ export interface LearnedRule {
 
 export interface FamilyMember {
   id: string;
-  userId?: string; // Связь с Firebase Auth UID
+  userId?: string;
   name: string;
   color: string;
   avatar?: string;
@@ -46,7 +46,7 @@ export interface ShoppingItem {
   estimatedPrice?: number;
   completed: boolean;
   memberId: string;
-  userId?: string; // Кто добавил (Firebase UID)
+  userId?: string;
   priority: 'low' | 'medium' | 'high';
   category: string;
 }
@@ -56,10 +56,10 @@ export interface WishlistItem {
   title: string;
   price?: number;
   currency: string;
-  url?: string; // Ссылка на магазин
-  imageUrl?: string; // Фото желания
-  ownerId: string; // Чье желание
-  reservedBy?: string; // Кто обещал подарить (ID члена семьи)
+  url?: string;
+  imageUrl?: string;
+  ownerId: string;
+  reservedBy?: string;
   priority: 'low' | 'medium' | 'high';
   createdAt: string;
 }
@@ -78,10 +78,10 @@ export interface FamilyEvent {
   time: string;
   duration?: number;
   memberIds: string[];
-  userId?: string; // Кто создал (Firebase UID)
+  userId?: string;
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
-  reminders?: number[]; // Array of minutes before event (e.g. [60, 1440])
+  reminders?: number[];
 }
 
 export interface Subscription {
@@ -120,7 +120,7 @@ export interface LoyaltyCard {
   name: string;
   number: string;
   color: string;
-  icon: string; // Emoji or Lucide icon name
+  icon: string;
   barcodeType?: 'code128' | 'qr'; 
 }
 
@@ -128,7 +128,9 @@ export interface MandatoryExpense {
   id: string;
   name: string;
   amount: number;
-  keywords?: string[]; // Array of keywords to match transactions automatically
+  day: number; // Day of the month (1-31)
+  remind: boolean;
+  keywords?: string[];
 }
 
 export interface MeterReading {
@@ -152,16 +154,13 @@ export interface AppSettings {
   startOfMonthDay: number;
   privacyMode: boolean;
   
-  // Replaces simple string array with detailed config
   widgets: WidgetConfig[]; 
   
   isPinEnabled: boolean;
+  pinCode?: string; // Stored PIN
   
-  // Конфигурация видимости
   enabledTabs: string[];
   enabledServices: string[];
-  
-  // Режим бюджета по умолчанию
   defaultBudgetMode: 'personal' | 'family'; 
 
   telegramBotToken?: string;
@@ -173,11 +172,10 @@ export interface AppSettings {
   dayStartHour: number;
   dayEndHour: number;
   
-  // Salary / Balance Config
   initialBalance: number;
   initialBalanceDate?: string;
-  salaryDates: number[]; // Array of days (e.g., [10, 25])
-  mandatoryExpenses: MandatoryExpense[]; // New: Fixed monthly costs
+  salaryDates: number[];
+  mandatoryExpenses: MandatoryExpense[];
 
   alfaMapping: {
     date: string;

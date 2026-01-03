@@ -39,23 +39,26 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const handleSave = () => {
     if (!newName.trim()) return;
     
+    // Cleanup number spaces before saving
+    const cleanNumber = newNumber.replace(/\s+/g, '');
+
     if (editingCardId) {
        // Update existing
        const updated: LoyaltyCard = {
          id: editingCardId,
          name: newName,
-         number: newNumber,
+         number: cleanNumber,
          color: newColor,
          icon: newIcon,
          barcodeType: 'code128'
        };
        setCards(cards.map(c => c.id === editingCardId ? updated : c));
     } else {
-       // Create new
+       // Create new with completely unique ID
        const newCard: LoyaltyCard = {
-         id: Date.now().toString(),
+         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
          name: newName,
-         number: newNumber,
+         number: cleanNumber,
          color: newColor,
          icon: newIcon,
          barcodeType: 'code128'
@@ -92,6 +95,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   };
 
   const scanBarcodeFromImage = async (file: File): Promise<string> => {
+      let barcodeResult = '';
+
       // 1. Try Native BarcodeDetector (Fastest, supported in Chrome/Android/macOS)
       try {
           if ('BarcodeDetector' in window) {
@@ -101,22 +106,26 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                   const bitmap = await createImageBitmap(file);
                   const barcodes = await detector.detect(bitmap);
                   if (barcodes.length > 0) {
-                      return barcodes[0].rawValue;
+                      barcodeResult = barcodes[0].rawValue;
                   }
               }
           }
       } catch (e) {
-          console.warn("Native barcode detection failed, falling back...", e);
+          console.warn("Native barcode detection failed/unsupported", e);
       }
+
+      if (barcodeResult) return barcodeResult;
 
       // 2. Fallback to Html5Qrcode (Slower, but works everywhere else)
       try {
+          // Note: Html5Qrcode needs an existing DOM element ID even for file scan
           const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
           const result = await html5QrCode.scanFile(file, false);
-          html5QrCode.clear();
+          // Wait briefly to let it clean up
+          html5QrCode.clear(); 
           return result;
       } catch (e) {
-          console.log("Html5Qrcode failed to detect barcode in file.");
+          console.log("Html5Qrcode failed to detect barcode in file.", e);
           return '';
       }
   };
@@ -135,7 +144,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const prompt = `Analyze this loyalty card image.
           1. Extract the Store Name (name).
-          2. EXTRACT VISIBLE CARD NUMBER (digits) using OCR. Even if small. (number).
+          2. EXTRACT VISIBLE CARD NUMBER (digits). Look for groups of digits (e.g. 1234 5678). Return full number. If spaces, include them for now.
           3. Pick the Dominant Color as a hex code (color).
           4. Choose the best icon from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase]. Default: ShoppingBag.
           
@@ -172,16 +181,24 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
             analyzeImageWithGemini(file)
         ]);
 
-        console.log("Barcode:", barcodeResult);
-        console.log("AI:", aiResult);
+        console.log("Barcode Scan Result:", barcodeResult);
+        console.log("AI Analysis Result:", aiResult);
 
         // Merge Logic
         if (aiResult.name) setNewName(aiResult.name);
         if (aiResult.color) setNewColor(aiResult.color);
         if (aiResult.icon && CARD_ICONS.includes(aiResult.icon)) setNewIcon(aiResult.icon);
         
-        // Prioritize actual barcode scan, fallback to AI OCR
-        const finalNumber = barcodeResult || (aiResult.number ? aiResult.number.replace(/\s/g, '') : '');
+        // Logic for Number:
+        // 1. If barcode scanned successfully, use it (100% accurate).
+        // 2. If no barcode, use AI result (OCR).
+        let finalNumber = '';
+        if (barcodeResult) {
+            finalNumber = barcodeResult;
+        } else if (aiResult.number) {
+            finalNumber = aiResult.number.replace(/\s+/g, ''); // Strip spaces from AI result
+        }
+        
         setNewNumber(finalNumber);
 
     } catch (err) {

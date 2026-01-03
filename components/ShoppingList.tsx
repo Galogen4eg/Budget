@@ -4,15 +4,15 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trash2, CheckCircle2, Circle, 
-  Mic, BrainCircuit,
+  Mic, 
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
-  Archive, Edit2, Check, Send, ChevronDown, ChevronUp, Sparkles, ArrowLeft, CloudDownload, PieChart, Keyboard
+  Archive, Check, Send, ChevronDown, ChevronUp, CloudDownload
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { Html5Qrcode } from 'html5-qrcode';
-import { lookupBarcodeOffline, searchOnlineDatabase, ProductData } from '../utils/barcodeLookup';
+import { lookupBarcodeOffline, searchOnlineDatabase } from '../utils/barcodeLookup';
 import { auth } from '../firebase'; 
 
 interface ShoppingListProps {
@@ -44,8 +44,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(initialStoreMode);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isSmartTextOpen, setIsSmartTextOpen] = useState(false);
-  const [smartTextInput, setSmartTextInput] = useState('');
   
   // Modal Form State
   const [title, setTitle] = useState('');
@@ -66,12 +64,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
 
-  // Keep a ref to setItems to avoid stale closures in async functions
-  const setItemsRef = useRef(setItems);
-  useEffect(() => {
-    setItemsRef.current = setItems;
-  }, [setItems]);
-
   useEffect(() => {
       if (initialStoreMode) setIsStoreMode(true);
   }, [initialStoreMode]);
@@ -86,24 +78,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   // ANALYTICS CALCULATIONS
   const activeItems = useMemo(() => items.filter(i => !i.completed), [items]);
   const completedItems = useMemo(() => items.filter(i => i.completed), [items]);
-  const progress = items.length > 0 ? Math.round((completedItems.length / items.length) * 100) : 0;
-
-  const analyticsData = useMemo(() => {
-      let estimatedTotal = 0;
-      let itemsBoughtCount = completedItems.length;
-
-      completedItems.forEach(item => {
-          const match = transactions.find(t => t.note && t.note.toLowerCase().includes(item.title.toLowerCase()));
-          if (match) estimatedTotal += match.amount;
-      });
-
-      const shoppingCategories = ['food', 'grocery', 'household', 'drinks', 'dairy', 'meat', 'bakery', 'produce'];
-      const allTimeShoppingSpend = transactions
-        .filter(t => t.type === 'expense' && shoppingCategories.includes(t.category))
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      return { itemsBoughtCount, estimatedTotal, allTimeShoppingSpend };
-  }, [completedItems, transactions]);
 
   const vibrate = (type: 'light' | 'medium' | 'error' | 'success') => {
     if (!navigator.vibrate) return;
@@ -124,29 +98,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
   const showNotify = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
     setNotification({ type, message });
-  };
-
-  const categorizeItemWithAI = async (item: ShoppingItem) => {
-      if (!process.env.API_KEY) return;
-      try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const response = await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: `Categorize shopping item "${item.title}". 
-              Return JSON ONLY: { "category": string }. 
-              Allowed categories: [${STORE_AISLES.map(a => a.id).join(', ')}]. 
-              Default to "other".`,
-              config: { responseMimeType: "application/json" }
-          });
-          const result = JSON.parse(response.text || '{}');
-          if (result.category && result.category !== 'other' && STORE_AISLES.some(a => a.id === result.category)) {
-              setItemsRef.current((currentItems: ShoppingItem[]) => 
-                  currentItems.map(i => i.id === item.id ? { ...i, category: result.category } : i)
-              );
-          }
-      } catch (e) {
-          console.error("Auto-categorization failed", e);
-      }
   };
 
   const handleTelegramImport = async () => {
@@ -193,10 +144,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     }
     
     setIsProcessingAI(true);
-    // Close modal if open
-    setIsSmartTextOpen(false);
-    setSmartTextInput('');
-    
     vibrate('medium');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -242,14 +189,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       if (!title.trim()) return;
       
       if (editingItemId) {
-          setItems(items.map(i => i.id === editingItemId ? {
+          const updatedItems = items.map(i => i.id === editingItemId ? {
               ...i,
               title, amount, unit, category: selectedAisle
-          } : i));
+          } : i);
+          setItems(updatedItems);
           showNotify('success', 'Товар обновлен');
       } else {
           const newItem: ShoppingItem = {
-              id: Date.now().toString(),
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
               title: title.trim(),
               amount,
               unit,
@@ -266,13 +214,23 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   };
 
   const deleteItem = (id: string) => {
-      setItems(items.filter(i => i.id !== id));
+      const remainingItems = items.filter(i => i.id !== id);
+      setItems(remainingItems);
       showNotify('info', 'Товар удален');
   };
 
   const toggleItem = (id: string) => {
-      setItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
+      const updatedItems = items.map(i => i.id === id ? { ...i, completed: !i.completed } : i);
+      setItems(updatedItems);
       vibrate('light');
+  };
+
+  const handleMoveToPantry = (item: ShoppingItem) => {
+      if (onMoveToPantry) {
+          onMoveToPantry(item);
+          deleteItem(item.id);
+          showNotify('success', 'Перенесено в кладовку');
+      }
   };
 
   const resetForm = () => {
@@ -368,6 +326,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           return;
       }
       
+      if (isListening) {
+          if (recognitionRef.current) recognitionRef.current.stop();
+          setIsListening(false);
+          return;
+      }
+      
       const r = new SR();
       recognitionRef.current = r;
       r.lang = 'ru-RU';
@@ -411,17 +375,24 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
         {/* Top Controls */}
         <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2 px-1">
-            <button onClick={() => setIsStoreMode(!isStoreMode)} className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isStoreMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white border border-gray-100 text-gray-500'}`}>
+            <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-11 h-11 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all shrink-0">
+                <Plus size={24} strokeWidth={3} />
+            </button>
+            <button onClick={() => setIsStoreMode(!isStoreMode)} className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${isStoreMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white border border-gray-100 text-gray-500'}`}>
                 {isStoreMode ? <Maximize2 size={16}/> : <ShoppingBag size={16}/>}
-                {isStoreMode ? 'В магазине' : 'Списком'}
+                {isStoreMode ? 'Магазин' : 'Списком'}
             </button>
-            <button onClick={() => setIsSmartTextOpen(true)} className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-gray-100 font-black text-xs uppercase tracking-widest text-purple-600 hover:bg-purple-50 transition-colors">
-                <Sparkles size={16}/> AI Ввод
+            <button 
+                onClick={startVoiceInput} 
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${isListening ? 'bg-red-500 text-white border-red-500 animate-pulse' : 'bg-white border-gray-100 text-purple-600 hover:bg-purple-50'}`}
+            >
+                {isListening ? <MicOff size={16}/> : <Mic size={16}/>}
+                Голос
             </button>
-            <button onClick={startScanner} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-gray-500 hover:text-blue-500">
+            <button onClick={startScanner} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-gray-500 hover:text-blue-500 shrink-0">
                 <ScanBarcode size={20}/>
             </button>
-            <button onClick={handleTelegramImport} disabled={isImportingTg} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50">
+            <button onClick={handleTelegramImport} disabled={isImportingTg} className="w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 shrink-0">
                 {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
             </button>
         </div>
@@ -432,7 +403,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                     <ShoppingBag size={48} className="mb-4 opacity-20"/>
                     <p className="font-bold text-sm uppercase tracking-widest">Список пуст</p>
-                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, чтобы добавить товары, или используйте AI ввод</p>
+                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, чтобы добавить товары, или используйте голос</p>
                 </div>
             ) : (
                 <>
@@ -501,7 +472,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                                 <span className="font-bold text-sm line-through text-gray-400">{item.title}</span>
                                             </div>
                                             <div className="flex gap-2">
-                                                {onMoveToPantry && <button onClick={() => onMoveToPantry(item)} className="p-2 bg-white rounded-lg text-green-600"><Archive size={14}/></button>}
+                                                {onMoveToPantry && <button onClick={() => handleMoveToPantry(item)} className="p-2 bg-white rounded-lg text-green-600"><Archive size={14}/></button>}
                                                 <button onClick={() => deleteItem(item.id)} className="p-2 bg-white rounded-lg text-red-400"><Trash2 size={14}/></button>
                                             </div>
                                         </div>
@@ -514,17 +485,14 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             )}
         </div>
 
-        {/* Bottom Actions */}
-        <div className="fixed bottom-24 right-4 flex flex-col gap-3 items-end z-20">
-            {activeItems.length > 0 && onSendToTelegram && (
+        {/* Bottom Actions (Only Send to TG if needed, no FAB) */}
+        {activeItems.length > 0 && onSendToTelegram && (
+            <div className="fixed bottom-24 right-4 flex flex-col gap-3 items-end z-20">
                 <button onClick={handleSendListToTelegram} disabled={isSending} className="w-12 h-12 bg-white text-blue-500 rounded-full shadow-lg flex items-center justify-center border border-blue-50">
                     {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
                 </button>
-            )}
-            <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-14 h-14 bg-blue-600 text-white rounded-[1.5rem] shadow-xl shadow-blue-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
-                <Plus size={28} strokeWidth={3} />
-            </button>
-        </div>
+            </div>
+        )}
 
         {/* Add/Edit Modal */}
         <AnimatePresence>
@@ -557,7 +525,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                             <div className="flex gap-3">
                                 <div className="flex-1 bg-white p-4 rounded-[2rem] shadow-sm">
                                     <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Кол-во</span>
-                                    <input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} className="w-full font-bold outline-none"/>
+                                    <input 
+                                        type="number" 
+                                        inputMode="decimal" 
+                                        value={amount} 
+                                        onChange={e => setAmount(e.target.value)} 
+                                        className="w-full font-bold outline-none bg-white text-[#1C1C1E]"
+                                    />
                                 </div>
                                 <div className="flex-1 bg-white p-4 rounded-[2rem] shadow-sm">
                                     <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Ед. изм.</span>
@@ -593,41 +567,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                 {editingItemId ? 'Сохранить' : 'Добавить'}
                             </button>
                         </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
-
-        {/* AI Text Input Modal */}
-        <AnimatePresence>
-            {isSmartTextOpen && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSmartTextOpen(false)}/>
-                    <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-black text-lg flex items-center gap-2"><Sparkles size={20} className="text-purple-500"/> AI Список</h3>
-                            <button onClick={() => setIsSmartTextOpen(false)}><X size={20} className="text-gray-400"/></button>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded-2xl mb-4 relative">
-                            <textarea 
-                                value={smartTextInput} 
-                                onChange={e => setSmartTextInput(e.target.value)} 
-                                placeholder="Например: Купи хлеб, молоко, десяток яиц и корм для кота..."
-                                className="w-full bg-transparent border-none outline-none text-sm font-medium h-32 resize-none text-[#1C1C1E]"
-                                autoFocus
-                            />
-                            <button onClick={startVoiceInput} className={`absolute bottom-2 right-2 p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-purple-500 shadow-sm'}`}>
-                                {isListening ? <MicOff size={16}/> : <Mic size={16}/>}
-                            </button>
-                        </div>
-                        <button 
-                            onClick={() => processSmartInput(smartTextInput)} 
-                            disabled={isProcessingAI || !smartTextInput.trim()} 
-                            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {isProcessingAI ? <Loader2 size={16} className="animate-spin"/> : <BrainCircuit size={16}/>}
-                            Разобрать список
-                        </button>
                     </motion.div>
                 </div>
             )}

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AppSettings } from '../types';
-import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight } from 'lucide-react';
+import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, RefreshCw } from 'lucide-react';
 
 interface SmartHeaderProps {
   balance: number;
@@ -9,10 +9,15 @@ interface SmartHeaderProps {
   savingsRate: number;
   settings: AppSettings;
   onTogglePrivacy?: () => void;
+  budgetMode?: 'personal' | 'family';
+  onToggleBudgetMode?: () => void;
   className?: string;
 }
 
-const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, spent, savingsRate, settings, onTogglePrivacy, className = '' }) => {
+const SmartHeader: React.FC<SmartHeaderProps> = ({ 
+    balance, spent, savingsRate, settings, onTogglePrivacy, 
+    budgetMode = 'personal', onToggleBudgetMode, className = '' 
+}) => {
   const now = new Date();
   
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
@@ -56,15 +61,19 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, spent, savingsRate, 
         <div className="relative z-10 flex flex-col h-full p-4 md:p-5">
             
             {/* 1. TOP ROW: Title + Privacy + Days Badge */}
-            <div className="flex justify-between items-start mb-1 md:mb-2">
-                <div className="flex items-center gap-2 opacity-90">
-                    <div className="p-1.5 bg-white/10 rounded-lg backdrop-blur-md">
-                        <Wallet size={14} className="text-white" />
+            <div className="flex justify-between items-center mb-1 md:mb-2">
+                <button 
+                    className="flex items-center gap-2 cursor-pointer bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/10 transition-all active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); onToggleBudgetMode?.(); }}
+                >
+                    <div className={`p-1 rounded-full bg-white text-blue-600 shadow-sm transition-transform duration-300 ${budgetMode === 'family' ? 'rotate-0' : '-rotate-12'}`}>
+                        {budgetMode === 'family' ? <Users size={12} strokeWidth={3} /> : <User size={12} strokeWidth={3} />}
                     </div>
-                    <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-blue-100">
-                        Мои финансы
+                    <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white">
+                        {budgetMode === 'family' ? 'Семья' : 'Личный'}
                     </span>
-                </div>
+                    <RefreshCw size={10} className="text-blue-200 opacity-60" />
+                </button>
                 
                 <div className="flex items-center gap-2 md:gap-3">
                     <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-1 md:px-3 md:py-1.5 flex items-center gap-1.5 border border-white/10">
@@ -76,15 +85,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ balance, spent, savingsRate, 
                     
                     <button 
                         onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }}
-                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
+                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
                     >
-                        {settings.privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
+                        {settings.privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                 </div>
             </div>
 
             {/* 2. MIDDLE: Huge Balance */}
-            <div className="flex-1 flex items-center min-h-0 mb-2 md:mb-4">
+            <div className="flex-1 flex items-center min-h-0 mb-2 md:mb-4 pt-2">
                 <div className="flex items-baseline gap-1 md:gap-2 w-full overflow-hidden">
                     <span className={`font-black tracking-tighter tabular-nums leading-none truncate ${settings.privacyMode ? 'text-4xl md:text-5xl' : 'text-5xl md:text-7xl'}`}>
                         {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')}

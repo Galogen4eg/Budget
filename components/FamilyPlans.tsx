@@ -31,7 +31,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   // Time grid configuration from settings or defaults
   const startHour = settings.dayStartHour ?? 8;
   const endHour = settings.dayEndHour ?? 22;
-  const hours = useMemo(() => Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i), [startHour, endHour]);
+  const hours = useMemo(() => {
+      // Ensure valid range
+      const start = Math.max(0, Math.min(23, startHour));
+      const end = Math.max(start + 1, Math.min(24, endHour));
+      return Array.from({ length: end - start }, (_, i) => start + i);
+  }, [startHour, endHour]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -116,7 +121,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const getEventStyle = (event: FamilyEvent) => {
       const [h, m] = event.time.split(':').map(Number);
-      if (h < startHour || h > endHour) return null; // Event out of view bounds (simplified)
+      if (h < startHour || h >= endHour) return null; // Event out of view bounds
       
       const startMinutes = (h - startHour) * 60 + m;
       const durationMinutes = (event.duration || 1) * 60;
@@ -150,30 +155,30 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     });
   }, [selectedDate]);
 
-  const renderTimeGrid = (days: Date[]) => {
-      const hourHeight = 64; // h-16
-      
+  const renderTimeGrid = (days: Date[], hideHeader = false) => {
       return (
-          <div className="flex flex-col h-[600px] bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden relative">
-              {/* Header Days */}
-              <div className="flex border-b border-gray-100 bg-gray-50/50 shrink-0 z-10 sticky top-0">
-                  <div className="w-12 shrink-0 border-r border-gray-100 bg-white" /> {/* Time column header */}
-                  <div className="flex flex-1 overflow-x-auto no-scrollbar">
-                      {days.map((day, idx) => {
-                          const isToday = day.toDateString() === new Date().toDateString();
-                          return (
-                              <div key={idx} className="flex-1 min-w-[80px] p-2 text-center border-r border-gray-100 last:border-0">
-                                  <div className={`text-[9px] font-black uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
-                                      {day.toLocaleDateString('ru-RU', { weekday: 'short' })}
+          <div className={`flex flex-col h-[600px] bg-white border border-gray-100 shadow-sm overflow-hidden relative ${hideHeader ? 'rounded-b-[2rem] border-t-0' : 'rounded-[2rem]'}`}>
+              {/* Header Days - Conditionally hidden */}
+              {!hideHeader && (
+                  <div className="flex border-b border-gray-100 bg-gray-50/50 shrink-0 z-10 sticky top-0">
+                      <div className="w-12 shrink-0 border-r border-gray-100 bg-white" /> {/* Time column header */}
+                      <div className="flex flex-1 overflow-x-auto no-scrollbar">
+                          {days.map((day, idx) => {
+                              const isToday = day.toDateString() === new Date().toDateString();
+                              return (
+                                  <div key={idx} className="flex-1 min-w-[80px] p-2 text-center border-r border-gray-100 last:border-0">
+                                      <div className={`text-[9px] font-black uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
+                                          {day.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                                      </div>
+                                      <div className={`text-sm font-black ${isToday ? 'text-blue-600' : 'text-[#1C1C1E]'}`}>
+                                          {day.getDate()}
+                                      </div>
                                   </div>
-                                  <div className={`text-sm font-black ${isToday ? 'text-blue-600' : 'text-[#1C1C1E]'}`}>
-                                      {day.getDate()}
-                                  </div>
-                              </div>
-                          );
-                      })}
+                              );
+                          })}
+                      </div>
                   </div>
-              </div>
+              )}
 
               {/* Time Grid Body */}
               <div className="flex-1 overflow-y-auto no-scrollbar relative">
@@ -396,7 +401,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             return (
                                 <button 
                                     key={date.toISOString()} 
-                                    onClick={() => handleDateSelect(date)}
+                                    onClick={() => {
+                                        handleDateSelect(date);
+                                        // Open modal with this date
+                                        setActiveEvent({ event: null, prefill: { date: date.toISOString().split('T')[0] } });
+                                    }}
                                     className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 text-blue-500' : 'text-[#1C1C1E] hover:bg-gray-50'}`}
                                 >
                                     <span className={`text-xs ${isSelected || isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
@@ -430,7 +439,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
         {viewMode === 'day' && (
             <>
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white text-center mb-4">
+                <div className="bg-white p-6 rounded-t-[2.5rem] shadow-soft border border-white border-b-0 text-center mb-0 relative z-20">
                     <div className="flex items-center justify-between">
                          <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronLeft size={20}/></button>
                          <div className="flex flex-col items-center">
@@ -441,7 +450,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                          <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronRight size={20}/></button>
                     </div>
                 </div>
-                {renderTimeGrid([selectedDate])}
+                {/* Render grid without header and attach it visually to the top block */}
+                {renderTimeGrid([selectedDate], true)}
             </>
         )}
       </div>
@@ -455,7 +465,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             onClose={() => setActiveEvent(null)} 
             onSave={e => { 
               setEvents(prev => {
-                const updated = Array.isArray(prev) ? [...prev] : [];
+                const updated = [...prev];
                 const existingIndex = updated.findIndex(ev => ev.id === e.id);
                 if (existingIndex > -1) {
                   updated[existingIndex] = e;

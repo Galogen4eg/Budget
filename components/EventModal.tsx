@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -151,18 +151,33 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
 
           <div className="bg-white p-5 rounded-[2rem] border border-white">
-             <span className="text-[10px] font-black text-gray-400 uppercase mb-3 block flex items-center gap-2"><Timer size={12}/> Продолжительность</span>
-             <div className="flex items-center gap-4">
-                <input 
-                    type="range" 
-                    min="0.5" 
-                    max="8" 
-                    step="0.5" 
-                    value={dur} 
-                    onChange={e => setDur(parseFloat(e.target.value))}
-                    className="flex-1 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <span className="font-black text-lg w-16 text-right tabular-nums text-[#1C1C1E]">{dur} ч.</span>
+             <span className="text-[10px] font-black text-gray-400 uppercase mb-3 block flex items-center gap-2"><Timer size={12}/> Продолжительность (часов)</span>
+             <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-2">
+                <button 
+                    type="button" 
+                    onClick={() => setDur(Math.max(0.5, dur - 0.5))}
+                    className="w-10 h-10 bg-white shadow-sm rounded-xl flex items-center justify-center text-gray-500 hover:text-blue-500 active:scale-95 transition-all"
+                >
+                    <Minus size={18} strokeWidth={3} />
+                </button>
+                <div className="flex items-baseline gap-1">
+                    <input 
+                        type="number" 
+                        min="0.5" 
+                        step="0.5" 
+                        value={dur} 
+                        onChange={e => setDur(parseFloat(e.target.value))}
+                        className="font-black text-2xl bg-transparent text-center w-16 outline-none text-[#1C1C1E]"
+                    />
+                    <span className="font-bold text-gray-400 text-xs">ч.</span>
+                </div>
+                <button 
+                    type="button" 
+                    onClick={() => setDur(dur + 0.5)}
+                    className="w-10 h-10 bg-white shadow-sm rounded-xl flex items-center justify-center text-gray-500 hover:text-blue-500 active:scale-95 transition-all"
+                >
+                    <Plus size={18} strokeWidth={3} />
+                </button>
              </div>
           </div>
           
@@ -189,7 +204,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
               <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Чек-лист</span>
             </div>
             <div className="flex gap-2">
-              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] shadow-sm" />
+              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]" />
               <button type="button" onClick={addChecklistItem} className="w-12 h-12 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
             </div>
             <div className="space-y-3">
@@ -209,7 +224,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
         </div>
 
-        <div className="p-6 pb-8 md:pb-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
+        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
              <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
@@ -220,7 +235,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
              )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

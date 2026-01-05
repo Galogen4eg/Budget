@@ -1,8 +1,0 @@
-{
-  "name": "FamilyBudget",
-  "description": "A minimalist family finance tracker built with Apple's iOS/macOS design principles, featuring glassmorphism, smooth animations, and interactive dashboards.",
-  "requestFramePermissions": [
-    "microphone",
-    "camera"
-  ]
-}

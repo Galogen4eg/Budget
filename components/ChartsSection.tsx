@@ -57,26 +57,15 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
   const totalExpense = expenseData.reduce((sum, item) => sum + item.value, 0);
 
-  // Logic: First expand, then drill down immediately
+  // Logic: In expanded mode, click drills down.
+  // In widget mode, the overlay handles the click to expand.
   const handleSliceClick = (index: number, catId: string, e?: React.MouseEvent) => {
       if (e) e.stopPropagation(); 
-      
-      if (!isExpanded) {
-          setIsExpanded(true);
-          return;
-      }
-
-      // If expanded, drill down immediately
       if (onCategoryClick) onCategoryClick(catId);
   };
 
   const handleLegendClick = (catId: string, index: number, e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!isExpanded) {
-          setIsExpanded(true);
-          return;
-      }
-      
       if (onCategoryClick) onCategoryClick(catId);
   };
 
@@ -86,8 +75,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
       // Always show total in center unless hovering a slice
       const centerValue = activeItem ? activeItem.value : totalExpense;
       const centerLabel = activeItem ? activeItem.name : 'Всего';
-      const centerColor = activeItem ? activeItem.color : (settings.theme === 'dark' ? '#FFFFFF' : '#1C1C1E');
-
+      
       // Legend items configuration
       const legendItems = isFullScreen ? expenseData : expenseData.slice(0, 4);
 
@@ -105,19 +93,8 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
             {/* Chart Area */}
             <div className={`relative ${isFullScreen ? 'flex-1 w-full md:w-1/2 min-h-[300px]' : 'w-full md:w-1/2 h-40 md:h-full shrink-0'}`}>
                 
-                {/* INVISIBLE CLICK OVERLAY FOR WIDGET MODE */}
-                {!isFullScreen && (
-                    <div 
-                        className="absolute inset-0 z-30 cursor-pointer" 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsExpanded(true);
-                        }}
-                    />
-                )}
-
                 {/* Center Text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pointer-events-none">
                     <span 
                         className="text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 truncate max-w-[80%] text-center opacity-50"
                         style={{ color: settings.theme === 'dark' ? 'white' : '#1C1C1E' }}
@@ -125,7 +102,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         {centerLabel}
                     </span>
                     
-                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-lg md:text-xl'}`}>
+                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-sm md:text-xl'}`}>
                         {settings.privacyMode 
                             ? '•••' 
                             : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
@@ -139,7 +116,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             activeIndex={activeIndex}
                             activeShape={renderActiveShape}
                             data={expenseData}
-                            innerRadius={isFullScreen ? "65%" : "65%"} // Increased for better text visibility
+                            innerRadius={isFullScreen ? "65%" : "65%"} 
                             outerRadius={isFullScreen ? "85%" : "80%"}
                             paddingAngle={4}
                             cornerRadius={6}
@@ -147,10 +124,10 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             stroke="none"
                             onMouseEnter={(_, index) => isFullScreen && window.innerWidth > 768 && setActiveIndex(index)}
                             onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
-                            onClick={(_, index, e) => handleSliceClick(index, expenseData[index].id, e)}
+                            onClick={(_, index, e) => isFullScreen && handleSliceClick(index, expenseData[index].id, e)}
                             animationBegin={0}
-                            animationDuration={1000}
-                            style={{ cursor: 'pointer' }}
+                            animationDuration={800}
+                            style={{ cursor: isFullScreen ? 'pointer' : 'default' }}
                         >
                             {expenseData.map((entry, index) => (
                                 <Cell 
@@ -182,10 +159,10 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             key={item.name}
                             onMouseEnter={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(idx)}
                             onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
-                            onClick={(e) => handleLegendClick(item.id, idx, e)}
+                            onClick={(e) => isFullScreen && handleLegendClick(item.id, idx, e)}
                             className={`
-                                group/item flex items-center justify-between cursor-pointer transition-all duration-200 rounded-xl
-                                ${isFullScreen ? 'p-3 hover:bg-gray-50 dark:hover:bg-[#3A3A3C]' : 'py-1'}
+                                group/item flex items-center justify-between transition-all duration-200 rounded-xl
+                                ${isFullScreen ? 'p-3 hover:bg-gray-50 dark:hover:bg-[#3A3A3C] cursor-pointer' : 'py-1 pointer-events-none'}
                                 ${isFullScreen && activeIndex !== -1 && !isActive ? 'opacity-30' : 'opacity-100'}
                             `}
                         >
@@ -226,11 +203,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                 {/* "See more" link */}
                 {!isFullScreen && expenseData.length > 4 && (
                     <div 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsExpanded(true);
-                        }}
-                        className="text-[9px] font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400 mt-1 cursor-pointer flex items-center gap-1 pl-5"
+                        className="text-[9px] font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 pl-5 pointer-events-none"
                     >
                         Еще {expenseData.length - 4} категорий <ChevronRight size={10} />
                     </div>
@@ -244,9 +217,16 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
     <>
       {/* Widget Layout */}
       <div 
-        onClick={() => setIsExpanded(true)}
         className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none transition-all flex flex-col h-full relative group overflow-hidden p-5 cursor-pointer"
       >
+          {/* Overlay to catch clicks in widget mode */}
+          {!isExpanded && (
+              <div 
+                  className="absolute inset-0 z-50 bg-transparent" 
+                  onClick={() => setIsExpanded(true)}
+              />
+          )}
+
           {/* Subtle bg decoration */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-[60px] opacity-60 pointer-events-none -mr-10 -mt-10" />
           
@@ -261,11 +241,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                   </h3>
               </div>
               <button 
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(true);
-                  }}
-                  className="p-1.5 -mr-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors bg-white dark:bg-[#2C2C2E] rounded-full shadow-sm"
+                  className="p-1.5 -mr-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors bg-white dark:bg-[#2C2C2E] rounded-full shadow-sm z-40"
                   title="Развернуть"
               >
                   <Maximize2 size={14} />

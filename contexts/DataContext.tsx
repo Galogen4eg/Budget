@@ -135,11 +135,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGlobalRules(rules);
     });
 
-    if (!familyId) {
-        // ONLY Load demo data if no family (Guest/Demo Mode)
+    // Check if we are in "Explicit Demo Mode" (Guest or specific demo user)
+    const isDemoUser = !user || user.uid === 'demo-local-user';
+
+    if (isDemoUser) {
         setTransactions(DEMO_TRANSACTIONS);
         setMembers(FAMILY_MEMBERS);
         setCategories(INITIAL_CATEGORIES);
+        return unsubGlobal;
+    }
+
+    if (!familyId) {
+        // Real user logged in but familyId not yet loaded.
+        // Keep data empty to avoid showing demo content.
+        setTransactions([]);
+        setMembers([]);
+        setCategories([]);
         return unsubGlobal;
     }
 
@@ -172,7 +183,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ];
 
     return () => unsubs.forEach(u => u());
-  }, [familyId]);
+  }, [familyId, user]); // Added user dependency to react to login state changes
 
   // Safety net for categories
   useEffect(() => {

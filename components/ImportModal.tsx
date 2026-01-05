@@ -114,6 +114,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 180 }}
         className="relative bg-[#F2F2F7] w-full max-w-lg rounded-[3rem] p-0 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
       >
         <div className="bg-white p-8 flex flex-col items-center text-center border-b border-gray-100">

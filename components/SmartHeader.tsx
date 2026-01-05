@@ -109,15 +109,6 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                             {budgetMode === 'family' ? 'Семья' : 'Личный'}
                         </span>
                     </button>
-                    {onInvite && (
-                        <button 
-                            onClick={onInvite}
-                            className="p-1.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-95"
-                            title="Пригласить в семью"
-                        >
-                            <UserPlus size={14} />
-                        </button>
-                    )}
                 </div>
                 
                 <div className="flex items-center gap-2 md:gap-3">

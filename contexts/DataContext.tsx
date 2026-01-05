@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'meters', 'subs', 'wishlist', 'chat', 'pantry', 'debts', 'projects'],
+  enabledServices: ['wallet', 'subs', 'chat', 'debts', 'projects'],
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,
   pushEnabled: false,
@@ -93,14 +93,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { familyId, user } = useAuth();
 
   // --- Data State ---
-  // Initialize with EMPTY arrays to prevent flashing demo data for real users
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [pantry, setPantryState] = useState<PantryItem[]>([]);
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
+  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
   
@@ -135,37 +134,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGlobalRules(rules);
     });
 
-    // Check if we are in "Explicit Demo Mode" (Guest or specific demo user)
-    const isDemoUser = !user || user.uid === 'demo-local-user';
-
-    if (isDemoUser) {
-        setTransactions(DEMO_TRANSACTIONS);
-        setMembers(FAMILY_MEMBERS);
-        setCategories(INITIAL_CATEGORIES);
-        return unsubGlobal;
-    }
-
     if (!familyId) {
-        // Real user logged in but familyId not yet loaded.
-        // Keep data empty to avoid showing demo content.
-        setTransactions([]);
-        setMembers([]);
-        setCategories([]);
+        // Load demo data if no family
+        setTransactions(DEMO_TRANSACTIONS);
         return unsubGlobal;
     }
 
     const unsubs = [
       unsubGlobal,
-      subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[])),
+      subscribeToCollection(familyId, 'transactions', (data) => {
+          if (data.length > 0) setTransactions(data as Transaction[]);
+          else setTransactions(DEMO_TRANSACTIONS); 
+      }),
       subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[])),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
       subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
       subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])),
-      subscribeToCollection(familyId, 'members', (data) => setMembers(data as FamilyMember[])),
-      subscribeToCollection(familyId, 'categories', (data) => {
-          // If DB has categories, use them. If empty (new account), fallback to defaults but save them later if needed.
+      subscribeToCollection(familyId, 'members', (data) => { if (data.length) setMembers(data as FamilyMember[]); }),
+      subscribeToCollection(familyId, 'categories', (data) => { 
           if (data.length > 0) setCategories(data as Category[]);
-          else setCategories(INITIAL_CATEGORIES);
       }),
       subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])),
       subscribeToCollection(familyId, 'subscriptions', (data) => setSubscriptions(data as Subscription[])),
@@ -183,15 +170,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ];
 
     return () => unsubs.forEach(u => u());
-  }, [familyId, user]); // Added user dependency to react to login state changes
+  }, [familyId]);
 
   // Safety net for categories
   useEffect(() => {
-      // Only attempt restore if we are logged in and have 0 categories loaded after initial sync attempt
-      if (familyId && categories.length === 0) {
+      if (categories.length === 0) {
           setCategories(INITIAL_CATEGORIES);
-          addItemsBatch(familyId, 'categories', INITIAL_CATEGORIES)
-            .catch(err => console.error("Failed to restore categories to DB", err));
+          if (familyId) {
+              addItemsBatch(familyId, 'categories', INITIAL_CATEGORIES)
+                .catch(err => console.error("Failed to restore categories to DB", err));
+          }
       }
   }, [categories, familyId]);
 

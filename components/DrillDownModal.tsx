@@ -17,13 +17,14 @@ interface DrillDownModalProps {
   members: FamilyMember[];
   categories: Category[];
   onLearnRule: (rule: LearnedRule) => void;
+  onApplyRuleToExisting?: (rule: LearnedRule) => void;
   onEditTransaction: (tx: Transaction) => void;
 }
 
 const DrillDownModal: React.FC<DrillDownModalProps> = ({ 
     categoryId, merchantName, onClose, 
     transactions, setTransactions, settings, members, categories, 
-    onLearnRule, onEditTransaction 
+    onLearnRule, onApplyRuleToExisting, onEditTransaction 
 }) => {
   const category = categories.find(c => c.id === categoryId);
   const title = merchantName || category?.label || 'История';
@@ -52,7 +53,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 32, stiffness: 350 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 180 }}
         className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 shrink-0">
@@ -82,6 +83,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 members={members}
                 categories={categories}
                 onLearnRule={onLearnRule}
+                onApplyRuleToExisting={onApplyRuleToExisting}
                 onEditTransaction={onEditTransaction}
                 selectedCategoryId={categoryId}
                 selectedMerchantName={merchantName}

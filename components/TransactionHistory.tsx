@@ -107,10 +107,14 @@ const TransactionCard = React.memo(({
         </div>
         <button 
             onClick={(e) => { e.stopPropagation(); onStartLearning(tx); }}
-            className={`p-2 rounded-xl transition-colors ${isUnrecognized ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-500' : 'bg-gray-50 dark:bg-[#3A3A3C] text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100'}`}
+            className={`p-2 rounded-xl transition-all ${
+                isUnrecognized 
+                    ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400 opacity-100 shadow-sm' 
+                    : 'bg-gray-50 dark:bg-[#3A3A3C] text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100'
+            }`}
             title="Обучить категорию"
         >
-            <Sparkles size={16} />
+            <Sparkles size={16} fill={isUnrecognized ? "currentColor" : "none"} />
         </button>
       </motion.div>
     );
@@ -387,7 +391,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLearningTx(null)} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg rounded-[2.5rem] p-0 shadow-2xl flex flex-col max-h-[90vh]">
                 
-                <div className="p-6 bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 flex justify-between items-center rounded-t-[2.5rem]">
+                <div className="p-6 bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 flex justify-between items-center rounded-t-[2.5rem] shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                             <Sparkles size={20} className="text-blue-500" />
@@ -494,17 +498,17 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto no-scrollbar content-start animate-in fade-in">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto no-scrollbar content-start animate-in fade-in">
                                 {categories.map(cat => (
                                     <button 
                                         key={cat.id} 
                                         onClick={() => setLearningCat(cat.id)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all border ${learningCat === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent opacity-80 hover:opacity-100'}`}
+                                        className={`flex flex-col items-center justify-center gap-2 p-4 h-full rounded-2xl transition-all border ${learningCat === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent opacity-80 hover:opacity-100 hover:scale-[1.02]'}`}
                                     >
-                                        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-white text-[10px] shadow-sm" style={{ backgroundColor: cat.color }}>
-                                            {getIconById(cat.icon, 12)}
+                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shadow-sm" style={{ backgroundColor: cat.color }}>
+                                            {getIconById(cat.icon, 20)}
                                         </div>
-                                        <span className={`text-[10px] font-bold ${learningCat === cat.id ? 'text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'}`}>{cat.label}</span>
+                                        <span className={`text-xs font-bold text-center leading-tight ${learningCat === cat.id ? 'text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'}`}>{cat.label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -512,7 +516,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                     </div>
                 </div>
 
-                <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex flex-col gap-3 rounded-b-[2.5rem]">
+                <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex flex-col gap-3 rounded-b-[2.5rem] shrink-0">
                     
                     {/* Scope Selector */}
                     <div className="flex bg-gray-100 dark:bg-[#2C2C2E] p-1 rounded-xl mb-1">

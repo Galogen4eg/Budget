@@ -568,14 +568,14 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             {isModalOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-4">
                     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}/>
-                    <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} transition={{type:"spring", damping:25, stiffness:300}} className="relative bg-[#F2F2F7] dark:bg-[#1C1C1E] border dark:border-white/10 w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]">
+                    <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} transition={{type:"spring", damping:25, stiffness:300}} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-black text-xl text-[#1C1C1E] dark:text-white">{editingItemId ? 'Изменить' : 'Добавить товар'}</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 dark:bg-white/10 p-2 rounded-full text-gray-500 dark:text-white"><X size={20}/></button>
+                            <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 dark:bg-[#2C2C2E] p-2 rounded-full text-gray-500 dark:text-white"><X size={20}/></button>
                         </div>
                         
                         <div className="space-y-4 overflow-y-auto no-scrollbar pb-20">
-                            <div className="bg-white dark:bg-[#2C2C2E] p-4 rounded-[2rem] shadow-sm">
+                            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm">
                                 <input 
                                     type="text" 
                                     placeholder="Название (Молоко)" 
@@ -586,14 +586,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                     autoFocus
                                 />
                                 {lastPrice !== null && (
-                                    <div className="mt-2 text-[10px] font-bold text-gray-400 uppercase bg-gray-50 dark:bg-[#1C1C1E] px-2 py-1 rounded w-fit">
+                                    <div className="mt-2 text-[10px] font-bold text-gray-400 uppercase bg-gray-50 dark:bg-[#2C2C2E] px-2 py-1 rounded w-fit">
                                         Последняя цена: {lastPrice} {settings.currency}
                                     </div>
                                 )}
                             </div>
 
                             <div className="flex gap-3">
-                                <div className="flex-1 bg-white dark:bg-[#2C2C2E] p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-white/5">
+                                {/* Changed background to be cleaner */}
+                                <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-white/5">
                                     <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Кол-во</span>
                                     <input 
                                         type="number" 
@@ -603,11 +604,11 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                         className="w-full font-bold outline-none bg-transparent text-[#1C1C1E] dark:text-white text-lg"
                                     />
                                 </div>
-                                <div className="flex-1 bg-white dark:bg-[#2C2C2E] p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-white/5">
+                                <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-white/5">
                                     <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Ед. изм.</span>
                                     <div className="flex gap-2 overflow-x-auto no-scrollbar">
                                         {UNITS.map(u => (
-                                            <button key={u} onClick={() => setUnit(u)} className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors ${unit === u ? 'bg-blue-500 text-white' : 'bg-gray-50 dark:bg-[#1C1C1E] text-gray-400'}`}>
+                                            <button key={u} onClick={() => setUnit(u)} className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors ${unit === u ? 'bg-blue-500 text-white' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-400'}`}>
                                                 {u}
                                             </button>
                                         ))}
@@ -615,14 +616,14 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                 </div>
                             </div>
 
-                            <div className="bg-white dark:bg-[#2C2C2E] p-4 rounded-[2rem] shadow-sm">
+                            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm">
                                 <span className="text-[9px] font-black text-gray-400 uppercase block mb-2">Категория</span>
                                 <div className="grid grid-cols-4 gap-2">
                                     {STORE_AISLES.map(aisle => (
                                         <button 
                                             key={aisle.id} 
                                             onClick={() => setSelectedAisle(aisle.id)} 
-                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all border ${selectedAisle === aisle.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'border-transparent hover:bg-gray-50 dark:hover:bg-[#1C1C1E]'}`}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all border ${selectedAisle === aisle.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'border-transparent hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
                                         >
                                             <span className="text-xl">{aisle.icon}</span>
                                             <span className="text-[8px] font-bold text-gray-500 dark:text-gray-400 text-center leading-tight">{aisle.label.split(' ')[0]}</span>

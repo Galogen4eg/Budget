@@ -59,24 +59,36 @@ export const addGlobalRule = async (rule: LearnedRule) => {
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
+  
+  let userSnap;
+  try {
+      userSnap = await getDoc(userRef);
+  } catch (e) {
+      // Squelch permission error if user doesn't exist yet (common in strict security rules)
+      console.warn("Could not read user doc, attempting creation flow...", e);
+  }
 
-  if (userSnap.exists()) {
+  if (userSnap && userSnap.exists()) {
     const data = userSnap.data();
     const familyId = data.familyId;
     
     // Self-healing: Ensure family document actually exists
     if (familyId) {
        const familyRef = doc(db, 'families', familyId);
-       const familySnap = await getDoc(familyRef);
-       if (!familySnap.exists()) {
-           // Create missing family doc to satisfy security rules
-           await setDoc(familyRef, {
-               ownerId: user.uid,
-               createdAt: new Date().toISOString(),
-               name: 'Моя семья',
-               members: [user.uid]
-           });
+       // We try/catch here too just in case
+       try {
+           const familySnap = await getDoc(familyRef);
+           if (!familySnap.exists()) {
+               // Create missing family doc to satisfy security rules
+               await setDoc(familyRef, {
+                   ownerId: user.uid,
+                   createdAt: new Date().toISOString(),
+                   name: 'Моя семья',
+                   members: [user.uid]
+               });
+           }
+       } catch (e) {
+           console.warn("Error checking family existence:", e);
        }
     }
     return familyId;
@@ -89,30 +101,14 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       familyId: defaultFamilyId 
     });
 
-    // 2. Check if Family Document ALREADY exists (Legacy Migration or Re-login)
+    // 2. Create Family Document (Critical for Security Rules)
     const familyRef = doc(db, 'families', defaultFamilyId);
-    const familySnap = await getDoc(familyRef);
-
-    if (!familySnap.exists()) {
-        // Only create if it doesn't exist, to prevent overwriting members list
-        await setDoc(familyRef, {
-            ownerId: user.uid,
-            createdAt: new Date().toISOString(),
-            name: 'Моя семья',
-            members: [user.uid] // Initial member list
-        });
-    } else {
-        // If family exists but we are here, it means 'users' mapping was missing.
-        // We just restored the mapping.
-        // Optional: Ensure current user is in members list of existing family
-        const familyData = familySnap.data();
-        const members = familyData.members || [];
-        if (!members.includes(user.uid)) {
-            await updateDoc(familyRef, {
-                members: [...members, user.uid]
-            });
-        }
-    }
+    await setDoc(familyRef, {
+        ownerId: user.uid,
+        createdAt: new Date().toISOString(),
+        name: 'Моя семья',
+        members: [user.uid] // Initial member list
+    });
 
     return defaultFamilyId;
   }

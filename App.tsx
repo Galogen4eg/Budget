@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category 
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule 
 } from './types';
 
 import SmartHeader from './components/SmartHeader';
@@ -18,11 +18,12 @@ import SpendingCalendar from './components/SpendingCalendar';
 import MandatoryExpensesList from './components/MandatoryExpensesList';
 import CategoryProgress from './components/CategoryProgress';
 import LoginScreen from './components/LoginScreen';
+import ImportModal from './components/ImportModal';
 
 // Lazy Load Modals & Heavy Components
 const AddTransactionModal = React.lazy(() => import('./components/AddTransactionModal'));
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
-const ImportModal = React.lazy(() => import('./components/ImportModal'));
+// ImportModal moved to static import to prevent 'Failed to fetch dynamically imported module'
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
 const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
@@ -177,6 +178,31 @@ export default function App() {
   const handleEditTransaction = (tx: Transaction) => {
       setSelectedTx(tx);
       setIsAddModalOpen(true);
+  };
+
+  const handleApplyRuleToExisting = async (rule: LearnedRule) => {
+      const changedTxs: Transaction[] = [];
+      const updatedTransactions = transactions.map(tx => {
+           const rawNote = (tx.rawNote || tx.note).toLowerCase();
+           if (rawNote.includes(rule.keyword.toLowerCase())) {
+               if (tx.category !== rule.categoryId || tx.note !== rule.cleanName) {
+                   const newTx = { ...tx, category: rule.categoryId, note: rule.cleanName };
+                   changedTxs.push(newTx);
+                   return newTx;
+               }
+           }
+           return tx;
+      });
+
+      if (changedTxs.length > 0) {
+          setTransactions(updatedTransactions);
+          showNotify('success', `Обновлено ${changedTxs.length} операций`);
+          if (familyId) {
+              await updateItemsBatch(familyId, 'transactions', changedTxs);
+          }
+      } else {
+          showNotify('success', 'Все операции уже обновлены');
+      }
   };
 
   const handleDrillDown = (categoryId: string, merchantName?: string) => {
@@ -422,7 +448,12 @@ export default function App() {
                 className="space-y-6"
             >
                 <div className="flex gap-2 mb-4">
-                    <button className="flex-1 bg-white dark:bg-[#1C1C1E] dark:text-white p-3 rounded-2xl font-bold shadow-sm border border-transparent dark:border-white/5">Операции</button>
+                    <button 
+                        className="flex-1 bg-white dark:bg-[#1C1C1E] dark:text-white p-3 rounded-2xl font-bold shadow-sm border border-transparent dark:border-white/5 active:scale-95 transition-all"
+                        onClick={() => setIsAddModalOpen(true)}
+                    >
+                        Операции
+                    </button>
                     <button 
                         className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-400 p-3 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all" 
                         onClick={() => document.getElementById('import-input')?.click()}
@@ -463,6 +494,7 @@ export default function App() {
                     settings={settings}
                     onCategoryClick={(catId) => handleDrillDown(catId)}
                     onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)}
+                    currentMonth={currentMonth}
                 />
 
                 <MandatoryExpensesList 
@@ -488,6 +520,7 @@ export default function App() {
                         setLearnedRules(prev => [...prev, rule]);
                         if(familyId) await addItem(familyId, 'rules', rule);
                     }}
+                    onApplyRuleToExisting={handleApplyRuleToExisting}
                     onEditTransaction={handleEditTransaction}
                     onAddCategory={handleAddCategory}
                 />
@@ -613,6 +646,7 @@ export default function App() {
                         setLearnedRules(prev => [...prev, rule]);
                         if(familyId) await addItem(familyId, 'rules', rule);
                     }}
+                    onApplyRuleToExisting={handleApplyRuleToExisting}
                     onEditTransaction={handleEditTransaction}
                 />
             )}

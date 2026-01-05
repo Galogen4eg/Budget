@@ -152,7 +152,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
               config: { responseMimeType: "application/json" }
           });
 
-          const jsonStr = response.text || "{}";
+          const jsonStr = response.text || "[]";
           const data = JSON.parse(jsonStr);
 
           if (data.amount) setAmount(String(data.amount));
@@ -194,7 +194,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 32, stiffness: 350 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 180 }}
         className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="bg-white dark:bg-[#1C1C1E] p-7 flex justify-between items-center border-b border-gray-100 dark:border-white/5">

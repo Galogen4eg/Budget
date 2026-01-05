@@ -13,12 +13,21 @@ interface CategoryProgressProps {
   categories: Category[];
   onCategoryClick?: (categoryId: string) => void;
   onSubCategoryClick?: (catId: string, merchantName: string) => void;
+  currentMonth?: Date;
 }
 
-const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onSubCategoryClick }) => {
+const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onSubCategoryClick, currentMonth }) => {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
-  const expenses = transactions.filter(t => t.type === 'expense');
+  // Filter expenses by date if currentMonth provided
+  const expenses = transactions.filter(t => {
+      if (t.type !== 'expense') return false;
+      if (currentMonth) {
+          const d = new Date(t.date);
+          return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+      }
+      return true;
+  });
 
   const categoryData = categories.map(cat => {
     const catTransactions = expenses.filter(t => t.category === cat.id);

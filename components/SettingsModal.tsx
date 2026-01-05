@@ -10,13 +10,12 @@ import {
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, Home
+  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import MandatoryExpenseModal from './MandatoryExpenseModal';
 import PinScreen from './PinScreen';
-import { addGlobalRule } from '../utils/db';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -42,6 +41,7 @@ interface SettingsModalProps {
   onUpdateTransactions?: (transactions: Transaction[]) => void;
 }
 
+// Icons removed as requested
 const WIDGET_METADATA = [ 
   { id: 'balance', label: 'Баланс' }, 
   { id: 'goals', label: 'Цели' }, 
@@ -73,9 +73,7 @@ const PRESET_ICONS = [
   'Wrench', 'BookOpen', 'GraduationCap', 'Palmtree', 'Gift', 
   'Smartphone', 'Wifi', 'Scissors', 'Bath', 'Bed', 'Sofa', 'Bike', 'Drumstick',
   'Pill', 'Stethoscope', 'Dumbbell', 'Ticket', 'Monitor', 
-  'Footprints', 'Smile', 'HeartHandshake', 'FileText', 'ShieldCheck',
-  'Landmark', 'SmartphoneCharging', 'Armchair', 'Watch', 'Sun', 'Umbrella',
-  'Wine', 'GlassWater'
+  'Footprints', 'Smile', 'HeartHandshake', 'FileText', 'ShieldCheck'
 ];
 
 const AVAILABLE_TABS = [
@@ -150,16 +148,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<FamilyMember | null>(null);
   
   // Category State
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategoryForEdit, setSelectedCategoryForEdit] = useState<Category | null>(null);
   const [catLabel, setCatLabel] = useState('');
   const [catColor, setCatColor] = useState(PRESET_COLORS[0]);
   const [catIcon, setCatIcon] = useState(PRESET_ICONS[0]);
+  const [showRulesForCategory, setShowRulesForCategory] = useState<string | null>(null);
   
   // Rules State
   const [newRuleKeyword, setNewRuleKeyword] = useState('');
   const [newRuleCleanName, setNewRuleCleanName] = useState('');
-  const [saveScope, setSaveScope] = useState<'local' | 'global'>('local');
   
   // Mandatory Expense State
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
@@ -190,7 +187,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       // Reset rule input when changing categories
       setNewRuleKeyword('');
       setNewRuleCleanName('');
-      setSaveScope('local');
   }, [selectedCategoryForEdit, activeSection]);
 
   const handleChange = (key: keyof AppSettings, value: any) => {
@@ -203,13 +199,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   };
 
   const moveWidget = (index: number, direction: 'up' | 'down') => {
-      const newWidgets = [...settings.widgets];
+      const widgets = [...settings.widgets];
       if (direction === 'up' && index > 0) {
-          [newWidgets[index], newWidgets[index - 1]] = [newWidgets[index - 1], newWidgets[index]];
-      } else if (direction === 'down' && index < newWidgets.length - 1) {
-          [newWidgets[index], newWidgets[index + 1]] = [newWidgets[index + 1], newWidgets[index]];
+          [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
+      } else if (direction === 'down' && index < widgets.length - 1) {
+          [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
       }
-      handleChange('widgets', newWidgets);
+      handleChange('widgets', widgets);
   };
 
   const toggleTab = (id: string) => {
@@ -235,15 +231,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       setCatLabel(cat.label);
       setCatColor(cat.color);
       setCatIcon(cat.icon);
-      setIsCategoryModalOpen(true);
-  };
-
-  const handleCreateCategoryClick = () => {
-      setSelectedCategoryForEdit(null); // Ensure null for new mode
-      setCatLabel('');
-      setCatColor(PRESET_COLORS[0]);
-      setCatIcon(PRESET_ICONS[0]);
-      setIsCategoryModalOpen(true);
+      setShowRulesForCategory(cat.id); // Auto-show rules when editing
   };
 
   const handleSaveCategory = () => {
@@ -253,10 +241,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           const updated = categories.map(c => c.id === selectedCategoryForEdit.id ? { 
               ...c, 
               label: catLabel, 
-              color: catColor, 
+              color: catColor,
               icon: catIcon 
           } : c);
           onUpdateCategories(updated);
+          setSelectedCategoryForEdit(null);
       } else {
           const newId = catLabel.trim().toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
           const newCat: Category = {
@@ -267,38 +256,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
               isCustom: true
           };
           onUpdateCategories([...categories, newCat]);
-          // After create, allow adding rules immediately to new category
-          setSelectedCategoryForEdit(newCat); 
-          return; // Don't close, user might want to add rules
       }
-      setIsCategoryModalOpen(false);
+      setCatLabel('');
+      setCatColor(PRESET_COLORS[0]);
+      setCatIcon(PRESET_ICONS[0]);
   };
 
   const handleDeleteCategory = (id: string) => {
       if (confirm("Удалить категорию?")) {
           onUpdateCategories(categories.filter(c => c.id !== id));
-          setIsCategoryModalOpen(false);
+          setSelectedCategoryForEdit(null);
       }
   };
 
   const handleAddRule = () => {
       if (!newRuleKeyword.trim() || !selectedCategoryForEdit) return;
-      
       const newRule: LearnedRule = {
           id: Date.now().toString(),
           keyword: newRuleKeyword.trim(),
+          // Use provided display name, or fallback to category name
           cleanName: newRuleCleanName.trim() || selectedCategoryForEdit.label, 
           categoryId: selectedCategoryForEdit.id
       };
-      
-      // 1. Local Update
       onUpdateRules([...learnedRules, newRule]);
-      
-      // 2. Global Update (if selected)
-      if (saveScope === 'global') {
-          addGlobalRule(newRule);
-      }
-
       setNewRuleKeyword('');
       setNewRuleCleanName('');
   };
@@ -308,10 +288,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       
       let count = 0;
       const updatedTransactions = transactions.map(tx => {
+          // Check if this transaction matches any rule
           const rawNote = (tx.rawNote || tx.note).toLowerCase();
           const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
           
           if (matchedRule) {
+              // If it matches, check if it needs updating (different category or different clean name)
               if (tx.category !== matchedRule.categoryId || tx.note !== matchedRule.cleanName) {
                   count++;
                   return { 
@@ -581,186 +563,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 </div>
             </div>
         );
-        case 'members': return (
-            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Участники</h3></div>
-                <div className="space-y-4">
-                    <div className="flex gap-2">
-                        <input type="text" placeholder="Имя" value={newMemberName} onChange={e => setNewMemberName(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl font-bold text-sm text-[#1C1C1E] dark:text-white outline-none" />
-                        <button onClick={handleSaveMember} className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black p-3 rounded-2xl font-black text-xs uppercase">{selectedMemberForEdit ? 'Сохр.' : 'Доб.'}</button>
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setNewMemberColor(c)} className={`w-8 h-8 rounded-full shrink-0 transition-transform ${newMemberColor === c ? 'scale-125 ring-2 ring-gray-200 dark:ring-gray-600' : ''}`} style={{ backgroundColor: c }} />))}</div>
-                    <div className="space-y-3 pt-2">
-                        {members.map(m => (
-                            <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <MemberMarker member={m} size="sm" />
-                                    <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{m.name}</span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleEditMemberClick(m)} className="text-gray-400 hover:text-blue-500"><Edit2 size={16} /></button>
-                                    <button onClick={() => handleDeleteMember(m.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16} /></button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'categories': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Категории</h3>
-                        <button onClick={handleCreateCategoryClick} className="bg-blue-500 text-white p-2 rounded-xl active:scale-95 transition-transform"><Plus size={20}/></button>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2">
-                        {categories.map(cat => (
-                            <button 
-                                key={cat.id} 
-                                onClick={() => handleEditCategoryClick(cat)}
-                                className={`flex flex-col items-center p-3 rounded-2xl transition-all border bg-white dark:bg-[#2C2C2E] border-transparent hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95`}
-                            >
-                                <span style={{ color: cat.color }}>{getIconById(cat.icon, 20)}</span>
-                                <span className="text-[9px] font-bold mt-1 text-[#1C1C1E] dark:text-white w-full text-center break-words leading-tight whitespace-normal">{cat.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'widgets': return (
-            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Настройка виджетов</h3>
-                {settings.widgets.map((widget, index) => {
-                    const meta = WIDGET_METADATA.find(m => m.id === widget.id);
-                    if (!meta) return null;
-                    return (
-                        <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <button disabled={index === 0} onClick={() => moveWidget(index, 'up')}><ChevronUp size={16} className={index === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-[#1C1C1E] dark:text-white'} /></button>
-                                    <button disabled={index === settings.widgets.length - 1} onClick={() => moveWidget(index, 'down')}><ChevronDown size={16} className={index === settings.widgets.length - 1 ? 'text-gray-300 dark:text-gray-600' : 'text-[#1C1C1E] dark:text-white'} /></button>
-                                </div>
-                                <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{meta.label}</span>
-                            </div>
-                            <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
-                        </div>
-                    );
-                })}
-            </div>
-        );
-        case 'navigation': return (
-            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Нижнее меню</h3>
-                <div className="grid grid-cols-2 gap-3">
-                    {AVAILABLE_TABS.map(tab => (
-                        <button 
-                            key={tab.id}
-                            onClick={() => toggleTab(tab.id)}
-                            className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${settings.enabledTabs.includes(tab.id) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent text-gray-400 opacity-60'}`}
-                        >
-                            {tab.icon}
-                            <span className="text-[10px] font-black uppercase mt-2">{tab.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-        );
-        case 'services': return (
-            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Активные сервисы</h3>
-                <div className="grid grid-cols-2 gap-3">
-                    {AVAILABLE_SERVICES.map(s => (
-                        <button 
-                            key={s.id}
-                            onClick={() => toggleService(s.id)}
-                            className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${settings.enabledServices.includes(s.id) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent text-gray-400 opacity-60'}`}
-                        >
-                            {s.icon}
-                            <span className="text-[10px] font-black uppercase mt-2">{s.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-        );
-        case 'telegram': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-5">
-                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Telegram & Уведомления</h3>
-                    <div className="space-y-3">
-                        <div>
-                            <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Bot Token</label>
-                            <input type="text" value={settings.telegramBotToken || ''} onChange={e => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" placeholder="12345:AbCdEf..." />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Chat ID</label>
-                            <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" placeholder="-100..." />
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl">
-                            <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">Отправлять события</span>
-                            <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
-                        </div>
-                    </div>
-                    
-                    <div className="pt-4 border-t border-gray-100 dark:border-white/10">
-                        <button 
-                            onClick={handleEnablePush}
-                            className={`w-full py-3 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all ${settings.pushEnabled ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-blue-500 text-white shadow-lg'}`}
-                        >
-                            <BellRing size={16} /> {settings.pushEnabled ? 'Push Активны' : 'Включить Push'}
-                        </button>
-                        {pushStatus && <p className="text-[10px] text-center text-gray-400 mt-2 font-bold">{pushStatus}</p>}
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Шаблоны сообщений</h3>
-                    <TemplateEditor 
-                        label="Шаблон события" 
-                        value={settings.eventTemplate || '📅 {title}\n🕒 {date} {time}\n📍 {description}'} 
-                        onChange={(val) => handleChange('eventTemplate', val)}
-                        variables={['{title}', '{date}', '{time}', '{description}']}
-                    />
-                    <TemplateEditor 
-                        label="Шаблон покупок" 
-                        value={settings.shoppingTemplate || '🛒 Список покупок:\n{items}'} 
-                        onChange={(val) => handleChange('shoppingTemplate', val)}
-                        variables={['{items}']}
-                    />
-                </div>
-            </div>
-        );
-        case 'family': return (
-            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-6">
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-tr from-purple-500 to-blue-500 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white shadow-lg">
-                        <Users size={32} />
-                    </div>
-                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Семейный доступ</h3>
-                    <p className="text-xs text-gray-400 font-medium mt-1">Делитесь бюджетом с близкими</p>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl text-center space-y-2 border border-gray-100 dark:border-white/5">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Ваш ID семьи</p>
-                    <div className="font-mono text-lg font-bold text-blue-600 dark:text-blue-400 break-all select-all">{currentFamilyId}</div>
-                    <div className="flex gap-2 justify-center mt-2">
-                        <button onClick={() => copyToClipboard(currentFamilyId || '')} className="p-2 bg-white dark:bg-white/10 rounded-xl shadow-sm hover:scale-105 transition-transform"><Copy size={16} className="text-gray-500 dark:text-white"/></button>
-                        <button onClick={shareInviteLink} className="p-2 bg-blue-500 rounded-xl shadow-md text-white hover:scale-105 transition-transform"><Share size={16}/></button>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Присоединиться к другой семье</label>
-                    <div className="flex gap-2">
-                        <input type="text" placeholder="Введите ID семьи" value={targetFamilyId} onChange={e => setTargetFamilyId(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-200 transition-colors" />
-                        <button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId.trim()} className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black px-4 rounded-2xl font-black text-xs uppercase disabled:opacity-50">Вход</button>
-                    </div>
-                    <p className="text-[9px] text-gray-400 px-2 leading-tight">Внимание: при смене семьи текущие локальные данные будут заменены данными новой семьи.</p>
-                </div>
-            </div>
-        );
     }
   };
 
@@ -768,7 +570,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     <>
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-5xl h-[85vh] md:rounded-[3rem] rounded-[2rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-white/10">
+        <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }} 
+            exit={{ scale: 0.95, opacity: 0 }} 
+            transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+            className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-5xl h-[85vh] md:rounded-[3rem] rounded-[2rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-white/10"
+        >
             
             {/* SIDEBAR */}
             <div className={`
@@ -803,7 +611,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
             {/* CONTENT AREA */}
             <div className={`flex-1 flex-col min-w-0 h-full overflow-hidden bg-[#F2F2F7] dark:bg-black md:flex ${showMobileMenu ? 'hidden' : 'flex'}`}>
-                <div className="p-4 md:p-6 border-b border-gray-200/50 dark:border-white/10 bg-white dark:bg-white/5 backdrop-blur-md flex justify-between items-center shrink-0">
+                <div className="p-4 md:p-6 border-b border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2">
                         <button onClick={() => setShowMobileMenu(true)} className="md:hidden p-2 -ml-2 text-gray-500 hover:text-[#1C1C1E] dark:text-gray-300 dark:hover:text-white">
                             <ArrowLeft size={24} />
@@ -820,121 +628,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             </div>
         </motion.div>
         </div>
-
-        {/* Category Edit Overlay */}
-        <AnimatePresence>
-            {isCategoryModalOpen && (
-                <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-[#1C1C1E]/50 backdrop-blur-md" onClick={() => setIsCategoryModalOpen(false)} />
-                    <motion.div 
-                        initial={{scale:0.9, opacity: 0}} 
-                        animate={{scale:1, opacity: 1}} 
-                        exit={{scale:0.9, opacity: 0}} 
-                        className="relative bg-[#F2F2F7] dark:bg-[#1C1C1E] border dark:border-white/10 w-full max-w-lg rounded-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
-                    >
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">{selectedCategoryForEdit ? 'Редактировать' : 'Новая категория'}</h3>
-                            <button onClick={() => setIsCategoryModalOpen(false)} className="bg-gray-200 dark:bg-white/10 p-2 rounded-full text-gray-500 dark:text-white"><X size={20}/></button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 pb-4">
-                            <div className="space-y-4">
-                                <input type="text" placeholder="Название" value={catLabel} onChange={e => setCatLabel(e.target.value)} className="w-full bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none" />
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase ml-2">Цвет</span>
-                                    <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">{PRESET_COLORS.map(c => (<button key={c} onClick={() => setCatColor(c)} className={`w-8 h-8 rounded-full shrink-0 transition-transform ${catColor === c ? 'scale-125 border-2 border-white' : ''}`} style={{ backgroundColor: c }} />))}</div>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase ml-2">Иконка</span>
-                                    {/* Changed from overflow-x-auto to flex-wrap with max-height for better desktop UX */}
-                                    <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto custom-scrollbar p-1 content-start">
-                                        {PRESET_ICONS.map(i => (
-                                            <button key={i} onClick={() => setCatIcon(i)} className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${catIcon === i ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black' : 'bg-white dark:bg-[#2C2C2E] text-gray-400'}`}>{getIconById(i, 20)}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {selectedCategoryForEdit && (
-                                <div className="bg-white dark:bg-[#2C2C2E] p-5 rounded-[2rem] border border-gray-100 dark:border-white/5 space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-black uppercase text-gray-400 tracking-widest">Правила</h3>
-                                        <div className="text-[10px] text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">
-                                            {learnedRules.filter(r => r.categoryId === selectedCategoryForEdit.id).length} шт
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex flex-col gap-2">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Ключевое слово (напр. uber)" 
-                                            value={newRuleKeyword} 
-                                            onChange={e => setNewRuleKeyword(e.target.value)} 
-                                            className="w-full bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" 
-                                        />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Название (напр. Такси)" 
-                                            value={newRuleCleanName} 
-                                            onChange={e => setNewRuleCleanName(e.target.value)} 
-                                            className="w-full bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" 
-                                        />
-                                        
-                                        <div className="flex bg-gray-100 dark:bg-[#1C1C1E] p-1 rounded-xl">
-                                            <button 
-                                                onClick={() => setSaveScope('local')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saveScope === 'local' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-[#1C1C1E] dark:text-white' : 'text-gray-400'}`}
-                                            >
-                                                <Home size={12} />
-                                                Локально
-                                            </button>
-                                            <button 
-                                                onClick={() => setSaveScope('global')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saveScope === 'global' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-purple-600 dark:text-purple-400' : 'text-gray-400'}`}
-                                            >
-                                                <Globe size={12} />
-                                                Глобально
-                                            </button>
-                                        </div>
-
-                                        <button 
-                                            onClick={handleAddRule} 
-                                            disabled={!newRuleKeyword.trim()}
-                                            className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-3 rounded-xl font-bold text-xs uppercase disabled:opacity-50"
-                                        >
-                                            Добавить правило
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                        {learnedRules.filter(r => r.categoryId === selectedCategoryForEdit.id).map(rule => (
-                                            <div key={rule.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#1C1C1E] rounded-xl">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-white">"{rule.keyword}"</span>
-                                                    <span className="text-[10px] text-gray-400">→ {rule.cleanName}</span>
-                                                </div>
-                                                <button onClick={() => deleteRule(rule.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    
-                                    <button onClick={handleApplyRulesToAll} className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-bold text-[10px] uppercase">
-                                        <Wand2 size={14}/> Применить ко всем
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-white/10 mt-2">
-                            <button onClick={handleSaveCategory} className="flex-1 bg-blue-500 text-white p-4 rounded-2xl font-black text-xs uppercase">{selectedCategoryForEdit ? 'Сохранить' : 'Создать'}</button>
-                            {selectedCategoryForEdit?.isCustom && (
-                                <button onClick={() => handleDeleteCategory(selectedCategoryForEdit.id)} className="p-4 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl"><Trash2 size={20} /></button>
-                            )}
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
 
         {isMandatoryModalOpen && (
             <MandatoryExpenseModal 

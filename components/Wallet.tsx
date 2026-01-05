@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2 } from 'lucide-react';
+import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, AlignJustify } from 'lucide-react';
 import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
@@ -25,6 +25,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [newNumber, setNewNumber] = useState('');
   const [newColor, setNewColor] = useState(CARD_COLORS[0]);
   const [newIcon, setNewIcon] = useState('ShoppingBag');
+  const [newFormat, setNewFormat] = useState<'qr' | 'code128' | 'ean13'>('code128');
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,18 +44,18 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
          number: cleanNumber,
          color: newColor,
          icon: newIcon,
-         barcodeType: 'code128'
+         barcodeFormat: newFormat
        };
        setCards(cards.map(c => c.id === editingCardId ? updated : c));
     } else {
-       // Create new with completely unique ID
+       // Create new
        const newCard: LoyaltyCard = {
          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
          name: newName,
          number: cleanNumber,
          color: newColor,
          icon: newIcon,
-         barcodeType: 'code128'
+         barcodeFormat: newFormat
        };
        setCards([...cards, newCard]);
     }
@@ -69,8 +70,9 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
       setNewNumber(card.number);
       setNewColor(card.color);
       setNewIcon(card.icon);
-      setSelectedCard(null); // Close view modal
-      setIsModalOpen(true); // Open edit modal
+      setNewFormat(card.barcodeFormat as any || 'code128');
+      setSelectedCard(null); 
+      setIsModalOpen(true); 
   };
 
   const handleDelete = (id: string) => {
@@ -83,14 +85,19 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     setNewNumber('');
     setNewColor(CARD_COLORS[0]);
     setNewIcon('ShoppingBag');
+    setNewFormat('code128');
     setIsAnalyzing(false);
     setEditingCardId(null);
   };
 
-  const scanBarcodeFromImage = async (file: File): Promise<string> => {
-      let barcodeResult = '';
+  const mapFormat = (fmt: string): 'qr' | 'code128' | 'ean13' => {
+      if (fmt.includes('QR')) return 'qr';
+      if (fmt.includes('EAN_13')) return 'ean13';
+      return 'code128';
+  };
 
-      // 1. Try Native BarcodeDetector (Fastest, supported in Chrome/Android/macOS)
+  const scanBarcodeFromImage = async (file: File): Promise<{text: string, format: string}> => {
+      // 1. Try Native BarcodeDetector
       try {
           if ('BarcodeDetector' in window) {
               const BarcodeDetector = (window as any).BarcodeDetector;
@@ -100,26 +107,26 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                   const bitmap = await createImageBitmap(file);
                   const barcodes = await detector.detect(bitmap);
                   if (barcodes.length > 0) {
-                      barcodeResult = barcodes[0].rawValue;
+                      return { text: barcodes[0].rawValue, format: barcodes[0].format };
                   }
               }
           }
       } catch (e) {
-          console.warn("Native barcode detection failed/unsupported", e);
+          console.warn("Native barcode detection failed", e);
       }
-
-      if (barcodeResult) return barcodeResult;
 
       // 2. Fallback to Html5Qrcode
       try {
           const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
-          const result = await html5QrCode.scanFile(file, false);
-          html5QrCode.clear(); 
-          return result;
+          const result = await html5QrCode.scanFileV2(file, false);
+          html5QrCode.clear();
+          if (result) {
+              return { text: result.decodedText, format: result.result.format?.formatName || '' };
+          }
       } catch (e) {
-          console.log("Html5Qrcode failed to detect barcode in file.", e);
-          return '';
+          console.log("Html5Qrcode failed", e);
       }
+      return { text: '', format: '' };
   };
 
   const analyzeImageWithGemini = async (file: File): Promise<any> => {
@@ -134,7 +141,9 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
           });
 
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const prompt = `Analyze this loyalty card image. Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
+          const prompt = `Analyze this loyalty card image. Extract info.
+          Return JSON only: { "name": string, "number": string, "color": string, "icon": string, "format": "qr" | "code128" }. 
+          If you see a square QR code, format is 'qr'. If you see lines/bars, format is 'code128'.`;
 
           const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
@@ -171,13 +180,18 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         if (aiResult.icon && CARD_ICONS.includes(aiResult.icon)) setNewIcon(aiResult.icon);
         
         let finalNumber = '';
-        if (barcodeResult) {
-            finalNumber = barcodeResult;
+        let finalFormat: any = 'code128';
+
+        if (barcodeResult.text) {
+            finalNumber = barcodeResult.text;
+            finalFormat = mapFormat(barcodeResult.format);
         } else if (aiResult.number) {
             finalNumber = aiResult.number.replace(/\s+/g, '');
+            if (aiResult.format) finalFormat = aiResult.format;
         }
         
         setNewNumber(finalNumber);
+        setNewFormat(finalFormat);
 
     } catch (err) {
         alert("Ошибка обработки изображения.");
@@ -186,6 +200,29 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         setIsAnalyzing(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const renderBarcode = (card: LoyaltyCard) => {
+      // Use BWIP-JS API for rendering. It's stable, free, and supports all formats.
+      // We wrap it in an image tag.
+      if (!card.number) return null;
+
+      let apiUrl = '';
+      if (card.barcodeFormat === 'qr') {
+          apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(card.number)}`;
+      } else {
+          // Default to code128 if not specified or ean13
+          const type = card.barcodeFormat === 'ean13' ? 'ean13' : 'code128';
+          apiUrl = `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(card.number)}&scale=3&height=12&includetext`;
+      }
+
+      return (
+          <img 
+            src={apiUrl} 
+            alt={card.number} 
+            className={`mix-blend-multiply dark:mix-blend-screen ${card.barcodeFormat === 'qr' ? 'w-48 h-48' : 'w-full h-24 object-contain'}`}
+          />
+      );
   };
 
   return (
@@ -226,8 +263,13 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                           {getIconById(card.icon, 20)}
                        </div>
                     </div>
-                    <div className="font-mono text-lg tracking-widest opacity-80 pt-4 truncate">
-                       {card.number}
+                    <div className="flex items-end justify-between pt-4">
+                        <div className="font-mono text-lg tracking-widest opacity-80 truncate max-w-[70%]">
+                           {card.number}
+                        </div>
+                        <div className="opacity-60">
+                            {card.barcodeFormat === 'qr' ? <QrCode size={24} /> : <Barcode size={24} />}
+                        </div>
                     </div>
                   </div>
                   
@@ -266,9 +308,17 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     </div>
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Номер карты</label>
-                        <div className="flex gap-2">
-                            <input type="text" placeholder="1234..." value={newNumber} onChange={e => setNewNumber(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
-                            <div className="flex items-center justify-center bg-gray-50 dark:bg-[#2C2C2E] rounded-xl px-3 text-gray-400"><QrCode size={20}/></div>
+                        <input type="text" placeholder="1234..." value={newNumber} onChange={e => setNewNumber(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Формат штрихкода</label>
+                        <div className="flex bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-xl">
+                            <button onClick={() => setNewFormat('code128')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat !== 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <Barcode size={14} /> Штрихкод
+                            </button>
+                            <button onClick={() => setNewFormat('qr')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <QrCode size={14} /> QR Код
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -307,23 +357,29 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
               <div className="fixed inset-0 z-[800] flex items-center justify-center p-6">
                   <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-xl" onClick={() => setSelectedCard(null)} />
                   <motion.div layoutId={selectedCard.id} className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] overflow-hidden shadow-2xl">
-                      <div className="h-48 p-8 relative flex flex-col justify-between" style={{ background: selectedCard.color }}>
+                      <div className="h-40 p-8 relative flex flex-col justify-between" style={{ background: selectedCard.color }}>
                           <div className="flex justify-between items-start text-white">
                               <h3 className="text-3xl font-black">{selectedCard.name}</h3>
                               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
                                   {getIconById(selectedCard.icon, 24)}
                               </div>
                           </div>
-                          <p className="text-white/80 font-mono text-xl tracking-widest">{selectedCard.number}</p>
                           <button onClick={() => setSelectedCard(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X size={24}/></button>
                       </div>
+                      
                       <div className="p-8 bg-white dark:bg-[#1C1C1E] flex flex-col items-center gap-6">
-                          <div className="bg-white p-4 rounded-2xl border-4 border-[#1C1C1E] dark:border-white">
-                              <QrCode size={150} className="text-[#1C1C1E]" />
+                          {/* Render Actual Barcode/QR */}
+                          <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center justify-center min-h-[150px] w-full">
+                              {renderBarcode(selectedCard)}
                           </div>
-                          <p className="text-center text-gray-400 text-xs font-bold uppercase max-w-[200px] leading-relaxed">Покажите этот код на кассе для начисления баллов</p>
+                          
+                          <div className="text-center">
+                              <p className="font-mono text-xl font-bold tracking-widest text-[#1C1C1E] dark:text-white select-all">{selectedCard.number}</p>
+                              <p className="text-gray-400 text-[10px] font-bold uppercase mt-1">Покажите кассиру</p>
+                          </div>
+
                           <div className="flex w-full gap-2">
-                              <button onClick={() => handleEdit(selectedCard)} className="flex-1 py-4 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl font-black uppercase text-xs text-[#1C1C1E] dark:text-white">Редактировать</button>
+                              <button onClick={() => handleEdit(selectedCard)} className="flex-1 py-4 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl font-black uppercase text-xs text-[#1C1C1E] dark:text-white hover:bg-gray-200 dark:hover:bg-[#3A3A3C]">Редактировать</button>
                               <button onClick={() => setSelectedCard(null)} className="flex-1 py-4 bg-[#1C1C1E] dark:bg-white text-white dark:text-black rounded-2xl font-black uppercase text-xs shadow-xl">Закрыть</button>
                           </div>
                       </div>

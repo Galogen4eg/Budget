@@ -31,6 +31,7 @@ const GoalModal = React.lazy(() => import('./components/GoalModal'));
 const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExpenseModal'));
 const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
 const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
+const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
 import { auth } from './firebase';
@@ -101,6 +102,7 @@ export default function App() {
   const [isAppUnlocked, setIsAppUnlocked] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
@@ -270,6 +272,19 @@ export default function App() {
           navigator.clipboard.writeText(text);
           showNotify('success', 'Ссылка скопирована!');
       }
+  };
+
+  const handleOpenDuplicates = () => {
+      setShowDuplicatesModal(true);
+      setIsSettingsOpen(false);
+  };
+
+  const handleDeleteTransactions = async (ids: string[]) => {
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+      if (familyId && ids.length > 0) {
+          await deleteItemsBatch(familyId, 'transactions', ids);
+      }
+      showNotify('success', `Удалено ${ids.length} операций`);
   };
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000]"><div className="animate-spin text-blue-500"><Settings2 size={32}/></div></div>;
@@ -705,6 +720,14 @@ export default function App() {
                             await updateItemsBatch(familyId, 'transactions', changed);
                         }
                     }}
+                    onOpenDuplicates={handleOpenDuplicates}
+                />
+            )}
+            {showDuplicatesModal && (
+                <DuplicatesModal 
+                    transactions={transactions}
+                    onClose={() => setShowDuplicatesModal(false)}
+                    onDelete={handleDeleteTransactions}
                 />
             )}
             {importPreview && (

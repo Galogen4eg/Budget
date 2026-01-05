@@ -153,7 +153,9 @@ export const updateItemsBatch = async (familyId: string, collectionName: string,
         chunk.forEach(item => {
             const docRef = doc(db, 'families', familyId, collectionName, item.id);
             const cleanItem = JSON.parse(JSON.stringify(item));
-            batch.update(docRef, cleanItem);
+            // Using set with merge: true acts as an "Upsert". 
+            // It updates if exists, creates if not. Essential for shared lists synchronization.
+            batch.set(docRef, cleanItem, { merge: true });
         });
         await batch.commit();
     }

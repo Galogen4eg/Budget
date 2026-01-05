@@ -144,7 +144,7 @@ export interface LoyaltyCard {
   number: string;
   color: string;
   icon: string;
-  barcodeType?: 'code128' | 'qr'; 
+  barcodeFormat?: 'qr' | 'aztec' | 'code128' | 'ean13' | 'other'; // Enhanced barcode support
 }
 
 export interface MandatoryExpense {

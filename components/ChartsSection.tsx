@@ -87,14 +87,19 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
           );
       }
 
+      // Compact view: Maximize radius to fill container
+      // Full screen view: Use original proportions
+      const innerR = isFullScreen ? "55%" : "60%";
+      const outerR = isFullScreen ? "80%" : "100%";
+
       return (
         <div className="relative w-full h-full">
             {/* Center Text */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-0.5 text-[#1C1C1E] dark:text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-1">
+                <span className="text-[8px] font-bold uppercase tracking-wider opacity-50 mb-0.5 text-[#1C1C1E] dark:text-white truncate max-w-full">
                     {centerLabel}
                 </span>
-                <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-xl'}`}>
+                <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none truncate max-w-full text-center ${isFullScreen ? 'text-3xl' : 'text-lg tracking-tighter'}`}>
                     {settings.privacyMode 
                         ? '•••' 
                         : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
@@ -108,10 +113,10 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         activeIndex={activeIndex}
                         activeShape={renderActiveShape}
                         data={expenseData}
-                        innerRadius={isFullScreen ? "55%" : "65%"}
-                        outerRadius={isFullScreen ? "80%" : "85%"}
+                        innerRadius={innerR}
+                        outerRadius={outerR}
                         paddingAngle={4}
-                        cornerRadius={6}
+                        cornerRadius={isFullScreen ? 6 : 4}
                         dataKey="value"
                         stroke="none"
                         onMouseEnter={(_, index) => isFullScreen && setActiveIndex(index)}
@@ -146,12 +151,12 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
       {/* 1. Compact Widget View */}
       <div 
         onClick={handleWidgetClick}
-        className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col relative overflow-hidden p-5 cursor-pointer group hover:scale-[1.01] transition-transform"
+        className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col relative overflow-hidden p-4 cursor-pointer group hover:scale-[1.01] transition-transform"
       >
           {/* Decorative BG */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-[60px] opacity-60 pointer-events-none -mr-10 -mt-10" />
           
-          <div className="flex justify-between items-center mb-2 shrink-0 z-20 relative">
+          <div className="flex justify-between items-center mb-1 shrink-0 z-20 relative">
               <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-orange-50 dark:bg-orange-900/30 rounded-xl">
                       <PieIcon size={14} className="text-orange-500" />
@@ -163,26 +168,26 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
               <Maximize2 size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors" />
           </div>
 
-          <div className="flex-1 flex items-center justify-between gap-2 min-h-0">
-             <div className="w-1/2 h-full min-h-[100px]">
+          <div className="flex-1 flex items-center justify-between gap-1 min-h-0">
+             <div className="w-1/2 h-full min-h-[90px] relative">
                  {renderChart(false)}
              </div>
              
              {/* Mini Legend */}
-             <div className="w-1/2 flex flex-col gap-1.5 justify-center pl-2 border-l border-gray-50 dark:border-white/5">
+             <div className="w-1/2 flex flex-col gap-1 justify-center pl-2 border-l border-gray-50 dark:border-white/5">
                  {expenseData.slice(0, 3).map((item, i) => (
-                     <div key={item.id} className="flex items-center justify-between">
-                         <div className="flex items-center gap-1.5 min-w-0">
-                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                             <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 truncate">{item.name}</span>
+                     <div key={item.id} className="flex items-center justify-between overflow-hidden">
+                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                             <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                             <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 truncate leading-tight">{item.name}</span>
                          </div>
-                         <span className="text-[9px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                         <span className="text-[8px] font-black text-[#1C1C1E] dark:text-white tabular-nums shrink-0">
                              {Math.round(item.percent! * 100)}%
                          </span>
                      </div>
                  ))}
                  {expenseData.length > 3 && (
-                     <span className="text-[8px] font-bold text-blue-500 mt-1 pl-3.5">
+                     <span className="text-[8px] font-bold text-blue-500 mt-0.5 pl-3">
                          + еще {expenseData.length - 3}
                      </span>
                  )}

@@ -206,7 +206,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
-    setLearningName(tx.note || '');
+    setLearningName(''); // Default empty as requested
+    
     // Smart keyword suggestion: use raw note, remove common suffixes
     let keyword = (tx.rawNote || tx.note).trim();
     if (/\d{4,}$/.test(keyword)) {
@@ -223,8 +224,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   };
 
   const handleFinishLearning = (applyToExisting: boolean = false) => {
-    if (!learningTx || !learningName.trim() || !learningKeyword.trim()) {
-        alert("Заполните название и ключевое слово");
+    if (!learningTx || !learningKeyword.trim()) {
+        alert("Заполните ключевое слово");
         return;
     }
     
@@ -253,7 +254,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     const newRule: LearnedRule = {
       id: Date.now().toString(),
       keyword: learningKeyword.trim(),
-      cleanName: learningName.trim(),
+      cleanName: learningName.trim() || learningTx.note || 'Операция', // Fallback only if empty on save
       categoryId: targetCategoryId
     };
     
@@ -423,17 +424,18 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                         <div className="grid gap-3">
                             <div>
                                 <label className="text-[9px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Если содержит (Ключ)</label>
-                                <input 
-                                    type="text" 
+                                <textarea 
+                                    rows={3}
                                     value={learningKeyword} 
                                     onChange={e => setLearningKeyword(e.target.value)} 
-                                    className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl font-bold text-sm outline-none shadow-sm border border-transparent dark:border-white/5 focus:border-blue-500 transition-colors text-[#1C1C1E] dark:text-white"
+                                    className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl font-bold text-sm outline-none shadow-sm border border-transparent dark:border-white/5 focus:border-blue-500 transition-colors text-[#1C1C1E] dark:text-white resize-none"
                                 />
                             </div>
                             <div>
-                                <label className="text-[9px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Переименовать в (Имя)</label>
+                                <label className="text-[9px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Переименовать в (Опционально)</label>
                                 <input 
                                     type="text" 
+                                    placeholder="Оставить как есть..."
                                     value={learningName} 
                                     onChange={e => setLearningName(e.target.value)} 
                                     className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl font-bold text-sm outline-none shadow-sm border border-transparent dark:border-white/5 focus:border-blue-500 transition-colors text-[#1C1C1E] dark:text-white" 

@@ -10,7 +10,7 @@ import {
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun
+  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
@@ -39,6 +39,7 @@ interface SettingsModalProps {
   transactions?: Transaction[];
   onDeleteTransactionsByPeriod?: (startDate: string, endDate: string) => void;
   onUpdateTransactions?: (transactions: Transaction[]) => void;
+  onOpenDuplicates?: () => void;
 }
 
 // Icons removed as requested
@@ -136,7 +137,7 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void 
     </button>
 );
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
   // Initialize based on screen width to avoid mobile menu state on desktop
   const [showMobileMenu, setShowMobileMenu] = useState(window.innerWidth < 768);
@@ -533,6 +534,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     </div>
                     
                     <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни зарплаты (через запятую)</label><input type="text" placeholder="10, 25" value={settings.salaryDates?.join(', ')} onChange={(e) => handleChange('salaryDates', e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))} className="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-transparent p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none focus:bg-white dark:focus:bg-[#3A3A3C] focus:border-blue-200 transition-all" /></div>
+                </div>
+
+                {/* Operations Tools */}
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-3">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Операции</h3>
+                    
+                    <button 
+                        onClick={handleApplyRulesToAll}
+                        className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <ScanSearch size={20} />
+                            <span>Сканировать непривязанные</span>
+                        </div>
+                        <ChevronRight size={16} />
+                    </button>
+
+                    {onOpenDuplicates && (
+                        <button 
+                            onClick={onOpenDuplicates}
+                            className="w-full flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Files size={20} />
+                                <span>Найти дубли</span>
+                            </div>
+                            <ChevronRight size={16} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">

@@ -57,7 +57,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
   const totalExpense = expenseData.reduce((sum, item) => sum + item.value, 0);
 
-  // Logic: First expand, then drill down
+  // Logic: First expand, then drill down immediately
   const handleSliceClick = (index: number, catId: string, e?: React.MouseEvent) => {
       if (e) e.stopPropagation(); 
       
@@ -66,12 +66,8 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
           return;
       }
 
-      // If expanded, select slice first, if already selected -> drill down
-      if (activeIndex === index) {
-          if (onCategoryClick) onCategoryClick(catId);
-      } else {
-          setActiveIndex(index);
-      }
+      // If expanded, drill down immediately
+      if (onCategoryClick) onCategoryClick(catId);
   };
 
   const handleLegendClick = (catId: string, index: number, e: React.MouseEvent) => {
@@ -81,11 +77,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
           return;
       }
       
-      if (activeIndex === index) {
-          if (onCategoryClick) onCategoryClick(catId);
-      } else {
-          setActiveIndex(index);
-      }
+      if (onCategoryClick) onCategoryClick(catId);
   };
 
   const renderChartContent = (isFullScreen: boolean) => {

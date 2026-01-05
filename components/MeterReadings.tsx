@@ -71,24 +71,24 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
 
   return (
     <div className="space-y-6 w-full">
-       <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+       <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5">
           <div className="flex justify-between items-center mb-6">
-             <h3 className="font-black text-xl text-[#1C1C1E]">Счетчики</h3>
+             <h3 className="font-black text-xl text-[#1C1C1E] dark:text-white">Счетчики</h3>
              <button onClick={() => setIsModalOpen(true)} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"><Plus size={24}/></button>
           </div>
           
           <div className="grid gap-4">
              {latestReadings.map((item: any) => (
-                <div key={item.type} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 relative overflow-hidden">
+                <div key={item.type} className="bg-gray-50 dark:bg-[#2C2C2E] p-5 rounded-[2rem] border border-gray-100 dark:border-white/5 relative overflow-hidden">
                     <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                            <div className="w-10 h-10 bg-white dark:bg-[#1C1C1E] rounded-xl flex items-center justify-center shadow-sm">
                                 {getIcon(item.type)}
                             </div>
-                            <span className="font-bold text-sm text-[#1C1C1E]">{getName(item.type)}</span>
+                            <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{getName(item.type)}</span>
                         </div>
                         {item.current && (
-                            <div className="text-[10px] font-black text-gray-400 bg-white px-2 py-1 rounded-lg">
+                            <div className="text-[10px] font-black text-gray-400 bg-white dark:bg-[#1C1C1E] px-2 py-1 rounded-lg">
                                 {new Date(item.current.date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })}
                             </div>
                         )}
@@ -96,7 +96,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
                     
                     {item.current ? (
                         <div className="flex items-end justify-between mt-2 pl-1">
-                            <div className="text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight">
+                            <div className="text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight">
                                 {item.current.value}
                             </div>
                             {item.current.prevValue !== undefined && (
@@ -116,11 +116,11 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
        <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-6">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-             <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} className="relative bg-white w-full max-w-sm md:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl space-y-6">
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+             <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} className="relative bg-white dark:bg-[#1C1C1E] w-full max-w-sm md:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl space-y-6">
                 <div className="flex justify-between items-center">
-                    <h3 className="font-black text-2xl text-[#1C1C1E]">Внести показания</h3>
-                    <button onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full"><History size={20} className="text-gray-500"/></button>
+                    <h3 className="font-black text-2xl text-[#1C1C1E] dark:text-white">Внести показания</h3>
+                    <button onClick={() => setIsModalOpen(false)} className="bg-gray-100 dark:bg-[#2C2C2E] p-2 rounded-full"><History size={20} className="text-gray-500 dark:text-gray-300"/></button>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -128,7 +128,7 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
                       <button 
                         key={t} 
                         onClick={() => setType(t as any)} 
-                        className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${type === t ? 'bg-blue-50 border-blue-200 shadow-inner' : 'bg-white border-gray-100'}`}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${type === t ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-inner' : 'bg-white dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}
                       >
                          {getIcon(t)}
                          <span className={`text-[10px] font-black uppercase ${type === t ? 'text-blue-600' : 'text-gray-400'}`}>{getName(t)}</span>
@@ -137,23 +137,23 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
                 </div>
 
                 <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between">
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center justify-between">
                         <span className="text-xs font-bold text-gray-400 uppercase">Дата</span>
                         <input 
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="bg-transparent font-bold text-sm outline-none text-right text-[#1C1C1E]"
+                            className="bg-transparent font-bold text-sm outline-none text-right text-[#1C1C1E] dark:text-white"
                         />
                     </div>
-                    <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 text-center">
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 text-center">
                         <input 
                             type="number" 
                             inputMode="decimal"
                             placeholder="0000" 
                             value={inputValue} 
                             onChange={e => setInputValue(e.target.value)} 
-                            className="w-full bg-transparent font-black text-5xl outline-none text-[#1C1C1E] text-center placeholder:text-gray-200" 
+                            className="w-full bg-transparent font-black text-5xl outline-none text-[#1C1C1E] dark:text-white text-center placeholder:text-gray-200 dark:placeholder:text-gray-700" 
                             autoFocus
                         />
                         <span className="text-xs font-bold text-gray-400 uppercase mt-2 block">Текущее значение</span>

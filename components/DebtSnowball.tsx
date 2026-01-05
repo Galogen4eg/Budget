@@ -51,10 +51,10 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+      <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5">
         <div className="flex justify-between items-center mb-6">
-           <h3 className="font-black text-lg">Мои долги</h3>
-           <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center"><Plus size={20}/></button>
+           <h3 className="font-black text-lg text-[#1C1C1E] dark:text-white">Мои долги</h3>
+           <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-10 h-10 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-xl flex items-center justify-center"><Plus size={20}/></button>
         </div>
         
         {debts.length === 0 ? (
@@ -66,17 +66,17 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
                 return (
                   <div key={debt.id} className="space-y-2">
                     <div className="flex justify-between items-center">
-                       <span className="font-bold text-[#1C1C1E]">{debt.name}</span>
+                       <span className="font-bold text-[#1C1C1E] dark:text-white">{debt.name}</span>
                        <div className="flex items-center gap-2">
                            <span className="font-black text-sm text-red-500">{debt.currentBalance} {settings.currency}</span>
                            <button onClick={() => handleEdit(debt)} className="text-gray-300 hover:text-blue-500"><Edit2 size={14} /></button>
                        </div>
                     </div>
-                    <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                        <div className="h-full bg-red-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
                     </div>
                     <div className="flex justify-between items-center pt-1">
-                       <button onClick={() => updateBalance(debt.id, 1000)} className="text-[10px] font-bold bg-red-50 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors">Внести 1000</button>
+                       <button onClick={() => updateBalance(debt.id, 1000)} className="text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">Внести 1000</button>
                        <button onClick={() => setDebts(debts.filter(d => d.id !== debt.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   </div>
@@ -89,18 +89,18 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-             <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-4">
-                <h3 className="font-black text-xl mb-4">{editingId ? 'Редактировать' : 'Новый долг'}</h3>
-                <input type="text" placeholder="Название (Ипотека)" value={newDebt.name || ''} onChange={e => setNewDebt({...newDebt, name: e.target.value})} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none" />
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+             <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-4">
+                <h3 className="font-black text-xl mb-4 text-[#1C1C1E] dark:text-white">{editingId ? 'Редактировать' : 'Новый долг'}</h3>
+                <input type="text" placeholder="Название (Ипотека)" value={newDebt.name || ''} onChange={e => setNewDebt({...newDebt, name: e.target.value})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <span className="text-[10px] font-black uppercase text-gray-400 pl-2">Всего</span>
-                        <input type="number" placeholder="Всего" value={newDebt.totalAmount || ''} onChange={e => setNewDebt({...newDebt, totalAmount: Number(e.target.value)})} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none" />
+                        <input type="number" placeholder="Всего" value={newDebt.totalAmount || ''} onChange={e => setNewDebt({...newDebt, totalAmount: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                     </div>
                     <div className="flex-1">
                         <span className="text-[10px] font-black uppercase text-gray-400 pl-2">Осталось</span>
-                        <input type="number" placeholder="Остаток" value={newDebt.currentBalance || ''} onChange={e => setNewDebt({...newDebt, currentBalance: Number(e.target.value)})} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none" />
+                        <input type="number" placeholder="Остаток" value={newDebt.currentBalance || ''} onChange={e => setNewDebt({...newDebt, currentBalance: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                     </div>
                 </div>
                 <button onClick={handleSave} className="w-full bg-red-500 text-white py-4 rounded-xl font-black uppercase text-xs mt-2">{editingId ? 'Сохранить' : 'Добавить'}</button>

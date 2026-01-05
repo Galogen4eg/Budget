@@ -11,7 +11,7 @@ interface WidgetProps {
   accentColor?: string; // Hex or tailwind color name part (e.g. 'blue', 'red')
 }
 
-const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "", accentColor = "gray" }) => {
+const Widget: React.FC<WidgetProps> = React.memo(({ label, value, icon, className = "", accentColor = "gray" }) => {
   
   // Determine gradient colors based on accentColor
   const getGradientClasses = () => {
@@ -31,33 +31,33 @@ const Widget: React.FC<WidgetProps> = ({ label, value, icon, className = "", acc
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative bg-white p-3.5 md:p-5 rounded-[2.2rem] flex flex-col justify-between h-full ${className} border border-white shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden group`}
+      className={`relative bg-white dark:bg-[#1C1C1E] p-3.5 md:p-5 rounded-[2.2rem] flex flex-col justify-between h-full ${className} border border-white dark:border-white/5 shadow-soft dark:shadow-none transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden group`}
     >
       {/* Decorative Background */}
-      <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${colors.circle1} to-transparent rounded-full -mr-10 -mt-10 opacity-60 pointer-events-none`} />
-      <div className={`absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr ${colors.circle2} to-transparent rounded-full -ml-8 -mb-8 opacity-60 pointer-events-none`} />
+      <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${colors.circle1} to-transparent rounded-full -mr-10 -mt-10 opacity-60 dark:opacity-20 pointer-events-none`} />
+      <div className={`absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr ${colors.circle2} to-transparent rounded-full -ml-8 -mb-8 opacity-60 dark:opacity-20 pointer-events-none`} />
       
       {/* Abstract Lines */}
-      <svg className="absolute right-0 bottom-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-         <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
+      <svg className="absolute right-0 bottom-0 w-full h-full opacity-[0.03] dark:opacity-[0.05] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+         <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" className="text-white dark:text-gray-500" />
       </svg>
 
       <div className="relative z-10 flex justify-between items-start gap-1">
-        <span className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1 leading-tight break-words max-w-[75%]">
+        <span className="text-gray-400 dark:text-gray-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1 leading-tight break-words max-w-[75%]">
           {label}
         </span>
-        <div className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 border border-gray-50 ${colors.text}`}>
+        <div className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-white dark:bg-[#2C2C2E] shadow-sm flex items-center justify-center flex-shrink-0 border border-gray-50 dark:border-white/5 ${colors.text}`}>
           {React.cloneElement(icon as React.ReactElement<any>, { size: 16 })}
         </div>
       </div>
       
       <div className="relative z-10 mt-auto">
-         <div className="text-[1.6rem] md:text-3xl font-black tracking-tight text-[#1C1C1E] leading-none whitespace-nowrap overflow-hidden text-ellipsis tabular-nums -ml-0.5">
+         <div className="text-[1.6rem] md:text-3xl font-black tracking-tight text-[#1C1C1E] dark:text-white leading-none whitespace-nowrap overflow-hidden text-ellipsis tabular-nums -ml-0.5">
            {value}
          </div>
       </div>
     </motion.div>
   );
-};
+});
 
 export default Widget;

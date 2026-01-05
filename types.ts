@@ -11,6 +11,7 @@ export interface Transaction {
   note: string;
   date: string;
   rawNote?: string;
+  projectId?: string; // Link to a project
 }
 
 export interface LearnedRule {
@@ -105,6 +106,28 @@ export interface Debt {
   color: string;
 }
 
+export interface ProjectExpense {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  memberId: string;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  totalBudget: number;
+  currency: string;
+  status: 'active' | 'completed' | 'paused';
+  startDate: string;
+  endDate?: string;
+  color: string;
+  icon: string;
+  expenses: ProjectExpense[];
+}
+
 export interface PantryItem {
   id: string;
   title: string;
@@ -153,6 +176,7 @@ export interface AppSettings {
   currency: string;
   startOfMonthDay: number;
   privacyMode: boolean;
+  theme: 'light' | 'dark'; // New Theme property
   
   widgets: WidgetConfig[]; 
   
@@ -166,6 +190,11 @@ export interface AppSettings {
   telegramBotToken?: string;
   telegramChatId?: string;
   autoSendEventsToTelegram: boolean;
+  
+  // Push Notifications
+  pushEnabled: boolean;
+  fcmToken?: string;
+
   eventTemplate?: string;
   shoppingTemplate?: string;
   

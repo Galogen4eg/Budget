@@ -14,18 +14,18 @@ const CustomAnalyticsTooltip = ({ active, payload, label, settings }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 z-50 min-w-[140px]">
+            <div className="bg-white/90 dark:bg-[#2C2C2E]/90 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 dark:border-white/10 z-50 min-w-[140px]">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
                     {data.fullDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
                 <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-[#1C1C1E] tabular-nums">
+                    <span className="text-xl font-black text-[#1C1C1E] dark:text-white tabular-nums">
                         {settings.privacyMode ? '•••' : Number(payload[0].value).toLocaleString()}
                     </span>
                     <span className="text-xs font-bold text-gray-400">{settings.currency}</span>
                 </div>
                 {data.isHigh && (
-                    <div className="mt-2 text-[9px] font-black text-orange-500 bg-orange-50 px-2 py-1 rounded-lg inline-flex items-center gap-1">
+                    <div className="mt-2 text-[9px] font-black text-orange-500 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg inline-flex items-center gap-1">
                         <TrendingUp size={10} />
                         Выше среднего
                     </div>
@@ -87,23 +87,23 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
   const { chartData, totalExpenses, avgDaily, maxDay } = analyticsData;
 
   return (
-    <div className="bg-white p-5 rounded-[2.5rem] border border-white shadow-soft flex flex-col h-full relative overflow-hidden group">
+    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none flex flex-col h-full relative overflow-hidden group">
         {/* Subtle decorative background */}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 rounded-full blur-[80px] -mr-10 -mt-10 pointer-events-none opacity-60" />
+        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 dark:bg-blue-900/10 rounded-full blur-[80px] -mr-10 -mt-10 pointer-events-none opacity-60" />
 
         {/* Header */}
         <div className="flex justify-between items-start mb-2 relative z-10 shrink-0">
             <div>
                 <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-blue-50 rounded-xl">
-                        <CalendarDays size={14} className="text-blue-500" />
+                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                        <CalendarDays size={14} className="text-blue-500 dark:text-blue-400" />
                     </div>
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         {currentMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight leading-none">
+                    <h2 className="text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
                     <span className="text-sm font-bold text-gray-400">{settings.currency}</span>
@@ -137,14 +137,14 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     
                     <Tooltip 
                         content={<CustomAnalyticsTooltip settings={settings} />}
-                        cursor={{ fill: '#F3F4F6', radius: 8 }}
+                        cursor={{ fill: settings.theme === 'dark' ? '#2C2C2E' : '#F3F4F6', radius: 8 }}
                     />
 
                     {/* Average Line */}
                     {avgDaily > 0 && (
                         <ReferenceLine 
                             y={avgDaily} 
-                            stroke="#CBD5E1" 
+                            stroke={settings.theme === 'dark' ? '#4B5563' : '#CBD5E1'}
                             strokeDasharray="3 3" 
                             strokeWidth={1}
                             label={{ 
@@ -179,28 +179,28 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
         </div>
 
         {/* Footer Stats */}
-        <div className="flex gap-3 mt-1 pt-3 border-t border-gray-50 relative z-10 shrink-0">
+        <div className="flex gap-3 mt-1 pt-3 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
             <div className="flex items-center gap-2">
-                <div className="w-1 h-4 rounded-full bg-blue-100 relative overflow-hidden">
+                <div className="w-1 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 relative overflow-hidden">
                     <div className="absolute bottom-0 w-full bg-blue-500 h-1/2" />
                 </div>
                 <div className="flex flex-col">
                     <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Среднее</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] tabular-nums">
+                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
                         {settings.privacyMode ? '•••' : Math.round(avgDaily).toLocaleString()}
                     </span>
                 </div>
             </div>
             
-            <div className="w-px bg-gray-100 h-6 self-center" />
+            <div className="w-px bg-gray-100 dark:bg-white/10 h-6 self-center" />
 
             <div className="flex items-center gap-2">
-                <div className="w-1 h-4 rounded-full bg-orange-100 relative overflow-hidden">
+                <div className="w-1 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 relative overflow-hidden">
                     <div className="absolute bottom-0 w-full bg-orange-500 h-full" />
                 </div>
                 <div className="flex flex-col">
                     <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Макс.</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] tabular-nums">
+                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
                         {settings.privacyMode ? '•••' : Math.round(maxDay).toLocaleString()}
                     </span>
                 </div>

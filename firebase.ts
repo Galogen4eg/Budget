@@ -7,6 +7,7 @@ import {
   persistentLocalCache, 
   persistentMultipleTabManager 
 } from 'firebase/firestore';
+import { getMessaging } from 'firebase/messaging';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -29,3 +30,23 @@ export const db = initializeFirestore(app, {
     tabManager: persistentMultipleTabManager()
   })
 });
+
+// Initialize Messaging (Optional, only if supported)
+let messaging: any = null;
+try {
+    // Check for supported environment features before initializing to prevent "unsupported-browser" errors
+    const isSupported = typeof window !== 'undefined' && 
+                        'serviceWorker' in navigator && 
+                        'PushManager' in window &&
+                        'indexedDB' in window;
+
+    if (isSupported) {
+        messaging = getMessaging(app);
+    }
+} catch (e: any) {
+    // Suppress the "unsupported-browser" error as it is expected in some environments (e.g. private mode, non-https)
+    if (e.code !== 'messaging/unsupported-browser') {
+        console.warn("Firebase Messaging failed to initialize", e);
+    }
+}
+export { messaging };

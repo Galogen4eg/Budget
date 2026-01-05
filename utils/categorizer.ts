@@ -66,8 +66,6 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
   }
 
   // SBP Recognition with phone number
-  // Formats: +79991234567, 89991234567, 9991234567, (999) 123-45-67
-  // Also catch contiguous 10-11 digit numbers
   const phoneRegex = /(?:(?:\+?7|8)[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}|\b\d{10,11}\b/;
   const phoneMatch = name.match(phoneRegex);
   
@@ -77,7 +75,6 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
           let formattedPhone = rawPhone;
           
           if (rawPhone.length >= 10) {
-              // Normalize to +7
               let clean = rawPhone;
               if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
                   clean = rawPhone.slice(1);
@@ -88,7 +85,6 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
               }
           }
 
-          // Try to find a name if present (e.g., Ivan I.)
           const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
           const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
           
@@ -112,6 +108,27 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
   return name.length < 2 ? "Банковская операция" : name;
 };
 
+// Keywords for Shopping List Items (Products)
+const PRODUCT_KEYWORDS: Record<string, string[]> = {
+  'produce': ['яблок', 'банан', 'картоф', 'томат', 'помидор', 'огур', 'лук', 'чеснок', 'морков', 'фрукт', 'овощ', 'зелень', 'капуст', 'перец', 'лимон', 'апельсин', 'мандарин', 'груш', 'виноград', 'ягод', 'свекл'],
+  'dairy': ['молок', 'кефир', 'творог', 'сыр', 'сметан', 'йогурт', 'масло сливоч', 'сливки', 'яйц', 'яйцо', 'ряженк', 'снежок'],
+  'meat': ['куриц', 'филе', 'говядин', 'свинин', 'фарш', 'колбас', 'сосиск', 'рыба', 'форель', 'семга', 'мясо', 'котлет', 'ветчин', 'грудк', 'крыл', 'индейк', 'паштет', 'сардельк'],
+  'bakery': ['хлеб', 'батон', 'булк', 'выпечк', 'пирог', 'лаваш', 'печень', 'сушки', 'пряник', 'торт', 'пирож', 'круассан'],
+  'grocery': ['макарон', 'спагетти', 'рис', 'гречк', 'крупа', 'масло подсол', 'мука', 'сахар', 'соль', 'чай', 'кофе', 'шоколад', 'конфет', 'соус', 'майонез', 'кетчуп', 'приправ', 'специ', 'хлопья', 'мюсли', 'каша', 'консерв', 'горош', 'кукуруз', 'чипсы'],
+  'drinks': ['вода', 'сок', 'кола', 'лимонад', 'пиво', 'вино', 'напиток', 'квас', 'энергетик', 'минералк', 'морс'],
+  'household': ['мыло', 'порошок', 'гель', 'шампунь', 'паста', 'бумага', 'салфет', 'губк', 'пакет', 'средство', 'domestos', 'fairy', 'фольга', 'перчатк', 'бритв', 'деодорант', 'крем'],
+};
+
+// Determine category for Shopping Items
+export const detectProductCategory = (name: string): string => {
+  const lower = name.toLowerCase();
+  for (const [cat, keywords] of Object.entries(PRODUCT_KEYWORDS)) {
+    if (keywords.some(k => lower.includes(k))) return cat;
+  }
+  return 'other';
+};
+
+// Determine category for Transactions (Merchants)
 export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [], categories: Category[], mcc?: string, bankCategory?: string): string => {
   const cleanNote = note.toLowerCase();
   for (const rule of learnedRules) {
@@ -120,12 +137,12 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
   if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer')) return 'transfer';
 
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
-    'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат'],
-    'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан'],
-    'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто'],
-    'transport': ['yandex.go', 'yandex.taxi', 'uber', 'taxi', 'такси', 'metro', 'метро', 'rzd', 'ржд'],
-    'shopping': ['wildberries', 'wb', 'ozon', 'aliexpress', 'lamoda', 'dns', 'mvideo', 'eldorado', 'leroy', 'lemana'],
-    'health': ['apteka', 'аптека', 'doctor', 'clinic', 'med', 'vita', 'aprel']
+    'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'продукты', 'супермаркет', 'гастроном'],
+    'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан', 'бар', 'паб', 'пицц', 'суши', 'роллы'],
+    'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто', 'бензин', 'топливо', 'парковк', 'мойка', 'шиномонт'],
+    'transport': ['yandex.go', 'yandex.taxi', 'uber', 'taxi', 'такси', 'metro', 'метро', 'rzd', 'ржд', 'автобус', 'проезд'],
+    'shopping': ['wildberries', 'wb', 'ozon', 'aliexpress', 'lamoda', 'dns', 'mvideo', 'eldorado', 'leroy', 'lemana', 'одежда', 'обувь', 'магазин'],
+    'health': ['apteka', 'аптека', 'doctor', 'clinic', 'med', 'vita', 'aprel', 'врач', 'клиник', 'больниц', 'анализ', 'стоматолог']
   };
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {

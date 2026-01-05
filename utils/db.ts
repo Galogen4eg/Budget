@@ -30,6 +30,33 @@ export const subscribeToSettings = (familyId: string, callback: (settings: AppSe
   });
 };
 
+// --- GLOBAL RULES (SHARED KNOWLEDGE BASE) ---
+
+export const subscribeToGlobalRules = (callback: (rules: LearnedRule[]) => void) => {
+  // Subscribe to a root-level collection 'global_rules'
+  // Note: Firestore Security Rules must allow read for authenticated users
+  const q = query(collection(db, 'global_rules'));
+  return onSnapshot(q, (snapshot) => {
+    const rules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LearnedRule));
+    callback(rules);
+  }, (error) => {
+    console.warn("Global rules subscription failed (likely permission or offline):", error);
+    callback([]); // Return empty on error to not break app
+  });
+};
+
+export const addGlobalRule = async (rule: LearnedRule) => {
+  // Use a sanitized keyword as ID to prevent duplicates and allow easy overwrites/merges
+  const ruleId = rule.keyword.toLowerCase().trim().replace(/[\/\s\.]/g, '_');
+  try {
+      await setDoc(doc(db, 'global_rules', ruleId), rule);
+  } catch (e) {
+      console.warn("Failed to save global rule (likely permission):", e);
+  }
+};
+
+// ---------------------------------------------
+
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
@@ -78,11 +105,6 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
   const userRef = doc(db, 'users', user.uid);
   await updateDoc(userRef, { familyId: targetFamilyId });
-  
-  // Also add user to the family members list (if permissions allow, otherwise Cloud Function needed)
-  // For this app, we assume security rules allow joining if you have the ID, 
-  // or we might need to handle this via invite logic later.
-  // Ideally: updateDoc(doc(db, 'families', targetFamilyId), { members: arrayUnion(user.uid) });
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
@@ -110,17 +132,37 @@ export const updateItem = async (familyId: string, collectionName: string, id: s
   await updateDoc(docRef, cleanUpdates);
 };
 
+export const updateItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
+    // Firestore batch limit is 500
+    const chunkSize = 450;
+    for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+            const docRef = doc(db, 'families', familyId, collectionName, item.id);
+            const cleanItem = JSON.parse(JSON.stringify(item));
+            batch.update(docRef, cleanItem);
+        });
+        await batch.commit();
+    }
+};
+
 export const deleteItem = async (familyId: string, collectionName: string, id: string) => {
   await deleteDoc(doc(db, 'families', familyId, collectionName, id));
 };
 
 export const deleteItemsBatch = async (familyId: string, collectionName: string, ids: string[]) => {
-  const batch = writeBatch(db);
-  ids.forEach(id => {
-    const ref = doc(db, 'families', familyId, collectionName, id);
-    batch.delete(ref);
-  });
-  await batch.commit();
+  // Firestore batch limit is 500
+  const chunkSize = 450; 
+  for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      chunk.forEach(id => {
+          const ref = doc(db, 'families', familyId, collectionName, id);
+          batch.delete(ref);
+      });
+      await batch.commit();
+  }
 };
 
 export const saveSettings = async (familyId: string, settings: AppSettings) => {

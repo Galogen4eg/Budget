@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Image as ImageIcon, Loader2, Camera, Edit2 } from 'lucide-react';
+import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2 } from 'lucide-react';
 import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
@@ -14,13 +14,6 @@ interface WalletProps {
 
 const CARD_COLORS = ['#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#1C1C1E', '#8E8E93', '#FFCC00', '#5856D6', '#00C7BE'];
 const CARD_ICONS = ['ShoppingBag', 'Utensils', 'Car', 'Star', 'Coffee', 'Tv', 'Zap', 'Briefcase'];
-
-// Polyfill-like declaration for TypeScript
-declare class BarcodeDetector {
-  constructor(options?: { formats: string[] });
-  detect(image: ImageBitmapSource): Promise<Array<{ rawValue: string; format: string }>>;
-  static getSupportedFormats(): Promise<string[]>;
-}
 
 const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,7 +49,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     } else {
        // Create new with completely unique ID
        const newCard: LoyaltyCard = {
-         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+         id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
          name: newName,
          number: cleanNumber,
          color: newColor,
@@ -100,6 +93,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
       // 1. Try Native BarcodeDetector (Fastest, supported in Chrome/Android/macOS)
       try {
           if ('BarcodeDetector' in window) {
+              const BarcodeDetector = (window as any).BarcodeDetector;
               const formats = await BarcodeDetector.getSupportedFormats();
               if (formats.length > 0) {
                   const detector = new BarcodeDetector({ formats });
@@ -116,12 +110,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
 
       if (barcodeResult) return barcodeResult;
 
-      // 2. Fallback to Html5Qrcode (Slower, but works everywhere else)
+      // 2. Fallback to Html5Qrcode
       try {
-          // Note: Html5Qrcode needs an existing DOM element ID even for file scan
           const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
           const result = await html5QrCode.scanFile(file, false);
-          // Wait briefly to let it clean up
           html5QrCode.clear(); 
           return result;
       } catch (e) {
@@ -142,13 +134,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
           });
 
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const prompt = `Analyze this loyalty card image.
-          1. Extract the Store Name (name).
-          2. EXTRACT VISIBLE CARD NUMBER (digits). Look for groups of digits (e.g. 1234 5678). Return full number. If spaces, include them for now.
-          3. Pick the Dominant Color as a hex code (color).
-          4. Choose the best icon from this list: [ShoppingBag, Utensils, Car, Star, Coffee, Tv, Zap, Briefcase]. Default: ShoppingBag.
-          
-          Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
+          const prompt = `Analyze this loyalty card image. Return JSON only: { "name": string, "number": string, "color": string, "icon": string }`;
 
           const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
@@ -175,34 +161,26 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     setIsAnalyzing(true);
 
     try {
-        // Run both scan and analysis in parallel for speed
         const [barcodeResult, aiResult] = await Promise.all([
             scanBarcodeFromImage(file),
             analyzeImageWithGemini(file)
         ]);
 
-        console.log("Barcode Scan Result:", barcodeResult);
-        console.log("AI Analysis Result:", aiResult);
-
-        // Merge Logic
         if (aiResult.name) setNewName(aiResult.name);
         if (aiResult.color) setNewColor(aiResult.color);
         if (aiResult.icon && CARD_ICONS.includes(aiResult.icon)) setNewIcon(aiResult.icon);
         
-        // Logic for Number:
-        // 1. If barcode scanned successfully, use it (100% accurate).
-        // 2. If no barcode, use AI result (OCR).
         let finalNumber = '';
         if (barcodeResult) {
             finalNumber = barcodeResult;
         } else if (aiResult.number) {
-            finalNumber = aiResult.number.replace(/\s+/g, ''); // Strip spaces from AI result
+            finalNumber = aiResult.number.replace(/\s+/g, '');
         }
         
         setNewNumber(finalNumber);
 
     } catch (err) {
-        alert("Ошибка обработки изображения. Попробуйте ввести данные вручную.");
+        alert("Ошибка обработки изображения.");
         console.error(err);
     } finally {
         setIsAnalyzing(false);
@@ -212,13 +190,11 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
 
   return (
     <div className="space-y-4">
-       {/* Hidden div for barcode reader instance */}
        <div id="wallet-reader-hidden" className="hidden"></div>
 
-       {/* Header Card */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+      <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5">
         <div className="flex justify-between items-center mb-6">
-           <h3 className="font-black text-lg">Мои карты</h3>
+           <h3 className="font-black text-lg text-[#1C1C1E] dark:text-white">Мои карты</h3>
            <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg"><Plus size={20}/></button>
         </div>
 
@@ -240,7 +216,6 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     boxShadow: `0 10px 30px -10px ${card.color}80`
                   }}
                 >
-                  {/* Decorative Circles */}
                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
                   <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-black/5 rounded-full blur-xl" />
 
@@ -251,13 +226,11 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                           {getIconById(card.icon, 20)}
                        </div>
                     </div>
-                    
                     <div className="font-mono text-lg tracking-widest opacity-80 pt-4 truncate">
                        {card.number}
                     </div>
                   </div>
                   
-                  {/* Edit/Delete Overlay */}
                   <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={(e) => { e.stopPropagation(); handleEdit(card); }} className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30"><Edit2 size={16}/></button>
                       <button onClick={(e) => { e.stopPropagation(); handleDelete(card.id); }} className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-red-500/50"><Trash2 size={16}/></button>
@@ -271,15 +244,15 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-             <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+             <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
                 <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-black text-xl text-[#1C1C1E]">{editingCardId ? 'Редактировать' : 'Новая карта'}</h3>
-                    <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><X size={20}/></button>
+                    <h3 className="font-black text-xl text-[#1C1C1E] dark:text-white">{editingCardId ? 'Редактировать' : 'Новая карта'}</h3>
+                    <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white"><X size={20}/></button>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-2xl flex items-center justify-between border border-blue-100">
-                    <span className="text-xs font-bold text-blue-600">Скан по фото/камере</span>
+                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-2xl flex items-center justify-between border border-blue-100 dark:border-blue-900/50">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Скан по фото/камере</span>
                     <button onClick={() => fileInputRef.current?.click()} className="bg-blue-500 text-white p-2 rounded-xl">
                         {isAnalyzing ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
                     </button>
@@ -289,13 +262,13 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                 <div className="space-y-3">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Название</label>
-                        <input type="text" placeholder="Магазин" value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E]" />
+                        <input type="text" placeholder="Магазин" value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                     </div>
                     <div>
-                        <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Номер карты / Штрихкод</label>
+                        <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Номер карты</label>
                         <div className="flex gap-2">
-                            <input type="text" placeholder="1234..." value={newNumber} onChange={e => setNewNumber(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E]" />
-                            <div className="flex items-center justify-center bg-gray-50 rounded-xl px-3 text-gray-400"><QrCode size={20}/></div>
+                            <input type="text" placeholder="1234..." value={newNumber} onChange={e => setNewNumber(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                            <div className="flex items-center justify-center bg-gray-50 dark:bg-[#2C2C2E] rounded-xl px-3 text-gray-400"><QrCode size={20}/></div>
                         </div>
                     </div>
                 </div>
@@ -304,7 +277,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Цвет</label>
                     <div className="flex flex-wrap gap-2 mt-1">
                         {CARD_COLORS.map(c => (
-                            <button key={c} onClick={() => setNewColor(c)} className={`w-8 h-8 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-offset-2 ring-gray-200' : ''}`} style={{ backgroundColor: c }} />
+                            <button key={c} onClick={() => setNewColor(c)} className={`w-8 h-8 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-offset-2 ring-gray-200 dark:ring-gray-600' : ''}`} style={{ backgroundColor: c }} />
                         ))}
                     </div>
                 </div>
@@ -313,7 +286,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Иконка</label>
                     <div className="flex flex-wrap gap-2 mt-1">
                         {CARD_ICONS.map(i => (
-                            <button key={i} onClick={() => setNewIcon(i)} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${newIcon === i ? 'bg-[#1C1C1E] text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}>
+                            <button key={i} onClick={() => setNewIcon(i)} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${newIcon === i ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black shadow-lg' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-400'}`}>
                                 {getIconById(i, 20)}
                             </button>
                         ))}
@@ -322,7 +295,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
 
                 <div className="flex gap-2 pt-2">
                    {editingCardId && <button onClick={() => handleDelete(editingCardId)} className="p-4 bg-red-50 text-red-500 rounded-xl"><Trash2 size={20}/></button>}
-                   <button onClick={handleSave} className="flex-1 bg-[#1C1C1E] text-white py-4 rounded-xl font-black uppercase text-xs shadow-lg">{editingCardId ? 'Сохранить' : 'Добавить'}</button>
+                   <button onClick={handleSave} className="flex-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black uppercase text-xs shadow-lg">{editingCardId ? 'Сохранить' : 'Добавить'}</button>
                 </div>
              </motion.div>
           </div>
@@ -332,8 +305,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
       <AnimatePresence>
           {selectedCard && (
               <div className="fixed inset-0 z-[800] flex items-center justify-center p-6">
-                  <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-xl" onClick={() => setSelectedCard(null)} />
-                  <motion.div layoutId={selectedCard.id} className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl">
+                  <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-xl" onClick={() => setSelectedCard(null)} />
+                  <motion.div layoutId={selectedCard.id} className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] overflow-hidden shadow-2xl">
                       <div className="h-48 p-8 relative flex flex-col justify-between" style={{ background: selectedCard.color }}>
                           <div className="flex justify-between items-start text-white">
                               <h3 className="text-3xl font-black">{selectedCard.name}</h3>
@@ -344,15 +317,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                           <p className="text-white/80 font-mono text-xl tracking-widest">{selectedCard.number}</p>
                           <button onClick={() => setSelectedCard(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X size={24}/></button>
                       </div>
-                      <div className="p-8 bg-white flex flex-col items-center gap-6">
-                          <div className="bg-white p-4 rounded-2xl border-4 border-[#1C1C1E]">
-                              {/* QR Code Placeholder - in real app use a lib */}
+                      <div className="p-8 bg-white dark:bg-[#1C1C1E] flex flex-col items-center gap-6">
+                          <div className="bg-white p-4 rounded-2xl border-4 border-[#1C1C1E] dark:border-white">
                               <QrCode size={150} className="text-[#1C1C1E]" />
                           </div>
                           <p className="text-center text-gray-400 text-xs font-bold uppercase max-w-[200px] leading-relaxed">Покажите этот код на кассе для начисления баллов</p>
                           <div className="flex w-full gap-2">
-                              <button onClick={() => handleEdit(selectedCard)} className="flex-1 py-4 bg-gray-100 rounded-2xl font-black uppercase text-xs text-[#1C1C1E]">Редактировать</button>
-                              <button onClick={() => setSelectedCard(null)} className="flex-1 py-4 bg-[#1C1C1E] text-white rounded-2xl font-black uppercase text-xs shadow-xl">Закрыть</button>
+                              <button onClick={() => handleEdit(selectedCard)} className="flex-1 py-4 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl font-black uppercase text-xs text-[#1C1C1E] dark:text-white">Редактировать</button>
+                              <button onClick={() => setSelectedCard(null)} className="flex-1 py-4 bg-[#1C1C1E] dark:bg-white text-white dark:text-black rounded-2xl font-black uppercase text-xs shadow-xl">Закрыть</button>
                           </div>
                       </div>
                   </motion.div>

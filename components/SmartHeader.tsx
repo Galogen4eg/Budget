@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppSettings } from '../types';
-import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, RefreshCw } from 'lucide-react';
+import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
+import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 
 interface SmartHeaderProps {
   balance: number;
@@ -11,12 +12,26 @@ interface SmartHeaderProps {
   onTogglePrivacy?: () => void;
   budgetMode?: 'personal' | 'family';
   onToggleBudgetMode?: () => void;
+  onInvite?: () => void;
   className?: string;
 }
 
+const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: boolean }) => {
+    const spring = useSpring(value, { mass: 0.8, stiffness: 75, damping: 15 });
+    const displayValue = useTransform(spring, (current) => Math.round(current).toLocaleString('ru-RU'));
+
+    useEffect(() => {
+        spring.set(value);
+    }, [value, spring]);
+
+    if (privacyMode) return <span className="text-4xl md:text-5xl font-black tracking-tighter">••••••</span>;
+
+    return <motion.span className="text-5xl md:text-7xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
+};
+
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
     balance, spent, savingsRate, settings, onTogglePrivacy, 
-    budgetMode = 'personal', onToggleBudgetMode, className = '' 
+    budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '' 
 }) => {
   const now = new Date();
   
@@ -49,31 +64,61 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const dailyBudget = availableBalance / daysRemaining;
 
   return (
-    <div className={`relative overflow-hidden rounded-[2.2rem] text-white shadow-xl ${className} group flex flex-col justify-between`}>
+    <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", duration: 0.6 }}
+        className={`relative overflow-hidden rounded-[2.2rem] text-white shadow-xl dark:shadow-white/5 ${className} group flex flex-col justify-between`}
+    >
         {/* Premium Dark Gradient Background */}
         <div className="absolute inset-0 bg-[#151517] z-0" />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-800/90 opacity-100 z-0" />
         
-        {/* Decorative Blur Effects */}
-        <div className="absolute top-[-40px] right-[-20px] w-32 h-32 bg-pink-500 rounded-full blur-[60px] opacity-40 mix-blend-screen pointer-events-none" />
-        <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-blue-400 rounded-full blur-[50px] opacity-30 mix-blend-screen pointer-events-none" />
+        {/* Decorative Blur Effects - Animated */}
+        <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-[-40px] right-[-20px] w-32 h-32 bg-pink-500 rounded-full blur-[60px] mix-blend-screen pointer-events-none" 
+        />
+        <motion.div 
+            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            className="absolute bottom-[-20px] left-[-20px] w-40 h-40 bg-blue-400 rounded-full blur-[50px] mix-blend-screen pointer-events-none" 
+        />
 
         <div className="relative z-10 flex flex-col h-full p-4 md:p-5">
             
-            {/* 1. TOP ROW: Title + Privacy + Days Badge */}
-            <div className="flex justify-between items-center mb-1 md:mb-2">
-                <button 
-                    className="flex items-center gap-2 cursor-pointer bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/10 transition-all active:scale-95"
-                    onClick={(e) => { e.stopPropagation(); onToggleBudgetMode?.(); }}
-                >
-                    <div className={`p-1 rounded-full bg-white text-blue-600 shadow-sm transition-transform duration-300 ${budgetMode === 'family' ? 'rotate-0' : '-rotate-12'}`}>
-                        {budgetMode === 'family' ? <Users size={12} strokeWidth={3} /> : <User size={12} strokeWidth={3} />}
-                    </div>
-                    <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white">
-                        {budgetMode === 'family' ? 'Семья' : 'Личный'}
-                    </span>
-                    <RefreshCw size={10} className="text-blue-200 opacity-60" />
-                </button>
+            {/* 1. TOP ROW: Budget Mode Switcher + Privacy + Days */}
+            <div className="flex justify-between items-start mb-1 md:mb-2">
+                <div className="flex gap-2">
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            if (onToggleBudgetMode) onToggleBudgetMode();
+                        }}
+                        className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-2xl px-3 py-1.5 border border-white/10 hover:bg-white/20 transition-all active:scale-95"
+                    >
+                        <AnimatePresence mode="wait">
+                            {budgetMode === 'family' ? (
+                                <motion.div key="fam" initial={{scale:0}} animate={{scale:1}} exit={{scale:0}}><Users size={14} className="text-purple-200"/></motion.div>
+                            ) : (
+                                <motion.div key="pers" initial={{scale:0}} animate={{scale:1}} exit={{scale:0}}><User size={14} className="text-blue-200"/></motion.div>
+                            )}
+                        </AnimatePresence>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-white">
+                            {budgetMode === 'family' ? 'Семья' : 'Личный'}
+                        </span>
+                    </button>
+                    {onInvite && (
+                        <button 
+                            onClick={onInvite}
+                            className="p-1.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-95"
+                            title="Пригласить в семью"
+                        >
+                            <UserPlus size={14} />
+                        </button>
+                    )}
+                </div>
                 
                 <div className="flex items-center gap-2 md:gap-3">
                     <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-1 md:px-3 md:py-1.5 flex items-center gap-1.5 border border-white/10">
@@ -85,24 +130,22 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     
                     <button 
                         onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }}
-                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
+                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
                     >
-                        {settings.privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {settings.privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
                     </button>
                 </div>
             </div>
 
             {/* 2. MIDDLE: Huge Balance */}
-            <div className="flex-1 flex items-center min-h-0 mb-2 md:mb-4 pt-2">
+            <div className="flex-1 flex items-center min-h-0 mb-2 md:mb-4">
                 <div className="flex items-baseline gap-1 md:gap-2 w-full overflow-hidden">
-                    <span className={`font-black tracking-tighter tabular-nums leading-none truncate ${settings.privacyMode ? 'text-4xl md:text-5xl' : 'text-5xl md:text-7xl'}`}>
-                        {settings.privacyMode ? '••••••' : balance.toLocaleString('ru-RU')}
-                    </span>
+                    <AnimatedCounter value={balance} privacyMode={settings.privacyMode} />
                     <span className="text-xl md:text-3xl font-medium text-blue-200/60 mb-1 md:mb-2">{settings.currency}</span>
                 </div>
             </div>
 
-            {/* 3. BOTTOM ROW: 3 Stats Grid - INCREASED SIZE */}
+            {/* 3. BOTTOM ROW: 3 Stats Grid */}
             <div className="grid grid-cols-3 gap-2 md:gap-3 h-20 md:h-28 mt-auto">
                 {/* Daily Limit - Primary */}
                 <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-2 md:p-4 flex flex-col justify-between relative overflow-hidden group/item shadow-lg">
@@ -136,7 +179,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                 </div>
             </div>
         </div>
-    </div>
+    </motion.div>
   );
 };
 

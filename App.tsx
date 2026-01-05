@@ -1,735 +1,716 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Upload, Settings as SettingsIcon, Sparkles, LayoutGrid, Wallet, CalendarDays, ShoppingBag, TrendingUp, Users, Crown, ListChecks, CheckCircle2, Circle, X, CreditCard, Calendar, Target, Loader2, Grip, Zap, MessageCircle, LogIn, Lock, LogOut, Cloud, Shield, AlertTriangle, Bug, ArrowRight, Bell, WifiOff, Maximize2, ChevronLeft, Snowflake, Gift, ChevronDown, MonitorPlay, Check, Bot } from 'lucide-react';
-import { Transaction, SavingsGoal, AppSettings, ShoppingItem, FamilyEvent, FamilyMember, LearnedRule, Category, Subscription, Debt, PantryItem, LoyaltyCard, WidgetConfig, MeterReading, WishlistItem, MandatoryExpense } from './types';
-import { FAMILY_MEMBERS as INITIAL_FAMILY_MEMBERS, INITIAL_CATEGORIES, getIconById } from './constants';
-import AddTransactionModal from './components/AddTransactionModal';
-import TransactionHistory from './components/TransactionHistory';
-import GoalsSection from './components/GoalsSection';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
+import { 
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category 
+} from './types';
+
 import SmartHeader from './components/SmartHeader';
-import SpendingCalendar from './components/SpendingCalendar';
-import CategoryProgress from './components/CategoryProgress';
-import ImportModal from './components/ImportModal';
-import SettingsModal from './components/SettingsModal';
+import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
+import RecentTransactionsWidget from './components/RecentTransactionsWidget';
 import ShoppingList from './components/ShoppingList';
 import FamilyPlans from './components/FamilyPlans';
-import EventModal from './components/EventModal';
+import TransactionHistory from './components/TransactionHistory';
 import ChartsSection from './components/ChartsSection';
-import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
-import ServicesHub from './components/ServicesHub';
+import GoalsSection from './components/GoalsSection';
+import SpendingCalendar from './components/SpendingCalendar';
 import MandatoryExpensesList from './components/MandatoryExpensesList';
-import MandatoryExpenseModal from './components/MandatoryExpenseModal';
-import RecentTransactionsWidget from './components/RecentTransactionsWidget';
-import NotificationsModal from './components/NotificationsModal';
-import PinScreen from './components/PinScreen';
+import CategoryProgress from './components/CategoryProgress';
 import LoginScreen from './components/LoginScreen';
+
+// Lazy Load Modals & Heavy Components
+const AddTransactionModal = React.lazy(() => import('./components/AddTransactionModal'));
+const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
+const ImportModal = React.lazy(() => import('./components/ImportModal'));
+const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
+const PinScreen = React.lazy(() => import('./components/PinScreen'));
+const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
+const GoalModal = React.lazy(() => import('./components/GoalModal'));
+const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExpenseModal'));
+const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
+const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
+
 import { parseAlfaStatement } from './utils/alfaParser';
+import { auth } from './firebase';
+import { 
+  addItem, updateItem, deleteItem, saveSettings, 
+  addItemsBatch, updateItemsBatch, deleteItemsBatch, joinFamily 
+} from './utils/db';
 
-// Firebase Imports
-import { auth, googleProvider } from './firebase';
-import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
-import type { User as FirebaseUser } from 'firebase/auth';
-import { subscribeToCollection, subscribeToSettings, addItem, addItemsBatch, updateItem, deleteItem, getOrInitUserFamily, saveSettings, deleteItemsBatch } from './utils/db';
+import { useAuth } from './contexts/AuthContext';
+import { useData } from './contexts/DataContext';
 
-const DEFAULT_WIDGETS: WidgetConfig[] = [
-  // Row 1 (Desktop: 2+2=4 cols)
-  { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
-  { id: 'goals', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } }, 
-  
-  // Row 2 (Desktop: 2+2=4 cols)
-  { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } },
-  { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } },
-  
-  // Row 3 (Desktop: 2+2=4 cols)
-  { id: 'charts', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } }, 
-  { id: 'shopping', isVisible: true, mobile: { colSpan: 2, rowSpan: 2 }, desktop: { colSpan: 2, rowSpan: 2 } }, 
+const TAB_CONFIG = [
+  { id: 'overview', label: 'Обзор', icon: LayoutGrid },
+  { id: 'budget', label: 'Бюджет', icon: PieChart },
+  { id: 'plans', label: 'Планы', icon: Calendar },
+  { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
+  { id: 'services', label: 'Сервисы', icon: AppWindow },
 ];
 
-const DEFAULT_SETTINGS: AppSettings = {
-  familyName: 'Семья',
-  currency: '₽',
-  startOfMonthDay: 1,
-  privacyMode: false,
-  widgets: DEFAULT_WIDGETS,
-  enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'subs', 'debts', 'pantry', 'chat', 'meters', 'wishlist'],
-  isPinEnabled: false, 
-  defaultBudgetMode: 'personal', 
-  telegramBotToken: '',
-  telegramChatId: '',
-  eventTemplate: '*Событие*\n{{title}}\n{{date}} {{time}}\n{{members}}\n{{duration}}',
-  shoppingTemplate: '🛒 *Список покупок:*\n\n{{items}}',
-  dayStartHour: 8,
-  dayEndHour: 22,
-  autoSendEventsToTelegram: false,
-  initialBalance: 150000,
-  initialBalanceDate: new Date().toISOString().split('T')[0],
-  salaryDates: [10, 25],
-  mandatoryExpenses: [{ id: 'me1', name: 'Ипотека', amount: 45000, day: 10, remind: true, keywords: ['ипотека', 'банк'] }],
-  alfaMapping: { date: 'дата', time: 'время', amount: 'сумма', category: 'категория', note: 'описание' }
+const pageVariants = {
+  initial: { opacity: 0, y: 10, scale: 0.98 },
+  in: { opacity: 1, y: 0, scale: 1 },
+  out: { opacity: 0, y: -10, scale: 0.98 }
 };
 
-const NotificationToast = ({ notification, onClose }: { notification: { message: string, type?: string }, onClose: () => void }) => {
-  const bgColor = notification.type === 'error' ? 'bg-red-500' : notification.type === 'warning' ? 'bg-orange-500' : 'bg-green-500';
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: -20, x: '-50%' }}
-      animate={{ opacity: 1, y: 0, x: '-50%' }}
-      exit={{ opacity: 0, y: -20, x: '-50%' }}
-      className={`fixed top-6 left-1/2 z-[2000] px-6 py-3 rounded-full text-white font-black text-xs uppercase tracking-widest shadow-2xl flex items-center gap-3 ${bgColor}`}
-    >
-      <span>{notification.message}</span>
-      <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={14} /></button>
-    </motion.div>
-  );
+const pageTransition = {
+  type: "spring",
+  stiffness: 300,
+  damping: 30,
+  mass: 0.5 // Lightweight feel
 };
 
 export default function App() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [familyId, setFamilyId] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'plans' | 'shopping' | 'services'>('overview');
-  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
-  
-  // Data States
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
-  const [events, setEvents] = useState<FamilyEvent[]>([]);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [learnedRules, setLearnedRules] = useState<LearnedRule[]>([]);
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [pantry, setPantry] = useState<PantryItem[]>([]);
-  const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
-  const [meterReadings, setMeterReadings] = useState<MeterReading[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  
-  // PIN state
-  const [isPinVerified, setIsPinVerified] = useState(false);
+  // Contexts
+  const { user, familyId, loading: isAuthLoading, isOfflineMode } = useAuth();
+  const { 
+    transactions, setTransactions,
+    shoppingItems, setShoppingItems,
+    pantry, setPantry,
+    events, setEvents,
+    goals, setGoals,
+    members, setMembers,
+    categories, setCategories,
+    learnedRules, setLearnedRules,
+    settings, setSettings,
+    filteredTransactions,
+    totalBalance,
+    currentMonthSpent,
+    savingsRate, setSavingsRate,
+    budgetMode, setBudgetMode,
+    subscriptions, setSubscriptions,
+    debts, setDebts,
+    projects, setProjects,
+    loyaltyCards, setLoyaltyCards,
+    meterReadings, setMeterReadings,
+    wishlist, setWishlist
+  } = useData();
 
-  // Navigation State
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  // UI States
-  const [appNotification, setAppNotification] = useState<{message: string, type?: string} | null>(null);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[]>([]);
+  // --- UI State ---
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [activeEventToEdit, setActiveEventToEdit] = useState<FamilyEvent | null>(null);
-  const [savingsRate, setSavingsRate] = useState(20);
-  const [selectedCategoryHistory, setSelectedCategoryHistory] = useState<string | null>(null);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<{catId: string, name: string} | null>(null);
-  const [activeTransactionToEdit, setActiveTransactionToEdit] = useState<Transaction | null>(null);
-  const [mandatoryExpenseToEdit, setMandatoryExpenseToEdit] = useState<MandatoryExpense | null>(null);
+  const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [pinMode, setPinMode] = useState<'unlock' | null>(null);
+  const [isAppUnlocked, setIsAppUnlocked] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  // Filtering & Drill Down State
+  const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterMerchant, setFilterMerchant] = useState<string | null>(null);
+  
+  // Goal Edit State
+  const [editingGoal, setEditingGoal] = useState<any>(null);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+
+  // Mandatory Expense Edit State
+  const [editingMandatoryExpense, setEditingMandatoryExpense] = useState<MandatoryExpense | null>(null);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
-  
-  const settingsRef = useRef<AppSettings>(DEFAULT_SETTINGS);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Derived State (Filtered by Budget Mode)
-  const filteredTransactions = useMemo(() => {
-      if (budgetMode === 'family') return transactions;
-      return transactions.filter(t => t.memberId === user?.uid || (isDemoMode && t.memberId === 'papa'));
-  }, [transactions, budgetMode, user, isDemoMode]);
 
-  const currentMonthTransactions = useMemo(() => {
-      return filteredTransactions.filter(t => {
-          const d = new Date(t.date);
-          return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-      });
-  }, [filteredTransactions, currentMonth]);
+  // Calendar State
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
 
-  const displayedTransactions = useMemo(() => {
-      if (selectedDate) {
-          return currentMonthTransactions.filter(t => {
-              const d = new Date(t.date);
-              return d.getDate() === selectedDate.getDate();
-          });
+  // --- Effects ---
+
+  // Handle Theme
+  useEffect(() => {
+      if (settings.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#000000';
+          document.body.style.backgroundColor = '#000000';
+      } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.style.backgroundColor = '#EBEFF5';
+          document.body.style.backgroundColor = '#EBEFF5';
       }
-      return currentMonthTransactions;
-  }, [currentMonthTransactions, selectedDate]);
-
-  const spentThisMonth = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  
-  const currentBalance = useMemo(() => {
-      let bal = settings.initialBalance;
-      const txSource = filteredTransactions; 
-      const totalIncome = txSource.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-      const totalExpense = txSource.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-      return bal + totalIncome - totalExpense;
-  }, [filteredTransactions, settings.initialBalance]);
-
-  useEffect(() => { 
-      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => { 
-          setUser(currentUser); 
-          if (currentUser) { 
-              try { const fid = await getOrInitUserFamily(currentUser); setFamilyId(fid); } 
-              catch (e) { setFamilyId(currentUser.uid); } 
-          } 
-          setAuthLoading(false); 
-      }); 
-      return () => unsubscribe(); 
-  }, []);
+  }, [settings.theme]);
 
   useEffect(() => {
-    if (isDemoMode) {
-        setSettings(DEFAULT_SETTINGS);
-        setFamilyMembers(INITIAL_FAMILY_MEMBERS);
-        setCategories(INITIAL_CATEGORIES);
-        setGoals([
-            { id: '1', title: 'Отпуск', targetAmount: 150000, currentAmount: 45000, icon: 'Plane', color: '#5856D6' },
-            { id: '2', title: 'Новый Макбук', targetAmount: 200000, currentAmount: 120000, icon: 'Laptop', color: '#007AFF' }
-        ]);
-        const demoTransactions: Transaction[] = [];
-        const now = new Date();
-        const cats = INITIAL_CATEGORIES.map(c => c.id).filter(id => id !== 'income');
-        demoTransactions.push({ id: 'inc1', amount: 80000, type: 'income', category: 'salary', memberId: 'papa', note: 'Зарплата', date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString() });
-        demoTransactions.push({ id: 'inc2', amount: 65000, type: 'income', category: 'salary', memberId: 'mama', note: 'Аванс', date: new Date(now.getFullYear(), now.getMonth(), 25).toISOString() });
-        for (let i = 0; i < 40; i++) {
-            const day = Math.floor(Math.random() * now.getDate()) + 1;
-            const catId = cats[Math.floor(Math.random() * cats.length)];
-            const amount = Math.floor(Math.random() * 5000) + 100;
-            demoTransactions.push({
-                id: `tx${i}`, amount, type: 'expense', category: catId, memberId: Math.random() > 0.5 ? 'papa' : 'mama', note: 'Покупка', date: new Date(now.getFullYear(), now.getMonth(), day, Math.floor(Math.random()*12)+8, Math.floor(Math.random()*60)).toISOString()
-            });
-        }
-        setTransactions(demoTransactions);
-        setEvents([
-            { id: 'ev1', title: 'Поход к врачу', description: '', date: new Date().toISOString().split('T')[0], time: '14:00', duration: 1, memberIds: ['mama'], isTemplate: false },
-            { id: 'ev2', title: 'Ужин с друзьями', description: '', date: new Date(now.getFullYear(), now.getMonth(), now.getDate()+2).toISOString().split('T')[0], time: '19:00', duration: 3, memberIds: ['papa', 'mama'], isTemplate: false }
-        ]);
-        setShoppingItems([
-            { id: 's1', title: 'Молоко', amount: '1', unit: 'л', category: 'dairy', completed: false, memberId: 'papa', priority: 'medium' },
-            { id: 's2', title: 'Хлеб', amount: '1', unit: 'шт', category: 'bakery', completed: false, memberId: 'mama', priority: 'medium' },
-            { id: 's3', title: 'Яблоки', amount: '1', unit: 'кг', category: 'produce', completed: true, memberId: 'papa', priority: 'medium' }
-        ]);
-        return;
-    }
-    
-    if (!familyId) return;
-    const unsubEvents = subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[]));
-    const unsubTrans = subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]));
-    const unsubCats = subscribeToCollection(familyId, 'categories', (data) => {
-        if(data.length > 0) setCategories([...INITIAL_CATEGORIES, ...data as Category[]]); 
-    });
-    const unsubRules = subscribeToCollection(familyId, 'learnedRules', (data) => setLearnedRules(data as LearnedRule[]));
-    const unsubGoals = subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[]));
-    const unsubMembers = subscribeToCollection(familyId, 'members', (data) => {
-        if(data.length > 0) setFamilyMembers(data as FamilyMember[]);
-        else setFamilyMembers(INITIAL_FAMILY_MEMBERS);
-    });
-    const unsubShopping = subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[]));
-    const unsubSettings = subscribeToSettings(familyId, (data) => { 
-        if (data) { 
-            setSettings({ ...DEFAULT_SETTINGS, ...data }); 
-            settingsRef.current = { ...DEFAULT_SETTINGS, ...data }; 
-            // Set initial budget mode from settings if available
-            if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
-        }
-    });
-    
-    return () => { 
-        unsubEvents(); unsubSettings(); unsubTrans(); unsubCats(); unsubRules(); unsubGoals(); unsubMembers(); unsubShopping();
-    };
-  }, [familyId, isDemoMode]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
-  // ... (handlers like handleSaveEvent, handleSaveTransaction remain unchanged)
-  const handleSendToTelegram = async (event: FamilyEvent): Promise<boolean> => { 
-      if (isDemoMode) { setAppNotification({ message: "Отправлено в демо-чат" }); return true; } 
-      return true; 
-  };
-
-  const handleSaveEvent = async (e: FamilyEvent) => {
-      try {
-          if (isDemoMode) {
-             setEvents(prev => {
-                 const exists = prev.find(p => p.id === e.id);
-                 return exists ? prev.map(p => p.id === e.id ? e : p) : [...prev, e];
-             });
-          } else {
-             if (!familyId) throw new Error("Нет ID семьи. Попробуйте перезагрузить страницу.");
-             if (activeEventToEdit) await updateItem(familyId, 'events', e.id, e);
-             else await addItem(familyId, 'events', e);
-          }
-          if (settings.autoSendEventsToTelegram) handleSendToTelegram(e);
-          setAppNotification({ message: activeEventToEdit ? "Событие обновлено" : "Событие создано", type: "success" });
-          setIsEventModalOpen(false);
-          setActiveEventToEdit(null);
-      } catch (error: any) {
-          console.error("Event Save Error:", error);
-          setAppNotification({ message: `Ошибка: ${error.message || 'Не удалось сохранить'}`, type: "error" });
-      }
-  };
-
-  const handleSaveTransaction = async (tx: Omit<Transaction, 'id'>) => {
-      try {
-          if (isDemoMode) {
-              if (activeTransactionToEdit) {
-                  const updated = { ...tx, id: activeTransactionToEdit.id };
-                  setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
-              } else {
-                  const newTx = { ...tx, id: Date.now().toString() };
-                  setTransactions(prev => [...prev, newTx]);
-              }
-          } else {
-              if (!familyId) throw new Error("Нет ID семьи");
-              if (activeTransactionToEdit) {
-                  await updateItem(familyId, 'transactions', activeTransactionToEdit.id, tx);
-              } else {
-                  await addItem(familyId, 'transactions', tx);
-              }
-          }
-          setAppNotification({ message: activeTransactionToEdit ? "Операция обновлена" : "Операция добавлена", type: "success" });
-          setIsTransactionModalOpen(false);
-          setActiveTransactionToEdit(null);
-      } catch (error: any) {
-          console.error("Transaction Save Error:", error);
-          setAppNotification({ message: "Ошибка сохранения", type: "error" });
-      }
-  };
-
-  const handleTransactionDelete = async (id: string) => {
-      try {
-          if (isDemoMode) {
-              setTransactions(prev => prev.filter(t => t.id !== id));
-          } else {
-              if (!familyId) throw new Error("Нет ID семьи");
-              await deleteItem(familyId, 'transactions', id);
-          }
-          setAppNotification({ message: "Операция удалена", type: "success" });
-          setIsTransactionModalOpen(false);
-          setActiveTransactionToEdit(null);
-      } catch (e) {
-          setAppNotification({ message: "Ошибка удаления", type: "error" });
-      }
-  };
-
-  const handleDeleteTransactionsByPeriod = async (year: number, month: number) => {
-      if (isDemoMode) {
-          setTransactions(prev => prev.filter(t => {
-              const d = new Date(t.date);
-              return !(d.getFullYear() === year && d.getMonth() === month);
-          }));
-      } else if (familyId) {
-          const idsToDelete = transactions
-              .filter(t => {
-                  const d = new Date(t.date);
-                  return d.getFullYear() === year && d.getMonth() === month;
-              })
-              .map(t => t.id);
-          if (idsToDelete.length > 0) {
-              await deleteItemsBatch(familyId, 'transactions', idsToDelete);
+  useEffect(() => {
+      // Check onboarding
+      if (!isAuthLoading && familyId) {
+          if (!settings.familyName && members.length === 1 && members[0].name === 'User') {
+              setShowOnboarding(true);
           }
       }
-  };
+  }, [isAuthLoading, familyId, settings.familyName, members]);
 
-  const handleSaveMandatoryExpense = async (expense: MandatoryExpense) => {
-      let updatedExpenses = [...(settings.mandatoryExpenses || [])];
-      
-      if (mandatoryExpenseToEdit) {
-          updatedExpenses = updatedExpenses.map(e => e.id === expense.id ? expense : e);
+  // PIN Logic
+  useEffect(() => {
+      if (settings.isPinEnabled && !isAppUnlocked) {
+          setPinMode('unlock');
       } else {
-          updatedExpenses.push(expense);
+          setIsAppUnlocked(true);
       }
-      
-      const newSettings = { ...settings, mandatoryExpenses: updatedExpenses };
-      setSettings(newSettings);
-      
-      if (!isDemoMode && familyId) {
-          await saveSettings(familyId, newSettings);
-      }
-      setIsMandatoryModalOpen(false);
-      setMandatoryExpenseToEdit(null);
+  }, [settings.isPinEnabled, isAppUnlocked]);
+
+  // --- Handlers ---
+
+  const showNotify = (type: 'success' | 'error', message: string) => {
+      setNotification({ type, message });
+      setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const defaultMember = user?.uid || 'papa'; 
-      const parsed = await parseAlfaStatement(file, settings.alfaMapping, defaultMember, learnedRules, categories, transactions);
-      setImportPreview(parsed);
-      setIsImportModalOpen(true);
-    } catch (err: any) {
-      setAppNotification({ message: err.message || "Ошибка импорта", type: "error" });
+  const handleTransactionSubmit = async (tx: Omit<Transaction, 'id'>) => {
+    if (selectedTx) {
+      if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, tx);
+      else setTransactions(prev => prev.map(t => t.id === selectedTx.id ? { ...t, ...tx } : t));
+      setSelectedTx(null);
+    } else {
+      if (familyId) await addItem(familyId, 'transactions', tx);
+      else setTransactions(prev => [{ ...tx, id: Date.now().toString() } as Transaction, ...prev]);
     }
-    e.target.value = '';
   };
 
-  const handleImportConfirm = async () => {
-      try {
-          if (isDemoMode) {
-              const newTxs = importPreview.map(t => ({ ...t, id: Date.now().toString() + Math.random() }));
-              setTransactions(prev => [...prev, ...newTxs]);
-          } else {
-              if (!familyId) throw new Error("Нет ID семьи");
-              await addItemsBatch(familyId, 'transactions', importPreview);
-          }
-          setAppNotification({ message: `Импортировано ${importPreview.length} операций`, type: "success" });
-          setIsImportModalOpen(false);
-          setImportPreview([]);
-      } catch (error: any) {
-          setAppNotification({ message: "Ошибка сохранения", type: "error" });
-      }
+  const handleEditTransaction = (tx: Transaction) => {
+      setSelectedTx(tx);
+      setIsAddModalOpen(true);
   };
 
-  const handleLearnRule = async (rule: LearnedRule) => {
-      if (isDemoMode) {
-          setLearnedRules(prev => [...prev, rule]);
-      } else if (familyId) {
-          await addItem(familyId, 'learnedRules', rule);
-      }
+  const handleDrillDown = (categoryId: string, merchantName?: string) => {
+      setDrillDownState({ categoryId, merchantName });
   };
 
-  const handleLinkMandatory = async (expenseId: string, keyword: string) => {
-      const updatedExpenses = settings.mandatoryExpenses.map(e => {
-          if (e.id === expenseId) {
-              const currentKeywords = e.keywords || [];
-              if (!currentKeywords.includes(keyword)) {
-                  return { ...e, keywords: [...currentKeywords, keyword] };
-              }
-          }
-          return e;
-      });
+  const handleClearFilters = () => {
+      setFilterCategory(null);
+      setFilterMerchant(null);
+  };
+
+  const handleImport = (file: File) => {
+    parseAlfaStatement(file, settings.alfaMapping, members[0].id, learnedRules, categories, transactions)
+      .then(data => setImportPreview(data))
+      .catch(err => alert(err.message));
+  };
+
+  const handleMoveToPantry = async (item: ShoppingItem) => {
+      const pantryItem: PantryItem = {
+          id: Date.now().toString(),
+          title: item.title,
+          amount: item.amount || '1',
+          unit: item.unit,
+          category: item.category,
+          addedDate: new Date().toISOString()
+      };
       
-      const newSettings = { ...settings, mandatoryExpenses: updatedExpenses };
-      setSettings(newSettings);
-      
-      if (!isDemoMode && familyId) {
-          await saveSettings(familyId, newSettings);
+      setShoppingItems(prev => prev.filter(i => i.id !== item.id));
+      await setPantry(prev => [...prev, pantryItem]);
+
+      if (familyId) {
+          await deleteItem(familyId, 'shopping', item.id);
       }
   };
 
-  const handleUpdateMembers = async (updatedMembers: FamilyMember[]) => {
-      setFamilyMembers(updatedMembers);
-      if (!isDemoMode && familyId) {
-          for (const m of updatedMembers) {
-              await updateItem(familyId, 'members', m.id, m).catch(async () => {
-                  await addItem(familyId, 'members', m);
+  // Helper to add category from various places
+  const handleAddCategory = async (cat: Category) => {
+      setCategories(prev => [...prev, cat]);
+      if (familyId) await addItem(familyId, 'categories', cat);
+  };
+
+  // Global Invite Handler
+  const handleInvite = async () => {
+      if (!familyId) return;
+      const link = `${window.location.origin}/?join=${familyId}`;
+      const text = `Привет! 👋\n\nПрисоединяйся к моему семейному бюджету "${settings.familyName}". Будем вместе контролировать финансы и достигать целей! 🚀\n\nСсылка для входа:\n${link}`;
+      
+      if (navigator.share) {
+          try {
+              await navigator.share({
+                  title: 'Приглашение в Семейный Бюджет',
+                  text: text,
+                  url: link
               });
+          } catch (e) {
+              // Share dismissed
           }
+      } else {
+          navigator.clipboard.writeText(text);
+          showNotify('success', 'Ссылка скопирована!');
       }
   };
 
-  // Widget Map
-  const renderWidget = (widgetId: string) => {
-      switch(widgetId) {
-          case 'month_chart': return <MonthlyAnalyticsWidget transactions={currentMonthTransactions} currentMonth={currentMonth} settings={settings} />;
-          case 'recent_transactions': return <RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={familyMembers} settings={settings} onTransactionClick={(tx) => { setActiveTransactionToEdit(tx); setIsTransactionModalOpen(true); }} onViewAllClick={() => setActiveTab('budget')} />;
-          case 'charts': return <ChartsSection transactions={currentMonthTransactions} settings={settings} onCategoryClick={(id) => setSelectedCategoryHistory(id)} />;
-          case 'goals': return <GoalsSection goals={goals} settings={settings} onEditGoal={() => {}} onAddGoal={() => {}} />;
-          case 'shopping': return <div className="h-full bg-white p-4 rounded-[2.5rem] border border-white shadow-soft"><h3 className="font-black text-sm mb-2">Покупки</h3><div className="space-y-2">{shoppingItems.slice(0,3).map(i => <div key={i.id} className="flex justify-between text-xs font-bold border-b border-gray-50 pb-1"><span>{i.title}</span><span className="text-gray-400">{i.amount}{i.unit}</span></div>)}</div></div>;
-          case 'balance': return <div className="h-full bg-white p-6 rounded-[2.5rem] border border-white shadow-soft flex flex-col justify-between"><span className="text-xs font-black uppercase text-gray-400">Баланс</span><div className="text-3xl font-black text-[#1C1C1E]">{currentBalance.toLocaleString()} {settings.currency}</div></div>;
-          default: return null;
-      }
-  };
+  if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000]"><div className="animate-spin text-blue-500"><Settings2 size={32}/></div></div>;
 
-  if (authLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
-  if (!user && !isDemoMode) {
-      return (
-          <LoginScreen 
-            onLogin={() => signInWithPopup(auth, googleProvider)} 
-            onDemoLogin={() => { setIsDemoMode(true); setUser({ uid: 'demo' } as any); setFamilyId('demo'); }} 
-            loading={authLoading} 
-          />
-      );
+  if (!user) {
+      return <LoginScreen />;
   }
 
-  // PIN Protection Check
-  if (settings.isPinEnabled && !isPinVerified) {
+  if (pinMode === 'unlock') {
       return (
-          <PinScreen 
-            mode="unlock"
-            savedPin={settings.pinCode}
-            onSuccess={() => setIsPinVerified(true)}
-            onForgot={() => {
-                if(confirm("Сбросить PIN? Это потребует повторного входа.")) {
-                    auth.signOut();
-                    window.location.reload();
-                }
-            }}
-          />
+        <Suspense fallback={null}>
+            <PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => { setPinMode(null); setIsAppUnlocked(true); }} onForgot={() => alert("Обратитесь к администратору семьи")} />
+        </Suspense>
       );
   }
 
   return (
-    <div className="min-h-screen bg-[#EBEFF5] pb-32 max-w-7xl mx-auto px-4 pt-6 text-[#1C1C1E]">
-      <AnimatePresence>{appNotification && <NotificationToast notification={appNotification} onClose={() => setAppNotification(null)} />}</AnimatePresence>
+    // Force min-height > 100vh to ensure scrollbar is always present, preventing layout shifts
+    <div className="min-h-[100.1vh] pb-32 md:pb-0 md:pl-24 bg-[#EBEFF5] dark:bg-[#000000] text-[#1C1C1E] dark:text-white selection:bg-blue-100 transition-colors duration-300">
       
-      <header className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-black">Family Budget</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setIsNotificationsOpen(true)} className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
-                <Bell size={24} strokeWidth={2} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#EBEFF5]"></span>
-            </button>
-            <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><SettingsIcon /></button>
-          </div>
-      </header>
+      {/* Header Mobile (Persistent Sticky) */}
+      <div className="md:hidden sticky top-0 z-30 bg-[#EBEFF5]/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 px-4 py-3 flex justify-between items-center transition-all">
+         {/* Min-width ensures this container holds space even if empty */}
+         <div className="flex items-center gap-3 min-w-[20px] min-h-[32px]">
+             {(activeTab === 'overview' || activeTab === 'budget') && (
+                 <motion.button 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')}
+                    className="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] p-1.5 pr-3 rounded-full border border-white/50 dark:border-white/10 shadow-sm"
+                 >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${budgetMode === 'family' ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                       {budgetMode === 'family' ? <Users size={14} /> : <User size={14} />}
+                    </div>
+                    <span className="text-[10px] font-bold text-[#1C1C1E] dark:text-white uppercase tracking-wide">
+                       {budgetMode === 'family' ? 'Семья' : 'Мой'}
+                    </span>
+                 </motion.button>
+             )}
+             {isOfflineMode && <WifiOff size={16} className="text-gray-400" />}
+         </div>
+         <div className="flex gap-3">
+             <motion.button whileTap={{scale:0.9}} onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm dark:border dark:border-white/5">
+                 <Bell size={20} className="text-[#1C1C1E] dark:text-white" />
+                 <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#EBEFF5] dark:border-black"/>
+             </motion.button>
+             <motion.button whileTap={{scale:0.9}} onClick={() => setIsSettingsOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm dark:border dark:border-white/5"><SettingsIcon size={20} className="text-[#1C1C1E] dark:text-white" /></motion.button>
+         </div>
+      </div>
 
-      <main>
-          {activeTab === 'overview' && (
-              <div className="space-y-6">
-                  <SmartHeader 
-                      balance={currentBalance} 
-                      spent={spentThisMonth} 
-                      savingsRate={savingsRate} 
-                      settings={settings}
-                      onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))}
-                      budgetMode={budgetMode}
-                      onToggleBudgetMode={() => setBudgetMode(budgetMode === 'personal' ? 'family' : 'personal')}
-                  />
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-auto items-stretch">
-                      {settings.widgets.filter(w => w.isVisible).map(widget => (
-                          <div 
-                            key={widget.id} 
-                            className={`col-span-${widget.mobile.colSpan} row-span-${widget.mobile.rowSpan} md:col-span-${widget.desktop.colSpan} md:row-span-${widget.desktop.rowSpan} h-full ${widget.id === 'goals' ? 'order-last md:order-none' : ''}`}
-                          >
-                              {renderWidget(widget.id)}
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
+      <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        
+        <Suspense fallback={null}>
+            {showOnboarding && <OnboardingModal onSave={async (name, color) => {
+                if (familyId) {
+                    const newMember: FamilyMember = { id: user?.uid || 'user', name, color, isAdmin: true, userId: user?.uid };
+                    await updateItemsBatch(familyId, 'members', [newMember]);
+                    await saveSettings(familyId, { ...settings, familyName: `${name} Family` });
+                }
+                setShowOnboarding(false);
+            }} />}
+        </Suspense>
 
-          {/* ... (Rest of tabs remain same: budget, plans, shopping, services) */}
-          {activeTab === 'budget' && (
-              <div className="space-y-6">
-                  <div className="flex gap-3">
-                      <button 
-                        onClick={() => { setActiveTransactionToEdit(null); setIsTransactionModalOpen(true); }} 
-                        className="flex-1 bg-[#1C1C1E] text-white py-4 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                      >
-                          <Plus size={18} /> Операция
-                      </button>
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx,.csv,.xls" />
-                      <button 
-                        onClick={() => fileInputRef.current?.click()} 
-                        className="flex-1 bg-white text-[#1C1C1E] py-4 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-sm border border-gray-100 flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-gray-50"
-                      >
-                          <Upload size={18} /> Импорт
-                      </button>
-                  </div>
+        {notification && (
+            <motion.div initial={{opacity:0, y:-20}} animate={{opacity:1, y:0}} exit={{opacity:0}} className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${notification.type === 'success' ? 'bg-black dark:bg-white text-white dark:text-black border-gray-800' : 'bg-red-500 text-white border-red-600'}`}>
+                {notification.message}
+            </motion.div>
+        )}
 
-                  <SpendingCalendar 
-                      transactions={currentMonthTransactions} 
-                      selectedDate={selectedDate} 
-                      onSelectDate={setSelectedDate} 
-                      currentMonth={currentMonth} 
-                      onMonthChange={setCurrentMonth} 
-                      settings={settings}
-                  />
+        <AnimatePresence mode="wait">
+        {/* --- TAB: OVERVIEW --- */}
+        {activeTab === 'overview' && (
+            <motion.div 
+                key="overview"
+                initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
+                className="space-y-6"
+            >
+                <SmartHeader 
+                    balance={totalBalance} 
+                    spent={currentMonthSpent} 
+                    savingsRate={savingsRate} 
+                    settings={settings} 
+                    budgetMode={budgetMode}
+                    onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')}
+                    onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))}
+                    onInvite={handleInvite}
+                />
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[180px] grid-flow-row-dense">
+                    {settings.widgets.filter(w => w.isVisible).map(widget => {
+                        switch(widget.id) {
+                            case 'month_chart':
+                                if (filteredTransactions.length === 0) return null;
+                                return (
+                                    <div key={widget.id} className="col-span-2 md:col-span-3 row-span-1 md:row-span-2">
+                                        <MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} />
+                                    </div>
+                                );
+                            case 'goals':
+                                if (goals.length === 0) return null;
+                                return (
+                                    <div key={widget.id} className="col-span-2 md:col-span-1 row-span-2 md:row-span-2">
+                                        <GoalsSection 
+                                            goals={goals} 
+                                            settings={settings} 
+                                            onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }}
+                                            onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} 
+                                        />
+                                    </div>
+                                );
+                            case 'charts':
+                                if (filteredTransactions.length === 0) return null;
+                                return (
+                                    <div key={widget.id} className="col-span-2 md:col-span-3 row-span-1 md:row-span-2">
+                                        <ChartsSection 
+                                            transactions={filteredTransactions} 
+                                            settings={settings} 
+                                            onCategoryClick={(catId) => handleDrillDown(catId)}
+                                        />
+                                    </div>
+                                );
+                            case 'recent_transactions':
+                                if (filteredTransactions.length === 0) return null;
+                                return (
+                                    <div key={widget.id} className="col-span-2 md:col-span-1 row-span-1 md:row-span-4">
+                                        <RecentTransactionsWidget 
+                                            transactions={filteredTransactions} 
+                                            categories={categories} 
+                                            members={members} 
+                                            settings={settings}
+                                            onTransactionClick={handleEditTransaction}
+                                            onViewAllClick={() => setActiveTab('budget')}
+                                        />
+                                    </div>
+                                );
+                            case 'shopping':
+                                if (shoppingItems.filter(i=>!i.completed).length === 0) return null;
+                                return (
+                                    <motion.div 
+                                        key={widget.id} 
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        className="col-span-2 md:col-span-1 row-span-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none relative overflow-hidden group cursor-pointer" 
+                                        onClick={() => setActiveTab('shopping')}
+                                    >
+                                        <div className="flex justify-between items-center mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 bg-green-50 dark:bg-green-900/30 rounded-xl"><ShoppingBag size={14} className="text-green-600 dark:text-green-400"/></div>
+                                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Список покупок</h3>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-white/10 px-2 py-1 rounded-lg">{shoppingItems.filter(i=>!i.completed).length} шт</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {shoppingItems.filter(i=>!i.completed).slice(0,3).map(item => (
+                                                <div key={item.id} className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-gray-200 truncate">{item.title}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                );
+                            default: return null;
+                        }
+                    })}
+                </div>
+            </motion.div>
+        )}
 
-                  <MandatoryExpensesList 
-                      expenses={settings.mandatoryExpenses} 
-                      transactions={currentMonthTransactions} 
-                      settings={settings} 
-                      currentMonth={currentMonth} 
-                      onEdit={(expense) => { setMandatoryExpenseToEdit(expense); setIsMandatoryModalOpen(true); }}
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <CategoryProgress 
-                        transactions={displayedTransactions} 
-                        settings={settings} 
-                        categories={categories} 
-                        onCategoryClick={(catId) => setSelectedCategoryHistory(catId)}
-                        onSubCategoryClick={(catId, name) => setSelectedSubCategory({catId, name})}
-                      />
-                      <TransactionHistory 
-                          transactions={displayedTransactions} 
-                          setTransactions={setTransactions} 
-                          settings={settings} 
-                          members={familyMembers} 
-                          onLearnRule={handleLearnRule} 
-                          categories={categories}
-                          onEditTransaction={(tx) => { setActiveTransactionToEdit(tx); setIsTransactionModalOpen(true); }}
-                      />
-                  </div>
-              </div>
-          )}
+        {/* --- TAB: BUDGET --- */}
+        {activeTab === 'budget' && (
+            <motion.div 
+                key="budget"
+                initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
+                className="space-y-6"
+            >
+                <div className="flex gap-2 mb-4">
+                    <button className="flex-1 bg-white dark:bg-[#1C1C1E] dark:text-white p-3 rounded-2xl font-bold shadow-sm border border-transparent dark:border-white/5">Операции</button>
+                    <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-400 p-3 rounded-2xl font-bold" onClick={() => document.getElementById('import-input')?.click()}>
+                        <Upload size={18} className="inline mr-2"/> Импорт
+                        <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => e.target.files && handleImport(e.target.files[0])} />
+                    </button>
+                </div>
 
-          {activeTab === 'plans' && (
-              <FamilyPlans 
-                  events={events} 
-                  setEvents={setEvents} 
-                  settings={settings} 
-                  members={familyMembers} 
-                  onSendToTelegram={handleSendToTelegram} 
-              />
-          )}
+                <SpendingCalendar 
+                    transactions={filteredTransactions} 
+                    selectedDate={calendarSelectedDate}
+                    onSelectDate={(date) => {
+                        setCalendarSelectedDate(date);
+                        handleClearFilters();
+                    }}
+                    currentMonth={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    settings={settings}
+                />
 
-          {activeTab === 'shopping' && (
-              <ShoppingList 
-                  items={shoppingItems} 
-                  setItems={setShoppingItems} 
-                  settings={settings} 
-                  members={familyMembers} 
-                  onCompletePurchase={() => {}} 
-                  initialStoreMode={false}
-              />
-          )}
+                <CategoryProgress 
+                    transactions={filteredTransactions}
+                    categories={categories}
+                    settings={settings}
+                    onCategoryClick={(catId) => handleDrillDown(catId)}
+                    onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)}
+                />
 
-          {activeTab === 'services' && (
-              <ServicesHub 
-                  events={events}
-                  setEvents={setEvents}
-                  settings={settings}
-                  members={familyMembers}
-                  subscriptions={subscriptions}
-                  setSubscriptions={setSubscriptions}
-                  debts={debts}
-                  setDebts={setDebts}
-                  pantry={pantry}
-                  setPantry={setPantry}
-                  transactions={transactions}
-                  goals={goals}
-                  loyaltyCards={loyaltyCards}
-                  setLoyaltyCards={setLoyaltyCards}
-                  readings={meterReadings}
-                  setReadings={setMeterReadings}
-                  wishlist={wishlist}
-                  setWishlist={setWishlist}
-              />
-          )}
+                <MandatoryExpensesList 
+                    expenses={settings.mandatoryExpenses || []} 
+                    transactions={filteredTransactions} 
+                    settings={settings} 
+                    currentMonth={currentMonth}
+                    onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }}
+                />
+
+                <TransactionHistory 
+                    transactions={filteredTransactions} 
+                    setTransactions={setTransactions} 
+                    settings={settings} 
+                    members={members}
+                    categories={categories}
+                    filterMode={calendarSelectedDate ? 'day' : 'month'}
+                    initialSearch={calendarSelectedDate ? calendarSelectedDate.toDateString() : ''}
+                    selectedCategoryId={filterCategory || undefined}
+                    selectedMerchantName={filterMerchant || undefined}
+                    onClearFilters={handleClearFilters}
+                    onLearnRule={async (rule) => {
+                        setLearnedRules(prev => [...prev, rule]);
+                        if(familyId) await addItem(familyId, 'rules', rule);
+                    }}
+                    onEditTransaction={handleEditTransaction}
+                    onAddCategory={handleAddCategory}
+                />
+            </motion.div>
+        )}
+
+        {/* --- TAB: PLANS --- */}
+        {activeTab === 'plans' && (
+            <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}>
+                <FamilyPlans 
+                    events={events} 
+                    setEvents={setEvents}
+                    settings={settings} 
+                    members={members} 
+                    onSendToTelegram={async () => true} 
+                />
+            </motion.div>
+        )}
+
+        {/* --- TAB: SHOPPING --- */}
+        {activeTab === 'shopping' && (
+            <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}>
+                <ShoppingList 
+                    items={shoppingItems} 
+                    setItems={setShoppingItems} 
+                    settings={settings} 
+                    members={members} 
+                    onCompletePurchase={() => {}}
+                    onMoveToPantry={handleMoveToPantry}
+                />
+            </motion.div>
+        )}
+
+        {/* --- TAB: SERVICES --- */}
+        {activeTab === 'services' && (
+            <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}>
+                <Suspense fallback={<div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-300"/></div>}>
+                    <ServicesHub />
+                </Suspense>
+            </motion.div>
+        )}
+        </AnimatePresence>
+
       </main>
 
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl p-1.5 rounded-[2.5rem] shadow-2xl flex items-center justify-between z-50 border border-white/50 w-[96%] max-w-[500px]">
-          {settings.enabledTabs.includes('overview') && <button onClick={() => setActiveTab('overview')} className={`flex-1 py-4 rounded-[2rem] transition-all duration-300 text-[10px] md:text-xs font-black uppercase tracking-widest ${activeTab === 'overview' ? 'bg-[#1C1C1E] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>Обзор</button>}
-          {settings.enabledTabs.includes('budget') && <button onClick={() => setActiveTab('budget')} className={`flex-1 py-4 rounded-[2rem] transition-all duration-300 text-[10px] md:text-xs font-black uppercase tracking-widest ${activeTab === 'budget' ? 'bg-[#1C1C1E] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>Бюджет</button>}
-          {settings.enabledTabs.includes('plans') && <button onClick={() => setActiveTab('plans')} className={`flex-1 py-4 rounded-[2rem] transition-all duration-300 text-[10px] md:text-xs font-black uppercase tracking-widest ${activeTab === 'plans' ? 'bg-[#1C1C1E] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>Планы</button>}
-          {settings.enabledTabs.includes('shopping') && <button onClick={() => setActiveTab('shopping')} className={`flex-1 py-4 rounded-[2rem] transition-all duration-300 text-[10px] md:text-xs font-black uppercase tracking-widest ${activeTab === 'shopping' ? 'bg-[#1C1C1E] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>Покупки</button>}
-          {settings.enabledTabs.includes('services') && <button onClick={() => setActiveTab('services')} className={`flex-1 py-4 rounded-[2rem] transition-all duration-300 text-[10px] md:text-xs font-black uppercase tracking-widest ${activeTab === 'services' ? 'bg-[#1C1C1E] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>Сервисы</button>}
+      {/* Floating Dock Navigation */}
+      <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-24 md:h-screen md:bg-white md:border-r md:border-gray-100 dark:md:border-white/5 md:rounded-none bg-[#1C1C1E]/90 dark:bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-around items-center z-50">
+         <div className="hidden md:block text-2xl font-black mb-8 pt-10 text-white dark:text-white">FB.</div>
+         {TAB_CONFIG.filter(t => settings.enabledTabs.includes(t.id)).map(tab => {
+             const isActive = activeTab === tab.id;
+             return (
+                 <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="relative flex flex-col items-center justify-center w-12 h-12 md:w-full md:h-auto md:py-4 group"
+                 >
+                    {isActive && (
+                        <motion.div 
+                            layoutId="nav-pill"
+                            className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/20 rounded-full md:rounded-xl"
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        />
+                    )}
+                    <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-white' : 'text-gray-400 md:text-gray-400 group-hover:text-white md:group-hover:text-gray-600 dark:md:group-hover:text-white'}`}>
+                        {React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
+                    </span>
+                    <span className="hidden md:block text-[10px] font-bold mt-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">{tab.label}</span>
+                 </button>
+             )
+         })}
       </nav>
 
-      <AnimatePresence>
-        {isEventModalOpen && (
-            <EventModal 
-                event={activeEventToEdit} 
-                members={familyMembers} 
-                onClose={() => { setIsEventModalOpen(false); setActiveEventToEdit(null); }} 
-                onSave={handleSaveEvent} 
-                onDelete={(id) => { if(!isDemoMode && familyId) deleteItem(familyId, 'events', id); setIsEventModalOpen(false); }}
-                onSendToTelegram={handleSendToTelegram} 
-                templates={events.filter(e => e.isTemplate)} 
-                settings={settings} 
-            />
-        )}
-        {isTransactionModalOpen && (
-            <AddTransactionModal
-                onClose={() => { setIsTransactionModalOpen(false); setActiveTransactionToEdit(null); }}
-                onSubmit={handleSaveTransaction}
-                onDelete={handleTransactionDelete}
-                settings={settings}
-                members={familyMembers}
-                categories={categories}
-                initialTransaction={activeTransactionToEdit}
-                onLinkMandatory={handleLinkMandatory}
-            />
-        )}
-        {isImportModalOpen && (
-            <ImportModal 
-                preview={importPreview}
-                onConfirm={handleImportConfirm}
-                onCancel={() => { setIsImportModalOpen(false); setImportPreview([]); }}
-                settings={settings}
-                onUpdateItem={(index, updates) => {
-                    const updated = [...importPreview];
-                    updated[index] = { ...updated[index], ...updates };
-                    setImportPreview(updated);
-                }}
-                onLearnRule={handleLearnRule}
-                categories={categories}
-                onAddCategory={(cat) => { if (isDemoMode) setCategories([...categories, cat]); else if (familyId) addItem(familyId, 'categories', cat); }}
-            />
-        )}
-        {isSettingsOpen && (
-            <SettingsModal 
-                settings={settings} 
-                onClose={() => setIsSettingsOpen(false)} 
-                onUpdate={(s) => { if(!isDemoMode && familyId) saveSettings(familyId, s); setSettings(s); }} 
-                onReset={() => {}} 
-                savingsRate={savingsRate} 
-                setSavingsRate={setSavingsRate} 
-                members={familyMembers} 
-                onUpdateMembers={handleUpdateMembers} 
-                categories={categories} 
-                onUpdateCategories={() => {}} 
-                learnedRules={learnedRules} 
-                onUpdateRules={() => {}} 
-                currentFamilyId={familyId} 
-                onJoinFamily={() => {}} 
-                onLogout={() => window.location.reload()} 
-                transactions={transactions}
-                onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod}
-            />
-        )}
-        {isMandatoryModalOpen && (
-            <MandatoryExpenseModal
-                expense={mandatoryExpenseToEdit}
-                onClose={() => { setIsMandatoryModalOpen(false); setMandatoryExpenseToEdit(null); }}
-                onSave={handleSaveMandatoryExpense}
-                onDelete={(id) => {
-                    const updated = settings.mandatoryExpenses.filter(e => e.id !== id);
-                    const newS = { ...settings, mandatoryExpenses: updated };
-                    setSettings(newS);
-                    if (!isDemoMode && familyId) saveSettings(familyId, newS);
-                    setIsMandatoryModalOpen(false);
-                }}
-                settings={settings}
-            />
-        )}
-        {isNotificationsOpen && (
-            <NotificationsModal
-                onClose={() => setIsNotificationsOpen(false)}
-            />
-        )}
-        {(selectedCategoryHistory || selectedSubCategory) && (
-            <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center">
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setSelectedCategoryHistory(null); setSelectedSubCategory(null); }} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
-                <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[90vh]">
-                    <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white" style={{ backgroundColor: categories.find(c => c.id === (selectedSubCategory?.catId || selectedCategoryHistory))?.color }}>
-                                {getIconById(categories.find(c => c.id === (selectedSubCategory?.catId || selectedCategoryHistory))?.icon || 'MoreHorizontal', 20)}
-                            </div>
-                            <div className="flex flex-col">
-                                <h3 className="text-xl font-black text-[#1C1C1E]">{selectedSubCategory ? selectedSubCategory.name : categories.find(c => c.id === selectedCategoryHistory)?.label || 'Категория'}</h3>
-                                {selectedSubCategory && <span className="text-[10px] font-bold text-gray-400 uppercase">История по месту</span>}
-                            </div>
-                        </div>
-                        <button onClick={() => { setSelectedCategoryHistory(null); setSelectedSubCategory(null); }} className="p-3 bg-gray-100 rounded-full text-gray-500"><X size={22}/></button>
-                    </div>
-                    <div className="flex-1 p-4 overflow-y-auto no-scrollbar">
-                        <TransactionHistory 
-                            transactions={displayedTransactions.filter(t => {
-                                if (selectedSubCategory) {
-                                    return t.category === selectedSubCategory.catId && (t.note === selectedSubCategory.name || t.note.includes(selectedSubCategory.name));
-                                }
-                                return t.category === selectedCategoryHistory;
-                            })}
-                            setTransactions={setTransactions}
-                            settings={settings}
-                            members={familyMembers}
-                            onLearnRule={handleLearnRule}
-                            categories={categories}
-                            filterMode='month'
-                            onEditTransaction={(tx) => { setActiveTransactionToEdit(tx); setIsTransactionModalOpen(true); }}
-                        />
-                    </div>
-                </motion.div>
-            </div>
-        )}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+            {isAddModalOpen && (
+                <AddTransactionModal 
+                    onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
+                    onSubmit={handleTransactionSubmit} 
+                    settings={settings}
+                    members={members}
+                    categories={categories}
+                    initialTransaction={selectedTx}
+                    onDelete={async (id) => {
+                        setTransactions(prev => prev.filter(t => t.id !== id));
+                        if (familyId) await deleteItem(familyId, 'transactions', id);
+                    }}
+                    onSaveReceiptItems={async (items) => {
+                        await setPantry(prev => [...prev, ...items]);
+                    }}
+                />
+            )}
+            
+            {drillDownState && (
+                <DrillDownModal 
+                    categoryId={drillDownState.categoryId}
+                    merchantName={drillDownState.merchantName}
+                    onClose={() => setDrillDownState(null)}
+                    transactions={filteredTransactions}
+                    setTransactions={setTransactions}
+                    settings={settings}
+                    members={members}
+                    categories={categories}
+                    onLearnRule={async (rule) => {
+                        setLearnedRules(prev => [...prev, rule]);
+                        if(familyId) await addItem(familyId, 'rules', rule);
+                    }}
+                    onEditTransaction={handleEditTransaction}
+                />
+            )}
+
+            {isSettingsOpen && (
+                <SettingsModal 
+                    settings={settings} 
+                    onClose={() => setIsSettingsOpen(false)} 
+                    onUpdate={async (s) => {
+                        setSettings(s);
+                        if (familyId) await saveSettings(familyId, s);
+                    }} 
+                    onReset={() => {}} 
+                    savingsRate={savingsRate} 
+                    setSavingsRate={setSavingsRate}
+                    members={members}
+                    onUpdateMembers={async (m) => {
+                        setMembers(m);
+                        if (familyId) await updateItemsBatch(familyId, 'members', m);
+                    }} 
+                    categories={categories}
+                    onUpdateCategories={async (c) => {
+                        setCategories(c);
+                        if (familyId) await updateItemsBatch(familyId, 'categories', c);
+                    }}
+                    learnedRules={learnedRules}
+                    onUpdateRules={async (r) => {
+                        setLearnedRules(r);
+                        if (familyId) await updateItemsBatch(familyId, 'rules', r);
+                    }}
+                    currentFamilyId={familyId}
+                    onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }}
+                    onLogout={() => auth.signOut()}
+                    onDeleteTransactionsByPeriod={async (start, end) => {
+                        const toDelete = transactions.filter(t => {
+                            const d = t.date.split('T')[0];
+                            return d >= start && d <= end;
+                        });
+                        const ids = toDelete.map(t => t.id);
+                        setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+                        if (familyId && ids.length > 0) {
+                            await deleteItemsBatch(familyId, 'transactions', ids);
+                        }
+                    }}
+                    transactions={transactions}
+                    onUpdateTransactions={async (updatedTxs) => {
+                        const changed = updatedTxs.filter(nt => {
+                            const ot = transactions.find(t => t.id === nt.id);
+                            return ot && (ot.category !== nt.category || ot.note !== nt.note);
+                        });
+                        
+                        setTransactions(updatedTxs);
+                        
+                        if (familyId && changed.length > 0) {
+                            // Using updateItemsBatch with just the changed subset to be efficient
+                            await updateItemsBatch(familyId, 'transactions', changed);
+                        }
+                    }}
+                />
+            )}
+            {importPreview && (
+                <ImportModal 
+                    preview={importPreview} 
+                    onCancel={() => setImportPreview(null)} 
+                    onConfirm={async () => {
+                        if (importPreview) {
+                            setTransactions(prev => [...importPreview.map(t => ({...t, id: Date.now().toString()}) as Transaction), ...prev]);
+                            if (familyId) await addItemsBatch(familyId, 'transactions', importPreview);
+                            setImportPreview(null);
+                            showNotify('success', `Импортировано ${importPreview.length} операций`);
+                        }
+                    }}
+                    settings={settings}
+                    categories={categories}
+                    onUpdateItem={(idx, updates) => {
+                        const updated = [...importPreview!];
+                        updated[idx] = { ...updated[idx], ...updates };
+                        setImportPreview(updated);
+                    }}
+                    onLearnRule={async (rule) => {
+                        setLearnedRules(prev => [...prev, rule]);
+                        if(familyId) await addItem(familyId, 'rules', rule);
+                    }}
+                    onAddCategory={async (cat) => {
+                        setCategories(prev => [...prev, cat]);
+                        if (familyId) await addItem(familyId, 'categories', cat);
+                    }}
+                />
+            )}
+            {showNotifications && (
+                <NotificationsModal onClose={() => setShowNotifications(false)} />
+            )}
+            {isGoalModalOpen && (
+                <GoalModal 
+                    goal={editingGoal} 
+                    onClose={() => setIsGoalModalOpen(false)} 
+                    settings={settings}
+                    onSave={async (g) => {
+                        if (editingGoal) setGoals(prev => prev.map(gl => gl.id === g.id ? g : gl));
+                        else setGoals(prev => [...prev, g]);
+                        
+                        if (familyId) {
+                            if (editingGoal) await updateItem(familyId, 'goals', g.id, g);
+                            else await addItem(familyId, 'goals', g);
+                        }
+                        setIsGoalModalOpen(false);
+                    }}
+                    onDelete={async (id) => {
+                        setGoals(prev => prev.filter(g => g.id !== id));
+                        if (familyId) await deleteItem(familyId, 'goals', id);
+                    }}
+                />
+            )}
+            {isMandatoryModalOpen && (
+                <MandatoryExpenseModal 
+                    expense={editingMandatoryExpense}
+                    onClose={() => setIsMandatoryModalOpen(false)}
+                    settings={settings}
+                    onSave={async (e) => {
+                        const currentExpenses = settings.mandatoryExpenses || [];
+                        let updatedExpenses;
+                        if (editingMandatoryExpense) {
+                            updatedExpenses = currentExpenses.map(ex => ex.id === e.id ? e : ex);
+                        } else {
+                            updatedExpenses = [...currentExpenses, e];
+                        }
+                        setSettings({ ...settings, mandatoryExpenses: updatedExpenses });
+                        if (familyId) await saveSettings(familyId, { ...settings, mandatoryExpenses: updatedExpenses });
+                        setIsMandatoryModalOpen(false);
+                    }}
+                    onDelete={async (id) => {
+                        const updatedExpenses = (settings.mandatoryExpenses || []).filter(e => e.id !== id);
+                        setSettings({ ...settings, mandatoryExpenses: updatedExpenses });
+                        if (familyId) await saveSettings(familyId, { ...settings, mandatoryExpenses: updatedExpenses });
+                        setIsMandatoryModalOpen(false);
+                    }}
+                />
+            )}
+        </AnimatePresence>
+      </Suspense>
     </div>
   );
-};
+}

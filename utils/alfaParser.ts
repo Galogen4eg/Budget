@@ -37,12 +37,13 @@ export const parseAlfaStatement = (
 
           let headerRowIndex = -1;
           const keywords = {
-            date: ['дата', 'date', 'операци', 'день'],
+            date: ['дата', 'date', 'операци', 'день', 'время'],
             time: ['время', 'time'],
-            amount: ['сумма', 'amount', 'sum', 'приход', 'расход', 'rub', 'руб'],
-            note: ['описание', 'note', 'назначение', 'детали', 'комментарий', 'место', 'merchant'],
+            amount: ['сумма', 'amount', 'sum', 'приход', 'расход', 'rub', 'руб', 'платёж'],
+            note: ['описание', 'note', 'назначение', 'детали', 'комментарий', 'место', 'merchant', 'получатель', 'основание'],
           };
 
+          // Find header row by checking for presence of date and amount keywords
           for (let i = 0; i < Math.min(json.length, 30); i++) {
             const row = json[i].map(c => String(c).toLowerCase());
             const hasDate = row.some(c => keywords.date.some(k => c.includes(k)));
@@ -54,14 +55,15 @@ export const parseAlfaStatement = (
             }
           }
 
+          // Fallback heuristic: look for data pattern if header not found
           if (headerRowIndex === -1) {
             for (let i = 0; i < Math.min(json.length, 20); i++) {
                 const row = json[i];
                 const hasSomethingLikeDate = row.some(c => /\d{2}[./-]\d{2}[./-]\d{2,4}/.test(String(c)));
                 const hasSomethingLikeAmount = row.some(c => /^-?\d+([.,]\d{1,2})?$/.test(String(c).replace(/\s/g, '')));
                 if (hasSomethingLikeDate && hasSomethingLikeAmount) {
-                    headerRowIndex = i - 1; 
-                    if (headerRowIndex < 0) headerRowIndex = 0;
+                    // Assuming the row ABOVE data is header, or if it's index 0, we treat it as data without header but we need column indices.
+                    headerRowIndex = i > 0 ? i - 1 : 0;
                     break;
                 }
             }
@@ -84,6 +86,22 @@ export const parseAlfaStatement = (
           const colAmount = findCol(mapping.amount, keywords.amount);
           const colNote = findCol(mapping.note, keywords.note);
 
+          // If note column not found, find the widest text column as fallback
+          let effectiveColNote = colNote;
+          if (effectiveColNote === -1 && json.length > headerRowIndex + 5) {
+             let maxLen = 0;
+             let bestCol = -1;
+             for(let c = 0; c < headers.length; c++) {
+                 if (c === colDate || c === colAmount) continue;
+                 const avgLen = json.slice(headerRowIndex+1, headerRowIndex+6).reduce((sum, row) => sum + String(row[c]||'').length, 0);
+                 if (avgLen > maxLen) {
+                     maxLen = avgLen;
+                     bestCol = c;
+                 }
+             }
+             if (maxLen > 5) effectiveColNote = bestCol;
+          }
+
           if (colDate === -1 || colAmount === -1) continue;
 
           for (let i = headerRowIndex + 1; i < json.length; i++) {
@@ -98,7 +116,6 @@ export const parseAlfaStatement = (
 
             if (rawDateValue instanceof Date && !isNaN(rawDateValue.getTime())) {
               dateObj = new Date(rawDateValue);
-              // If it's an Excel date, it often already contains the time
             } else {
               const s = String(rawDateValue).trim();
               const parts = s.match(dateRegex);
@@ -129,8 +146,6 @@ export const parseAlfaStatement = (
               }
             }
             
-            // If the dateObj still has 00:00:00 after check, and it's from a statement, 
-            // we keep it, but we use the timestamp for duplicate detection.
             const dateStr = dateObj.toISOString();
 
             let amount = 0;
@@ -148,14 +163,17 @@ export const parseAlfaStatement = (
 
             if (isNaN(amount) || amount === 0) continue;
 
-            const rawNote = colNote !== -1 ? String(row[colNote]).trim() : "";
-            if (!rawNote && amount === 0) continue;
-
+            const rawNote = effectiveColNote !== -1 ? String(row[effectiveColNote] || '').trim() : "Операция";
+            
             let type: 'income' | 'expense' = amount > 0 ? 'income' : 'expense';
             const headerName = headers[colAmount];
-            if (headerName.includes('расход') || headerName.includes('списан') || headerName.includes('оплата')) {
-               type = 'expense';
-            }
+            
+            // Heuristic for Sber/Tinkoff statements where expenses might be positive in a "Debit" column
+            // or explicitly marked. 
+            // Standard: negative is expense.
+            if (amount < 0) type = 'expense';
+            else if (headerName.includes('расход') || headerName.includes('списан')) type = 'expense';
+            else if (headerName.includes('приход') || headerName.includes('зачислен')) type = 'income';
 
             const absAmount = Math.abs(amount);
             const note = cleanMerchantName(rawNote, learnedRules);
@@ -165,7 +183,7 @@ export const parseAlfaStatement = (
             const isDuplicate = existingTransactions.some(ex => {
               const d1 = new Date(ex.date).getTime();
               const d2 = new Date(dateStr).getTime();
-              return Math.abs(d1 - d2) < 1000 && 
+              return Math.abs(d1 - d2) < 2000 && // widened tolerance to 2s
                      Math.abs(ex.amount - absAmount) < 0.01 && 
                      ex.type === type &&
                      (ex.rawNote === rawNote || ex.note === note);
@@ -179,7 +197,7 @@ export const parseAlfaStatement = (
                 memberId: defaultMemberId,
                 note,
                 date: dateStr,
-                rawNote: rawNote
+                rawNote: rawNote // Keep original for learning rules
               });
             }
           }

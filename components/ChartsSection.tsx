@@ -20,12 +20,12 @@ const renderActiveShape = (props: any) => {
       <Sector
         cx={cx}
         cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 6}
+        innerRadius={innerRadius - 2}
+        outerRadius={outerRadius + 4}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
-        style={{ filter: `drop-shadow(0px 4px 10px ${fill}60)` }}
+        style={{ filter: `drop-shadow(0px 0px 6px ${fill}80)` }}
       />
     </g>
   );
@@ -57,9 +57,8 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
   const totalExpense = expenseData.reduce((sum, item) => sum + item.value, 0);
 
-  // Unified click handler for slices
+  // Logic: First expand, then drill down
   const handleSliceClick = (index: number, catId: string, e?: React.MouseEvent) => {
-      // Important: Stop propagation so we can control logic explicitly
       if (e) e.stopPropagation(); 
       
       if (!isExpanded) {
@@ -67,16 +66,14 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
           return;
       }
 
+      // If expanded, select slice first, if already selected -> drill down
       if (activeIndex === index) {
-          // Double click (click on already active) -> Drill down
           if (onCategoryClick) onCategoryClick(catId);
       } else {
-          // Select
           setActiveIndex(index);
       }
   };
 
-  // Unified click handler for legend items
   const handleLegendClick = (catId: string, index: number, e: React.MouseEvent) => {
       e.stopPropagation();
       if (!isExpanded) {
@@ -91,24 +88,20 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
       }
   };
 
-  // Main container click (background)
-  const handleContainerClick = () => {
-      if (!isExpanded) setIsExpanded(true);
-  };
-
   const renderChartContent = (isFullScreen: boolean) => {
       const activeItem = activeIndex !== -1 ? expenseData[activeIndex] : null;
       
-      const showCenterInfo = isFullScreen ? !!activeItem : true;
+      // Always show total in center unless hovering a slice
       const centerValue = activeItem ? activeItem.value : totalExpense;
       const centerLabel = activeItem ? activeItem.name : 'Всего';
-      const centerColor = activeItem ? activeItem.color : '#1C1C1E';
+      const centerColor = activeItem ? activeItem.color : (settings.theme === 'dark' ? '#FFFFFF' : '#1C1C1E');
 
+      // Legend items configuration
       const legendItems = isFullScreen ? expenseData : expenseData.slice(0, 4);
 
       if (expenseData.length === 0) {
         return (
-             <div className="flex-1 flex flex-col items-center justify-center opacity-40 min-h-[150px]">
+             <div className="flex-1 flex flex-col items-center justify-center opacity-40 min-h-[150px] dark:text-white">
                 <PieIcon size={32} className="mb-2" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-center">Нет расходов<br/>за этот период</span>
              </div>
@@ -116,44 +109,36 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
       }
 
       return (
-        <div className={`w-full h-full flex ${isFullScreen ? 'flex-col' : 'flex-row items-center'} gap-2`}>
+        <div className={`w-full h-full flex flex-col md:flex-row gap-4 items-center`}>
             {/* Chart Area */}
-            {/* We enforce a min-height or flex-1. In widget mode, flex-1 works if parent has height. */}
-            <div className={`${isFullScreen ? 'w-full flex-1 min-h-[35vh]' : 'flex-1 h-full min-h-[160px]'} relative`}>
+            <div className={`relative ${isFullScreen ? 'flex-1 w-full md:w-1/2 min-h-[300px]' : 'w-full md:w-1/2 h-40 md:h-full shrink-0'}`}>
+                
+                {/* INVISIBLE CLICK OVERLAY FOR WIDGET MODE */}
+                {!isFullScreen && (
+                    <div 
+                        className="absolute inset-0 z-30 cursor-pointer" 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(true);
+                        }}
+                    />
+                )}
+
                 {/* Center Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-                    {showCenterInfo ? (
-                        <>
-                            <span 
-                                className={`${isFullScreen ? 'text-sm mb-1' : 'text-[8px] mb-0.5'} font-bold uppercase tracking-wider transition-colors duration-300 truncate max-w-[80%] text-center`}
-                                style={{ color: activeItem ? centerColor : '#9CA3AF' }}
-                            >
-                                {centerLabel}
-                            </span>
-                            <span className={`${isFullScreen ? 'text-4xl' : 'text-xs md:text-sm'} font-black text-[#1C1C1E] tabular-nums leading-none`}>
-                                {settings.privacyMode 
-                                    ? '•••' 
-                                    : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-                                }
-                            </span>
-                            {activeItem && (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                    <span className={`${isFullScreen ? 'text-xs' : 'text-[7px]'} font-black text-gray-300`}>
-                                        {Math.round(activeItem.percent! * 100)}%
-                                    </span>
-                                    {isFullScreen && (
-                                        <div className="pointer-events-auto bg-blue-50 text-blue-500 rounded-full p-1 ml-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); if(onCategoryClick) onCategoryClick(activeItem.id); }}>
-                                            <ArrowRight size={12}/>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="opacity-20 text-gray-300">
-                            <Layers size={isFullScreen ? 48 : 24} />
-                        </div>
-                    )}
+                    <span 
+                        className="text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 truncate max-w-[80%] text-center opacity-50"
+                        style={{ color: settings.theme === 'dark' ? 'white' : '#1C1C1E' }}
+                    >
+                        {centerLabel}
+                    </span>
+                    
+                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-xl'}`}>
+                        {settings.privacyMode 
+                            ? '•••' 
+                            : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
+                        }
+                    </span>
                 </div>
 
                 <ResponsiveContainer width="100%" height="100%">
@@ -162,16 +147,17 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             activeIndex={activeIndex}
                             activeShape={renderActiveShape}
                             data={expenseData}
-                            innerRadius={isFullScreen ? "55%" : "60%"}
-                            outerRadius={isFullScreen ? "80%" : "85%"}
-                            paddingAngle={isFullScreen ? 4 : 3}
+                            innerRadius={isFullScreen ? "65%" : "60%"} // Thinner ring
+                            outerRadius={isFullScreen ? "85%" : "80%"}
+                            paddingAngle={4}
+                            cornerRadius={6}
                             dataKey="value"
                             stroke="none"
-                            onMouseEnter={(_, index) => isFullScreen && setActiveIndex(index)}
-                            onMouseLeave={() => isFullScreen && setActiveIndex(-1)}
+                            onMouseEnter={(_, index) => isFullScreen && window.innerWidth > 768 && setActiveIndex(index)}
+                            onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
                             onClick={(_, index, e) => handleSliceClick(index, expenseData[index].id, e)}
                             animationBegin={0}
-                            animationDuration={800}
+                            animationDuration={1000}
                             style={{ cursor: 'pointer' }}
                         >
                             {expenseData.map((entry, index) => (
@@ -180,6 +166,8 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                                     fill={entry.color} 
                                     stroke={entry.color}
                                     strokeWidth={0}
+                                    opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1}
+                                    style={{ transition: 'opacity 0.3s ease' }}
                                 />
                             ))}
                         </Pie>
@@ -189,9 +177,10 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
             {/* Legend Area */}
             <div className={`
+                flex flex-col gap-2 w-full
                 ${isFullScreen 
-                    ? 'w-full shrink-0 flex-1 grid grid-cols-1 gap-2 p-4 overflow-y-auto min-h-[200px]' 
-                    : 'w-[45%] pl-2 flex flex-col justify-center gap-1.5 overflow-y-auto no-scrollbar h-full py-2'
+                    ? 'md:w-1/2 p-4 overflow-y-auto no-scrollbar max-h-[40vh] md:max-h-[60vh]' 
+                    : 'md:w-1/2 overflow-hidden justify-center'
                 } z-10
             `}>
                 {legendItems.map((item, idx) => {
@@ -199,43 +188,59 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                     return (
                         <div 
                             key={item.name}
-                            onMouseEnter={() => isFullScreen && setActiveIndex(idx)}
-                            onMouseLeave={() => isFullScreen && setActiveIndex(-1)}
+                            onMouseEnter={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(idx)}
+                            onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
                             onClick={(e) => handleLegendClick(item.id, idx, e)}
                             className={`
-                                group/item flex items-center justify-between cursor-pointer transition-all duration-300
-                                ${isFullScreen ? 'p-4 bg-white rounded-2xl shadow-sm border border-gray-100' : 'pr-1'}
+                                group/item flex items-center justify-between cursor-pointer transition-all duration-200 rounded-xl
+                                ${isFullScreen ? 'p-3 hover:bg-gray-50 dark:hover:bg-[#3A3A3C]' : 'py-1'}
                                 ${isFullScreen && activeIndex !== -1 && !isActive ? 'opacity-30' : 'opacity-100'}
                             `}
                         >
-                            <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                            <div className="flex items-center gap-3 min-w-0">
                                 <div 
-                                    className={`${isFullScreen ? 'w-4 h-4' : 'w-1.5 h-1.5'} rounded-full transition-all duration-300 flex-shrink-0 ${isActive ? 'scale-150' : ''}`} 
-                                    style={{ backgroundColor: item.color, boxShadow: isActive ? `0 0 8px ${item.color}` : 'none' }} 
+                                    className={`rounded-full flex-shrink-0 transition-all duration-300 ${isFullScreen ? 'w-3 h-3' : 'w-2 h-2'}`}
+                                    style={{ backgroundColor: item.color }} 
                                 />
-                                <span className={`${isFullScreen ? 'text-sm' : 'text-[9px]'} font-bold text-[#1C1C1E] truncate leading-tight`}>
-                                    {item.name}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2 pl-1 shrink-0">
-                                <div className="flex flex-col items-end">
-                                    <span className={`${isFullScreen ? 'text-sm' : 'text-[8px]'} font-black text-[#1C1C1E] tabular-nums leading-none`}>
-                                        {isFullScreen ? item.value.toLocaleString() : `${Math.round(item.percent! * 100)}%`}
+                                <div className="flex flex-col min-w-0">
+                                    <span className={`${isFullScreen ? 'text-sm' : 'text-[10px]'} font-bold text-[#1C1C1E] dark:text-white truncate`}>
+                                        {item.name}
                                     </span>
                                     {isFullScreen && (
-                                        <span className="text-[10px] font-bold text-gray-400">
-                                            {Math.round(item.percent! * 100)}%
-                                        </span>
+                                        <div className="h-1 w-16 bg-gray-100 dark:bg-white/10 rounded-full mt-1 overflow-hidden">
+                                            <div className="h-full rounded-full" style={{ width: `${item.percent! * 100}%`, backgroundColor: item.color }} />
+                                        </div>
                                     )}
                                 </div>
-                                {isFullScreen && <ChevronRight size={16} className="text-gray-300" />}
+                            </div>
+                            
+                            <div className="flex flex-col items-end shrink-0 pl-2">
+                                <span className={`${isFullScreen ? 'text-sm' : 'text-[10px]'} font-black text-[#1C1C1E] dark:text-white tabular-nums`}>
+                                    {isFullScreen 
+                                        ? (settings.privacyMode ? '•••' : item.value.toLocaleString())
+                                        : `${Math.round(item.percent! * 100)}%`
+                                    }
+                                </span>
+                                {isFullScreen && (
+                                    <span className="text-[10px] font-bold text-gray-400">
+                                        {Math.round(item.percent! * 100)}%
+                                    </span>
+                                )}
                             </div>
                         </div>
                     );
                 })}
+                
+                {/* "See more" link */}
                 {!isFullScreen && expenseData.length > 4 && (
-                    <div className="text-[8px] font-bold text-gray-300 pl-3 mt-0.5">
-                        +{expenseData.length - 4} еще
+                    <div 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(true);
+                        }}
+                        className="text-[9px] font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400 mt-1 cursor-pointer flex items-center gap-1 pl-5"
+                    >
+                        Еще {expenseData.length - 4} категорий <ChevronRight size={10} />
                     </div>
                 )}
             </div>
@@ -247,15 +252,16 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
     <>
       {/* Widget Layout */}
       <div 
-        onClick={handleContainerClick}
-        className="bg-white rounded-[2.5rem] border border-white shadow-soft transition-all flex flex-col h-full relative group overflow-hidden p-4 cursor-pointer"
+        onClick={() => setIsExpanded(true)}
+        className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none transition-all flex flex-col h-full relative group overflow-hidden p-5 cursor-pointer"
       >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full blur-[60px] opacity-60 pointer-events-none -mr-10 -mt-10" />
+          {/* Subtle bg decoration */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-[60px] opacity-60 pointer-events-none -mr-10 -mt-10" />
           
           {/* Header */}
-          <div className="flex justify-between items-center mb-1 shrink-0 z-20 relative">
+          <div className="flex justify-between items-center mb-2 shrink-0 z-20 relative">
               <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-orange-50 rounded-xl">
+                  <div className="p-1.5 bg-orange-50 dark:bg-orange-900/30 rounded-xl">
                       <PieIcon size={14} className="text-orange-500" />
                   </div>
                   <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -267,20 +273,20 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                       e.stopPropagation();
                       setIsExpanded(true);
                   }}
-                  className="p-1.5 -mr-1.5 text-gray-300 hover:text-blue-500 transition-colors"
+                  className="p-1.5 -mr-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors bg-white dark:bg-[#2C2C2E] rounded-full shadow-sm"
                   title="Развернуть"
               >
-                  <Maximize2 size={16} />
+                  <Maximize2 size={14} />
               </button>
           </div>
 
-          {/* Chart Content Wrapper: Must have height for ResponsiveContainer */}
-          <div className="flex-1 w-full relative z-10 min-h-[160px]">
+          {/* Chart Content Wrapper */}
+          <div className="flex-1 w-full relative z-10 min-h-0 flex flex-col justify-center">
              {renderChartContent(false)}
           </div>
       </div>
 
-      {/* Expanded Modal (Maximize) */}
+      {/* Expanded Modal */}
       <AnimatePresence>
         {isExpanded && createPortal(
             <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
@@ -295,16 +301,16 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                     initial={{ scale: 0.9, opacity: 0 }} 
                     animate={{ scale: 1, opacity: 1 }} 
                     exit={{ scale: 0.9, opacity: 0 }} 
-                    className="relative bg-[#F2F2F7] w-full max-w-lg h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden"
+                    className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-2xl h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border dark:border-white/10"
                 >
                     {/* Modal Header */}
-                    <div className="p-6 bg-white border-b border-gray-100 flex justify-between items-center shrink-0">
+                    <div className="p-6 bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 flex justify-between items-center shrink-0">
                         <div className="flex flex-col">
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
                                 Расходы за период
                             </span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-[#1C1C1E] tabular-nums tracking-tight">
+                                <span className="text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight">
                                     {settings.privacyMode ? '•••' : totalExpense.toLocaleString()}
                                 </span>
                                 <span className="text-xl font-bold text-gray-300">{settings.currency}</span>
@@ -312,13 +318,13 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         </div>
                         <button 
                             onClick={() => setIsExpanded(false)} 
-                            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                            className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 dark:hover:bg-[#3A3A3C] transition-colors"
                         >
                             <X size={20}/>
                         </button>
                     </div>
 
-                    <div className="flex-1 bg-gray-50 overflow-hidden flex flex-col p-4">
+                    <div className="flex-1 bg-gray-50 dark:bg-black overflow-hidden flex flex-col p-6">
                         {renderChartContent(true)}
                     </div>
                 </motion.div>

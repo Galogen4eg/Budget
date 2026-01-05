@@ -83,16 +83,16 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
   return (
     <div className="space-y-6">
       {/* Header & Filters */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+      <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5">
          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-black text-xl text-[#1C1C1E]">Вишлист</h3>
+            <h3 className="font-black text-xl text-[#1C1C1E] dark:text-white">Вишлист</h3>
             <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-12 h-12 bg-pink-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-pink-500/20 active:scale-95 transition-transform"><Plus size={24} strokeWidth={3}/></button>
          </div>
          
          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
             <button 
               onClick={() => setFilterOwnerId('all')} 
-              className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterOwnerId === 'all' ? 'bg-[#1C1C1E] text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterOwnerId === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black shadow-md' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-400'}`}
             >
               Все
             </button>
@@ -100,10 +100,10 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                <button 
                  key={m.id}
                  onClick={() => setFilterOwnerId(m.id)}
-                 className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl transition-all border ${filterOwnerId === m.id ? 'bg-white border-blue-200 shadow-sm' : 'bg-transparent border-transparent opacity-60 grayscale'}`}
+                 className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl transition-all border ${filterOwnerId === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-200 dark:border-blue-800 shadow-sm' : 'bg-transparent border-transparent opacity-60 grayscale'}`}
                >
                   <MemberMarker member={m} size="sm" />
-                  <span className={`text-[10px] font-bold uppercase ${filterOwnerId === m.id ? 'text-[#1C1C1E]' : 'text-gray-400'}`}>{m.name}</span>
+                  <span className={`text-[10px] font-bold uppercase ${filterOwnerId === m.id ? 'text-[#1C1C1E] dark:text-white' : 'text-gray-400'}`}>{m.name}</span>
                </button>
             ))}
          </div>
@@ -112,7 +112,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
          {filteredItems.length === 0 ? (
-             <div className="col-span-full py-12 text-center text-gray-300 font-bold uppercase text-xs tracking-widest border-2 border-dashed border-gray-100 rounded-[2.5rem]">
+             <div className="col-span-full py-12 text-center text-gray-300 font-bold uppercase text-xs tracking-widest border-2 border-dashed border-gray-100 dark:border-white/10 rounded-[2.5rem]">
                  Список желаний пуст ✨
              </div>
          ) : (
@@ -124,14 +124,14 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                  const isReserved = !!item.reservedBy;
 
                  return (
-                     <div key={item.id} className="bg-white p-4 rounded-[2rem] shadow-sm border border-white relative overflow-hidden group">
+                     <div key={item.id} className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm dark:shadow-none border border-white dark:border-white/5 relative overflow-hidden group">
                          {/* Card Header */}
                          <div className="flex justify-between items-start mb-3">
                              <div className="flex items-center gap-2">
                                  {owner && <MemberMarker member={owner} size="sm" />}
                                  <div className="flex flex-col">
                                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Хочет</span>
-                                     <span className="text-xs font-bold">{owner?.name}</span>
+                                     <span className="text-xs font-bold text-[#1C1C1E] dark:text-white">{owner?.name}</span>
                                  </div>
                              </div>
                              
@@ -140,7 +140,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                          </div>
 
                          {/* Image (Placeholder logic handled in create) */}
-                         <div className="aspect-square w-full bg-gray-50 rounded-2xl mb-4 overflow-hidden relative">
+                         <div className="aspect-square w-full bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl mb-4 overflow-hidden relative">
                              {item.imageUrl ? (
                                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
                              ) : (
@@ -160,7 +160,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                          </div>
 
                          <div className="space-y-1 mb-4">
-                             <h4 className="font-black text-lg leading-tight text-[#1C1C1E] line-clamp-2">{item.title}</h4>
+                             <h4 className="font-black text-lg leading-tight text-[#1C1C1E] dark:text-white line-clamp-2">{item.title}</h4>
                              {item.price && (
                                  <p className="text-sm font-bold text-gray-500">{item.price.toLocaleString()} {item.currency}</p>
                              )}
@@ -169,19 +169,19 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                          {/* Actions */}
                          <div className="flex gap-2">
                              {item.url && (
-                                 <a href={item.url} target="_blank" rel="noreferrer" className="p-3 bg-gray-50 text-blue-500 rounded-xl hover:bg-blue-50 transition-colors">
+                                 <a href={item.url} target="_blank" rel="noreferrer" className="p-3 bg-gray-50 dark:bg-[#2C2C2E] text-blue-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                                      <ExternalLink size={18} />
                                  </a>
                              )}
                              
                              {isMine ? (
-                                 <button onClick={() => handleDelete(item.id)} className="flex-1 bg-gray-50 text-red-400 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                                 <button onClick={() => handleDelete(item.id)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] text-red-400 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2">
                                      <Trash2 size={16} /> Удалить
                                  </button>
                              ) : (
                                  <button 
                                     onClick={() => handleReserve(item)} 
-                                    className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isReservedByMe ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : isReserved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#1C1C1E] text-white shadow-lg'}`}
+                                    className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isReservedByMe ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : isReserved ? 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-400 cursor-not-allowed' : 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black shadow-lg'}`}
                                     disabled={isReserved && !isReservedByMe}
                                  >
                                      {isReservedByMe ? <><Check size={16} /> Я дарю!</> : isReserved ? 'Занято' : 'Забронировать'}
@@ -197,27 +197,27 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[700] flex items-end md:items-center justify-center p-0 md:p-6">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-             <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} className="relative bg-white w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar">
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+             <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} className="relative bg-white dark:bg-[#1C1C1E] w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar">
                 <div className="flex justify-between items-center">
-                    <h3 className="font-black text-2xl text-[#1C1C1E]">Новое желание</h3>
-                    <button onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full"><X size={20} className="text-gray-500"/></button>
+                    <h3 className="font-black text-2xl text-[#1C1C1E] dark:text-white">Новое желание</h3>
+                    <button onClick={() => setIsModalOpen(false)} className="bg-gray-100 dark:bg-[#2C2C2E] p-2 rounded-full"><X size={20} className="text-gray-500 dark:text-white"/></button>
                 </div>
 
                 <div className="space-y-4">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Что хочется?</label>
-                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Название (напр. Наушники)" className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" autoFocus />
+                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Название (напр. Наушники)" className="w-full bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none focus:border-blue-200 transition-all" autoFocus />
                     </div>
                     
                     <div className="flex gap-4">
                         <div className="flex-1">
                             <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Цена</label>
-                            <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" />
+                            <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 shadow-sm p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none focus:border-blue-200 transition-all" />
                         </div>
                         <div className="flex-1">
                             <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Приоритет</label>
-                            <div className="flex bg-gray-50 p-1 rounded-2xl h-[56px]">
+                            <div className="flex bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-2xl h-[56px]">
                                 {(['low', 'medium', 'high'] as const).map(p => (
                                     <button 
                                         key={p}
@@ -233,7 +233,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
 
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Ссылка на товар</label>
-                        <div className="flex items-center bg-white border border-gray-100 shadow-sm rounded-2xl px-4">
+                        <div className="flex items-center bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 shadow-sm rounded-2xl px-4">
                             <LinkIcon size={18} className="text-gray-400 mr-2"/>
                             <input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." className="w-full bg-transparent py-4 font-bold text-sm text-blue-500 outline-none" />
                         </div>
@@ -241,7 +241,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
 
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Ссылка на картинку (опционально)</label>
-                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl font-bold text-xs text-[#1C1C1E] outline-none focus:border-blue-200 transition-all" />
+                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 shadow-sm p-4 rounded-2xl font-bold text-xs text-[#1C1C1E] dark:text-white outline-none focus:border-blue-200 transition-all" />
                     </div>
 
                     <div>
@@ -251,10 +251,10 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
                                 <button 
                                     key={m.id} 
                                     onClick={() => setOwnerId(m.id)}
-                                    className={`flex items-center gap-2 p-2 rounded-2xl border-2 transition-all ${ownerId === m.id ? 'border-pink-500 bg-pink-50' : 'border-transparent bg-gray-50 grayscale'}`}
+                                    className={`flex items-center gap-2 p-2 rounded-2xl border-2 transition-all ${ownerId === m.id ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30' : 'border-transparent bg-gray-50 dark:bg-[#2C2C2E] grayscale'}`}
                                 >
                                     <MemberMarker member={m} size="sm" />
-                                    <span className="text-[10px] font-black uppercase text-[#1C1C1E] pr-2">{m.name}</span>
+                                    <span className="text-[10px] font-black uppercase text-[#1C1C1E] dark:text-white pr-2">{m.name}</span>
                                 </button>
                             ))}
                         </div>

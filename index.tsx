@@ -1,6 +1,9 @@
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { AuthProvider } from './contexts/AuthContext';
+import { DataProvider } from './contexts/DataContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -20,6 +23,10 @@ if ('serviceWorker' in navigator) {
 const root = createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <DataProvider>
+        <App />
+      </DataProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

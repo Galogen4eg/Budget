@@ -46,15 +46,15 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
   const totalPaid = processedExpenses.reduce((sum, e) => sum + e.paidAmount, 0);
 
   return (
-    <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-soft w-full flex flex-col">
+    <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-            <div className="p-2 bg-red-50 text-red-500 rounded-xl shrink-0">
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl shrink-0">
                 <DollarSign size={18} />
             </div>
             <div>
-                <h3 className="text-sm font-black text-[#1C1C1E] uppercase tracking-wide leading-none">Обязательные</h3>
-                <span className="text-[10px] text-gray-400 font-bold block mt-0.5">
+                <h3 className="text-sm font-black text-[#1C1C1E] dark:text-white uppercase tracking-wide leading-none">Обязательные</h3>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold block mt-0.5">
                     {Math.round(totalPaid).toLocaleString()} / {totalBudget.toLocaleString()} {settings.currency}
                 </span>
             </div>
@@ -63,15 +63,15 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
 
       <div className="space-y-3">
         {processedExpenses.map(expense => (
-          <div key={expense.id} onClick={() => onEdit && onEdit(expense)} className="relative flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
+          <div key={expense.id} onClick={() => onEdit && onEdit(expense)} className="relative flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors cursor-pointer group">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0 border ${expense.isPaid ? 'bg-green-50 border-green-100 text-green-600' : expense.isOverdue ? 'bg-red-50 border-red-100 text-red-500' : 'bg-white border-gray-100 text-[#1C1C1E]'}`}>
+                <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0 border ${expense.isPaid ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/30 text-green-600 dark:text-green-400' : expense.isOverdue ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-500' : 'bg-white dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5 text-[#1C1C1E] dark:text-white'}`}>
                     <span className="text-[9px] font-black uppercase mb-[-2px]">{new Date(currentMonth.getFullYear(), currentMonth.getMonth(), expense.day).toLocaleString('ru', { month: 'short' })}</span>
                     <span className="text-sm font-black leading-none">{expense.day}</span>
                 </div>
                 <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-[#1C1C1E] truncate">{expense.name}</span>
-                    <span className="text-[10px] font-medium text-gray-400">
+                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate">{expense.name}</span>
+                    <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
                         {expense.isPaid ? 'Оплачено' : `Осталось: ${(expense.amount - expense.paidAmount).toLocaleString()}`}
                     </span>
                 </div>
@@ -84,16 +84,16 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
                     </div>
                 ) : (
                     <div className="flex flex-col items-end">
-                        <span className="text-xs font-black text-[#1C1C1E]">{expense.amount.toLocaleString()}</span>
+                        <span className="text-xs font-black text-[#1C1C1E] dark:text-white">{expense.amount.toLocaleString()}</span>
                         {expense.progress > 0 && (
-                            <div className="w-12 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                            <div className="w-12 h-1 bg-gray-100 dark:bg-gray-700 rounded-full mt-1 overflow-hidden">
                                 <div className="h-full bg-blue-500" style={{ width: `${expense.progress}%` }} />
                             </div>
                         )}
                     </div>
                 )}
                 {onEdit && (
-                    <div className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Edit2 size={14} />
                     </div>
                 )}

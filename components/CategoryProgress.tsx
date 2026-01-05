@@ -50,14 +50,14 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
 
   if (categoryData.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-[2.5rem] text-center text-gray-300 font-bold italic border border-dashed border-gray-100 flex flex-col justify-center h-full text-xs">
+      <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] text-center text-gray-300 dark:text-gray-600 font-bold italic border border-dashed border-gray-100 dark:border-white/5 flex flex-col justify-center h-full text-xs min-h-[120px]">
         Пока нечего анализировать ✨
       </div>
     );
   }
 
   return (
-    <div className="bg-white p-4 rounded-[2.5rem] border border-white shadow-soft space-y-4 transition-all w-full h-full overflow-y-auto no-scrollbar max-h-[600px]">
+    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none space-y-4 transition-all w-full h-auto overflow-y-auto no-scrollbar max-h-[600px]">
       {categoryData.map((item) => {
         const percentage = totalExpense > 0 ? (item.totalValue / totalExpense) * 100 : 0;
         const isExpanded = expandedCategoryId === item.id;
@@ -79,9 +79,9 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
         };
 
         return (
-          <div key={item.id} className="border-b border-gray-50 last:border-none pb-3 last:pb-0">
+          <div key={item.id} className="border-b border-gray-50 dark:border-white/5 last:border-none pb-3 last:pb-0">
             <div 
-              className={`flex flex-col gap-2 p-2 rounded-2xl transition-all ${isExpanded ? 'bg-gray-50/50' : ''}`}
+              className={`flex flex-col gap-2 p-2 rounded-2xl transition-all ${isExpanded ? 'bg-gray-50/50 dark:bg-white/5' : ''}`}
             >
               <div className="flex items-center justify-between">
                 {/* Left Side: Click to Open History */}
@@ -96,10 +96,10 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                     {getIconById(item.icon, 16)}
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] font-black text-[#1C1C1E] uppercase tracking-wider block leading-none mb-0.5 truncate">
+                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white uppercase tracking-wider block leading-none mb-0.5 truncate">
                       {item.label}
                     </span>
-                    <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest truncate block">
+                    <span className="text-[8px] font-black text-gray-300 dark:text-gray-500 uppercase tracking-widest truncate block">
                       {Math.round(percentage)}%
                     </span>
                   </div>
@@ -108,14 +108,14 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                 {/* Right Side: Amount & Expand Button */}
                 <div className="flex items-center gap-1 shrink-0">
                   <div className="text-right">
-                    <span className="text-[10px] md:text-xs font-black text-[#1C1C1E] tabular-nums">
+                    <span className="text-[10px] md:text-xs font-black text-[#1C1C1E] dark:text-white tabular-nums">
                         {settings.privacyMode ? '•••' : `${item.totalValue.toLocaleString()}`}
                     </span>
                   </div>
                   {canExpand && (
                     <button 
                         onClick={toggleExpand}
-                        className="p-1.5 -mr-1.5 text-gray-300 hover:text-blue-500 rounded-full hover:bg-gray-100 transition-colors"
+                        className="p-1.5 -mr-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-500 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
                     >
                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
@@ -123,7 +123,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                 </div>
               </div>
               
-              <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-1 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${percentage}%` }}
@@ -145,7 +145,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                     <div 
                         key={idx} 
                         onClick={() => onSubCategoryClick && onSubCategoryClick(item.id, merchant.name)}
-                        className="flex items-center justify-between p-2 bg-white rounded-xl border border-gray-50 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between p-2 bg-white dark:bg-[#2C2C2E] rounded-xl border border-gray-50 dark:border-white/5 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors"
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <div className="shrink-0">
@@ -156,9 +156,9 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                                 size="sm"
                             />
                         </div>
-                        <span className="text-[9px] font-bold text-[#1C1C1E] truncate">{merchant.name}</span>
+                        <span className="text-[9px] font-bold text-[#1C1C1E] dark:text-white truncate">{merchant.name}</span>
                       </div>
-                      <span className="text-[9px] font-black text-gray-500 tabular-nums shrink-0 ml-1">
+                      <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 tabular-nums shrink-0 ml-1">
                         {settings.privacyMode ? '•••' : `${merchant.value.toLocaleString()}`}
                       </span>
                     </div>

@@ -43,6 +43,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // Helper to get YYYY-MM-DD in LOCAL time, ignoring timezone shifts
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const processVoiceWithGemini = async (text: string) => {
     if (!process.env.API_KEY) {
         showNotify('API Key не настроен. Проверьте настройки хостинга.', 'error');
@@ -52,7 +60,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setIsProcessingVoice(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString(new Date());
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Today is ${today}. Parse this event: "${text}". JSON ONLY: { "title": string, "date": "YYYY-MM-DD", "time": "HH:MM" }.`,
@@ -115,8 +123,40 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   // Helper to get events for a specific date object
   const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(date);
     return events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+  };
+
+  // Helper to determine event colors based on participants
+  const getEventColors = (memberIds: string[]) => {
+      const eventMembers = members.filter(m => memberIds.includes(m.id));
+      
+      // Default Blue Style
+      let background = '#EFF6FF'; // blue-50
+      let border = '#BFDBFE'; // blue-200
+      let text = '#1D4ED8'; // blue-700
+      let indicator = '#3B82F6'; // blue-500
+
+      if (eventMembers.length === 1) {
+          // Single member: Solid pastel color
+          const c = eventMembers[0].color;
+          background = `${c}26`; // ~15% opacity
+          border = c; // solid border
+          text = '#1C1C1E'; // Dark text for readability (Will check dark mode in component)
+          indicator = c;
+      } else if (eventMembers.length > 1) {
+          // Multiple members: Gradient
+          const stops = eventMembers.map((m, i, arr) => {
+              const percent = Math.round((i / (arr.length - 1)) * 100);
+              return `${m.color}33 ${percent}%`; // ~20% opacity
+          }).join(', ');
+          background = `linear-gradient(135deg, ${stops})`;
+          border = 'transparent'; // Gradient border is tricky, keep transparent
+          text = '#1C1C1E';
+          indicator = eventMembers[0].color; // Primary indicator
+      }
+
+      return { background, borderColor: border, color: text, indicator };
   };
 
   const getEventStyle = (event: FamilyEvent) => {
@@ -130,7 +170,15 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       const top = (startMinutes / 60) * 64; // 64px is height of hour row (h-16)
       const height = (durationMinutes / 60) * 64;
       
-      return { top: `${top}px`, height: `${height}px` };
+      const colors = getEventColors(event.memberIds);
+
+      return { 
+          top: `${top}px`, 
+          height: `${height}px`,
+          background: colors.background,
+          borderColor: colors.borderColor,
+          color: colors.color
+      };
   };
 
   // Generate days for Month View
@@ -157,66 +205,72 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const renderTimeGrid = (days: Date[], hideHeader = false) => {
       return (
-          <div className={`flex flex-col h-[600px] bg-white border border-gray-100 shadow-sm overflow-hidden relative ${hideHeader ? 'rounded-b-[2rem] border-t-0' : 'rounded-[2rem]'}`}>
-              {/* Header Days - Conditionally hidden */}
-              {!hideHeader && (
-                  <div className="flex border-b border-gray-100 bg-gray-50/50 shrink-0 z-10 sticky top-0">
-                      <div className="w-12 shrink-0 border-r border-gray-100 bg-white" /> {/* Time column header */}
-                      <div className="flex flex-1 overflow-x-auto no-scrollbar">
-                          {days.map((day, idx) => {
-                              const isToday = day.toDateString() === new Date().toDateString();
-                              return (
-                                  <div key={idx} className="flex-1 min-w-[80px] p-2 text-center border-r border-gray-100 last:border-0">
-                                      <div className={`text-[9px] font-black uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
-                                          {day.toLocaleDateString('ru-RU', { weekday: 'short' })}
+          <div className="flex flex-col h-[calc(100dvh-13rem)] min-h-[400px] bg-white dark:bg-[#1C1C1E] rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden relative">
+              {/* Single Scroll Container for Header + Body */}
+              <div className="flex-1 overflow-auto relative no-scrollbar">
+                  
+                  {/* Sticky Header Row */}
+                  {!hideHeader && (
+                      <div className="flex min-w-full sticky top-0 z-20 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-sm border-b border-gray-100 dark:border-white/5">
+                          {/* Top-Left Corner (Sticky Left) */}
+                          <div className="w-12 shrink-0 border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] sticky left-0 z-30" /> 
+                          
+                          {/* Day Columns Header */}
+                          <div className="flex flex-1 min-w-0">
+                              {days.map((day, idx) => {
+                                  const isToday = day.toDateString() === new Date().toDateString();
+                                  return (
+                                      <div key={idx} className="flex-1 min-w-0 p-2 text-center border-r border-gray-100 dark:border-white/5 last:border-0">
+                                          <div className={`text-[9px] font-black uppercase truncate ${isToday ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'}`}>
+                                              {day.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                                          </div>
+                                          <div className={`text-sm font-black ${isToday ? 'text-blue-600' : 'text-[#1C1C1E] dark:text-white'}`}>
+                                              {day.getDate()}
+                                          </div>
                                       </div>
-                                      <div className={`text-sm font-black ${isToday ? 'text-blue-600' : 'text-[#1C1C1E]'}`}>
-                                          {day.getDate()}
-                                      </div>
-                                  </div>
-                              );
-                          })}
+                                  );
+                              })}
+                          </div>
                       </div>
-                  </div>
-              )}
+                  )}
 
-              {/* Time Grid Body */}
-              <div className="flex-1 overflow-y-auto no-scrollbar relative">
-                  <div className="flex min-h-full">
-                      {/* Time Labels Column */}
-                      <div className="w-12 shrink-0 border-r border-gray-100 bg-white z-10 sticky left-0">
+                  {/* Grid Body */}
+                  <div className="flex min-w-full relative">
+                      {/* Time Labels Column (Sticky Left) */}
+                      <div className="w-12 shrink-0 border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] sticky left-0 z-10">
                           {hours.map(hour => (
-                              <div key={hour} className="h-16 text-[9px] font-bold text-gray-400 text-center pt-2 relative">
+                              <div key={hour} className="h-16 text-[9px] font-bold text-gray-400 dark:text-gray-600 text-center pt-2 relative">
                                   {hour}:00
-                                  <div className="absolute top-0 right-0 w-2 h-[1px] bg-gray-200" />
+                                  <div className="absolute top-0 right-0 w-2 h-[1px] bg-gray-200 dark:bg-white/10" />
                               </div>
                           ))}
                       </div>
 
-                      {/* Columns Container */}
-                      <div className="flex flex-1 relative">
-                          {/* Grid Lines Background */}
-                          <div className="absolute inset-0 flex flex-col">
+                      {/* Day Columns Container */}
+                      <div className="flex flex-1 relative min-w-0">
+                          {/* Horizontal Grid Lines */}
+                          <div className="absolute inset-0 flex flex-col pointer-events-none">
                               {hours.map(hour => (
-                                  <div key={`line-${hour}`} className="h-16 border-b border-gray-50 w-full" />
+                                  <div key={`line-${hour}`} className="h-16 border-b border-gray-50 dark:border-white/5 w-full" />
                               ))}
                           </div>
 
+                          {/* Vertical Day Columns */}
                           {days.map((day, dIdx) => {
                               const dayEvents = getEventsForDate(day);
                               
                               return (
-                                  <div key={dIdx} className="flex-1 min-w-[80px] relative border-r border-gray-50 last:border-0">
+                                  <div key={dIdx} className="flex-1 min-w-0 relative border-r border-gray-50 dark:border-white/5 last:border-0">
                                       {/* Clickable Slots */}
                                       {hours.map(hour => (
                                           <div 
                                               key={`slot-${dIdx}-${hour}`}
                                               onClick={() => {
-                                                  const dateStr = day.toISOString().split('T')[0];
+                                                  const dateStr = getLocalDateString(day);
                                                   const timeStr = `${hour.toString().padStart(2, '0')}:00`;
                                                   setActiveEvent({ event: null, prefill: { date: dateStr, time: timeStr } });
                                               }}
-                                              className="h-16 w-full cursor-pointer hover:bg-blue-50/30 transition-colors"
+                                              className="h-16 w-full cursor-pointer hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
                                           />
                                       ))}
 
@@ -230,13 +284,13 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                               <div 
                                                   key={ev.id}
                                                   onClick={(e) => { e.stopPropagation(); setActiveEvent({ event: ev }); }}
-                                                  className="absolute left-1 right-1 rounded-lg bg-blue-100/90 border border-blue-200 p-1 cursor-pointer hover:brightness-95 transition-all overflow-hidden shadow-sm z-10"
+                                                  className="absolute left-0.5 right-0.5 rounded-lg p-1 cursor-pointer hover:brightness-95 transition-all overflow-hidden shadow-sm z-10 border"
                                                   style={style}
                                               >
                                                   <div className="flex flex-col h-full">
-                                                      <span className="text-[9px] font-black text-blue-700 leading-tight truncate">{ev.title}</span>
+                                                      <span className="text-[9px] font-black leading-tight truncate opacity-90 dark:text-black">{ev.title}</span>
                                                       {!isShort && (
-                                                          <div className="text-[8px] text-blue-500 font-bold truncate">
+                                                          <div className="text-[8px] font-bold truncate opacity-70 dark:text-black">
                                                               {ev.time} ({ev.duration || 1}ч)
                                                           </div>
                                                       )}
@@ -259,54 +313,65 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     const isToday = new Date().toDateString() === dateToRender.toDateString();
 
     return (
-        <div className="space-y-3 mt-4">
-             <div className="flex items-center gap-2 mb-2 px-2">
-                <h3 className="font-black text-lg text-[#1C1C1E]">
+        <div className="space-y-3 pb-2">
+             <div className="flex items-center gap-2 mb-2 px-2 sticky top-0 bg-[#F2F2F7] dark:bg-black z-10 py-2">
+                <h3 className="font-black text-lg text-[#1C1C1E] dark:text-white">
                     {isToday ? 'Сегодня, ' : ''}
                     {dateToRender.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                 </h3>
-                <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
+                <span className="bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
                     {daysEvents.length}
                 </span>
              </div>
 
              {daysEvents.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center p-8 bg-white rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                    <CalendarIcon size={24} className="text-gray-300 mb-2" />
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Нет событий</p>
-                    <button onClick={() => setActiveEvent({ event: null, prefill: { date: dateToRender.toISOString().split('T')[0] } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-4 py-2 rounded-xl">
+                 <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
+                    <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Нет событий</p>
+                    <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(dateToRender) } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
                         Создать
                     </button>
                  </div>
              ) : (
                  daysEvents.map(event => {
                      const eventMembers = members.filter(m => event.memberIds.includes(m.id));
+                     const colors = getEventColors(event.memberIds);
+                     
                      return (
-                        <div key={event.id} onClick={() => setActiveEvent({ event })} className="bg-white p-5 rounded-[2rem] border shadow-sm hover:scale-[1.01] transition-transform cursor-pointer relative overflow-hidden group">
+                        <div 
+                            key={event.id} 
+                            onClick={() => setActiveEvent({ event })} 
+                            className="p-5 rounded-[2rem] border shadow-sm hover:scale-[1.01] transition-transform cursor-pointer relative overflow-hidden group"
+                            style={{ 
+                                background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background, 
+                                borderColor: colors.borderColor === '#BFDBFE' ? 'transparent' : colors.borderColor 
+                            }}
+                        >
+                            <style>{`:root { --bg-card-default: white; } .dark { --bg-card-default: #1C1C1E; }`}</style>
+
                             <div className="flex items-start gap-4">
                                 <div className="flex flex-col items-center gap-1 min-w-[3rem]">
-                                    <div className="text-sm font-black text-[#1C1C1E]">{event.time}</div>
-                                    <div className="flex items-center gap-1 text-[9px] font-black text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md">
+                                    <div className="text-sm font-black text-[#1C1C1E] dark:text-white">{event.time}</div>
+                                    <div className="flex items-center gap-1 text-[9px] font-black bg-white/50 dark:bg-white/10 px-1.5 py-0.5 rounded-md" style={{ color: colors.indicator }}>
                                         <Clock size={10} />
                                         {event.duration ? `${event.duration}ч` : '1ч'}
                                     </div>
-                                    <div className={`w-0.5 h-full bg-gray-100 rounded-full mt-1 group-hover:bg-blue-200 transition-colors`}/>
                                 </div>
                                 <div className="flex-1 min-w-0 pb-2">
-                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] mb-1">{event.title}</h4>
-                                    {event.description && <p className="text-xs text-gray-500 line-clamp-2 mb-2">{event.description}</p>}
+                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] dark:text-white mb-1">{event.title}</h4>
+                                    {event.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{event.description}</p>}
                                     
                                     <div className="flex items-center justify-between mt-2">
                                         <div className="flex -space-x-2">
                                             {eventMembers.map(m => (
-                                                <div key={m.id} className="border-2 border-white rounded-[1rem] relative z-10">
+                                                <div key={m.id} className="border-2 border-white dark:border-[#1C1C1E] rounded-[1rem] relative z-10">
                                                     <MemberMarker member={m} size="sm" />
                                                 </div>
                                             ))}
                                             {eventMembers.length === 0 && <span className="text-[10px] text-gray-400 italic">Нет участников</span>}
                                         </div>
                                         {event.checklist && event.checklist.length > 0 && (
-                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
+                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-white/60 dark:bg-white/5 px-2 py-1 rounded-lg">
                                                 <span className={event.checklist.every(i => i.completed) ? 'text-green-500' : ''}>
                                                     {event.checklist.filter(i => i.completed).length}/{event.checklist.length}
                                                 </span>
@@ -324,71 +389,85 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   return (
-    <div className="space-y-6 relative w-full h-full flex flex-col pb-20">
+    <div className="space-y-4 relative w-full flex flex-col">
       <AnimatePresence>
-        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md whitespace-nowrap ${notification.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-[#1C1C1E] text-white border-transparent'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
-        {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/80 backdrop-blur-xl flex flex-col items-center justify-center"><div className="bg-white p-10 rounded-[3rem] shadow-2xl border flex flex-col items-center gap-6"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={56} className="text-blue-500 relative" /> : <BrainCircuit size={56} className="text-purple-500 relative animate-pulse" />}</div><div className="text-center"><p className="font-black text-xl text-[#1C1C1E] mb-2">{isListening ? 'Говорите...' : 'Анализирую...'}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-[200px]">Например: "Записаться к врачу завтра в 14:00"</p></div></div></motion.div>}
+        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md whitespace-nowrap ${notification.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
+        {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/80 dark:bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center"><div className="bg-white dark:bg-[#1C1C1E] p-10 rounded-[3rem] shadow-2xl border dark:border-white/10 flex flex-col items-center gap-6"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={56} className="text-blue-500 relative" /> : <BrainCircuit size={56} className="text-purple-500 relative animate-pulse" />}</div><div className="text-center"><p className="font-black text-xl text-[#1C1C1E] dark:text-white mb-2">{isListening ? 'Говорите...' : 'Анализирую...'}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-[200px]">Например: "Записаться к врачу завтра в 14:00"</p></div></div></motion.div>}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-6">
-        {/* Improved Header Layout for Mobile */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-1">
-          <div className="w-full md:w-auto flex bg-gray-100/50 p-1 rounded-2xl border border-white/50 shadow-sm overflow-x-auto no-scrollbar shrink-0">
+      <div className="flex flex-col gap-4">
+        {/* Single Row Header to match Budget tab height */}
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="flex-1 min-w-0 flex bg-gray-100/50 dark:bg-[#1C1C1E] p-1 rounded-2xl border border-white/50 dark:border-white/5 shadow-sm overflow-x-auto no-scrollbar">
             {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
-              <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 md:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${viewMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
+              <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${viewMode === mode ? 'bg-white dark:bg-[#2C2C2E] text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'}`}>
                 {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : mode === 'day' ? 'День' : 'Все'}
               </button>
             ))}
           </div>
-          <div className="w-full md:w-auto flex justify-end gap-2">
-            <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-blue-500 border'}`}><Mic size={22} /></button>
-            <button onClick={() => setActiveEvent({ event: null, prefill: { date: selectedDate.toISOString().split('T')[0] } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
+          <div className="flex gap-2 shrink-0">
+            <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white dark:bg-[#1C1C1E] text-blue-500 border dark:border-white/5'}`}><Mic size={22} /></button>
+            <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate) } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
           </div>
         </div>
 
         {viewMode === 'list' && (
-          <div className="space-y-4">
-            <div className="flex bg-white/50 p-1 rounded-2xl border w-fit">
+          <div className="flex flex-col h-[calc(100dvh-13rem)]">
+            <div className="flex bg-white/50 dark:bg-white/5 p-1 rounded-2xl border dark:border-white/5 w-fit mb-4 shrink-0">
               <button onClick={() => setListFilter('upcoming')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'upcoming' ? 'bg-blue-500 text-white' : 'text-gray-400'}`}>Будущие</button>
               <button onClick={() => setListFilter('past')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'past' ? 'bg-gray-400 text-white' : 'text-gray-400'}`}>Прошедшие</button>
             </div>
-            {events
-              .filter(e => {
-                  const eDate = new Date(`${e.date}T${e.time}`);
-                  const now = new Date();
-                  return listFilter === 'upcoming' ? eDate >= now : eDate < now;
-              })
-              .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
-              .map(event => (
-                <div key={event.id} onClick={() => setActiveEvent({ event })} className="bg-white p-5 rounded-[2rem] border shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
-                    <div className="w-14 h-14 rounded-2xl bg-gray-50 flex flex-col items-center justify-center border shrink-0">
-                        <span className="text-[9px] font-black text-blue-500 uppercase leading-none mb-1">{new Date(event.date).toLocaleDateString('ru-RU', {month:'short'})}</span>
-                        <span className="text-xl font-black text-[#1C1C1E] leading-none">{new Date(event.date).getDate()}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-black text-[15px] truncate text-[#1C1C1E]">{event.title}</h4>
-                        <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2 mt-1">
-                            <span className="flex items-center gap-1"><Clock size={10}/> {event.time}</span>
-                            <span className="flex items-center gap-1 bg-blue-50 text-blue-500 px-1.5 rounded-md"><Clock size={8}/> {event.duration || 1}ч</span>
-                            {event.checklist && event.checklist.length > 0 && <span className="bg-gray-100 px-1.5 rounded text-[9px]">{event.checklist.filter(c=>c.completed).length}/{event.checklist.length}</span>}
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-4">
+                {events
+                .filter(e => {
+                    const eDate = new Date(`${e.date}T${e.time}`);
+                    const now = new Date();
+                    return listFilter === 'upcoming' ? eDate >= now : eDate < now;
+                })
+                .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+                .map(event => {
+                    const colors = getEventColors(event.memberIds);
+                    return (
+                        <div 
+                            key={event.id} 
+                            onClick={() => setActiveEvent({ event })} 
+                            className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border dark:border-white/5 shadow-sm dark:shadow-none flex items-center gap-4 active:scale-95 transition-transform"
+                            style={{ 
+                                background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background,
+                                borderColor: colors.borderColor === '#BFDBFE' ? 'transparent' : colors.borderColor
+                            }}
+                        >
+                            <style>{`:root { --bg-card-default: white; } .dark { --bg-card-default: #1C1C1E; }`}</style>
+                            <div className="w-14 h-14 rounded-2xl bg-white/50 dark:bg-white/5 flex flex-col items-center justify-center border dark:border-white/5 shrink-0">
+                                <span className="text-[9px] font-black uppercase leading-none mb-1" style={{ color: colors.indicator }}>{new Date(event.date).toLocaleDateString('ru-RU', {month:'short'})}</span>
+                                <span className="text-xl font-black text-[#1C1C1E] dark:text-white leading-none">{new Date(event.date).getDate()}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="font-black text-[15px] truncate text-[#1C1C1E] dark:text-white">{event.title}</h4>
+                                <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2 mt-1">
+                                    <span className="flex items-center gap-1"><Clock size={10}/> {event.time}</span>
+                                    <span className="flex items-center gap-1 bg-white/50 dark:bg-white/10 text-blue-500 px-1.5 rounded-md"><Clock size={8}/> {event.duration || 1}ч</span>
+                                    {event.checklist && event.checklist.length > 0 && <span className="bg-white/50 dark:bg-white/10 px-1.5 rounded text-[9px]">{event.checklist.filter(c=>c.completed).length}/{event.checklist.length}</span>}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            ))}
-            {events.length === 0 && <div className="text-center py-10 text-gray-400 font-bold text-xs uppercase">Список пуст</div>}
+                    );
+                })}
+                {events.length === 0 && <div className="text-center py-10 text-gray-400 font-bold text-xs uppercase">Список пуст</div>}
+            </div>
           </div>
         )}
 
         {viewMode === 'month' && (
-            <>
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-white">
+            <div className="flex flex-col h-[calc(100dvh-13rem)]">
+                <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 shrink-0 mb-2">
                     <div className="flex justify-between items-center mb-6">
-                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>
-                        <span className="font-black text-sm uppercase tracking-widest text-[#1C1C1E]">{selectedDate.toLocaleDateString('ru-RU', {month:'long', year:'numeric'})}</span>
-                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()+1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ChevronRight size={20} className="text-gray-400"/></button>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>
+                        <span className="font-black text-sm uppercase tracking-widest text-[#1C1C1E] dark:text-white">{selectedDate.toLocaleDateString('ru-RU', {month:'long', year:'numeric'})}</span>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()+1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronRight size={20} className="text-gray-400"/></button>
                     </div>
-                    <div className="grid grid-cols-7 gap-y-4 gap-x-2">
-                        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="text-center text-[9px] font-black text-gray-300 uppercase">{d}</div>)}
+                    <div className="grid grid-cols-7 gap-y-4 gap-x-1 md:gap-x-2">
+                        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="text-center text-[9px] font-black text-gray-300 dark:text-gray-600 uppercase">{d}</div>)}
                         {/* Empty cells for padding */}
                         {Array.from({ length: (new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).getDay() + 6) % 7 }).map((_, i) => <div key={`pad-${i}`} />)}
                         
@@ -404,15 +483,17 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                     onClick={() => {
                                         handleDateSelect(date);
                                         // Open modal with this date
-                                        setActiveEvent({ event: null, prefill: { date: date.toISOString().split('T')[0] } });
+                                        setActiveEvent({ event: null, prefill: { date: getLocalDateString(date) } });
                                     }}
-                                    className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 text-blue-500' : 'text-[#1C1C1E] hover:bg-gray-50'}`}
+                                    className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400' : 'text-[#1C1C1E] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
                                 >
                                     <span className={`text-xs ${isSelected || isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
                                     {hasEvents && !isSelected && (
                                         <div className="absolute bottom-1.5 flex gap-0.5">
-                                            <div className="w-1 h-1 rounded-full bg-blue-500/50" />
-                                            {dayEvents.length > 1 && <div className="w-1 h-1 rounded-full bg-blue-500/50" />}
+                                            {dayEvents.slice(0, 3).map((ev, i) => {
+                                                const colors = getEventColors(ev.memberIds);
+                                                return <div key={i} className="w-1 h-1 rounded-full" style={{ backgroundColor: colors.indicator }} />;
+                                            })}
                                         </div>
                                     )}
                                 </button>
@@ -420,8 +501,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         })}
                     </div>
                 </div>
-                {renderEventsList(selectedDate)}
-            </>
+                <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
+                    {renderEventsList(selectedDate)}
+                </div>
+            </div>
         )}
 
         {viewMode === 'week' && (
@@ -429,8 +512,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 <div className="flex justify-between items-center mb-4 px-2">
                      <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
                      <div className="flex gap-1">
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 dark:bg-[#1C1C1E] rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 dark:bg-[#1C1C1E] rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
                      </div>
                 </div>
                 {renderTimeGrid(weekDays)}
@@ -439,18 +522,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
         {viewMode === 'day' && (
             <>
-                <div className="bg-white p-6 rounded-t-[2.5rem] shadow-soft border border-white border-b-0 text-center mb-0 relative z-20">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 text-center mb-4">
                     <div className="flex items-center justify-between">
-                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronLeft size={20}/></button>
+                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><ChevronLeft size={20} className="text-[#1C1C1E] dark:text-white"/></button>
                          <div className="flex flex-col items-center">
                              <span className="text-sm font-black text-gray-400 uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', {weekday:'long'})}</span>
-                             <span className="text-4xl font-black text-[#1C1C1E]">{selectedDate.getDate()}</span>
+                             <span className="text-4xl font-black text-[#1C1C1E] dark:text-white">{selectedDate.getDate()}</span>
                              <span className="text-sm font-bold text-blue-500 uppercase tracking-wide">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
                          </div>
-                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 rounded-2xl"><ChevronRight size={20}/></button>
+                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><ChevronRight size={20} className="text-[#1C1C1E] dark:text-white"/></button>
                     </div>
                 </div>
-                {/* Render grid without header and attach it visually to the top block */}
+                {/* Hide redundant header in day view */}
                 {renderTimeGrid([selectedDate], true)}
             </>
         )}

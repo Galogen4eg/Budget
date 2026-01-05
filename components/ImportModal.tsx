@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, FileText, ArrowDownRight, ArrowUpRight, Sparkles, ChevronDown, Plus } from 'lucide-react';
+import { Check, X, FileText, ArrowDownRight, ArrowUpRight, Sparkles, ChevronDown, Plus, Info } from 'lucide-react';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
 import { cleanMerchantName } from '../utils/categorizer'; 
@@ -24,6 +24,7 @@ const PRESET_COLORS = [
 
 const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel, settings, onUpdateItem, onLearnRule, categories, onAddCategory }) => {
   const [activeSelect, setActiveSelect] = useState<number | null>(null);
+  const [justLearnedId, setJustLearnedId] = useState<string | null>(null);
   
   // New Category State
   const [creatingForIndex, setCreatingForIndex] = useState<number | null>(null);
@@ -43,22 +44,28 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
     onUpdateItem(idx, { category: catId });
     
     // Only learn if it was previously unknown or different
-    if (item.category === 'other' || catId !== item.category) {
-       // Attempt to create a cleaner keyword for the rule
-       // If the raw note contains unique IDs (digits at end), strip them
-       let keywordToLearn = (item.rawNote || item.note).trim();
+    // We use rawNote for the rule keyword to match future bank imports accurately
+    if (item.rawNote) {
+       let keywordToLearn = item.rawNote.trim();
        
-       // Heuristic: If it ends with >3 digits, remove them to make rule generic
-       if (/\d{4,}$/.test(keywordToLearn)) {
-           keywordToLearn = keywordToLearn.replace(/\d+$/, '').trim();
+       // Heuristic: If it looks like a specific transaction ID (ends with >4 digits), strip them
+       // E.g. "UBER 123456" -> "UBER"
+       if (/\s\d{4,}$/.test(keywordToLearn)) {
+           keywordToLearn = keywordToLearn.replace(/\s\d+$/, '').trim();
        }
        
-       onLearnRule({
-         id: Date.now().toString(),
-         keyword: keywordToLearn,
-         cleanName: item.note, // Use the cleaned visible name
-         categoryId: catId
-       });
+       // Don't learn extremely short or common words that might cause false positives
+       if (keywordToLearn.length > 2) {
+           const ruleId = Date.now().toString();
+           onLearnRule({
+             id: ruleId,
+             keyword: keywordToLearn,
+             cleanName: item.note, // Use the cleaned visible name as the display name
+             categoryId: catId
+           });
+           setJustLearnedId(ruleId);
+           setTimeout(() => setJustLearnedId(null), 2000);
+       }
     }
     setActiveSelect(null);
   };
@@ -115,6 +122,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
           </div>
           <h2 className="text-2xl font-black text-[#1C1C1E]">Проверка выписки</h2>
           <p className="text-gray-400 mt-1 font-bold text-[10px] uppercase tracking-[0.2em]">Найдено {preview.length} новых операций</p>
+          {justLearnedId && <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}} className="absolute top-4 right-4 bg-black text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">Правило сохранено</motion.div>}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
@@ -144,8 +152,11 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
                       <p className="text-[14px] font-extrabold text-[#1C1C1E] leading-[1.4] break-words whitespace-normal">
                         {t.note || category?.label || 'Банковская операция'}
                       </p>
+                      {t.rawNote && t.rawNote !== t.note && (
+                          <p className="text-[10px] text-gray-400 mt-1 font-medium truncate">{t.rawNote}</p>
+                      )}
                       {isUnrecognized && (
-                        <div className="flex items-center gap-1 text-[8px] font-black text-yellow-600 uppercase mt-1">
+                        <div className="flex items-center gap-1 text-[8px] font-black text-yellow-600 uppercase mt-2">
                           <Sparkles size={8} /> Приложение не узнало это место
                         </div>
                       )}

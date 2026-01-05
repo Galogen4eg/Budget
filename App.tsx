@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense, useMemo } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
@@ -93,6 +93,7 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
+  const [isImporting, setIsImporting] = useState(false); // New loading state for import
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [pinMode, setPinMode] = useState<'unlock' | null>(null);
@@ -117,17 +118,6 @@ export default function App() {
 
   // Calendar State
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
-
-  // Computed Transactions for Budget View (Sensitive to Date Selection)
-  const displayedTransactions = useMemo(() => {
-      if (!calendarSelectedDate) return filteredTransactions;
-      return filteredTransactions.filter(t => {
-          const d = new Date(t.date);
-          return d.getDate() === calendarSelectedDate.getDate() &&
-                 d.getMonth() === calendarSelectedDate.getMonth() &&
-                 d.getFullYear() === calendarSelectedDate.getFullYear();
-      });
-  }, [filteredTransactions, calendarSelectedDate]);
 
   // --- Effects ---
 
@@ -198,10 +188,16 @@ export default function App() {
       setFilterMerchant(null);
   };
 
-  const handleImport = (file: File) => {
-    parseAlfaStatement(file, settings.alfaMapping, members[0].id, learnedRules, categories, transactions)
-      .then(data => setImportPreview(data))
-      .catch(err => alert(err.message));
+  const handleImport = async (file: File) => {
+    setIsImporting(true);
+    try {
+        const data = await parseAlfaStatement(file, settings.alfaMapping, members[0].id, learnedRules, categories, transactions);
+        setImportPreview(data);
+    } catch (err: any) {
+        alert(err.message || "Ошибка при чтении файла");
+    } finally {
+        setIsImporting(false);
+    }
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {
@@ -427,9 +423,25 @@ export default function App() {
             >
                 <div className="flex gap-2 mb-4">
                     <button className="flex-1 bg-white dark:bg-[#1C1C1E] dark:text-white p-3 rounded-2xl font-bold shadow-sm border border-transparent dark:border-white/5">Операции</button>
-                    <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-400 p-3 rounded-2xl font-bold" onClick={() => document.getElementById('import-input')?.click()}>
-                        <Upload size={18} className="inline mr-2"/> Импорт
-                        <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => e.target.files && handleImport(e.target.files[0])} />
+                    <button 
+                        className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-400 p-3 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all" 
+                        onClick={() => document.getElementById('import-input')?.click()}
+                        disabled={isImporting}
+                    >
+                        {isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} 
+                        {isImporting ? 'Загрузка...' : 'Импорт'}
+                        <input 
+                            id="import-input" 
+                            type="file" 
+                            accept=".xlsx,.csv" 
+                            className="hidden" 
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                    handleImport(e.target.files[0]);
+                                    e.target.value = ''; // Reset input to allow re-selection
+                                }
+                            }} 
+                        />
                     </button>
                 </div>
 
@@ -446,7 +458,7 @@ export default function App() {
                 />
 
                 <CategoryProgress 
-                    transactions={displayedTransactions}
+                    transactions={filteredTransactions}
                     categories={categories}
                     settings={settings}
                     onCategoryClick={(catId) => handleDrillDown(catId)}
@@ -455,14 +467,14 @@ export default function App() {
 
                 <MandatoryExpensesList 
                     expenses={settings.mandatoryExpenses || []} 
-                    transactions={displayedTransactions} 
+                    transactions={filteredTransactions} 
                     settings={settings} 
                     currentMonth={currentMonth}
                     onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }}
                 />
 
                 <TransactionHistory 
-                    transactions={displayedTransactions} 
+                    transactions={filteredTransactions} 
                     setTransactions={setTransactions} 
                     settings={settings} 
                     members={members}
@@ -543,9 +555,7 @@ export default function App() {
                     <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-white' : 'text-gray-400 md:text-gray-400 group-hover:text-white md:group-hover:text-gray-600 dark:md:group-hover:text-white'}`}>
                         {React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
                     </span>
-                    <span className={`hidden md:block text-[10px] font-bold mt-1 group-hover:text-gray-600 dark:group-hover:text-gray-300 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
-                        {tab.label}
-                    </span>
+                    <span className="hidden md:block text-[10px] font-bold mt-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">{tab.label}</span>
                  </button>
              )
          })}

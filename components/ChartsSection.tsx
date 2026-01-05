@@ -5,7 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings } from '../types';
 import { INITIAL_CATEGORIES as CATEGORIES } from '../constants';
-import { PieChart as PieIcon, Maximize2, X, ChevronRight } from 'lucide-react';
+import { PieChart as PieIcon, Maximize2, X, ChevronRight, ArrowRight } from 'lucide-react';
 
 interface ChartsSectionProps {
   transactions: Transaction[];
@@ -25,7 +25,7 @@ const renderActiveShape = (props: any) => {
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
-        style={{ filter: `drop-shadow(0px 0px 6px ${fill}80)` }}
+        style={{ filter: `drop-shadow(0px 4px 10px ${fill}60)` }}
       />
     </g>
   );
@@ -35,6 +35,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Prepare Data
   const expenseData = useMemo(() => {
       const data = transactions
         .filter(t => t.type === 'expense')
@@ -42,7 +43,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
           const category = CATEGORIES.find(c => c.id === tx.category);
           const label = category?.label || 'Прочее';
           const catId = category?.id || 'other';
-          const existing = acc.find(item => item.name === label);
+          const existing = acc.find(item => item.id === catId);
           if (existing) {
             existing.value += tx.amount;
           } else {
@@ -57,173 +58,100 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
 
   const totalExpense = expenseData.reduce((sum, item) => sum + item.value, 0);
 
-  // In expanded mode, clicks on slices drill down
-  const handleSliceClick = (index: number, catId: string, e?: React.MouseEvent) => {
-      if (e) e.stopPropagation(); 
-      if (onCategoryClick) onCategoryClick(catId);
+  // --- Handlers ---
+
+  const handleWidgetClick = () => {
+      setIsExpanded(true);
   };
 
-  const handleLegendClick = (catId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (onCategoryClick) onCategoryClick(catId);
+  const handleLegendClick = (catId: string) => {
+      if (onCategoryClick) {
+          onCategoryClick(catId);
+          setIsExpanded(false); // Optional: close modal on navigation
+      }
   };
 
-  const renderChartContent = (isFullScreen: boolean) => {
+  // --- Render Components ---
+
+  const renderChart = (isFullScreen: boolean) => {
       const activeItem = activeIndex !== -1 ? expenseData[activeIndex] : null;
-      
-      // Always show total in center unless hovering a slice
       const centerValue = activeItem ? activeItem.value : totalExpense;
       const centerLabel = activeItem ? activeItem.name : 'Всего';
-      
-      const legendItems = isFullScreen ? expenseData : expenseData.slice(0, 4);
 
       if (expenseData.length === 0) {
-        return (
-             <div className="flex-1 flex flex-col items-center justify-center opacity-40 min-h-[150px] dark:text-white">
-                <PieIcon size={32} className="mb-2" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-center">Нет расходов<br/>за этот период</span>
+          return (
+             <div className="flex flex-col items-center justify-center h-full opacity-40">
+                <PieIcon size={32} className="mb-2 text-gray-400 dark:text-gray-600" />
+                <span className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-600">Нет данных</span>
              </div>
-        );
+          );
       }
 
       return (
-        // POINTER EVENTS LOGIC: 
-        // If !isFullScreen (Widget Mode), prevent inner elements from capturing clicks.
-        // This ensures the parent container's onClick always fires.
-        <div className={`w-full h-full flex flex-col md:flex-row gap-4 items-center ${!isFullScreen ? 'pointer-events-none' : ''}`}>
-            {/* Chart Area */}
-            <div className={`relative ${isFullScreen ? 'flex-1 w-full md:w-1/2 min-h-[300px]' : 'w-full md:w-1/2 h-40 md:h-full shrink-0'}`}>
-                
-                {/* Center Text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pointer-events-none">
-                    <span 
-                        className="text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 truncate max-w-[80%] text-center opacity-50"
-                        style={{ color: settings.theme === 'dark' ? 'white' : '#1C1C1E' }}
+        <div className="relative w-full h-full">
+            {/* Center Text */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-0.5 text-[#1C1C1E] dark:text-white">
+                    {centerLabel}
+                </span>
+                <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-xl'}`}>
+                    {settings.privacyMode 
+                        ? '•••' 
+                        : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
+                    }
+                </span>
+            </div>
+
+            <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie
+                        activeIndex={activeIndex}
+                        activeShape={renderActiveShape}
+                        data={expenseData}
+                        innerRadius={isFullScreen ? "55%" : "65%"}
+                        outerRadius={isFullScreen ? "80%" : "85%"}
+                        paddingAngle={4}
+                        cornerRadius={6}
+                        dataKey="value"
+                        stroke="none"
+                        onMouseEnter={(_, index) => isFullScreen && setActiveIndex(index)}
+                        onMouseLeave={() => isFullScreen && setActiveIndex(-1)}
+                        onClick={(_, index) => {
+                            if (isFullScreen) {
+                                setActiveIndex(index === activeIndex ? -1 : index);
+                            } else {
+                                setIsExpanded(true);
+                            }
+                        }}
+                        animationDuration={1000}
+                        style={{ cursor: 'pointer' }}
                     >
-                        {centerLabel}
-                    </span>
-                    
-                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-sm md:text-xl'}`}>
-                        {settings.privacyMode 
-                            ? '•••' 
-                            : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-                        }
-                    </span>
-                </div>
-
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            activeIndex={activeIndex}
-                            activeShape={renderActiveShape}
-                            data={expenseData}
-                            innerRadius={isFullScreen ? "65%" : "65%"} 
-                            outerRadius={isFullScreen ? "85%" : "80%"}
-                            paddingAngle={4}
-                            cornerRadius={6}
-                            dataKey="value"
-                            stroke="none"
-                            onMouseEnter={(_, index) => isFullScreen && window.innerWidth > 768 && setActiveIndex(index)}
-                            onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
-                            onClick={(_, index, e) => isFullScreen && handleSliceClick(index, expenseData[index].id, e)}
-                            animationBegin={0}
-                            animationDuration={800}
-                            style={{ cursor: isFullScreen ? 'pointer' : 'default' }}
-                        >
-                            {expenseData.map((entry, index) => (
-                                <Cell 
-                                    key={`cell-${index}`} 
-                                    fill={entry.color} 
-                                    stroke={entry.color}
-                                    strokeWidth={0}
-                                    opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1}
-                                    style={{ transition: 'opacity 0.3s ease' }}
-                                />
-                            ))}
-                        </Pie>
-                    </PieChart>
-                </ResponsiveContainer>
-            </div>
-
-            {/* Legend Area */}
-            <div className={`
-                flex flex-col gap-2 w-full
-                ${isFullScreen 
-                    ? 'md:w-1/2 p-4 overflow-y-auto no-scrollbar max-h-[40vh] md:max-h-[60vh]' 
-                    : 'md:w-1/2 overflow-hidden justify-center'
-                } z-10
-            `}>
-                {legendItems.map((item, idx) => {
-                    const isActive = activeIndex === idx;
-                    return (
-                        <div 
-                            key={item.name}
-                            onMouseEnter={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(idx)}
-                            onMouseLeave={() => isFullScreen && window.innerWidth > 768 && setActiveIndex(-1)}
-                            onClick={(e) => isFullScreen && handleLegendClick(item.id, e)}
-                            className={`
-                                group/item flex items-center justify-between transition-all duration-200 rounded-xl
-                                ${isFullScreen ? 'p-3 hover:bg-gray-50 dark:hover:bg-[#3A3A3C] cursor-pointer' : 'py-1'}
-                                ${isFullScreen && activeIndex !== -1 && !isActive ? 'opacity-30' : 'opacity-100'}
-                            `}
-                        >
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div 
-                                    className={`rounded-full flex-shrink-0 transition-all duration-300 ${isFullScreen ? 'w-3 h-3' : 'w-2 h-2'}`}
-                                    style={{ backgroundColor: item.color }} 
-                                />
-                                <div className="flex flex-col min-w-0">
-                                    <span className={`${isFullScreen ? 'text-sm' : 'text-[10px]'} font-bold text-[#1C1C1E] dark:text-white truncate`}>
-                                        {item.name}
-                                    </span>
-                                    {isFullScreen && (
-                                        <div className="h-1 w-16 bg-gray-100 dark:bg-white/10 rounded-full mt-1 overflow-hidden">
-                                            <div className="h-full rounded-full" style={{ width: `${item.percent! * 100}%`, backgroundColor: item.color }} />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div className="flex flex-col items-end shrink-0 pl-2">
-                                <span className={`${isFullScreen ? 'text-sm' : 'text-[10px]'} font-black text-[#1C1C1E] dark:text-white tabular-nums`}>
-                                    {isFullScreen 
-                                        ? (settings.privacyMode ? '•••' : item.value.toLocaleString())
-                                        : `${Math.round(item.percent! * 100)}%`
-                                    }
-                                </span>
-                                {isFullScreen && (
-                                    <span className="text-[10px] font-bold text-gray-400">
-                                        {Math.round(item.percent! * 100)}%
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-                
-                {/* "See more" link */}
-                {!isFullScreen && expenseData.length > 4 && (
-                    <div className="text-[9px] font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 pl-5">
-                        Еще {expenseData.length - 4} категорий <ChevronRight size={10} />
-                    </div>
-                )}
-            </div>
+                        {expenseData.map((entry, index) => (
+                            <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.color} 
+                                opacity={activeIndex !== -1 && activeIndex !== index ? 0.3 : 1}
+                                style={{ transition: 'opacity 0.3s ease' }}
+                            />
+                        ))}
+                    </Pie>
+                </PieChart>
+            </ResponsiveContainer>
         </div>
       );
   };
 
   return (
     <>
-      {/* Widget Layout */}
+      {/* 1. Compact Widget View */}
       <div 
-        onClick={() => setIsExpanded(true)}
-        className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none transition-all flex flex-col h-full relative group overflow-hidden p-5 cursor-pointer hover:scale-[1.01]"
+        onClick={handleWidgetClick}
+        className="bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col relative overflow-hidden p-5 cursor-pointer group hover:scale-[1.01] transition-transform"
       >
-          {/* Subtle bg decoration */}
+          {/* Decorative BG */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-[60px] opacity-60 pointer-events-none -mr-10 -mt-10" />
           
-          {/* Header */}
-          <div className="flex justify-between items-center mb-2 shrink-0 z-20 relative pointer-events-none">
+          <div className="flex justify-between items-center mb-2 shrink-0 z-20 relative">
               <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-orange-50 dark:bg-orange-900/30 rounded-xl">
                       <PieIcon size={14} className="text-orange-500" />
@@ -232,53 +160,67 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                       Структура
                   </h3>
               </div>
-              <button 
-                  // Separate expand button, needs pointer-events-auto because parent header has none
-                  className="p-1.5 -mr-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors bg-white dark:bg-[#2C2C2E] rounded-full shadow-sm z-40 pointer-events-auto"
-                  title="Развернуть"
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(true);
-                  }}
-              >
-                  <Maximize2 size={14} />
-              </button>
+              <Maximize2 size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors" />
           </div>
 
-          {/* Chart Content Wrapper */}
-          <div className="flex-1 w-full relative z-10 min-h-0 flex flex-col justify-center">
-             {renderChartContent(false)}
+          <div className="flex-1 flex items-center justify-between gap-2 min-h-0">
+             <div className="w-1/2 h-full min-h-[100px]">
+                 {renderChart(false)}
+             </div>
+             
+             {/* Mini Legend */}
+             <div className="w-1/2 flex flex-col gap-1.5 justify-center pl-2 border-l border-gray-50 dark:border-white/5">
+                 {expenseData.slice(0, 3).map((item, i) => (
+                     <div key={item.id} className="flex items-center justify-between">
+                         <div className="flex items-center gap-1.5 min-w-0">
+                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                             <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 truncate">{item.name}</span>
+                         </div>
+                         <span className="text-[9px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                             {Math.round(item.percent! * 100)}%
+                         </span>
+                     </div>
+                 ))}
+                 {expenseData.length > 3 && (
+                     <span className="text-[8px] font-bold text-blue-500 mt-1 pl-3.5">
+                         + еще {expenseData.length - 3}
+                     </span>
+                 )}
+                 {expenseData.length === 0 && <span className="text-[9px] text-gray-300">Пусто</span>}
+             </div>
           </div>
       </div>
 
-      {/* Expanded Modal */}
+      {/* 2. Expanded Full-Screen Modal */}
       <AnimatePresence>
         {isExpanded && createPortal(
-            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
                 <motion.div 
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }} 
                     exit={{ opacity: 0 }} 
                     onClick={() => setIsExpanded(false)} 
-                    className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" 
+                    className="absolute inset-0 bg-[#1C1C1E]/40 backdrop-blur-md" 
                 />
+                
                 <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }} 
-                    animate={{ scale: 1, opacity: 1 }} 
-                    exit={{ scale: 0.9, opacity: 0 }} 
-                    className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-2xl h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border dark:border-white/10"
+                    initial={{ y: "100%" }} 
+                    animate={{ y: 0 }} 
+                    exit={{ y: "100%" }}
+                    transition={{ type: 'spring', damping: 32, stiffness: 350 }}
+                    className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-2xl h-[90vh] md:h-[85vh] md:rounded-[3rem] rounded-t-[3rem] shadow-2xl flex flex-col overflow-hidden"
                 >
-                    {/* Modal Header */}
+                    {/* Header */}
                     <div className="p-6 bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 flex justify-between items-center shrink-0">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-                                Расходы за период
+                        <div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                                Аналитика расходов
                             </span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight">
+                                <span className="text-2xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight">
                                     {settings.privacyMode ? '•••' : totalExpense.toLocaleString()}
                                 </span>
-                                <span className="text-xl font-bold text-gray-300">{settings.currency}</span>
+                                <span className="text-lg font-bold text-gray-300">{settings.currency}</span>
                             </div>
                         </div>
                         <button 
@@ -289,8 +231,64 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         </button>
                     </div>
 
-                    <div className="flex-1 bg-gray-50 dark:bg-black overflow-hidden flex flex-col p-6">
-                        {renderChartContent(true)}
+                    <div className="flex-1 overflow-y-auto no-scrollbar bg-white dark:bg-black flex flex-col">
+                        {/* Big Chart */}
+                        <div className="h-[350px] w-full shrink-0 py-4 bg-[#F8F9FB] dark:bg-[#151517] relative">
+                            {renderChart(true)}
+                        </div>
+
+                        {/* Full Legend */}
+                        <div className="flex-1 p-6 space-y-3 bg-white dark:bg-black">
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Детализация</h4>
+                            {expenseData.map((item, idx) => {
+                                const isActive = activeIndex === idx;
+                                return (
+                                    <div 
+                                        key={item.id}
+                                        onClick={() => handleLegendClick(item.id)}
+                                        className={`
+                                            flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border
+                                            ${isActive 
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                                                : 'bg-gray-50 dark:bg-[#1C1C1E] border-transparent hover:bg-gray-100 dark:hover:bg-[#2C2C2E]'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                            <div 
+                                                className="w-3 h-3 rounded-full shrink-0 shadow-sm" 
+                                                style={{ backgroundColor: item.color }} 
+                                            />
+                                            <div className="flex flex-col min-w-0 flex-1">
+                                                <div className="flex justify-between items-center w-full pr-2">
+                                                    <span className="text-sm font-bold text-[#1C1C1E] dark:text-white truncate">
+                                                        {item.name}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-gray-400">
+                                                        {Math.round(item.percent! * 100)}%
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 w-full bg-gray-200 dark:bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                                                    <div 
+                                                        className="h-full rounded-full" 
+                                                        style={{ width: `${item.percent! * 100}%`, backgroundColor: item.color }} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 pl-2">
+                                            <div className="text-right">
+                                                <div className="text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                                                    {settings.privacyMode ? '•••' : item.value.toLocaleString()}
+                                                </div>
+                                            </div>
+                                            <ChevronRight size={16} className="text-gray-300 dark:text-gray-600" />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </motion.div>
             </div>,

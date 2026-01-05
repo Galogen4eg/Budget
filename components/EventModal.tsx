@@ -66,6 +66,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
 
   const applyTemplate = (t: FamilyEvent) => {
     setTitle(t.title);
+    setDesc(t.description || ''); // Added description copy
     setDur(t.duration || 1);
     setMIds(t.memberIds || []);
     setChecklist(t.checklist || []);
@@ -230,6 +231,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         </div>
 
         <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 shrink-0 space-y-3">
+             <div className="flex items-center justify-between mb-3">
+                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Сохранить как шаблон?</span>
+                 <button onClick={() => setIsT(!isT)} className={`w-10 h-6 rounded-full p-1 transition-colors relative ${isT ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isT ? 'translate-x-4' : 'translate-x-0'}`} />
+                 </button>
+             </div>
              <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>

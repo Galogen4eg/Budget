@@ -6,7 +6,8 @@ import {
   signInAnonymously, 
   signInWithPopup, 
   signInWithRedirect, 
-  getRedirectResult 
+  getRedirectResult,
+  signOut
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { getOrInitUserFamily } from '../utils/db';
@@ -18,6 +19,7 @@ interface AuthContextType {
   isOfflineMode: boolean;
   loginWithGoogle: () => Promise<void>;
   loginAnonymously: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -26,7 +28,8 @@ const AuthContext = createContext<AuthContextType>({
     loading: true, 
     isOfflineMode: false,
     loginWithGoogle: async () => {},
-    loginAnonymously: async () => {}
+    loginAnonymously: async () => {},
+    logout: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -62,13 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         } else {
           // No user found - stop loading and let the LoginScreen handle it
-          // Check if we are not manually in demo mode (user set manually)
-          // If we manually set a demo user below, this listener might fire null if firebase is actually signed out.
-          // We only reset if we aren't in a "forced" demo state from the catch block below.
-          // Since onAuthStateChanged fires initially, we accept null.
-          if (!user) { // Only reset if we don't have a user state (handled by demo fallback)
-             setUser(null);
-             setFamilyId(null);
+          // Only reset if we are NOT in local demo mode (where user is set manually)
+          // We check if the current user state is a real firebase user (has providerData or similar check if needed, 
+          // but checking if we just manually set it is hard inside this callback closure).
+          // Instead, we rely on the logout function to clear state for demo users.
+          // For initial load, if currentUser is null, we just stop loading.
+          if (loading) {
              setLoading(false);
           }
         }
@@ -80,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, []); // Remove dependencies to prevent loop, 'user' check inside handles logic
+  }, []); 
 
   const loginWithGoogle = async () => {
       setLoading(true);
@@ -112,10 +114,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const code = e.code || '';
           const msg = e.message || '';
           
-          console.error("Auth Error:", e);
-
           // 1. Fallback for disabled Anonymous Auth in Firebase Console
-          if (code === 'auth/admin-restricted-operation') {
+          if (code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted-operation')) {
               console.warn("Anonymous auth disabled on server. Entering Local Demo Mode.");
               
               // Create a Mock User
@@ -145,6 +145,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
           }
 
+          console.error("Auth Error:", e);
+
           // 2. Check specifically for network error
           if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
               console.warn("Auth: Network request failed. Running in Offline/Demo mode.");
@@ -156,8 +158,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  const logout = async () => {
+      try {
+          await signOut(auth);
+      } catch (e) {
+          console.warn("Sign out error", e);
+      }
+      // Force clear state regardless of auth state (handles demo user)
+      setUser(null);
+      setFamilyId(null);
+      setIsOfflineMode(false);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, familyId, loading, isOfflineMode, loginWithGoogle, loginAnonymously }}>
+    <AuthContext.Provider value={{ user, familyId, loading, isOfflineMode, loginWithGoogle, loginAnonymously, logout }}>
       {children}
     </AuthContext.Provider>
   );

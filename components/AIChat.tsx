@@ -244,7 +244,8 @@ const AIChat: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#1C1C1E] md:rounded-[2.5rem] rounded-none shadow-soft dark:shadow-none border border-gray-100 dark:border-white/5 overflow-hidden">
+    // Restricted height to prevent full page scroll takeover
+    <div className="flex flex-col h-[65vh] md:h-[600px] bg-white dark:bg-[#1C1C1E] md:rounded-[2.5rem] rounded-none shadow-soft dark:shadow-none border border-gray-100 dark:border-white/5 overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F2F2F7] dark:bg-black no-scrollbar">
         {messages.map((m, i) => (
           <motion.div 
@@ -282,7 +283,7 @@ const AIChat: React.FC = () => {
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="p-4 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex gap-2 items-center">
+      <div className="p-4 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex gap-2 items-center shrink-0">
         <button 
             onClick={startListening}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
@@ -64,7 +64,7 @@ const pageTransition = {
 
 export default function App() {
   // Contexts
-  const { user, familyId, loading: isAuthLoading, isOfflineMode } = useAuth();
+  const { user, familyId, loading: isAuthLoading, isOfflineMode, logout } = useAuth();
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
@@ -117,6 +117,17 @@ export default function App() {
 
   // Calendar State
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
+
+  // Computed Transactions for Budget View (Sensitive to Date Selection)
+  const displayedTransactions = useMemo(() => {
+      if (!calendarSelectedDate) return filteredTransactions;
+      return filteredTransactions.filter(t => {
+          const d = new Date(t.date);
+          return d.getDate() === calendarSelectedDate.getDate() &&
+                 d.getMonth() === calendarSelectedDate.getMonth() &&
+                 d.getFullYear() === calendarSelectedDate.getFullYear();
+      });
+  }, [filteredTransactions, calendarSelectedDate]);
 
   // --- Effects ---
 
@@ -435,7 +446,7 @@ export default function App() {
                 />
 
                 <CategoryProgress 
-                    transactions={filteredTransactions}
+                    transactions={displayedTransactions}
                     categories={categories}
                     settings={settings}
                     onCategoryClick={(catId) => handleDrillDown(catId)}
@@ -444,14 +455,14 @@ export default function App() {
 
                 <MandatoryExpensesList 
                     expenses={settings.mandatoryExpenses || []} 
-                    transactions={filteredTransactions} 
+                    transactions={displayedTransactions} 
                     settings={settings} 
                     currentMonth={currentMonth}
                     onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }}
                 />
 
                 <TransactionHistory 
-                    transactions={filteredTransactions} 
+                    transactions={displayedTransactions} 
                     setTransactions={setTransactions} 
                     settings={settings} 
                     members={members}
@@ -511,8 +522,9 @@ export default function App() {
       </main>
 
       {/* Floating Dock Navigation */}
-      <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-24 md:h-screen md:bg-white md:border-r md:border-gray-100 dark:md:border-white/5 md:rounded-none bg-[#1C1C1E]/90 dark:bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-around items-center z-50">
-         <div className="hidden md:block text-2xl font-black mb-8 pt-10 text-white dark:text-white">FB.</div>
+      <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-24 md:h-screen md:bg-white md:border-r md:border-gray-100 dark:md:border-white/5 md:rounded-none bg-[#1C1C1E]/90 dark:bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-around md:justify-start items-center z-50">
+         <div className="hidden md:block text-2xl font-black mb-8 pt-10 text-[#1C1C1E] dark:text-white">FB.</div>
+         
          {TAB_CONFIG.filter(t => settings.enabledTabs.includes(t.id)).map(tab => {
              const isActive = activeTab === tab.id;
              return (
@@ -531,10 +543,30 @@ export default function App() {
                     <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-white' : 'text-gray-400 md:text-gray-400 group-hover:text-white md:group-hover:text-gray-600 dark:md:group-hover:text-white'}`}>
                         {React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
                     </span>
-                    <span className="hidden md:block text-[10px] font-bold mt-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">{tab.label}</span>
+                    <span className={`hidden md:block text-[10px] font-bold mt-1 group-hover:text-gray-600 dark:group-hover:text-gray-300 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
+                        {tab.label}
+                    </span>
                  </button>
              )
          })}
+
+         {/* Desktop Footer Actions */}
+         <div className="hidden md:flex flex-col gap-6 mt-auto mb-10 w-full items-center">
+             <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 transition-colors relative group p-2">
+                 <Bell size={24} strokeWidth={2} />
+                 {/* Tooltip */}
+                 <span className="absolute left-full ml-4 px-2 py-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Уведомления
+                 </span>
+             </button>
+             <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-blue-500 transition-colors relative group p-2">
+                 <SettingsIcon size={24} strokeWidth={2} />
+                 {/* Tooltip */}
+                 <span className="absolute left-full ml-4 px-2 py-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Настройки
+                 </span>
+             </button>
+         </div>
       </nav>
 
       <Suspense fallback={null}>
@@ -603,7 +635,7 @@ export default function App() {
                     }}
                     currentFamilyId={familyId}
                     onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }}
-                    onLogout={() => auth.signOut()}
+                    onLogout={logout}
                     onDeleteTransactionsByPeriod={async (start, end) => {
                         const toDelete = transactions.filter(t => {
                             const d = t.date.split('T')[0];

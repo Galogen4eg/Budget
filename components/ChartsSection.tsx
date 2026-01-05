@@ -133,7 +133,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                         {centerLabel}
                     </span>
                     
-                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-xl'}`}>
+                    <span className={`font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none ${isFullScreen ? 'text-3xl' : 'text-lg md:text-xl'}`}>
                         {settings.privacyMode 
                             ? '•••' 
                             : centerValue.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })
@@ -147,7 +147,7 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ transactions, settings, o
                             activeIndex={activeIndex}
                             activeShape={renderActiveShape}
                             data={expenseData}
-                            innerRadius={isFullScreen ? "65%" : "60%"} // Thinner ring
+                            innerRadius={isFullScreen ? "65%" : "65%"} // Increased for better text visibility
                             outerRadius={isFullScreen ? "85%" : "80%"}
                             paddingAngle={4}
                             cornerRadius={6}

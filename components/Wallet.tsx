@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, AlignJustify } from 'lucide-react';
+import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, AlertCircle } from 'lucide-react';
 import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
@@ -14,6 +14,55 @@ interface WalletProps {
 
 const CARD_COLORS = ['#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#1C1C1E', '#8E8E93', '#FFCC00', '#5856D6', '#00C7BE'];
 const CARD_ICONS = ['ShoppingBag', 'Utensils', 'Car', 'Star', 'Coffee', 'Tv', 'Zap', 'Briefcase'];
+
+// Internal component to safely render barcode with error handling
+const BarcodeRenderer = ({ value, format, className = '' }: { value: string, format: string, className?: string }) => {
+    const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Reset error state when value changes
+    useEffect(() => {
+        setError(false);
+        setLoading(true);
+    }, [value, format]);
+
+    if (!value) return <div className="text-gray-400 text-[10px] text-center">Нет данных</div>;
+
+    let apiUrl = '';
+    // BWIP-JS API Mapping
+    // Doc: https://github.com/metafloor/bwip-js/wiki/Online-Barcode-API
+    if (format === 'qr') {
+        apiUrl = `https://bwipjs-api.metafloor.org/?bcid=qrcode&text=${encodeURIComponent(value)}&scale=6`;
+    } else {
+        const type = format === 'ean13' ? 'ean13' : 'code128';
+        apiUrl = `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(value)}&scale=3&height=10&includetext`;
+    }
+
+    return (
+        <div className={`relative flex items-center justify-center bg-white p-2 rounded-lg ${className}`}>
+            {loading && !error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                    <Loader2 className="animate-spin text-gray-300" size={20} />
+                </div>
+            )}
+            {error ? (
+                <div className="flex flex-col items-center justify-center text-red-500 p-2 text-center">
+                    <AlertCircle size={20} className="mb-1" />
+                    <span className="text-[9px] font-bold uppercase leading-tight">Ошибка формата</span>
+                    <span className="text-[8px] text-gray-400 mt-1">Попробуйте другой тип кода</span>
+                </div>
+            ) : (
+                <img 
+                    src={apiUrl} 
+                    alt={value} 
+                    className="w-full h-full object-contain mix-blend-multiply"
+                    onLoad={() => setLoading(false)}
+                    onError={() => { setLoading(false); setError(true); }}
+                />
+            )}
+        </div>
+    );
+};
 
 const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -91,13 +140,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   };
 
   const mapFormat = (fmt: string): 'qr' | 'code128' | 'ean13' => {
+      // Html5Qrcode formats mapping
       if (fmt.includes('QR')) return 'qr';
       if (fmt.includes('EAN_13')) return 'ean13';
-      return 'code128';
+      return 'code128'; // Default fallback
   };
 
   const scanBarcodeFromImage = async (file: File): Promise<{text: string, format: string}> => {
-      // 1. Try Native BarcodeDetector
+      // 1. Try Native BarcodeDetector (Chrome/Android)
       try {
           if ('BarcodeDetector' in window) {
               const BarcodeDetector = (window as any).BarcodeDetector;
@@ -170,6 +220,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
     setIsAnalyzing(true);
 
     try {
+        // Run scanners in parallel to get best result
         const [barcodeResult, aiResult] = await Promise.all([
             scanBarcodeFromImage(file),
             analyzeImageWithGemini(file)
@@ -182,6 +233,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         let finalNumber = '';
         let finalFormat: any = 'code128';
 
+        // Prefer actual barcode scanner result for the number as AI can hallucinate digits
         if (barcodeResult.text) {
             finalNumber = barcodeResult.text;
             finalFormat = mapFormat(barcodeResult.format);
@@ -200,29 +252,6 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         setIsAnalyzing(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  };
-
-  const renderBarcode = (card: LoyaltyCard) => {
-      // Use BWIP-JS API for rendering. It's stable, free, and supports all formats.
-      // We wrap it in an image tag.
-      if (!card.number) return null;
-
-      let apiUrl = '';
-      if (card.barcodeFormat === 'qr') {
-          apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(card.number)}`;
-      } else {
-          // Default to code128 if not specified or ean13
-          const type = card.barcodeFormat === 'ean13' ? 'ean13' : 'code128';
-          apiUrl = `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(card.number)}&scale=3&height=12&includetext`;
-      }
-
-      return (
-          <img 
-            src={apiUrl} 
-            alt={card.number} 
-            className={`mix-blend-multiply dark:mix-blend-screen ${card.barcodeFormat === 'qr' ? 'w-48 h-48' : 'w-full h-24 object-contain'}`}
-          />
-      );
   };
 
   return (
@@ -302,6 +331,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                 </div>
 
                 <div className="space-y-3">
+                    {/* Live Preview Section */}
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center">
+                        <span className="text-[10px] font-black text-gray-400 uppercase mb-2">Предпросмотр</span>
+                        <div className="h-24 w-full">
+                            <BarcodeRenderer value={newNumber} format={newFormat} className="h-full w-full" />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Название</label>
                         <input type="text" placeholder="Магазин" value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
@@ -313,8 +350,11 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Формат штрихкода</label>
                         <div className="flex bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-xl">
-                            <button onClick={() => setNewFormat('code128')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat !== 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
-                                <Barcode size={14} /> Штрихкод
+                            <button onClick={() => setNewFormat('code128')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'code128' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <Barcode size={14} /> Code128
+                            </button>
+                            <button onClick={() => setNewFormat('ean13')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'ean13' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <Barcode size={14} /> EAN-13
                             </button>
                             <button onClick={() => setNewFormat('qr')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
                                 <QrCode size={14} /> QR Код
@@ -369,8 +409,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                       
                       <div className="p-8 bg-white dark:bg-[#1C1C1E] flex flex-col items-center gap-6">
                           {/* Render Actual Barcode/QR */}
-                          <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center justify-center min-h-[150px] w-full">
-                              {renderBarcode(selectedCard)}
+                          <div className="bg-white border-2 border-gray-100 flex items-center justify-center w-full rounded-2xl overflow-hidden min-h-[150px]">
+                              <BarcodeRenderer value={selectedCard.number} format={selectedCard.barcodeFormat || 'code128'} className="w-full h-full" />
                           </div>
                           
                           <div className="text-center">

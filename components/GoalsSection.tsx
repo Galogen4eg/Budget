@@ -86,11 +86,11 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-[11px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                                        <span className="text-[11px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums">
                                             {settings.privacyMode ? '•••' : goal.currentAmount.toLocaleString()} 
                                             <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold ml-0.5">{settings.currency}</span>
                                         </span>
-                                        <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 tabular-nums">
+                                        <span className="text-[9px] md:text-xs font-bold text-gray-300 dark:text-gray-600 tabular-nums">
                                             / {settings.privacyMode ? '•••' : (goal.targetAmount >= 1000000 ? `${(goal.targetAmount/1000000).toFixed(1)}m` : `${(goal.targetAmount/1000).toFixed(0)}k`)}
                                         </span>
                                     </div>

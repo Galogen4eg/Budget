@@ -65,7 +65,7 @@ const pageVariants = {
 };
 
 const pageTransition = {
-  type: "spring",
+  type: "spring" as const,
   stiffness: 300,
   damping: 30,
   mass: 0.5 
@@ -133,8 +133,10 @@ export default function App() {
   useEffect(() => {
       if (settings.theme === 'dark') {
           document.documentElement.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
       } else {
           document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
       }
   }, [settings.theme]);
 
@@ -396,10 +398,10 @@ export default function App() {
                 </div>
                 
                 <div className="flex gap-2 mb-4">
-                    <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[1.5rem] font-bold shadow-sm active:scale-95 transition-all text-[#1C1C1E] dark:text-white" onClick={() => setIsAddModalOpen(true)}>
+                    <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 md:p-4 rounded-[1.5rem] font-bold shadow-sm active:scale-95 transition-all text-[#1C1C1E] dark:text-white text-sm md:text-xl" onClick={() => setIsAddModalOpen(true)}>
                         <span className="text-xl mr-2">+</span> Добавить операцию
                     </button>
-                    <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-500 dark:text-gray-400 p-4 rounded-[1.5rem] font-bold flex items-center justify-center gap-2" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>
+                    <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-500 dark:text-gray-400 p-3 md:p-4 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 text-sm md:text-base" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>
                         {isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} Импорт
                         <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
                     </button>
@@ -413,7 +415,14 @@ export default function App() {
                         <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={filteredTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }} />
+                        <MandatoryExpensesList 
+                            expenses={settings.mandatoryExpenses || []} 
+                            transactions={filteredTransactions} 
+                            settings={settings} 
+                            currentMonth={currentMonth} 
+                            onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }}
+                            onAdd={() => { setEditingMandatoryExpense(null); setIsMandatoryModalOpen(true); }}
+                        />
                     </div>
                 </div>
 

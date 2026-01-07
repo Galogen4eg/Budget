@@ -14,7 +14,7 @@ const CustomAnalyticsTooltip = ({ active, payload, label, settings }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white/90 dark:bg-[#2C2C2E]/90 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 dark:border-white/10 z-50 min-w-[140px]">
+            <div className="bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl shadow-xl border border-gray-100 dark:border-white/10 z-50 min-w-[140px]">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
                     {data.fullDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
@@ -103,7 +103,7 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
+                    <h2 className="text-3xl md:text-5xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
                     <span className="text-sm font-bold text-gray-400">{settings.currency}</span>

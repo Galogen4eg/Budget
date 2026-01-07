@@ -92,7 +92,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                                     <span className="text-[8px] font-bold text-gray-400 tabular-nums">{Math.round(item.percent)}%</span>
                                 </div>
                             </div>
-                            <span className="text-[11px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                            <span className="text-[11px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums">
                                 {settings.privacyMode ? '•••' : item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
                         </div>
@@ -116,7 +116,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             </div>
             <div className="flex justify-between items-center mt-2">
                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Итого</span>
-                <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
+                <span className="text-[10px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
                     {settings.privacyMode ? '•••' : data.total.toLocaleString()} {settings.currency}
                 </span>
             </div>

@@ -139,7 +139,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                 {/* Right Side: Amount & Expand Button */}
                 <div className="flex items-center gap-1 shrink-0">
                   <div className="text-right">
-                    <span className="text-[10px] md:text-xs font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                    <span className="text-[10px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums">
                         {settings.privacyMode ? '•••' : `${item.totalValue.toLocaleString()}`}
                     </span>
                   </div>
@@ -189,7 +189,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                         </div>
                         <span className="text-[9px] font-bold text-[#1C1C1E] dark:text-white truncate">{merchant.name}</span>
                       </div>
-                      <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 tabular-nums shrink-0 ml-1">
+                      <span className="text-[9px] md:text-xs font-black text-gray-500 dark:text-gray-400 tabular-nums shrink-0 ml-1">
                         {settings.privacyMode ? '•••' : `${merchant.value.toLocaleString()}`}
                       </span>
                     </div>

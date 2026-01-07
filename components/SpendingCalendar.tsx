@@ -127,9 +127,6 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
                   </span>
                 )}
               </div>
-              {total > 0 && !isSelected && (
-                 <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-blue-500/40 sm:hidden" />
-              )}
             </button>
           );
         })}

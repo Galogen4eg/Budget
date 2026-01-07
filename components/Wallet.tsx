@@ -19,6 +19,10 @@ const CARD_ICONS = ['ShoppingBag', 'Utensils', 'Car', 'Star', 'Coffee', 'Tv', 'Z
 const BarcodeDisplay: React.FC<{ number: string, format: string }> = ({ number, format }) => {
     const [error, setError] = useState(false);
 
+    useEffect(() => {
+        setError(false);
+    }, [number, format]);
+
     const getBarcodeUrl = (num: string, fmt: string) => {
         const cleanNum = num.replace(/\s+/g, '');
         if (!cleanNum) return '';
@@ -27,15 +31,16 @@ const BarcodeDisplay: React.FC<{ number: string, format: string }> = ({ number, 
             return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(cleanNum)}`;
         } else {
             // EAN-13 must be strictly 12 or 13 digits
-            const type = (fmt === 'ean13' && /^\d{12,13}$/.test(cleanNum)) ? 'ean13' : 'code128';
-            return `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(cleanNum)}&scale=3&height=10&includetext`;
+            // Using TEC-IT API for better stability than bwipjs-api
+            const type = (fmt === 'ean13' && /^\d{12,13}$/.test(cleanNum)) ? 'EAN13' : 'Code128';
+            return `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(cleanNum)}&code=${type}&translate-esc=true&qunit=Mm&dpi=96`;
         }
     };
 
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-24 gap-2 text-center">
-                <div className="text-4xl font-black tracking-widest text-[#1C1C1E] dark:text-white break-all">{number}</div>
+                <div className="text-4xl font-black tracking-widest text-[#1C1C1E] break-all">{number}</div>
                 <div className="text-[10px] font-bold text-red-400 uppercase flex items-center gap-1">
                     <AlertCircle size={10} /> Штрихкод недоступен
                 </div>
@@ -45,9 +50,11 @@ const BarcodeDisplay: React.FC<{ number: string, format: string }> = ({ number, 
 
     return (
         <img 
+            key={`${number}-${format}`}
             src={getBarcodeUrl(number, format)} 
             alt={number} 
-            className={`mix-blend-multiply dark:mix-blend-normal dark:invert ${format === 'qr' ? 'w-48 h-48' : 'w-full h-24 object-contain'}`}
+            // Removed dark:invert because barcode container is always white for readability
+            className={`mix-blend-multiply ${format === 'qr' ? 'w-48 h-48' : 'w-full h-24 object-contain'}`}
             onError={() => setError(true)}
         />
     );

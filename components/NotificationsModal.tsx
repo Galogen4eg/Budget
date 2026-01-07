@@ -8,12 +8,8 @@ interface NotificationsModalProps {
   onClose: () => void;
 }
 
-// Mock notifications for demo
-const MOCK_NOTIFICATIONS = [
-    { id: 1, title: 'Зарплата пришла!', message: 'Пополнение баланса на 80 000 ₽', time: '2ч назад', type: 'success' },
-    { id: 2, title: 'Напоминание', message: 'Оплатить интернет до 20-го числа', time: '5ч назад', type: 'info' },
-    { id: 3, title: 'Превышение бюджета', message: 'Категория "Кафе" превышена на 15%', time: 'Вчера', type: 'warning' },
-];
+// Mock notifications - empty for production
+const MOCK_NOTIFICATIONS: any[] = [];
 
 const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
   return createPortal(

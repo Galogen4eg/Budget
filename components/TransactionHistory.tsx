@@ -67,7 +67,6 @@ const TransactionCard = React.memo(({
     const displayTitle = tx.note || category?.label || 'Операция';
     const brandKey = getMerchantBrandKey(displayTitle);
     const isUnrecognized = tx.category === 'other';
-    const timeString = new Date(tx.date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
     return (
       <motion.div 
@@ -88,21 +87,17 @@ const TransactionCard = React.memo(({
                     {isUnrecognized && <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"/>}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] font-medium text-gray-400">{timeString}</span>
                     {member && (
-                        <>
-                            <span className="text-gray-300 dark:text-gray-600 text-[8px]">•</span>
-                            <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member.color }}/>
-                                <span className="text-[10px] font-medium text-gray-400 truncate max-w-[60px]">{member.name}</span>
-                            </div>
-                        </>
+                        <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member.color }}/>
+                            <span className="text-[10px] font-medium text-gray-400 truncate max-w-[60px]">{member.name}</span>
+                        </div>
                     )}
                 </div>
             </div>
             
             <div className="text-right whitespace-nowrap">
-              <span className={`text-sm font-black tabular-nums ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E] dark:text-white'}`}>
+              <span className={`text-sm md:text-lg font-black tabular-nums ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E] dark:text-white'}`}>
                 {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}`}
               </span>
             </div>
@@ -341,7 +336,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                   <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">
                       Расход {currentMonth && `(${currentMonth.toLocaleString('ru', { month: 'short' })})`}
                   </span>
-                  <span className="text-xl font-black">{settings.privacyMode ? '•••' : searchedTransactions.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
+                  <span className="text-xl md:text-3xl font-black">{settings.privacyMode ? '•••' : searchedTransactions.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
               </div>
           )}
       </div>
@@ -368,7 +363,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                                 {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
                             </span>
                             <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
+                                <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-lg ${
                                     isPositiveDay 
                                         ? 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400' 
                                         : 'text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-white/10'

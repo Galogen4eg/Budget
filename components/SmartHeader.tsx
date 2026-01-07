@@ -27,7 +27,7 @@ const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: b
 
     if (privacyMode) return <span className="text-4xl md:text-5xl font-black tracking-tighter">••••••</span>;
 
-    return <motion.span className="text-5xl md:text-7xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
+    return <motion.span className="text-5xl md:text-8xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
 };
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
@@ -35,6 +35,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const now = new Date();
+  const currentDay = now.getDate();
   
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
     ? settings.salaryDates 
@@ -44,7 +45,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   let nextSalaryDate: Date | null = null;
   
   for (const day of sortedDates) {
-      if (day > now.getDate()) {
+      if (day > currentDay) {
           nextSalaryDate = new Date(now.getFullYear(), now.getMonth(), day);
           break;
       }
@@ -79,14 +80,17 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       });
 
       const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
+      const isPaid = paidAmount >= expense.amount * 0.95;
       
-      // Calculate remaining needed for this expense
-      // Allow small margin (e.g. if 95% paid, count as paid)
-      if (paidAmount >= expense.amount * 0.95) {
-          return totalNeeded; // Fully paid, need 0 more
+      // LOGIC FIX: Only reserve money for expenses that are due TODAY or in the FUTURE.
+      // If an expense was due on the 1st and today is the 15th, and it's not marked paid in app,
+      // we assume the user paid it before installing/using the app this month, 
+      // or simply shouldn't have it subtracted from their *remaining* daily budget calculation now.
+      if (!isPaid && expense.day >= currentDay) {
+          return totalNeeded + Math.max(0, expense.amount - paidAmount);
       }
       
-      return totalNeeded + Math.max(0, expense.amount - paidAmount);
+      return totalNeeded;
   }, 0);
 
   const savingsAmount = balance * (savingsRate / 100);
@@ -175,7 +179,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-blue-100/80 tracking-wider flex items-center gap-1 truncate">
                         <TrendingUp size={10} className="text-green-300" /> На день
                     </span>
-                    <span className="text-base md:text-2xl font-black text-white tabular-nums leading-none truncate mt-auto">
+                    <span className="text-base md:text-3xl font-black text-white tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()}
                     </span>
                 </div>
@@ -185,17 +189,20 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-red-100/70 tracking-wider flex items-center gap-1 truncate">
                         <ArrowDownRight size={10} className="text-red-300" /> Траты
                     </span>
-                    <span className="text-base md:text-2xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-base md:text-3xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(spent).toLocaleString()}
                     </span>
                 </div>
 
                 {/* Reserve - Secondary */}
-                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between">
+                <div 
+                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between cursor-help"
+                    title={`Копилка (${savingsRate}%): ${Math.round(savingsAmount)} ${settings.currency}\nОбязательные (будущие): ${Math.round(unpaidMandatoryTotal)} ${settings.currency}`}
+                >
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1 truncate">
                         <Lock size={10} /> Резерв
                     </span>
-                    <span className="text-base md:text-2xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-base md:text-3xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                     </span>
                 </div>

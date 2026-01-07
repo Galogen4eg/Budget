@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +17,7 @@ import { detectProductCategory } from '../utils/categorizer';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
-  setItems: (items: ShoppingItem[]) => void;
+  setItems: React.Dispatch<React.SetStateAction<ShoppingItem[]>>;
   settings: AppSettings;
   members: FamilyMember[];
   onCompletePurchase: (amount: number, category: string, note: string) => void;

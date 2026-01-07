@@ -96,7 +96,7 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
                                 </div>
                             </div>
                             
-                            <span className={`text-[11px] font-black tabular-nums shrink-0 whitespace-nowrap pl-2 ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E] dark:text-white'}`}>
+                            <span className={`text-[11px] md:text-sm font-black tabular-nums shrink-0 whitespace-nowrap pl-2 ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E] dark:text-white'}`}>
                                 {settings.privacyMode ? '•••' : `${tx.type === 'expense' ? '-' : '+'}${tx.amount.toLocaleString()}`}
                             </span>
                         </div>

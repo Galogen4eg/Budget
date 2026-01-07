@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, Category } from '../types';
 import { getIconById } from '../constants';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, PieChart } from 'lucide-react';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
 
@@ -14,16 +14,22 @@ interface CategoryProgressProps {
   onCategoryClick?: (categoryId: string) => void;
   onSubCategoryClick?: (catId: string, merchantName: string) => void;
   currentMonth?: Date;
+  selectedDate?: Date | null;
 }
 
-const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onSubCategoryClick, currentMonth }) => {
+const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, settings, categories, onCategoryClick, onSubCategoryClick, currentMonth, selectedDate }) => {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
-  // Filter expenses by date if currentMonth provided
+  // Filter expenses by selected date OR current month
   const expenses = transactions.filter(t => {
       if (t.type !== 'expense') return false;
+      const d = new Date(t.date);
+      
+      if (selectedDate) {
+          return d.toDateString() === selectedDate.toDateString();
+      }
+      
       if (currentMonth) {
-          const d = new Date(t.date);
           return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
       }
       return true;
@@ -60,13 +66,32 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
   if (categoryData.length === 0) {
     return (
       <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] text-center text-gray-300 dark:text-gray-600 font-bold italic border border-dashed border-gray-100 dark:border-white/5 flex flex-col justify-center h-full text-xs min-h-[120px]">
-        Пока нечего анализировать ✨
+        {selectedDate ? 'В этот день трат не было' : 'Пока нечего анализировать ✨'}
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none space-y-4 transition-all w-full h-auto overflow-y-auto no-scrollbar max-h-[600px]">
+    <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none space-y-4 transition-all w-full h-auto overflow-y-auto no-scrollbar max-h-[600px]">
+      <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
+                  <PieChart size={16} className="text-indigo-500" />
+              </div>
+              <div>
+                  <h3 className="text-sm font-black text-[#1C1C1E] dark:text-white uppercase tracking-wide leading-none">Категории</h3>
+                  {selectedDate && (
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 block mt-0.5">
+                          {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                      </span>
+                  )}
+              </div>
+          </div>
+          <span className="text-xs font-black text-[#1C1C1E] dark:text-white bg-gray-50 dark:bg-white/5 px-2 py-1 rounded-lg tabular-nums">
+              {settings.privacyMode ? '•••' : totalExpense.toLocaleString()}
+          </span>
+      </div>
+      
       {categoryData.map((item) => {
         const percentage = totalExpense > 0 ? (item.totalValue / totalExpense) * 100 : 0;
         const isExpanded = expandedCategoryId === item.id;

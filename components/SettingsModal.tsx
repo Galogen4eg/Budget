@@ -208,6 +208,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                             <input type="number" value={settings.initialBalance || 0} onChange={e => handleChange('initialBalance', Number(e.target.value))} className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white" />
                         </div>
                         <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
+                            <label className="text-xs font-bold text-gray-500 block mb-1">Дата начала</label>
+                            <input type="date" value={settings.initialBalanceDate || ''} onChange={e => handleChange('initialBalanceDate', e.target.value)} className="w-full bg-transparent font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                        </div>
+                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl col-span-2">
                             <label className="text-xs font-bold text-gray-500 block mb-1">Валюта</label>
                             <input type="text" value={settings.currency || '₽'} onChange={e => handleChange('currency', e.target.value)} className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white" />
                         </div>

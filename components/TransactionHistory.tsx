@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
-import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Search, X, CalendarDays, RefreshCw, Filter, Plus, Save, Globe, Lock, Home } from 'lucide-react';
+import { Sparkles, Check, ArrowDownRight, ArrowUpRight, Wallet, ChevronDown, ChevronUp, Clock, AlertTriangle, Search, X, CalendarDays, RefreshCw, Filter, Plus, Save, Globe, Lock, Home, History } from 'lucide-react';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
 import { addGlobalRule } from '../utils/db';
@@ -24,6 +24,7 @@ interface TransactionHistoryProps {
   onClearFilters?: () => void;
   hideActiveFilterBadge?: boolean;
   onAddCategory?: (category: Category) => void;
+  selectedDate?: Date | null;
 }
 
 // Simple constants for creating categories inline
@@ -120,7 +121,7 @@ const TransactionCard = React.memo(({
     );
 });
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory, selectedDate }) => {
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
   
   // Learning Modal State
@@ -151,6 +152,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const searchedTransactions = useMemo(() => {
     let result = transactions;
 
+    // Filter by specific day if selected
+    if (selectedDate) {
+        const targetStr = selectedDate.toDateString();
+        result = result.filter(tx => new Date(tx.date).toDateString() === targetStr);
+    }
+
     // Apply strict category/merchant filters
     if (selectedCategoryId) {
         result = result.filter(tx => tx.category === selectedCategoryId);
@@ -170,7 +177,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                category.toLowerCase().includes(query) ||
                tx.amount.toString().includes(query);
     });
-  }, [transactions, searchQuery, categories, selectedCategoryId, selectedMerchantName]);
+  }, [transactions, searchQuery, categories, selectedCategoryId, selectedMerchantName, selectedDate]);
 
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
@@ -198,11 +205,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   }, [searchedTransactions]);
 
   const visibleGroups = useMemo(() => {
-    if (searchQuery.trim() || filterMode === 'day' || showAll || selectedCategoryId) {
+    if (searchQuery.trim() || filterMode === 'day' || showAll || selectedCategoryId || selectedDate) {
       return groupedTransactions;
     }
     return groupedTransactions.slice(0, 5); // Increased for better visibility
-  }, [groupedTransactions, searchQuery, filterMode, showAll, selectedCategoryId]);
+  }, [groupedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate]);
 
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
@@ -282,8 +289,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-4 w-full">
+      <div className="flex items-center gap-2 mb-2 px-1">
+          <div className="p-2 bg-gray-100 dark:bg-[#2C2C2E] rounded-xl text-gray-500 dark:text-gray-300">
+              <History size={18} />
+          </div>
+          <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">История</h3>
+      </div>
+
       {/* Active Filter UI - Only show if not hidden via props */}
-      {selectedCategoryId && !hideActiveFilterBadge && (
+      {(selectedCategoryId || selectedDate) && !hideActiveFilterBadge && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between bg-blue-500 text-white p-3 rounded-2xl shadow-lg">
               <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-md">
@@ -292,7 +306,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                   <div>
                       <span className="text-[10px] font-bold uppercase opacity-80 block leading-tight">Фильтр</span>
                       <span className="font-bold text-sm">
-                          {activeCategory?.label || 'Категория'} 
+                          {selectedDate ? selectedDate.toLocaleDateString('ru-RU', {day:'numeric', month:'long'}) : activeCategory?.label} 
                           {selectedMerchantName ? ` • ${selectedMerchantName}` : ''}
                       </span>
                   </div>
@@ -308,7 +322,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
       {/* Header Stat (Simplified) */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          {filterMode === 'month' && (
+          {filterMode === 'month' && !selectedDate && (
               <div className="bg-[#1C1C1E] dark:bg-white rounded-2xl p-4 text-white dark:text-black flex-1 min-w-[140px]">
                   <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Расход</span>
                   <span className="text-xl font-black">{settings.privacyMode ? '•••' : searchedTransactions.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
@@ -380,7 +394,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </motion.div>
       )}
 
-      {groupedTransactions.length > 5 && !showAll && !selectedCategoryId && (
+      {groupedTransactions.length > 5 && !showAll && !selectedCategoryId && !selectedDate && (
         <button onClick={() => setShowAll(true)} className="w-full py-4 text-xs font-black text-gray-400 uppercase tracking-widest bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 hover:text-blue-500 transition-colors">
             Показать все
         </button>

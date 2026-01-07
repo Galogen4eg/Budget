@@ -2,8 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, Loader2, Link, Info, Check, ScanText, Box, CheckCircle2, Circle } from 'lucide-react';
-import { Transaction, TransactionType, AppSettings, FamilyMember, Category, PantryItem } from '../types';
+import { X, Camera, Loader2, Link, Info, Check, ScanText, Box, CheckCircle2, Circle, Sparkles, ChevronDown, Save } from 'lucide-react';
+import { Transaction, TransactionType, AppSettings, FamilyMember, Category, PantryItem, LearnedRule } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
 import { getSmartCategory } from '../utils/categorizer';
@@ -18,9 +18,15 @@ interface AddTransactionModalProps {
   initialTransaction?: Transaction | null;
   onLinkMandatory?: (expenseId: string, keyword: string) => void;
   onSaveReceiptItems?: (items: PantryItem[]) => void;
+  onLearnRule?: (rule: LearnedRule) => void;
+  onApplyRuleToExisting?: (rule: LearnedRule) => void;
 }
 
-const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSubmit, onDelete, settings, members, categories, initialTransaction, onLinkMandatory, onSaveReceiptItems }) => {
+const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ 
+  onClose, onSubmit, onDelete, settings, members, categories, 
+  initialTransaction, onLinkMandatory, onSaveReceiptItems,
+  onLearnRule, onApplyRuleToExisting
+}) => {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [memberId, setMemberId] = useState(members[0]?.id || '');
@@ -31,6 +37,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
   const [isScanning, setIsScanning] = useState(false);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
   
+  // Rule Learning State
+  const [isRuleEnabled, setIsRuleEnabled] = useState(false);
+  const [ruleKeyword, setRuleKeyword] = useState('');
+  const [ruleCleanName, setRuleCleanName] = useState('');
+
   // Receipt Items Logic
   const [scannedItems, setScannedItems] = useState<any[]>([]);
   const [selectedScannedIndices, setSelectedScannedIndices] = useState<number[]>([]);
@@ -45,7 +56,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
         setMemberId(initialTransaction.memberId);
         setNote(initialTransaction.note);
         setSelectedCategory(initialTransaction.category);
-        // Format date for datetime-local input
+        
+        // Suggest rule keyword from rawNote or current note
+        setRuleKeyword(initialTransaction.rawNote || initialTransaction.note);
+        setRuleCleanName(initialTransaction.note);
+
         const d = new Date(initialTransaction.date);
         const localIso = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
         setDate(localIso);
@@ -60,21 +75,35 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
     e.preventDefault();
     if (!amount || isNaN(Number(amount))) return;
     const absAmount = Math.abs(Number(amount));
+    const finalNote = isRuleEnabled && ruleCleanName.trim() ? ruleCleanName.trim() : note.trim();
     
-    // Ensure date is ISO string
+    // 1. Create Rule if enabled
+    if (isRuleEnabled && onLearnRule && ruleKeyword.trim()) {
+        const newRule: LearnedRule = {
+            id: Date.now().toString(),
+            keyword: ruleKeyword.trim(),
+            cleanName: ruleCleanName.trim() || note.trim() || 'Операция',
+            categoryId: selectedCategory
+        };
+        onLearnRule(newRule);
+        
+        // Optional: Apply to existing? For simplicity, we just save the rule here.
+        // If user wants to apply to all, they can use the button in settings or history.
+    }
+
+    // 2. Submit Transaction
     const dateObj = new Date(date);
-    
     onSubmit({
       amount: absAmount,
       type,
       category: selectedCategory, 
       memberId,
-      note,
+      note: finalNote,
       date: dateObj.toISOString(),
       rawNote: initialTransaction?.rawNote || note,
     });
     
-    // Also save pantry items if selected
+    // 3. Save pantry items
     if (onSaveReceiptItems && selectedScannedIndices.length > 0) {
         const pantryItems: PantryItem[] = selectedScannedIndices.map(idx => {
             const item = scannedItems[idx];
@@ -105,7 +134,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
       if (onLinkMandatory && note) {
           onLinkMandatory(expenseId, note.trim());
           setShowLinkMenu(false);
-          alert(`Транзакции с описанием "${note}" теперь будут считаться оплатой этого расхода.`);
       }
   };
 
@@ -158,6 +186,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           if (data.amount) setAmount(String(data.amount));
           if (data.merchant) {
               setNote(data.merchant);
+              setRuleCleanName(data.merchant);
+              setRuleKeyword(data.merchant);
               const catId = getSmartCategory(data.merchant, [], categories);
               if (catId) setSelectedCategory(catId);
           }
@@ -167,7 +197,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           }
           if (data.items && Array.isArray(data.items)) {
               setScannedItems(data.items);
-              setSelectedScannedIndices(data.items.map((_: any, i: number) => i)); // Select all by default
+              setSelectedScannedIndices(data.items.map((_: any, i: number) => i));
               setShowScannedItems(true);
           }
 
@@ -195,9 +225,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: 'spring', damping: 25, stiffness: 180 }}
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
       >
-        <div className="bg-white dark:bg-[#1C1C1E] p-7 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
+        <div className="bg-white dark:bg-[#1C1C1E] p-7 flex justify-between items-center border-b border-gray-100 dark:border-white/5 shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-black text-[#1C1C1E] dark:text-white tracking-tight">{initialTransaction ? 'Редактировать' : 'Новая операция'}</h2>
           </div>
@@ -206,8 +236,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto no-scrollbar">
-          <div className="bg-white dark:bg-[#1C1C1E] p-8 rounded-[3rem] shadow-sm border border-white dark:border-white/5 text-center relative overflow-hidden group">
+        <form onSubmit={handleSubmit} className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
+          <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-sm border border-white dark:border-white/5 text-center relative overflow-hidden group">
             <div className="flex justify-between items-start mb-4">
                <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Сумма ({settings.currency})</span>
                <div className="flex gap-2">
@@ -254,12 +284,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                 step="any"
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || (!isNaN(Number(val)) && Number(val) >= 0)) {
-                        setAmount(val);
-                    }
-                }}
+                onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 className="text-6xl font-black bg-transparent text-center outline-none w-full placeholder:text-gray-200 dark:placeholder:text-gray-700 tracking-tighter text-[#1C1C1E] dark:text-white tabular"
               />
@@ -269,16 +294,16 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                <input
                 type="text"
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={(e) => {
+                    setNote(e.target.value);
+                    if (!isRuleEnabled) {
+                        setRuleCleanName(e.target.value);
+                        setRuleKeyword(initialTransaction?.rawNote || e.target.value);
+                    }
+                }}
                 placeholder="На что потратили?"
                 className="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 p-4 rounded-[2rem] outline-none text-sm font-bold text-[#1C1C1E] dark:text-white tracking-normal text-center"
               />
-              {initialTransaction?.rawNote && initialTransaction.rawNote !== note && (
-                  <div className="text-center bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-xl border border-gray-100/50 dark:border-white/5">
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Оригинал из выписки</p>
-                      <p className="text-xs text-gray-500 font-medium break-words leading-tight">{initialTransaction.rawNote}</p>
-                  </div>
-              )}
               <input 
                 type="datetime-local"
                 value={date}
@@ -287,6 +312,60 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
               />
             </div>
           </div>
+
+          {/* Rule Assignment Block */}
+          {onLearnRule && (
+              <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] shadow-sm border border-white dark:border-white/5 space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                          <div className={`p-1.5 rounded-lg ${isRuleEnabled ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-400'}`}>
+                              <Sparkles size={14} />
+                          </div>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Запомнить категорию</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setIsRuleEnabled(!isRuleEnabled)}
+                        className={`w-10 h-6 rounded-full p-1 transition-colors relative ${isRuleEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-[#2C2C2E]'}`}
+                      >
+                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isRuleEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                  </div>
+
+                  <AnimatePresence>
+                      {isRuleEnabled && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden space-y-3 pt-1"
+                          >
+                              <div className="bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl space-y-2">
+                                  <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Ключевое слово (из банка)</label>
+                                  <input 
+                                    type="text" 
+                                    value={ruleKeyword}
+                                    onChange={e => setRuleKeyword(e.target.value)}
+                                    placeholder="Напр: UBER"
+                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-xs font-bold outline-none text-[#1C1C1E] dark:text-white"
+                                  />
+                              </div>
+                              <div className="bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-2xl space-y-2">
+                                  <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Новое название (как в истории)</label>
+                                  <input 
+                                    type="text" 
+                                    value={ruleCleanName}
+                                    onChange={e => setRuleCleanName(e.target.value)}
+                                    placeholder="Напр: Такси"
+                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-xs font-bold outline-none text-[#1C1C1E] dark:text-white"
+                                  />
+                              </div>
+                              <p className="text-[9px] text-gray-400 italic text-center px-2">Теперь все траты с "{ruleKeyword}" будут называться "{ruleCleanName}" и попадать в выбранную категорию.</p>
+                          </motion.div>
+                      )}
+                  </AnimatePresence>
+              </div>
+          )}
 
           {/* Scanned Items List */}
           <AnimatePresence>
@@ -312,13 +391,12 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
                                   </div>
                               ))}
                           </div>
-                          <p className="text-[9px] text-gray-400 text-center px-4">Выбранные товары будут добавлены в <b>Кладовку</b> после сохранения.</p>
                       </div>
                   </motion.div>
               )}
           </AnimatePresence>
 
-          <div className="flex bg-gray-200/40 dark:bg-[#2C2C2E] p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-white/5">
+          <div className="flex bg-gray-200/40 dark:bg-[#2C2C2E] p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-white/5 shrink-0">
             {(['expense', 'income'] as const).map((t) => (
               <button
                 key={t}
@@ -337,7 +415,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
 
           <div className="space-y-5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
-            <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[200px] overflow-y-auto no-scrollbar md:max-h-none">
+            <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[160px] overflow-y-auto no-scrollbar md:max-h-none">
                {categories.map(cat => (
                   <button 
                     key={cat.id} 
@@ -373,13 +451,13 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onClose, onSu
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 pt-4">
             <button
               type="submit"
               disabled={isProcessing}
               className="w-full bg-blue-500 text-white font-black py-6 rounded-[2.5rem] shadow-2xl shadow-blue-500/40 text-lg uppercase tracking-widest ios-btn-active disabled:opacity-50"
             >
-              {isProcessing ? 'Обработка...' : (initialTransaction ? 'Сохранить изменения' : 'Сохранить')}
+              {isProcessing ? 'Обработка...' : (initialTransaction ? 'Сохранить' : 'Готово')}
             </button>
             {initialTransaction && onDelete && (
                 <button 

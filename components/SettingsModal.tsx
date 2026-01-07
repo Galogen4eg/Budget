@@ -44,10 +44,10 @@ interface SettingsModalProps {
 
 // Icons removed as requested
 const WIDGET_METADATA = [ 
-  { id: 'balance', label: 'Баланс' }, 
+  { id: 'balance', label: 'Баланс (устар.)' }, 
   { id: 'goals', label: 'Цели' }, 
-  { id: 'charts', label: 'Структура' }, 
-  { id: 'month_chart', label: 'График месяца' },
+  { id: 'month_chart', label: 'Динамика' },
+  { id: 'category_analysis', label: 'Категории' },
   { id: 'shopping', label: 'Покупки' },
   { id: 'recent_transactions', label: 'История' },
 ];
@@ -438,6 +438,240 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const renderContent = () => {
     switch (activeSection) {
+        case 'widgets': return (
+            <div className="space-y-6">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Виджеты на главном экране</h3>
+                    <p className="text-xs text-gray-400 mb-4">Включите или отключите отображение блоков на вкладке Обзор.</p>
+                    
+                    <div className="space-y-3">
+                        {settings.widgets.map((widget, idx) => {
+                            const meta = WIDGET_METADATA.find(m => m.id === widget.id);
+                            if (!meta) return null;
+                            return (
+                                <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1">
+                                            <button disabled={idx === 0} onClick={() => moveWidget(idx, 'up')} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ChevronUp size={14}/></button>
+                                            <button disabled={idx === settings.widgets.length - 1} onClick={() => moveWidget(idx, 'down')} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ChevronDown size={14}/></button>
+                                        </div>
+                                        <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{meta.label}</span>
+                                    </div>
+                                    <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
+        case 'members': return (
+            <div className="space-y-6">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Участники семьи</h3>
+                    
+                    <div className="grid gap-3 mb-6">
+                        {members.map(member => (
+                            <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <MemberMarker member={member} size="md" />
+                                    <div>
+                                        <div className="font-bold text-sm text-[#1C1C1E] dark:text-white">{member.name}</div>
+                                        {member.isAdmin && <div className="text-[9px] font-black text-blue-500 uppercase tracking-wider">Админ</div>}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleEditMemberClick(member)} className="p-2 bg-white dark:bg-white/10 rounded-xl text-gray-400 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button>
+                                    <button onClick={() => handleDeleteMember(member.id)} className="p-2 bg-white dark:bg-white/10 rounded-xl text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/5">
+                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{selectedMemberForEdit ? 'Редактировать' : 'Добавить участника'}</h4>
+                        <div className="flex gap-2 mb-3">
+                            <input 
+                                type="text" 
+                                placeholder="Имя" 
+                                value={newMemberName} 
+                                onChange={e => setNewMemberName(e.target.value)} 
+                                className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-bold text-sm outline-none border border-transparent focus:border-blue-500 transition-all text-[#1C1C1E] dark:text-white"
+                            />
+                            <div className="flex gap-1 bg-white dark:bg-[#1C1C1E] p-1 rounded-xl">
+                                {PRESET_COLORS.slice(0, 5).map(c => (
+                                    <button key={c} onClick={() => setNewMemberColor(c)} className={`w-8 h-8 rounded-lg transition-transform ${newMemberColor === c ? 'scale-110 shadow-sm ring-2 ring-inset ring-black/10 dark:ring-white/20' : ''}`} style={{ backgroundColor: c }} />
+                                ))}
+                            </div>
+                        </div>
+                        <button onClick={handleSaveMember} className="w-full bg-blue-500 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform">
+                            {selectedMemberForEdit ? 'Сохранить' : 'Добавить'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        case 'categories': return (
+            <div className="space-y-6">
+                {/* Categories List */}
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Категории</h3>
+                        <button onClick={() => { setSelectedCategoryForEdit(null); setCatLabel(''); }} className="bg-blue-50 dark:bg-blue-900/30 text-blue-500 p-2 rounded-xl"><Plus size={20}/></button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto no-scrollbar mb-6">
+                        {categories.map(cat => (
+                            <div key={cat.id} onClick={() => handleEditCategoryClick(cat)} className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col items-center text-center gap-2 ${selectedCategoryForEdit?.id === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent hover:bg-gray-100 dark:hover:bg-[#3A3A3C]'}`}>
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" style={{ backgroundColor: cat.color }}>{getIconById(cat.icon, 14)}</div>
+                                <span className="text-[10px] font-bold text-[#1C1C1E] dark:text-white leading-tight">{cat.label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Edit/Create Category Form */}
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 space-y-3">
+                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{selectedCategoryForEdit ? 'Редактировать' : 'Новая категория'}</h4>
+                        <input type="text" placeholder="Название" value={catLabel} onChange={e => setCatLabel(e.target.value)} className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                        
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                            {PRESET_COLORS.map(c => <button key={c} onClick={() => setCatColor(c)} className={`w-6 h-6 rounded-full shrink-0 ${catColor === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`} style={{ backgroundColor: c }} />)}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                            {selectedCategoryForEdit && <button onClick={() => handleDeleteCategory(selectedCategoryForEdit.id)} className="p-3 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-xl"><Trash2 size={18}/></button>}
+                            <button onClick={handleSaveCategory} className="flex-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-3 rounded-xl font-black text-xs uppercase tracking-widest">{selectedCategoryForEdit ? 'Сохранить' : 'Создать'}</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Rules Section (Visible when category selected) */}
+                {selectedCategoryForEdit && (
+                    <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Правила авто-категорий</h3>
+                        
+                        <div className="flex gap-2 mb-4">
+                            <input type="text" placeholder="Ключевое слово (напр. uber)" value={newRuleKeyword} onChange={e => setNewRuleKeyword(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-bold text-xs outline-none text-[#1C1C1E] dark:text-white" />
+                            <button onClick={handleAddRule} className="bg-blue-500 text-white p-3 rounded-xl"><Plus size={18}/></button>
+                        </div>
+
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                            {learnedRules.filter(r => r.categoryId === selectedCategoryForEdit.id).map(rule => (
+                                <div key={rule.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl border border-gray-100 dark:border-white/5">
+                                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-white">"{rule.keyword}"</span>
+                                    <button onClick={() => deleteRule(rule.id)} className="text-gray-400 hover:text-red-500"><X size={14}/></button>
+                                </div>
+                            ))}
+                            {learnedRules.filter(r => r.categoryId === selectedCategoryForEdit.id).length === 0 && <p className="text-center text-xs text-gray-400">Нет правил</p>}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+
+        case 'navigation': return (
+            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Нижнее меню</h3>
+                <div className="space-y-3">
+                    {AVAILABLE_TABS.map(tab => (
+                        <div key={tab.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="text-gray-500 dark:text-gray-300">{tab.icon}</div>
+                                <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{tab.label}</span>
+                            </div>
+                            <Switch checked={settings.enabledTabs.includes(tab.id)} onChange={() => toggleTab(tab.id)} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        case 'services': return (
+            <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Сервисы</h3>
+                <div className="space-y-3">
+                    {AVAILABLE_SERVICES.map(service => (
+                        <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="text-gray-500 dark:text-gray-300">{service.icon}</div>
+                                <div>
+                                    <div className="font-bold text-sm text-[#1C1C1E] dark:text-white">{service.label}</div>
+                                    <div className="text-[10px] font-bold text-gray-400">{service.desc}</div>
+                                </div>
+                            </div>
+                            <Switch checked={settings.enabledServices.includes(service.id)} onChange={() => toggleService(service.id)} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        case 'telegram': return (
+            <div className="space-y-6">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="bg-blue-500 p-2 rounded-xl text-white"><BellRing size={20}/></div>
+                        <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Telegram Бот</h3>
+                    </div>
+                    
+                    <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Bot Token</label>
+                        <input type="password" value={settings.telegramBotToken || ''} onChange={e => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Chat ID</label>
+                        <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" />
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl">
+                        <span className="font-bold text-xs text-[#1C1C1E] dark:text-white">Отправлять новые события</span>
+                        <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Push Уведомления</h3>
+                    <p className="text-xs text-gray-400 mb-4">Получайте уведомления о превышении бюджета.</p>
+                    <button onClick={handleEnablePush} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest">
+                        Включить уведомления
+                    </button>
+                    {pushStatus && <p className="text-center text-[10px] font-bold text-gray-400 mt-2">{pushStatus}</p>}
+                </div>
+            </div>
+        );
+
+        case 'family': return (
+            <div className="space-y-6">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm text-center">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Ваша семья</h3>
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Family ID</p>
+                        <p className="font-mono text-lg font-bold text-blue-500 break-all select-all">{currentFamilyId}</p>
+                    </div>
+                    <button onClick={shareInviteLink} className="w-full bg-blue-500 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30">
+                        <Share size={16} /> Пригласить участника
+                    </button>
+                </div>
+
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Сменить семью</h3>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            placeholder="Введите ID семьи" 
+                            value={targetFamilyId}
+                            onChange={e => setTargetFamilyId(e.target.value)}
+                            className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs font-bold outline-none text-[#1C1C1E] dark:text-white"
+                        />
+                        <button onClick={() => onJoinFamily(targetFamilyId)} disabled={!targetFamilyId.trim()} className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black p-3 rounded-xl font-bold disabled:opacity-50">
+                            <Check size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
         case 'general': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-5 border border-gray-100 dark:border-white/10 shadow-sm">

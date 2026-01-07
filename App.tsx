@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
@@ -12,11 +12,11 @@ import RecentTransactionsWidget from './components/RecentTransactionsWidget';
 import ShoppingList from './components/ShoppingList';
 import FamilyPlans from './components/FamilyPlans';
 import TransactionHistory from './components/TransactionHistory';
-import ChartsSection from './components/ChartsSection';
 import GoalsSection from './components/GoalsSection';
 import SpendingCalendar from './components/SpendingCalendar';
 import MandatoryExpensesList from './components/MandatoryExpensesList';
 import CategoryProgress from './components/CategoryProgress';
+import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import LoginScreen from './components/LoginScreen';
 import ImportModal from './components/ImportModal';
 
@@ -287,6 +287,36 @@ export default function App() {
       showNotify('success', `Удалено ${ids.length} операций`);
   };
 
+  // --- Layout Computation ---
+  // Calculates grid spans dynamically to prevent gaps when widgets are hidden due to empty data
+  const widgetLayout = useMemo(() => {
+      const hasShopping = shoppingItems.some(i => !i.completed);
+      const hasGoals = goals.length > 0;
+      
+      // Default Layout
+      const layout = {
+          cat: { col: 'col-span-2 md:col-span-1', row: 'row-span-1 md:row-span-2' },
+          chart: { col: 'col-span-2', row: 'row-span-1' },
+          hist: { col: 'col-span-2 md:col-span-1', row: 'row-span-1 md:row-span-2' },
+          shop: { col: 'col-span-1', row: 'row-span-1' },
+          goal: { col: 'col-span-1', row: 'row-span-1' },
+      };
+
+      // If both bottom widgets are empty, extend chart to take full height
+      if (!hasShopping && !hasGoals) {
+          layout.chart.row = 'row-span-1 md:row-span-2';
+      }
+      // If only one bottom widget is present, make it full width (2 cols)
+      else if (!hasShopping && hasGoals) {
+          layout.goal.col = 'col-span-2 md:col-span-2';
+      }
+      else if (hasShopping && !hasGoals) {
+          layout.shop.col = 'col-span-2 md:col-span-2';
+      }
+
+      return layout;
+  }, [shoppingItems, goals]);
+
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000]"><div className="animate-spin text-blue-500"><Settings2 size={32}/></div></div>;
 
   if (!user) {
@@ -380,14 +410,26 @@ export default function App() {
                             case 'month_chart':
                                 if (filteredTransactions.length === 0) return null;
                                 return (
-                                    <div key={widget.id} className="col-span-2 md:col-span-3 row-span-1 md:row-span-2">
+                                    <div key={widget.id} className={`${widgetLayout.chart.col} ${widgetLayout.chart.row}`}>
                                         <MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} />
+                                    </div>
+                                );
+                            case 'category_analysis':
+                                if (filteredTransactions.length === 0) return null;
+                                return (
+                                    <div key={widget.id} className={`${widgetLayout.cat.col} ${widgetLayout.cat.row}`}>
+                                        <CategoryAnalysisWidget 
+                                            transactions={filteredTransactions} 
+                                            categories={categories} 
+                                            settings={settings}
+                                            onClick={() => setActiveTab('budget')}
+                                        />
                                     </div>
                                 );
                             case 'goals':
                                 if (goals.length === 0) return null;
                                 return (
-                                    <div key={widget.id} className="col-span-2 md:col-span-1 row-span-2 md:row-span-2">
+                                    <div key={widget.id} className={`${widgetLayout.goal.col} ${widgetLayout.goal.row}`}>
                                         <GoalsSection 
                                             goals={goals} 
                                             settings={settings} 
@@ -396,21 +438,10 @@ export default function App() {
                                         />
                                     </div>
                                 );
-                            case 'charts':
-                                if (filteredTransactions.length === 0) return null;
-                                return (
-                                    <div key={widget.id} className="col-span-2 md:col-span-3 row-span-1 md:row-span-2">
-                                        <ChartsSection 
-                                            transactions={filteredTransactions} 
-                                            settings={settings} 
-                                            onCategoryClick={(catId) => handleDrillDown(catId)}
-                                        />
-                                    </div>
-                                );
                             case 'recent_transactions':
                                 if (filteredTransactions.length === 0) return null;
                                 return (
-                                    <div key={widget.id} className="col-span-2 md:col-span-1 row-span-1 md:row-span-4">
+                                    <div key={widget.id} className={`${widgetLayout.hist.col} ${widgetLayout.hist.row}`}>
                                         <RecentTransactionsWidget 
                                             transactions={filteredTransactions} 
                                             categories={categories} 
@@ -428,7 +459,7 @@ export default function App() {
                                         key={widget.id} 
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
-                                        className="col-span-2 md:col-span-1 row-span-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none relative overflow-hidden group cursor-pointer" 
+                                        className={`${widgetLayout.shop.col} ${widgetLayout.shop.row} bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none relative overflow-hidden group cursor-pointer`} 
                                         onClick={() => setActiveTab('shopping')}
                                     >
                                         <div className="flex justify-between items-center mb-3">

@@ -22,7 +22,8 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
   onTransactionClick,
   onViewAllClick
 }) => {
-  const recent = transactions.slice(0, 3); // Show top 3
+  // Increased count to fill 2-row height better
+  const recent = transactions.slice(0, 8); 
 
   return (
     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col relative overflow-hidden group">

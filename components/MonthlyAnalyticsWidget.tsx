@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis, ReferenceLine } from 'recharts';
-import { CalendarDays, TrendingUp, TrendingDown, Target, Maximize2 } from 'lucide-react';
+import { CalendarDays, TrendingUp, TrendingDown, Target, Maximize2, BarChart3 } from 'lucide-react';
 import { Transaction, AppSettings } from '../types';
 
 interface MonthlyAnalyticsWidgetProps {
@@ -96,10 +96,10 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
             <div>
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
-                        <CalendarDays size={14} className="text-blue-500 dark:text-blue-400" />
+                        <BarChart3 size={14} className="text-blue-500 dark:text-blue-400" />
                     </div>
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        {currentMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
+                        Динамика
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">

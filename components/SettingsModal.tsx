@@ -10,7 +10,7 @@ import {
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files
+  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
@@ -42,7 +42,6 @@ interface SettingsModalProps {
   onOpenDuplicates?: () => void;
 }
 
-// Icons removed as requested
 const WIDGET_METADATA = [ 
   { id: 'balance', label: 'Баланс (устар.)' }, 
   { id: 'goals', label: 'Цели' }, 
@@ -96,7 +95,6 @@ const AVAILABLE_SERVICES = [
     { id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={20}/> }
 ];
 
-// Helper to insert variables into template
 const TemplateEditor = ({ label, value, onChange, variables }: { label: string, value: string, onChange: (val: string) => void, variables: string[] }) => {
     const handleAddVar = (v: string) => {
         onChange(value + ` ${v}`);
@@ -110,6 +108,7 @@ const TemplateEditor = ({ label, value, onChange, variables }: { label: string, 
                     value={value} 
                     onChange={(e) => onChange(e.target.value)} 
                     className="w-full bg-transparent font-mono text-xs text-[#1C1C1E] dark:text-white outline-none h-24 resize-none mb-2"
+                    placeholder="Настройте текст сообщения..."
                 />
                 <div className="flex flex-wrap gap-2">
                     {variables.map(v => (
@@ -127,7 +126,6 @@ const TemplateEditor = ({ label, value, onChange, variables }: { label: string, 
     );
 };
 
-// Reusable IOS Toggle Switch
 const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
     <button 
         onClick={onChange} 
@@ -139,41 +137,32 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void 
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, onReset, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, onEnablePin, onDisablePin, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
-  // Initialize based on screen width to avoid mobile menu state on desktop
   const [showMobileMenu, setShowMobileMenu] = useState(window.innerWidth < 768);
   const [pushStatus, setPushStatus] = useState<string>('');
   
-  // Member State
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberColor, setNewMemberColor] = useState(PRESET_COLORS[0]);
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<FamilyMember | null>(null);
   
-  // Category State
   const [selectedCategoryForEdit, setSelectedCategoryForEdit] = useState<Category | null>(null);
   const [catLabel, setCatLabel] = useState('');
   const [catColor, setCatColor] = useState(PRESET_COLORS[0]);
   const [catIcon, setCatIcon] = useState(PRESET_ICONS[0]);
   const [showRulesForCategory, setShowRulesForCategory] = useState<string | null>(null);
   
-  // Rules State
   const [newRuleKeyword, setNewRuleKeyword] = useState('');
   const [newRuleCleanName, setNewRuleCleanName] = useState('');
   
-  // Mandatory Expense State
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<MandatoryExpense | null>(null);
 
-  // Family Join State
   const [targetFamilyId, setTargetFamilyId] = useState('');
 
-  // Delete Period State
   const [deleteStartDate, setDeleteStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [deleteEndDate, setDeleteEndDate] = useState(new Date().toISOString().slice(0, 10));
 
-  // PIN Creation State
   const [showPinCreator, setShowPinCreator] = useState(false);
 
-  // Handle Resize to reset mobile menu state
   useEffect(() => {
       const handleResize = () => {
           if (window.innerWidth >= 768) {
@@ -185,7 +174,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   }, []);
 
   useEffect(() => {
-      // Reset rule input when changing categories
       setNewRuleKeyword('');
       setNewRuleCleanName('');
   }, [selectedCategoryForEdit, activeSection]);
@@ -214,7 +202,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       const updated = current.includes(id) 
           ? current.filter(t => t !== id)
           : [...current, id];
-      if (updated.length === 0) return; // Prevent disabling all tabs
+      if (updated.length === 0) return; 
       handleChange('enabledTabs', updated);
   };
 
@@ -226,13 +214,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       handleChange('enabledServices', updated);
   };
 
-  // --- Category Handlers ---
   const handleEditCategoryClick = (cat: Category) => {
       setSelectedCategoryForEdit(cat);
       setCatLabel(cat.label);
       setCatColor(cat.color);
       setCatIcon(cat.icon);
-      setShowRulesForCategory(cat.id); // Auto-show rules when editing
+      setShowRulesForCategory(cat.id);
   };
 
   const handleSaveCategory = () => {
@@ -275,7 +262,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       const newRule: LearnedRule = {
           id: Date.now().toString(),
           keyword: newRuleKeyword.trim(),
-          // Use provided display name, or fallback to category name
           cleanName: newRuleCleanName.trim() || selectedCategoryForEdit.label, 
           categoryId: selectedCategoryForEdit.id
       };
@@ -289,12 +275,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       
       let count = 0;
       const updatedTransactions = transactions.map(tx => {
-          // Check if this transaction matches any rule
           const rawNote = (tx.rawNote || tx.note).toLowerCase();
           const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
           
           if (matchedRule) {
-              // If it matches, check if it needs updating (different category or different clean name)
               if (tx.category !== matchedRule.categoryId || tx.note !== matchedRule.cleanName) {
                   count++;
                   return { 
@@ -315,7 +299,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       }
   };
   
-  // --- Member Handlers ---
   const handleSaveMember = () => { 
       if (!newMemberName.trim()) return; 
       
@@ -351,7 +334,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       }
   };
   
-  // --- Expense Handlers ---
   const handleSaveExpense = (expense: MandatoryExpense) => {
       let updatedExpenses = [...(settings.mandatoryExpenses || [])];
       const existingIdx = updatedExpenses.findIndex(e => e.id === expense.id);
@@ -387,7 +369,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   url: link, 
               }); 
           } catch (err) { 
-              // Share dismissed
           } 
       } else { 
           copyToClipboard(link); 
@@ -514,7 +495,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
         case 'categories': return (
             <div className="space-y-6">
-                {/* Categories List */}
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">Категории</h3>
@@ -530,7 +510,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         ))}
                     </div>
 
-                    {/* Edit/Create Category Form */}
                     <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 space-y-3">
                         <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{selectedCategoryForEdit ? 'Редактировать' : 'Новая категория'}</h4>
                         <input type="text" placeholder="Название" value={catLabel} onChange={e => setCatLabel(e.target.value)} className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
@@ -546,7 +525,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     </div>
                 </div>
 
-                {/* Rules Section (Visible when category selected) */}
                 {selectedCategoryForEdit && (
                     <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm animate-in fade-in slide-in-from-bottom-4">
                         <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-4">Правила авто-категорий</h3>
@@ -617,23 +595,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     
                     <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Bot Token</label>
-                        <input type="password" value={settings.telegramBotToken || ''} onChange={e => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" />
+                        <input type="password" value={settings.telegramBotToken || ''} onChange={e => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-500/30" placeholder="000000:ABCDEF..." />
                     </div>
                     <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Chat ID</label>
-                        <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white" />
+                        <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-500/30" placeholder="-100..." />
                     </div>
                     
-                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl">
-                        <span className="font-bold text-xs text-[#1C1C1E] dark:text-white">Отправлять новые события</span>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl border border-gray-100 dark:border-white/5">
+                        <span className="font-bold text-xs text-[#1C1C1E] dark:text-white">Авто-отправка событий</span>
                         <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
+                    </div>
+
+                    <div className="pt-2 space-y-4 border-t border-gray-100 dark:border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <MessageSquareQuote size={16} className="text-blue-500" />
+                            <h4 className="text-sm font-black text-[#1C1C1E] dark:text-white uppercase tracking-wider">Шаблоны сообщений</h4>
+                        </div>
+                        
+                        <TemplateEditor 
+                            label="Список покупок" 
+                            value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} 
+                            onChange={(val) => handleChange('shoppingTemplate', val)}
+                            variables={['{items}', '{total}']}
+                        />
+
+                        <TemplateEditor 
+                            label="Событие календаря" 
+                            value={settings.eventTemplate || '📅 *{title}*\n⏰ {time}, {date}\n👥 {members}\n\n{desc}'} 
+                            onChange={(val) => handleChange('eventTemplate', val)}
+                            variables={['{title}', '{date}', '{time}', '{members}', '{desc}']}
+                        />
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
                     <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Push Уведомления</h3>
-                    <p className="text-xs text-gray-400 mb-4">Получайте уведомления о превышении бюджета.</p>
-                    <button onClick={handleEnablePush} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest">
+                    <p className="text-xs text-gray-400 mb-4">Получайте уведомления о превышении бюджета прямо в браузере.</p>
+                    <button onClick={handleEnablePush} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
                         Включить уведомления
                     </button>
                     {pushStatus && <p className="text-center text-[10px] font-bold text-gray-400 mt-2">{pushStatus}</p>}
@@ -689,7 +688,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       </div>
                   </div>
 
-                  {/* Theme Switcher */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
                       <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl bg-white dark:bg-white/10 text-gray-500 dark:text-white`}>
@@ -700,7 +698,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       <Switch checked={settings.theme === 'dark'} onChange={() => handleChange('theme', settings.theme === 'dark' ? 'light' : 'dark')} />
                   </div>
 
-                  {/* PIN Toggle */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
                       <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl ${settings.isPinEnabled ? 'bg-blue-50 text-blue-500' : 'bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-400'}`}>
@@ -731,7 +728,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   <div className="pt-4 border-t border-gray-50 dark:border-white/10"><button onClick={onLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-500 font-bold bg-red-50 dark:bg-red-500/10 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"><LogOut size={18} /> Выйти</button></div>
                 </div>
 
-                {/* Danger Zone */}
                 {onDeleteTransactionsByPeriod && (
                     <div className="bg-red-50 dark:bg-red-900/10 p-6 rounded-[2rem] border border-red-100 dark:border-red-900/20 shadow-sm">
                         <div className="flex items-center gap-2 mb-2 text-red-500">
@@ -770,7 +766,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дни зарплаты (через запятую)</label><input type="text" placeholder="10, 25" value={settings.salaryDates?.join(', ')} onChange={(e) => handleChange('salaryDates', e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))} className="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-transparent p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none focus:bg-white dark:focus:bg-[#3A3A3C] focus:border-blue-200 transition-all" /></div>
                 </div>
 
-                {/* Operations Tools */}
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-3">
                     <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white mb-2">Операции</h3>
                     

@@ -30,6 +30,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
   const [creatingForIndex, setCreatingForIndex] = useState<number | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(PRESET_COLORS[0]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   const totalExpense = preview
     .filter(t => t.type === 'expense')
@@ -68,6 +69,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
        }
     }
     setActiveSelect(null);
+    setShowAllCategories(false); // Reset list view
   };
 
   const handleCreateCategory = (idx: number) => {
@@ -167,7 +169,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
                   <div className="flex justify-between items-center pt-2 border-t border-gray-50 relative">
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => { setActiveSelect(activeSelect === i ? null : i); setCreatingForIndex(null); }}
+                        onClick={() => { setActiveSelect(activeSelect === i ? null : i); setCreatingForIndex(null); setShowAllCategories(false); }}
                         className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter flex items-center gap-1 transition-all ${isUnrecognized ? 'bg-yellow-500 text-white' : 'bg-blue-50 text-blue-500'}`}
                       >
                         {category?.label || 'Выбрать...'}
@@ -233,7 +235,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
                                    </button>
                                    
                                    <div className="grid grid-cols-3 gap-2">
-                                       {categories.filter(c => c.id !== 'other').map(cat => (
+                                       {(showAllCategories ? categories.filter(c => c.id !== 'other') : categories.filter(c => c.id !== 'other').slice(0, 5)).map(cat => (
                                          <button 
                                            key={cat.id} 
                                            onClick={() => handleSelectCategory(i, cat.id)}
@@ -244,6 +246,14 @@ const ImportModal: React.FC<ImportModalProps> = ({ preview, onConfirm, onCancel,
                                          </button>
                                        ))}
                                    </div>
+                                   {!showAllCategories && categories.length > 5 && (
+                                       <button 
+                                           onClick={() => setShowAllCategories(true)}
+                                           className="w-full mt-2 py-2 bg-gray-50 text-gray-400 text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-gray-100 transition-colors"
+                                       >
+                                           Еще...
+                                       </button>
+                                   )}
                                </>
                            )}
                         </motion.div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Loader2, Link, Info, Check, ScanText, Box, CheckCircle2, Circle, Sparkles, ChevronDown, Save } from 'lucide-react';
@@ -20,12 +20,13 @@ interface AddTransactionModalProps {
   onSaveReceiptItems?: (items: PantryItem[]) => void;
   onLearnRule?: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
+  transactions?: Transaction[]; // Added for frequency analysis
 }
 
 const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ 
   onClose, onSubmit, onDelete, settings, members, categories, 
   initialTransaction, onLinkMandatory, onSaveReceiptItems,
-  onLearnRule, onApplyRuleToExisting
+  onLearnRule, onApplyRuleToExisting, transactions = []
 }) => {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
@@ -36,6 +37,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
+  
+  // Category Expansion State
+  const [showAllCategories, setShowAllCategories] = useState(false);
   
   // Rule Learning State
   const [isRuleEnabled, setIsRuleEnabled] = useState(false);
@@ -48,6 +52,30 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [showScannedItems, setShowScannedItems] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Determine top categories based on usage frequency
+  const visibleCategories = useMemo(() => {
+      const counts = transactions.reduce((acc, t) => {
+          acc[t.category] = (acc[t.category] || 0) + 1;
+          return acc;
+      }, {} as Record<string, number>);
+
+      const sorted = [...categories].sort((a, b) => {
+          // Sort by frequency descending
+          return (counts[b.id] || 0) - (counts[a.id] || 0);
+      });
+
+      if (showAllCategories) {
+          return sorted;
+      } else {
+          const top5 = sorted.slice(0, 5);
+          // If selected category is NOT in top 5, we still want to show it if it's currently selected?
+          // But usually better to let user expand. We stick to simple Top 5 + Expand logic.
+          // However, if editing an existing transaction with a rare category, it's better to verify.
+          // For simplicity, we just show top 5 and the "More" button.
+          return top5;
+      }
+  }, [categories, transactions, showAllCategories]);
 
   useEffect(() => {
     if (initialTransaction) {
@@ -412,9 +440,21 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           </div>
 
           <div className="space-y-5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Категория</label>
-            <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[160px] overflow-y-auto no-scrollbar md:max-h-none">
-               {categories.map(cat => (
+            <div className="flex items-center justify-between px-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Категория</label>
+                {categories.length > 5 && !showAllCategories && (
+                    <button 
+                        type="button" 
+                        onClick={() => setShowAllCategories(true)}
+                        className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg"
+                    >
+                        Показать все
+                    </button>
+                )}
+            </div>
+            
+            <div className="flex flex-wrap gap-3 px-1 justify-center max-h-[220px] overflow-y-auto no-scrollbar md:max-h-none">
+               {visibleCategories.map(cat => (
                   <button 
                     key={cat.id} 
                     type="button"
@@ -427,6 +467,19 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                      <span className="text-[9px] font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap">{cat.label}</span>
                   </button>
                ))}
+               
+               {categories.length > 5 && !showAllCategories && (
+                   <button 
+                     type="button"
+                     onClick={() => setShowAllCategories(true)}
+                     className="flex flex-col items-center gap-1.5 min-w-[60px] p-2 rounded-2xl border border-transparent opacity-60"
+                   >
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300">
+                            <span className="text-[10px] font-black">+{categories.length - 5}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-gray-400 whitespace-nowrap">Еще...</span>
+                   </button>
+               )}
             </div>
           </div>
 

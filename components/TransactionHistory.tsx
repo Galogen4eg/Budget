@@ -25,6 +25,7 @@ interface TransactionHistoryProps {
   hideActiveFilterBadge?: boolean;
   onAddCategory?: (category: Category) => void;
   selectedDate?: Date | null;
+  currentMonth?: Date;
 }
 
 // Simple constants for creating categories inline
@@ -121,7 +122,7 @@ const TransactionCard = React.memo(({
     );
 });
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory, selectedDate }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory, selectedDate, currentMonth }) => {
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
   
   // Learning Modal State
@@ -129,6 +130,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
   const [learningName, setLearningName] = useState('');
   const [learningKeyword, setLearningKeyword] = useState('');
   const [saveScope, setSaveScope] = useState<'local' | 'global'>('local');
+  const [showAllCategories, setShowAllCategories] = useState(false);
   
   // Create Category Mode State
   const [catSelectionMode, setCatSelectionMode] = useState<'select' | 'create'>('select');
@@ -156,6 +158,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     if (selectedDate) {
         const targetStr = selectedDate.toDateString();
         result = result.filter(tx => new Date(tx.date).toDateString() === targetStr);
+    } else if (currentMonth && filterMode === 'month') {
+        // NEW: Filter by current displayed month if no specific day is selected
+        result = result.filter(tx => {
+            const d = new Date(tx.date);
+            return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+        });
     }
 
     // Apply strict category/merchant filters
@@ -177,7 +185,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                category.toLowerCase().includes(query) ||
                tx.amount.toString().includes(query);
     });
-  }, [transactions, searchQuery, categories, selectedCategoryId, selectedMerchantName, selectedDate]);
+  }, [transactions, searchQuery, categories, selectedCategoryId, selectedMerchantName, selectedDate, currentMonth, filterMode]);
 
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
@@ -228,6 +236,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     setNewCatColor(PRESET_COLORS[0]);
     setNewCatIcon(PRESET_ICONS[0]);
     setSaveScope('local'); // Reset to local default
+    setShowAllCategories(false); // Reset collapse state
   };
 
   const handleFinishLearning = (applyToExisting: boolean = false) => {
@@ -324,7 +333,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
           {filterMode === 'month' && !selectedDate && (
               <div className="bg-[#1C1C1E] dark:bg-white rounded-2xl p-4 text-white dark:text-black flex-1 min-w-[140px]">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Расход</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">
+                      Расход {currentMonth && `(${currentMonth.toLocaleString('ru', { month: 'short' })})`}
+                  </span>
                   <span className="text-xl font-black">{settings.privacyMode ? '•••' : searchedTransactions.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
               </div>
           )}
@@ -514,20 +525,30 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
                                 </div>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto no-scrollbar content-start animate-in fade-in">
-                                {categories.map(cat => (
+                            <>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 content-start animate-in fade-in">
+                                    {(showAllCategories ? categories : categories.slice(0, 5)).map(cat => (
+                                        <button 
+                                            key={cat.id} 
+                                            onClick={() => setLearningCat(cat.id)}
+                                            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all border ${learningCat === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent opacity-80 hover:opacity-100 hover:scale-[1.02]'}`}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shadow-sm" style={{ backgroundColor: cat.color }}>
+                                                {getIconById(cat.icon, 20)}
+                                            </div>
+                                            <span className={`text-xs font-bold text-center leading-tight ${learningCat === cat.id ? 'text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'}`}>{cat.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                {!showAllCategories && categories.length > 5 && (
                                     <button 
-                                        key={cat.id} 
-                                        onClick={() => setLearningCat(cat.id)}
-                                        className={`flex flex-col items-center justify-center gap-2 p-4 h-full rounded-2xl transition-all border ${learningCat === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent opacity-80 hover:opacity-100 hover:scale-[1.02]'}`}
+                                        onClick={() => setShowAllCategories(true)}
+                                        className="w-full mt-3 py-2 bg-gray-50 dark:bg-[#2C2C2E] text-gray-400 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors"
                                     >
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shadow-sm" style={{ backgroundColor: cat.color }}>
-                                            {getIconById(cat.icon, 20)}
-                                        </div>
-                                        <span className={`text-xs font-bold text-center leading-tight ${learningCat === cat.id ? 'text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'}`}>{cat.label}</span>
+                                        Показать все ({categories.length})
                                     </button>
-                                ))}
-                            </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

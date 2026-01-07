@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule 
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig 
 } from './types';
 
 import SmartHeader from './components/SmartHeader';
@@ -48,6 +48,14 @@ const TAB_CONFIG = [
   { id: 'plans', label: 'Планы', icon: Calendar },
   { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
   { id: 'services', label: 'Сервисы', icon: AppWindow },
+];
+
+const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
+    { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+    { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+    { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+    { id: 'goals', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+    { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
 ];
 
 const pageVariants = {
@@ -122,6 +130,28 @@ export default function App() {
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
 
   // --- Effects ---
+
+  // Migration: Ensure all default widgets exist in current settings
+  useEffect(() => {
+    if (familyId && settings.widgets) {
+        let needsUpdate = false;
+        const currentWidgets = [...settings.widgets];
+        
+        DEFAULT_WIDGET_CONFIGS.forEach(dw => {
+            if (!currentWidgets.some(cw => cw.id === dw.id)) {
+                currentWidgets.push(dw);
+                needsUpdate = true;
+            }
+        });
+
+        if (needsUpdate) {
+            console.log("Migrating settings: Adding missing widgets...");
+            const updatedSettings = { ...settings, widgets: currentWidgets };
+            setSettings(updatedSettings);
+            saveSettings(familyId, updatedSettings);
+        }
+    }
+  }, [familyId, settings.widgets?.length]);
 
   useEffect(() => {
       if (settings.theme === 'dark') {
@@ -339,7 +369,7 @@ export default function App() {
             <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="space-y-6">
                 <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} onInvite={handleInvite} />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[180px] grid-flow-row-dense">
-                    {settings.widgets.filter(w => w.isVisible).map(widget => {
+                    {settings.widgets && settings.widgets.filter(w => w.isVisible).map(widget => {
                         switch(widget.id) {
                             case 'month_chart': return <div key={widget.id} className={`${widgetLayout.chart.col} ${widgetLayout.chart.row}`}><MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} /></div>;
                             case 'category_analysis': return <div key={widget.id} className={`${widgetLayout.cat.col} ${widgetLayout.cat.row}`}><CategoryAnalysisWidget transactions={filteredTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} /></div>;
@@ -371,7 +401,7 @@ export default function App() {
          <div className="hidden md:block text-2xl font-black mb-8 pt-10 text-[#1C1C1E] dark:text-white">FB.</div>
          {TAB_CONFIG.filter(t => settings.enabledTabs.includes(t.id)).map(tab => {
              const isActive = activeTab === tab.id;
-             return (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative flex flex-col items-center justify-center w-12 h-12 md:w-full md:h-auto md:py-4 group">{isActive && (<motion.div layoutId="nav-pill" className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/20 rounded-full md:rounded-xl" transition={{ type: "spring", stiffness: 300, damping: 30 }} />)}<span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-white' : 'text-gray-400 md:text-gray-400 group-hover:text-white md:group-hover:text-gray-600 dark:md:group-hover:text-white'}`}>{React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}</span><span className="hidden md:block text-[10px] font-bold mt-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">{tab.label}</span></button>)
+             return (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative flex flex-col items-center justify-center w-12 h-12 md:w-full md:h-auto md:py-4 group">{isActive && (<motion.div layoutId="nav-pill" className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/20 rounded-full md:rounded-xl" transition={{ type: "spring", stiffness: 300, damping: 30 }} />)}<span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-white' : 'text-gray-400 md:text-gray-400 group-hover:text-white md:group-hover:text-gray-600 dark:group-hover:text-white'}`}>{React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}</span><span className="hidden md:block text-[10px] font-bold mt-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">{tab.label}</span></button>)
          })}
          <div className="hidden md:flex flex-col gap-6 mt-auto mb-10 w-full items-center"><button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 transition-colors relative group p-2"><Bell size={24} strokeWidth={2} /><span className="absolute left-full ml-4 px-2 py-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Уведомления</span></button><button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-blue-500 transition-colors relative group p-2"><SettingsIcon size={24} strokeWidth={2} /><span className="absolute left-full ml-4 px-2 py-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Настройки</span></button></div>
       </nav>
@@ -397,6 +427,7 @@ export default function App() {
                     }}
                 />
             )}
+            {/* Fix: use handleApplyRuleToExisting instead of non-existent onApplyRuleToExisting */}
             {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} />}
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => { setSettings(s); if (familyId) await saveSettings(familyId, s); }} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { setMembers(m); if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { setCategories(c); if (familyId) await updateItemsBatch(familyId, 'categories', c); }} learnedRules={learnedRules} onUpdateRules={async (r) => { if(familyId) await updateItemsBatch(familyId, 'rules', r); }} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} onDeleteTransactionsByPeriod={async (start, end) => { const toDelete = transactions.filter(t => { const d = t.date.split('T')[0]; return d >= start && d <= end; }); const ids = toDelete.map(t => t.id); setTransactions(prev => prev.filter(t => !ids.includes(t.id))); if (familyId && ids.length > 0) { await deleteItemsBatch(familyId, 'transactions', ids); } }} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { const changed = updatedTxs.filter(nt => { const ot = transactions.find(t => t.id === nt.id); return ot && (ot.category !== nt.category || ot.note !== nt.note); }); setTransactions(updatedTxs); if (familyId && changed.length > 0) { await updateItemsBatch(familyId, 'transactions', changed); } }} onOpenDuplicates={handleOpenDuplicates} />}
             {showDuplicatesModal && <DuplicatesModal transactions={transactions} onClose={() => setShowDuplicatesModal(false)} onDelete={handleDeleteTransactions} />}

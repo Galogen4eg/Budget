@@ -59,10 +59,10 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={onClick}
-        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col justify-between cursor-pointer group relative overflow-hidden"
+        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col cursor-pointer group relative overflow-hidden"
     >
         {/* Header */}
-        <div className="flex justify-between items-center mb-4 relative z-10">
+        <div className="flex justify-between items-center mb-3 relative z-10 shrink-0">
             <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
                     <PieChart size={14} className="text-indigo-500 dark:text-indigo-400" />
@@ -74,25 +74,24 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 transition-colors" />
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col gap-3 relative z-10 min-h-0">
-            {/* Top 3 List */}
-            <div className="space-y-3">
+        {/* Content - Scrollable to prevent overlap */}
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-center">
+            <div className="space-y-2">
                 {data.topCategories.map((item, idx) => (
                     <div key={item.id} className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                             <div 
-                                className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
                                 style={{ backgroundColor: item.color }}
                             >
-                                <span className="scale-75">{getIconById(item.icon, 16)}</span>
+                                <span className="scale-75">{getIconById(item.icon, 14)}</span>
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate leading-tight">{item.label}</span>
-                                <span className="text-[9px] font-bold text-gray-400 tabular-nums">{Math.round(item.percent)}%</span>
+                                <span className="text-[11px] font-bold text-[#1C1C1E] dark:text-white truncate leading-tight">{item.label}</span>
+                                <span className="text-[8px] font-bold text-gray-400 tabular-nums">{Math.round(item.percent)}%</span>
                             </div>
                         </div>
-                        <span className="text-xs font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                        <span className="text-[11px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
                             {settings.privacyMode ? '•••' : item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
                     </div>
@@ -101,8 +100,8 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         </div>
 
         {/* Spectrum Bar (Bottom) */}
-        <div className="mt-5 relative z-10">
-            <div className="flex h-3 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+        <div className="mt-3 relative z-10 shrink-0">
+            <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800">
                 {data.allCategories.map((item) => (
                     <div 
                         key={item.id}

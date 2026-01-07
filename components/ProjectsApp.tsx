@@ -168,7 +168,7 @@ const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
                     {/* Add Expense */}
                     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm dark:shadow-none border border-white dark:border-white/5 flex gap-2">
                         <input type="text" placeholder="Что купили?" value={expenseTitle} onChange={e => setExpenseTitle(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" />
-                        <input type="number" placeholder="0" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="w-20 bg-gray-50 dark:bg-[#2C2C2E] px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" />
+                        <input type="number" step="0.01" placeholder="0" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="w-20 bg-gray-50 dark:bg-[#2C2C2E] px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" />
                         <button onClick={handleAddExpense} className="w-12 bg-[#1C1C1E] dark:bg-white text-white dark:text-black rounded-xl flex items-center justify-center"><Plus size={20}/></button>
                     </div>
 
@@ -251,7 +251,7 @@ const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
                         
                         <div className="space-y-3">
                             <input type="text" placeholder="Название (Ремонт кухни)" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
-                            <input type="number" placeholder="Бюджет" value={budget} onChange={e => setBudget(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                            <input type="number" step="0.01" placeholder="Бюджет" value={budget} onChange={e => setBudget(e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                         </div>
 
                         <div>

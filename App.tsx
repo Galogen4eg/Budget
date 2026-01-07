@@ -406,8 +406,17 @@ export default function App() {
                 </div>
 
                 <SpendingCalendar transactions={filteredTransactions} selectedDate={calendarSelectedDate} onSelectDate={setCalendarSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
-                <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
-                <MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={filteredTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }} />
+                
+                {/* Desktop: Split view for categories and mandatory expenses */}
+                <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1 min-w-0">
+                        <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={filteredTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }} />
+                    </div>
+                </div>
+
                 <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} initialSearch={''} selectedCategoryId={filterCategory || undefined} selectedMerchantName={filterMerchant || undefined} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
             </motion.div>
         )}

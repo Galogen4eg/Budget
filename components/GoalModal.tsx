@@ -96,6 +96,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
               <input
                 type="number"
                 min="0"
+                step="0.01"
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
                 placeholder="0"
@@ -107,6 +108,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
               <input
                 type="number"
                 min="0"
+                step="0.01"
                 value={currentAmount}
                 onChange={(e) => setCurrentAmount(e.target.value)}
                 placeholder="0"

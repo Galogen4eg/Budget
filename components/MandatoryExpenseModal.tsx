@@ -88,6 +88,7 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Сумма</label>
                 <input 
                   type="number" 
+                  step="0.01"
                   placeholder="0" 
                   value={amount} 
                   onChange={e => setAmount(e.target.value)} 

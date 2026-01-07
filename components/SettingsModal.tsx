@@ -205,7 +205,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
                             <label className="text-xs font-bold text-gray-500 block mb-1">Начальный баланс</label>
-                            <input type="number" value={settings.initialBalance || 0} onChange={e => handleChange('initialBalance', Number(e.target.value))} className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white" />
+                            <input 
+                                type="number" 
+                                step="0.01"
+                                placeholder="0"
+                                value={settings.initialBalance || ''} 
+                                onChange={e => handleChange('initialBalance', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
+                                className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white placeholder:text-gray-300" 
+                            />
                         </div>
                         <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
                             <label className="text-xs font-bold text-gray-500 block mb-1">Дата начала</label>

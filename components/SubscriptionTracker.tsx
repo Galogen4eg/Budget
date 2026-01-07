@@ -110,7 +110,7 @@ const SubscriptionTracker: React.FC<Props> = ({ subscriptions, setSubscriptions,
              <motion.div initial={{scale:0.9}} animate={{scale:1}} exit={{scale:0.9}} className="relative bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-4">
                 <h3 className="font-black text-xl mb-4 text-[#1C1C1E] dark:text-white">{editingId ? 'Редактировать' : 'Новая подписка'}</h3>
                 <input type="text" placeholder="Название (Netflix)" value={newSub.name || ''} onChange={e => setNewSub({...newSub, name: e.target.value})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
-                <input type="number" placeholder="Сумма" value={newSub.amount || ''} onChange={e => setNewSub({...newSub, amount: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
+                <input type="number" step="0.01" placeholder="Сумма" value={newSub.amount || ''} onChange={e => setNewSub({...newSub, amount: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                 <input type="date" value={newSub.nextPaymentDate || ''} onChange={e => setNewSub({...newSub, nextPaymentDate: e.target.value})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
                 <div className="flex gap-2 mt-2">
                    {editingId && <button onClick={() => deleteSub(editingId)} className="p-4 bg-red-50 text-red-500 rounded-xl"><Trash2 size={20}/></button>}

@@ -195,10 +195,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
       groups[dateKey].push(tx);
     });
     
+    // Sort dates: Newest first (Descending)
     const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     
     return sortedDates.map(date => {
       const dayTxs = groups[date];
+      
+      // Sort transactions within the day: Newest first (Descending)
+      dayTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
       const dayIncome = dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
       const dayExpense = dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
       return {

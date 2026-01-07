@@ -138,6 +138,17 @@ export default function App() {
       }
   }, [settings.theme]);
 
+  // Derived state: Transactions specific to the dashboard (Current Calendar Month Only)
+  const dashboardTransactions = useMemo(() => {
+      const now = new Date();
+      return filteredTransactions
+        .filter(t => {
+            const d = new Date(t.date);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredTransactions]);
+
   const showNotify = (type: 'success' | 'error', message: string) => {
       setNotification({ type, message });
       setTimeout(() => setNotification(null), 3000);
@@ -309,7 +320,7 @@ export default function App() {
                     {/* LEFT ZONE: Categories */}
                     {isWidgetEnabled('category_analysis') && (
                         <div className="flex-1 min-w-[250px] md:h-full">
-                            <CategoryAnalysisWidget transactions={filteredTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
+                            <CategoryAnalysisWidget transactions={dashboardTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
                         </div>
                     )}
 
@@ -318,12 +329,12 @@ export default function App() {
                         <div className="flex-[2] min-w-[300px] flex flex-col gap-6 md:h-full">
                             {isWidgetEnabled('month_chart') && (
                                 <div className={`${isWidgetEnabled('recent_transactions') ? 'h-[250px] md:h-[calc(50%-12px)]' : 'h-[250px] md:h-full'}`}>
-                                    <MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} />
+                                    <MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} />
                                 </div>
                             )}
                             {isWidgetEnabled('recent_transactions') && (
                                 <div className={`${isWidgetEnabled('month_chart') ? 'h-[300px] md:h-[calc(50%-12px)]' : 'h-[300px] md:h-full'}`}>
-                                    <RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
+                                    <RecentTransactionsWidget transactions={dashboardTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
                                 </div>
                             )}
                         </div>

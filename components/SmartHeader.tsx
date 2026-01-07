@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, Transaction } from '../types';
 import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
 import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,7 @@ interface SmartHeaderProps {
   onToggleBudgetMode?: () => void;
   onInvite?: () => void;
   className?: string;
+  transactions?: Transaction[];
 }
 
 const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: boolean }) => {
@@ -31,7 +32,7 @@ const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: b
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
     balance, spent, savingsRate, settings, onTogglePrivacy, 
-    budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '' 
+    budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const now = new Date();
   
@@ -57,9 +58,39 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   
   // Money calculations
-  const fixedExpensesTotal = (settings.mandatoryExpenses || []).reduce((sum, item) => sum + item.amount, 0);
+  
+  // 1. Calculate remaining unpaid mandatory expenses for this month
+  const mandatoryExpenses = settings.mandatoryExpenses || [];
+  
+  // Filter transactions for current month only to check payments
+  const currentMonthTransactions = transactions.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
+  });
+
+  const unpaidMandatoryTotal = mandatoryExpenses.reduce((totalNeeded, expense) => {
+      // Find payments matching this expense keywords
+      const keywords = expense.keywords || [];
+      const matches = currentMonthTransactions.filter(tx => {
+          if (keywords.length === 0) return false;
+          const noteLower = (tx.note || '').toLowerCase();
+          const rawLower = (tx.rawNote || '').toLowerCase();
+          return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
+      });
+
+      const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
+      
+      // Calculate remaining needed for this expense
+      // Allow small margin (e.g. if 95% paid, count as paid)
+      if (paidAmount >= expense.amount * 0.95) {
+          return totalNeeded; // Fully paid, need 0 more
+      }
+      
+      return totalNeeded + Math.max(0, expense.amount - paidAmount);
+  }, 0);
+
   const savingsAmount = balance * (savingsRate / 100);
-  const reservedAmount = savingsAmount + fixedExpensesTotal;
+  const reservedAmount = savingsAmount + unpaidMandatoryTotal;
   const availableBalance = Math.max(0, balance - reservedAmount);
   const dailyBudget = availableBalance / daysRemaining;
 

@@ -307,7 +307,17 @@ export default function App() {
         <AnimatePresence mode="wait">
         {activeTab === 'overview' && (
             <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="space-y-8">
-                <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} onInvite={handleInvite} />
+                <SmartHeader 
+                    balance={totalBalance} 
+                    spent={currentMonthSpent} 
+                    savingsRate={savingsRate} 
+                    settings={settings} 
+                    budgetMode={budgetMode} 
+                    transactions={dashboardTransactions} // Pass transactions for checking paid mandatory expenses
+                    onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} 
+                    onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} 
+                    onInvite={handleInvite} 
+                />
                 
                 {/* 
                    SMART DASHBOARD LAYOUT (Flexbox Zones)

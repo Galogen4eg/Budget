@@ -214,10 +214,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [transactions, budgetMode, members, user]);
 
   const totalBalance = useMemo(() => {
-    const income = filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    let relevantTransactions = filteredTransactions;
+
+    // If a start date is set for the initial balance, filter transactions
+    if (settings.initialBalanceDate) {
+        const startDate = new Date(settings.initialBalanceDate);
+        // Normalize time to start of day to be inclusive
+        startDate.setHours(0, 0, 0, 0);
+        
+        relevantTransactions = filteredTransactions.filter(t => {
+            return new Date(t.date).getTime() >= startDate.getTime();
+        });
+    }
+
+    const income = relevantTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const expense = relevantTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    
     return (settings.initialBalance || 0) + income - expense;
-  }, [filteredTransactions, settings.initialBalance]);
+  }, [filteredTransactions, settings.initialBalance, settings.initialBalanceDate]);
 
   const currentMonthSpent = useMemo(() => {
     const now = new Date();

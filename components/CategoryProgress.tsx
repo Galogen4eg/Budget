@@ -87,9 +87,6 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                   )}
               </div>
           </div>
-          <span className="text-xs font-black text-[#1C1C1E] dark:text-white bg-gray-50 dark:bg-white/5 px-2 py-1 rounded-lg tabular-nums">
-              {settings.privacyMode ? '•••' : totalExpense.toLocaleString()}
-          </span>
       </div>
       
       {categoryData.map((item) => {

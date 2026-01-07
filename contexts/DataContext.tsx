@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   initialBalance: 0,
   salaryDates: [10, 25],
   mandatoryExpenses: [],
+  ignoredDuplicatePairs: [], // Default empty
   alfaMapping: { date: 'дата', time: '', amount: 'сумма', category: '', note: 'описание' },
 };
 

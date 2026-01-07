@@ -122,7 +122,7 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
               </span>
               <div className={`transition-all duration-300 ${settings.privacyMode ? 'blur-[3px]' : ''}`}>
                 {total > 0 && (
-                  <span className={`text-[7px] md:text-[8px] mt-0.5 font-black leading-none ${isSelected ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <span className={`text-[8px] md:text-[11px] mt-0.5 font-black leading-none ${isSelected ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'}`}>
                     {total >= 1000 ? `${(total/1000).toFixed(1)}k` : total}
                   </span>
                 )}

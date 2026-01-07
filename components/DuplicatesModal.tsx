@@ -1,24 +1,27 @@
 
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
-import { X, Copy, Trash2, CheckCircle2 } from 'lucide-react';
-import { Transaction } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Copy, Trash2, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Transaction, AppSettings } from '../types';
 
 interface DuplicatesModalProps {
   transactions: Transaction[];
   onClose: () => void;
   onDelete: (ids: string[]) => void;
+  onIgnore?: (pairIds: string[]) => void; // New prop for ignoring
+  ignoredPairs?: string[];
 }
 
-const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose, onDelete }) => {
+const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose, onDelete, onIgnore, ignoredPairs = [] }) => {
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
 
-  // Find duplicates logic
+  // Find duplicates logic with improved smart matching
   const duplicateGroups = useMemo(() => {
     const groups: { key: string, items: Transaction[] }[] = [];
     const processedIds = new Set<string>();
 
+    // Sort by date to compare sequential items
     const sorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     for (let i = 0; i < sorted.length; i++) {
@@ -27,7 +30,6 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
 
         const group = [current];
         
-        // Look ahead for duplicates (within small time window)
         for (let j = i + 1; j < sorted.length; j++) {
             const next = sorted[j];
             if (processedIds.has(next.id)) continue;
@@ -36,34 +38,37 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             // 5 minutes threshold
             if (timeDiff > 5 * 60 * 1000) break; 
 
+            // Strict amount check
             const isSameAmount = Math.abs(current.amount - next.amount) < 0.01;
             const isSameType = current.type === next.type;
-            const noteSim = (current.note || '').toLowerCase() === (next.note || '').toLowerCase();
-            const rawSim = (current.rawNote || '').toLowerCase() === (next.rawNote || '').toLowerCase();
+            
+            // Fuzzy description match
+            const noteSim = (current.note || '').toLowerCase().trim() === (next.note || '').toLowerCase().trim();
+            const rawSim = (current.rawNote || '').toLowerCase().trim() === (next.rawNote || '').toLowerCase().trim();
 
             if (isSameAmount && isSameType && (noteSim || rawSim)) {
-                group.push(next);
-                processedIds.add(next.id);
+                // Check if this pair is ignored
+                const pairKey = [current.id, next.id].sort().join('_');
+                if (!ignoredPairs.includes(pairKey)) {
+                    group.push(next);
+                    processedIds.add(next.id);
+                }
             }
         }
 
         if (group.length > 1) {
             groups.push({ key: current.id, items: group });
-            // Add current to processed so we don't start a group with it again? 
-            // The logic above skips processedIds in outer loop, so we just need to add current.id there?
-            // Actually, the outer loop continues. We should skip indices. 
-            // Simplified:
             processedIds.add(current.id);
         }
     }
     return groups;
-  }, [transactions]);
+  }, [transactions, ignoredPairs]);
 
   // Pre-select duplicates for deletion (keep the first one)
   React.useEffect(() => {
       const initialSelection = new Set<string>();
       duplicateGroups.forEach(group => {
-          // Keep the first one (usually oldest due to sort, or just arbitrary)
+          // Keep the first one (original)
           // Select all others for deletion
           group.items.slice(1).forEach(item => initialSelection.add(item.id));
       });
@@ -80,6 +85,18 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
   const handleExecute = () => {
       onDelete(Array.from(selectedToDelete));
       onClose();
+  };
+
+  const handleIgnoreGroup = (groupItems: Transaction[]) => {
+      if (!onIgnore) return;
+      // Create pairs for all items in group to ignore them against each other
+      const pairs: string[] = [];
+      for (let i = 0; i < groupItems.length; i++) {
+          for (let j = i + 1; j < groupItems.length; j++) {
+              pairs.push([groupItems[i].id, groupItems[j].id].sort().join('_'));
+          }
+      }
+      onIgnore(pairs);
   };
 
   return createPortal(
@@ -113,7 +130,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
           <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 transition-colors"><X size={20}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
             {duplicateGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-gray-400">
                     <CheckCircle2 size={48} className="mb-4 text-green-500 opacity-50" />
@@ -121,28 +138,63 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                 </div>
             ) : (
                 duplicateGroups.map((group, idx) => (
-                    <div key={group.key} className="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5">
-                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-50 dark:border-white/5">
-                            <span className="text-[10px] font-black text-gray-400 uppercase">Группа {idx + 1}</span>
-                            <span className="text-xs font-bold text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString()}</span>
+                    <div key={group.key} className="bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase bg-white dark:bg-black/20 px-2 py-1 rounded-lg">Группа {idx + 1}</span>
+                                <span className="text-sm font-black text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString()} ₽</span>
+                            </div>
+                            <button 
+                                onClick={() => handleIgnoreGroup(group.items)}
+                                className="text-[10px] font-bold text-blue-500 hover:text-blue-600 uppercase flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg transition-colors"
+                            >
+                                <ShieldCheck size={12} /> Не дубль
+                            </button>
                         </div>
-                        <div className="space-y-2">
-                            {group.items.map(item => {
+                        
+                        <div className="p-2 space-y-2">
+                            {/* Original Item (First one) */}
+                            <div className="relative p-3 rounded-2xl border-2 border-green-500/20 bg-green-50/10">
+                                <div className="absolute top-2 right-2 text-[9px] font-black text-green-600 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded-full uppercase">Оригинал</div>
+                                <div className="text-xs font-bold text-[#1C1C1E] dark:text-white mb-1 truncate pr-16">{group.items[0].note}</div>
+                                <div className="flex gap-3 text-[10px] text-gray-400 font-mono">
+                                    <span>{new Date(group.items[0].date).toLocaleTimeString()}</span>
+                                    <span>{new Date(group.items[0].date).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-center -my-3 relative z-10">
+                                <div className="bg-gray-100 dark:bg-[#3A3A3C] rounded-full p-1 border-4 border-white dark:border-[#1C1C1E]">
+                                    <ArrowRight size={14} className="text-gray-400 rotate-90" />
+                                </div>
+                            </div>
+
+                            {/* Potential Duplicates */}
+                            {group.items.slice(1).map(item => {
                                 const isSelected = selectedToDelete.has(item.id);
                                 return (
                                     <div 
                                         key={item.id} 
                                         onClick={() => toggleSelection(item.id)}
-                                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all ${isSelected ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent'}`}
+                                        className={`relative p-3 rounded-2xl border-2 cursor-pointer transition-all ${isSelected ? 'border-red-500 bg-red-50/10' : 'border-gray-100 dark:border-white/10 bg-white dark:bg-[#1C1C1E]'}`}
                                     >
-                                        <div className="flex-1 min-w-0 pr-2">
-                                            <div className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate">{item.note || 'Без описания'}</div>
-                                            <div className="text-[9px] text-gray-400 font-mono mt-0.5">{new Date(item.date).toLocaleString()}</div>
-                                            {item.rawNote && <div className="text-[8px] text-gray-300 truncate">{item.rawNote}</div>}
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate pr-2">{item.note || 'Без описания'}</div>
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
+                                                {isSelected && <Trash2 size={10} />}
+                                            </div>
                                         </div>
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
-                                            {isSelected && <Trash2 size={12} />}
+                                        <div className="flex gap-3 text-[10px] text-gray-400 font-mono">
+                                            <span className={item.date !== group.items[0].date ? 'text-orange-500 font-bold' : ''}>
+                                                {new Date(item.date).toLocaleTimeString()}
+                                            </span>
+                                            <span>{new Date(item.date).toLocaleDateString()}</span>
                                         </div>
+                                        {item.category !== group.items[0].category && (
+                                            <div className="mt-1 text-[9px] text-gray-400 flex items-center gap-1">
+                                                <AlertCircle size={10} /> Категория отличается
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

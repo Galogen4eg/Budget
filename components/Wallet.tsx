@@ -26,6 +26,7 @@ const BarcodeDisplay: React.FC<{ number: string, format: string }> = ({ number, 
         if (fmt === 'qr') {
             return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(cleanNum)}`;
         } else {
+            // EAN-13 must be strictly 12 or 13 digits
             const type = (fmt === 'ean13' && /^\d{12,13}$/.test(cleanNum)) ? 'ean13' : 'code128';
             return `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(cleanNum)}&scale=3&height=10&includetext`;
         }
@@ -34,7 +35,7 @@ const BarcodeDisplay: React.FC<{ number: string, format: string }> = ({ number, 
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-24 gap-2 text-center">
-                <div className="text-4xl font-black tracking-widest text-[#1C1C1E] dark:text-white">{number}</div>
+                <div className="text-4xl font-black tracking-widest text-[#1C1C1E] dark:text-white break-all">{number}</div>
                 <div className="text-[10px] font-bold text-red-400 uppercase flex items-center gap-1">
                     <AlertCircle size={10} /> Штрихкод недоступен
                 </div>
@@ -66,15 +67,6 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Helper for preview in edit modal
-  const getPreviewUrl = (num: string, fmt: string) => {
-      const cleanNum = num.replace(/\s+/g, '');
-      if (!cleanNum) return '';
-      if (fmt === 'qr') return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(cleanNum)}`;
-      const type = (fmt === 'ean13' && /^\d{12,13}$/.test(cleanNum)) ? 'ean13' : 'code128';
-      return `https://bwipjs-api.metafloor.org/?bcid=${type}&text=${encodeURIComponent(cleanNum)}&scale=3&height=10&includetext`;
-  };
 
   const handleSave = () => {
     if (!newName.trim()) return;
@@ -141,6 +133,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   };
 
   const scanBarcodeFromImage = async (file: File): Promise<{text: string, format: string}> => {
+      // 1. Try Native Barcode Detector
       try {
           if ('BarcodeDetector' in window) {
               const BarcodeDetector = (window as any).BarcodeDetector;
@@ -155,9 +148,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
               }
           }
       } catch (e) {
-          console.warn("Native barcode detection failed", e);
+          console.warn("Native barcode detection failed/not supported", e);
       }
 
+      // 2. Try Html5Qrcode
       try {
           const html5QrCode = new Html5Qrcode("wallet-reader-hidden");
           const result = await html5QrCode.scanFileV2(file, false);
@@ -237,7 +231,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         setNewFormat(finalFormat);
 
     } catch (err) {
-        alert("Ошибка обработки изображения.");
+        alert("Ошибка обработки изображения. Попробуйте ввести вручную.");
         console.error(err);
     } finally {
         setIsAnalyzing(false);
@@ -247,6 +241,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
 
   return (
     <div className="space-y-4">
+       {/* Hidden container for Html5Qrcode to work */}
        <div id="wallet-reader-hidden" className="hidden"></div>
 
       <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5">
@@ -347,12 +342,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     <span className="text-[10px] font-bold text-gray-400 uppercase mb-2 self-start flex items-center gap-1"><ScanLine size={12}/> Предпросмотр кода</span>
                     {newNumber.trim() ? (
                         <div className="bg-white p-3 rounded-xl border border-gray-200 w-full flex items-center justify-center min-h-[80px]">
-                            <img 
-                                src={getPreviewUrl(newNumber, newFormat)} 
-                                alt="Preview" 
-                                className={`mix-blend-multiply ${newFormat === 'qr' ? 'w-24 h-24' : 'w-full h-16 object-contain'}`}
-                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                            />
+                            {/* Force removal of spaces for valid barcode generation */}
+                            <BarcodeDisplay number={newNumber.replace(/\s+/g, '')} format={newFormat} />
                         </div>
                     ) : (
                         <div className="w-full h-16 flex items-center justify-center text-gray-300 text-xs font-bold border-2 border-dashed border-gray-200 rounded-xl">

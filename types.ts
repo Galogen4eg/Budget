@@ -205,6 +205,10 @@ export interface AppSettings {
   initialBalanceDate?: string;
   salaryDates: number[];
   mandatoryExpenses: MandatoryExpense[];
+  
+  // Stores IDs of transaction pairs marked as "Not a duplicate"
+  // Format: "id1_id2" (sorted alphabetically)
+  ignoredDuplicatePairs?: string[];
 
   alfaMapping: {
     date: string;

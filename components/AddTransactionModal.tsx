@@ -86,9 +86,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             categoryId: selectedCategory
         };
         onLearnRule(newRule);
-        
-        // Optional: Apply to existing? For simplicity, we just save the rule here.
-        // If user wants to apply to all, they can use the button in settings or history.
     }
 
     // 2. Submit Transaction
@@ -169,9 +166,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               contents: {
                   parts: [
                       { inlineData: { mimeType: file.type, data: base64Data } },
-                      { text: `Analyze this receipt. Return JSON with: 
+                      { text: `Analyze this receipt. Be extremely precise with the 'amount' field, distinguishing carefully between digits like 1 and 9, 3 and 8.
+                        Return JSON with: 
                         1. merchant (string, name of place)
-                        2. amount (number, total)
+                        2. amount (number, total paid)
                         3. date (string, YYYY-MM-DD format)
                         4. items (array of objects: { name: string, category: string (one of: dairy, meat, produce, bakery, grocery, drinks, household, other), amount: number (default 1), unit: string (default 'шт') })
                         If uncertain, omit fields.` }

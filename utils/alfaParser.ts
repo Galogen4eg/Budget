@@ -62,7 +62,6 @@ export const parseAlfaStatement = (
                 const hasSomethingLikeDate = row.some(c => /\d{2}[./-]\d{2}[./-]\d{2,4}/.test(String(c)));
                 const hasSomethingLikeAmount = row.some(c => /^-?\d+([.,]\d{1,2})?$/.test(String(c).replace(/\s/g, '')));
                 if (hasSomethingLikeDate && hasSomethingLikeAmount) {
-                    // Assuming the row ABOVE data is header, or if it's index 0, we treat it as data without header but we need column indices.
                     headerRowIndex = i > 0 ? i - 1 : 0;
                     break;
                 }
@@ -135,7 +134,6 @@ export const parseAlfaStatement = (
 
             if (!dateObj || isNaN(dateObj.getTime())) continue;
 
-            // Merge time from a separate column if it exists
             if (colTime !== -1 && row[colTime]) {
               const rawTime = String(row[colTime]).trim();
               const tParts = rawTime.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
@@ -150,14 +148,31 @@ export const parseAlfaStatement = (
 
             let amount = 0;
             const rawAmount = row[colAmount];
+            
             if (typeof rawAmount === 'number') {
               amount = rawAmount;
             } else {
+              // Robust string cleaning: remove ALL unicode spaces (including \u00A0 & \u202F)
+              // This is critical for banks that use thin spaces for thousands
               let clean = String(rawAmount)
-                .replace(/\s/g, '')
-                .replace(/\u00A0/g, '')
-                .replace(/[^\d.,-]/g, '')
-                .replace(',', '.');
+                .replace(/[\s\u00A0\u202F\u1680\u180E\u2000-\u200A\u2028\u2029\u205F\u3000]/g, '') 
+                .replace(/[^\d.,-]/g, ''); // Keep only digits, dots, commas, minus
+
+              // Handle comma vs dot intelligently
+              // If both exist, dot likely thousands separator if RU locale implied or reversed
+              // Standard logic: replace comma with dot for float parsing
+              if (clean.includes(',') && clean.includes('.')) {
+                  // Assuming 1.200,50 -> 1200.50 (EU/RU style)
+                  if (clean.indexOf('.') < clean.indexOf(',')) {
+                      clean = clean.replace('.', '').replace(',', '.');
+                  } else {
+                      // 1,200.50 -> 1200.50 (US style)
+                      clean = clean.replace(',', '');
+                  }
+              } else {
+                  clean = clean.replace(',', '.');
+              }
+              
               amount = parseFloat(clean);
             }
 
@@ -168,9 +183,6 @@ export const parseAlfaStatement = (
             let type: 'income' | 'expense' = amount > 0 ? 'income' : 'expense';
             const headerName = headers[colAmount];
             
-            // Heuristic for Sber/Tinkoff statements where expenses might be positive in a "Debit" column
-            // or explicitly marked. 
-            // Standard: negative is expense.
             if (amount < 0) type = 'expense';
             else if (headerName.includes('расход') || headerName.includes('списан')) type = 'expense';
             else if (headerName.includes('приход') || headerName.includes('зачислен')) type = 'income';
@@ -179,11 +191,10 @@ export const parseAlfaStatement = (
             const note = cleanMerchantName(rawNote, learnedRules);
             const categoryId = getSmartCategory(rawNote, learnedRules, categories);
 
-            // Precision duplicate detection (within 1 second)
             const isDuplicate = existingTransactions.some(ex => {
               const d1 = new Date(ex.date).getTime();
               const d2 = new Date(dateStr).getTime();
-              return Math.abs(d1 - d2) < 2000 && // widened tolerance to 2s
+              return Math.abs(d1 - d2) < 2000 && 
                      Math.abs(ex.amount - absAmount) < 0.01 && 
                      ex.type === type &&
                      (ex.rawNote === rawNote || ex.note === note);
@@ -197,7 +208,7 @@ export const parseAlfaStatement = (
                 memberId: defaultMemberId,
                 note,
                 date: dateStr,
-                rawNote: rawNote // Keep original for learning rules
+                rawNote: rawNote
               });
             }
           }

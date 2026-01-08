@@ -205,6 +205,7 @@ export interface AppSettings {
   initialBalanceDate?: string;
   salaryDates: number[];
   mandatoryExpenses: MandatoryExpense[];
+  enableSmartReserve?: boolean; // Toggle for deducting mandatory expenses from budget
   
   // Stores IDs of transaction pairs marked as "Not a duplicate"
   // Format: "id1_id2" (sorted alphabetically)

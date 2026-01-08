@@ -13,12 +13,13 @@ interface FamilyPlansProps {
   settings: AppSettings;
   members: FamilyMember[];
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
+  onDeleteEvent?: (id: string) => void;
 }
 
 type ViewMode = 'month' | 'week' | 'day' | 'list';
 type ListFilter = 'upcoming' | 'past';
 
-const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram }) => {
+const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram, onDeleteEvent }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month'); 
   const [listFilter, setListFilter] = useState<ListFilter>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -560,6 +561,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
               setActiveEvent(null); 
               if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
             }} 
+            onDelete={onDeleteEvent ? (id) => { onDeleteEvent(id); setActiveEvent(null); } : undefined}
             onSendToTelegram={onSendToTelegram} 
             templates={events.filter(ev => ev.isTemplate)} 
             settings={settings} 

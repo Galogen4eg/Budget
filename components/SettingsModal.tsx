@@ -196,12 +196,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-6 border border-gray-100 dark:border-white/10 shadow-sm">
                     <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Настройки бюджета</h3>
+                    
                     <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-xs font-bold text-gray-500">Процент в копилку: {savingsRate}%</span>
                         </div>
                         <input type="range" min="0" max="50" step="1" value={savingsRate} onChange={e => setSavingsRate(Number(e.target.value))} className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
                     </div>
+
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-white dark:bg-white/10 text-indigo-500"><Lock size={20} /></div>
+                            <div>
+                                <div className="font-bold text-sm text-[#1C1C1E] dark:text-white">Умный резерв</div>
+                                <div className="text-[10px] text-gray-400">Резервировать деньги на обязательные платежи</div>
+                            </div>
+                        </div>
+                        <Switch checked={settings.enableSmartReserve ?? true} onChange={() => handleChange('enableSmartReserve', !(settings.enableSmartReserve ?? true))} />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
                             <label className="text-xs font-bold text-gray-500 block mb-1">Начальный баланс</label>

@@ -69,7 +69,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
   });
 
-  const unpaidMandatoryTotal = mandatoryExpenses.reduce((totalNeeded, expense) => {
+  const unpaidMandatoryTotal = (settings.enableSmartReserve ?? true) ? mandatoryExpenses.reduce((totalNeeded, expense) => {
       // Find payments matching this expense keywords
       const keywords = expense.keywords || [];
       const matches = currentMonthTransactions.filter(tx => {
@@ -91,7 +91,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       }
       
       return totalNeeded;
-  }, 0);
+  }, 0) : 0;
 
   const savingsAmount = balance * (savingsRate / 100);
   const reservedAmount = savingsAmount + unpaidMandatoryTotal;

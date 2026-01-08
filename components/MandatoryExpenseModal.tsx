@@ -2,8 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Trash2 } from 'lucide-react';
+import { X, Check, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { MandatoryExpense, AppSettings } from '../types';
+import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { saveSettings } from '../utils/db';
 
 interface MandatoryExpenseModalProps {
   expense: MandatoryExpense | null;
@@ -18,6 +21,13 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
   const [amount, setAmount] = useState('');
   const [day, setDay] = useState('');
   const [remind, setRemind] = useState(false);
+  
+  // Logic for Paid Status
+  const { setSettings } = useData();
+  const { familyId } = useAuth();
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isManuallyPaid = expense ? (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id) : false;
 
   useEffect(() => {
     if (expense) {
@@ -44,6 +54,31 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
       remind,
       keywords: expense?.keywords || []
     });
+  };
+
+  const toggleManualPaid = async () => {
+      if (!expense) return;
+      
+      const currentManuals = settings.manualPaidExpenses || {};
+      const monthIds = currentManuals[currentMonthKey] || [];
+      
+      let newMonthIds;
+      if (isManuallyPaid) {
+          newMonthIds = monthIds.filter(id => id !== expense.id);
+      } else {
+          newMonthIds = [...monthIds, expense.id];
+      }
+
+      const newSettings = { 
+          ...settings, 
+          manualPaidExpenses: {
+              ...currentManuals,
+              [currentMonthKey]: newMonthIds
+          }
+      };
+
+      setSettings(newSettings);
+      if (familyId) await saveSettings(familyId, newSettings);
   };
 
   return createPortal(
@@ -118,6 +153,22 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
                 {remind && <Check size={14} strokeWidth={3} />}
              </div>
           </div>
+
+          {/* Paid Checkbox - Only for existing expenses */}
+          {expense && (
+              <div 
+                onClick={toggleManualPaid}
+                className={`flex items-center justify-between p-5 rounded-[2rem] border transition-all cursor-pointer ${isManuallyPaid ? 'bg-green-50 border-green-200' : 'bg-white border-white shadow-sm'}`}
+              >
+                 <div className="flex flex-col">
+                     <span className={`font-bold text-sm ${isManuallyPaid ? 'text-green-600' : 'text-gray-400'}`}>Оплачено в этом месяце</span>
+                     <span className="text-[10px] text-gray-400 font-medium">Текущий месяц: {now.toLocaleString('ru', { month: 'long' })}</span>
+                 </div>
+                 <div className={`w-8 h-8 flex items-center justify-center`}>
+                    {isManuallyPaid ? <CheckCircle2 size={32} className="text-green-500" fill="currentColor" /> : <Circle size={32} className="text-gray-200" strokeWidth={1.5} />}
+                 </div>
+              </div>
+          )}
 
           <div className="flex flex-col gap-3 pt-4">
             <button

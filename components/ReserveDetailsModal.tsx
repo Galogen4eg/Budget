@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { X, Lock, PiggyBank, Receipt, CalendarClock, CheckCircle2, AlertCircle, Save, Check, Wallet, Coins } from 'lucide-react';
+import { X, Lock, PiggyBank, Receipt, CalendarClock, AlertCircle, Save, CheckCircle2, Circle, Coins } from 'lucide-react';
 import { MandatoryExpense, AppSettings } from '../types';
 
 interface ReserveDetailsModalProps {
@@ -11,7 +11,7 @@ interface ReserveDetailsModalProps {
   savingsAmount: number;
   manualReservedAmount: number;
   mandatoryAmount: number;
-  availableForSavings: number; // New Prop
+  availableForSavings: number;
   settings: AppSettings;
   savingsRate: number;
   futureExpenses: { expense: MandatoryExpense; amountNeeded: number; isManuallyPaid: boolean }[];
@@ -151,7 +151,7 @@ const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
             {/* Future Expenses List */}
             {futureExpenses.length > 0 && (
                 <div className="space-y-3 pb-4">
-                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">План платежей:</h4>
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Обязательные платежи:</h4>
                     {futureExpenses.map((item, idx) => {
                         const today = new Date().getDate();
                         const isOverdue = !item.isManuallyPaid && item.expense.day < today && item.amountNeeded > 0;
@@ -159,18 +159,18 @@ const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                         const isPaid = item.amountNeeded <= 0;
                         
                         return (
-                            <div key={idx} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isPaid ? 'bg-green-50/50 dark:bg-green-900/10 border-green-100 dark:border-green-900/20' : isOverdue ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30' : 'bg-white dark:bg-[#1C1C1E] border-gray-50 dark:border-white/5'}`}>
+                            <div key={idx} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isPaid ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : isOverdue ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30' : 'bg-white dark:bg-[#1C1C1E] border-gray-50 dark:border-white/5'}`}>
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <button 
                                         onClick={() => onTogglePaid(item.expense.id, !item.isManuallyPaid)}
-                                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${item.isManuallyPaid ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : isOverdue ? 'bg-red-100 dark:bg-red-800 text-red-600 dark:text-white' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-400 hover:text-green-500 hover:bg-green-100'}`}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${item.isManuallyPaid || isPaid ? 'text-green-500 bg-white dark:bg-[#1C1C1E] shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-green-500'}`}
                                         title={item.isManuallyPaid ? "Снять отметку" : "Отметить как оплаченное"}
                                     >
-                                        {item.isManuallyPaid ? <Check size={20} strokeWidth={3} /> : <span className="text-sm font-black">{item.expense.day}</span>}
+                                        {item.isManuallyPaid ? <CheckCircle2 size={24} fill="currentColor" className="text-green-500" /> : <Circle size={24} strokeWidth={1.5} />}
                                     </button>
                                     <div className="min-w-0">
-                                        <div className={`text-xs font-bold truncate ${isPaid ? 'text-gray-500 line-through decoration-2 decoration-green-500/50' : 'text-[#1C1C1E] dark:text-white'}`}>{item.expense.name}</div>
-                                        <div className={`text-[10px] font-bold flex items-center gap-1 ${isPaid ? 'text-green-600' : isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
+                                        <div className={`text-xs font-bold truncate ${isPaid ? 'text-green-700 dark:text-green-400' : 'text-[#1C1C1E] dark:text-white'}`}>{item.expense.name}</div>
+                                        <div className={`text-[10px] font-bold flex items-center gap-1 ${isPaid ? 'text-green-600/70 dark:text-green-500/70' : isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
                                             {isPaid ? (
                                                 item.isManuallyPaid ? 'Отмечено вручную' : 'Оплачено'
                                             ) : (
@@ -182,7 +182,7 @@ const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                <span className={`text-sm font-black tabular-nums pl-2 ${isPaid ? 'text-gray-400' : 'text-[#1C1C1E] dark:text-white'}`}>
+                                <span className={`text-sm font-black tabular-nums pl-2 ${isPaid ? 'text-green-700 dark:text-green-400' : 'text-[#1C1C1E] dark:text-white'}`}>
                                     {item.expense.amount.toLocaleString()}
                                 </span>
                             </div>

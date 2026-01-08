@@ -78,7 +78,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
 
   const { unpaidMandatoryTotal, futureExpenses } = useMemo(() => {
       let total = 0;
-      const futureList: { expense: any; amountNeeded: number; isManuallyPaid: boolean }[] = [];
+      const fullList: { expense: any; amountNeeded: number; isManuallyPaid: boolean; isPaid: boolean }[] = [];
       const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
 
       if (settings.enableSmartReserve ?? true) {
@@ -98,17 +98,24 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
               
               const remainingToPay = isPaid ? 0 : Math.max(0, expense.amount - paidAmount);
 
-              if (!isPaid && expense.day >= currentDay) {
+              // Calculate reserve: Include ALL unpaid items, even if "overdue" (past day in current month)
+              // If we don't reserve for overdue, the user might spend that money.
+              if (!isPaid) {
                   total += remainingToPay;
               }
               
-              // Add to list if it's due in future OR explicitly tracked
-              if (expense.day >= currentDay || !isPaid) {
-                  futureList.push({ expense, amountNeeded: remainingToPay, isManuallyPaid });
-              }
+              // Always add to list for visibility
+              fullList.push({ expense, amountNeeded: remainingToPay, isManuallyPaid, isPaid });
           });
       }
-      return { unpaidMandatoryTotal: total, futureExpenses: futureList };
+
+      // Sort: Unpaid first (by day), then Paid (by day)
+      fullList.sort((a, b) => {
+          if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+          return a.expense.day - b.expense.day;
+      });
+
+      return { unpaidMandatoryTotal: total, futureExpenses: fullList };
   }, [mandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
 
   const savingsAmount = balance * (savingsRate / 100);

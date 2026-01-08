@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig 
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, FamilyEvent 
 } from './types';
 
 import SmartHeader from './components/SmartHeader';
@@ -154,6 +154,83 @@ export default function App() {
   const showNotify = (type: 'success' | 'error', message: string) => {
       setNotification({ type, message });
       setTimeout(() => setNotification(null), 3000);
+  };
+
+  const sendTelegramMessage = async (text: string) => {
+      if (!settings.telegramBotToken || !settings.telegramChatId) {
+          showNotify('error', 'Настройте Telegram в Настройках');
+          return false;
+      }
+      try {
+          const url = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`;
+          const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  chat_id: settings.telegramChatId,
+                  text: text,
+                  parse_mode: 'Markdown'
+              })
+          });
+          if (!res.ok) throw new Error('Failed to send');
+          return true;
+      } catch (e) {
+          console.error(e);
+          showNotify('error', 'Ошибка отправки в Telegram');
+          return false;
+      }
+  };
+
+  const handleSendEventToTelegram = async (event: FamilyEvent) => {
+      let text = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {desc}`;
+      
+      const memberNames = event.memberIds
+          .map(id => members.find(m => m.id === id)?.name)
+          .filter(Boolean)
+          .join(', ');
+          
+      const checklistText = event.checklist && event.checklist.length > 0 
+          ? '\n' + event.checklist.map(i => `${i.completed ? '✅' : '⬜'} ${i.text}`).join('\n')
+          : 'Нет';
+
+      const replacements: Record<string, string> = {
+          '{title}': event.title,
+          '{date}': new Date(event.date).toLocaleDateString('ru-RU'),
+          '{time}': event.time,
+          '{duration}': String(event.duration || 1),
+          '{desc}': event.description || 'Без описания',
+          '{members}': memberNames || 'Все',
+          '{checklist}': checklistText
+      };
+
+      for (const [key, val] of Object.entries(replacements)) {
+          text = text.replace(new RegExp(key, 'g'), val);
+      }
+
+      return await sendTelegramMessage(text);
+  };
+
+  const handleSendShoppingListToTelegram = async (items: ShoppingItem[]) => {
+      if (items.length === 0) return false;
+      
+      let text = settings.shoppingTemplate || `🛒 *Список покупок*\n\n{items}`;
+      
+      const itemsList = items.map(i => {
+          const catLabel = categories.find(c => c.id === i.category)?.label || '';
+          return `• ${i.title} (${i.amount} ${i.unit}) ${catLabel ? `[${catLabel}]` : ''}`;
+      }).join('\n');
+
+      const replacements: Record<string, string> = {
+          '{items}': itemsList,
+          '{total}': String(items.length),
+          '{date}': new Date().toLocaleDateString('ru-RU')
+      };
+
+      for (const [key, val] of Object.entries(replacements)) {
+          text = text.replace(new RegExp(key, 'g'), val);
+      }
+
+      return await sendTelegramMessage(text);
   };
 
   const handleTransactionSubmit = async (tx: Omit<Transaction, 'id'>) => {
@@ -429,8 +506,8 @@ export default function App() {
                 <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} initialSearch={''} selectedCategoryId={filterCategory || undefined} selectedMerchantName={filterMerchant || undefined} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
             </motion.div>
         )}
-        {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} /></motion.div>}
-        {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onCompletePurchase={() => {}} onMoveToPantry={handleMoveToPantry} /></motion.div>}
+        {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={handleSendEventToTelegram} /></motion.div>}
+        {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onCompletePurchase={() => {}} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingListToTelegram} /></motion.div>}
         {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><Suspense fallback={<div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-300"/></div>}><ServicesHub /></Suspense></motion.div>}
         </AnimatePresence>
       </main>

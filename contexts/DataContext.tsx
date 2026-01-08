@@ -48,6 +48,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   mandatoryExpenses: [],
   ignoredDuplicatePairs: [], // Default empty
   alfaMapping: { date: 'дата', time: '', amount: 'сумма', category: '', note: 'описание' },
+  
+  // Detailed default templates
+  eventTemplate: `📅 *{title}*\n\n🕒 {date} в {time} (на {duration}ч)\n📝 {desc}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`,
+  shoppingTemplate: `🛒 *Список покупок* ({total} поз.)\n📅 {date}\n\n{items}\n\nКупите по дороге домой! 🏠`,
 };
 
 interface DataContextType {

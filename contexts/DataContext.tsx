@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
-  Subscription, Debt, Project, PantryItem, MeterReading, 
+  Debt, Project, PantryItem, MeterReading, 
   LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, MandatoryExpense, AppNotification 
 } from '../types';
 import { 
@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'subs', 'chat', 'debts', 'projects'],
+  enabledServices: ['wallet', 'chat', 'debts', 'projects'], // 'subs' removed from default
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,
   pushEnabled: false,
@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   salaryDates: [10, 25],
   mandatoryExpenses: [],
   enableSmartReserve: true, // New Default
+  manualReservedAmount: 0,
+  manualPaidExpenses: {},
   ignoredDuplicatePairs: [], // Default empty
   alfaMapping: { date: 'дата', time: '', amount: 'сумма', category: '', note: 'описание' },
   
@@ -74,8 +76,6 @@ interface DataContextType {
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-  subscriptions: Subscription[];
-  setSubscriptions: React.Dispatch<React.SetStateAction<Subscription[]>>;
   debts: Debt[];
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   projects: Project[];
@@ -131,7 +131,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   
   // Services Data
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
@@ -170,7 +169,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.length > 0) setCategories(data as Category[]);
       }),
       subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])),
-      subscribeToCollection(familyId, 'subscriptions', (data) => setSubscriptions(data as Subscription[])),
       subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
       subscribeToCollection(familyId, 'projects', (data) => setProjects(data as Project[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
@@ -258,7 +256,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     categories, setCategories,
     learnedRules, setLearnedRules: setLocalRules, // Setter updates local rules
     settings, setSettings,
-    subscriptions, setSubscriptions,
     debts, setDebts,
     projects, setProjects,
     loyaltyCards, setLoyaltyCards,

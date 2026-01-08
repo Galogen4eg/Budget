@@ -244,31 +244,49 @@ export default function App() {
   };
 
   const handleSendEventToTelegram = async (event: FamilyEvent) => {
-      let text = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {desc}`;
-      
-      const memberNames = event.memberIds
-          .map(id => members.find(m => m.id === id)?.name)
-          .filter(Boolean)
-          .join(', ');
-          
-      const checklistText = event.checklist && event.checklist.length > 0 
-          ? '\n' + event.checklist.map(i => `${i.completed ? '✅' : '⬜'} ${i.text}`).join('\n')
-          : 'Нет';
+      // Build message parts dynamically to avoid empty fields
+      const parts: string[] = [];
 
-      const replacements: Record<string, string> = {
-          '{title}': event.title,
-          '{date}': new Date(event.date).toLocaleDateString('ru-RU'),
-          '{time}': event.time,
-          '{duration}': String(event.duration || 1),
-          '{desc}': event.description || 'Без описания',
-          '{members}': memberNames || 'Все',
-          '{checklist}': checklistText
-      };
+      // 1. Header (Title)
+      parts.push(`📅 *${event.title}*`);
 
-      for (const [key, val] of Object.entries(replacements)) {
-          text = text.replace(new RegExp(key, 'g'), val);
+      // 2. Date & Time
+      const dateStr = new Date(event.date).toLocaleDateString('ru-RU', {
+          weekday: 'long', day: 'numeric', month: 'long'
+      });
+      parts.push(`🕒 ${dateStr} в ${event.time}`);
+
+      // 3. Duration (Optional)
+      if (event.duration && event.duration > 0) {
+          parts.push(`⏳ Длительность: ${event.duration} ч.`);
       }
 
+      // 4. Description (Optional)
+      if (event.description && event.description.trim()) {
+          parts.push(`\n📝 ${event.description.trim()}`);
+      }
+
+      // 5. Participants (Optional)
+      if (event.memberIds && event.memberIds.length > 0) {
+          const memberNames = event.memberIds
+              .map(id => members.find(m => m.id === id)?.name)
+              .filter(Boolean)
+              .join(', ');
+          
+          if (memberNames) {
+              parts.push(`👥 Участники: ${memberNames}`);
+          }
+      }
+
+      // 6. Checklist (Optional)
+      if (event.checklist && event.checklist.length > 0) {
+          const checkLines = event.checklist.map(item => 
+              `${item.completed ? '✅' : '⬜'} ${item.text}`
+          );
+          parts.push(`\n📋 *Чек-лист:*\n${checkLines.join('\n')}`);
+      }
+
+      const text = parts.join('\n');
       return await sendTelegramMessage(text);
   };
 

@@ -6,7 +6,6 @@ import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { updateItemsBatch } from '../utils/db';
 
-import SubscriptionTracker from './SubscriptionTracker';
 import DebtSnowball from './DebtSnowball';
 import SmartPantry from './SmartPantry';
 import AIChat from './AIChat';
@@ -15,13 +14,12 @@ import MeterReadings from './MeterReadings';
 import WishlistApp from './WishlistApp';
 import ProjectsApp from './ProjectsApp';
 
-type ServiceType = 'menu' | 'subs' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters' | 'wishlist' | 'projects';
+type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters' | 'wishlist' | 'projects';
 
 const ServicesHub: React.FC = () => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
   const { 
     settings, members, 
-    subscriptions, setSubscriptions,
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
     meterReadings: readings, setMeterReadings: setReadings,
@@ -53,10 +51,6 @@ const ServicesHub: React.FC = () => {
         component: <MeterReadings readings={readings} setReadings={(r) => handleUpdate('readings', r, setReadings)} settings={settings} /> 
     },
     { 
-        id: 'subs', label: 'Подписки', desc: 'Регулярные платежи', icon: <Repeat size={24} />, color: '#AF52DE', 
-        component: <SubscriptionTracker subscriptions={subscriptions} setSubscriptions={(s) => handleUpdate('subscriptions', s, setSubscriptions)} settings={settings} /> 
-    },
-    { 
         id: 'wishlist', label: 'Wishlist', desc: 'Подарки и желания', icon: <Gift size={24} />, color: '#FF2D55', 
         component: <WishlistApp wishlist={wishlist} setWishlist={(w) => handleUpdate('wishlist', w, setWishlist)} members={members} settings={settings} /> 
     },
@@ -85,7 +79,7 @@ const ServicesHub: React.FC = () => {
             exit={{ opacity: 0, scale: 0.95 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
-            {ALL_APPS.filter(app => settings.enabledServices.includes(app.id)).map(app => (
+            {ALL_APPS.filter(app => settings.enabledServices.includes(app.id) || app.id !== 'subs').map(app => (
               <button
                 key={app.id}
                 onClick={() => setActiveService(app.id as ServiceType)}

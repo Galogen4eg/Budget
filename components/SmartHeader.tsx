@@ -4,6 +4,9 @@ import { AppSettings, Transaction } from '../types';
 import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
 import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import ReserveDetailsModal from './ReserveDetailsModal';
+import { useData } from '../contexts/DataContext';
+import { saveSettings } from '../utils/db';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SmartHeaderProps {
   balance: number;
@@ -36,8 +39,12 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const { setSettings } = useData();
+  const { familyId } = useAuth();
+
   const now = new Date();
   const currentDay = now.getDate();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
     ? settings.salaryDates 
@@ -61,8 +68,6 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   
   // Money calculations
-  
-  // Calculate remaining unpaid mandatory expenses for this month
   const mandatoryExpenses = settings.mandatoryExpenses || [];
   
   // Filter transactions for current month only to check payments
@@ -73,7 +78,8 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
 
   const { unpaidMandatoryTotal, futureExpenses } = useMemo(() => {
       let total = 0;
-      const futureList: { expense: any; amountNeeded: number }[] = [];
+      const futureList: { expense: any; amountNeeded: number; isManuallyPaid: boolean }[] = [];
+      const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
 
       if (settings.enableSmartReserve ?? true) {
           mandatoryExpenses.forEach(expense => {
@@ -86,22 +92,58 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
               });
 
               const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
-              const isPaid = paidAmount >= expense.amount * 0.95;
-              const remainingToPay = Math.max(0, expense.amount - paidAmount);
+              const isManuallyPaid = manuallyPaidIds.includes(expense.id);
+              // Considered paid if amount matches OR manually marked
+              const isPaid = (paidAmount >= expense.amount * 0.95) || isManuallyPaid;
+              
+              const remainingToPay = isPaid ? 0 : Math.max(0, expense.amount - paidAmount);
 
               if (!isPaid && expense.day >= currentDay) {
                   total += remainingToPay;
-                  futureList.push({ expense, amountNeeded: remainingToPay });
+              }
+              
+              // Add to list if it's due in future OR explicitly tracked
+              if (expense.day >= currentDay || !isPaid) {
+                  futureList.push({ expense, amountNeeded: remainingToPay, isManuallyPaid });
               }
           });
       }
       return { unpaidMandatoryTotal: total, futureExpenses: futureList };
-  }, [mandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve]);
+  }, [mandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
 
   const savingsAmount = balance * (savingsRate / 100);
-  const reservedAmount = savingsAmount + unpaidMandatoryTotal;
+  const manualReserved = settings.manualReservedAmount || 0;
+  const reservedAmount = savingsAmount + unpaidMandatoryTotal + manualReserved;
   const availableBalance = Math.max(0, balance - reservedAmount);
   const dailyBudget = availableBalance / daysRemaining;
+
+  const handleUpdateManualSavings = async (amount: number) => {
+      const newSettings = { ...settings, manualReservedAmount: amount };
+      setSettings(newSettings);
+      if (familyId) await saveSettings(familyId, newSettings);
+  };
+
+  const handleTogglePaid = async (expenseId: string, isPaid: boolean) => {
+      const currentManuals = settings.manualPaidExpenses || {};
+      const monthIds = currentManuals[currentMonthKey] || [];
+      
+      let newMonthIds;
+      if (isPaid) {
+          newMonthIds = [...monthIds, expenseId]; // Add to paid list
+      } else {
+          newMonthIds = monthIds.filter(id => id !== expenseId); // Remove
+      }
+
+      const newSettings = { 
+          ...settings, 
+          manualPaidExpenses: {
+              ...currentManuals,
+              [currentMonthKey]: newMonthIds
+          }
+      };
+      setSettings(newSettings);
+      if (familyId) await saveSettings(familyId, newSettings);
+  };
 
   return (
     <>
@@ -222,10 +264,14 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                 onClose={() => setIsReserveModalOpen(false)}
                 totalReserved={reservedAmount}
                 savingsAmount={savingsAmount}
+                manualReservedAmount={manualReserved}
                 mandatoryAmount={unpaidMandatoryTotal}
+                availableForSavings={availableBalance}
                 settings={settings}
                 savingsRate={savingsRate}
                 futureExpenses={futureExpenses}
+                onUpdateManualSavings={handleUpdateManualSavings}
+                onTogglePaid={handleTogglePaid}
             />
         )}
     </AnimatePresence>

@@ -65,6 +65,17 @@ export interface WishlistItem {
   createdAt: string;
 }
 
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  billingCycle: string;
+  nextPaymentDate: string;
+  category: string;
+  icon: string;
+}
+
 export interface ChecklistItem {
   id: string;
   text: string;
@@ -83,17 +94,6 @@ export interface FamilyEvent {
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
   reminders?: number[];
-}
-
-export interface Subscription {
-  id: string;
-  name: string;
-  amount: number;
-  currency: string;
-  billingCycle: 'monthly' | 'yearly';
-  nextPaymentDate: string;
-  category: string;
-  icon: string;
 }
 
 export interface Debt {
@@ -216,6 +216,11 @@ export interface AppSettings {
   mandatoryExpenses: MandatoryExpense[];
   enableSmartReserve?: boolean; // Toggle for deducting mandatory expenses from budget
   
+  // New: Manual control over reserve
+  manualReservedAmount?: number; 
+  // Map of "YYYY-MM" -> [expenseId1, expenseId2] (Paid manually)
+  manualPaidExpenses?: Record<string, string[]>;
+
   // Stores IDs of transaction pairs marked as "Not a duplicate"
   // Format: "id1_id2" (sorted alphabetically)
   ignoredDuplicatePairs?: string[];

@@ -136,6 +136,21 @@
         letter-spacing: 0.05em;
         font-weight: 700;
       }
+
+      /* View Transitions API Animations */
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation: none;
+        mix-blend-mode: normal;
+      }
+      
+      /* Ensure new view is always on top for the circle reveal */
+      ::view-transition-new(root) {
+        z-index: 9999;
+      }
+      ::view-transition-old(root) {
+        z-index: 1;
+      }
     </style>
 <script type="importmap">
 {

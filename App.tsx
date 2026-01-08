@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, FamilyEvent 
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, FamilyEvent, AppNotification 
 } from './types';
 
 import SmartHeader from './components/SmartHeader';
@@ -88,6 +88,7 @@ export default function App() {
     currentMonthSpent,
     savingsRate, setSavingsRate,
     budgetMode, setBudgetMode,
+    notifications, setNotifications
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -139,6 +140,67 @@ export default function App() {
           localStorage.setItem('theme', 'light');
       }
   }, [settings.theme]);
+
+  // Mandatory Expenses Check Logic
+  useEffect(() => {
+      if (!settings.mandatoryExpenses || settings.mandatoryExpenses.length === 0) return;
+
+      const now = new Date();
+      const currentDay = now.getDate();
+      const newNotifications: AppNotification[] = [];
+
+      const currentMonthTransactions = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
+      });
+
+      settings.mandatoryExpenses.forEach(expense => {
+          // Check if paid
+          const keywords = expense.keywords || [];
+          const matches = currentMonthTransactions.filter(tx => {
+              if (keywords.length === 0) return false;
+              const noteLower = (tx.note || '').toLowerCase();
+              const rawLower = (tx.rawNote || '').toLowerCase();
+              return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
+          });
+          const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
+          const isPaid = paidAmount >= expense.amount * 0.95;
+
+          if (!isPaid) {
+              const daysUntilDue = expense.day - currentDay;
+              
+              if (daysUntilDue === 5 || daysUntilDue === 1) {
+                  // Only add if not already notified today for this specific expense
+                  // (Logic simplified here: we recreate the list, real app might persist "notified" state)
+                  newNotifications.push({
+                      id: `mandatory_${expense.id}_${daysUntilDue}`,
+                      title: 'Обязательный платеж',
+                      message: `Не забудьте оплатить "${expense.name}" (${expense.amount} ${settings.currency}) через ${daysUntilDue === 1 ? '1 день' : '5 дней'}.`,
+                      type: 'warning',
+                      date: new Date().toISOString(),
+                      isRead: false
+                  });
+              } else if (daysUntilDue < 0) {
+                   newNotifications.push({
+                      id: `mandatory_${expense.id}_overdue`,
+                      title: 'Просроченный платеж',
+                      message: `Платеж "${expense.name}" был должен быть оплачен ${expense.day}-го числа.`,
+                      type: 'error',
+                      date: new Date().toISOString(),
+                      isRead: false
+                  });
+              }
+          }
+      });
+
+      // Simple deduplication based on ID prefix for this session demo
+      if (newNotifications.length > 0) {
+          setNotifications(prev => {
+              const uniqueNew = newNotifications.filter(n => !prev.some(p => p.id === n.id));
+              return [...uniqueNew, ...prev];
+          });
+      }
+  }, [settings.mandatoryExpenses, transactions]);
 
   // Derived state: Transactions specific to the dashboard (Current Calendar Month Only)
   const dashboardTransactions = useMemo(() => {
@@ -352,6 +414,8 @@ export default function App() {
       return isVisible;
   };
 
+  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
+
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000]"><div className="animate-spin text-blue-500"><Settings2 size={32}/></div></div>;
   if (!user) return <LoginScreen />;
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => { setPinMode(null); setIsAppUnlocked(true); }} onForgot={() => logout()} /></Suspense>;
@@ -370,7 +434,12 @@ export default function App() {
              {isOfflineMode && <WifiOff size={16} className="text-gray-400" />}
          </div>
          <div className="flex gap-3">
-             <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm"><Bell size={20} /><div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/></button>
+             <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
+                 <Bell size={20} />
+                 {unreadNotificationsCount > 0 && (
+                     <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
+                 )}
+             </button>
              <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm"><SettingsIcon size={20} /></button>
          </div>
       </div>
@@ -556,6 +625,9 @@ export default function App() {
          <div className="hidden md:flex flex-col gap-4 mb-6 w-full items-center shrink-0">
              <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
                  <Bell size={24} />
+                 {unreadNotificationsCount > 0 && (
+                     <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
+                 )}
              </button>
              <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
                  <SettingsIcon size={24} />

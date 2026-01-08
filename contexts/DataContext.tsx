@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
   Subscription, Debt, Project, PantryItem, MeterReading, 
-  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, MandatoryExpense 
+  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, MandatoryExpense, AppNotification 
 } from '../types';
 import { 
   FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS
@@ -86,6 +86,8 @@ interface DataContextType {
   setMeterReadings: React.Dispatch<React.SetStateAction<MeterReading[]>>;
   wishlist: WishlistItem[];
   setWishlist: React.Dispatch<React.SetStateAction<WishlistItem[]>>;
+  notifications: AppNotification[];
+  setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
   
   // Derived Stats
   filteredTransactions: Transaction[];
@@ -114,6 +116,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   
   // Computed learned rules (Local overrides Global)
   const learnedRules = useMemo(() => {
@@ -261,6 +264,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loyaltyCards, setLoyaltyCards,
     meterReadings, setMeterReadings,
     wishlist, setWishlist,
+    notifications, setNotifications,
     
     filteredTransactions,
     totalBalance,

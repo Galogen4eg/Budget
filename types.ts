@@ -171,6 +171,15 @@ export interface WidgetConfig {
   desktop: { colSpan: number; rowSpan: number };
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  date: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  isRead: boolean;
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;

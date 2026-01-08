@@ -1,8 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { AppSettings, Transaction } from '../types';
 import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
 import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
+import ReserveDetailsModal from './ReserveDetailsModal';
 
 interface SmartHeaderProps {
   balance: number;
@@ -34,6 +35,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     balance, spent, savingsRate, settings, onTogglePrivacy, 
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const now = new Date();
   const currentDay = now.getDate();
   
@@ -60,38 +62,41 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   
   // Money calculations
   
-  // 1. Calculate remaining unpaid mandatory expenses for this month
+  // Calculate remaining unpaid mandatory expenses for this month
   const mandatoryExpenses = settings.mandatoryExpenses || [];
   
   // Filter transactions for current month only to check payments
-  const currentMonthTransactions = transactions.filter(t => {
+  const currentMonthTransactions = useMemo(() => transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
-  });
+  }), [transactions, now]);
 
-  const unpaidMandatoryTotal = (settings.enableSmartReserve ?? true) ? mandatoryExpenses.reduce((totalNeeded, expense) => {
-      // Find payments matching this expense keywords
-      const keywords = expense.keywords || [];
-      const matches = currentMonthTransactions.filter(tx => {
-          if (keywords.length === 0) return false;
-          const noteLower = (tx.note || '').toLowerCase();
-          const rawLower = (tx.rawNote || '').toLowerCase();
-          return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
-      });
+  const { unpaidMandatoryTotal, futureExpenses } = useMemo(() => {
+      let total = 0;
+      const futureList: { expense: any; amountNeeded: number }[] = [];
 
-      const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
-      const isPaid = paidAmount >= expense.amount * 0.95;
-      
-      // LOGIC FIX: Only reserve money for expenses that are due TODAY or in the FUTURE.
-      // If an expense was due on the 1st and today is the 15th, and it's not marked paid in app,
-      // we assume the user paid it before installing/using the app this month, 
-      // or simply shouldn't have it subtracted from their *remaining* daily budget calculation now.
-      if (!isPaid && expense.day >= currentDay) {
-          return totalNeeded + Math.max(0, expense.amount - paidAmount);
+      if (settings.enableSmartReserve ?? true) {
+          mandatoryExpenses.forEach(expense => {
+              const keywords = expense.keywords || [];
+              const matches = currentMonthTransactions.filter(tx => {
+                  if (keywords.length === 0) return false;
+                  const noteLower = (tx.note || '').toLowerCase();
+                  const rawLower = (tx.rawNote || '').toLowerCase();
+                  return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
+              });
+
+              const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
+              const isPaid = paidAmount >= expense.amount * 0.95;
+              const remainingToPay = Math.max(0, expense.amount - paidAmount);
+
+              if (!isPaid && expense.day >= currentDay) {
+                  total += remainingToPay;
+                  futureList.push({ expense, amountNeeded: remainingToPay });
+              }
+          });
       }
-      
-      return totalNeeded;
-  }, 0) : 0;
+      return { unpaidMandatoryTotal: total, futureExpenses: futureList };
+  }, [mandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve]);
 
   const savingsAmount = balance * (savingsRate / 100);
   const reservedAmount = savingsAmount + unpaidMandatoryTotal;
@@ -99,6 +104,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const dailyBudget = availableBalance / daysRemaining;
 
   return (
+    <>
     <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -194,10 +200,10 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     </span>
                 </div>
 
-                {/* Reserve - Secondary */}
-                <div 
-                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between cursor-help"
-                    title={`Копилка (${savingsRate}%): ${Math.round(savingsAmount)} ${settings.currency}\nОбязательные (будущие): ${Math.round(unpaidMandatoryTotal)} ${settings.currency}`}
+                {/* Reserve - Secondary - Clickable for Modal */}
+                <button
+                    onClick={() => setIsReserveModalOpen(true)}
+                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between cursor-pointer hover:bg-black/30 transition-colors text-left"
                 >
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1 truncate">
                         <Lock size={10} /> Резерв
@@ -205,10 +211,25 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-base md:text-3xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                     </span>
-                </div>
+                </button>
             </div>
         </div>
     </motion.div>
+
+    <AnimatePresence>
+        {isReserveModalOpen && (
+            <ReserveDetailsModal 
+                onClose={() => setIsReserveModalOpen(false)}
+                totalReserved={reservedAmount}
+                savingsAmount={savingsAmount}
+                mandatoryAmount={unpaidMandatoryTotal}
+                settings={settings}
+                savingsRate={savingsRate}
+                futureExpenses={futureExpenses}
+            />
+        )}
+    </AnimatePresence>
+    </>
   );
 };
 

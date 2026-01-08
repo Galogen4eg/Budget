@@ -90,8 +90,8 @@ const AVAILABLE_SERVICES = [
     { id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={20}/> }
 ];
 
-const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
-    <button onClick={onChange} className={`w-11 h-6 rounded-full p-1 transition-colors relative ${checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+const Switch = ({ checked, onChange, id }: { checked: boolean, onChange: (e: any) => void, id?: string }) => (
+    <button id={id} onClick={onChange} className={`w-11 h-6 rounded-full p-1 transition-colors relative ${checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
         <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
 );
@@ -188,6 +188,49 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       onUpdateRules([...learnedRules, newRule]);
       setRuleKeyword('');
       setRuleCleanName('');
+  };
+
+  const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
+      const isDark = settings.theme === 'dark';
+      const nextTheme = isDark ? 'light' : 'dark';
+
+      // Check if browser supports View Transitions
+      if (!(document as any).startViewTransition) {
+          handleChange('theme', nextTheme);
+          return;
+      }
+
+      // Get click position
+      const x = e.clientX;
+      const y = e.clientY;
+
+      // Calculate radius to the furthest corner
+      const endRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+      );
+
+      // Perform transition
+      const transition = (document as any).startViewTransition(() => {
+          handleChange('theme', nextTheme);
+      });
+
+      transition.ready.then(() => {
+          document.documentElement.animate(
+              {
+                  clipPath: [
+                      `circle(0px at ${x}px ${y}px)`,
+                      `circle(${endRadius}px at ${x}px ${y}px)`,
+                  ],
+              },
+              {
+                  duration: 500,
+                  easing: "ease-in-out",
+                  // Use the pseudo-element of the *new* view
+                  pseudoElement: "::view-transition-new(root)",
+              }
+          );
+      });
   };
 
   const renderSectionContent = () => {
@@ -463,7 +506,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   </div>
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
                       <div className="flex items-center gap-3"><div className="p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm text-gray-500 dark:text-white">{settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</div><span className="font-bold text-sm">Темная тема</span></div>
-                      <Switch checked={settings.theme === 'dark'} onChange={() => handleChange('theme', settings.theme === 'dark' ? 'light' : 'dark')} />
+                      <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
                   </div>
                   <div className="pt-2"><button onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} className="w-full flex items-center justify-center gap-3 p-5 bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"><Smartphone size={20} /> Установить на телефон</button></div>
                   <div className="pt-4 border-t dark:border-white/10"><button onClick={onLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-500 font-bold bg-red-50 dark:bg-red-500/10 rounded-xl hover:bg-red-100"><LogOut size={18} /> Выйти</button></div>

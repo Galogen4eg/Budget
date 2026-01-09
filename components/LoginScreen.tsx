@@ -5,7 +5,7 @@ import { Wallet, Globe, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginScreen: React.FC = () => {
-  const { loginWithGoogle, loginAnonymously } = useAuth();
+  const { loginWithGoogle, enterDemoMode } = useAuth();
 
   return (
     <div className="fixed inset-0 bg-[#F2F2F7] flex flex-col items-center justify-center p-6 overflow-hidden">
@@ -38,7 +38,7 @@ const LoginScreen: React.FC = () => {
             </button>
 
             <button 
-                onClick={loginAnonymously}
+                onClick={enterDemoMode}
                 className="w-full bg-white text-[#1C1C1E] py-4 rounded-[2rem] font-bold text-sm shadow-sm border border-gray-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
             >
                 <User size={20} />

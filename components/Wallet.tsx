@@ -6,6 +6,8 @@ import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
 import { Html5Qrcode } from 'html5-qrcode';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem } from '../utils/db';
 
 interface WalletProps {
   cards: LoyaltyCard[];
@@ -64,6 +66,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<LoyaltyCard | null>(null);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const { familyId } = useAuth();
   
   // New Card State
   const [newName, setNewName] = useState('');
@@ -75,7 +78,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newName.trim()) return;
     const cleanNumber = newNumber.replace(/\s+/g, '');
 
@@ -89,6 +92,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
          barcodeFormat: newFormat
        };
        setCards(cards.map(c => c.id === editingCardId ? updated : c));
+       if (familyId) await updateItem(familyId, 'loyalty', editingCardId, updated);
     } else {
        const newCard: LoyaltyCard = {
          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
@@ -99,6 +103,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
          barcodeFormat: newFormat
        };
        setCards([...cards, newCard]);
+       if (familyId) await addItem(familyId, 'loyalty', newCard);
     }
 
     setIsModalOpen(false);
@@ -116,9 +121,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
       setIsModalOpen(true); 
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if(confirm('Удалить карту?')) {
         setCards(cards.filter(c => c.id !== id));
+        if (familyId) await deleteItem(familyId, 'loyalty', id);
         setSelectedCard(null);
     }
   };

@@ -14,7 +14,7 @@ import {
   Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella,
   Wine, GlassWater
 } from 'lucide-react';
-import { Category, FamilyMember, PantryItem, Transaction } from './types';
+import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEvent, SavingsGoal, Debt, Project } from './types';
 
 export const INITIAL_CATEGORIES: Category[] = [
   // Food & Dining
@@ -77,6 +77,7 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
 
 // Generate dates for demo data
 const today = new Date();
+const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
 const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 const threeDaysAgo = new Date(today); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
@@ -92,6 +93,31 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     { id: 'd8', amount: 15000, type: 'expense', category: 'housing', memberId: 'papa', note: 'Ипотека', date: new Date(today.getFullYear(), today.getMonth(), 15).toISOString() },
     { id: 'd9', amount: 650, type: 'expense', category: 'coffee', memberId: 'mama', note: 'Кофе с собой', date: threeDaysAgo.toISOString() },
     { id: 'd10', amount: 3200, type: 'expense', category: 'shopping', memberId: 'mama', note: 'Wildberries', date: threeDaysAgo.toISOString() },
+];
+
+export const DEMO_SHOPPING_ITEMS: ShoppingItem[] = [
+    { id: 's1', title: 'Молоко', amount: '2', unit: 'л', category: 'dairy', completed: false, memberId: 'mama', priority: 'high' },
+    { id: 's2', title: 'Хлеб', amount: '1', unit: 'шт', category: 'bakery', completed: false, memberId: 'papa', priority: 'medium' },
+    { id: 's3', title: 'Яйца', amount: '10', unit: 'шт', category: 'dairy', completed: true, memberId: 'mama', priority: 'high' },
+    { id: 's4', title: 'Сыр', amount: '0.3', unit: 'кг', category: 'dairy', completed: false, memberId: 'mama', priority: 'medium' },
+];
+
+export const DEMO_EVENTS: FamilyEvent[] = [
+    { id: 'e1', title: 'Семейный ужин', description: 'Заказать пиццу', date: today.toISOString().split('T')[0], time: '19:00', duration: 2, memberIds: ['papa', 'mama', 'junior'], checklist: [] },
+    { id: 'e2', title: 'Оплата интернета', description: 'До 20 числа', date: tomorrow.toISOString().split('T')[0], time: '10:00', duration: 0.5, memberIds: ['papa'], checklist: [] },
+];
+
+export const DEMO_GOALS: SavingsGoal[] = [
+    { id: 'g1', title: 'Отпуск', targetAmount: 150000, currentAmount: 45000, icon: 'Plane', color: '#007AFF' },
+    { id: 'g2', title: 'Новый ноутбук', targetAmount: 80000, currentAmount: 20000, icon: 'Monitor', color: '#AF52DE' },
+];
+
+export const DEMO_DEBTS: Debt[] = [
+    { id: 'db1', name: 'Ипотека', totalAmount: 3500000, currentBalance: 2800000, color: '#FF3B30' },
+];
+
+export const DEMO_PROJECTS: Project[] = [
+    { id: 'p1', title: 'Ремонт кухни', totalBudget: 500000, currency: '₽', status: 'active', startDate: today.toISOString(), color: '#FF9500', icon: 'Hammer', expenses: [] },
 ];
 
 export const getIconById = (id: string, size = 20) => {

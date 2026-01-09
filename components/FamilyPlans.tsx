@@ -6,6 +6,8 @@ import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import EventModal from './EventModal';
 import { GoogleGenAI } from "@google/genai";
 import { MemberMarker } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem } from '../utils/db';
 
 interface FamilyPlansProps {
   events: FamilyEvent[];
@@ -28,6 +30,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const [isListening, setIsListening] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const { familyId } = useAuth();
 
   // Time grid configuration from settings or defaults
   const startHour = settings.dayStartHour ?? 8;
@@ -203,6 +206,43 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         return d;
     });
   }, [selectedDate]);
+
+  const handleSaveEvent = async (e: FamilyEvent) => {
+      // 1. Optimistic Update
+      setEvents(prev => {
+        const updated = [...prev];
+        const existingIndex = updated.findIndex(ev => ev.id === e.id);
+        if (existingIndex > -1) {
+          updated[existingIndex] = e;
+        } else {
+          updated.push(e);
+        }
+        return updated;
+      }); 
+      setActiveEvent(null); 
+      
+      // 2. DB Update
+      if (familyId) {
+          // Check if it's an update or create
+          const exists = events.some(ev => ev.id === e.id);
+          if (exists) {
+              await updateItem(familyId, 'events', e.id, e);
+          } else {
+              await addItem(familyId, 'events', e);
+          }
+      }
+
+      if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+      setEvents(prev => prev.filter(e => e.id !== id));
+      if (familyId) {
+          await deleteItem(familyId, 'events', id);
+      }
+      if (onDeleteEvent) onDeleteEvent(id); // Propagate if needed
+      setActiveEvent(null);
+  };
 
   const renderTimeGrid = (days: Date[], hideHeader = false) => {
       return (
@@ -547,21 +587,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             prefill={activeEvent.prefill} 
             members={members} 
             onClose={() => setActiveEvent(null)} 
-            onSave={e => { 
-              setEvents(prev => {
-                const updated = [...prev];
-                const existingIndex = updated.findIndex(ev => ev.id === e.id);
-                if (existingIndex > -1) {
-                  updated[existingIndex] = e;
-                } else {
-                  updated.push(e);
-                }
-                return updated;
-              }); 
-              setActiveEvent(null); 
-              if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
-            }} 
-            onDelete={onDeleteEvent ? (id) => { onDeleteEvent(id); setActiveEvent(null); } : undefined}
+            onSave={handleSaveEvent} 
+            onDelete={handleDeleteEvent}
             onSendToTelegram={onSendToTelegram} 
             templates={events.filter(ev => ev.isTemplate)} 
             settings={settings} 

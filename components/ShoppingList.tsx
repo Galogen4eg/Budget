@@ -7,7 +7,8 @@ import {
   Mic, 
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
-  Archive, Check, Send, ChevronDown, ChevronUp, CloudDownload
+  Archive, Check, Send, ChevronDown, ChevronUp, CloudDownload, List,
+  History
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -15,6 +16,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { lookupBarcodeOffline, searchOnlineDatabase } from '../utils/barcodeLookup';
 import { auth } from '../firebase'; 
 import { detectProductCategory } from '../utils/categorizer';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem as dbDeleteItem } from '../utils/db';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -60,6 +63,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStoreMode, setIsStoreMode] = useState(initialStoreMode);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const { familyId } = useAuth();
   
   // Modal Form State
   const [title, setTitle] = useState('');
@@ -67,6 +71,9 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const [unit, setUnit] = useState<'шт' | 'кг' | 'уп' | 'л'>('шт');
   const [selectedAisle, setSelectedAisle] = useState('other');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  
+  // Session State (Items added while modal is open)
+  const [sessionAddedItems, setSessionAddedItems] = useState<ShoppingItem[]>([]);
 
   // Async & AI State
   const [categorizingIds, setCategorizingIds] = useState<Set<string>>(new Set());
@@ -81,10 +88,39 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
       if (initialStoreMode) setIsStoreMode(true);
   }, [initialStoreMode]);
+
+  // Dictionary / History Logic
+  const uniqueHistoryItems = useMemo(() => {
+      const map = new Map<string, ShoppingItem>();
+      items.forEach(item => {
+          const key = item.title.trim().toLowerCase();
+          if (!map.has(key)) {
+              map.set(key, item);
+          }
+      });
+      return Array.from(map.values());
+  }, [items]);
+
+  const suggestions = useMemo(() => {
+      if (!title.trim()) return [];
+      const search = title.toLowerCase();
+      // Show matching items from history that contain the search string
+      return uniqueHistoryItems
+          .filter(item => item.title.toLowerCase().includes(search) && item.title.toLowerCase() !== search)
+          .slice(0, 5); // Limit to 5
+  }, [title, uniqueHistoryItems]);
+
+  const selectSuggestion = (suggestion: ShoppingItem) => {
+      setTitle(suggestion.title);
+      setUnit(suggestion.unit);
+      setSelectedAisle(suggestion.category);
+      if (titleInputRef.current) titleInputRef.current.focus();
+  };
 
   // Price History Logic for Modal
   const lastPrice = useMemo(() => {
@@ -142,7 +178,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           const result = response.text?.trim() || 'other';
           const matchedAisle = STORE_AISLES.find(a => a.id === result) ? result : 'other';
           
-          setItems(currentItems => currentItems.map(i => i.id === itemId ? { ...i, category: matchedAisle } : i));
+          setItems(currentItems => {
+              const updated = currentItems.map(i => i.id === itemId ? { ...i, category: matchedAisle } : i);
+              return updated;
+          });
+
+          // Sync AI update to DB
+          if (familyId) {
+              await updateItem(familyId, 'shopping', itemId, { category: matchedAisle });
+          }
 
       } catch (error) {
           console.error("AI Categorization failed:", error);
@@ -224,7 +268,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       }));
 
       if (newItems.length > 0) {
-          setItems([...items, ...newItems]);
+          setItems(prev => [...prev, ...newItems]);
+          // Batch add to DB if needed, handled in DataContext if we used a method, 
+          // but here we are manual. Let's assume we need to sync manual.
+          if (familyId) {
+              const { addItemsBatch } = await import('../utils/db');
+              await addItemsBatch(familyId, 'shopping', newItems);
+          }
           showNotify('success', `Добавлено ${newItems.length} товаров`);
           vibrate('success');
       } else {
@@ -240,67 +290,121 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     }
   };
 
-  const handleSaveItem = () => {
-      if (!title.trim()) return;
+  const handleSaveItem = async () => {
+      const cleanTitle = title.trim();
+      if (!cleanTitle) return;
       
       if (editingItemId) {
-          const updatedItems = items.map(i => i.id === editingItemId ? {
-              ...i,
-              title, amount, unit, category: selectedAisle
-          } : i);
-          setItems(updatedItems);
-          showNotify('success', 'Товар обновлен');
-      } else {
-          // Check locally first
-          let initialCategory = selectedAisle;
-          const needAI = selectedAisle === 'other';
-          
-          if (needAI) {
-              const localCat = detectProductCategory(title);
-              if (localCat !== 'other') {
-                  initialCategory = localCat;
-              }
+          // Editing existing item - Close modal after save
+          const itemToUpdate = items.find(i => i.id === editingItemId);
+          if (itemToUpdate) {
+              const updatedItem = {
+                  ...itemToUpdate,
+                  title: cleanTitle,
+                  amount,
+                  unit,
+                  category: selectedAisle
+              };
+              setItems(prev => prev.map(i => i.id === editingItemId ? updatedItem : i));
+              if (familyId) await updateItem(familyId, 'shopping', editingItemId, updatedItem);
+              showNotify('success', 'Товар обновлен');
           }
+          setIsModalOpen(false);
+          resetForm();
+      } else {
+          // CHECK FOR EXISTING ITEM (Active or Completed)
+          // To prevent duplicates and reuse history
+          const existingItem = items.find(i => i.title.toLowerCase() === cleanTitle.toLowerCase());
 
-          const newItem: ShoppingItem = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-              title: title.trim(),
-              amount,
-              unit,
-              category: initialCategory,
-              completed: false,
-              memberId: auth.currentUser?.uid || 'unknown',
-              priority: 'medium'
-          };
+          if (existingItem) {
+              // Update existing item (bring to top, uncheck, update meta)
+              const updatedItem = {
+                  ...existingItem,
+                  amount,
+                  unit,
+                  category: selectedAisle !== 'other' ? selectedAisle : existingItem.category, // Keep old category if 'other' is selected now
+                  completed: false,
+                  id: existingItem.id // Keep ID
+              };
+              
+              // Move to bottom of active list (or top of list visually if reversed)
+              // We just update the item in array
+              setItems(prev => prev.map(i => i.id === existingItem.id ? updatedItem : i));
+              if (familyId) await updateItem(familyId, 'shopping', existingItem.id, updatedItem);
+              
+              setSessionAddedItems(prev => [updatedItem, ...prev]);
+              showNotify('success', 'Товар возвращен в список');
+          } else {
+              // Create NEW item
+              let initialCategory = selectedAisle;
+              const needAI = selectedAisle === 'other';
+              
+              if (needAI) {
+                  const localCat = detectProductCategory(cleanTitle);
+                  if (localCat !== 'other') {
+                      initialCategory = localCat;
+                  }
+              }
+
+              const newItem: ShoppingItem = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                  title: cleanTitle,
+                  amount,
+                  unit,
+                  category: initialCategory,
+                  completed: false,
+                  memberId: auth.currentUser?.uid || 'unknown',
+                  priority: 'medium'
+              };
+              
+              setItems(prev => [...prev, newItem]);
+              if (familyId) await addItem(familyId, 'shopping', newItem);
+              
+              // Background AI classification if needed
+              if (needAI && initialCategory === 'other') {
+                  categorizeItemWithAI(newItem.id, newItem.title);
+              }
+              
+              setSessionAddedItems(prev => [newItem, ...prev]);
+              showNotify('success', 'Товар добавлен');
+          }
           
-          setItems([...items, newItem]);
-          showNotify('success', 'Товар добавлен');
-
-          // If still unknown after local check, ask AI in background
-          if (needAI && initialCategory === 'other') {
-              categorizeItemWithAI(newItem.id, newItem.title);
+          vibrate('success');
+          // Reset fields but keep modal open
+          setTitle('');
+          setAmount('1');
+          setSelectedAisle('other');
+          
+          // Focus back on title for rapid entry
+          if (titleInputRef.current) {
+              titleInputRef.current.focus();
           }
       }
-      setIsModalOpen(false);
-      resetForm();
   };
 
-  const deleteItem = (id: string) => {
-      const remainingItems = items.filter(i => i.id !== id);
-      setItems(remainingItems);
+  const handleDeleteItem = async (id: string) => {
+      setItems(prev => prev.filter(i => i.id !== id));
+      if (familyId) await dbDeleteItem(familyId, 'shopping', id);
       showNotify('info', 'Товар удален');
   };
 
-  const toggleItem = (id: string) => {
-      const updatedItems = items.map(i => i.id === id ? { ...i, completed: !i.completed } : i);
-      setItems(updatedItems);
+  const toggleItem = async (id: string) => {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      
+      const updatedItem = { ...item, completed: !item.completed };
+      setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
       vibrate('light');
+      
+      if (familyId) await updateItem(familyId, 'shopping', id, { completed: updatedItem.completed });
   };
 
   const handleMoveToPantry = (item: ShoppingItem) => {
       if (onMoveToPantry) {
           onMoveToPantry(item);
-          deleteItem(item.id);
+          // Don't double delete locally if parent handles it, but for safety in standalone usage:
+          // In App.tsx handleMoveToPantry deletes from DB and State.
+          // So we just notify here.
           showNotify('success', 'Перенесено в кладовку');
       }
   };
@@ -311,6 +415,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       setUnit('шт');
       setSelectedAisle('other');
       setEditingItemId(null);
+      setSessionAddedItems([]); // Clear session items when fully resetting/closing
+  };
+
+  const openAddModal = () => {
+      resetForm();
+      setIsModalOpen(true);
   };
 
   const openEditModal = (item: ShoppingItem) => {
@@ -319,6 +429,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       setAmount(item.amount || '1');
       setUnit(item.unit);
       setSelectedAisle(item.category);
+      setSessionAddedItems([]); // Editing mode shouldn't show previous session added items
       setIsModalOpen(true);
   };
 
@@ -432,30 +543,27 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             document.body
         )}
 
-        {/* Top Controls */}
-        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2 px-1">
-            <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="w-11 h-11 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all shrink-0">
+        {/* Top Controls - Optimized for Desktop */}
+        <div className="grid grid-cols-6 md:flex md:justify-start gap-2 mb-4 px-1">
+            <button onClick={openAddModal} className="aspect-square md:w-14 md:h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all">
                 <Plus size={24} strokeWidth={3} />
             </button>
-            <button onClick={() => setIsStoreMode(!isStoreMode)} className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${isStoreMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 text-gray-500 dark:text-gray-400'}`}>
-                {isStoreMode ? <Maximize2 size={16}/> : <ShoppingBag size={16}/>}
-                {isStoreMode ? 'Магазин' : 'Списком'}
+            <button onClick={() => setIsStoreMode(!isStoreMode)} className={`aspect-square md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all ${isStoreMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 text-gray-500 dark:text-gray-400'}`}>
+                {isStoreMode ? <Maximize2 size={20}/> : <List size={20}/>}
             </button>
             <button 
                 onClick={startVoiceInput} 
-                className={`flex items-center gap-2 px-4 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${isListening ? 'bg-red-500 text-white border-red-500 animate-pulse' : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                className={`aspect-square md:w-14 md:h-14 rounded-2xl flex items-center justify-center border transition-all ${isListening ? 'bg-red-500 text-white border-red-500 animate-pulse' : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
             >
-                {isListening ? <MicOff size={16}/> : <Mic size={16}/>}
-                Голос
+                {isListening ? <MicOff size={20}/> : <Mic size={20}/>}
             </button>
-            <button onClick={startScanner} className="w-11 h-11 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-blue-500 shrink-0">
+            <button onClick={startScanner} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-blue-500">
                 <ScanBarcode size={20}/>
             </button>
-            <button onClick={handleTelegramImport} disabled={isImportingTg} className="w-11 h-11 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shrink-0">
+            <button onClick={handleTelegramImport} disabled={isImportingTg} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                 {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
             </button>
-            {/* NEW: Send to Telegram Button */}
-            <button onClick={handleSendListToTelegram} disabled={isSending || activeItems.length === 0} className="w-11 h-11 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shrink-0 disabled:opacity-50">
+            <button onClick={handleSendListToTelegram} disabled={isSending || activeItems.length === 0} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
                 {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
             </button>
         </div>
@@ -520,7 +628,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                                         <div className="font-bold text-sm text-[#1C1C1E] dark:text-white">{item.title}</div>
                                                         <div className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-[#2C2C2E] px-1.5 py-0.5 rounded w-fit mt-1">{item.amount} {item.unit}</div>
                                                     </div>
-                                                    <button onClick={() => deleteItem(item.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+                                                    <button onClick={() => handleDeleteItem(item.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 p-2"><Trash2 size={16}/></button>
                                                 </div>
                                             ))}
                                         </div>
@@ -554,7 +662,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                             </div>
                                             <div className="flex gap-2">
                                                 {onMoveToPantry && <button onClick={() => handleMoveToPantry(item)} className="p-2 bg-white dark:bg-[#2C2C2E] rounded-lg text-green-600"><Archive size={14}/></button>}
-                                                <button onClick={() => deleteItem(item.id)} className="p-2 bg-white dark:bg-[#2C2C2E] rounded-lg text-red-400"><Trash2 size={14}/></button>
+                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2 bg-white dark:bg-[#2C2C2E] rounded-lg text-red-400"><Trash2 size={14}/></button>
                                             </div>
                                         </div>
                                     ))}
@@ -572,23 +680,50 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             {isModalOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-4">
                     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}/>
-                    <motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} transition={{type:"spring", damping:25, stiffness:300}} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]">
+                    <motion.div 
+                        initial={{y:'100%'}} 
+                        animate={{y:0}} 
+                        exit={{y:'100%'}} 
+                        transition={{type:"spring", damping:25, stiffness:300}} 
+                        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:max-w-6xl md:w-[90vw] md:h-[85vh] md:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[95vh]"
+                    >
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-black text-xl text-[#1C1C1E] dark:text-white">{editingItemId ? 'Изменить' : 'Добавить товар'}</h3>
                             <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 dark:bg-[#2C2C2E] p-2 rounded-full text-gray-500 dark:text-white"><X size={20}/></button>
                         </div>
                         
                         <div className="space-y-4 overflow-y-auto no-scrollbar pb-20">
-                            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm">
+                            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm relative">
                                 <input 
+                                    ref={titleInputRef}
                                     type="text" 
                                     placeholder="Название (Молоко)" 
                                     value={title} 
                                     onChange={e => setTitle(e.target.value)}
-                                    onBlur={autoDetectAisle}
+                                    onBlur={() => setTimeout(autoDetectAisle, 200)}
                                     className="w-full text-lg font-bold outline-none placeholder:text-gray-300 bg-transparent dark:text-white"
                                     autoFocus
                                 />
+                                {suggestions.length > 0 && !editingItemId && (
+                                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-[#2C2C2E] rounded-2xl shadow-xl z-20 overflow-hidden border border-gray-100 dark:border-white/5">
+                                        <div className="px-3 py-2 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-black/20 flex items-center gap-1">
+                                            <History size={10} /> Из истории
+                                        </div>
+                                        {suggestions.map((suggestion) => (
+                                            <div 
+                                                key={suggestion.id} 
+                                                onClick={() => selectSuggestion(suggestion)}
+                                                className="px-4 py-3 border-b border-gray-50 dark:border-white/5 last:border-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer flex justify-between items-center group"
+                                            >
+                                                <span className="font-bold text-sm text-[#1C1C1E] dark:text-white">{suggestion.title}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-black/30 px-1.5 py-0.5 rounded">{suggestion.unit}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400">{STORE_AISLES.find(a => a.id === suggestion.category)?.label}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 {lastPrice !== null && (
                                     <div className="mt-2 text-[10px] font-bold text-gray-400 uppercase bg-gray-50 dark:bg-[#2C2C2E] px-2 py-1 rounded w-fit">
                                         Последняя цена: {lastPrice} {settings.currency}
@@ -635,12 +770,35 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Session Added Items - Show items added while modal is open */}
+                            {sessionAddedItems.length > 0 && !editingItemId && (
+                                <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm border border-green-100 dark:border-green-900/20">
+                                    <span className="text-[9px] font-black text-gray-400 uppercase block mb-2 flex items-center gap-1">
+                                        <CheckCircle2 size={10} className="text-green-500"/> Только что добавлено:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {sessionAddedItems.map(item => (
+                                            <span key={item.id} className="text-[10px] font-bold bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-lg">
+                                                {item.title}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="absolute bottom-6 left-6 right-6">
-                            <button onClick={handleSaveItem} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-transform">
-                                {editingItemId ? 'Сохранить' : 'Добавить'}
+                        <div className="absolute bottom-6 left-6 right-6 flex flex-col gap-2">
+                            <button onClick={handleSaveItem} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                <Plus size={20} />
+                                {editingItemId ? 'Сохранить изменения' : 'Добавить'}
                             </button>
+                            {/* Explicit close button needed since we keep it open now */}
+                            {!editingItemId && (
+                                <button onClick={() => setIsModalOpen(false)} className="w-full py-3 text-gray-400 font-bold text-xs uppercase tracking-widest">
+                                    Готово
+                                </button>
+                            )}
                         </div>
                     </motion.div>
                 </div>

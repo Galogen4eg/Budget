@@ -19,6 +19,7 @@ interface AuthContextType {
   isOfflineMode: boolean;
   loginWithGoogle: () => Promise<void>;
   loginAnonymously: () => Promise<void>;
+  enterDemoMode: () => void;
   logout: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
     isOfflineMode: false,
     loginWithGoogle: async () => {},
     loginAnonymously: async () => {},
+    enterDemoMode: () => {},
     logout: async () => {}
 });
 
@@ -40,6 +42,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
+  // Helper to enable local demo mode consistently
+  const enterDemoMode = () => {
+      console.warn("Switching to Local Demo Mode");
+      const mockUser = {
+          uid: 'demo-local-user',
+          displayName: 'Демо Пользователь',
+          email: 'demo@local',
+          isAnonymous: true,
+          getIdToken: async () => 'mock',
+          photoURL: null
+      } as unknown as User;
+
+      setUser(mockUser);
+      setFamilyId(null); // Null familyId triggers local storage mode in DataContext
+      setIsOfflineMode(true);
+      setLoading(false);
+  };
+
   useEffect(() => {
     let unsubscribe: () => void;
 
@@ -47,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        // Check for redirect result (from signInWithRedirect fallback)
        try {
          await getRedirectResult(auth);
-       } catch (e) {
+       } catch (e: any) {
          console.error("Redirect auth error:", e);
        }
 
@@ -55,9 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           setUser(currentUser);
           
-          // Попытка получить кэшированный familyId для ускорения (опционально)
           const cachedFid = localStorage.getItem('cached_familyId');
-          // Но мы НЕ полагаемся только на него, всегда проверяем DB для авторизованных юзеров
 
           try {
             const fid = await getOrInitUserFamily(currentUser);
@@ -70,8 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (e) {
             console.error("Family Init Failed:", e);
-            // Если ошибка сети/базы, но у нас есть кэш - пробуем работать с кэшем ID,
-            // но флаг isOfflineMode переводим в true
             if (cachedFid) {
                 setFamilyId(cachedFid);
             }
@@ -101,12 +117,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
           console.error("Google Auth Error:", error);
+          
+          // Handle Network Errors (Offline or Blocked)
+          if (error.code === 'auth/network-request-failed') {
+              if (confirm("Ошибка соединения с сервером. Войти в локальный Демо-режим?")) {
+                  enterDemoMode();
+                  return;
+              }
+          }
+
           if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
               try {
                   await signInWithRedirect(auth, googleProvider);
                   return;
-              } catch (redirectError) {
+              } catch (redirectError: any) {
                   console.error("Redirect Error:", redirectError);
+                  if (redirectError.code === 'auth/network-request-failed') {
+                      if (confirm("Ошибка соединения. Войти в локальный Демо-режим?")) {
+                          enterDemoMode();
+                          return;
+                      }
+                  }
               }
           }
           setLoading(false);
@@ -121,23 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e: any) {
           console.error("Auth Error:", e);
           const msg = e.message || '';
+          const code = e.code || '';
           
-          // Локальный демо режим, если Firebase Auth недоступен
-          if (msg.includes('admin-restricted') || msg.includes('network-request-failed')) {
-              console.warn("Falling back to Local Demo Mode");
-              // Mock User
-              const mockUser = {
-                  uid: 'demo-local-user',
-                  displayName: 'Демо Пользователь',
-                  email: 'demo@local',
-                  isAnonymous: true,
-                  getIdToken: async () => 'mock',
-              } as unknown as User;
-
-              setUser(mockUser);
-              setFamilyId(null); // Explicit null triggers DataContext offline/demo mode
-              setIsOfflineMode(true);
-              setLoading(false);
+          // Локальный демо режим, если Firebase Auth недоступен или отключен (admin-restricted)
+          if (code === 'auth/network-request-failed' || code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted') || msg.includes('network-request-failed')) {
+              enterDemoMode();
               return;
           }
           
@@ -159,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, familyId, loading, isOfflineMode, loginWithGoogle, loginAnonymously, logout }}>
+    <AuthContext.Provider value={{ user, familyId, loading, isOfflineMode, loginWithGoogle, loginAnonymously, enterDemoMode, logout }}>
       {children}
     </AuthContext.Provider>
   );

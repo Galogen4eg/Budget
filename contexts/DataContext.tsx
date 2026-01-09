@@ -2,15 +2,16 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
-  Debt, Project, PantryItem, MeterReading, 
-  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, MandatoryExpense, AppNotification 
+  Debt, Project, PantryItem, 
+  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, AppNotification 
 } from '../types';
 import { 
-  FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS
+  FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
+  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToSettings, subscribeToGlobalRules,
-  addItemsBatch, updateItemsBatch, deleteItemsBatch 
+  addItemsBatch, deleteItemsBatch 
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 
@@ -37,7 +38,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'chat', 'debts', 'projects'], // 'subs' removed from default
+  enabledServices: ['wallet', 'projects'], // Only Wallet and Projects by default
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,
   pushEnabled: false,
@@ -82,8 +83,6 @@ interface DataContextType {
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   loyaltyCards: LoyaltyCard[];
   setLoyaltyCards: React.Dispatch<React.SetStateAction<LoyaltyCard[]>>;
-  meterReadings: MeterReading[];
-  setMeterReadings: React.Dispatch<React.SetStateAction<MeterReading[]>>;
   wishlist: WishlistItem[];
   setWishlist: React.Dispatch<React.SetStateAction<WishlistItem[]>>;
   notifications: AppNotification[];
@@ -104,7 +103,7 @@ const DataContext = createContext<DataContextType>({} as DataContextType);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { familyId, user, loading: authLoading } = useAuth();
+  const { familyId, user, loading: authLoading, isOfflineMode } = useAuth();
 
   // --- Data State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -112,7 +111,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pantry, setPantryState] = useState<PantryItem[]>([]);
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
+  const [members, setMembers] = useState<FamilyMember[]>([]); // Start empty to avoid demo flash
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
@@ -134,7 +133,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [debts, setDebts] = useState<Debt[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
-  const [meterReadings, setMeterReadings] = useState<MeterReading[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
   // UI State moved here as it affects derived calculations
@@ -157,7 +155,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const stored = localStorage.getItem(`local_${key}`);
             if (stored) {
                 try {
-                    setter(JSON.parse(stored));
+                    const parsed = JSON.parse(stored);
+                    
+                    // CRITICAL: If we are in Demo Mode (Offline), AND the local data is an empty array,
+                    // AND we have a fallback (Demo data), use the fallback. 
+                    // This fixes the issue where a previous clean session prevents demo data from loading.
+                    if (isOfflineMode && Array.isArray(parsed) && parsed.length === 0 && fallback && Array.isArray(fallback) && fallback.length > 0) {
+                        setter(fallback);
+                        return;
+                    }
+                    
+                    setter(parsed);
                 } catch (e) {
                     console.error(`Failed to parse local_${key}`, e);
                     if (fallback) setter(fallback);
@@ -167,21 +175,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        loadLocal('transactions', setTransactions, DEMO_TRANSACTIONS);
-        loadLocal('shopping', setShoppingItems, []);
-        loadLocal('events', setEvents, []);
+        // Determine fallback data based on isOfflineMode (DEMO MODE)
+        const demoTransactions = isOfflineMode ? DEMO_TRANSACTIONS : [];
+        const demoShopping = isOfflineMode ? DEMO_SHOPPING_ITEMS : [];
+        const demoEvents = isOfflineMode ? DEMO_EVENTS : [];
+        const demoGoals = isOfflineMode ? DEMO_GOALS : [];
+        const demoDebts = isOfflineMode ? DEMO_DEBTS : [];
+        const demoProjects = isOfflineMode ? DEMO_PROJECTS : [];
+        const demoMembers = isOfflineMode ? FAMILY_MEMBERS : [];
+
+        loadLocal('transactions', setTransactions, demoTransactions);
+        loadLocal('shopping', setShoppingItems, demoShopping);
+        loadLocal('events', setEvents, demoEvents);
+        loadLocal('goals', setGoals, demoGoals);
+        loadLocal('debts', setDebts, demoDebts);
+        loadLocal('projects', setProjects, demoProjects);
         loadLocal('pantry', setPantryState, []);
-        loadLocal('goals', setGoals, []);
-        loadLocal('debts', setDebts, []);
-        loadLocal('projects', setProjects, []);
         loadLocal('loyalty', setLoyaltyCards, []);
         loadLocal('wishlist', setWishlist, []);
         loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s})), DEFAULT_SETTINGS);
         
-        // Members need special handling to ensure user is there
+        // Load members or fallback to demo/empty
         const storedMembers = localStorage.getItem('local_members');
         if (storedMembers) {
-            setMembers(JSON.parse(storedMembers));
+            const parsedMembers = JSON.parse(storedMembers);
+            if (isOfflineMode && parsedMembers.length === 0 && demoMembers.length > 0) {
+                setMembers(demoMembers);
+            } else {
+                setMembers(parsedMembers);
+            }
+        } else {
+            setMembers(demoMembers);
         }
 
         isInitialLoad.current = false;
@@ -190,15 +214,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubs = [
       unsubGlobal,
-      subscribeToCollection(familyId, 'transactions', (data) => {
-          if (data.length > 0) setTransactions(data as Transaction[]);
-          else setTransactions(DEMO_TRANSACTIONS); 
-      }),
+      subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[])),
       subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[])),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
       subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
       subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])),
-      subscribeToCollection(familyId, 'members', (data) => { if (data.length) setMembers(data as FamilyMember[]); }),
+      subscribeToCollection(familyId, 'members', (data) => { 
+          if (data.length > 0) setMembers(data as FamilyMember[]);
+      }),
       subscribeToCollection(familyId, 'categories', (data) => { 
           if (data.length > 0) setCategories(data as Category[]);
       }),
@@ -206,7 +229,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
       subscribeToCollection(familyId, 'projects', (data) => setProjects(data as Project[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
-      subscribeToCollection(familyId, 'readings', (data) => setMeterReadings(data as MeterReading[])),
       subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[])),
       subscribeToSettings(familyId, (data) => {
           if (data) {
@@ -218,7 +240,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     isInitialLoad.current = false;
     return () => unsubs.forEach(u => u());
-  }, [familyId]);
+  }, [familyId, isOfflineMode]);
 
   // --- Local Storage Sync (For Demo/Offline Mode) ---
   useEffect(() => {
@@ -318,7 +340,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     debts, setDebts,
     projects, setProjects,
     loyaltyCards, setLoyaltyCards,
-    meterReadings, setMeterReadings,
     wishlist, setWishlist,
     notifications, setNotifications,
     

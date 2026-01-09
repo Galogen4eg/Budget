@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, Gift, Link as LinkIcon, Lock, Check, Heart, User, ExternalLink } from 'lucide-react';
 import { WishlistItem, FamilyMember, AppSettings } from '../types';
 import { MemberMarker } from '../constants';
-import { auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem } from '../utils/db';
 
 interface WishlistProps {
   wishlist: WishlistItem[];
@@ -16,6 +17,7 @@ interface WishlistProps {
 const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, settings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterOwnerId, setFilterOwnerId] = useState<string | 'all'>('all');
+  const { familyId, user } = useAuth();
   
   // Form State
   const [title, setTitle] = useState('');
@@ -25,11 +27,11 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
   const [priority, setPriority] = useState<'low'|'medium'|'high'>('medium');
   const [ownerId, setOwnerId] = useState<string>(members[0]?.id || '');
 
-  const currentUserId = auth.currentUser?.uid;
+  const currentUserId = user?.uid;
   // Fallback: try to find current user in members by firebase ID, or default to first member
   const currentMember = members.find(m => m.userId === currentUserId) || members[0];
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) return;
 
     const newItem: WishlistItem = {
@@ -45,6 +47,7 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
     };
 
     setWishlist([...wishlist, newItem]);
+    if (familyId) await addItem(familyId, 'wishlist', newItem);
     setIsModalOpen(false);
     resetForm();
   };
@@ -58,23 +61,29 @@ const WishlistApp: React.FC<WishlistProps> = ({ wishlist, setWishlist, members, 
     setOwnerId(currentMember?.id || members[0]?.id);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Удалить желание?')) {
       setWishlist(wishlist.filter(w => w.id !== id));
+      if (familyId) await deleteItem(familyId, 'wishlist', id);
     }
   };
 
-  const handleReserve = (item: WishlistItem) => {
+  const handleReserve = async (item: WishlistItem) => {
     if (!currentMember) return;
     
+    let updates;
     // Toggle reservation
     if (item.reservedBy === currentMember.id) {
        // Unreserve
+       updates = { reservedBy: null }; // Firestore might need explicit null or deleteField
        setWishlist(wishlist.map(w => w.id === item.id ? { ...w, reservedBy: undefined } : w));
     } else {
        // Reserve
+       updates = { reservedBy: currentMember.id };
        setWishlist(wishlist.map(w => w.id === item.id ? { ...w, reservedBy: currentMember.id } : w));
     }
+    
+    if (familyId) await updateItem(familyId, 'wishlist', item.id, updates);
   };
 
   // Filter items

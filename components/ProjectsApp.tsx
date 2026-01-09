@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, FolderOpen, Target, Calendar, Edit2, Trash2, X, Check, TrendingUp, DollarSign } from 'lucide-react';
 import { Project, AppSettings, ProjectExpense } from '../types';
 import { getIconById } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem } from '../utils/db';
 
 interface Props {
   projects: Project[];
@@ -17,6 +19,7 @@ const PRESET_ICONS = ['Hammer', 'Plane', 'Gift', 'Baby', 'Car', 'Home', 'Star'];
 const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const { familyId } = useAuth();
   
   // Form State
   const [title, setTitle] = useState('');
@@ -31,18 +34,19 @@ const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
 
   const activeProject = projects.find(p => p.id === viewProjectId);
 
-  const handleSaveProject = () => {
+  const handleSaveProject = async () => {
     if (!title.trim() || !budget) return;
     
     if (editingProject) {
-        const updated = projects.map(p => p.id === editingProject.id ? { 
-            ...p, 
+        const updated = { 
+            ...editingProject, 
             title, 
             totalBudget: Number(budget),
             color,
             icon
-        } : p);
-        setProjects(updated);
+        };
+        setProjects(projects.map(p => p.id === editingProject.id ? updated : p));
+        if (familyId) await updateItem(familyId, 'projects', editingProject.id, updated);
     } else {
         const newProject: Project = {
             id: Date.now().toString(),
@@ -56,11 +60,12 @@ const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
             expenses: []
         };
         setProjects([...projects, newProject]);
+        if (familyId) await addItem(familyId, 'projects', newProject);
     }
     closeModal();
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
       if (!viewProjectId || !expenseTitle.trim() || !expenseAmount) return;
       
       const newExpense: ProjectExpense = {
@@ -71,27 +76,36 @@ const ProjectsApp: React.FC<Props> = ({ projects, setProjects, settings }) => {
           memberId: 'unknown'
       };
 
-      const updated = projects.map(p => p.id === viewProjectId ? {
-          ...p,
-          expenses: [newExpense, ...p.expenses]
-      } : p);
+      const project = projects.find(p => p.id === viewProjectId);
+      if (!project) return;
+
+      const updatedProject = {
+          ...project,
+          expenses: [newExpense, ...project.expenses]
+      };
       
-      setProjects(updated);
+      setProjects(projects.map(p => p.id === viewProjectId ? updatedProject : p));
+      if (familyId) await updateItem(familyId, 'projects', viewProjectId, { expenses: updatedProject.expenses });
+      
       setExpenseTitle('');
       setExpenseAmount('');
   };
 
-  const deleteExpense = (projectId: string, expenseId: string) => {
-      const updated = projects.map(p => p.id === projectId ? {
-          ...p,
-          expenses: p.expenses.filter(e => e.id !== expenseId)
-      } : p);
-      setProjects(updated);
+  const deleteExpense = async (projectId: string, expenseId: string) => {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) return;
+
+      const updatedExpenses = project.expenses.filter(e => e.id !== expenseId);
+      const updatedProject = { ...project, expenses: updatedExpenses };
+
+      setProjects(projects.map(p => p.id === projectId ? updatedProject : p));
+      if (familyId) await updateItem(familyId, 'projects', projectId, { expenses: updatedExpenses });
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
       if(confirm('Удалить проект?')) {
           setProjects(projects.filter(p => p.id !== id));
+          if (familyId) await deleteItem(familyId, 'projects', id);
           setViewProjectId(null);
           closeModal();
       }

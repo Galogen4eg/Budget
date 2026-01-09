@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, TrendingDown, Edit2 } from 'lucide-react';
 import { Debt, AppSettings } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem, updateItem, deleteItem } from '../utils/db';
 
 interface Props {
   debts: Debt[];
@@ -14,12 +16,15 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newDebt, setNewDebt] = useState<Partial<Debt>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { familyId } = useAuth();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newDebt.name || !newDebt.totalAmount) return;
     
     if (editingId) {
-        setDebts(debts.map(d => d.id === editingId ? { ...d, name: newDebt.name!, totalAmount: Number(newDebt.totalAmount), currentBalance: Number(newDebt.currentBalance) } : d));
+        const updated = { ...newDebt, name: newDebt.name!, totalAmount: Number(newDebt.totalAmount), currentBalance: Number(newDebt.currentBalance) };
+        setDebts(debts.map(d => d.id === editingId ? { ...d, ...updated } : d));
+        if (familyId) await updateItem(familyId, 'debts', editingId, updated);
     } else {
         const debt: Debt = {
           id: Date.now().toString(),
@@ -29,6 +34,7 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
           color: '#FF3B30'
         };
         setDebts([...debts, debt]);
+        if (familyId) await addItem(familyId, 'debts', debt);
     }
     setIsModalOpen(false);
     resetForm();
@@ -45,8 +51,17 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
       setEditingId(null);
   };
 
-  const updateBalance = (id: string, amount: number) => {
-    setDebts(debts.map(d => d.id === id ? { ...d, currentBalance: Math.max(0, d.currentBalance - amount) } : d));
+  const updateBalance = async (id: string, amount: number) => {
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+    const newBalance = Math.max(0, debt.currentBalance - amount);
+    setDebts(debts.map(d => d.id === id ? { ...d, currentBalance: newBalance } : d));
+    if (familyId) await updateItem(familyId, 'debts', id, { currentBalance: newBalance });
+  };
+
+  const handleDelete = async (id: string) => {
+      setDebts(debts.filter(d => d.id !== id));
+      if (familyId) await deleteItem(familyId, 'debts', id);
   };
 
   return (
@@ -77,7 +92,7 @@ const DebtSnowball: React.FC<Props> = ({ debts, setDebts, settings }) => {
                     </div>
                     <div className="flex justify-between items-center pt-1">
                        <button onClick={() => updateBalance(debt.id, 1000)} className="text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">Внести 1000</button>
-                       <button onClick={() => setDebts(debts.filter(d => d.id !== debt.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
+                       <button onClick={() => handleDelete(debt.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 );

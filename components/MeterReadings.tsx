@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Zap, Droplets, Flame, Save, History } from 'lucide-react';
 import { MeterReading, AppSettings } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { addItem } from '../utils/db';
 
 interface Props {
   readings: MeterReading[];
@@ -15,8 +17,9 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
   const [type, setType] = useState<'water_hot' | 'water_cold' | 'electricity' | 'gas'>('water_cold');
   const [inputValue, setInputValue] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const { familyId } = useAuth();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!inputValue) {
         alert("Введите значение");
         return;
@@ -44,6 +47,8 @@ const MeterReadings: React.FC<Props> = ({ readings, setReadings, settings }) => 
     
     // Update state via new array reference
     setReadings([newReading, ...readings]);
+    
+    if (familyId) await addItem(familyId, 'readings', newReading);
     
     setIsModalOpen(false);
     setInputValue('');

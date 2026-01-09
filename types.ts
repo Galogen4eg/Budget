@@ -138,6 +138,14 @@ export interface PantryItem {
   addedDate: string;
 }
 
+export interface MeterReading {
+  id: string;
+  type: 'water_hot' | 'water_cold' | 'electricity' | 'gas';
+  value: number;
+  date: string;
+  prevValue?: number;
+}
+
 export interface LoyaltyCard {
   id: string;
   name: string;
@@ -154,14 +162,6 @@ export interface MandatoryExpense {
   day: number; // Day of the month (1-31)
   remind: boolean;
   keywords?: string[];
-}
-
-export interface MeterReading {
-  id: string;
-  type: 'water_hot' | 'water_cold' | 'electricity' | 'gas';
-  value: number;
-  date: string;
-  prevValue?: number;
 }
 
 export interface WidgetConfig {

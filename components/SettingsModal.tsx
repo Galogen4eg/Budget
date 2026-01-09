@@ -83,7 +83,6 @@ const AVAILABLE_TABS = [
 
 const AVAILABLE_SERVICES = [
     { id: 'wallet', label: 'Кошелек', desc: 'Карты лояльности', icon: <Wallet size={20}/> },
-    { id: 'meters', label: 'Счетчики', desc: 'ЖКХ показания', icon: <Clock size={20}/> },
     { id: 'wishlist', label: 'Wishlist', desc: 'Список желаний', icon: <Gift size={20}/> },
     { id: 'chat', label: 'AI Советник', desc: 'Финансовый помощник', icon: <Sparkles size={20}/> },
     { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <LayoutGrid size={20}/> },

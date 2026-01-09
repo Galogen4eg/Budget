@@ -3,18 +3,15 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { updateItemsBatch } from '../utils/db';
 
 import DebtSnowball from './DebtSnowball';
 import SmartPantry from './SmartPantry';
 import AIChat from './AIChat';
 import WalletApp from './Wallet';
-import MeterReadings from './MeterReadings';
 import WishlistApp from './WishlistApp';
 import ProjectsApp from './ProjectsApp';
 
-type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'meters' | 'wishlist' | 'projects';
+type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects';
 
 const ServicesHub: React.FC = () => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
@@ -22,37 +19,22 @@ const ServicesHub: React.FC = () => {
     settings, members, 
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
-    meterReadings: readings, setMeterReadings: setReadings,
     wishlist, setWishlist,
     projects, setProjects
   } = useData();
   
-  const { familyId } = useAuth();
-
-  // Helper to sync updates to DB
-  const handleUpdate = async (collection: string, items: any[], setter: (val: any) => void) => {
-      setter(items);
-      if (familyId) {
-          await updateItemsBatch(familyId, collection, items);
-      }
-  };
-
   const ALL_APPS = [
     { 
         id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={24} />, color: '#007AFF', 
-        component: <ProjectsApp projects={projects} setProjects={(p) => handleUpdate('projects', p, setProjects)} settings={settings} /> 
+        component: <ProjectsApp projects={projects} setProjects={setProjects} settings={settings} /> 
     },
     { 
         id: 'wallet', label: 'Wallet', desc: 'Карты лояльности', icon: <Wallet size={24} />, color: '#1C1C1E', 
-        component: <WalletApp cards={loyaltyCards} setCards={(c) => handleUpdate('loyalty', c, setLoyaltyCards)} /> 
-    },
-    { 
-        id: 'meters', label: 'Счетчики', desc: 'Показания ЖКХ', icon: <Gauge size={24} />, color: '#FF9500', 
-        component: <MeterReadings readings={readings} setReadings={(r) => handleUpdate('readings', r, setReadings)} settings={settings} /> 
+        component: <WalletApp cards={loyaltyCards} setCards={setLoyaltyCards} /> 
     },
     { 
         id: 'wishlist', label: 'Wishlist', desc: 'Подарки и желания', icon: <Gift size={24} />, color: '#FF2D55', 
-        component: <WishlistApp wishlist={wishlist} setWishlist={(w) => handleUpdate('wishlist', w, setWishlist)} members={members} settings={settings} /> 
+        component: <WishlistApp wishlist={wishlist} setWishlist={setWishlist} members={members} settings={settings} /> 
     },
     { 
         id: 'chat', label: 'AI Советник', desc: 'Анализ, Холодильник', icon: <Bot size={24} />, color: '#1C1C1E', 
@@ -64,7 +46,7 @@ const ServicesHub: React.FC = () => {
     },
     { 
         id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', 
-        component: <DebtSnowball debts={debts} setDebts={(d) => handleUpdate('debts', d, setDebts)} settings={settings} /> 
+        component: <DebtSnowball debts={debts} setDebts={setDebts} settings={settings} /> 
     },
   ];
 

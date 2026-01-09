@@ -10,7 +10,7 @@ import {
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info
+  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
@@ -472,6 +472,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         <label className="text-xs font-bold text-gray-500 ml-2">ID чата</label>
                         <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none" placeholder="-100..." />
                     </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="text-gray-400"><Send size={20}/></div>
+                            <div>
+                                <div className="font-bold text-sm">Авто-отправка событий</div>
+                                <div className="text-[10px] text-gray-400">Отправлять новые события в чат</div>
+                            </div>
+                        </div>
+                        <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
+                    </div>
+
                     <div className="pt-2 space-y-4 border-t dark:border-white/5">
                         <TemplateEditor label="Шаблон списка покупок" value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} onChange={(val) => handleChange('shoppingTemplate', val)} variables={['{items}', '{total}']} />
                         <TemplateEditor label="Шаблон событий" value={settings.eventTemplate || '📅 *Новое событие*\n\n📌 {title}\n🕒 {date} {time}'} onChange={(val) => handleChange('eventTemplate', val)} variables={['{title}', '{date}', '{time}', '{desc}']} />

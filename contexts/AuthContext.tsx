@@ -54,22 +54,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
           setUser(currentUser);
+          
+          // Try to get cached family ID first to speed up load / enable offline
+          const cachedFid = localStorage.getItem('cached_familyId');
+          if (cachedFid) {
+              setFamilyId(cachedFid);
+          }
+
           try {
             const fid = await getOrInitUserFamily(currentUser);
-            setFamilyId(fid);
+            if (fid) {
+                setFamilyId(fid);
+                localStorage.setItem('cached_familyId', fid);
+            }
           } catch (e) {
-            console.error("Family Init Error:", e);
-            // If we can't fetch family, we might be offline even if auth object exists
+            console.error("Family Init Error (Likely Offline):", e);
             setIsOfflineMode(true);
+            // If we have a cached ID, we are fine. If not, user is stuck offline without data access.
+            if (!cachedFid) {
+                // Potential improvement: allow creating local-only family here
+            }
           }
           setLoading(false);
         } else {
           // No user found - stop loading and let the LoginScreen handle it
-          // Only reset if we are NOT in local demo mode (where user is set manually)
-          // We check if the current user state is a real firebase user (has providerData or similar check if needed, 
-          // but checking if we just manually set it is hard inside this callback closure).
-          // Instead, we rely on the logout function to clear state for demo users.
-          // For initial load, if currentUser is null, we just stop loading.
+          // Only reset if we are NOT in local demo mode
           if (loading) {
              setLoading(false);
           }
@@ -139,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } as unknown as User;
 
               setUser(mockUser);
-              setFamilyId(null); // Triggers DataContext to load demo data
+              setFamilyId(null); 
               setIsOfflineMode(true);
               setLoading(false);
               return;
@@ -161,10 +170,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
       try {
           await signOut(auth);
+          localStorage.removeItem('cached_familyId');
       } catch (e) {
           console.warn("Sign out error", e);
       }
-      // Force clear state regardless of auth state (handles demo user)
       setUser(null);
       setFamilyId(null);
       setIsOfflineMode(false);

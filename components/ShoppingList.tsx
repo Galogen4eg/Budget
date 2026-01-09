@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -452,6 +453,10 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             </button>
             <button onClick={handleTelegramImport} disabled={isImportingTg} className="w-11 h-11 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shrink-0">
                 {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
+            </button>
+            {/* NEW: Send to Telegram Button */}
+            <button onClick={handleSendListToTelegram} disabled={isSending || activeItems.length === 0} className="w-11 h-11 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shrink-0 disabled:opacity-50">
+                {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
             </button>
         </div>
 

@@ -55,33 +55,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           setUser(currentUser);
           
-          // Try to get cached family ID first to speed up load / enable offline
+          // Попытка получить кэшированный familyId для ускорения (опционально)
           const cachedFid = localStorage.getItem('cached_familyId');
-          if (cachedFid) {
-              setFamilyId(cachedFid);
-          }
+          // Но мы НЕ полагаемся только на него, всегда проверяем DB для авторизованных юзеров
 
           try {
             const fid = await getOrInitUserFamily(currentUser);
             if (fid) {
                 setFamilyId(fid);
                 localStorage.setItem('cached_familyId', fid);
+                setIsOfflineMode(false);
+            } else {
+                console.error("Family ID is null after init");
             }
           } catch (e) {
-            console.error("Family Init Error (Likely Offline):", e);
-            setIsOfflineMode(true);
-            // If we have a cached ID, we are fine. If not, user is stuck offline without data access.
-            if (!cachedFid) {
-                // Potential improvement: allow creating local-only family here
+            console.error("Family Init Failed:", e);
+            // Если ошибка сети/базы, но у нас есть кэш - пробуем работать с кэшем ID,
+            // но флаг isOfflineMode переводим в true
+            if (cachedFid) {
+                setFamilyId(cachedFid);
             }
+            setIsOfflineMode(true);
           }
           setLoading(false);
         } else {
-          // No user found - stop loading and let the LoginScreen handle it
-          // Only reset if we are NOT in local demo mode
-          if (loading) {
-             setLoading(false);
-          }
+          // Пользователь вышел
+          setUser(null);
+          setFamilyId(null);
+          localStorage.removeItem('cached_familyId');
+          setLoading(false);
         }
       });
     };
@@ -99,17 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
           console.error("Google Auth Error:", error);
-          
           if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
               try {
-                  // Fallback to redirect if popup is blocked
                   await signInWithRedirect(auth, googleProvider);
                   return;
               } catch (redirectError) {
                   console.error("Redirect Error:", redirectError);
               }
           }
-          
           setLoading(false);
           alert(`Ошибка входа через Google: ${error.message}`);
       }
@@ -120,49 +119,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
           await signInAnonymously(auth);
       } catch (e: any) {
-          const code = e.code || '';
+          console.error("Auth Error:", e);
           const msg = e.message || '';
           
-          // 1. Fallback for disabled Anonymous Auth in Firebase Console
-          if (code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted-operation')) {
-              console.warn("Anonymous auth disabled on server. Entering Local Demo Mode.");
-              
-              // Create a Mock User
+          // Локальный демо режим, если Firebase Auth недоступен
+          if (msg.includes('admin-restricted') || msg.includes('network-request-failed')) {
+              console.warn("Falling back to Local Demo Mode");
+              // Mock User
               const mockUser = {
                   uid: 'demo-local-user',
                   displayName: 'Демо Пользователь',
                   email: 'demo@local',
-                  emailVerified: true,
                   isAnonymous: true,
-                  metadata: {},
-                  providerData: [],
-                  refreshToken: '',
-                  tenantId: null,
-                  delete: async () => {},
-                  getIdToken: async () => 'mock-token',
-                  getIdTokenResult: async () => ({ token: 'mock', createTime: '', expirationTime: '', authTime: '', signInProvider: 'anon', claims: {}, signInSecondFactor: null, issuedAtTime: '' }),
-                  reload: async () => {},
-                  toJSON: () => ({}),
-                  phoneNumber: null,
-                  photoURL: null,
+                  getIdToken: async () => 'mock',
               } as unknown as User;
 
               setUser(mockUser);
-              setFamilyId(null); 
+              setFamilyId(null); // Explicit null triggers DataContext offline/demo mode
               setIsOfflineMode(true);
               setLoading(false);
               return;
           }
-
-          console.error("Auth Error:", e);
-
-          // 2. Check specifically for network error
-          if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
-              console.warn("Auth: Network request failed. Running in Offline/Demo mode.");
-              setIsOfflineMode(true);
-          } else {
-              alert(`Ошибка входа: ${msg}`);
-          }
+          
+          alert(`Ошибка входа: ${msg}`);
           setLoading(false); 
       }
   };
@@ -170,12 +149,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
       try {
           await signOut(auth);
-          localStorage.removeItem('cached_familyId');
       } catch (e) {
           console.warn("Sign out error", e);
       }
       setUser(null);
       setFamilyId(null);
+      localStorage.removeItem('cached_familyId');
       setIsOfflineMode(false);
   };
 

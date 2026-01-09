@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
   Debt, Project, PantryItem, MeterReading, 
@@ -104,7 +104,7 @@ const DataContext = createContext<DataContextType>({} as DataContextType);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { familyId, user } = useAuth();
+  const { familyId, user, loading: authLoading } = useAuth();
 
   // --- Data State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -141,6 +141,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [savingsRate, setSavingsRate] = useState(10);
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
 
+  // Ref to track initial load to avoid overwriting local storage with empty states
+  const isInitialLoad = useRef(true);
+
   // --- Subscriptions ---
   useEffect(() => {
     // Always try to load global rules, even if family isn't ready
@@ -149,8 +152,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (!familyId) {
-        // Load demo data if no family
-        setTransactions(DEMO_TRANSACTIONS);
+        // Load data from LocalStorage if available, otherwise use defaults
+        const loadLocal = (key: string, setter: (val: any) => void, fallback?: any) => {
+            const stored = localStorage.getItem(`local_${key}`);
+            if (stored) {
+                try {
+                    setter(JSON.parse(stored));
+                } catch (e) {
+                    console.error(`Failed to parse local_${key}`, e);
+                    if (fallback) setter(fallback);
+                }
+            } else if (fallback) {
+                setter(fallback);
+            }
+        };
+
+        loadLocal('transactions', setTransactions, DEMO_TRANSACTIONS);
+        loadLocal('shopping', setShoppingItems, []);
+        loadLocal('events', setEvents, []);
+        loadLocal('pantry', setPantryState, []);
+        loadLocal('goals', setGoals, []);
+        loadLocal('debts', setDebts, []);
+        loadLocal('projects', setProjects, []);
+        loadLocal('loyalty', setLoyaltyCards, []);
+        loadLocal('wishlist', setWishlist, []);
+        loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s})), DEFAULT_SETTINGS);
+        
+        // Members need special handling to ensure user is there
+        const storedMembers = localStorage.getItem('local_members');
+        if (storedMembers) {
+            setMembers(JSON.parse(storedMembers));
+        }
+
+        isInitialLoad.current = false;
         return unsubGlobal;
     }
 
@@ -182,8 +216,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
     ];
 
+    isInitialLoad.current = false;
     return () => unsubs.forEach(u => u());
   }, [familyId]);
+
+  // --- Local Storage Sync (For Demo/Offline Mode) ---
+  useEffect(() => {
+      // Only save to local storage if:
+      // 1. Not loading auth
+      // 2. Not initial load
+      // 3. No family ID (or explicit offline mode)
+      if (!authLoading && !isInitialLoad.current && !familyId) {
+          localStorage.setItem('local_transactions', JSON.stringify(transactions));
+          localStorage.setItem('local_shopping', JSON.stringify(shoppingItems));
+          localStorage.setItem('local_events', JSON.stringify(events));
+          localStorage.setItem('local_pantry', JSON.stringify(pantry));
+          localStorage.setItem('local_goals', JSON.stringify(goals));
+          localStorage.setItem('local_debts', JSON.stringify(debts));
+          localStorage.setItem('local_projects', JSON.stringify(projects));
+          localStorage.setItem('local_loyalty', JSON.stringify(loyaltyCards));
+          localStorage.setItem('local_wishlist', JSON.stringify(wishlist));
+          localStorage.setItem('local_settings', JSON.stringify(settings));
+          localStorage.setItem('local_members', JSON.stringify(members));
+      }
+  }, [
+      authLoading, familyId, transactions, shoppingItems, events, pantry, 
+      goals, debts, projects, loyaltyCards, wishlist, settings, members
+  ]);
 
   // Safety net for categories
   useEffect(() => {

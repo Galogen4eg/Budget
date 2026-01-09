@@ -10,10 +10,12 @@ import {
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send
+  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
+  Cloud, CloudOff, Wifi, WifiOff
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
+import { auth } from '../firebase'; // Import auth to show current user email
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -57,7 +59,7 @@ const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
   { id: 'services', label: 'Сервисы', icon: <AppWindow size={20} /> },
   { id: 'widgets', label: 'Виджеты', icon: <LayoutGrid size={20} /> },
   { id: 'telegram', label: 'Telegram и уведомления', icon: <BellRing size={20} /> },
-  { id: 'family', label: 'Семья', icon: <Share size={20} /> },
+  { id: 'family', label: 'Семья и Доступ', icon: <Share size={20} /> },
 ];
 
 const PRESET_COLORS = [ '#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2', '#1C1C1E' ];
@@ -193,23 +195,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       const isDark = settings.theme === 'dark';
       const nextTheme = isDark ? 'light' : 'dark';
 
-      // Check if browser supports View Transitions
       if (!(document as any).startViewTransition) {
           handleChange('theme', nextTheme);
           return;
       }
 
-      // Get click position
       const x = e.clientX;
       const y = e.clientY;
-
-      // Calculate radius to the furthest corner
       const endRadius = Math.hypot(
           Math.max(x, window.innerWidth - x),
           Math.max(y, window.innerHeight - y)
       );
 
-      // Perform transition
       const transition = (document as any).startViewTransition(() => {
           handleChange('theme', nextTheme);
       });
@@ -225,7 +222,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
               {
                   duration: 500,
                   easing: "ease-in-out",
-                  // Use the pseudo-element of the *new* view
                   pseudoElement: "::view-transition-new(root)",
               }
           );
@@ -234,6 +230,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const renderSectionContent = () => {
     switch (activeSection) {
+        // ... (Other cases remain unchanged: budget, members, categories, navigation, services, widgets, telegram) ...
         case 'budget': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-6 border border-gray-100 dark:border-white/10 shadow-sm">
@@ -493,17 +490,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         );
         case 'family': return (
             <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm text-center">
-                    <h3 className="text-lg font-bold mb-4">Семейный доступ</h3>
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4">
-                        <p className="text-xs font-bold text-gray-400 mb-1">ID вашей семьи</p>
-                        <p className="font-mono text-lg font-bold text-blue-500 break-all select-all">{currentFamilyId}</p>
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <h3 className="text-lg font-bold mb-4 text-[#1C1C1E] dark:text-white">Семейный доступ</h3>
+                    
+                    {/* Status Card */}
+                    <div className={`p-5 rounded-2xl flex items-center gap-4 mb-6 ${currentFamilyId ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-100 dark:border-orange-900/30'}`}>
+                        <div className={`p-3 rounded-full ${currentFamilyId ? 'bg-white/50 dark:bg-white/10' : 'bg-white/50 dark:bg-white/10'}`}>
+                            {currentFamilyId ? <Cloud size={24} /> : <CloudOff size={24} />}
+                        </div>
+                        <div>
+                            <div className="font-black text-sm uppercase tracking-wide">
+                                {currentFamilyId ? 'Синхронизация активна' : 'Локальный режим'}
+                            </div>
+                            <div className="text-xs mt-1 font-medium opacity-80">
+                                {auth.currentUser?.email ? (
+                                    <>Аккаунт: {auth.currentUser.email}</>
+                                ) : (
+                                    <>Вы вошли как Гость</>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <button onClick={() => {
-                        const link = `${window.location.origin}/?join=${currentFamilyId}`;
-                        if (navigator.share) navigator.share({ title: 'Семейный Бюджет', text: 'Присоединяйся к нашему бюджету!', url: link });
-                        else { navigator.clipboard.writeText(link); alert("Ссылка скопирована"); }
-                    }} className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"><Share size={16} /> Поделиться ссылкой</button>
+
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Ваш Family ID</p>
+                        <p className={`font-mono text-lg font-bold break-all select-all ${currentFamilyId ? 'text-blue-500' : 'text-gray-400 italic'}`}>
+                            {currentFamilyId || 'Не присвоен (Данные только на этом устройстве)'}
+                        </p>
+                    </div>
+
+                    {currentFamilyId && (
+                        <button onClick={() => {
+                            const link = `${window.location.origin}/?join=${currentFamilyId}`;
+                            if (navigator.share) navigator.share({ title: 'Семейный Бюджет', text: 'Присоединяйся к нашему бюджету!', url: link });
+                            else { navigator.clipboard.writeText(link); alert("Ссылка скопирована"); }
+                        }} className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform">
+                            <Share size={16} /> Поделиться ссылкой
+                        </button>
+                    )}
                 </div>
             </div>
         );

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn } from 'lucide-react';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, FamilyEvent, AppNotification 
 } from './types';
@@ -72,7 +72,7 @@ const pageTransition = {
 };
 
 export default function App() {
-  const { user, familyId, loading: isAuthLoading, isOfflineMode, logout } = useAuth();
+  const { user, familyId, loading: isAuthLoading, isOfflineMode, logout, enterDemoMode } = useAuth();
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
@@ -113,6 +113,7 @@ export default function App() {
   const [editingMandatoryExpense, setEditingMandatoryExpense] = useState<MandatoryExpense | null>(null);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
+  const [showLoadingFallback, setShowLoadingFallback] = useState(false);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -122,6 +123,19 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  // Safety timer for loading state
+  useEffect(() => {
+      let timer: any;
+      if (isAuthLoading) {
+          timer = setTimeout(() => {
+              setShowLoadingFallback(true);
+          }, 7000); // Show fallback after 7 seconds
+      } else {
+          setShowLoadingFallback(false);
+      }
+      return () => clearTimeout(timer);
+  }, [isAuthLoading]);
 
   useEffect(() => {
     if (familyId && (!settings.widgets || settings.widgets.length === 0)) {
@@ -170,8 +184,6 @@ export default function App() {
               const daysUntilDue = expense.day - currentDay;
               
               if (daysUntilDue === 5 || daysUntilDue === 1) {
-                  // Only add if not already notified today for this specific expense
-                  // (Logic simplified here: we recreate the list, real app might persist "notified" state)
                   newNotifications.push({
                       id: `mandatory_${expense.id}_${daysUntilDue}`,
                       title: 'Обязательный платеж',
@@ -193,7 +205,6 @@ export default function App() {
           }
       });
 
-      // Simple deduplication based on ID prefix for this session demo
       if (newNotifications.length > 0) {
           setNotifications(prev => {
               const uniqueNew = newNotifications.filter(n => !prev.some(p => p.id === n.id));
@@ -244,29 +255,18 @@ export default function App() {
   };
 
   const handleSendEventToTelegram = async (event: FamilyEvent) => {
-      // Build message parts dynamically to avoid empty fields
       const parts: string[] = [];
-
-      // 1. Header (Title)
       parts.push(`📅 *${event.title}*`);
-
-      // 2. Date & Time
       const dateStr = new Date(event.date).toLocaleDateString('ru-RU', {
           weekday: 'long', day: 'numeric', month: 'long'
       });
       parts.push(`🕒 ${dateStr} в ${event.time}`);
-
-      // 3. Duration (Optional)
       if (event.duration && event.duration > 0) {
           parts.push(`⏳ Длительность: ${event.duration} ч.`);
       }
-
-      // 4. Description (Optional)
       if (event.description && event.description.trim()) {
           parts.push(`\n📝 ${event.description.trim()}`);
       }
-
-      // 5. Participants (Optional)
       if (event.memberIds && event.memberIds.length > 0) {
           const memberNames = event.memberIds
               .map(id => members.find(m => m.id === id)?.name)
@@ -277,39 +277,31 @@ export default function App() {
               parts.push(`👥 Участники: ${memberNames}`);
           }
       }
-
-      // 6. Checklist (Optional)
       if (event.checklist && event.checklist.length > 0) {
           const checkLines = event.checklist.map(item => 
               `${item.completed ? '✅' : '⬜'} ${item.text}`
           );
           parts.push(`\n📋 *Чек-лист:*\n${checkLines.join('\n')}`);
       }
-
       const text = parts.join('\n');
       return await sendTelegramMessage(text);
   };
 
   const handleSendShoppingListToTelegram = async (items: ShoppingItem[]) => {
       if (items.length === 0) return false;
-      
       let text = settings.shoppingTemplate || `🛒 *Список покупок*\n\n{items}`;
-      
       const itemsList = items.map(i => {
-          const catLabel = categories.find(c => c.id === i.category)?.label || '';
-          return `• ${i.title} (${i.amount} ${i.unit}) ${catLabel ? `[${catLabel}]` : ''}`;
+          // Removed category label from template
+          return `• ${i.title} (${i.amount} ${i.unit})`;
       }).join('\n');
-
       const replacements: Record<string, string> = {
           '{items}': itemsList,
           '{total}': String(items.length),
           '{date}': new Date().toLocaleDateString('ru-RU')
       };
-
       for (const [key, val] of Object.entries(replacements)) {
           text = text.replace(new RegExp(key, 'g'), val);
       }
-
       return await sendTelegramMessage(text);
   };
 
@@ -426,7 +418,6 @@ export default function App() {
   const isWidgetEnabled = (id: string) => {
       const config = settings.widgets?.find(w => w.id === id);
       const isVisible = config ? config.isVisible : true;
-      // Also check data requirements
       const hasTransactions = filteredTransactions.length > 0;
       if (['category_analysis', 'month_chart', 'recent_transactions'].includes(id) && !hasTransactions) return false;
       return isVisible;
@@ -434,7 +425,29 @@ export default function App() {
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000]"><div className="animate-spin text-blue-500"><Settings2 size={32}/></div></div>;
+  if (isAuthLoading) {
+      return (
+          <div className="flex flex-col h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000] gap-4 p-6 text-center">
+              <div className="animate-spin text-blue-500"><Settings2 size={32}/></div>
+              {showLoadingFallback && (
+                  <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="space-y-3">
+                      <p className="text-sm font-bold text-gray-500">Авторизация занимает больше времени...</p>
+                      <button 
+                        onClick={() => {
+                            if (confirm("Вы перейдете в локальный Демо-режим без синхронизации. Продолжить?")) {
+                                enterDemoMode();
+                            }
+                        }} 
+                        className="bg-white dark:bg-[#1C1C1E] text-blue-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center gap-2 mx-auto"
+                      >
+                          <LogIn size={16} /> Войти в Демо-режим
+                      </button>
+                  </motion.div>
+              )}
+          </div>
+      );
+  }
+
   if (!user) return <LoginScreen />;
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => { setPinMode(null); setIsAppUnlocked(true); }} onForgot={() => logout()} /></Suspense>;
 

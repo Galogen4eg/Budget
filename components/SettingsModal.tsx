@@ -11,7 +11,7 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff
+  Cloud, CloudOff, Wifi, WifiOff, Cpu
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
@@ -132,6 +132,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [ruleCategory, setRuleCategory] = useState(categories[0]?.id || 'other');
   const [deleteStart, setDeleteStart] = useState('');
   const [deleteEnd, setDeleteEnd] = useState('');
+
+  // Check if API key is present
+  const isAIEnabled = !!process.env.API_KEY;
 
   const handleChange = (key: keyof AppSettings, value: any) => onUpdate({ ...settings, [key]: value });
 
@@ -538,10 +541,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <label className="text-xs font-bold text-gray-500 ml-2">Название семьи</label>
                     <input type="text" value={settings.familyName} onChange={(e) => handleChange('familyName', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-transparent p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none" />
                   </div>
+                  
+                  {/* Theme Toggle */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
                       <div className="flex items-center gap-3"><div className="p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm text-gray-500 dark:text-white">{settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</div><span className="font-bold text-sm">Темная тема</span></div>
                       <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
                   </div>
+
+                  {/* AI Status Indicator */}
+                  <div className={`flex items-center justify-between p-4 rounded-2xl border ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
+                      <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/10 text-gray-400'}`}>
+                              <Cpu size={20} />
+                          </div>
+                          <div>
+                              <span className={`font-bold text-sm ${isAIEnabled ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  AI Функции
+                              </span>
+                              <div className="text-[10px] opacity-70">
+                                  {isAIEnabled ? 'Ключ активирован' : 'Создайте .env файл с GEMINI_API_KEY'}
+                              </div>
+                          </div>
+                      </div>
+                      <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                          {isAIEnabled ? 'ON' : 'OFF'}
+                      </div>
+                  </div>
+
                   <div className="pt-2"><button onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} className="w-full flex items-center justify-center gap-3 p-5 bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"><Smartphone size={20} /> Установить на телефон</button></div>
                   <div className="pt-4 border-t dark:border-white/10"><button onClick={onLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-500 font-bold bg-red-50 dark:bg-red-500/10 rounded-xl hover:bg-red-100"><LogOut size={18} /> Выйти</button></div>
                 </div>

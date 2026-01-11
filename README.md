@@ -1,20 +1,34 @@
+
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# FamilyBudget (Семейный Бюджет)
 
-This contains everything you need to run your app locally.
+Современное веб-приложение для учета семейных финансов с поддержкой AI.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1v9Yo5PFa4xrwB_wvIUQsZHARrZ8AgrFK
+## 🚀 Как запустить (Web)
 
-## Run Locally
+1. **Установка зависимостей**
+   ```bash
+   npm install
+   ```
 
-**Prerequisites:**  Node.js
+2. **Настройка AI (Gemini API)**
+   Для работы умного распознавания чеков и категорий:
+   - Получите ключ на [Google AI Studio](https://aistudio.google.com/).
+   - Создайте файл `.env` в корне проекта.
+   - Добавьте туда ключ:
+     ```env
+     GEMINI_API_KEY=AIzaSy...ваш_ключ...
+     ```
 
+3. **Запуск локально**
+   ```bash
+   npm run dev
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📱 Сборка Android (APK)
+
+Для сборки мобильного приложения используется GitHub Actions.
+Ключ API нужно добавить в **Settings -> Secrets and variables -> Actions** репозитория под именем `GEMINI_API_KEY`.

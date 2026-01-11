@@ -164,11 +164,12 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   };
 
   const categorizeItemWithAI = async (itemId: string, itemTitle: string) => {
+      // Silent check for API Key - don't even start if missing
+      if (!process.env.API_KEY) return;
+
       setCategorizingIds(prev => new Set(prev).add(itemId));
       
       try {
-          if (!process.env.API_KEY) throw new Error("No API Key");
-
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
               model: "gemini-3-flash-preview",
@@ -189,7 +190,8 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           }
 
       } catch (error) {
-          console.error("AI Categorization failed:", error);
+          // Silent failure is better than spamming console for offline users
+          // console.error("AI Categorization failed:", error);
       } finally {
           setCategorizingIds(prev => {
               const next = new Set(prev);

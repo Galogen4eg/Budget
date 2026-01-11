@@ -23,22 +23,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   privacyMode: false,
   theme: 'light', // Default theme
   widgets: [
-    // Left Column (Tall)
     { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
-    // Center Top (Wide)
     { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
-    // Center Bottom Left
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
-    // Center Bottom Right
     { id: 'goals', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
-    // Right Column (Tall)
     { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
-    
     { id: 'balance', isVisible: false, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'projects'], // Only Wallet and Projects by default
+  enabledServices: ['wallet', 'projects'], 
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,
   pushEnabled: false,
@@ -47,13 +41,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   initialBalance: 0,
   salaryDates: [10, 25],
   mandatoryExpenses: [],
-  enableSmartReserve: true, // New Default
+  enableSmartReserve: true,
   manualReservedAmount: 0,
   manualPaidExpenses: {},
-  ignoredDuplicatePairs: [], // Default empty
+  ignoredDuplicatePairs: [],
   alfaMapping: { date: 'дата', time: '', amount: 'сумма', category: '', note: 'описание' },
-  
-  // Detailed default templates
   eventTemplate: `📅 *{title}*\n\n🕒 {date} в {time} (на {duration}ч)\n📝 {desc}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`,
   shoppingTemplate: `🛒 *Список покупок* ({total} поз.)\n📅 {date}\n\n{items}\n\nКупите по дороге домой! 🏠`,
 };
@@ -92,6 +84,10 @@ interface DataContextType {
   setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
   addReminder: (text: string, delayMs: number) => void;
   
+  // Notification Management
+  dismissedNotificationIds: string[];
+  dismissNotification: (id: string) => void;
+
   // Derived Stats
   filteredTransactions: Transaction[];
   totalBalance: number;
@@ -115,62 +111,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pantry, setPantryState] = useState<PantryItem[]>([]);
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [members, setMembers] = useState<FamilyMember[]>([]); // Start empty to avoid demo flash
+  const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [aiKnowledge, setAiKnowledge] = useState<AIKnowledgeItem[]>([]);
   
-  // Computed learned rules (Local overrides Global)
   const learnedRules = useMemo(() => {
-      // Map global rules first
       const ruleMap = new Map<string, LearnedRule>();
       globalRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
-      // Override with local rules
       localRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
       return Array.from(ruleMap.values());
   }, [localRules, globalRules]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   
-  // Services Data
   const [debts, setDebts] = useState<Debt[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
-  // UI State moved here as it affects derived calculations
   const [savingsRate, setSavingsRate] = useState(10);
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
 
-  // Ref to track initial load to avoid overwriting local storage with empty states
   const isInitialLoad = useRef(true);
 
   // --- Subscriptions ---
   useEffect(() => {
-    // Always try to load global rules, even if family isn't ready
     const unsubGlobal = subscribeToGlobalRules((rules) => {
         setGlobalRules(rules);
     });
 
     if (!familyId) {
-        // Load data from LocalStorage if available, otherwise use defaults
         const loadLocal = (key: string, setter: (val: any) => void, fallback?: any) => {
             const stored = localStorage.getItem(`local_${key}`);
             if (stored) {
                 try {
                     const parsed = JSON.parse(stored);
-                    
-                    // CRITICAL: If we are in Demo Mode (Offline), AND the local data is an empty array,
-                    // AND we have a fallback (Demo data), use the fallback. 
-                    // This fixes the issue where a previous clean session prevents demo data from loading.
                     if (isOfflineMode && Array.isArray(parsed) && parsed.length === 0 && fallback && Array.isArray(fallback) && fallback.length > 0) {
                         setter(fallback);
                         return;
                     }
-                    
                     setter(parsed);
                 } catch (e) {
                     console.error(`Failed to parse local_${key}`, e);
@@ -181,7 +165,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        // Determine fallback data based on isOfflineMode (DEMO MODE)
         const demoTransactions = isOfflineMode ? DEMO_TRANSACTIONS : [];
         const demoShopping = isOfflineMode ? DEMO_SHOPPING_ITEMS : [];
         const demoEvents = isOfflineMode ? DEMO_EVENTS : [];
@@ -202,8 +185,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('reminders', setReminders, []);
         loadLocal('knowledge', setAiKnowledge, []);
         loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s})), DEFAULT_SETTINGS);
+        loadLocal('dismissed_notifs', setDismissedNotificationIds, []);
         
-        // Load members or fallback to demo/empty
         const storedMembers = localStorage.getItem('local_members');
         if (storedMembers) {
             const parsedMembers = JSON.parse(storedMembers);
@@ -246,13 +229,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
       })
     ];
+    
+    // Always load dismissed notifications from local storage (device specific preference)
+    const storedDismissed = localStorage.getItem('local_dismissed_notifs');
+    if (storedDismissed) {
+        try { setDismissedNotificationIds(JSON.parse(storedDismissed)); } catch {}
+    }
 
     isInitialLoad.current = false;
     return () => unsubs.forEach(u => u());
   }, [familyId, isOfflineMode]);
 
-  // --- Local Storage Sync (For Demo/Offline Mode & Reminders) ---
+  // --- Local Storage Sync ---
   useEffect(() => {
+      // Sync dismissed notifications to local storage immediately
+      localStorage.setItem('local_dismissed_notifs', JSON.stringify(dismissedNotificationIds));
+
       if (!authLoading && !isInitialLoad.current && !familyId) {
           localStorage.setItem('local_transactions', JSON.stringify(transactions));
           localStorage.setItem('local_shopping', JSON.stringify(shoppingItems));
@@ -266,15 +258,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('local_settings', JSON.stringify(settings));
           localStorage.setItem('local_members', JSON.stringify(members));
           localStorage.setItem('local_knowledge', JSON.stringify(aiKnowledge));
-          localStorage.setItem('local_reminders', JSON.stringify(reminders)); // Always local
+          localStorage.setItem('local_reminders', JSON.stringify(reminders));
       } else {
-          // Keep reminders local even when signed in (they are device-specific usually)
           localStorage.setItem('local_reminders', JSON.stringify(reminders));
       }
   }, [
       authLoading, familyId, transactions, shoppingItems, events, pantry, 
-      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, aiKnowledge
+      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, aiKnowledge, dismissedNotificationIds
   ]);
+
+  const dismissNotification = (id: string) => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setDismissedNotificationIds(prev => [...prev, id]);
+  };
 
   // --- Reminder Logic ---
   useEffect(() => {
@@ -288,7 +284,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               
               if (due.length > 0) {
                   hasChanges = true;
-                  // Trigger notifications
                   const newNotifs: AppNotification[] = due.map(r => ({
                       id: `reminder_${r.id}`,
                       title: 'Напоминание ⏰',
@@ -298,29 +293,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       isRead: false
                   }));
                   
-                  setNotifications(curr => [...newNotifs, ...curr]);
+                  // Filter out if they were somehow already dismissed/seen in this session
+                  const filteredNew = newNotifs.filter(n => !dismissedNotificationIds.includes(n.id));
                   
-                  // Trigger System Notification
-                  if ("Notification" in window && Notification.permission === "granted") {
-                      due.forEach(r => new Notification("Напоминание", { body: r.text, icon: '/favicon.ico' }));
+                  if (filteredNew.length > 0) {
+                      setNotifications(curr => {
+                          // Prevent duplicates in current list
+                          const unique = filteredNew.filter(n => !curr.some(c => c.id === n.id));
+                          return [...unique, ...curr];
+                      });
+                      
+                      if ("Notification" in window && Notification.permission === "granted") {
+                          due.forEach(r => new Notification("Напоминание", { body: r.text, icon: '/favicon.ico' }));
+                      }
+                      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
                   }
-                  
-                  // Vibrate
-                  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
               }
               
               return hasChanges ? upcoming : prev;
           });
       };
 
-      // Request permission on mount if needed
       if ("Notification" in window && Notification.permission === "default") {
           Notification.requestPermission();
       }
 
-      const interval = setInterval(checkReminders, 5000); // Check every 5s
+      const interval = setInterval(checkReminders, 5000); 
       return () => clearInterval(interval);
-  }, []);
+  }, [dismissedNotificationIds]);
 
   const addReminder = (text: string, delayMs: number) => {
       const newReminder: Reminder = {
@@ -347,7 +347,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (familyId) await deleteItem(familyId, 'knowledge', id);
   };
 
-  // Safety net for categories
   useEffect(() => {
       if (categories.length === 0) {
           setCategories(INITIAL_CATEGORIES);
@@ -358,7 +357,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   }, [categories, familyId]);
 
-  // --- Logic Helpers ---
   const handlePantryUpdate = async (dataOrFn: PantryItem[] | ((prev: PantryItem[]) => PantryItem[])) => {
       const newData = typeof dataOrFn === 'function' ? dataOrFn(pantry) : dataOrFn;
       
@@ -372,7 +370,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPantryState(newData);
   };
 
-  // --- Derived Calculations ---
   const filteredTransactions = useMemo(() => {
       if (budgetMode === 'family') return transactions;
       const currentUserId = user?.uid;
@@ -383,21 +380,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const totalBalance = useMemo(() => {
     let relevantTransactions = filteredTransactions;
-
-    // If a start date is set for the initial balance, filter transactions
     if (settings.initialBalanceDate) {
         const startDate = new Date(settings.initialBalanceDate);
-        // Normalize time to start of day to be inclusive
         startDate.setHours(0, 0, 0, 0);
-        
-        relevantTransactions = filteredTransactions.filter(t => {
-            return new Date(t.date).getTime() >= startDate.getTime();
-        });
+        relevantTransactions = filteredTransactions.filter(t => new Date(t.date).getTime() >= startDate.getTime());
     }
-
     const income = relevantTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const expense = relevantTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    
     return (settings.initialBalance || 0) + income - expense;
   }, [filteredTransactions, settings.initialBalance, settings.initialBalanceDate]);
 
@@ -416,7 +405,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    learnedRules, setLearnedRules: setLocalRules, // Setter updates local rules
+    learnedRules, setLearnedRules: setLocalRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings, setSettings,
     debts, setDebts,
@@ -424,7 +413,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loyaltyCards, setLoyaltyCards,
     wishlist, setWishlist,
     notifications, setNotifications,
-    addReminder, // Export helper
+    addReminder,
+    dismissedNotificationIds,
+    dismissNotification,
     
     filteredTransactions,
     totalBalance,

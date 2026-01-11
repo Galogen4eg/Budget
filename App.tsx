@@ -89,7 +89,8 @@ export default function App() {
     currentMonthSpent,
     savingsRate, setSavingsRate,
     budgetMode, setBudgetMode,
-    notifications, setNotifications
+    notifications, setNotifications,
+    dismissedNotificationIds // Access dismissed list
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -157,7 +158,7 @@ export default function App() {
       }
   }, [settings.theme]);
 
-  // Mandatory Expenses Check Logic
+  // Mandatory Expenses Check Logic - REFINED
   useEffect(() => {
       if (!settings.mandatoryExpenses || settings.mandatoryExpenses.length === 0) return;
 
@@ -185,35 +186,45 @@ export default function App() {
           if (!isPaid) {
               const daysUntilDue = expense.day - currentDay;
               
-              if (daysUntilDue === 5 || daysUntilDue === 1) {
-                  newNotifications.push({
-                      id: `mandatory_${expense.id}_${daysUntilDue}`,
-                      title: 'Обязательный платеж',
-                      message: `Не забудьте оплатить "${expense.name}" (${expense.amount} ${settings.currency}) через ${daysUntilDue === 1 ? '1 день' : '5 дней'}.`,
-                      type: 'warning',
-                      date: new Date().toISOString(),
-                      isRead: false
-                  });
-              } else if (daysUntilDue < 0) {
-                   newNotifications.push({
-                      id: `mandatory_${expense.id}_overdue`,
-                      title: 'Просроченный платеж',
-                      message: `Платеж "${expense.name}" был должен быть оплачен ${expense.day}-го числа.`,
-                      type: 'error',
-                      date: new Date().toISOString(),
-                      isRead: false
-                  });
+              // Generate Stable IDs for this month
+              const reminderId = `mandatory_${expense.id}_${daysUntilDue}`; 
+              
+              // Only create notification if it hasn't been dismissed
+              if (!dismissedNotificationIds.includes(reminderId)) {
+                  if (daysUntilDue === 5 || daysUntilDue === 1) {
+                      newNotifications.push({
+                          id: reminderId,
+                          title: 'Обязательный платеж',
+                          message: `Не забудьте оплатить "${expense.name}" (${expense.amount} ${settings.currency}) через ${daysUntilDue === 1 ? '1 день' : '5 дней'}.`,
+                          type: 'warning',
+                          date: new Date().toISOString(),
+                          isRead: false
+                      });
+                  } else if (daysUntilDue < 0) {
+                       const overdueId = `mandatory_${expense.id}_overdue`;
+                       if (!dismissedNotificationIds.includes(overdueId)) {
+                           newNotifications.push({
+                              id: overdueId,
+                              title: 'Просроченный платеж',
+                              message: `Платеж "${expense.name}" был должен быть оплачен ${expense.day}-го числа.`,
+                              type: 'error',
+                              date: new Date().toISOString(),
+                              isRead: false
+                          });
+                       }
+                  }
               }
           }
       });
 
       if (newNotifications.length > 0) {
           setNotifications(prev => {
+              // Ensure we don't add duplicates that are already visible
               const uniqueNew = newNotifications.filter(n => !prev.some(p => p.id === n.id));
               return [...uniqueNew, ...prev];
           });
       }
-  }, [settings.mandatoryExpenses, transactions]);
+  }, [settings.mandatoryExpenses, transactions, dismissedNotificationIds]);
 
   // Derived state: Transactions specific to the dashboard (Current Calendar Month Only)
   const dashboardTransactions = useMemo(() => {
@@ -356,7 +367,13 @@ export default function App() {
   };
 
   const handleDrillDown = (categoryId: string, merchantName?: string) => setDrillDownState({ categoryId, merchantName });
-  const handleClearFilters = () => { setFilterCategory(null); setFilterMerchant(null); };
+  
+  // FIX: Clear all filters including date
+  const handleClearFilters = () => { 
+      setFilterCategory(null); 
+      setFilterMerchant(null); 
+      setCalendarSelectedDate(null);
+  };
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
@@ -513,9 +530,9 @@ export default function App() {
                    SMART DASHBOARD LAYOUT (Flexbox Zones)
                    Mobile: Simple Flex-Col (Stack)
                    Desktop: 3-Column Layout (Left | Center | Right)
-                   Logic: If a column is empty, others stretch. If a widget in a col is empty, the other stretches vertically.
+                   Increased height to 550px for better chart visibility on desktop
                 */}
-                <div className="flex flex-col md:flex-row gap-6 md:h-[420px]">
+                <div className="flex flex-col md:flex-row gap-6 md:h-[550px]">
                     
                     {/* LEFT ZONE: Categories */}
                     {isWidgetEnabled('category_analysis') && (

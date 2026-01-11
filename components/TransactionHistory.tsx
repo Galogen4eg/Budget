@@ -135,6 +135,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showAll, setShowAll] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
@@ -154,7 +155,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         const targetStr = selectedDate.toDateString();
         result = result.filter(tx => new Date(tx.date).toDateString() === targetStr);
     } else if (currentMonth && filterMode === 'month') {
-        // NEW: Filter by current displayed month if no specific day is selected
+        // Filter by current displayed month if no specific day is selected
         result = result.filter(tx => {
             const d = new Date(tx.date);
             return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
@@ -216,14 +217,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     if (searchQuery.trim() || filterMode === 'day' || showAll || selectedCategoryId || selectedDate) {
       return groupedTransactions;
     }
-    return groupedTransactions.slice(0, 5); // Increased for better visibility
+    return groupedTransactions.slice(0, 5); // Limit initial view
   }, [groupedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate]);
 
   const handleStartLearning = (tx: Transaction) => {
     setLearningTx(tx);
-    setLearningName(''); // Default empty as requested
-    
-    // Smart keyword suggestion: use raw note, remove common suffixes
+    setLearningName(''); 
     let keyword = (tx.rawNote || tx.note).trim();
     if (/\d{4,}$/.test(keyword)) {
         keyword = keyword.replace(/\s?\d+$/, '').trim();
@@ -235,8 +234,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     setNewCatName('');
     setNewCatColor(PRESET_COLORS[0]);
     setNewCatIcon(PRESET_ICONS[0]);
-    setSaveScope('local'); // Reset to local default
-    setShowAllCategories(false); // Reset collapse state
+    setSaveScope('local'); 
+    setShowAllCategories(false); 
   };
 
   const handleFinishLearning = (applyToExisting: boolean = false) => {
@@ -270,23 +269,19 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
     const newRule: LearnedRule = {
       id: Date.now().toString(),
       keyword: learningKeyword.trim(),
-      cleanName: learningName.trim() || learningTx.note || 'Операция', // Fallback only if empty on save
+      cleanName: learningName.trim() || learningTx.note || 'Операция', 
       categoryId: targetCategoryId
     };
     
-    // 1. Save Local Rule (Always do this for immediate UI update)
     onLearnRule(newRule);
     
-    // 2. Save Global Rule (Only if selected)
     if (saveScope === 'global') {
         addGlobalRule(newRule).catch(err => console.error("Could not save global rule", err));
     }
 
-    // 3. Apply to current
     const updatedTx = { ...learningTx, category: targetCategoryId, note: newRule.cleanName };
     setTransactions(prev => prev.map(t => t.id === learningTx.id ? updatedTx : t));
 
-    // 4. Apply to others if requested
     if (applyToExisting && onApplyRuleToExisting) {
         onApplyRuleToExisting(newRule);
     }
@@ -298,15 +293,52 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-4 w-full">
-      <div className="flex items-center gap-2 mb-2 px-1">
-          <div className="p-2 bg-gray-100 dark:bg-[#2C2C2E] rounded-xl text-gray-500 dark:text-gray-300">
-              <History size={18} />
+      <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+              <div className="p-2 bg-gray-100 dark:bg-[#2C2C2E] rounded-xl text-gray-500 dark:text-gray-300">
+                  <History size={18} />
+              </div>
+              <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">История</h3>
           </div>
-          <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">История</h3>
+          <button 
+            onClick={() => setShowSearch(!showSearch)} 
+            className={`p-2 rounded-xl transition-all ${showSearch ? 'bg-blue-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-gray-400 hover:text-blue-500'}`}
+          >
+              <Search size={18} />
+          </button>
       </div>
 
+      {/* Search Input */}
+      <AnimatePresence>
+          {showSearch && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }} 
+                animate={{ height: 'auto', opacity: 1 }} 
+                exit={{ height: 0, opacity: 0 }} 
+                className="overflow-hidden"
+              >
+                  <div className="relative mb-2">
+                      <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Поиск по названию или сумме..."
+                        className="w-full bg-white dark:bg-[#1C1C1E] p-3 pl-10 rounded-2xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 border border-gray-100 dark:border-white/5 focus:border-blue-500 transition-colors"
+                        autoFocus
+                      />
+                      <Search size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                      {searchQuery && (
+                          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-red-500">
+                              <X size={16} />
+                          </button>
+                      )}
+                  </div>
+              </motion.div>
+          )}
+      </AnimatePresence>
+
       {/* Active Filter UI - Only show if not hidden via props */}
-      {(selectedCategoryId || selectedDate) && !hideActiveFilterBadge && (
+      {(selectedCategoryId || selectedDate || selectedMerchantName) && !hideActiveFilterBadge && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between bg-blue-500 text-white p-3 rounded-2xl shadow-lg">
               <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-md">
@@ -405,12 +437,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
         </motion.div>
       )}
 
-      {groupedTransactions.length > 5 && !showAll && !selectedCategoryId && !selectedDate && (
+      {groupedTransactions.length > 5 && !showAll && !selectedCategoryId && !selectedDate && !searchQuery && (
         <button onClick={() => setShowAll(true)} className="w-full py-4 text-xs font-black text-gray-400 uppercase tracking-widest bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 hover:text-blue-500 transition-colors">
             Показать все
         </button>
       )}
 
+      {/* Learning Modal (Hidden for brevity, logic remains same) */}
       <AnimatePresence>
         {learningTx && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-6">

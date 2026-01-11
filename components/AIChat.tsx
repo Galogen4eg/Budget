@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Bot, User, AlertCircle, Mic, MicOff, ShoppingBag, Calendar, Box, RefreshCw, Trash2, Sparkles, Clock, BrainCircuit, Settings, X } from 'lucide-react';
-import { GoogleGenAI, Content } from "@google/genai";
+import { Send, Bot, User, AlertCircle, Mic, MicOff, ShoppingBag, Calendar, Box, RefreshCw, Trash2, Sparkles, Clock, BrainCircuit, Settings, X, ImageIcon, Download } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 import { FamilyEvent, ShoppingItem, PantryItem, AppSettings } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +11,7 @@ import { addItemsBatch, saveSettings } from '../utils/db';
 interface Message {
   role: 'user' | 'model';
   text: string;
+  image?: string;
   isEventSuccess?: boolean;
   isShoppingSuccess?: boolean;
   isPantrySuccess?: boolean;
@@ -33,7 +34,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Привет! Я — Gemini, твой умный помощник. ✨\n\nЯ могу управлять приложением и менять настройки.\n\nПопробуй сказать:\n🌑 "Включи темную тему"\n🧠 "Запомни, что мы не едим острое"\n⏰ "Напомни выключить плиту через 20 минут"' }
+    { role: 'model', text: 'Привет! Я — Gemini, твой умный помощник. ✨\n\nЯ могу управлять приложением, менять настройки и даже генерировать картинки!\n\nПопробуй сказать:\n🌑 "Включи темную тему"\n🎨 "Нарисуй кота в космосе"\n🧠 "Запомни, что мы не едим острое"\n⏰ "Напомни выключить плиту через 20 минут"' }
   ]);
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -85,6 +86,15 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       setMessages([{ role: 'model', text: 'История очищена. О чем поговорим?' }]);
   };
 
+  const handleDownloadImage = (imageUrl: string) => {
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `gemini-generated-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   // --- Action Handlers ---
 
   const handleCreateEvent = async (event: FamilyEvent) => {
@@ -130,6 +140,39 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       setSettings(newSettings);
       if (familyId) {
           await saveSettings(familyId, newSettings);
+      }
+  };
+
+  const handleGenerateImage = async (prompt: string) => {
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash-image',
+              contents: { parts: [{ text: prompt }] },
+          });
+
+          // Find image part
+          let imageUrl = '';
+          if (response.candidates && response.candidates[0]?.content?.parts) {
+              for (const part of response.candidates[0].content.parts) {
+                  if (part.inlineData) {
+                      const base64EncodeString = part.inlineData.data;
+                      const mimeType = part.inlineData.mimeType || 'image/png';
+                      imageUrl = `data:${mimeType};base64,${base64EncodeString}`;
+                      break;
+                  }
+              }
+          }
+
+          if (imageUrl) {
+              setMessages(prev => [...prev, { role: 'model', text: `🎨 Вот картинка по запросу: "${prompt}"`, image: imageUrl }]);
+          } else {
+              setMessages(prev => [...prev, { role: 'model', text: "Не удалось сгенерировать изображение. Попробуйте другой запрос.", isError: true }]);
+          }
+
+      } catch (e: any) {
+          console.error("Image Gen Error:", e);
+          setMessages(prev => [...prev, { role: 'model', text: `Ошибка генерации изображения: ${e.message}`, isError: true }]);
       }
   };
 
@@ -182,8 +225,9 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       `;
 
       // 2. Prepare Chat History
-      const chatHistory: Content[] = messages
-        .filter(m => !m.isError)
+      // NOTE: Removed explicit type definition to avoid import errors
+      const chatHistory = messages
+        .filter(m => !m.isError && !m.image) // Filter out image responses from context to save tokens/avoid format issues
         .map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
@@ -217,6 +261,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
                 - Learn Fact (Save to Memory): { "action": "save_knowledge", "text": "We are allergic to nuts" }
                 - Update Settings: { "action": "update_settings", "updates": { "theme": "dark" } }
                   (Supported keys: theme ('light'|'dark'), currency (string), privacyMode (boolean), familyName (string)).
+                - Generate Image: { "action": "generate_image", "prompt": "A futuristic city" } (Use this if user asks to draw/generate an image).
 
                 DATA AWARENESS:
                 - Use [APP CONTEXT DATA] to answer questions about spending or current settings.
@@ -231,69 +276,91 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
       const responseText = response.text || '';
       let handled = false;
-      const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
       
-      // Try to parse JSON only if it looks like JSON
-      if (cleanJson.startsWith('{') && cleanJson.endsWith('}')) {
+      // IMPROVED JSON EXTRACTION
+      const firstBrace = responseText.indexOf('{');
+      const lastBrace = responseText.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const potentialJson = responseText.substring(firstBrace, lastBrace + 1);
+          
           try {
-              const data = JSON.parse(cleanJson);
+              const data = JSON.parse(potentialJson);
               
-              if (data.action === 'create_event') {
-                  const newEvent: FamilyEvent = {
-                      id: Date.now().toString(),
-                      title: data.title || 'Событие',
-                      description: data.description || 'AI',
-                      date: data.date || new Date().toISOString().split('T')[0],
-                      time: data.time || '12:00',
-                      duration: 1,
-                      memberIds: [],
-                      isTemplate: false,
-                      checklist: [],
-                      reminders: [60]
-                  };
-                  await handleCreateEvent(newEvent);
-                  setMessages(prev => [...prev, { role: 'model', text: `✅ Событие "${data.title}" создано на ${data.date} ${data.time}`, isEventSuccess: true }]);
-                  handled = true;
-              }
-              
-              if (data.action === 'add_shopping_items' && data.items) {
-                  await handleAddShoppingItems(data.items);
-                  setMessages(prev => [...prev, { role: 'model', text: `🛒 В список покупок добавлено: ${data.items.map((i:any)=>i.title).join(', ')}`, isShoppingSuccess: true }]);
-                  handled = true;
-              }
+              if (data.action) {
+                  // Extract conversation text (remove the JSON part)
+                  const conversationalText = (
+                      responseText.substring(0, firstBrace) + 
+                      responseText.substring(lastBrace + 1)
+                  ).trim();
 
-              if (data.action === 'add_pantry_items' && data.items) {
-                  await handleAddPantryItems(data.items);
-                  setMessages(prev => [...prev, { role: 'model', text: `📦 В кладовку добавлено: ${data.items.map((i:any)=>i.title).join(', ')}`, isPantrySuccess: true }]);
-                  handled = true;
-              }
+                  // Display conversational part if it exists
+                  if (conversationalText) {
+                      setMessages(prev => [...prev, { role: 'model', text: conversationalText }]);
+                  }
 
-              if (data.action === 'set_reminder' && data.text && data.delay_seconds) {
-                  addReminder(data.text, data.delay_seconds * 1000);
-                  const minutes = Math.round(data.delay_seconds / 60);
-                  setMessages(prev => [...prev, { role: 'model', text: `⏰ Таймер установлен! Напомню: "${data.text}" через ${minutes} мин.`, isReminderSuccess: true }]);
-                  handled = true;
-              }
+                  // Execute Actions
+                  if (data.action === 'create_event') {
+                      const newEvent: FamilyEvent = {
+                          id: Date.now().toString(),
+                          title: data.title || 'Событие',
+                          description: data.description || 'AI',
+                          date: data.date || new Date().toISOString().split('T')[0],
+                          time: data.time || '12:00',
+                          duration: 1,
+                          memberIds: [],
+                          isTemplate: false,
+                          checklist: [],
+                          reminders: [60]
+                      };
+                      await handleCreateEvent(newEvent);
+                      setMessages(prev => [...prev, { role: 'model', text: `✅ Событие "${data.title}" создано на ${data.date} ${data.time}`, isEventSuccess: true }]);
+                      handled = true;
+                  }
+                  
+                  if (data.action === 'add_shopping_items' && data.items) {
+                      await handleAddShoppingItems(data.items);
+                      setMessages(prev => [...prev, { role: 'model', text: `🛒 В список покупок добавлено: ${data.items.map((i:any)=>i.title).join(', ')}`, isShoppingSuccess: true }]);
+                      handled = true;
+                  }
 
-              if (data.action === 'save_knowledge' && data.text) {
-                  await addAIKnowledge(data.text);
-                  setMessages(prev => [...prev, { role: 'model', text: `🧠 Запомнил: "${data.text}"`, isKnowledgeSuccess: true }]);
-                  handled = true;
-              }
+                  if (data.action === 'add_pantry_items' && data.items) {
+                      await handleAddPantryItems(data.items);
+                      setMessages(prev => [...prev, { role: 'model', text: `📦 В кладовку добавлено: ${data.items.map((i:any)=>i.title).join(', ')}`, isPantrySuccess: true }]);
+                      handled = true;
+                  }
 
-              if (data.action === 'update_settings' && data.updates) {
-                  await handleUpdateSettings(data.updates);
-                  setMessages(prev => [...prev, { role: 'model', text: `⚙️ Настройки обновлены!`, isSettingsSuccess: true }]);
-                  handled = true;
-              }
+                  if (data.action === 'set_reminder' && data.text && data.delay_seconds) {
+                      addReminder(data.text, data.delay_seconds * 1000);
+                      const minutes = Math.round(data.delay_seconds / 60);
+                      setMessages(prev => [...prev, { role: 'model', text: `⏰ Таймер установлен! Напомню: "${data.text}" через ${minutes} мин.`, isReminderSuccess: true }]);
+                      handled = true;
+                  }
 
+                  if (data.action === 'save_knowledge' && data.text) {
+                      await addAIKnowledge(data.text);
+                      setMessages(prev => [...prev, { role: 'model', text: `🧠 Запомнил: "${data.text}"`, isKnowledgeSuccess: true }]);
+                      handled = true;
+                  }
+
+                  if (data.action === 'update_settings' && data.updates) {
+                      await handleUpdateSettings(data.updates);
+                      setMessages(prev => [...prev, { role: 'model', text: `⚙️ Настройки обновлены!`, isSettingsSuccess: true }]);
+                      handled = true;
+                  }
+
+                  if (data.action === 'generate_image' && data.prompt) {
+                      await handleGenerateImage(data.prompt);
+                      handled = true;
+                  }
+              }
           } catch (e) {
-              console.warn("AI JSON parse fail, treating as text:", e);
+              console.warn("AI returned text resembling JSON but parsing failed:", e);
           }
       }
 
       if (!handled) {
-          // It's a general conversation response
+          // If no JSON action was found or handled, show the entire response as text
           setMessages(prev => [...prev, { role: 'model', text: responseText }]);
       }
 
@@ -344,19 +411,32 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-purple-500 border border-purple-100 dark:border-purple-900/30') : 'bg-blue-500 text-white'}`}>
               {m.isError ? <AlertCircle size={16} /> : m.role === 'model' ? <Sparkles size={16} /> : <User size={16} />}
             </div>
-            <div className={`p-4 rounded-2xl max-w-[85%] text-sm font-medium shadow-sm whitespace-pre-wrap leading-relaxed ${
+            <div className={`p-4 rounded-2xl max-w-[85%] text-sm font-medium shadow-sm whitespace-pre-wrap leading-relaxed flex flex-col gap-2 ${
                 m.role === 'model' 
                     ? (m.isEventSuccess ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 border border-blue-100 dark:border-blue-900/30' : m.isShoppingSuccess ? 'bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-200 border border-green-100 dark:border-green-900/30' : m.isPantrySuccess ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-200 border border-orange-100 dark:border-orange-900/30' : m.isReminderSuccess ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-900 dark:text-purple-200 border border-purple-100 dark:border-purple-900/30' : m.isKnowledgeSuccess ? 'bg-pink-50 dark:bg-pink-900/20 text-pink-900 dark:text-pink-200 border border-pink-100 dark:border-pink-900/30' : m.isSettingsSuccess ? 'bg-gray-100 dark:bg-[#3A3A3C] text-black dark:text-white border border-gray-200 dark:border-white/10' : m.isError ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-900/30' : 'bg-white dark:bg-[#2C2C2E] text-[#1C1C1E] dark:text-white') 
                     : 'bg-blue-500 text-white'
             }`}>
               {m.text}
-              <div className="flex gap-2 mt-2 flex-wrap">
+              {m.image && (
+                  <div className="mt-2 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/10 relative group">
+                      <img src={m.image} alt="Generated" className="w-full h-auto object-cover" />
+                      <button
+                          onClick={() => handleDownloadImage(m.image!)}
+                          className="absolute top-2 right-2 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all shadow-lg"
+                          title="Сохранить"
+                      >
+                          <Download size={16} />
+                      </button>
+                  </div>
+              )}
+              <div className="flex gap-2 mt-1 flex-wrap">
                   {m.isEventSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Calendar size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Календарь</span></div>}
                   {m.isShoppingSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ShoppingBag size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Покупки</span></div>}
                   {m.isPantrySuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Box size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Кладовка</span></div>}
                   {m.isReminderSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Clock size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Таймер</span></div>}
                   {m.isKnowledgeSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><BrainCircuit size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Память</span></div>}
                   {m.isSettingsSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Settings size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Настройки</span></div>}
+                  {m.image && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ImageIcon size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Изображение</span></div>}
               </div>
             </div>
           </motion.div>

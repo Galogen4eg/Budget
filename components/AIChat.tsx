@@ -384,7 +384,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       {/* Header for Mobile/Context - Compacted */}
       <div className="bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md p-3 border-b border-gray-100 dark:border-white/5 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-lg">
+            <div className="w-9 h-9 bg-[#1C1C1E] dark:bg-white rounded-full flex items-center justify-center text-white dark:text-[#1C1C1E] shadow-sm">
                 <Sparkles size={18} />
             </div>
             <div>
@@ -408,7 +408,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
             animate={{ opacity: 1, y: 0 }}
             className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-purple-500 border border-purple-100 dark:border-purple-900/30') : 'bg-blue-500 text-white'}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-[#1C1C1E] dark:text-white border border-gray-100 dark:border-white/10') : 'bg-blue-500 text-white'}`}>
               {m.isError ? <AlertCircle size={14} /> : m.role === 'model' ? <Sparkles size={14} /> : <User size={14} />}
             </div>
             <div className={`p-3 rounded-2xl max-w-[88%] text-[13px] font-medium shadow-sm whitespace-pre-wrap leading-snug flex flex-col gap-2 ${
@@ -443,7 +443,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         ))}
         {loading && (
           <div className="flex gap-2 pl-1">
-             <div className="w-7 h-7 bg-white dark:bg-[#2C2C2E] rounded-full flex items-center justify-center border border-purple-100 dark:border-purple-900/30"><Bot size={14} className="text-purple-500"/></div>
+             <div className="w-7 h-7 bg-white dark:bg-[#2C2C2E] rounded-full flex items-center justify-center border border-gray-100 dark:border-white/10"><Bot size={14} className="text-[#1C1C1E] dark:text-white"/></div>
              <div className="bg-white dark:bg-[#2C2C2E] p-3 rounded-2xl flex gap-1 items-center shadow-sm h-8">
                 <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"/>
                 <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-75"/>

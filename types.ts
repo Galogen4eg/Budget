@@ -199,6 +199,7 @@ export interface AppSettings {
   startOfMonthDay: number;
   privacyMode: boolean;
   theme: 'light' | 'dark'; // New Theme property
+  savingsRate: number; // PERSISTED SAVINGS RATE
   
   widgets: WidgetConfig[]; 
   

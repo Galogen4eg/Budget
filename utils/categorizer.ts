@@ -65,31 +65,50 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     if (lowNote.includes(rule.keyword.toLowerCase())) return rule.cleanName;
   }
 
-  // SBP Recognition with phone number
-  const phoneRegex = /(?:(?:\+?7|8)[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}|\b\d{10,11}\b/;
-  const phoneMatch = name.match(phoneRegex);
-  
+  // SBP Recognition logic
   if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer') || lowNote.includes('client')) {
-      if (phoneMatch) {
-          const rawPhone = phoneMatch[0].replace(/\D/g, '');
-          let formattedPhone = rawPhone;
+      // Improved Regex:
+      // 1. Matches optional prefix: +7, 7, 8
+      // 2. Matches area code starting with 9 (strictly 3 digits)
+      // 3. Matches rest of the number (3 + 2 + 2 digits)
+      // 4. Global flag to find ALL occurrences
+      const phoneRegex = /(?:\b(?:7|8|\+7)[\s\-(]*)?\(?9\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}\b/g;
+      
+      const allMatches = Array.from(name.matchAll(phoneRegex));
+      
+      let bestPhone = '';
+      
+      // Iterate through matches to find the most "phone-like" candidate
+      for (const match of allMatches) {
+          const raw = match[0];
+          const digits = raw.replace(/\D/g, ''); // Extract only digits
           
-          if (rawPhone.length >= 10) {
-              let clean = rawPhone;
-              if (rawPhone.length === 11 && (rawPhone.startsWith('7') || rawPhone.startsWith('8'))) {
-                  clean = rawPhone.slice(1);
-              }
-                  
-              if (clean.length === 10) {
-                  formattedPhone = `+7 ${clean.slice(0, 3)} ${clean.slice(3, 6)}-${clean.slice(6, 8)}-${clean.slice(8)}`;
+          // Priority 1: 11 digits starting with 7 or 8 (Standard RU mobile)
+          if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+              bestPhone = digits.substring(1); // Keep 10 significant digits
+              break; // Found perfect match, stop looking
+          }
+          
+          // Priority 2: 10 digits starting with 9 (Short format)
+          // Only accept if we haven't found a Priority 1 match yet
+          if (digits.length === 10 && digits.startsWith('9')) {
+              if (!bestPhone) {
+                  bestPhone = digits;
               }
           }
+      }
 
+      if (bestPhone) {
+          const formattedPhone = `+7 ${bestPhone.slice(0, 3)} ${bestPhone.slice(3, 6)}-${bestPhone.slice(6, 8)}-${bestPhone.slice(8)}`;
+          
+          // Try to find a name pattern (Cyrillic Name + Initial)
+          // e.g. "Ivan I." or "Иван И."
           const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
           const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
           
           return `Перевод по СБП ${formattedPhone}${person}`;
       }
+      
       if (lowNote.includes('сбп') || lowNote.includes('sbp')) {
           return "Перевод по СБП";
       }

@@ -507,7 +507,7 @@ export default function App() {
              {isOfflineMode && <WifiOff size={16} className="text-gray-400" />}
          </div>
          <div className="flex gap-3">
-             <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm text-purple-600 dark:text-purple-400">
+             <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
                  <Bot size={20} />
              </button>
              <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
@@ -712,7 +712,7 @@ export default function App() {
 
          {/* Bottom Actions (Desktop) */}
          <div className="hidden md:flex flex-col gap-4 mb-6 w-full items-center shrink-0">
-             <button onClick={() => setIsAIChatOpen(true)} className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+             <button onClick={() => setIsAIChatOpen(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
                  <Bot size={24} />
              </button>
              <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">

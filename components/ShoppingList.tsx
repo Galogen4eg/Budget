@@ -8,7 +8,7 @@ import {
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
   Archive, Check, Send, ChevronDown, ChevronUp, CloudDownload, List,
-  History
+  History, Camera
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -89,6 +89,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
   const recognitionRef = useRef<any>(null);
   const isScanningLocked = useRef(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
       if (initialStoreMode) setIsStoreMode(true);
@@ -214,28 +215,39 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       }
       setIsImportingTg(true);
       try {
+          // 1. Get Updates
           const lastUpdateId = parseInt(localStorage.getItem('tg_last_update_id') || '0');
           const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getUpdates?offset=${lastUpdateId + 1}&allowed_updates=["message"]`);
           const data = await response.json();
+          
           if (!data.ok || !data.result || data.result.length === 0) {
               showNotify('info', 'Нет новых сообщений в боте');
               setIsImportingTg(false);
               return;
           }
+
+          // 2. Filter Messages for this chat ID only
           const relevantMessages = data.result
-              .filter((u: any) => u.message && String(u.message.chat.id) === settings.telegramChatId && u.message.text)
-              .map((u: any) => u.message.text)
+              .filter((u: any) => {
+                  const msg = u.message || u.edited_message;
+                  return msg && String(msg.chat.id) === settings.telegramChatId && msg.text;
+              })
+              .map((u: any) => (u.message || u.edited_message).text)
               .join('\n');
-          if (!relevantMessages) {
-              const maxId = data.result.reduce((max: number, u: any) => Math.max(max, u.update_id), 0);
-              localStorage.setItem('tg_last_update_id', maxId.toString());
-              showNotify('info', 'Нет сообщений из вашего чата');
+
+          // 3. Update Offset
+          const maxId = data.result.reduce((max: number, u: any) => Math.max(max, u.update_id), 0);
+          if (maxId > 0) localStorage.setItem('tg_last_update_id', maxId.toString());
+
+          if (!relevantMessages.trim()) {
+              showNotify('info', 'Сообщений из вашего чата не найдено');
               setIsImportingTg(false);
               return;
           }
+
+          // 4. Process
           await processSmartInput(relevantMessages);
-          const maxId = data.result.reduce((max: number, u: any) => Math.max(max, u.update_id), 0);
-          localStorage.setItem('tg_last_update_id', maxId.toString());
+
       } catch (e) {
           console.error(e);
           showNotify('error', 'Ошибка связи с Telegram');
@@ -244,6 +256,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       }
   };
 
+  // Unified AI Processing for Text (Voice/Telegram)
   const processSmartInput = async (text: string) => {
     if (!process.env.API_KEY) {
         showNotify('error', 'API Key не настроен');
@@ -258,8 +271,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Analyze this grocery list/text: "${text}". 
-        Extract items. For each item determine: title, amount (number), unit (шт/кг/л/уп), and category ID from this list: [${categoriesContext}].
+        contents: `You are a smart shopping assistant. Analyze this text (Russian): "${text}". 
+        It might be a list (e.g. "milk, eggs") or a sentence (e.g. "we ran out of bread").
+        Extract distinct shopping items.
+        For each item determine: 
+        1. title (clean Russian name)
+        2. amount (number, default 1)
+        3. unit (strictly one of: шт, кг, л, уп. Default 'шт')
+        4. aisle (category ID from: [${categoriesContext}]. If unsure, 'other')
+        
         Return JSON array: [{ "title": "...", "amount": 1, "unit": "...", "aisle": "..." }]`,
         config: { responseMimeType: "application/json" }
       });
@@ -270,11 +290,11 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       const newItems: ShoppingItem[] = newItemsRaw.map(i => ({
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
           title: i.title,
-          amount: i.amount || '1',
+          amount: String(i.amount || '1'),
           unit: i.unit || 'шт',
           category: i.aisle || 'other',
           completed: false,
-          memberId: auth.currentUser?.uid || 'unknown',
+          memberId: auth.currentUser?.uid || 'ai',
           priority: 'medium'
       }));
 
@@ -297,6 +317,84 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     } finally {
         setIsProcessingAI(false);
     }
+  };
+
+  // AI Image Processing (Receipts or Product Photos)
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!process.env.API_KEY) {
+          showNotify('error', "API Key не настроен. AI анализ недоступен.");
+          return;
+      }
+
+      setIsProcessingAI(true);
+      try {
+          const base64Data = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                  const result = reader.result as string;
+                  resolve(result.split(',')[1]);
+              };
+              reader.readAsDataURL(file);
+          });
+
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const categoriesContext = STORE_AISLES.map(a => `ID: "${a.id}" (${a.label})`).join(', ');
+
+          const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: {
+                  parts: [
+                      { inlineData: { mimeType: file.type, data: base64Data } },
+                      { text: `Analyze this image. It is either a handwritten shopping list, a printed receipt, or a photo of a single product.
+                        Extract shopping items.
+                        For each item determine:
+                        1. title (clean Russian name)
+                        2. amount (number, default 1)
+                        3. unit (strictly one of: шт, кг, л, уп. Default 'шт')
+                        4. aisle (category ID from: [${categoriesContext}]. If unsure, 'other')
+                        
+                        Return JSON array: [{ "title": "...", "amount": 1, "unit": "...", "aisle": "..." }]` }
+                  ]
+              },
+              config: { responseMimeType: "application/json" }
+          });
+
+          const jsonStr = response.text || "[]";
+          const newItemsRaw = JSON.parse(jsonStr);
+
+          const newItems: ShoppingItem[] = newItemsRaw.map((i: any) => ({
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+              title: i.title,
+              amount: String(i.amount || '1'),
+              unit: i.unit || 'шт',
+              category: i.aisle || 'other',
+              completed: false,
+              memberId: auth.currentUser?.uid || 'ai',
+              priority: 'medium'
+          }));
+
+          if (newItems.length > 0) {
+              setItems(prev => [...prev, ...newItems]);
+              if (familyId) {
+                  const { addItemsBatch } = await import('../utils/db');
+                  await addItemsBatch(familyId, 'shopping', newItems);
+              }
+              showNotify('success', `Распознано ${newItems.length} товаров`);
+              vibrate('success');
+          } else {
+              showNotify('warning', 'Не удалось распознать товары');
+          }
+
+      } catch (err) {
+          console.error("OCR Error:", err);
+          showNotify('error', "Не удалось обработать изображение.");
+      } finally {
+          setIsProcessingAI(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
   };
 
   const handleSaveItem = async () => {
@@ -566,12 +664,24 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             >
                 {isListening ? <MicOff size={20}/> : <Mic size={20}/>}
             </button>
+            
+            {/* Barcode Scanner */}
             <button onClick={startScanner} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-blue-500">
                 <ScanBarcode size={20}/>
             </button>
+
+            {/* AI Image Analysis (Photo of list or product) */}
+            <button onClick={() => fileInputRef.current?.click()} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                {isProcessingAI ? <Loader2 size={20} className="animate-spin"/> : <Camera size={20}/>}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
+
+            {/* Telegram Import */}
             <button onClick={handleTelegramImport} disabled={isImportingTg} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                 {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
             </button>
+
+            {/* Send to Telegram */}
             <button onClick={handleSendListToTelegram} disabled={isSending || activeItems.length === 0} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
                 {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
             </button>
@@ -583,7 +693,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-600 min-h-[50vh]">
                     <ShoppingBag size={48} className="mb-4 opacity-20"/>
                     <p className="font-bold text-sm uppercase tracking-widest">Список пуст</p>
-                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, чтобы добавить товары, или используйте голос</p>
+                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, используйте голос или загрузите фото списка</p>
                 </div>
             ) : (
                 <>

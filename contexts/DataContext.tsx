@@ -11,7 +11,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToSettings, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, saveSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 
@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   startOfMonthDay: 1,
   privacyMode: false,
   theme: 'light', // Default theme
+  savingsRate: 10, // Default savings rate
   widgets: [
     { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
@@ -134,10 +135,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
-  const [savingsRate, setSavingsRate] = useState(10);
+  // Removed isolated savingsRate state
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
 
   const isInitialLoad = useRef(true);
+
+  // Wrapper for savings rate to maintain API compatibility but store in settings
+  const updateSavingsRate = async (rate: number) => {
+      const newSettings = { ...settings, savingsRate: rate };
+      setSettings(newSettings);
+      if (familyId) await saveSettings(familyId, newSettings);
+  };
 
   // --- Subscriptions ---
   useEffect(() => {
@@ -184,7 +192,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('wishlist', setWishlist, []);
         loadLocal('reminders', setReminders, []);
         loadLocal('knowledge', setAiKnowledge, []);
-        loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s})), DEFAULT_SETTINGS);
+        // Load settings and ensure defaults are applied
+        loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s, savingsRate: s.savingsRate ?? prev.savingsRate})), DEFAULT_SETTINGS);
         loadLocal('dismissed_notifs', setDismissedNotificationIds, []);
         
         const storedMembers = localStorage.getItem('local_members');
@@ -420,7 +429,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     filteredTransactions,
     totalBalance,
     currentMonthSpent,
-    savingsRate, setSavingsRate,
+    savingsRate: settings.savingsRate ?? 10, // Use from settings
+    setSavingsRate: updateSavingsRate, // Use setter that updates settings
     budgetMode, setBudgetMode
   };
 

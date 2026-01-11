@@ -347,11 +347,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
           </motion.div>
       )}
 
-      {/* Header Stat (Simplified) */}
+      {/* Header Stat (Corrected Colors for Dark Mode) */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
           {filterMode === 'month' && !selectedDate && (
-              <div className="bg-[#1C1C1E] dark:bg-white rounded-2xl p-4 text-white dark:text-black flex-1 min-w-[140px]">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">
+              <div className="bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 shadow-sm rounded-2xl p-4 text-[#1C1C1E] dark:text-white flex-1 min-w-[140px]">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 block mb-1">
                       Расход {currentMonth && `(${currentMonth.toLocaleString('ru', { month: 'short' })})`}
                   </span>
                   <span className="text-xl md:text-3xl font-black">{settings.privacyMode ? '•••' : searchedTransactions.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>

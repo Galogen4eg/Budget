@@ -63,6 +63,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribe: () => void;
 
+    // Failsafe timer: Если Firebase не инициализировался за 7 секунд (например, завис Redirect на Android),
+    // принудительно убираем загрузку, чтобы пользователь мог выбрать Демо-режим.
+    const safetyTimer = setTimeout(() => {
+        if (loading) {
+            console.warn("Auth initialization timed out. Forcing app load.");
+            setLoading(false);
+        }
+    }, 7000);
+
     const initAuth = async () => {
        // Check for redirect result (from signInWithRedirect fallback)
        try {
@@ -93,20 +102,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             setIsOfflineMode(true);
           }
-          setLoading(false);
         } else {
           // Пользователь вышел
           setUser(null);
           setFamilyId(null);
           localStorage.removeItem('cached_familyId');
-          setLoading(false);
         }
+        
+        // Auth state resolved (either logged in or not), remove loader
+        clearTimeout(safetyTimer);
+        setLoading(false);
       });
     };
 
     initAuth();
 
     return () => {
+      clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };
   }, []); 
@@ -126,7 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
           }
 
-          if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+          // На мобильных устройствах popup часто блокируется, пробуем редирект
+          if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/operation-not-supported-in-this-environment') {
               try {
                   await signInWithRedirect(auth, googleProvider);
                   return;
@@ -141,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
           }
           setLoading(false);
-          alert(`Ошибка входа через Google: ${error.message}`);
+          alert(`Ошибка входа через Google. Для APK используйте Демо-режим, если не настроен SHA-1. Ошибка: ${error.message}`);
       }
   };
 
@@ -154,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const msg = e.message || '';
           const code = e.code || '';
           
-          // Локальный демо режим, если Firebase Auth недоступен или отключен (admin-restricted)
+          // Локальный демо режим, если Firebase Auth недоступен или отключен
           if (code === 'auth/network-request-failed' || code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted') || msg.includes('network-request-failed')) {
               enterDemoMode();
               return;

@@ -11,11 +11,12 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
 import { MemberMarker, getIconById } from '../constants';
-import { auth } from '../firebase'; // Import auth to show current user email
+import { auth } from '../firebase';
+import { GoogleGenAI } from "@google/genai";
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -133,8 +134,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [deleteStart, setDeleteStart] = useState('');
   const [deleteEnd, setDeleteEnd] = useState('');
 
-  // Check if API key is present
+  // AI Testing State
+  const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const isAIEnabled = !!process.env.API_KEY;
+
+  const handleTestKey = async () => {
+      if (!isAIEnabled) return;
+      setAiTestStatus('loading');
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          await ai.models.generateContent({
+              model: "gemini-3-flash-preview",
+              contents: "Hello",
+          });
+          setAiTestStatus('success');
+          setTimeout(() => setAiTestStatus('idle'), 3000);
+      } catch (e) {
+          console.error(e);
+          setAiTestStatus('error');
+          setTimeout(() => setAiTestStatus('idle'), 3000);
+      }
+  };
 
   const handleChange = (key: keyof AppSettings, value: any) => onUpdate({ ...settings, [key]: value });
 
@@ -548,24 +568,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
                   </div>
 
-                  {/* AI Status Indicator */}
-                  <div className={`flex items-center justify-between p-4 rounded-2xl border ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
-                      <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/10 text-gray-400'}`}>
-                              <Cpu size={20} />
-                          </div>
-                          <div>
-                              <span className={`font-bold text-sm ${isAIEnabled ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                  AI Функции
-                              </span>
-                              <div className="text-[10px] opacity-70">
-                                  {isAIEnabled ? 'Ключ активирован' : 'Создайте .env файл с GEMINI_API_KEY'}
+                  {/* AI Status Indicator with Test Button */}
+                  <div className={`p-4 rounded-2xl border ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-xl shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/10 text-gray-400'}`}>
+                                  <Cpu size={20} />
+                              </div>
+                              <div>
+                                  <span className={`font-bold text-sm ${isAIEnabled ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                      AI Функции
+                                  </span>
+                                  <div className="text-[10px] opacity-70">
+                                      {isAIEnabled ? 'Ключ активирован' : 'Создайте .env файл с GEMINI_API_KEY'}
+                                  </div>
                               </div>
                           </div>
+                          <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                              {isAIEnabled ? 'ON' : 'OFF'}
+                          </div>
                       </div>
-                      <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
-                          {isAIEnabled ? 'ON' : 'OFF'}
-                      </div>
+                      
+                      {isAIEnabled && (
+                          <div className="flex items-center gap-2">
+                              <button 
+                                  onClick={handleTestKey} 
+                                  disabled={aiTestStatus === 'loading' || aiTestStatus === 'success'}
+                                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                                      aiTestStatus === 'success' 
+                                          ? 'bg-green-500 text-white' 
+                                          : aiTestStatus === 'error'
+                                              ? 'bg-red-500 text-white'
+                                              : 'bg-white dark:bg-[#2C2C2E] text-purple-600 dark:text-purple-400 shadow-sm hover:bg-purple-50 dark:hover:bg-purple-900/30'
+                                  }`}
+                              >
+                                  {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
+                                   aiTestStatus === 'success' ? <Check size={14}/> : 
+                                   aiTestStatus === 'error' ? 'Ошибка' : <Play size={14}/>}
+                                  {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Сбой' : 'Проверить работу'}
+                              </button>
+                          </div>
+                      )}
                   </div>
 
                   <div className="pt-2"><button onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} className="w-full flex items-center justify-center gap-3 p-5 bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"><Smartphone size={20} /> Установить на телефон</button></div>

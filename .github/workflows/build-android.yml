@@ -1,13 +1,11 @@
 
-name: Build Android APK
+name: 2. Build Android APK (Simple)
 
 on:
-  # Автоматический запуск при пуше в ветку main или master
   push:
     branches:
       - main
       - master
-  # Кнопка для ручного запуска (чтобы вы могли нажать "Run" сами)
   workflow_dispatch:
 
 jobs:
@@ -33,22 +31,26 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Dependencies
-        # npm install надежнее в CI, если package-lock.json отличается
         run: npm install
 
       - name: Build Web App
         run: npm run build
 
       - name: Initialize Capacitor Android
-        # Создаем папку android с нуля прямо на сервере сборки
         run: |
           npx cap add android
           npx cap sync
 
-      - name: Build APK with Gradle
+      # 👇 ЭТОТ ШАГ ПОКАЖЕТ ВАМ КОД В БРАУЗЕРЕ 👇
+      - name: 👇 GET SHA-1 FINGERPRINT (LOOK HERE) 👇
         run: |
           cd android
           chmod +x gradlew
+          ./gradlew signingReport
+
+      - name: Build Debug APK
+        run: |
+          cd android
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact

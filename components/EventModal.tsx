@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -19,20 +19,17 @@ interface EventModalProps {
   settings: AppSettings;
 }
 
-const REMINDER_OPTIONS = [
-  { label: 'Нет', value: 0 },
-  { label: 'За 15 мин', value: 15 },
-  { label: 'За 1 час', value: 60 },
-  { label: 'За 2 часа', value: 120 },
-  { label: 'За 1 день', value: 1440 },
-  { label: 'За 2 дня', value: 2880 },
+const PRESET_REMINDERS = [
+  { label: '15 мин', value: 15 },
+  { label: '1 час', value: 60 },
+  { label: '2 часа', value: 120 },
+  { label: '1 день', value: 1440 },
 ];
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
   const [date, setDate] = useState(event?.date || prefill?.date || (() => {
-      // Create local ISO date string to prevent timezone offset shifts
       const d = new Date();
       const offset = d.getTimezoneOffset() * 60000;
       return new Date(d.getTime() - offset).toISOString().split('T')[0];
@@ -44,6 +41,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || []);
+  
+  // Custom Reminder State
+  const [customRemValue, setCustomRemValue] = useState('');
+  const [customRemUnit, setCustomRemUnit] = useState<'min' | 'hour' | 'day'>('min');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -79,16 +80,39 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     setNewChecklistItem('');
   };
 
-  const toggleReminder = (minutes: number) => {
-    if (minutes === 0) {
-        setReminders([]);
-        return;
+  const addReminder = (minutes: number) => {
+    if (minutes <= 0) return;
+    if (!reminders.includes(minutes)) {
+        setReminders([...reminders, minutes].sort((a, b) => a - b));
     }
-    if (reminders.includes(minutes)) {
-        setReminders(reminders.filter(r => r !== minutes));
-    } else {
-        setReminders([...reminders, minutes]);
-    }
+  };
+
+  const removeReminder = (minutes: number) => {
+    setReminders(reminders.filter(r => r !== minutes));
+  };
+
+  const addCustomReminder = () => {
+      const val = parseInt(customRemValue);
+      if (!val || val <= 0) return;
+      
+      let minutes = val;
+      if (customRemUnit === 'hour') minutes = val * 60;
+      if (customRemUnit === 'day') minutes = val * 1440;
+      
+      addReminder(minutes);
+      setCustomRemValue('');
+  };
+
+  const formatReminderText = (minutes: number) => {
+      if (minutes < 60) return `${minutes} мин`;
+      if (minutes < 1440) {
+          const h = Math.floor(minutes / 60);
+          const m = minutes % 60;
+          return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+      }
+      const d = Math.floor(minutes / 1440);
+      const h = Math.floor((minutes % 1440) / 60);
+      return h > 0 ? `${d} д ${h} ч` : `${d} д`;
   };
 
   const validateAndSave = () => {
@@ -187,19 +211,67 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
           
           <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 mb-2">
-               <Bell size={16} className="text-orange-500" />
-               <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Напоминание (в Telegram)</span>
+             <div className="flex items-center justify-between mb-1">
+               <div className="flex items-center gap-2">
+                   <Bell size={16} className="text-orange-500" />
+                   <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Напоминания</span>
+               </div>
+               <span className="text-[9px] text-gray-400 font-bold">{reminders.length} акт.</span>
              </div>
-             <div className="flex flex-wrap gap-2">
-                {REMINDER_OPTIONS.map(opt => {
-                    const isActive = opt.value === 0 ? reminders.length === 0 : reminders.includes(opt.value);
-                    return (
-                        <button key={opt.value} type="button" onClick={() => toggleReminder(opt.value)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-400 dark:text-gray-500'}`} >
-                            {opt.label}
-                        </button>
-                    );
-                })}
+
+             {/* Active Reminders List */}
+             {reminders.length > 0 && (
+                 <div className="flex flex-wrap gap-2">
+                     {reminders.map(r => (
+                         <div key={r} className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-300 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-orange-100 dark:border-orange-900/30">
+                             <span>За {formatReminderText(r)}</span>
+                             <button onClick={() => removeReminder(r)} className="hover:text-red-500"><X size={12} strokeWidth={3}/></button>
+                         </div>
+                     ))}
+                 </div>
+             )}
+
+             {/* Presets */}
+             <div className="grid grid-cols-4 gap-2">
+                {PRESET_REMINDERS.map(opt => (
+                    <button 
+                        key={opt.value} 
+                        type="button" 
+                        onClick={() => addReminder(opt.value)} 
+                        disabled={reminders.includes(opt.value)}
+                        className={`py-2 rounded-xl text-[9px] font-black uppercase transition-all ${reminders.includes(opt.value) ? 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-300 opacity-50' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-500 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500'}`} 
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+             </div>
+
+             {/* Custom Input */}
+             <div className="flex items-center bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-2xl">
+                 <input 
+                    type="number" 
+                    placeholder="0" 
+                    value={customRemValue}
+                    onChange={e => setCustomRemValue(e.target.value)}
+                    className="w-16 bg-transparent text-center font-black text-sm outline-none text-[#1C1C1E] dark:text-white"
+                 />
+                 <div className="flex bg-white dark:bg-[#1C1C1E] rounded-xl p-1 mx-2">
+                     {(['min', 'hour', 'day'] as const).map(u => (
+                         <button 
+                            key={u} 
+                            onClick={() => setCustomRemUnit(u)}
+                            className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors ${customRemUnit === u ? 'bg-orange-500 text-white' : 'text-gray-400'}`}
+                         >
+                             {u === 'min' ? 'Мин' : u === 'hour' ? 'Час' : 'Дни'}
+                         </button>
+                     ))}
+                 </div>
+                 <button 
+                    onClick={addCustomReminder}
+                    className="w-8 h-8 bg-white dark:bg-[#1C1C1E] rounded-xl flex items-center justify-center text-orange-500 shadow-sm active:scale-95 transition-transform ml-auto"
+                 >
+                     <Plus size={16} strokeWidth={3} />
+                 </button>
              </div>
           </div>
 

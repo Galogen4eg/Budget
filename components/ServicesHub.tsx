@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen } from 'lucide-react';
+import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen, TrendingUp } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 
 import DebtSnowball from './DebtSnowball';
@@ -10,8 +10,9 @@ import AIChat from './AIChat';
 import WalletApp from './Wallet';
 import WishlistApp from './WishlistApp';
 import ProjectsApp from './ProjectsApp';
+import CashFlowForecast from './CashFlowForecast';
 
-type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects';
+type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects' | 'forecast';
 
 const ServicesHub: React.FC = () => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
@@ -20,10 +21,16 @@ const ServicesHub: React.FC = () => {
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
     wishlist, setWishlist,
-    projects, setProjects
+    projects, setProjects,
+    transactions, totalBalance,
+    savingsRate // <--- Added this
   } = useData();
   
   const ALL_APPS = [
+    { 
+        id: 'forecast', label: 'Прогноз', desc: 'Cash Flow & Анализ', icon: <TrendingUp size={24} />, color: '#AF52DE', 
+        component: <CashFlowForecast transactions={transactions} settings={settings} currentBalance={totalBalance} savingsRate={savingsRate} onClose={() => setActiveService('menu')} /> 
+    },
     { 
         id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={24} />, color: '#007AFF', 
         component: <ProjectsApp projects={projects} setProjects={setProjects} settings={settings} /> 
@@ -61,7 +68,7 @@ const ServicesHub: React.FC = () => {
             exit={{ opacity: 0, scale: 0.95 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
-            {ALL_APPS.filter(app => settings.enabledServices.includes(app.id) || app.id !== 'subs').map(app => (
+            {ALL_APPS.map(app => (
               <button
                 key={app.id}
                 onClick={() => setActiveService(app.id as ServiceType)}
@@ -84,14 +91,16 @@ const ServicesHub: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
           >
-            <div className="flex items-center gap-2 mb-6">
-              <button onClick={() => setActiveService('menu')} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm border border-gray-100 dark:border-white/5 text-gray-500 dark:text-gray-300">
-                <ChevronLeft size={24} />
-              </button>
-              <h2 className="text-xl font-black text-[#1C1C1E] dark:text-white">
-                {ALL_APPS.find(a => a.id === activeService)?.label}
-              </h2>
-            </div>
+            {activeService !== 'forecast' && (
+                <div className="flex items-center gap-2 mb-6">
+                <button onClick={() => setActiveService('menu')} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm border border-gray-100 dark:border-white/5 text-gray-500 dark:text-gray-300">
+                    <ChevronLeft size={24} />
+                </button>
+                <h2 className="text-xl font-black text-[#1C1C1E] dark:text-white">
+                    {ALL_APPS.find(a => a.id === activeService)?.label}
+                </h2>
+                </div>
+            )}
             {ALL_APPS.find(a => a.id === activeService)?.component}
           </motion.div>
         )}

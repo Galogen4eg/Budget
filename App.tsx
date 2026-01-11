@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense, useMemo } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn, Bot } from 'lucide-react';
 import { 
@@ -100,7 +100,7 @@ export default function App() {
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isImporting, setIsImporting] = useState(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'info' | 'warning'} | null>(null);
   const [pinMode, setPinMode] = useState<'unlock' | null>(null);
   const [isAppUnlocked, setIsAppUnlocked] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -117,6 +117,29 @@ export default function App() {
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
   const [showLoadingFallback, setShowLoadingFallback] = useState(false);
+
+  // Track notifications to show toast
+  const prevNotifCount = useRef(notifications.length);
+
+  useEffect(() => {
+    // Check if a new notification arrived
+    if (notifications.length > prevNotifCount.current) {
+        const latest = notifications[0]; // Assuming prepended
+        if (latest && !latest.isRead) {
+            // Vibrate if possible
+            if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+            
+            setNotification({
+                message: latest.title ? `${latest.title}: ${latest.message}` : latest.message,
+                type: latest.type
+            });
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => setNotification(null), 5000);
+        }
+    }
+    prevNotifCount.current = notifications.length;
+  }, [notifications]);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -509,7 +532,20 @@ export default function App() {
             }} />}
         </Suspense>
 
-        {notification && <motion.div initial={{opacity:0, y:-20}} animate={{opacity:1, y:0}} exit={{opacity:0}} className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${notification.type === 'success' ? 'bg-black text-white' : 'bg-red-50 text-white'}`}>{notification.message}</motion.div>}
+        {notification && (
+            <motion.div 
+                initial={{opacity:0, y:-20}} 
+                animate={{opacity:1, y:0}} 
+                exit={{opacity:0}} 
+                className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${
+                    notification.type === 'error' ? 'bg-red-500 text-white' : 
+                    notification.type === 'warning' ? 'bg-orange-500 text-white' :
+                    'bg-[#1C1C1E] text-white dark:bg-white dark:text-black'
+                }`}
+            >
+                {notification.message}
+            </motion.div>
+        )}
 
         <AnimatePresence mode="wait">
         {activeTab === 'overview' && (

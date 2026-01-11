@@ -26,6 +26,7 @@ interface TransactionHistoryProps {
   onAddCategory?: (category: Category) => void;
   selectedDate?: Date | null;
   currentMonth?: Date;
+  hideTitle?: boolean;
 }
 
 // Simple constants for creating categories inline
@@ -117,7 +118,7 @@ const TransactionCard = React.memo(({
     );
 });
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory, selectedDate, currentMonth }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, categories, filterMode = 'month', onEditTransaction, initialSearch = '', selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, onAddCategory, selectedDate, currentMonth, hideTitle = false }) => {
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
   
   // Learning Modal State
@@ -135,7 +136,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showAll, setShowAll] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
@@ -293,49 +293,35 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, s
 
   return (
     <div className="space-y-4 w-full">
-      <div className="flex items-center justify-between mb-2 px-1">
-          <div className="flex items-center gap-2">
-              <div className="p-2 bg-gray-100 dark:bg-[#2C2C2E] rounded-xl text-gray-500 dark:text-gray-300">
-                  <History size={18} />
-              </div>
-              <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">История</h3>
-          </div>
-          <button 
-            onClick={() => setShowSearch(!showSearch)} 
-            className={`p-2 rounded-xl transition-all ${showSearch ? 'bg-blue-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-gray-400 hover:text-blue-500'}`}
-          >
-              <Search size={18} />
-          </button>
-      </div>
-
-      {/* Search Input */}
-      <AnimatePresence>
-          {showSearch && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }} 
-                animate={{ height: 'auto', opacity: 1 }} 
-                exit={{ height: 0, opacity: 0 }} 
-                className="overflow-hidden"
-              >
-                  <div className="relative mb-2">
-                      <input 
-                        type="text" 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по названию или сумме..."
-                        className="w-full bg-white dark:bg-[#1C1C1E] p-3 pl-10 rounded-2xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 border border-gray-100 dark:border-white/5 focus:border-blue-500 transition-colors"
-                        autoFocus
-                      />
-                      <Search size={16} className="absolute left-3 top-3.5 text-gray-400" />
-                      {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-red-500">
-                              <X size={16} />
-                          </button>
-                      )}
+      {!hideTitle && (
+          <div className="flex items-center justify-between mb-1 px-1">
+              <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gray-100 dark:bg-[#2C2C2E] rounded-xl text-gray-500 dark:text-gray-300">
+                      <History size={18} />
                   </div>
-              </motion.div>
-          )}
-      </AnimatePresence>
+                  <h3 className="text-lg font-black text-[#1C1C1E] dark:text-white">История</h3>
+              </div>
+          </div>
+      )}
+
+      {/* Always Visible Search Input */}
+      {transactions.length > 0 && (
+          <div className="relative mb-2">
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по названию или сумме..."
+                className="w-full bg-white dark:bg-[#1C1C1E] p-3 pl-10 rounded-2xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 border border-gray-100 dark:border-white/5 focus:border-blue-500 transition-colors shadow-sm"
+              />
+              <Search size={16} className="absolute left-3 top-3.5 text-gray-400" />
+              {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-red-500">
+                      <X size={16} />
+                  </button>
+              )}
+          </div>
+      )}
 
       {/* Active Filter UI - Only show if not hidden via props */}
       {(selectedCategoryId || selectedDate || selectedMerchantName) && !hideActiveFilterBadge && (

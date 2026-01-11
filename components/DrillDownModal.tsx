@@ -89,6 +89,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 selectedMerchantName={merchantName}
                 filterMode="month" // Or 'all', keeping month for consistency with charts
                 hideActiveFilterBadge={true} // Cleaner look since modal header tells the context
+                hideTitle={true}
             />
         </div>
       </motion.div>

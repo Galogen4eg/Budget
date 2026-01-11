@@ -381,37 +381,37 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       }`}
     >
       
-      {/* Header for Mobile/Context */}
-      <div className="bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between sticky top-0 z-10">
+      {/* Header for Mobile/Context - Compacted */}
+      <div className="bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md p-3 border-b border-gray-100 dark:border-white/5 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-lg">
-                <Sparkles size={20} />
+            <div className="w-9 h-9 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-lg">
+                <Sparkles size={18} />
             </div>
             <div>
-                <h3 className="font-black text-sm text-[#1C1C1E] dark:text-white">AI Ассистент</h3>
-                <p className="text-[10px] font-bold text-gray-400">Gemini 2.5 Flash</p>
+                <h3 className="font-black text-sm text-[#1C1C1E] dark:text-white leading-none">AI Ассистент</h3>
+                <p className="text-[9px] font-bold text-gray-400 mt-0.5">Gemini 2.5 Flash</p>
             </div>
           </div>
           {onClose && (
-              <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300">
-                  <X size={20} />
+              <button onClick={onClose} className="w-9 h-9 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 active:scale-95 transition-transform">
+                  <X size={18} />
               </button>
           )}
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F2F2F7] dark:bg-black no-scrollbar">
+      {/* Messages Area - Compacted */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#F2F2F7] dark:bg-black no-scrollbar overscroll-contain">
         {messages.map((m, i) => (
           <motion.div 
             key={i} 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
+            className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-purple-500 border border-purple-100 dark:border-purple-900/30') : 'bg-blue-500 text-white'}`}>
-              {m.isError ? <AlertCircle size={16} /> : m.role === 'model' ? <Sparkles size={16} /> : <User size={16} />}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${m.role === 'model' ? (m.isError ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#2C2C2E] text-purple-500 border border-purple-100 dark:border-purple-900/30') : 'bg-blue-500 text-white'}`}>
+              {m.isError ? <AlertCircle size={14} /> : m.role === 'model' ? <Sparkles size={14} /> : <User size={14} />}
             </div>
-            <div className={`p-4 rounded-2xl max-w-[85%] text-sm font-medium shadow-sm whitespace-pre-wrap leading-relaxed flex flex-col gap-2 ${
+            <div className={`p-3 rounded-2xl max-w-[88%] text-[13px] font-medium shadow-sm whitespace-pre-wrap leading-snug flex flex-col gap-2 ${
                 m.role === 'model' 
                     ? (m.isEventSuccess ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 border border-blue-100 dark:border-blue-900/30' : m.isShoppingSuccess ? 'bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-200 border border-green-100 dark:border-green-900/30' : m.isPantrySuccess ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-200 border border-orange-100 dark:border-orange-900/30' : m.isReminderSuccess ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-900 dark:text-purple-200 border border-purple-100 dark:border-purple-900/30' : m.isKnowledgeSuccess ? 'bg-pink-50 dark:bg-pink-900/20 text-pink-900 dark:text-pink-200 border border-pink-100 dark:border-pink-900/30' : m.isSettingsSuccess ? 'bg-gray-100 dark:bg-[#3A3A3C] text-black dark:text-white border border-gray-200 dark:border-white/10' : m.isError ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-900/30' : 'bg-white dark:bg-[#2C2C2E] text-[#1C1C1E] dark:text-white') 
                     : 'bg-blue-500 text-white'
@@ -430,55 +430,55 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
                   </div>
               )}
               <div className="flex gap-2 mt-1 flex-wrap">
-                  {m.isEventSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Calendar size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Календарь</span></div>}
-                  {m.isShoppingSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ShoppingBag size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Покупки</span></div>}
-                  {m.isPantrySuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Box size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Кладовка</span></div>}
-                  {m.isReminderSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Clock size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Таймер</span></div>}
-                  {m.isKnowledgeSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><BrainCircuit size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Память</span></div>}
-                  {m.isSettingsSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Settings size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Настройки</span></div>}
-                  {m.image && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ImageIcon size={12} className="opacity-70"/> <span className="text-[10px] uppercase opacity-70">Изображение</span></div>}
+                  {m.isEventSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Calendar size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Календарь</span></div>}
+                  {m.isShoppingSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ShoppingBag size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Покупки</span></div>}
+                  {m.isPantrySuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Box size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Кладовка</span></div>}
+                  {m.isReminderSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Clock size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Таймер</span></div>}
+                  {m.isKnowledgeSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><BrainCircuit size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Память</span></div>}
+                  {m.isSettingsSuccess && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><Settings size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Настройки</span></div>}
+                  {m.image && <div className="flex gap-1 items-center bg-white/50 dark:bg-white/10 px-2 py-1 rounded-lg"><ImageIcon size={10} className="opacity-70"/> <span className="text-[9px] uppercase opacity-70">Изображение</span></div>}
               </div>
             </div>
           </motion.div>
         ))}
         {loading && (
-          <div className="flex gap-3">
-             <div className="w-8 h-8 bg-white dark:bg-[#2C2C2E] rounded-full flex items-center justify-center border border-purple-100 dark:border-purple-900/30"><Bot size={16} className="text-purple-500"/></div>
-             <div className="bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl flex gap-1 items-center shadow-sm">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"/>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"/>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"/>
+          <div className="flex gap-2 pl-1">
+             <div className="w-7 h-7 bg-white dark:bg-[#2C2C2E] rounded-full flex items-center justify-center border border-purple-100 dark:border-purple-900/30"><Bot size={14} className="text-purple-500"/></div>
+             <div className="bg-white dark:bg-[#2C2C2E] p-3 rounded-2xl flex gap-1 items-center shadow-sm h-8">
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"/>
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-75"/>
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-150"/>
              </div>
           </div>
         )}
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-1" />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex gap-2 items-center">
+      {/* Input Area - Compacted */}
+      <div className="p-3 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex gap-2 items-center shrink-0 safe-area-bottom">
         <button 
             onClick={handleClearHistory}
-            className="w-10 h-10 rounded-2xl flex items-center justify-center bg-gray-100 dark:bg-[#2C2C2E] text-gray-400 hover:text-red-500 transition-colors"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center bg-gray-100 dark:bg-[#2C2C2E] text-gray-400 hover:text-red-500 transition-colors active:scale-95"
             title="Очистить историю"
         >
             <Trash2 size={18} />
         </button>
         <button 
             onClick={startListening}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-95 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}
         >
-            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
         </button>
         <input 
            type="text" 
            value={input}
            onChange={e => setInput(e.target.value)}
            onKeyPress={e => e.key === 'Enter' && handleSend()}
-           placeholder="Спроси или попроси..."
-           className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl px-4 py-3.5 font-bold text-sm outline-none focus:bg-white dark:focus:bg-[#3A3A3C] focus:border-blue-200 border border-transparent transition-all text-[#1C1C1E] dark:text-white placeholder:text-gray-400"
+           placeholder="Спроси что-нибудь..."
+           className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl px-3 py-2.5 font-bold text-sm outline-none focus:bg-white dark:focus:bg-[#3A3A3C] focus:border-blue-200 border border-transparent transition-all text-[#1C1C1E] dark:text-white placeholder:text-gray-400"
         />
-        <button onClick={handleSend} disabled={loading || !input.trim()} className="w-12 h-12 bg-blue-500 rounded-2xl text-white flex items-center justify-center shadow-lg ios-btn-active disabled:opacity-50 disabled:shadow-none">
-           <Send size={20} />
+        <button onClick={handleSend} disabled={loading || !input.trim()} className="w-10 h-10 bg-blue-500 rounded-2xl text-white flex items-center justify-center shadow-lg ios-btn-active disabled:opacity-50 disabled:shadow-none">
+           <Send size={18} />
         </button>
       </div>
     </div>

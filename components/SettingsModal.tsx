@@ -11,12 +11,13 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit
 } from 'lucide-react';
-import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig } from '../types';
+import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
+import { useData } from '../contexts/DataContext';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -49,17 +50,18 @@ const WIDGET_METADATA = [
   { id: 'recent_transactions', label: 'История операций' }
 ];
 
-type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family';
+type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family' | 'ai_memory';
 
 const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'Общее', icon: <Globe size={20} /> },
   { id: 'budget', label: 'Бюджет', icon: <Calculator size={20} /> },
   { id: 'members', label: 'Участники', icon: <Users size={20} /> },
   { id: 'categories', label: 'Категории и правила', icon: <Tag size={20} /> },
+  { id: 'ai_memory', label: 'Память AI', icon: <BrainCircuit size={20} /> },
   { id: 'navigation', label: 'Навигация', icon: <Menu size={20} /> },
   { id: 'services', label: 'Сервисы', icon: <AppWindow size={20} /> },
   { id: 'widgets', label: 'Виджеты', icon: <LayoutGrid size={20} /> },
-  { id: 'telegram', label: 'Telegram и уведомления', icon: <BellRing size={20} /> },
+  { id: 'telegram', label: 'Telegram и шаблоны', icon: <MessageSquareQuote size={20} /> },
   { id: 'family', label: 'Семья и Доступ', icon: <Share size={20} /> },
 ];
 
@@ -97,19 +99,37 @@ const Switch = ({ checked, onChange, id }: { checked: boolean, onChange: (e: any
     </button>
 );
 
-const TemplateEditor = ({ label, value, onChange, variables }: { label: string, value: string, onChange: (val: string) => void, variables: string[] }) => {
+const TemplateEditor = ({ label, value, onChange, variables, previewData }: { label: string, value: string, onChange: (val: string) => void, variables: string[], previewData: any }) => {
     const handleAddVar = (v: string) => onChange((value || '') + ` ${v}`);
+    
+    // Generate preview
+    let previewText = value || '';
+    Object.keys(previewData).forEach(key => {
+        previewText = previewText.replace(new RegExp(key, 'g'), previewData[key]);
+    });
+
     return (
-        <div className="space-y-2 pt-2">
+        <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-gray-500 ml-2">{label}</label>
-            <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/10">
-                <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent font-mono text-xs text-[#1C1C1E] dark:text-white outline-none h-20 resize-none mb-2" placeholder="Настройте текст..." />
+            <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/10 space-y-3">
+                <textarea 
+                    value={value || ''} 
+                    onChange={(e) => onChange(e.target.value)} 
+                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-mono text-xs text-[#1C1C1E] dark:text-white outline-none h-24 resize-none border border-gray-200 dark:border-white/5 focus:border-blue-500 transition-colors" 
+                    placeholder="Настройте текст..." 
+                />
+                
                 <div className="flex flex-wrap gap-2">
                     {variables.map(v => (
-                        <button key={v} onClick={() => handleAddVar(v)} className="bg-white dark:bg-white/10 border border-gray-200 dark:border-white/5 px-2 py-1 rounded-lg text-[10px] font-bold text-blue-500 dark:text-blue-400 hover:bg-blue-50 transition-colors">
+                        <button key={v} onClick={() => handleAddVar(v)} className="bg-white dark:bg-white/10 border border-gray-200 dark:border-white/5 px-2 py-1.5 rounded-lg text-[10px] font-bold text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                             {v}
                         </button>
                     ))}
+                </div>
+
+                <div className="mt-2 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/20">
+                    <span className="text-[9px] font-bold text-blue-400 uppercase mb-1 block">Предпросмотр</span>
+                    <p className="text-xs font-medium text-[#1C1C1E] dark:text-white whitespace-pre-wrap">{previewText}</p>
                 </div>
             </div>
         </div>
@@ -121,6 +141,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [showMobileMenu, setShowMobileMenu] = useState(window.innerWidth < 768);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   
+  // Data Context Access for AI Knowledge
+  const { aiKnowledge, deleteAIKnowledge, addAIKnowledge } = useData();
+  const [newFact, setNewFact] = useState('');
+
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberColor, setNewMemberColor] = useState(PRESET_COLORS[0]);
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<FamilyMember | null>(null);
@@ -252,7 +276,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   const renderSectionContent = () => {
     switch (activeSection) {
-        // ... (Other cases remain unchanged: budget, members, categories, navigation, services, widgets, telegram) ...
+        case 'ai_memory': return (
+            <div className="space-y-6">
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-xl text-pink-500">
+                            <BrainCircuit size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Память AI</h3>
+                            <p className="text-[10px] text-gray-400">То, чему вы научили ассистента</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
+                        <input 
+                            type="text" 
+                            placeholder="Добавить факт (напр. код от домофона 123)" 
+                            value={newFact}
+                            onChange={e => setNewFact(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && newFact.trim() && (addAIKnowledge(newFact.trim()), setNewFact(''))}
+                            className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white mb-2"
+                        />
+                        <button 
+                            onClick={() => { if(newFact.trim()) { addAIKnowledge(newFact.trim()); setNewFact(''); } }}
+                            className="w-full py-2 bg-[#1C1C1E] dark:bg-white text-white dark:text-black font-black uppercase text-xs rounded-xl"
+                        >
+                            Добавить в память
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar">
+                        {aiKnowledge.length === 0 ? (
+                            <p className="text-center text-xs text-gray-400 py-4">Память пуста. Скажите ассистенту "Запомни..." или добавьте здесь.</p>
+                        ) : (
+                            aiKnowledge.map(item => (
+                                <div key={item.id} className="flex items-start justify-between p-3 bg-white dark:bg-[#2C2C2E] rounded-xl border border-gray-50 dark:border-white/5">
+                                    <span className="text-sm font-medium text-[#1C1C1E] dark:text-white pr-2">{item.text}</span>
+                                    <button onClick={() => deleteAIKnowledge(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
         case 'budget': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-6 border border-gray-100 dark:border-white/10 shadow-sm">
@@ -503,9 +571,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
                     </div>
 
-                    <div className="pt-2 space-y-4 border-t dark:border-white/5">
-                        <TemplateEditor label="Шаблон списка покупок" value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} onChange={(val) => handleChange('shoppingTemplate', val)} variables={['{items}', '{total}']} />
-                        <TemplateEditor label="Шаблон событий" value={settings.eventTemplate || '📅 *Новое событие*\n\n📌 {title}\n🕒 {date} {time}'} onChange={(val) => handleChange('eventTemplate', val)} variables={['{title}', '{date}', '{time}', '{desc}']} />
+                    <div className="pt-2 space-y-4 border-t dark:border-white/10">
+                        <TemplateEditor 
+                            label="Шаблон списка покупок" 
+                            value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} 
+                            onChange={(val) => handleChange('shoppingTemplate', val)} 
+                            variables={['{items}', '{total}', '{date}']} 
+                            previewData={{ '{items}': '• Молоко\n• Хлеб', '{total}': '2', '{date}': '10.10.2023' }}
+                        />
+                        <TemplateEditor 
+                            label="Шаблон событий" 
+                            value={settings.eventTemplate || '📅 *Новое событие*\n\n📌 {title}\n🕒 {date} {time}'} 
+                            onChange={(val) => handleChange('eventTemplate', val)} 
+                            variables={['{title}', '{date}', '{time}', '{desc}']} 
+                            previewData={{ '{title}': 'Врач', '{date}': '10.10.2023', '{time}': '14:00', '{desc}': 'Взять полис' }}
+                        />
                     </div>
                 </div>
             </div>

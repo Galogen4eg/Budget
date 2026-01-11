@@ -37,7 +37,7 @@ const ServicesHub: React.FC = () => {
         component: <WishlistApp wishlist={wishlist} setWishlist={setWishlist} members={members} settings={settings} /> 
     },
     { 
-        id: 'chat', label: 'AI Советник', desc: 'Анализ, Холодильник', icon: <Bot size={24} />, color: '#1C1C1E', 
+        id: 'chat', label: 'AI Ассистент', desc: 'Чат, Советы, Управление', icon: <Bot size={24} />, color: '#1C1C1E', 
         component: <AIChat /> 
     },
     { 

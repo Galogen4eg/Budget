@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useRef 
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
   Debt, Project, PantryItem, 
-  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, AppNotification 
+  LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, AppNotification, Reminder, AIKnowledgeItem
 } from '../types';
 import { 
   FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
@@ -11,7 +11,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToSettings, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch 
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 
@@ -75,6 +75,9 @@ interface DataContextType {
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
+  aiKnowledge: AIKnowledgeItem[];
+  addAIKnowledge: (text: string) => Promise<void>;
+  deleteAIKnowledge: (id: string) => Promise<void>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   debts: Debt[];
@@ -87,6 +90,7 @@ interface DataContextType {
   setWishlist: React.Dispatch<React.SetStateAction<WishlistItem[]>>;
   notifications: AppNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
+  addReminder: (text: string, delayMs: number) => void;
   
   // Derived Stats
   filteredTransactions: Transaction[];
@@ -116,6 +120,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [aiKnowledge, setAiKnowledge] = useState<AIKnowledgeItem[]>([]);
   
   // Computed learned rules (Local overrides Global)
   const learnedRules = useMemo(() => {
@@ -193,6 +199,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('pantry', setPantryState, []);
         loadLocal('loyalty', setLoyaltyCards, []);
         loadLocal('wishlist', setWishlist, []);
+        loadLocal('reminders', setReminders, []);
+        loadLocal('knowledge', setAiKnowledge, []);
         loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s})), DEFAULT_SETTINGS);
         
         // Load members or fallback to demo/empty
@@ -226,6 +234,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.length > 0) setCategories(data as Category[]);
       }),
       subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])),
+      subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
       subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
       subscribeToCollection(familyId, 'projects', (data) => setProjects(data as Project[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
@@ -242,12 +251,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubs.forEach(u => u());
   }, [familyId, isOfflineMode]);
 
-  // --- Local Storage Sync (For Demo/Offline Mode) ---
+  // --- Local Storage Sync (For Demo/Offline Mode & Reminders) ---
   useEffect(() => {
-      // Only save to local storage if:
-      // 1. Not loading auth
-      // 2. Not initial load
-      // 3. No family ID (or explicit offline mode)
       if (!authLoading && !isInitialLoad.current && !familyId) {
           localStorage.setItem('local_transactions', JSON.stringify(transactions));
           localStorage.setItem('local_shopping', JSON.stringify(shoppingItems));
@@ -260,11 +265,87 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('local_wishlist', JSON.stringify(wishlist));
           localStorage.setItem('local_settings', JSON.stringify(settings));
           localStorage.setItem('local_members', JSON.stringify(members));
+          localStorage.setItem('local_knowledge', JSON.stringify(aiKnowledge));
+          localStorage.setItem('local_reminders', JSON.stringify(reminders)); // Always local
+      } else {
+          // Keep reminders local even when signed in (they are device-specific usually)
+          localStorage.setItem('local_reminders', JSON.stringify(reminders));
       }
   }, [
       authLoading, familyId, transactions, shoppingItems, events, pantry, 
-      goals, debts, projects, loyaltyCards, wishlist, settings, members
+      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, aiKnowledge
   ]);
+
+  // --- Reminder Logic ---
+  useEffect(() => {
+      const checkReminders = () => {
+          const now = Date.now();
+          let hasChanges = false;
+          
+          setReminders(prev => {
+              const due = prev.filter(r => r.targetTime <= now);
+              const upcoming = prev.filter(r => r.targetTime > now);
+              
+              if (due.length > 0) {
+                  hasChanges = true;
+                  // Trigger notifications
+                  const newNotifs: AppNotification[] = due.map(r => ({
+                      id: `reminder_${r.id}`,
+                      title: 'Напоминание ⏰',
+                      message: r.text,
+                      type: 'info',
+                      date: new Date().toISOString(),
+                      isRead: false
+                  }));
+                  
+                  setNotifications(curr => [...newNotifs, ...curr]);
+                  
+                  // Trigger System Notification
+                  if ("Notification" in window && Notification.permission === "granted") {
+                      due.forEach(r => new Notification("Напоминание", { body: r.text, icon: '/favicon.ico' }));
+                  }
+                  
+                  // Vibrate
+                  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+              }
+              
+              return hasChanges ? upcoming : prev;
+          });
+      };
+
+      // Request permission on mount if needed
+      if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+      }
+
+      const interval = setInterval(checkReminders, 5000); // Check every 5s
+      return () => clearInterval(interval);
+  }, []);
+
+  const addReminder = (text: string, delayMs: number) => {
+      const newReminder: Reminder = {
+          id: Date.now().toString(),
+          text,
+          targetTime: Date.now() + delayMs,
+          createdAt: Date.now()
+      };
+      setReminders(prev => [...prev, newReminder]);
+  };
+
+  const addAIKnowledge = async (text: string) => {
+      const newItem: AIKnowledgeItem = {
+          id: Date.now().toString(),
+          text,
+          addedDate: new Date().toISOString()
+      };
+      setAiKnowledge(prev => [...prev, newItem]);
+      if (familyId) await addItem(familyId, 'knowledge', newItem);
+  };
+
+  const deleteAIKnowledge = async (id: string) => {
+      setAiKnowledge(prev => prev.filter(k => k.id !== id));
+      if (familyId) await deleteItem(familyId, 'knowledge', id);
+  };
 
   // Safety net for categories
   useEffect(() => {
@@ -336,12 +417,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     members, setMembers,
     categories, setCategories,
     learnedRules, setLearnedRules: setLocalRules, // Setter updates local rules
+    aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings, setSettings,
     debts, setDebts,
     projects, setProjects,
     loyaltyCards, setLoyaltyCards,
     wishlist, setWishlist,
     notifications, setNotifications,
+    addReminder, // Export helper
     
     filteredTransactions,
     totalBalance,

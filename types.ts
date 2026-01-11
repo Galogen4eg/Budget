@@ -21,6 +21,12 @@ export interface LearnedRule {
   categoryId: string;
 }
 
+export interface AIKnowledgeItem {
+  id: string;
+  text: string;
+  addedDate: string;
+}
+
 export interface FamilyMember {
   id: string;
   userId?: string;
@@ -94,6 +100,13 @@ export interface FamilyEvent {
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
   reminders?: number[];
+}
+
+export interface Reminder {
+  id: string;
+  text: string;
+  targetTime: number; // Timestamp
+  createdAt: number;
 }
 
 export interface Debt {

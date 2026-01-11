@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn, Bot } from 'lucide-react';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, FamilyEvent, AppNotification 
 } from './types';
@@ -31,6 +31,7 @@ const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExp
 const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
 const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
 const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'));
+const AIChatModal = React.lazy(() => import('./components/AIChatModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
 import { auth } from './firebase';
@@ -94,6 +95,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isImporting, setIsImporting] = useState(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -465,6 +467,9 @@ export default function App() {
              {isOfflineMode && <WifiOff size={16} className="text-gray-400" />}
          </div>
          <div className="flex gap-3">
+             <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm text-purple-600 dark:text-purple-400">
+                 <Bot size={20} />
+             </button>
              <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
                  <Bell size={20} />
                  {unreadNotificationsCount > 0 && (
@@ -487,7 +492,7 @@ export default function App() {
             }} />}
         </Suspense>
 
-        {notification && <motion.div initial={{opacity:0, y:-20}} animate={{opacity:1, y:0}} exit={{opacity:0}} className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${notification.type === 'success' ? 'bg-black text-white' : 'bg-red-500 text-white'}`}>{notification.message}</motion.div>}
+        {notification && <motion.div initial={{opacity:0, y:-20}} animate={{opacity:1, y:0}} exit={{opacity:0}} className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${notification.type === 'success' ? 'bg-black text-white' : 'bg-red-50 text-white'}`}>{notification.message}</motion.div>}
 
         <AnimatePresence mode="wait">
         {activeTab === 'overview' && (
@@ -654,6 +659,9 @@ export default function App() {
 
          {/* Bottom Actions (Desktop) */}
          <div className="hidden md:flex flex-col gap-4 mb-6 w-full items-center shrink-0">
+             <button onClick={() => setIsAIChatOpen(true)} className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+                 <Bot size={24} />
+             </button>
              <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
                  <Bell size={24} />
                  {unreadNotificationsCount > 0 && (
@@ -670,6 +678,7 @@ export default function App() {
         <AnimatePresence>
             {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} transactions={transactions} onDelete={async (id) => { setTransactions(prev => prev.filter(t => t.id !== id)); if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => { setSettings(s); if (familyId) await saveSettings(familyId, s); }} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { setMembers(m); if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { setCategories(c); if (familyId) await updateItemsBatch(familyId, 'categories', c); }} learnedRules={learnedRules} onUpdateRules={async (r) => { if(familyId) await updateItemsBatch(familyId, 'rules', r); }} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { setTransactions(updatedTxs); if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs.slice(0, 100)); }} installPrompt={installPrompt} onOpenDuplicates={handleOpenDuplicates} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} />}
+            {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
             {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} />}
             {showDuplicatesModal && <DuplicatesModal transactions={transactions} onClose={() => setShowDuplicatesModal(false)} onDelete={handleDeleteTransactions} onIgnore={handleIgnoreDuplicates} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview) { setTransactions(prev => [...importPreview.map(t => ({...t, id: Date.now().toString()}) as Transaction), ...prev]); if (familyId) await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); showNotify('success', `Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onLearnRule={handleLearnRule} onAddCategory={handleAddCategory} />}

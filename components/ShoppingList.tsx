@@ -171,13 +171,19 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          // Provide context with labels (Russian) to help understanding
+          const categoriesContext = STORE_AISLES.map(a => `ID: "${a.id}" (Label: ${a.label})`).join(', ');
+          
           const response = await ai.models.generateContent({
               model: "gemini-3-flash-preview",
-              contents: `Categorize "${itemTitle}" into one of these IDs: ${STORE_AISLES.map(a => a.id).join(', ')}. Return ONLY the ID string. If unsure, return 'other'.`,
+              contents: `Analyze the grocery item "${itemTitle}". Assign it to exactly one of the following categories: ${categoriesContext}. Return ONLY the ID string (e.g. 'dairy' or 'household'). If unsure, return 'other'.`,
           });
           
           const result = response.text?.trim() || 'other';
-          const matchedAisle = STORE_AISLES.find(a => a.id === result) ? result : 'other';
+          // Clean potential quotes or spaces
+          const cleanResult = result.replace(/['"]/g, '').trim();
+          
+          const matchedAisle = STORE_AISLES.find(a => a.id === cleanResult) ? cleanResult : 'other';
           
           setItems(currentItems => {
               const updated = currentItems.map(i => i.id === itemId ? { ...i, category: matchedAisle } : i);
@@ -248,10 +254,13 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     vibrate('medium');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const categoriesContext = STORE_AISLES.map(a => `ID: "${a.id}" (${a.label})`).join(', ');
+      
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Распознай продукты из текста: "${text}". Для каждого товара определи: title, amount, unit, aisle (один из: ${STORE_AISLES.map(a => a.id).join(', ')}). 
-        Верни ТОЛЬКО JSON массив объектов. Без markdown, без комментариев.`,
+        contents: `Analyze this grocery list/text: "${text}". 
+        Extract items. For each item determine: title, amount (number), unit (шт/кг/л/уп), and category ID from this list: [${categoriesContext}].
+        Return JSON array: [{ "title": "...", "amount": 1, "unit": "...", "aisle": "..." }]`,
         config: { responseMimeType: "application/json" }
       });
 
@@ -271,8 +280,6 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
       if (newItems.length > 0) {
           setItems(prev => [...prev, ...newItems]);
-          // Batch add to DB if needed, handled in DataContext if we used a method, 
-          // but here we are manual. Let's assume we need to sync manual.
           if (familyId) {
               const { addItemsBatch } = await import('../utils/db');
               await addItemsBatch(familyId, 'shopping', newItems);

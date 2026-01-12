@@ -137,7 +137,15 @@ export default function App() {
       const inviteFamilyId = params.get('join');
 
       // If invite ID exists and differs from current familyId
-      if (inviteFamilyId && inviteFamilyId !== familyId) {
+      if (inviteFamilyId) {
+          if (inviteFamilyId === familyId) {
+              console.log("Already in this family");
+              // Clean URL silently
+              const newUrl = window.location.pathname;
+              window.history.replaceState({}, document.title, newUrl);
+              return;
+          }
+
           setIsJoining(true);
           console.log(`Auto-joining family: ${inviteFamilyId}`);
           

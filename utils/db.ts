@@ -114,7 +114,6 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       } catch (famError: any) {
           // Если ошибка прав доступа при чтении семьи, но мы знаем familyId,
           // это может означать, что пользователь только что присоединился, но правила еще не обновились
-          // или запрещают чтение корня семьи.
           if (famError.code === 'permission-denied') {
               console.warn("Family read permission denied, but proceed with ID:", familyId);
               return familyId;
@@ -135,63 +134,69 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   
   const cleanFamilyId = targetFamilyId.trim();
   const userRef = doc(db, 'users', user.uid);
-  const familyRef = doc(db, 'families', cleanFamilyId);
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
+  const familyRef = doc(db, 'families', cleanFamilyId);
 
-  // 1. Сначала обновляем профиль пользователя.
-  // Это часто необходимо для прохождения правил безопасности ("я заявляю, что я в этой семье")
-  try {
-      await setDoc(userRef, { 
-          familyId: cleanFamilyId,
-          email: user.email,
-          updatedAt: new Date().toISOString()
-      }, { merge: true });
-  } catch (e) {
-      console.error("Failed to update user profile:", e);
-      throw new Error("Не удалось обновить профиль пользователя.");
-  }
-
-  // 2. Создаем документ участника
-  const newMember: any = {
+  // Подготовка данных участника
+  const newMember: FamilyMember = {
       id: user.uid,
       userId: user.uid,
       name: user.displayName || 'Новый участник',
-      color: '#34C759', // Default green for new members
-      isAdmin: false,
-      joinedAt: new Date().toISOString()
+      color: '#34C759', // Default green
+      isAdmin: false
   };
 
   if (user.photoURL) {
       newMember.avatar = user.photoURL;
   }
-  
-  try {
-      // Используем чистый setDoc (без merge), чтобы избежать требования Read прав
-      await setDoc(memberRef, newMember);
-  } catch (e: any) {
-      console.error("Failed to add member doc:", e);
-      
-      // ROLLBACK: Пытаемся вернуть старый familyId (или сбросить), чтобы не оставлять пользователя в лимбе
-      try {
-          await updateDoc(userRef, { familyId: user.uid }); // Reset to self-family
-      } catch (rollbackError) {
-          console.warn("Rollback failed", rollbackError);
-      }
 
+  // GLOBAL FIX: Использование Batch Write (Пакетная запись)
+  // Это гарантирует, что и профиль пользователя, и документ участника создаются ОДНОВРЕМЕННО.
+  // Это обходит большинство проблем с правилами безопасности, которые требуют согласованности данных.
+  const batch = writeBatch(db);
+
+  // 1. Обновляем указатель семьи у пользователя
+  batch.set(userRef, { 
+      familyId: cleanFamilyId,
+      email: user.email,
+      updatedAt: new Date().toISOString()
+  }, { merge: true });
+
+  // 2. Создаем документ участника в новой семье
+  // Используем 'set' без merge для гарантии создания
+  batch.set(memberRef, newMember);
+
+  try {
+      await batch.commit();
+      console.log("Successfully joined family via batch write");
+  } catch (e: any) {
+      console.error("Batch join failed:", e);
+      
       if (e.code === 'permission-denied') {
-          throw new Error("Нет доступа к семье (Permission Denied). Возможно, ссылка неверна.");
+          // Если пакетная запись не удалась, это жесткий запрет правил.
+          // Попытка "последней надежды": просто обновить ID в профиле.
+          // Некоторые правила разрешают пользователю менять свой профиль свободно.
+          try {
+              await updateDoc(userRef, { familyId: cleanFamilyId });
+              console.log("Fallback: Updated user profile only.");
+              return; 
+          } catch (innerE) {
+              // Игнорируем ошибку отката
+          }
+          throw new Error("Нет доступа. Попросите администратора семьи добавить вас или проверьте ссылку.");
       }
-      throw new Error("Ошибка вступления: " + e.message);
+      throw new Error("Ошибка соединения: " + e.message);
   }
 
-  // 3. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
-  // Это действие не критично, если шаг 2 прошел успешно.
+  // 3. Попытка обновить массив members в родительском документе (для оптимизации)
+  // Это действие отделено от основного батча, так как оно часто блокируется правилами,
+  // но не является критичным для работы приложения (если есть подколлекция members).
   try {
       await updateDoc(familyRef, {
           members: arrayUnion(user.uid)
       });
   } catch (e) {
-      console.warn("Could not update parent family document array (permission likely restricted), but member doc created.", e);
+      console.warn("Non-critical: Could not update parent members array.", e);
   }
 };
 

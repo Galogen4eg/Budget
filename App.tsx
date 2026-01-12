@@ -117,6 +117,7 @@ export default function App() {
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
   const [showLoadingFallback, setShowLoadingFallback] = useState(false);
+  const [isBellRinging, setIsBellRinging] = useState(false);
 
   // Track notifications to show toast
   const prevNotifCount = useRef(notifications.length);
@@ -134,13 +135,11 @@ export default function App() {
             // Vibrate if possible
             if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
             
-            setNotification({
-                message: latest.title ? `${latest.title}: ${latest.message}` : latest.message,
-                type: latest.type
-            });
-            
-            // Auto hide after 5 seconds
-            setTimeout(() => setNotification(null), 5000);
+            // Trigger bell animation
+            setIsBellRinging(true);
+            setTimeout(() => setIsBellRinging(false), 2000); // Ring for 2 seconds
+
+            // Note: Toast notification removed as per request
         }
     }
     prevNotifCount.current = notifications.length;
@@ -516,7 +515,12 @@ export default function App() {
                  <Bot size={20} />
              </button>
              <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
-                 <Bell size={20} />
+                 <motion.div 
+                    animate={isBellRinging ? { rotate: [0, -25, 25, -25, 25, 0] } : {}}
+                    transition={{ duration: 0.5 }}
+                 >
+                    <Bell size={20} className={isBellRinging ? "text-red-500" : ""} />
+                 </motion.div>
                  {unreadNotificationsCount > 0 && (
                      <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
                  )}
@@ -721,7 +725,12 @@ export default function App() {
                  <Bot size={24} />
              </button>
              <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
-                 <Bell size={24} />
+                 <motion.div
+                    animate={isBellRinging ? { rotate: [0, -25, 25, -25, 25, 0] } : {}}
+                    transition={{ duration: 0.5 }}
+                 >
+                    <Bell size={24} className={isBellRinging ? "text-red-500" : ""} />
+                 </motion.div>
                  {unreadNotificationsCount > 0 && (
                      <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
                  )}

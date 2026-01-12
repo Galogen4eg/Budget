@@ -1,5 +1,4 @@
 
-// ... imports ...
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -170,6 +169,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   // AI Testing State
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const isAIEnabled = !!process.env.API_KEY;
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const handleTestKey = async () => {
       if (!isAIEnabled) return;
@@ -650,7 +657,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 </div>
             </div>
         );
-        // ... (rest of the file for other sections)
         case 'navigation': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
@@ -879,7 +885,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="flex items-center gap-2"><button onClick={() => setShowMobileMenu(true)} className="md:hidden p-2 text-gray-500"><ArrowLeft size={24} /></button><h2 className="text-xl font-black">{SECTIONS.find(s => s.id === activeSection)?.label}</h2></div>
                     <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar pb-24 md:pb-8"><div className="max-w-2xl mx-auto w-full">{renderSectionContent()}</div></div>
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar pb-24 md:pb-8 overscroll-contain"><div className="max-w-2xl mx-auto w-full">{renderSectionContent()}</div></div>
             </div>
         </motion.div>
         <AnimatePresence>{showInstallGuide && (

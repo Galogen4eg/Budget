@@ -118,6 +118,7 @@ export default function App() {
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
   const [showLoadingFallback, setShowLoadingFallback] = useState(false);
   const [isBellRinging, setIsBellRinging] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   // Track notifications to show toast
   const prevNotifCount = useRef(notifications.length);
@@ -126,6 +127,37 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [activeTab]);
+
+  // Handle Invite Link Automatic Join
+  useEffect(() => {
+      // Ensure auth is done and we have a user
+      if (isAuthLoading || !user || isJoining) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const inviteFamilyId = params.get('join');
+
+      // If invite ID exists and differs from current familyId
+      if (inviteFamilyId && inviteFamilyId !== familyId) {
+          setIsJoining(true);
+          console.log(`Auto-joining family: ${inviteFamilyId}`);
+          
+          joinFamily(user, inviteFamilyId)
+              .then(() => {
+                  setNotification({ message: 'Вы успешно присоединились к семье! 👨‍👩‍👧‍👦', type: 'success' });
+                  // Clear query param
+                  const newUrl = window.location.pathname;
+                  window.history.replaceState({}, document.title, newUrl);
+                  
+                  // Force reload to ensure context resubscribes to new family ID correctly
+                  setTimeout(() => window.location.reload(), 1500);
+              })
+              .catch(err => {
+                  console.error("Auto-join failed:", err);
+                  setNotification({ message: 'Ошибка присоединения к семье', type: 'error' });
+                  setIsJoining(false);
+              });
+      }
+  }, [user, isAuthLoading, familyId]);
 
   useEffect(() => {
     // Check if a new notification arrived
@@ -471,11 +503,12 @@ export default function App() {
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  if (isAuthLoading) {
+  if (isAuthLoading || isJoining) {
       return (
           <div className="flex flex-col h-screen items-center justify-center bg-[#EBEFF5] dark:bg-[#000000] gap-4 p-6 text-center">
               <div className="animate-spin text-blue-500"><Settings2 size={32}/></div>
-              {showLoadingFallback && (
+              {isJoining && <p className="text-sm font-bold text-blue-500 animate-pulse">Присоединяемся к семье...</p>}
+              {showLoadingFallback && !isJoining && (
                   <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="space-y-3">
                       <p className="text-sm font-bold text-gray-500">Авторизация занимает больше времени...</p>
                       <button 
@@ -549,6 +582,7 @@ export default function App() {
                 className={`fixed top-20 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-full shadow-xl border font-bold text-sm ${
                     notification.type === 'error' ? 'bg-red-500 text-white' : 
                     notification.type === 'warning' ? 'bg-orange-500 text-white' :
+                    notification.type === 'success' ? 'bg-green-500 text-white' :
                     'bg-[#1C1C1E] text-white dark:bg-white dark:text-black'
                 }`}
             >

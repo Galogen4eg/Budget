@@ -1,7 +1,7 @@
 
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
-  onSnapshot, query, orderBy, where, getDocs, writeBatch 
+  onSnapshot, query, orderBy, where, getDocs, writeBatch, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
@@ -116,16 +116,30 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
+  // 1. Update User Pointer
   const userRef = doc(db, 'users', user.uid);
   await updateDoc(userRef, { familyId: targetFamilyId });
   
-  // Добавляем user.uid в массив members семьи (для security rules)
-  // Примечание: В реальном продакшене это должно делаться через Cloud Function или запрос к админу семьи,
-  // но для упрощения делаем тут, предполагая, что security rules позволяют join по ID.
-  /* 
-     В текущей архитектуре мы просто меняем указатель у юзера. 
-     Реальное добавление в список members документа семьи потребует прав.
-  */
+  // 2. Add to Family Members Collection
+  // We add this explicitly so the user appears in the UI list immediately
+  const newMember: FamilyMember = {
+      id: user.uid,
+      userId: user.uid,
+      name: user.displayName || 'Новый участник',
+      color: '#34C759', // Default green for new members
+      avatar: user.photoURL || undefined,
+      isAdmin: false
+  };
+  
+  // Use setDoc with merge to prevent overwriting if somehow already exists
+  await setDoc(doc(db, 'families', targetFamilyId, 'members', user.uid), newMember, { merge: true });
+
+  // 3. Update Family Document (members array) for security rules
+  const familyRef = doc(db, 'families', targetFamilyId);
+  // Using updateDoc because the family document MUST exist to join
+  await updateDoc(familyRef, {
+      members: arrayUnion(user.uid)
+  });
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {

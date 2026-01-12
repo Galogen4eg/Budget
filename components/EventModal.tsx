@@ -141,6 +141,17 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
             <button type="button" onClick={handleManualSend} disabled={loading} className={`p-2.5 rounded-full transition-colors ${sent ? 'bg-green-500 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}>
                 {loading ? <Loader2 size={20} className="animate-spin"/> : sent ? <Check size={20}/> : <Send size={20} />}
             </button>
+            
+            {/* Save as Template Button */}
+            <button 
+                type="button" 
+                onClick={() => setIsT(!isT)} 
+                className={`p-2.5 rounded-full transition-colors ${isT ? 'bg-purple-500 text-white' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}
+                title="Сохранить как шаблон"
+            >
+                <Bookmark size={20} fill={isT ? "currentColor" : "none"} />
+            </button>
+
             {templates.length > 0 && (
               <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}><Sparkles size={20} /></button>
             )}

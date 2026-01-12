@@ -335,9 +335,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                                   style={style}
                                               >
                                                   <div className="flex flex-col h-full">
-                                                      <span className="text-[9px] font-black leading-tight truncate opacity-90 dark:text-black">{ev.title}</span>
+                                                      <span className="text-[9px] font-black leading-tight truncate opacity-90 dark:text-white">{ev.title}</span>
                                                       {!isShort && (
-                                                          <div className="text-[8px] font-bold truncate opacity-70 dark:text-black">
+                                                          <div className="text-[8px] font-bold truncate opacity-70 dark:text-white/80">
                                                               {ev.time} ({ev.duration || 1}ч)
                                                           </div>
                                                       )}
@@ -356,76 +356,112 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   const renderEventsList = (dateToRender: Date) => {
-    const daysEvents = getEventsForDate(dateToRender);
-    const isToday = new Date().toDateString() === dateToRender.toDateString();
+    // Collect ALL events for the month of dateToRender
+    const targetMonth = dateToRender.getMonth();
+    const targetYear = dateToRender.getFullYear();
+    
+    // Filter and sort events for the entire month
+    const monthEvents = events
+        .filter(e => {
+            const d = new Date(e.date);
+            return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(`${a.date}T${a.time}`).getTime();
+            const dateB = new Date(`${b.date}T${b.time}`).getTime();
+            return dateA - dateB;
+        });
+
+    // Group by date string
+    const groupedEvents: Record<string, FamilyEvent[]> = {};
+    monthEvents.forEach(e => {
+        if (!groupedEvents[e.date]) groupedEvents[e.date] = [];
+        groupedEvents[e.date].push(e);
+    });
+
+    const hasEvents = monthEvents.length > 0;
 
     return (
-        <div className="space-y-3 pb-2">
-             <div className="flex items-center gap-2 mb-2 px-2 sticky top-0 bg-[#F2F2F7] dark:bg-black z-10 py-2">
-                <h3 className="font-black text-lg text-[#1C1C1E] dark:text-white">
-                    {isToday ? 'Сегодня, ' : ''}
-                    {dateToRender.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-                </h3>
-                <span className="bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
-                    {daysEvents.length}
-                </span>
-             </div>
-
-             {daysEvents.length === 0 ? (
+        <div className="space-y-4 pb-4">
+             {!hasEvents ? (
                  <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
                     <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
-                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Нет событий</p>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">В этом месяце событий нет</p>
                     <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(dateToRender) } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
                         Создать
                     </button>
                  </div>
              ) : (
-                 daysEvents.map(event => {
-                     const eventMembers = members.filter(m => event.memberIds.includes(m.id));
-                     const colors = getEventColors(event.memberIds);
-                     
-                     return (
-                        <div 
-                            key={event.id} 
-                            onClick={() => setActiveEvent({ event })} 
-                            className="p-5 rounded-[2rem] border shadow-sm hover:scale-[1.01] transition-transform cursor-pointer relative overflow-hidden group"
-                            style={{ 
-                                background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background, 
-                                borderColor: colors.borderColor === '#BFDBFE' ? 'transparent' : colors.borderColor 
-                            }}
-                        >
-                            <style>{`:root { --bg-card-default: white; } .dark { --bg-card-default: #1C1C1E; }`}</style>
+                 Object.keys(groupedEvents).sort().map(dateStr => {
+                     const dateObj = new Date(dateStr);
+                     const isToday = new Date().toDateString() === dateObj.toDateString();
+                     const dayEvents = groupedEvents[dateStr];
 
-                            <div className="flex items-start gap-4">
-                                <div className="flex flex-col items-center gap-1 min-w-[3rem]">
-                                    <div className="text-sm font-black text-[#1C1C1E] dark:text-white">{event.time}</div>
-                                    <div className="flex items-center gap-1 text-[9px] font-black bg-white/50 dark:bg-white/10 px-1.5 py-0.5 rounded-md" style={{ color: colors.indicator }}>
-                                        <Clock size={10} />
-                                        {event.duration ? `${event.duration}ч` : '1ч'}
-                                    </div>
-                                </div>
-                                <div className="flex-1 min-w-0 pb-2">
-                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] dark:text-white mb-1">{event.title}</h4>
-                                    {event.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{event.description}</p>}
-                                    
-                                    <div className="flex items-center justify-between mt-2">
-                                        <div className="flex -space-x-2">
-                                            {eventMembers.map(m => (
-                                                <div key={m.id} className="border-2 border-white dark:border-[#1C1C1E] rounded-[1rem] relative z-10">
-                                                    <MemberMarker member={m} size="sm" />
+                     return (
+                        <div key={dateStr} className="space-y-2">
+                            {/* Day Header - Modified for alignment */}
+                            <div className="sticky top-0 z-10 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-2 flex items-baseline gap-2">
+                                <span className={`text-base font-black ${isToday ? 'text-blue-500' : 'text-[#1C1C1E] dark:text-white'}`}>
+                                    {dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                                </span>
+                                <span className={`text-[10px] font-bold uppercase ${isToday ? 'text-blue-400' : 'text-gray-400'}`}>
+                                    {dateObj.toLocaleDateString('ru-RU', { weekday: 'long' })}
+                                </span>
+                            </div>
+
+                            {/* Events for this day */}
+                            <div className="space-y-3">
+                                {dayEvents.map(event => {
+                                     const eventMembers = members.filter(m => event.memberIds.includes(m.id));
+                                     const colors = getEventColors(event.memberIds);
+                                     
+                                     return (
+                                        <div 
+                                            key={event.id} 
+                                            onClick={() => setActiveEvent({ event })} 
+                                            // Removed hover:scale-[1.01], added active:scale-[0.99]
+                                            className="p-5 rounded-[2rem] border shadow-sm active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group"
+                                            style={{ 
+                                                background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background, 
+                                                borderColor: colors.borderColor === '#BFDBFE' ? 'transparent' : colors.borderColor 
+                                            }}
+                                        >
+                                            <style>{`:root { --bg-card-default: white; } .dark { --bg-card-default: #1C1C1E; }`}</style>
+
+                                            <div className="flex items-start gap-4">
+                                                <div className="flex flex-col items-center gap-1 min-w-[3rem]">
+                                                    <div className="text-sm font-black text-[#1C1C1E] dark:text-white">{event.time}</div>
+                                                    <div className="flex items-center gap-1 text-[9px] font-black bg-white/50 dark:bg-white/10 px-1.5 py-0.5 rounded-md" style={{ color: colors.indicator }}>
+                                                        <Clock size={10} />
+                                                        {event.duration ? `${event.duration}ч` : '1ч'}
+                                                    </div>
                                                 </div>
-                                            ))}
-                                            {eventMembers.length === 0 && <span className="text-[10px] text-gray-400 italic">Нет участников</span>}
-                                        </div>
-                                        {event.checklist && event.checklist.length > 0 && (
-                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-white/60 dark:bg-white/5 px-2 py-1 rounded-lg">
-                                                <span className={event.checklist.every(i => i.completed) ? 'text-green-500' : ''}>
-                                                    {event.checklist.filter(i => i.completed).length}/{event.checklist.length}
-                                                </span>
+                                                <div className="flex-1 min-w-0 pb-2">
+                                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] dark:text-white mb-1">{event.title}</h4>
+                                                    {event.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{event.description}</p>}
+                                                    
+                                                    <div className="flex items-center justify-between mt-2">
+                                                        <div className="flex -space-x-2">
+                                                            {eventMembers.map(m => (
+                                                                <div key={m.id} className="border-2 border-white dark:border-[#1C1C1E] rounded-[1rem] relative z-10">
+                                                                    <MemberMarker member={m} size="sm" />
+                                                                </div>
+                                                            ))}
+                                                            {eventMembers.length === 0 && <span className="text-[10px] text-gray-400 italic">Нет участников</span>}
+                                                        </div>
+                                                        {event.checklist && event.checklist.length > 0 && (
+                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-white/60 dark:bg-white/5 px-2 py-1 rounded-lg">
+                                                                <span className={event.checklist.every(i => i.completed) ? 'text-green-500' : ''}>
+                                                                    {event.checklist.filter(i => i.completed).length}/{event.checklist.length}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
+                                        </div>
+                                     );
+                                 })}
                             </div>
                         </div>
                      );
@@ -524,23 +560,35 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             const dayEvents = getEventsForDate(date);
                             const hasEvents = dayEvents.length > 0;
 
+                            // Collect all participant colors for this day's events
+                            const dayDots: string[] = [];
+                            dayEvents.forEach(ev => {
+                                if (ev.memberIds.length > 0) {
+                                    ev.memberIds.forEach(mId => {
+                                        const m = members.find(mem => mem.id === mId);
+                                        if (m) dayDots.push(m.color);
+                                    });
+                                } else {
+                                    // Fallback for events with no members assigned
+                                    dayDots.push('#9CA3AF'); 
+                                }
+                            });
+
                             return (
                                 <button 
                                     key={date.toISOString()} 
                                     onClick={() => {
                                         handleDateSelect(date);
-                                        // Open modal with this date
-                                        setActiveEvent({ event: null, prefill: { date: getLocalDateString(date) } });
                                     }}
                                     className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400' : 'text-[#1C1C1E] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
                                 >
                                     <span className={`text-xs ${isSelected || isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
                                     {hasEvents && !isSelected && (
-                                        <div className="absolute bottom-1.5 flex gap-0.5">
-                                            {dayEvents.slice(0, 3).map((ev, i) => {
-                                                const colors = getEventColors(ev.memberIds);
-                                                return <div key={i} className="w-1 h-1 rounded-full" style={{ backgroundColor: colors.indicator }} />;
-                                            })}
+                                        <div className="absolute bottom-1.5 flex gap-0.5 justify-center px-1">
+                                            {dayDots.slice(0, 4).map((color, i) => (
+                                                <div key={i} className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                            ))}
+                                            {dayDots.length > 4 && <div className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />}
                                         </div>
                                     )}
                                 </button>
@@ -548,6 +596,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         })}
                     </div>
                 </div>
+                {/* Updated: Pass full month logic inside renderEventsList */}
                 <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
                     {renderEventsList(selectedDate)}
                 </div>

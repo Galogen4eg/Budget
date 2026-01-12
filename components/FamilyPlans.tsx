@@ -125,10 +125,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setSelectedDate(date);
   };
 
-  // Helper to get events for a specific date object
+  // Helper to get events for a specific date object, EXCLUDING templates
   const getEventsForDate = (date: Date) => {
     const dateStr = getLocalDateString(date);
-    return events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+    return events
+        .filter(e => e.date === dateStr && !e.isTemplate)
+        .sort((a, b) => a.time.localeCompare(b.time));
   };
 
   // Helper to determine event colors based on participants
@@ -232,7 +234,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
           }
       }
 
-      if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
+      if (settings.autoSendEventsToTelegram && !e.isTemplate) onSendToTelegram(e);
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -461,6 +463,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-4">
                 {events
                 .filter(e => {
+                    if (e.isTemplate) return false; // Hide templates
                     const eDate = new Date(`${e.date}T${e.time}`);
                     const now = new Date();
                     return listFilter === 'upcoming' ? eDate >= now : eDate < now;
@@ -494,7 +497,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         </div>
                     );
                 })}
-                {events.length === 0 && <div className="text-center py-10 text-gray-400 font-bold text-xs uppercase">Список пуст</div>}
+                {events.filter(e => !e.isTemplate).length === 0 && <div className="text-center py-10 text-gray-400 font-bold text-xs uppercase">Список пуст</div>}
             </div>
           </div>
         )}

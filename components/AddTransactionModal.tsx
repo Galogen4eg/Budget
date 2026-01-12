@@ -1,4 +1,5 @@
 
+// ... imports ...
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,12 +69,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       if (showAllCategories) {
           return sorted;
       } else {
-          const top5 = sorted.slice(0, 5);
-          // If selected category is NOT in top 5, we still want to show it if it's currently selected?
-          // But usually better to let user expand. We stick to simple Top 5 + Expand logic.
-          // However, if editing an existing transaction with a rare category, it's better to verify.
-          // For simplicity, we just show top 5 and the "More" button.
-          return top5;
+          // Changed limit to 10 for better visibility on larger screens
+          const topLimit = 10;
+          const topCats = sorted.slice(0, topLimit);
+          return topCats;
       }
   }, [categories, transactions, showAllCategories]);
 
@@ -442,7 +441,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="space-y-5">
             <div className="flex items-center justify-between px-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Категория</label>
-                {categories.length > 5 && !showAllCategories && (
+                {categories.length > 10 && !showAllCategories && (
                     <button 
                         type="button" 
                         onClick={() => setShowAllCategories(true)}
@@ -468,14 +467,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   </button>
                ))}
                
-               {categories.length > 5 && !showAllCategories && (
+               {categories.length > 10 && !showAllCategories && (
                    <button 
                      type="button"
                      onClick={() => setShowAllCategories(true)}
                      className="flex flex-col items-center gap-1.5 min-w-[60px] p-2 rounded-2xl border border-transparent opacity-60"
                    >
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300">
-                            <span className="text-[10px] font-black">+{categories.length - 5}</span>
+                            <span className="text-[10px] font-black">+{categories.length - 10}</span>
                         </div>
                         <span className="text-[9px] font-bold text-gray-400 whitespace-nowrap">Еще...</span>
                    </button>

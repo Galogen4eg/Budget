@@ -116,11 +116,14 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  // 1. Update User Pointer
-  const userRef = doc(db, 'users', user.uid);
-  await updateDoc(userRef, { familyId: targetFamilyId });
-  
-  // 2. Add to Family Members Collection
+  // 0. Verify target family exists
+  const familyRef = doc(db, 'families', targetFamilyId);
+  const familySnap = await getDoc(familyRef);
+  if (!familySnap.exists()) {
+      throw new Error("Семья не найдена");
+  }
+
+  // 1. Add to Family Members Collection (Subcollection)
   // We add this explicitly so the user appears in the UI list immediately
   const newMember: FamilyMember = {
       id: user.uid,
@@ -134,12 +137,15 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   // Use setDoc with merge to prevent overwriting if somehow already exists
   await setDoc(doc(db, 'families', targetFamilyId, 'members', user.uid), newMember, { merge: true });
 
-  // 3. Update Family Document (members array) for security rules
-  const familyRef = doc(db, 'families', targetFamilyId);
+  // 2. Update Family Document (members array) for security rules
   // Using updateDoc because the family document MUST exist to join
   await updateDoc(familyRef, {
       members: arrayUnion(user.uid)
   });
+
+  // 3. Update User Pointer (Only if previous steps succeeded)
+  const userRef = doc(db, 'users', user.uid);
+  await updateDoc(userRef, { familyId: targetFamilyId });
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {

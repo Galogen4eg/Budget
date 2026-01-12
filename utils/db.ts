@@ -123,32 +123,39 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const familyRef = doc(db, 'families', cleanFamilyId);
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
 
-  // 1. Сразу записываем пользователя в подколлекцию members
-  // Используем setDoc, так как он работает даже если родительский документ недоступен для чтения
+  // 1. Подготовка объекта участника
   const newMember: FamilyMember = {
       id: user.uid,
       userId: user.uid,
       name: user.displayName || 'Новый участник',
       color: '#34C759', // Default green for new members
-      avatar: user.photoURL || null, // Ensure null, not undefined
       isAdmin: false
   };
+
+  // Добавляем аватар только если он есть (избегаем undefined)
+  if (user.photoURL) {
+      newMember.avatar = user.photoURL;
+  }
   
-  // Пытаемся записать участника. Это самое важное действие для правил безопасности.
-  // Это действие должно быть разрешено правилами, если request.auth.uid == uid
+  // 2. КРИТИЧНОЕ ИСПРАВЛЕНИЕ:
+  // Мы используем чистый setDoc (без merge: true).
+  // Опция { merge: true } требует прав READ на документ, чтобы объединить поля.
+  // Новый участник обычно НЕ имеет прав READ к чужой семье, пока не вступит в неё.
+  // Чистый setDoc - это операция CREATE/WRITE, которая разрешена правилами для собственного UID.
   try {
-      await setDoc(memberRef, newMember, { merge: true });
-  } catch (e) {
+      await setDoc(memberRef, newMember);
+  } catch (e: any) {
       console.error("Failed to add member doc:", e);
-      throw new Error("Не удалось добавиться в список участников (ошибка прав доступа)");
+      if (e.code === 'permission-denied') {
+          throw new Error("Нет доступа к семье. Проверьте ссылку или настройки приватности.");
+      }
+      throw new Error("Ошибка вступления: " + e.message);
   }
 
-  // 2. Обновляем указатель у пользователя
+  // 3. Обновляем указатель у пользователя
   await updateDoc(userRef, { familyId: cleanFamilyId });
 
-  // 3. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
-  // Оборачиваем в try/catch, так как правила могут запрещать updateDoc родителя для новых участников,
-  // но разрешать setDoc в подколлекцию members/{uid}.
+  // 4. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
   try {
       await updateDoc(familyRef, {
           members: arrayUnion(user.uid)

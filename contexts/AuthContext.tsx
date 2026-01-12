@@ -7,7 +7,8 @@ import {
   signInWithPopup, 
   signInWithRedirect, 
   getRedirectResult,
-  signOut
+  signOut,
+  AuthError
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { getOrInitUserFamily } from '../utils/db';
@@ -124,23 +125,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []); 
 
   const loginWithGoogle = async () => {
-      setLoading(true);
+      // ВАЖНО: Не вызываем setLoading(true) здесь.
+      // Это разрывает связь с пользовательским кликом и браузер блокирует попап.
+      // Состояние loading обработается автоматически в onAuthStateChanged, когда пользователь авторизуется.
+      
       try {
           await signInWithPopup(auth, googleProvider);
+          // Успех -> сработает onAuthStateChanged -> setUser -> setLoading(false)
       } catch (error: any) {
-          console.error("Google Auth Error:", error);
-          
-          // Handle Network Errors (Offline or Blocked)
-          if (error.code === 'auth/network-request-failed') {
-              if (confirm("Ошибка соединения с сервером. Войти в локальный Демо-режим?")) {
-                  enterDemoMode();
-                  return;
-              }
-          }
+          console.error("Google Auth Popup Error:", error);
+          const errorCode = error.code;
 
-          // На мобильных устройствах popup часто блокируется, пробуем редирект
-          if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/operation-not-supported-in-this-environment') {
+          // Если попап заблокирован или закрыт пользователем, или не поддерживается (iOS PWA)
+          // пробуем редирект (вход в том же окне)
+          if (
+              errorCode === 'auth/popup-blocked' || 
+              errorCode === 'auth/popup-closed-by-user' || 
+              errorCode === 'auth/operation-not-supported-in-this-environment' ||
+              errorCode === 'auth/cancelled-popup-request'
+          ) {
+              console.log("Falling back to redirect method...");
               try {
+                  setLoading(true); // Здесь уже можно, так как редирект перезагрузит страницу
                   await signInWithRedirect(auth, googleProvider);
                   return;
               } catch (redirectError: any) {
@@ -152,9 +158,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       }
                   }
               }
+          } else if (errorCode === 'auth/network-request-failed') {
+              if (confirm("Ошибка соединения с сервером. Войти в локальный Демо-режим?")) {
+                  enterDemoMode();
+                  return;
+              }
           }
+          
+          alert(`Ошибка входа через Google: ${error.message}`);
           setLoading(false);
-          alert(`Ошибка входа через Google. Для APK используйте Демо-режим, если не настроен SHA-1. Ошибка: ${error.message}`);
       }
   };
 

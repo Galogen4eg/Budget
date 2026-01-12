@@ -22,7 +22,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Настройка провайдера с принудительным окном выбора аккаунта
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
 
 // Initialize Firestore with persistent local cache (Offline support)
 export const db = initializeFirestore(app, {

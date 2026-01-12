@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, ScanLine, AlertCircle } from 'lucide-react';
+import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, ScanLine, AlertCircle, Coffee, Tv, Zap, Briefcase, Gift, CreditCard } from 'lucide-react';
 import { LoyaltyCard } from '../types';
 import { getIconById } from '../constants';
 import { GoogleGenAI } from "@google/genai";
@@ -191,9 +191,15 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
           });
 
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const prompt = `Analyze this loyalty card image. Extract info.
-          Return JSON only: { "name": string, "number": string, "color": string, "icon": string, "format": "qr" | "code128" }. 
-          If you see a square QR code, format is 'qr'. If you see lines/bars, format is 'code128'.`;
+          const prompt = `Analyze this image of a loyalty/membership card.
+          Extract the following information:
+          1. "name": The store or brand name (e.g., IKEA, Tesco, Пятерочка).
+          2. "number": The card number. Look for sequences of digits under a barcode or encoded in a QR code. Ensure high accuracy.
+          3. "color": The dominant background color of the card in hex format (e.g. #FF0000).
+          4. "icon": Choose the most appropriate icon name from this list: [${CARD_ICONS.join(', ')}]. Default to 'ShoppingBag'.
+          5. "format": The barcode format. If it's a square matrix, return "qr". If it's a standard 1D barcode with 12-13 digits, return "ean13". Otherwise return "code128".
+
+          Return ONLY valid JSON: { "name": string, "number": string, "color": string, "icon": string, "format": "qr" | "code128" | "ean13" }`;
 
           const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
@@ -232,6 +238,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
         let finalNumber = '';
         let finalFormat: any = 'code128';
 
+        // Prefer deterministic scanner for number, use AI as fallback
         if (barcodeResult.text) {
             finalNumber = barcodeResult.text;
             finalFormat = mapFormat(barcodeResult.format);
@@ -322,7 +329,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                 </div>
 
                 <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-2xl flex items-center justify-between border border-blue-100 dark:border-blue-900/50">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Скан по фото/камере</span>
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Скан по фото/камере (AI)</span>
                     <button onClick={() => fileInputRef.current?.click()} className="bg-blue-500 text-white p-2 rounded-xl">
                         {isAnalyzing ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
                     </button>
@@ -341,11 +348,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Формат штрихкода</label>
                         <div className="flex bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-xl">
-                            <button onClick={() => setNewFormat('code128')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat !== 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
-                                <Barcode size={14} /> Штрихкод
+                            <button onClick={() => setNewFormat('code128')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'code128' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <Barcode size={14} /> Bar
+                            </button>
+                            <button onClick={() => setNewFormat('ean13')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'ean13' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
+                                <ScanLine size={14} /> EAN13
                             </button>
                             <button onClick={() => setNewFormat('qr')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1 ${newFormat === 'qr' ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-black dark:text-white' : 'text-gray-400'}`}>
-                                <QrCode size={14} /> QR Код
+                                <QrCode size={14} /> QR
                             </button>
                         </div>
                     </div>

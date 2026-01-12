@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -19,19 +19,21 @@ interface EventModalProps {
   settings: AppSettings;
 }
 
-const REMINDER_OPTIONS = [
-  { label: 'Нет', value: 0 },
-  { label: 'За 15 мин', value: 15 },
-  { label: 'За 1 час', value: 60 },
-  { label: 'За 2 часа', value: 120 },
-  { label: 'За 1 день', value: 1440 },
-  { label: 'За 2 дня', value: 2880 },
+const PRESET_REMINDERS = [
+  { label: '15 мин', value: 15 },
+  { label: '1 час', value: 60 },
+  { label: '2 часа', value: 120 },
+  { label: '1 день', value: 1440 },
 ];
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
-  const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(event?.date || prefill?.date || (() => {
+      const d = new Date();
+      const offset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offset).toISOString().split('T')[0];
+  })());
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
   const [dur, setDur] = useState(event?.duration || 1);
   const [mIds, setMIds] = useState<string[]>(event?.memberIds || prefill?.memberIds || []);
@@ -39,6 +41,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || []);
+  
+  // Custom Reminder State
+  const [customRemValue, setCustomRemValue] = useState('');
+  const [customRemUnit, setCustomRemUnit] = useState<'min' | 'hour' | 'day'>('min');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -59,39 +65,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     }
   };
 
-  const handleSaveAsTemplate = () => {
-      if (!title.trim()) { alert("Введите название для шаблона"); return; }
-      onSave({
-          id: Date.now().toString(),
-          title: title.trim(),
-          description: desc,
-          date: '', // Templates don't need a specific date
-          time: time,
-          duration: dur,
-          memberIds: mIds,
-          isTemplate: true,
-          checklist,
-          reminders,
-          userId: auth.currentUser?.uid
-      });
-      // Note: onSave usually closes the modal in parent, which is fine.
-  };
-
   const applyTemplate = (t: FamilyEvent) => {
     setTitle(t.title);
-    setDesc(t.description || ''); // Added description
     setDur(t.duration || 1);
     setMIds(t.memberIds || []);
     setChecklist(t.checklist || []);
     setReminders(t.reminders || []);
     setShowTemplates(false);
-  };
-
-  const handleDeleteTemplate = (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      if(onDelete && confirm('Удалить шаблон?')) {
-          onDelete(id);
-      }
   };
 
   const addChecklistItem = () => {
@@ -100,16 +80,39 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     setNewChecklistItem('');
   };
 
-  const toggleReminder = (minutes: number) => {
-    if (minutes === 0) {
-        setReminders([]);
-        return;
+  const addReminder = (minutes: number) => {
+    if (minutes <= 0) return;
+    if (!reminders.includes(minutes)) {
+        setReminders([...reminders, minutes].sort((a, b) => a - b));
     }
-    if (reminders.includes(minutes)) {
-        setReminders(reminders.filter(r => r !== minutes));
-    } else {
-        setReminders([...reminders, minutes]);
-    }
+  };
+
+  const removeReminder = (minutes: number) => {
+    setReminders(reminders.filter(r => r !== minutes));
+  };
+
+  const addCustomReminder = () => {
+      const val = parseInt(customRemValue);
+      if (!val || val <= 0) return;
+      
+      let minutes = val;
+      if (customRemUnit === 'hour') minutes = val * 60;
+      if (customRemUnit === 'day') minutes = val * 1440;
+      
+      addReminder(minutes);
+      setCustomRemValue('');
+  };
+
+  const formatReminderText = (minutes: number) => {
+      if (minutes < 60) return `${minutes} мин`;
+      if (minutes < 1440) {
+          const h = Math.floor(minutes / 60);
+          const m = minutes % 60;
+          return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+      }
+      const d = Math.floor(minutes / 1440);
+      const h = Math.floor((minutes % 1440) / 60);
+      return h > 0 ? `${d} д ${h} ч` : `${d} д`;
   };
 
   const validateAndSave = () => {
@@ -131,32 +134,28 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   return (
     <div className="fixed inset-0 z-[600] flex items-end md:items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/20 backdrop-blur-md" />
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="bg-white p-6 flex justify-between items-center border-b border-gray-100 relative z-20 shrink-0">
-          <h3 className="text-xl font-black text-[#1C1C1E]">{event ? 'Редактировать' : 'Новое событие'}</h3>
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 relative z-20 shrink-0">
+          <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
-            <button type="button" onClick={handleManualSend} disabled={loading} className={`p-2.5 rounded-full transition-colors ${sent ? 'bg-green-500 text-white' : 'bg-blue-50 text-blue-500'}`}>
+            <button type="button" onClick={handleManualSend} disabled={loading} className={`p-2.5 rounded-full transition-colors ${sent ? 'bg-green-500 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}>
                 {loading ? <Loader2 size={20} className="animate-spin"/> : sent ? <Check size={20}/> : <Send size={20} />}
             </button>
-            <button type="button" onClick={handleSaveAsTemplate} title="Сохранить как шаблон" className="p-2.5 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors">
-                <Bookmark size={20} />
-            </button>
             {templates.length > 0 && (
-              <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-purple-500 text-white' : 'bg-purple-50 text-purple-500'}`}><Sparkles size={20} /></button>
+              <button type="button" onClick={() => setShowTemplates(!showTemplates)} className={`p-2.5 rounded-full ${showTemplates ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}><Sparkles size={20} /></button>
             )}
-            <button type="button" onClick={onClose} className="p-3 bg-gray-100 rounded-full text-gray-500"><X size={22}/></button>
+            <button type="button" onClick={onClose} className="p-3 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 dark:text-gray-300"><X size={22}/></button>
           </div>
         </div>
 
         <AnimatePresence>
             {showTemplates && (
-                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-white border-b border-gray-100 overflow-hidden shrink-0">
+                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 overflow-hidden shrink-0">
                     <div className="p-4 flex gap-2 overflow-x-auto no-scrollbar">
                         {templates.map(t => (
-                            <div key={t.id} onClick={() => applyTemplate(t)} className="flex items-center gap-2 bg-purple-50 text-purple-600 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer hover:bg-purple-100 transition-colors">
+                            <button key={t.id} onClick={() => applyTemplate(t)} className="bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
                                 {t.title}
-                                <button onClick={(e) => handleDeleteTemplate(e, t.id)} className="p-1 hover:text-red-500 rounded-full"><X size={12}/></button>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </motion.div>
@@ -164,23 +163,23 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         </AnimatePresence>
 
         <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
-          <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
-            <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E]" />
-            <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 p-4 rounded-2xl resize-none h-24 text-[#1C1C1E]" />
+          <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-sm space-y-4">
+            <input type="text" placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-2xl font-black outline-none bg-transparent border-none text-[#1C1C1E] dark:text-white" />
+            <textarea placeholder="Описание..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full text-sm font-medium outline-none bg-gray-50/50 dark:bg-[#2C2C2E] p-4 rounded-2xl resize-none h-24 text-[#1C1C1E] dark:text-white" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-             <div className="bg-white p-5 rounded-[2rem] border border-white">
+             <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border border-white dark:border-white/5">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
-               <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
+               <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
              </div>
-             <div className="bg-white p-5 rounded-[2rem] border border-white">
+             <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border border-white dark:border-white/5">
                <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Время начала</span>
-               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E]" />
+               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
              </div>
           </div>
-          
-          <div className="bg-white p-5 rounded-[2rem] border border-white dark:border-white/5">
+
+          <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border border-white dark:border-white/5">
              <span className="text-[10px] font-black text-gray-400 uppercase mb-3 block flex items-center gap-2"><Timer size={12}/> Продолжительность (часов)</span>
              <div className="flex items-center justify-between bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl p-2">
                 <button 
@@ -210,39 +209,87 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                 </button>
              </div>
           </div>
-
-          <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
-             <div className="flex items-center gap-2 mb-2">
-               <Bell size={16} className="text-orange-500" />
-               <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Напоминание (в Telegram)</span>
+          
+          <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-sm space-y-4">
+             <div className="flex items-center justify-between mb-1">
+               <div className="flex items-center gap-2">
+                   <Bell size={16} className="text-orange-500" />
+                   <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Напоминания</span>
+               </div>
+               <span className="text-[9px] text-gray-400 font-bold">{reminders.length} акт.</span>
              </div>
-             <div className="flex flex-wrap gap-2">
-                {REMINDER_OPTIONS.map(opt => {
-                    const isActive = opt.value === 0 ? reminders.length === 0 : reminders.includes(opt.value);
-                    return (
-                        <button key={opt.value} type="button" onClick={() => toggleReminder(opt.value)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 text-gray-400'}`} >
-                            {opt.label}
-                        </button>
-                    );
-                })}
+
+             {/* Active Reminders List */}
+             {reminders.length > 0 && (
+                 <div className="flex flex-wrap gap-2">
+                     {reminders.map(r => (
+                         <div key={r} className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-300 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-orange-100 dark:border-orange-900/30">
+                             <span>За {formatReminderText(r)}</span>
+                             <button onClick={() => removeReminder(r)} className="hover:text-red-500"><X size={12} strokeWidth={3}/></button>
+                         </div>
+                     ))}
+                 </div>
+             )}
+
+             {/* Presets */}
+             <div className="grid grid-cols-4 gap-2">
+                {PRESET_REMINDERS.map(opt => (
+                    <button 
+                        key={opt.value} 
+                        type="button" 
+                        onClick={() => addReminder(opt.value)} 
+                        disabled={reminders.includes(opt.value)}
+                        className={`py-2 rounded-xl text-[9px] font-black uppercase transition-all ${reminders.includes(opt.value) ? 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-300 opacity-50' : 'bg-gray-50 dark:bg-[#2C2C2E] text-gray-500 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500'}`} 
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+             </div>
+
+             {/* Custom Input */}
+             <div className="flex items-center bg-gray-50 dark:bg-[#2C2C2E] p-1 rounded-2xl">
+                 <input 
+                    type="number" 
+                    placeholder="0" 
+                    value={customRemValue}
+                    onChange={e => setCustomRemValue(e.target.value)}
+                    className="w-16 bg-transparent text-center font-black text-sm outline-none text-[#1C1C1E] dark:text-white"
+                 />
+                 <div className="flex bg-white dark:bg-[#1C1C1E] rounded-xl p-1 mx-2">
+                     {(['min', 'hour', 'day'] as const).map(u => (
+                         <button 
+                            key={u} 
+                            onClick={() => setCustomRemUnit(u)}
+                            className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors ${customRemUnit === u ? 'bg-orange-500 text-white' : 'text-gray-400'}`}
+                         >
+                             {u === 'min' ? 'Мин' : u === 'hour' ? 'Час' : 'Дни'}
+                         </button>
+                     ))}
+                 </div>
+                 <button 
+                    onClick={addCustomReminder}
+                    className="w-8 h-8 bg-white dark:bg-[#1C1C1E] rounded-xl flex items-center justify-center text-orange-500 shadow-sm active:scale-95 transition-transform ml-auto"
+                 >
+                     <Plus size={16} strokeWidth={3} />
+                 </button>
              </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4">
+          <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-sm space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <ListChecks size={16} className="text-blue-500" />
               <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Чек-лист</span>
             </div>
             <div className="flex gap-2">
-              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E]" />
+              <input type="text" placeholder="Что нужно?" value={newChecklistItem} onChange={e => setNewChecklistItem(e.target.value)} onKeyPress={e => e.key === 'Enter' && addChecklistItem()} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] px-4 py-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white" />
               <button type="button" onClick={addChecklistItem} className="w-12 h-12 bg-blue-500 text-white rounded-xl flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
             </div>
             <div className="space-y-3">
               {checklist.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-2xl">
-                  <button type="button" onClick={() => setChecklist(checklist.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} className={`${item.completed ? 'text-green-500' : 'text-gray-300'}`}>{item.completed ? <CheckCircle2 size={22} fill="currentColor" className="text-white" /> : <Circle size={22} />}</button>
-                  <span className={`flex-1 text-sm font-bold ${item.completed ? 'line-through text-gray-400' : 'text-[#1C1C1E]'}`}>{item.text}</span>
-                  <button type="button" onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50/50 dark:bg-[#2C2C2E]/50 rounded-2xl">
+                  <button type="button" onClick={() => setChecklist(checklist.map(i => i.id === item.id ? {...i, completed: !i.completed} : i))} className={`${item.completed ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'}`}>{item.completed ? <CheckCircle2 size={22} fill="currentColor" className="text-white dark:text-[#2C2C2E]" /> : <Circle size={22} />}</button>
+                  <span className={`flex-1 text-sm font-bold ${item.completed ? 'line-through text-gray-400' : 'text-[#1C1C1E] dark:text-white'}`}>{item.text}</span>
+                  <button type="button" onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))} className="text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                 </div>
               ))}
             </div>
@@ -254,12 +301,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           </div>
         </div>
 
-        <div className="p-6 bg-white border-t border-gray-100 shrink-0 space-y-3">
+        <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 shrink-0 space-y-3">
              <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
              {event && onDelete && (
-                 <button type="button" onClick={() => onDelete(event.id)} className="w-full py-3 text-red-500 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 rounded-2xl transition-colors">
+                 <button type="button" onClick={() => onDelete(event.id)} className="w-full py-3 text-red-500 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-colors">
                     <Trash2 size={14}/> Удалить событие
                  </button>
              )}

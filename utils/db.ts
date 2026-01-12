@@ -81,30 +81,45 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 
       // 2. КРИТИЧНО: Проверяем, существует ли сама Семья в базе
       const familyRef = doc(db, 'families', familyId);
-      const familySnap = await getDoc(familyRef);
+      
+      try {
+          const familySnap = await getDoc(familyRef);
 
-      if (!familySnap.exists()) {
-          // Если семьи нет (первый вход или сбой), создаем её структуру
-          const newMember: FamilyMember = {
-              id: user.uid, // Важно: используем UID как ID участника для связи
-              userId: user.uid,
-              name: user.displayName || 'Пользователь',
-              color: '#007AFF',
-              avatar: user.photoURL || null, // Explicit null instead of undefined
-              isAdmin: true
-          };
+          if (!familySnap.exists()) {
+              // Если семьи нет (первый вход или сбой), создаем её структуру
+              const newMember: FamilyMember = {
+                  id: user.uid, // Важно: используем UID как ID участника для связи
+                  userId: user.uid,
+                  name: user.displayName || 'Пользователь',
+                  color: '#007AFF',
+                  avatar: user.photoURL || undefined, // undefined is handled by ignoreUndefinedProperties
+                  isAdmin: true
+              };
 
-          await setDoc(familyRef, {
-              ownerId: user.uid,
-              createdAt: new Date().toISOString(),
-              name: 'Моя семья',
-              members: [user.uid] // Массив ID для правил безопасности
-          });
+              // Explicitly clean undefined
+              if (!newMember.avatar) delete newMember.avatar;
 
-          // Сразу добавляем участника в коллекцию members
-          await setDoc(doc(db, 'families', familyId, 'members', user.uid), newMember);
-          
-          console.log("Family initialized successfully:", familyId);
+              await setDoc(familyRef, {
+                  ownerId: user.uid,
+                  createdAt: new Date().toISOString(),
+                  name: 'Моя семья',
+                  members: [user.uid] // Массив ID для правил безопасности
+              });
+
+              // Сразу добавляем участника в коллекцию members
+              await setDoc(doc(db, 'families', familyId, 'members', user.uid), newMember);
+              
+              console.log("Family initialized successfully:", familyId);
+          }
+      } catch (famError: any) {
+          // Если ошибка прав доступа при чтении семьи, но мы знаем familyId,
+          // это может означать, что пользователь только что присоединился, но правила еще не обновились
+          // или запрещают чтение корня семьи.
+          if (famError.code === 'permission-denied') {
+              console.warn("Family read permission denied, but proceed with ID:", familyId);
+              return familyId;
+          }
+          throw famError;
       }
 
       return familyId;
@@ -123,46 +138,60 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const familyRef = doc(db, 'families', cleanFamilyId);
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
 
-  // 1. Подготовка объекта участника
-  const newMember: FamilyMember = {
+  // 1. Сначала обновляем профиль пользователя.
+  // Это часто необходимо для прохождения правил безопасности ("я заявляю, что я в этой семье")
+  try {
+      await setDoc(userRef, { 
+          familyId: cleanFamilyId,
+          email: user.email,
+          updatedAt: new Date().toISOString()
+      }, { merge: true });
+  } catch (e) {
+      console.error("Failed to update user profile:", e);
+      throw new Error("Не удалось обновить профиль пользователя.");
+  }
+
+  // 2. Создаем документ участника
+  const newMember: any = {
       id: user.uid,
       userId: user.uid,
       name: user.displayName || 'Новый участник',
       color: '#34C759', // Default green for new members
-      isAdmin: false
+      isAdmin: false,
+      joinedAt: new Date().toISOString()
   };
 
-  // Добавляем аватар только если он есть (избегаем undefined)
   if (user.photoURL) {
       newMember.avatar = user.photoURL;
   }
   
-  // 2. КРИТИЧНОЕ ИСПРАВЛЕНИЕ:
-  // Мы используем чистый setDoc (без merge: true).
-  // Опция { merge: true } требует прав READ на документ, чтобы объединить поля.
-  // Новый участник обычно НЕ имеет прав READ к чужой семье, пока не вступит в неё.
-  // Чистый setDoc - это операция CREATE/WRITE, которая разрешена правилами для собственного UID.
   try {
+      // Используем чистый setDoc (без merge), чтобы избежать требования Read прав
       await setDoc(memberRef, newMember);
   } catch (e: any) {
       console.error("Failed to add member doc:", e);
+      
+      // ROLLBACK: Пытаемся вернуть старый familyId (или сбросить), чтобы не оставлять пользователя в лимбе
+      try {
+          await updateDoc(userRef, { familyId: user.uid }); // Reset to self-family
+      } catch (rollbackError) {
+          console.warn("Rollback failed", rollbackError);
+      }
+
       if (e.code === 'permission-denied') {
-          throw new Error("Нет доступа к семье. Проверьте ссылку или настройки приватности.");
+          throw new Error("Нет доступа к семье (Permission Denied). Возможно, ссылка неверна.");
       }
       throw new Error("Ошибка вступления: " + e.message);
   }
 
-  // 3. Обновляем указатель у пользователя
-  await updateDoc(userRef, { familyId: cleanFamilyId });
-
-  // 4. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
+  // 3. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
+  // Это действие не критично, если шаг 2 прошел успешно.
   try {
       await updateDoc(familyRef, {
           members: arrayUnion(user.uid)
       });
   } catch (e) {
-      console.warn("Could not update members array (likely permission issue), but member doc created.", e);
-      // Игнорируем эту ошибку, так как шаг 1 и 2 прошли успешно, и UI будет работать через подколлекцию.
+      console.warn("Could not update parent family document array (permission likely restricted), but member doc created.", e);
   }
 };
 

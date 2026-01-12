@@ -90,7 +90,7 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
               userId: user.uid,
               name: user.displayName || 'Пользователь',
               color: '#007AFF',
-              avatar: user.photoURL || undefined,
+              avatar: user.photoURL || null, // Explicit null instead of undefined
               isAdmin: true
           };
 
@@ -116,9 +116,12 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
+  if (!targetFamilyId || !user) throw new Error("Invalid params for joinFamily");
+  
+  const cleanFamilyId = targetFamilyId.trim();
   const userRef = doc(db, 'users', user.uid);
-  const familyRef = doc(db, 'families', targetFamilyId);
-  const memberRef = doc(db, 'families', targetFamilyId, 'members', user.uid);
+  const familyRef = doc(db, 'families', cleanFamilyId);
+  const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
 
   // 1. Сразу записываем пользователя в подколлекцию members
   // Используем setDoc, так как он работает даже если родительский документ недоступен для чтения
@@ -127,15 +130,21 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
       userId: user.uid,
       name: user.displayName || 'Новый участник',
       color: '#34C759', // Default green for new members
-      avatar: user.photoURL || undefined,
+      avatar: user.photoURL || null, // Ensure null, not undefined
       isAdmin: false
   };
   
   // Пытаемся записать участника. Это самое важное действие для правил безопасности.
-  await setDoc(memberRef, newMember, { merge: true });
+  // Это действие должно быть разрешено правилами, если request.auth.uid == uid
+  try {
+      await setDoc(memberRef, newMember, { merge: true });
+  } catch (e) {
+      console.error("Failed to add member doc:", e);
+      throw new Error("Не удалось добавиться в список участников (ошибка прав доступа)");
+  }
 
   // 2. Обновляем указатель у пользователя
-  await updateDoc(userRef, { familyId: targetFamilyId });
+  await updateDoc(userRef, { familyId: cleanFamilyId });
 
   // 3. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
   // Оборачиваем в try/catch, так как правила могут запрещать updateDoc родителя для новых участников,

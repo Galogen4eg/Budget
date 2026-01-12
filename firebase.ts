@@ -35,7 +35,8 @@ googleProvider.setCustomParameters({
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  })
+  }),
+  ignoreUndefinedProperties: true // CRITICAL: Allows saving objects with undefined fields without crashing
 });
 
 // Initialize Messaging (Optional, only if supported)

@@ -153,7 +153,7 @@ export default function App() {
               })
               .catch(err => {
                   console.error("Auto-join failed:", err);
-                  setNotification({ message: 'Ошибка присоединения к семье', type: 'error' });
+                  setNotification({ message: `Ошибка: ${err.message}`, type: 'error' });
                   setIsJoining(false);
               });
       }

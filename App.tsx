@@ -121,6 +121,11 @@ export default function App() {
   // Track notifications to show toast
   const prevNotifCount = useRef(notifications.length);
 
+  // Scroll to top when active tab changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   useEffect(() => {
     // Check if a new notification arrived
     if (notifications.length > prevNotifCount.current) {

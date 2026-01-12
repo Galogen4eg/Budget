@@ -87,14 +87,14 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
   const { chartData, totalExpenses, avgDaily, maxDay } = analyticsData;
 
   return (
-    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none flex flex-col h-full relative overflow-hidden group">
+    <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-5 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none flex flex-col h-full relative overflow-hidden group">
         {/* Subtle decorative background */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 dark:bg-blue-900/10 rounded-full blur-[80px] -mr-10 -mt-10 pointer-events-none opacity-60" />
 
         {/* Header */}
-        <div className="flex justify-between items-start mb-2 relative z-10 shrink-0">
+        <div className="flex justify-between items-start mb-1 relative z-10 shrink-0">
             <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-0.5">
                     <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
                         <BarChart3 size={14} className="text-blue-500 dark:text-blue-400" />
                     </div>
@@ -103,18 +103,18 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-3xl md:text-5xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
+                    <h2 className="text-2xl md:text-4xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
-                    <span className="text-sm font-bold text-gray-400">{settings.currency}</span>
+                    <span className="text-xs font-bold text-gray-400">{settings.currency}</span>
                 </div>
             </div>
         </div>
 
-        {/* Chart */}
-        <div className="flex-1 w-full relative z-10 -ml-1 min-h-[120px]">
+        {/* Chart - flex-1 ensures it takes available space but shrinks if needed */}
+        <div className="flex-1 w-full relative z-10 -ml-1 min-h-[80px]">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="colorNormal" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
@@ -132,7 +132,7 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                         tickLine={false} 
                         tick={{ fontSize: 9, fontWeight: 800, fill: '#9CA3AF' }} 
                         interval={chartData.length > 20 ? 4 : 1} // Adaptive interval
-                        dy={8}
+                        dy={5}
                     />
                     
                     <Tooltip 
@@ -178,29 +178,29 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
             </ResponsiveContainer>
         </div>
 
-        {/* Footer Stats */}
-        <div className="flex gap-3 mt-1 pt-3 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
-            <div className="flex items-center gap-2">
-                <div className="w-1 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 relative overflow-hidden">
+        {/* Footer Stats - Compact styling */}
+        <div className="flex gap-4 mt-2 pt-2 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="w-1 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 relative overflow-hidden shrink-0">
                     <div className="absolute bottom-0 w-full bg-blue-500 h-1/2" />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Среднее</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                <div className="flex flex-col min-w-0">
+                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider truncate">Среднее</span>
+                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums truncate">
                         {settings.privacyMode ? '•••' : Math.round(avgDaily).toLocaleString()}
                     </span>
                 </div>
             </div>
             
-            <div className="w-px bg-gray-100 dark:bg-white/10 h-6 self-center" />
+            <div className="w-px bg-gray-100 dark:bg-white/10 h-6 self-center shrink-0" />
 
-            <div className="flex items-center gap-2">
-                <div className="w-1 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 relative overflow-hidden">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="w-1 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 relative overflow-hidden shrink-0">
                     <div className="absolute bottom-0 w-full bg-orange-500 h-full" />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Макс.</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
+                <div className="flex flex-col min-w-0">
+                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider truncate">Макс.</span>
+                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums truncate">
                         {settings.privacyMode ? '•••' : Math.round(maxDay).toLocaleString()}
                     </span>
                 </div>

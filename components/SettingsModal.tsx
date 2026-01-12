@@ -292,11 +292,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           }
       } else {
           const newMemberId = Math.random().toString(36).substr(2, 9);
-          const newMember = { 
+          // Explicitly set default values for isAdmin, avatar, and userId to ensure they exist in DB
+          const newMember: FamilyMember = { 
               id: newMemberId, 
               name: tempMemberName, 
               color: tempMemberColor,
-              email: email || undefined
+              email: email || undefined,
+              isAdmin: false,
+              avatar: '', // Initialize empty to ensure field existence
+              userId: ''  // Initialize empty to ensure field existence (placeholder)
           };
           onUpdateMembers([...members, newMember]);
 

@@ -382,7 +382,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     const hasEvents = monthEvents.length > 0;
 
     return (
-        <div className="space-y-4 pb-4">
+        <div className="space-y-4 pb-24">
              {!hasEvents ? (
                  <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
                     <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
@@ -542,7 +542,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         )}
 
         {viewMode === 'month' && (
-            <div className="flex flex-col h-[calc(100dvh-13rem)]">
+            <div className="flex flex-col h-[calc(100dvh-8.5rem)]">
                 <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 shrink-0 mb-2">
                     <div className="flex justify-between items-center mb-6">
                         <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>

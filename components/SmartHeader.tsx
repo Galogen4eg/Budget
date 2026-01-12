@@ -178,7 +178,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
 
         <div className="relative z-10 flex flex-col h-full p-4 md:p-5">
             
-            {/* 1. TOP ROW: Budget Mode Switcher + Privacy + Days */}
+            {/* 1. TOP ROW: Budget Mode Switcher + Invite + Privacy + Days */}
             <div className="flex justify-between items-start mb-1 md:mb-2">
                 <div className="flex gap-2">
                     <button 
@@ -202,6 +202,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-2 md:gap-3">
+                    {/* Invite Button */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onInvite?.(); }}
+                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors flex items-center justify-center"
+                        title="Пригласить в семью"
+                    >
+                        <UserPlus size={12} />
+                    </button>
+
                     <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-1 md:px-3 md:py-1.5 flex items-center gap-1.5 border border-white/10">
                         <CalendarClock size={10} className="text-blue-200" />
                         <span className="text-[9px] md:text-[10px] font-bold text-white tabular-nums">

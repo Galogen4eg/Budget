@@ -18,7 +18,7 @@ import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
-import { createInvitation } from '../utils/db';
+import { createInvitation, deleteItem } from '../utils/db';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -271,7 +271,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       setIsMemberModalOpen(true);
   };
 
-  const handleSaveMember = () => {
+  const handleSaveMember = async () => {
       if (!tempMemberName.trim()) return;
       
       const email = tempMemberEmail.trim().toLowerCase();
@@ -287,8 +287,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           
           // Re-invite if email changed and not yet linked
           if (currentFamilyId && email && email !== editingMember.email && !editingMember.userId) {
-              createInvitation(currentFamilyId, email, editingMember.id);
-              alert(`Приглашение отправлено для ${email}. Когда пользователь войдет через Google, он будет добавлен.`);
+              try {
+                  await createInvitation(currentFamilyId, email, editingMember.id);
+                  alert(`Приглашение отправлено для ${email}. Когда пользователь войдет через Google, он будет добавлен.`);
+              } catch (e: any) {
+                  console.error("Invite error:", e);
+                  alert(`Не удалось создать приглашение: ${e.message}. Проверьте права доступа (Rules) и интернет.`);
+              }
           }
       } else {
           const newMemberId = Math.random().toString(36).substr(2, 9);
@@ -305,21 +310,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           onUpdateMembers([...members, newMember]);
 
           if (currentFamilyId && email) {
-              createInvitation(currentFamilyId, email, newMemberId);
-              alert(`Приглашение создано для ${email}. Когда пользователь войдет через Google, он будет автоматически добавлен.`);
+              try {
+                  await createInvitation(currentFamilyId, email, newMemberId);
+                  alert(`Приглашение создано для ${email}. Когда пользователь войдет через Google, он будет автоматически добавлен.`);
+              } catch (e: any) {
+                  console.error("Invite error:", e);
+                  alert(`Не удалось создать приглашение: ${e.message}. Проверьте права доступа (Rules) и интернет.`);
+              }
           }
       }
       setIsMemberModalOpen(false);
   };
 
-  const handleDeleteMember = () => {
+  const handleDeleteMember = async () => {
       if (!editingMember) return;
       if (members.length <= 1) {
           alert("Нельзя удалить последнего участника");
           return;
       }
       if (confirm(`Удалить участника ${editingMember.name}?`)) {
+          // 1. Optimistic Update
           onUpdateMembers(members.filter(m => m.id !== editingMember.id));
+          
+          // 2. Explicit DB Deletion
+          if (currentFamilyId) {
+              try {
+                  await deleteItem(currentFamilyId, 'members', editingMember.id);
+              } catch (e) {
+                  console.error("Failed to delete member:", e);
+              }
+          }
           setIsMemberModalOpen(false);
       }
   };

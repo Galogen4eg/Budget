@@ -79,10 +79,11 @@ export const addGlobalRule = async (rule: LearnedRule) => {
 export const createInvitation = async (familyId: string, email: string, memberId: string) => {
     if (!email) return;
     const cleanEmail = email.toLowerCase().trim();
-    // Using email as doc ID for easy lookup
+    // Using email as doc ID for easy lookup, but adding field for robustness
     await setDoc(doc(db, 'invitations', cleanEmail), {
         familyId,
         placeholderMemberId: memberId,
+        email: cleanEmail,
         createdAt: new Date().toISOString()
     });
 };
@@ -104,50 +105,65 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       try {
           const inviteRef = doc(db, 'invitations', cleanEmail);
           const inviteSnap = await getDoc(inviteRef);
+          
+          let inviteData = null;
+          let inviteRefToDelete = inviteRef;
 
           if (inviteSnap.exists()) {
-              const invite = inviteSnap.data();
-              await logDebug(user, 'invite_found', invite);
-
-              if (invite.familyId) {
-                  try {
-                      // A. CRITICAL: Update User Profile first
-                      await setDoc(userRef, {
-                          email: user.email,
-                          familyId: invite.familyId,
-                          lastLogin: new Date().toISOString(),
-                          updatedAt: new Date().toISOString()
-                      }, { merge: true });
-                      
-                      await logDebug(user, 'profile_updated_from_invite', { familyId: invite.familyId });
-
-                      // B. Link Member Card (Best Effort)
-                      if (invite.placeholderMemberId) {
-                          const memberRef = doc(db, 'families', invite.familyId, 'members', invite.placeholderMemberId);
-                          await setDoc(memberRef, { 
-                              userId: user.uid, 
-                              avatar: user.photoURL || null 
-                          }, { merge: true }).catch(e => logDebug(user, 'link_member_failed', e, 'error'));
-                      }
-
-                      // C. Add to Family Members List (Best Effort)
-                      const famRef = doc(db, 'families', invite.familyId);
-                      await updateDoc(famRef, { members: arrayUnion(user.uid) })
-                          .catch(e => logDebug(user, 'update_family_list_failed', e, 'error'));
-
-                      // D. Delete Invitation (Best Effort)
-                      await deleteDoc(inviteRef).catch(e => logDebug(user, 'delete_invite_failed', e, 'error'));
-
-                      // RETURN IMMEDIATELY on success
-                      await logDebug(user, 'SUCCESS_joined_via_invite', { familyId: invite.familyId });
-                      return invite.familyId;
-
-                  } catch (criticalErr: any) {
-                      await logDebug(user, 'CRITICAL_invite_apply_failed', criticalErr.message, 'error');
-                  }
-              }
+              inviteData = inviteSnap.data();
+              await logDebug(user, 'invite_found_direct', inviteData);
           } else {
-              await logDebug(user, 'no_invite_document_found');
+              // FALLBACK: Query by field in case ID generation differed
+              await logDebug(user, 'invite_doc_missing_trying_query', { cleanEmail });
+              const q = query(collection(db, 'invitations'), where('email', '==', cleanEmail));
+              const querySnap = await getDocs(q);
+              
+              if (!querySnap.empty) {
+                  const doc = querySnap.docs[0];
+                  inviteData = doc.data();
+                  inviteRefToDelete = doc.ref;
+                  await logDebug(user, 'invite_found_via_query', inviteData);
+              } else {
+                  await logDebug(user, 'no_invite_found_via_query');
+              }
+          }
+
+          if (inviteData && inviteData.familyId) {
+              try {
+                  // A. CRITICAL: Update User Profile first
+                  await setDoc(userRef, {
+                      email: user.email,
+                      familyId: inviteData.familyId,
+                      lastLogin: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                  }, { merge: true });
+                  
+                  await logDebug(user, 'profile_updated_from_invite', { familyId: inviteData.familyId });
+
+                  // B. Link Member Card (Best Effort)
+                  if (inviteData.placeholderMemberId) {
+                      const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
+                      await setDoc(memberRef, { 
+                          userId: user.uid, 
+                          avatar: user.photoURL || null 
+                      }, { merge: true }).catch(e => logDebug(user, 'link_member_failed', e, 'error'));
+                  }
+
+                  // C. Add to Family Members List (Best Effort)
+                  const famRef = doc(db, 'families', inviteData.familyId);
+                  await updateDoc(famRef, { members: arrayUnion(user.uid) })
+                      .catch(e => logDebug(user, 'update_family_list_failed', e, 'error'));
+
+                  // D. Delete Invitation (Best Effort)
+                  await deleteDoc(inviteRefToDelete).catch(e => logDebug(user, 'delete_invite_failed', e, 'error'));
+
+                  // RETURN IMMEDIATELY on success
+                  await logDebug(user, 'SUCCESS_joined_via_invite', { familyId: inviteData.familyId });
+                  return inviteData.familyId;
+
+              } catch (criticalErr: any) {
+                  await logDebug(user, 'CRITICAL_invite_apply_failed', criticalErr.message, 'error');
+              }
           }
       } catch (inviteErr: any) {
           await logDebug(user, 'error_reading_invites', inviteErr.message, 'error');

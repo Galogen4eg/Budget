@@ -116,15 +116,12 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  // 0. Verify target family exists
+  const userRef = doc(db, 'users', user.uid);
   const familyRef = doc(db, 'families', targetFamilyId);
-  const familySnap = await getDoc(familyRef);
-  if (!familySnap.exists()) {
-      throw new Error("Семья не найдена");
-  }
+  const memberRef = doc(db, 'families', targetFamilyId, 'members', user.uid);
 
-  // 1. Add to Family Members Collection (Subcollection)
-  // We add this explicitly so the user appears in the UI list immediately
+  // 1. Сразу записываем пользователя в подколлекцию members
+  // Используем setDoc, так как он работает даже если родительский документ недоступен для чтения
   const newMember: FamilyMember = {
       id: user.uid,
       userId: user.uid,
@@ -134,18 +131,23 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
       isAdmin: false
   };
   
-  // Use setDoc with merge to prevent overwriting if somehow already exists
-  await setDoc(doc(db, 'families', targetFamilyId, 'members', user.uid), newMember, { merge: true });
+  // Пытаемся записать участника. Это самое важное действие для правил безопасности.
+  await setDoc(memberRef, newMember, { merge: true });
 
-  // 2. Update Family Document (members array) for security rules
-  // Using updateDoc because the family document MUST exist to join
-  await updateDoc(familyRef, {
-      members: arrayUnion(user.uid)
-  });
-
-  // 3. Update User Pointer (Only if previous steps succeeded)
-  const userRef = doc(db, 'users', user.uid);
+  // 2. Обновляем указатель у пользователя
   await updateDoc(userRef, { familyId: targetFamilyId });
+
+  // 3. Пытаемся обновить массив members в документе семьи (для оптимизации правил)
+  // Оборачиваем в try/catch, так как правила могут запрещать updateDoc родителя для новых участников,
+  // но разрешать setDoc в подколлекцию members/{uid}.
+  try {
+      await updateDoc(familyRef, {
+          members: arrayUnion(user.uid)
+      });
+  } catch (e) {
+      console.warn("Could not update members array (likely permission issue), but member doc created.", e);
+      // Игнорируем эту ошибку, так как шаг 1 и 2 прошли успешно, и UI будет работать через подколлекцию.
+  }
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {

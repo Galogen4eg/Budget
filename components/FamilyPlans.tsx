@@ -71,8 +71,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         config: { responseMimeType: "application/json" }
       });
 
-      const responseText = response.text;
-      if (!responseText) throw new Error("Пустой ответ от AI");
+      let responseText = response.text || "{}";
+      // Cleanup markdown if present
+      responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
       let data;
       try {
@@ -113,8 +114,13 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             if (transcript) processVoiceWithGemini(transcript);
         };
         r.onerror = (e: any) => {
-            console.error("Speech Error:", e);
-            showNotify(`Ошибка микрофона: ${e.error}`, 'error');
+            console.error("Speech Error:", e.error);
+            let msg = 'Ошибка микрофона';
+            if (e.error === 'not-allowed') msg = 'Нет доступа к микрофону';
+            else if (e.error === 'no-speech') msg = 'Вас не слышно';
+            else if (e.error === 'network') msg = 'Нет сети';
+            
+            showNotify(msg, 'error');
             setIsListening(false);
         };
         r.start();

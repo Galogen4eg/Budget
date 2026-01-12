@@ -42,7 +42,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
         animate={{ y: 0 }} 
         exit={{ y: '100%' }} 
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-[#F2F2F7] dark:bg-[#1C1C1E] w-full max-w-md h-[85vh] md:h-auto md:max-h-[80vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+        className="relative bg-[#F2F2F7] dark:bg-[#1C1C1E] w-full max-w-md max-h-[85vh] md:max-h-[80vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col pb-safe h-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -69,10 +69,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar relative bg-[#F2F2F7] dark:bg-[#1C1C1E]">
+        {/* Content - Removed flex-1 to allow shrinking when content is small */}
+        <div className="overflow-y-auto p-4 space-y-3 no-scrollbar relative bg-[#F2F2F7] dark:bg-[#1C1C1E]">
             {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 min-h-[300px]">
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-600 min-h-[200px]">
                     <div className="w-20 h-20 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center mb-6">
                         <Bell size={32} className="opacity-30" />
                     </div>
@@ -138,7 +138,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
         
         {/* Footer Actions */}
         {notifications.length > 0 && (
-            <div className="p-4 bg-white dark:bg-[#2C2C2E] border-t border-gray-100 dark:border-white/5 flex gap-3 relative z-10 pb-8 md:pb-4">
+            <div className="p-4 bg-white dark:bg-[#2C2C2E] border-t border-gray-100 dark:border-white/5 flex gap-3 relative z-10">
                 <button onClick={markAllRead} className="flex-1 py-4 bg-gray-100 dark:bg-[#3A3A3C] text-gray-600 dark:text-gray-300 font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-gray-200 dark:hover:bg-[#48484A] transition-colors flex items-center justify-center gap-2">
                     <Check size={16} /> Все прочитаны
                 </button>

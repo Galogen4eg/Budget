@@ -258,13 +258,39 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
 
   // Unified AI Processing for Text (Voice/Telegram)
   const processSmartInput = async (text: string) => {
+    if (!text.trim()) return;
+
+    // Helper to add plain item when AI fails
+    const addSimpleItem = async (rawText: string) => {
+        const simpleItem: ShoppingItem = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            title: rawText.charAt(0).toUpperCase() + rawText.slice(1),
+            amount: '1',
+            unit: 'шт',
+            category: detectProductCategory(rawText), // Local smart category
+            completed: false,
+            memberId: auth.currentUser?.uid || 'user',
+            priority: 'medium'
+        };
+        setItems(prev => [...prev, simpleItem]);
+        if (familyId) {
+            const { addItem } = await import('../utils/db');
+            await addItem(familyId, 'shopping', simpleItem);
+        }
+        showNotify('success', `Добавлено: ${simpleItem.title}`);
+        vibrate('success');
+    };
+
+    // Check API Key
     if (!process.env.API_KEY) {
-        showNotify('error', 'API Key не настроен');
+        // Fallback for no API key -> just add the text
+        await addSimpleItem(text);
         return;
     }
     
     setIsProcessingAI(true);
     vibrate('medium');
+    
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const categoriesContext = STORE_AISLES.map(a => `ID: "${a.id}" (${a.label})`).join(', ');
@@ -272,21 +298,37 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `You are a smart shopping assistant. Analyze this text (Russian): "${text}". 
-        It might be a list (e.g. "milk, eggs") or a sentence (e.g. "we ran out of bread").
+        It might be a list (e.g. "milk, eggs") or a sentence (e.g. "we ran out of bread") or just one word.
         Extract distinct shopping items.
         For each item determine: 
-        1. title (clean Russian name)
+        1. title (clean Russian name, capitalize first letter)
         2. amount (number, default 1)
         3. unit (strictly one of: шт, кг, л, уп. Default 'шт')
         4. aisle (category ID from: [${categoriesContext}]. If unsure, 'other')
         
-        Return JSON array: [{ "title": "...", "amount": 1, "unit": "...", "aisle": "..." }]`,
-        config: { responseMimeType: "application/json" }
+        Return JSON array: [{ "title": "...", "amount": 1, "unit": "...", "aisle": "..." }]
+        DO NOT use markdown code blocks. Return RAW JSON only.`,
       });
 
-      const responseText = response.text || "[]";
-      const newItemsRaw: any[] = JSON.parse(responseText);
+      let responseText = response.text || "[]";
+      // Cleanup markdown if present
+      responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      let newItemsRaw: any[] = [];
+      try {
+          newItemsRaw = JSON.parse(responseText);
+      } catch (jsonError) {
+          // If JSON parse fails, fallback to simple addition
+          console.warn("AI JSON parse failed, adding as simple item", jsonError);
+          await addSimpleItem(text);
+          return;
+      }
       
+      if (!Array.isArray(newItemsRaw) || newItemsRaw.length === 0) {
+           await addSimpleItem(text);
+           return;
+      }
+
       const newItems: ShoppingItem[] = newItemsRaw.map(i => ({
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
           title: i.title,
@@ -298,22 +340,18 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           priority: 'medium'
       }));
 
-      if (newItems.length > 0) {
-          setItems(prev => [...prev, ...newItems]);
-          if (familyId) {
-              const { addItemsBatch } = await import('../utils/db');
-              await addItemsBatch(familyId, 'shopping', newItems);
-          }
-          showNotify('success', `Добавлено ${newItems.length} товаров`);
-          vibrate('success');
-      } else {
-          showNotify('warning', 'Не удалось найти товары в тексте');
+      setItems(prev => [...prev, ...newItems]);
+      if (familyId) {
+          const { addItemsBatch } = await import('../utils/db');
+          await addItemsBatch(familyId, 'shopping', newItems);
       }
+      showNotify('success', `Добавлено ${newItems.length} товаров`);
+      vibrate('success');
 
     } catch (e) {
         console.error(e);
-        showNotify('error', 'Ошибка обработки ИИ');
-        vibrate('error');
+        // Final fallback on any API error
+        await addSimpleItem(text);
     } finally {
         setIsProcessingAI(false);
     }
@@ -667,9 +705,15 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       };
       
       r.onerror = (e: any) => {
-          console.error("Speech error", e);
+          console.error("Speech recognition error", e.error); // Log the specific error
           setIsListening(false);
-          if (e.error === 'not-allowed') showNotify('error', 'Нет доступа к микрофону');
+          
+          let msg = 'Ошибка распознавания';
+          if (e.error === 'not-allowed') msg = 'Нет доступа к микрофону';
+          else if (e.error === 'no-speech') msg = 'Вас не слышно';
+          else if (e.error === 'network') msg = 'Нет сети';
+          
+          showNotify('error', msg);
       };
 
       r.onresult = (e: any) => {

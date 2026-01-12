@@ -54,78 +54,136 @@ export const addGlobalRule = async (rule: LearnedRule) => {
   }
 };
 
+// --- INVITATIONS SYSTEM ---
+
+export const createInvitation = async (familyId: string, email: string, memberId: string) => {
+    if (!email) return;
+    const cleanEmail = email.toLowerCase().trim();
+    // Using email as doc ID for easy lookup
+    await setDoc(doc(db, 'invitations', cleanEmail), {
+        familyId,
+        placeholderMemberId: memberId,
+        createdAt: new Date().toISOString()
+    });
+};
+
 // ---------------------------------------------
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   const userRef = doc(db, 'users', user.uid);
-  
-  try {
-      const userSnap = await getDoc(userRef);
-      let familyId: string | null = null;
+  let familyId: string = user.uid; // Безопасный фоллбэк по умолчанию
 
-      // 1. Проверяем, есть ли запись о пользователе
-      if (userSnap.exists()) {
-          const userData = userSnap.data();
-          familyId = userData.familyId;
+  try {
+      // 1. Попытка прочитать профиль пользователя
+      try {
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+              const userData = userSnap.data();
+              if (userData.familyId) {
+                  familyId = userData.familyId;
+              }
+          }
+      } catch (readError: any) {
+          console.warn("Could not read user profile (permission or network), using UID as Family ID:", readError);
       }
 
-      // Если familyId нет, используем UID как ID новой семьи
-      if (!familyId) {
-          familyId = user.uid;
-          // Создаем/Обновляем запись пользователя
+      // --- CHECK FOR INVITATIONS (BY EMAIL) ---
+      // Если у пользователя еще нет семьи или это его первая авторизация
+      if (familyId === user.uid && user.email) {
+          try {
+              const cleanEmail = user.email.toLowerCase().trim();
+              const inviteSnap = await getDoc(doc(db, 'invitations', cleanEmail));
+              
+              if (inviteSnap.exists()) {
+                  const inviteData = inviteSnap.data();
+                  if (inviteData.familyId && inviteData.placeholderMemberId) {
+                      console.log("Found invitation for email:", cleanEmail);
+                      
+                      const batch = writeBatch(db);
+                      
+                      // 1. Update User Profile to point to new family
+                      batch.set(userRef, { 
+                          email: user.email, 
+                          familyId: inviteData.familyId,
+                          lastLogin: new Date().toISOString()
+                      }, { merge: true });
+
+                      // 2. Link the placeholder member to this user ID
+                      const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
+                      batch.update(memberRef, {
+                          userId: user.uid,
+                          avatar: user.photoURL || undefined
+                      });
+
+                      // 3. Add user to family's root members array (for security rules)
+                      const familyRef = doc(db, 'families', inviteData.familyId);
+                      batch.update(familyRef, {
+                          members: arrayUnion(user.uid)
+                      });
+
+                      // 4. Delete the invitation
+                      batch.delete(doc(db, 'invitations', cleanEmail));
+
+                      await batch.commit();
+                      return inviteData.familyId;
+                  }
+              }
+          } catch (inviteError) {
+              console.warn("Error checking invitations:", inviteError);
+          }
+      }
+
+      // 2. Попытка обновить/создать профиль (идемпотентно), если приглашения не было
+      try {
           await setDoc(userRef, { 
               email: user.email, 
-              familyId: familyId 
+              familyId: familyId,
+              lastLogin: new Date().toISOString()
           }, { merge: true });
+      } catch (writeError: any) {
+          console.warn("Could not update user profile (likely permission denied for merge):", writeError);
       }
 
-      // 2. КРИТИЧНО: Проверяем, существует ли сама Семья в базе
+      // 3. Инициализация семьи, если это мой личный ID и семьи нет
       const familyRef = doc(db, 'families', familyId);
       
       try {
+          // Пытаемся проверить существование семьи
           const familySnap = await getDoc(familyRef);
 
           if (!familySnap.exists()) {
-              // Если семьи нет (первый вход или сбой), создаем её структуру
+              // Если семьи нет (первый вход в свою семью), создаем её
               const newMember: FamilyMember = {
-                  id: user.uid, // Важно: используем UID как ID участника для связи
+                  id: user.uid,
                   userId: user.uid,
                   name: user.displayName || 'Пользователь',
                   color: '#007AFF',
-                  avatar: user.photoURL || undefined, // undefined is handled by ignoreUndefinedProperties
+                  avatar: user.photoURL || undefined,
                   isAdmin: true
               };
-
-              // Explicitly clean undefined
               if (!newMember.avatar) delete newMember.avatar;
 
-              await setDoc(familyRef, {
+              const batch = writeBatch(db);
+              batch.set(familyRef, {
                   ownerId: user.uid,
                   createdAt: new Date().toISOString(),
                   name: 'Моя семья',
-                  members: [user.uid] // Массив ID для правил безопасности
+                  members: [user.uid]
               });
-
-              // Сразу добавляем участника в коллекцию members
-              await setDoc(doc(db, 'families', familyId, 'members', user.uid), newMember);
+              batch.set(doc(db, 'families', familyId, 'members', user.uid), newMember);
+              await batch.commit();
               
               console.log("Family initialized successfully:", familyId);
           }
       } catch (famError: any) {
-          // Если ошибка прав доступа при чтении семьи, но мы знаем familyId,
-          // это может означать, что пользователь только что присоединился, но правила еще не обновились
-          if (famError.code === 'permission-denied') {
-              console.warn("Family read permission denied, but proceed with ID:", familyId);
-              return familyId;
-          }
-          throw famError;
+          console.warn("Family init check failed (non-critical, maybe joined another family):", famError);
       }
 
       return familyId;
 
   } catch (e) {
-      console.error("Critical Error in getOrInitUserFamily:", e);
-      throw e; // Пробрасываем ошибку, чтобы AuthContext знал о проблеме
+      console.error("Critical Error in getOrInitUserFamily (Recovered):", e);
+      return user.uid; 
   }
 };
 
@@ -137,12 +195,11 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
   const familyRef = doc(db, 'families', cleanFamilyId);
 
-  // Подготовка данных участника
   const newMember: FamilyMember = {
       id: user.uid,
       userId: user.uid,
       name: user.displayName || 'Новый участник',
-      color: '#34C759', // Default green
+      color: '#34C759', 
       isAdmin: false
   };
 
@@ -150,20 +207,14 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
       newMember.avatar = user.photoURL;
   }
 
-  // GLOBAL FIX: Использование Batch Write (Пакетная запись)
-  // Это гарантирует, что и профиль пользователя, и документ участника создаются ОДНОВРЕМЕННО.
-  // Это обходит большинство проблем с правилами безопасности, которые требуют согласованности данных.
   const batch = writeBatch(db);
 
-  // 1. Обновляем указатель семьи у пользователя
   batch.set(userRef, { 
       familyId: cleanFamilyId,
       email: user.email,
       updatedAt: new Date().toISOString()
   }, { merge: true });
 
-  // 2. Создаем документ участника в новой семье
-  // Используем 'set' без merge для гарантии создания
   batch.set(memberRef, newMember);
 
   try {
@@ -173,24 +224,17 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
       console.error("Batch join failed:", e);
       
       if (e.code === 'permission-denied') {
-          // Если пакетная запись не удалась, это жесткий запрет правил.
-          // Попытка "последней надежды": просто обновить ID в профиле.
-          // Некоторые правила разрешают пользователю менять свой профиль свободно.
           try {
               await updateDoc(userRef, { familyId: cleanFamilyId });
               console.log("Fallback: Updated user profile only.");
               return; 
           } catch (innerE) {
-              // Игнорируем ошибку отката
           }
           throw new Error("Нет доступа. Попросите администратора семьи добавить вас или проверьте ссылку.");
       }
       throw new Error("Ошибка соединения: " + e.message);
   }
 
-  // 3. Попытка обновить массив members в родительском документе (для оптимизации)
-  // Это действие отделено от основного батча, так как оно часто блокируется правилами,
-  // но не является критичным для работы приложения (если есть подколлекция members).
   try {
       await updateDoc(familyRef, {
           members: arrayUnion(user.uid)

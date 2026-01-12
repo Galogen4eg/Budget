@@ -31,6 +31,7 @@ export interface FamilyMember {
   id: string;
   userId?: string;
   name: string;
+  email?: string; // Email for invitation
   color: string;
   avatar?: string;
   isAdmin?: boolean;

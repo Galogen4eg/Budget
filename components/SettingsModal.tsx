@@ -11,13 +11,14 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
+import { createInvitation } from '../utils/db';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -149,6 +150,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [tempMemberName, setTempMemberName] = useState('');
+  const [tempMemberEmail, setTempMemberEmail] = useState('');
   const [tempMemberColor, setTempMemberColor] = useState(PRESET_COLORS[0]);
 
   // Categories Management
@@ -258,10 +260,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       if (member) {
           setEditingMember(member);
           setTempMemberName(member.name);
+          setTempMemberEmail(member.email || '');
           setTempMemberColor(member.color);
       } else {
           setEditingMember(null);
           setTempMemberName('');
+          setTempMemberEmail('');
           setTempMemberColor(PRESET_COLORS[0]);
       }
       setIsMemberModalOpen(true);
@@ -270,16 +274,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const handleSaveMember = () => {
       if (!tempMemberName.trim()) return;
       
+      const email = tempMemberEmail.trim().toLowerCase();
+
       if (editingMember) {
-          const updated = members.map(m => m.id === editingMember.id ? { ...m, name: tempMemberName, color: tempMemberColor } : m);
-          onUpdateMembers(updated);
-      } else {
-          const newMember = { 
-              id: Math.random().toString(36).substr(2, 9), 
+          const updated = members.map(m => m.id === editingMember.id ? { 
+              ...m, 
               name: tempMemberName, 
-              color: tempMemberColor 
+              color: tempMemberColor,
+              email: email || undefined 
+          } : m);
+          onUpdateMembers(updated);
+          
+          // Re-invite if email changed and not yet linked
+          if (currentFamilyId && email && email !== editingMember.email && !editingMember.userId) {
+              createInvitation(currentFamilyId, email, editingMember.id);
+              alert(`Приглашение отправлено для ${email}. Когда пользователь войдет через Google, он будет добавлен.`);
+          }
+      } else {
+          const newMemberId = Math.random().toString(36).substr(2, 9);
+          const newMember = { 
+              id: newMemberId, 
+              name: tempMemberName, 
+              color: tempMemberColor,
+              email: email || undefined
           };
           onUpdateMembers([...members, newMember]);
+
+          if (currentFamilyId && email) {
+              createInvitation(currentFamilyId, email, newMemberId);
+              alert(`Приглашение создано для ${email}. Когда пользователь войдет через Google, он будет автоматически добавлен.`);
+          }
       }
       setIsMemberModalOpen(false);
   };
@@ -501,6 +525,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                                     />
                                 </div>
                                 <div>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Email (для приглашения)</label>
+                                    <div className="relative">
+                                        <Mail size={18} className="absolute left-4 top-4 text-gray-400" />
+                                        <input 
+                                            type="email" 
+                                            value={tempMemberEmail}
+                                            onChange={(e) => setTempMemberEmail(e.target.value)}
+                                            placeholder="user@gmail.com"
+                                            className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 pl-12 rounded-2xl font-medium text-sm outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-500 transition-colors"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 ml-2">Если указать почту, пользователь будет автоматически добавлен в семью при входе через Google.</p>
+                                </div>
+                                <div>
                                     <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Цвет</label>
                                     <div className="flex flex-wrap gap-3 bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
                                         {PRESET_COLORS.map(c => (
@@ -544,7 +582,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                             >
                                 <div className="flex items-center gap-3">
                                     <MemberMarker member={member} size="md" />
-                                    <div className="font-bold text-[#1C1C1E] dark:text-white">{member.name}</div>
+                                    <div>
+                                        <div className="font-bold text-[#1C1C1E] dark:text-white">{member.name}</div>
+                                        {member.email && <div className="text-[10px] text-gray-400">{member.email}</div>}
+                                    </div>
                                 </div>
                                 <ChevronRight size={20} className="text-gray-300 dark:text-gray-600" />
                             </div>

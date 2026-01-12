@@ -8,7 +8,7 @@ import {
   X, Plus, ScanBarcode, Loader2,
   MicOff, Maximize2, ShoppingBag,
   Archive, Check, Send, ChevronDown, ChevronUp, CloudDownload, List,
-  History, Camera
+  History, Camera, Image as ImageIcon
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember, Transaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -319,17 +319,61 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
     }
   };
 
-  // AI Image Processing (Receipts or Product Photos)
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // SMART Image Processing: Barcode First, then AI
+  const handleSmartImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      setIsProcessingAI(true);
+      setScannerStatus("Анализ фото...");
+      setIsScannerOpen(false); // Close camera if open
+
+      // 1. Try to scan Barcode from image first
+      try {
+          const html5QrCode = new Html5Qrcode("reader-hidden");
+          const result = await html5QrCode.scanFileV2(file, false);
+          
+          if (result && result.decodedText) {
+              vibrate('success');
+              showNotify('success', 'Штрихкод найден! Поиск...');
+              
+              let product = lookupBarcodeOffline(result.decodedText);
+              if (!product) {
+                  try { product = await searchOnlineDatabase(result.decodedText); } catch (e) {}
+              }
+
+              if (product) {
+                  setTitle(product.title);
+                  setAmount(product.amount);
+                  setUnit(product.unit);
+                  setSelectedAisle(product.category);
+                  setIsModalOpen(true);
+                  setIsProcessingAI(false);
+                  html5QrCode.clear();
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                  return; // Stop here, barcode found
+              } else {
+                  // Barcode found but not in DB -> Add as unknown barcode item
+                  setTitle(`Товар ${result.decodedText}`);
+                  setIsModalOpen(true);
+                  setIsProcessingAI(false);
+                  html5QrCode.clear();
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                  return;
+              }
+          }
+          html5QrCode.clear();
+      } catch (err) {
+          console.log("No barcode found on image, trying AI...", err);
+      }
+
+      // 2. Fallback to Gemini AI Analysis (Receipt/List/Photo)
       if (!process.env.API_KEY) {
           showNotify('error', "API Key не настроен. AI анализ недоступен.");
+          setIsProcessingAI(false);
           return;
       }
 
-      setIsProcessingAI(true);
       try {
           const base64Data = await new Promise<string>((resolve) => {
               const reader = new FileReader();
@@ -389,7 +433,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
           }
 
       } catch (err) {
-          console.error("OCR Error:", err);
+          console.error("AI Error:", err);
           showNotify('error', "Не удалось обработать изображение.");
       } finally {
           setIsProcessingAI(false);
@@ -611,13 +655,36 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
       recognitionRef.current = r;
       r.lang = 'ru-RU';
       r.interimResults = false;
-      r.onstart = () => setIsListening(true);
-      r.onend = () => setIsListening(false);
+      r.continuous = false; // Important for stopping automatically
+      
+      r.onstart = () => {
+          setIsListening(true);
+          vibrate('light');
+      };
+      
+      r.onend = () => {
+          setIsListening(false);
+      };
+      
+      r.onerror = (e: any) => {
+          console.error("Speech error", e);
+          setIsListening(false);
+          if (e.error === 'not-allowed') showNotify('error', 'Нет доступа к микрофону');
+      };
+
       r.onresult = (e: any) => {
           const transcript = e.results[0][0].transcript;
-          if (transcript) processSmartInput(transcript);
+          if (transcript) {
+              console.log("Voice result:", transcript);
+              processSmartInput(transcript);
+          }
       };
-      r.start();
+      
+      try {
+          r.start();
+      } catch (e) {
+          console.error("Failed to start voice", e);
+      }
   };
 
   const handleSendListToTelegram = async () => {
@@ -638,20 +705,38 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
         {/* Render Scanner Portal */}
         {isScannerOpen && createPortal(
             <div className="fixed inset-0 z-[2000] bg-black flex flex-col">
-                <div className="flex justify-between items-center p-4 text-white">
-                    <button onClick={stopScanner}><X size={24}/></button>
+                <div className="flex justify-between items-center p-4 text-white z-20">
+                    <button onClick={stopScanner} className="bg-white/10 p-2 rounded-full"><X size={24}/></button>
                     <span className="font-bold">{scannerStatus}</span>
-                    <div className="w-6"/>
+                    <div className="w-10"></div>
                 </div>
-                <div className="flex-1 bg-black flex items-center justify-center overflow-hidden">
-                    <div id="reader" style={{ width: '100%', maxWidth: '500px', height: 'auto', minHeight: '300px' }}></div>
+                
+                <div className="flex-1 bg-black flex items-center justify-center overflow-hidden relative">
+                    <div id="reader" style={{ width: '100%', height: '100%' }}></div>
+                    
+                    {/* Add Photo Button Overlay */}
+                    <div className="absolute bottom-10 left-0 right-0 flex justify-center pb-8 z-30">
+                        <button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            className="flex flex-col items-center gap-2 text-white bg-white/20 backdrop-blur-md p-4 rounded-3xl"
+                        >
+                            <ImageIcon size={32} />
+                            <span className="text-xs font-bold uppercase">Загрузить фото</span>
+                        </button>
+                    </div>
                 </div>
             </div>,
             document.body
         )}
 
-        {/* Top Controls - Optimized for Desktop */}
-        <div className="grid grid-cols-6 md:flex md:justify-start gap-2 mb-4 px-1">
+        {/* Hidden Container for File Scan */}
+        <div id="reader-hidden" className="hidden"></div>
+
+        {/* Hidden File Input */}
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleSmartImageUpload} />
+
+        {/* Top Controls */}
+        <div className="grid grid-cols-5 md:flex md:justify-start gap-2 mb-4 px-1">
             <button onClick={openAddModal} className="aspect-square md:w-14 md:h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all">
                 <Plus size={24} strokeWidth={3} />
             </button>
@@ -660,31 +745,27 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
             </button>
             <button 
                 onClick={startVoiceInput} 
-                className={`aspect-square md:w-14 md:h-14 rounded-2xl flex items-center justify-center border transition-all ${isListening ? 'bg-red-500 text-white border-red-500 animate-pulse' : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                className={`aspect-square md:w-14 md:h-14 rounded-2xl flex items-center justify-center border transition-all ${isListening ? 'bg-red-500 text-white border-red-500 animate-pulse shadow-lg shadow-red-500/30' : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
             >
                 {isListening ? <MicOff size={20}/> : <Mic size={20}/>}
             </button>
             
-            {/* Barcode Scanner */}
-            <button onClick={startScanner} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-blue-500">
-                <ScanBarcode size={20}/>
+            {/* Unified Scan/Photo Button */}
+            <button onClick={startScanner} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-blue-500 relative overflow-hidden">
+                {isProcessingAI ? <Loader2 size={20} className="animate-spin text-blue-500"/> : <ScanBarcode size={20}/>}
             </button>
-
-            {/* AI Image Analysis (Photo of list or product) */}
-            <button onClick={() => fileInputRef.current?.click()} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                {isProcessingAI ? <Loader2 size={20} className="animate-spin"/> : <Camera size={20}/>}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
 
             {/* Telegram Import */}
             <button onClick={handleTelegramImport} disabled={isImportingTg} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                 {isImportingTg ? <Loader2 size={20} className="animate-spin"/> : <CloudDownload size={20}/>}
             </button>
 
-            {/* Send to Telegram */}
-            <button onClick={handleSendListToTelegram} disabled={isSending || activeItems.length === 0} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
-                {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
-            </button>
+            {/* Send to Telegram (Visible only if items exist) */}
+            {activeItems.length > 0 && (
+                <button onClick={handleSendListToTelegram} disabled={isSending} className="aspect-square md:w-14 md:h-14 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
+                    {isSending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
+                </button>
+            )}
         </div>
 
         {/* List Content */}
@@ -693,7 +774,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({ items, setItems, settings, 
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-600 min-h-[50vh]">
                     <ShoppingBag size={48} className="mb-4 opacity-20"/>
                     <p className="font-bold text-sm uppercase tracking-widest">Список пуст</p>
-                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, используйте голос или загрузите фото списка</p>
+                    <p className="text-xs mt-2 text-center max-w-[200px]">Нажмите +, используйте голос или сканируйте товары</p>
                 </div>
             ) : (
                 <>

@@ -130,39 +130,46 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 
           if (inviteData && inviteData.familyId) {
               try {
-                  // A. CRITICAL: Update User Profile first
-                  await setDoc(userRef, {
+                  // USE BATCH for atomicity. If one fails (due to permissions), all fail.
+                  // This prevents the user from being stuck in a "joined but no permissions" state.
+                  const batch = writeBatch(db);
+
+                  // A. Update User Profile
+                  batch.set(userRef, {
                       email: user.email,
                       familyId: inviteData.familyId,
                       lastLogin: new Date().toISOString(),
                       updatedAt: new Date().toISOString()
                   }, { merge: true });
-                  
-                  await logDebug(user, 'profile_updated_from_invite', { familyId: inviteData.familyId });
 
-                  // B. Link Member Card (Best Effort)
+                  // B. Link Member Card
                   if (inviteData.placeholderMemberId) {
                       const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
-                      await setDoc(memberRef, { 
+                      batch.set(memberRef, { 
                           userId: user.uid, 
                           avatar: user.photoURL || null 
-                      }, { merge: true }).catch(e => logDebug(user, 'link_member_failed', e, 'error'));
+                      }, { merge: true });
                   }
 
-                  // C. Add to Family Members List (Best Effort)
+                  // C. Add to Family Members List
                   const famRef = doc(db, 'families', inviteData.familyId);
-                  await updateDoc(famRef, { members: arrayUnion(user.uid) })
-                      .catch(e => logDebug(user, 'update_family_list_failed', e, 'error'));
+                  batch.update(famRef, { members: arrayUnion(user.uid) });
 
-                  // D. Delete Invitation (Best Effort)
-                  await deleteDoc(inviteRefToDelete).catch(e => logDebug(user, 'delete_invite_failed', e, 'error'));
+                  // D. Delete Invitation
+                  batch.delete(inviteRefToDelete);
 
-                  // RETURN IMMEDIATELY on success
-                  await logDebug(user, 'SUCCESS_joined_via_invite', { familyId: inviteData.familyId });
+                  await batch.commit();
+
+                  // SUCCESS
+                  await logDebug(user, 'SUCCESS_joined_via_invite_batch', { familyId: inviteData.familyId });
                   return inviteData.familyId;
 
               } catch (criticalErr: any) {
-                  await logDebug(user, 'CRITICAL_invite_apply_failed', criticalErr.message, 'error');
+                  await logDebug(user, 'CRITICAL_invite_batch_failed', { 
+                      code: criticalErr.code, 
+                      message: criticalErr.message 
+                  }, 'error');
+                  // Do NOT return the invite family ID if write failed. Fallback to normal flow.
               }
           }
       } catch (inviteErr: any) {

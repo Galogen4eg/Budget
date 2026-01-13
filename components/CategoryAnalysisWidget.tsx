@@ -67,8 +67,14 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 transition-colors" />
         </div>
 
-        {/* Content - Fixed to TOP */}
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-start">
+        {/* Content - Fixed to TOP with Mask */}
+        <div 
+            className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-start"
+            style={{ 
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+            }}
+        >
             {data.total === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
                     <div className="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-2">
@@ -78,8 +84,8 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                 </div>
             ) : (
                 <div className="space-y-3 pt-1">
-                    {data.topCategories.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3">
+                    {data.topCategories.map((item, index) => (
+                        <div key={item.id} className={`flex items-center justify-between gap-3 ${index >= 4 ? 'hidden md:flex' : ''}`}>
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <div 
                                     className="w-6 h-6 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"

@@ -33,18 +33,22 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                     Копилка
                 </h3>
             </div>
-            <button 
-                onClick={onAddGoal}
-                className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95 ios-btn-active"
-            >
-                <Plus size={16} strokeWidth={3} />
-            </button>
+            {/* Plus button removed as requested */}
         </div>
 
         {/* Goals List */}
-        <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto no-scrollbar relative z-10 pb-1">
+        <div 
+            className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto no-scrollbar relative z-10 pb-1"
+            style={{ 
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+            }}
+        >
             {goals.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 dark:border-white/10 rounded-3xl p-4 opacity-60 min-h-[120px]">
+                <div 
+                    onClick={onAddGoal}
+                    className="flex-1 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 dark:border-white/10 rounded-3xl p-4 opacity-60 min-h-[120px] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >
                     <PiggyBank size={32} className="text-gray-300 dark:text-gray-600 mb-2" />
                     <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-relaxed">
                         Создайте цель<br/>и начните копить

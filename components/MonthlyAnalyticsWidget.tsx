@@ -91,8 +91,8 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
         {/* Subtle decorative background */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 dark:bg-blue-900/10 rounded-full blur-[80px] -mr-10 -mt-10 pointer-events-none opacity-60" />
 
-        {/* Header */}
-        <div className="flex justify-between items-start mb-1 relative z-10 shrink-0">
+        {/* Header with Integrated Stats */}
+        <div className="flex justify-between items-start mb-2 relative z-10 shrink-0">
             <div>
                 <div className="flex items-center gap-2 mb-0.5">
                     <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
@@ -103,18 +103,34 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-2xl md:text-4xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
+                    <h2 className="text-2xl md:text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
                     <span className="text-xs font-bold text-gray-400">{settings.currency}</span>
                 </div>
             </div>
+
+            {/* Top Right Stats Badges */}
+            <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5 bg-blue-50/80 dark:bg-blue-900/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-wider">AVG</span>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-300 tabular-nums">
+                        {settings.privacyMode ? '•••' : Math.round(avgDaily).toLocaleString()}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-orange-50/80 dark:bg-orange-900/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                    <span className="text-[8px] font-black text-orange-400 uppercase tracking-wider">MAX</span>
+                    <span className="text-[10px] font-bold text-orange-600 dark:text-orange-300 tabular-nums">
+                        {settings.privacyMode ? '•••' : Math.round(maxDay).toLocaleString()}
+                    </span>
+                </div>
+            </div>
         </div>
 
-        {/* Chart - flex-1 ensures it takes available space but shrinks if needed */}
-        <div className="flex-1 w-full relative z-10 -ml-1 min-h-[80px]">
+        {/* Chart - Expanded Height */}
+        <div className="flex-1 w-full relative z-10 -ml-1 min-h-[120px]">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="colorNormal" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
@@ -147,13 +163,6 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                             stroke={settings.theme === 'dark' ? '#4B5563' : '#CBD5E1'}
                             strokeDasharray="3 3" 
                             strokeWidth={1}
-                            label={{ 
-                                value: 'AVG', 
-                                position: 'right', 
-                                fill: '#94A3B8', 
-                                fontSize: 8, 
-                                fontWeight: 900 
-                            }} 
                         />
                     )}
 
@@ -176,35 +185,6 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>
-        </div>
-
-        {/* Footer Stats - Compact styling */}
-        <div className="flex gap-4 mt-2 pt-2 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-1 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 relative overflow-hidden shrink-0">
-                    <div className="absolute bottom-0 w-full bg-blue-500 h-1/2" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider truncate">Среднее</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums truncate">
-                        {settings.privacyMode ? '•••' : Math.round(avgDaily).toLocaleString()}
-                    </span>
-                </div>
-            </div>
-            
-            <div className="w-px bg-gray-100 dark:bg-white/10 h-6 self-center shrink-0" />
-
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-1 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 relative overflow-hidden shrink-0">
-                    <div className="absolute bottom-0 w-full bg-orange-500 h-full" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-wider truncate">Макс.</span>
-                    <span className="text-[10px] font-black text-[#1C1C1E] dark:text-white tabular-nums truncate">
-                        {settings.privacyMode ? '•••' : Math.round(maxDay).toLocaleString()}
-                    </span>
-                </div>
-            </div>
         </div>
     </div>
   );

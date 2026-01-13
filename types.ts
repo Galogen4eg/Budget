@@ -194,6 +194,17 @@ export interface AppNotification {
   isRead: boolean;
 }
 
+export interface FeedbackItem {
+  id: string;
+  comment: string;
+  elementTag: string; // e.g. "BUTTON"
+  elementClass: string;
+  screenshot?: string; // Base64 screenshot
+  timestamp: string;
+  status: 'open' | 'fixed';
+  path: string; // Current URL path
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;
@@ -239,6 +250,9 @@ export interface AppSettings {
   // Stores IDs of transaction pairs marked as "Not a duplicate"
   // Format: "id1_id2" (sorted alphabetically)
   ignoredDuplicatePairs?: string[];
+
+  // Debugging & Development
+  showFeedbackTool?: boolean;
 
   alfaMapping: {
     date: string;

@@ -23,7 +23,7 @@ const ServicesHub: React.FC = () => {
     wishlist, setWishlist,
     projects, setProjects,
     transactions, totalBalance,
-    savingsRate // <--- Added this
+    savingsRate 
   } = useData();
   
   const ALL_APPS = [
@@ -57,6 +57,9 @@ const ServicesHub: React.FC = () => {
     },
   ];
 
+  // Filter apps based on settings
+  const displayedApps = ALL_APPS.filter(app => (settings.enabledServices || []).includes(app.id));
+
   return (
     <div className="space-y-6 w-full">
       <AnimatePresence mode="wait">
@@ -68,21 +71,27 @@ const ServicesHub: React.FC = () => {
             exit={{ opacity: 0, scale: 0.95 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
-            {ALL_APPS.map(app => (
-              <button
-                key={app.id}
-                onClick={() => setActiveService(app.id as ServiceType)}
-                className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 flex flex-col items-center text-center gap-3 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all ios-btn-active"
-              >
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: app.color }}>
-                  {app.icon}
+            {displayedApps.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-gray-400 font-bold uppercase text-xs tracking-widest border-2 border-dashed border-gray-100 dark:border-white/10 rounded-[2.5rem]">
+                    Нет активных сервисов.<br/>Включите их в настройках.
                 </div>
-                <div>
-                  <h3 className="font-black text-[#1C1C1E] dark:text-white text-sm">{app.label}</h3>
-                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1">{app.desc}</p>
-                </div>
-              </button>
-            ))}
+            ) : (
+                displayedApps.map(app => (
+                  <button
+                    key={app.id}
+                    onClick={() => setActiveService(app.id as ServiceType)}
+                    className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 flex flex-col items-center text-center gap-3 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all ios-btn-active"
+                  >
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: app.color }}>
+                      {app.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-black text-[#1C1C1E] dark:text-white text-sm">{app.label}</h3>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1">{app.desc}</p>
+                    </div>
+                  </button>
+                ))
+            )}
           </motion.div>
         ) : (
           <motion.div 

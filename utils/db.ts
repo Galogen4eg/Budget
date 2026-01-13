@@ -6,10 +6,11 @@ import {
 import { db } from '../firebase';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { v4 as uuidv4 } from 'uuid';
 
-// Helper for generating truly unique IDs
+// Improved ID generation using UUID
 export const generateUniqueId = () => {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  return uuidv4();
 };
 
 // --- DEBUG LOGGING SYSTEM ---

@@ -11,7 +11,7 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, Bug
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
@@ -876,6 +876,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
                       <div className="flex items-center gap-3"><div className="p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm text-gray-500 dark:text-white">{settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</div><span className="font-bold text-sm">Темная тема</span></div>
                       <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
+                  </div>
+
+                  {/* Feedback Tool Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-white dark:bg-white/10 text-red-500"><Bug size={20} /></div>
+                          <div>
+                              <span className="font-bold text-sm block">Кнопка баг-репорта</span>
+                              <span className="text-[10px] text-gray-400">Включить Feedback Tool</span>
+                          </div>
+                      </div>
+                      <Switch checked={settings.showFeedbackTool ?? false} onChange={() => handleChange('showFeedbackTool', !settings.showFeedbackTool)} />
                   </div>
 
                   {/* AI Status Indicator with Test Button */}

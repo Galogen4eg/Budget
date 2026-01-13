@@ -8,6 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import { MemberMarker } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, updateItem, deleteItem } from '../utils/db';
+import { toast } from 'sonner';
 
 interface FamilyPlansProps {
   events: FamilyEvent[];
@@ -26,7 +27,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const [listFilter, setListFilter] = useState<ListFilter>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeEvent, setActiveEvent] = useState<{ event: FamilyEvent | null; prefill?: any } | null>(null);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -42,11 +42,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       return Array.from({ length: end - start }, (_, i) => start + i);
   }, [startHour, endHour]);
 
-  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
-
   // Helper to get YYYY-MM-DD in LOCAL time, ignoring timezone shifts
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -57,7 +52,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const processVoiceWithGemini = async (text: string) => {
     if (!process.env.API_KEY) {
-        showNotify('API Key не настроен. Проверьте настройки хостинга.', 'error');
+        toast.error('API Key не настроен. Проверьте настройки хостинга.');
         return;
     }
     
@@ -84,9 +79,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
       if (data.title) {
           setActiveEvent({ event: null, prefill: { title: data.title, date: data.date || today, time: data.time || '12:00' } });
-          showNotify('Событие распознано!');
+          toast.success('Событие распознано!');
       } else {
-          showNotify('Не удалось понять детали события', 'error');
+          toast.error('Не удалось понять детали события');
       }
     } catch (err: any) {
       console.error("Voice AI Error:", err);
@@ -94,7 +89,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       if (err instanceof Error) errorMsg = err.message;
       else if (typeof err === 'string') errorMsg = err;
       
-      showNotify(`Ошибка: ${errorMsg}`, 'error');
+      toast.error(`Ошибка: ${errorMsg}`);
     } finally {
       setIsProcessingVoice(false);
     }
@@ -102,7 +97,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { showNotify('Ваш браузер не поддерживает голосовой ввод', 'error'); return; }
+    if (!SR) { toast.error('Ваш браузер не поддерживает голосовой ввод'); return; }
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     try {
         const r = new SR();
@@ -120,11 +115,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             else if (e.error === 'no-speech') msg = 'Вас не слышно';
             else if (e.error === 'network') msg = 'Нет сети';
             
-            showNotify(msg, 'error');
+            toast.error(msg);
             setIsListening(false);
         };
         r.start();
-    } catch (e) { showNotify('Не удалось запустить микрофон', 'error'); }
+    } catch (e) { toast.error('Не удалось запустить микрофон'); }
   };
 
   const handleDateSelect = (date: Date) => {
@@ -252,7 +247,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const renderTimeGrid = (days: Date[], hideHeader = false) => {
       return (
-          <div className="flex flex-col h-[calc(100dvh-13rem)] min-h-[400px] bg-white dark:bg-[#1C1C1E] rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden relative">
+          <div className="flex flex-col h-[calc(100dvh-13rem)] md:h-[calc(100dvh-12rem)] min-h-[400px] bg-white dark:bg-[#1C1C1E] rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden relative">
               {/* Single Scroll Container for Header + Body */}
               <div className="flex-1 overflow-auto relative no-scrollbar">
                   
@@ -382,7 +377,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     const hasEvents = monthEvents.length > 0;
 
     return (
-        <div className="space-y-4 pb-24">
+        <div className="space-y-4 pb-24 md:pb-0">
              {!hasEvents ? (
                  <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
                     <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
@@ -399,8 +394,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
                      return (
                         <div key={dateStr} className="space-y-2">
-                            {/* Day Header - Modified for alignment */}
-                            <div className="sticky top-0 z-10 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-2 flex items-baseline gap-2">
+                            {/* Day Header - INCREASED Z-INDEX to prevent icons from floating over it */}
+                            <div className="sticky top-0 z-30 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-2 flex items-baseline gap-2">
                                 <span className={`text-base font-black ${isToday ? 'text-blue-500' : 'text-[#1C1C1E] dark:text-white'}`}>
                                     {dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                                 </span>
@@ -474,7 +469,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   return (
     <div className="space-y-4 relative w-full flex flex-col">
       <AnimatePresence>
-        {notification && <motion.div initial={{opacity:0,y:-20,x:'-50%'}} animate={{opacity:1,y:0,x:'-50%'}} exit={{opacity:0}} className={`fixed top-24 left-1/2 z-[600] px-6 py-3 rounded-full shadow-lg border backdrop-blur-md whitespace-nowrap ${notification.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent'}`}><span className="text-xs font-black uppercase tracking-widest">{notification.message}</span></motion.div>}
         {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/80 dark:bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center"><div className="bg-white dark:bg-[#1C1C1E] p-10 rounded-[3rem] shadow-2xl border dark:border-white/10 flex flex-col items-center gap-6"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={56} className="text-blue-500 relative" /> : <BrainCircuit size={56} className="text-purple-500 relative animate-pulse" />}</div><div className="text-center"><p className="font-black text-xl text-[#1C1C1E] dark:text-white mb-2">{isListening ? 'Говорите...' : 'Анализирую...'}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-[200px]">Например: "Записаться к врачу завтра в 14:00"</p></div></div></motion.div>}
       </AnimatePresence>
 
@@ -495,12 +489,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         </div>
 
         {viewMode === 'list' && (
-          <div className="flex flex-col h-[calc(100dvh-13rem)]">
+          <div className="flex flex-col h-[calc(100dvh-13rem)] md:h-[calc(100dvh-12rem)]">
             <div className="flex bg-white/50 dark:bg-white/5 p-1 rounded-2xl border dark:border-white/5 w-fit mb-4 shrink-0">
               <button onClick={() => setListFilter('upcoming')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'upcoming' ? 'bg-blue-500 text-white' : 'text-gray-400'}`}>Будущие</button>
               <button onClick={() => setListFilter('past')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'past' ? 'bg-gray-400 text-white' : 'text-gray-400'}`}>Прошедшие</button>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-4">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-24 md:pb-0">
                 {events
                 .filter(e => {
                     const eDate = new Date(`${e.date}T${e.time}`);
@@ -542,7 +536,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         )}
 
         {viewMode === 'month' && (
-            <div className="flex flex-col h-[calc(100dvh-8.5rem)]">
+            <div className="flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-12rem)]">
                 <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 shrink-0 mb-2">
                     <div className="flex justify-between items-center mb-6">
                         <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>

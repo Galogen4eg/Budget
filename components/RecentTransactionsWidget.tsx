@@ -22,7 +22,7 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
   onTransactionClick,
   onViewAllClick
 }) => {
-  // Sort descending by date and take top 8
+  // Sort descending by date and take top 8 (max for desktop)
   const recent = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 8);
@@ -48,13 +48,19 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col gap-1 min-h-0 relative z-10 overflow-y-auto no-scrollbar">
+        <div 
+            className="flex-1 flex flex-col gap-1 min-h-0 relative z-10 overflow-y-auto no-scrollbar"
+            style={{ 
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+            }}
+        >
             {recent.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-center opacity-40">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Нет операций</p>
                 </div>
             ) : (
-                recent.map((tx) => {
+                recent.map((tx, index) => {
                     const category = categories.find(c => c.id === tx.category);
                     const brandKey = getMerchantBrandKey(tx.note || '');
                     const member = members.find(m => m.id === tx.memberId);
@@ -63,7 +69,8 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
                         <div 
                             key={tx.id}
                             onClick={() => onTransactionClick(tx)}
-                            className="flex items-center justify-between p-1.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors cursor-pointer active:scale-95 duration-200 group/item"
+                            // Hide items > 5 on mobile, show up to 8 on desktop (md+)
+                            className={`items-center justify-between p-1.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors cursor-pointer active:scale-95 duration-200 group/item ${index >= 5 ? 'hidden md:flex' : 'flex'}`}
                         >
                             <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
                                 <div className="shrink-0">

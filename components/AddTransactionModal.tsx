@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { X, Check, Trash2, Calendar, ArrowUp, ArrowDown, User, FileText } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, Trash2, Calendar, ArrowUp, ArrowDown, User, FileText, Sparkles, Mic, Loader2 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, Category, LearnedRule } from '../types';
 import { getIconById } from '../constants';
 import { auth } from '../firebase';
+import { GoogleGenAI } from "@google/genai";
+import { toast } from 'sonner';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -30,6 +32,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [memberId, setMemberId] = useState(members[0]?.id || '');
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  // Magic Input State
+  const [magicInput, setMagicInput] = useState('');
+  const [isMagicLoading, setIsMagicLoading] = useState(false);
+  const [showMagicInput, setShowMagicInput] = useState(false);
+
   useEffect(() => {
     if (initialTransaction) {
       setAmount(initialTransaction.amount.toString());
@@ -39,15 +46,53 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setDate(initialTransaction.date.split('T')[0]);
       setMemberId(initialTransaction.memberId);
     } else {
-        // Defaults for new transaction
         if (members.length > 0) {
-            // Try to find current user's member
             const myMember = members.find(m => m.userId === auth.currentUser?.uid);
             if (myMember) setMemberId(myMember.id);
             else setMemberId(members[0].id);
         }
     }
   }, [initialTransaction, members]);
+
+  const handleMagicParse = async () => {
+      if (!magicInput.trim() || !process.env.API_KEY) return;
+      setIsMagicLoading(true);
+      
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const prompt = `
+            Parse this expense text into JSON: "${magicInput}".
+            Categories available: ${categories.map(c => c.id).join(', ')}.
+            Current date: ${new Date().toISOString().split('T')[0]}.
+            
+            Return JSON: { "amount": number, "category": string (id from list or 'other'), "note": string, "type": "expense" | "income", "date": "YYYY-MM-DD" }.
+            If date is mentioned (e.g. yesterday), calculate it. Default to today.
+          `;
+          
+          const response = await ai.models.generateContent({
+              model: "gemini-3-flash-preview",
+              contents: prompt,
+              config: { responseMimeType: "application/json" }
+          });
+          
+          const data = JSON.parse(response.text || '{}');
+          
+          if (data.amount) setAmount(String(data.amount));
+          if (data.category) setSelectedCategory(data.category);
+          if (data.note) setNote(data.note);
+          if (data.type) setType(data.type);
+          if (data.date) setDate(data.date);
+          
+          setShowMagicInput(false);
+          setMagicInput('');
+          toast.success('Распознано!');
+      } catch (e) {
+          console.error(e);
+          toast.error('Не удалось распознать текст');
+      } finally {
+          setIsMagicLoading(false);
+      }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +105,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       memberId,
       note: note.trim(),
       date: new Date(date).toISOString(),
-      rawNote: initialTransaction?.rawNote || note.trim(), // Preserve rawNote if editing
+      rawNote: initialTransaction?.rawNote || note.trim(), 
       userId: auth.currentUser?.uid
     };
 
@@ -91,13 +136,58 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">
             {initialTransaction ? 'Редактировать' : 'Новая операция'}
           </h3>
-          <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#3A3A3C] transition-colors">
-            <X size={20} strokeWidth={2.5} />
-          </button>
+          <div className="flex gap-2">
+              {!initialTransaction && process.env.API_KEY && (
+                  <button 
+                    onClick={() => setShowMagicInput(!showMagicInput)}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${showMagicInput ? 'bg-purple-500 text-white' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}
+                  >
+                      <Sparkles size={20} />
+                  </button>
+              )}
+              <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#3A3A3C] transition-colors">
+                <X size={20} strokeWidth={2.5} />
+              </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
             
+            {/* Magic Input Section */}
+            <AnimatePresence>
+                {showMagicInput && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-[2rem] border border-purple-100 dark:border-purple-900/30">
+                            <label className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest ml-2 mb-2 block">AI Ввод</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Например: Такси 500 вчера" 
+                                    value={magicInput}
+                                    onChange={(e) => setMagicInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMagicParse())}
+                                    className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white"
+                                    autoFocus
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={handleMagicParse}
+                                    disabled={isMagicLoading || !magicInput.trim()}
+                                    className="bg-purple-500 text-white p-3 rounded-xl disabled:opacity-50"
+                                >
+                                    {isMagicLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Amount & Type */}
             <div className="flex gap-4">
                 <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm relative">
@@ -109,7 +199,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="0"
                         className="w-full h-full pt-4 bg-transparent text-3xl font-black text-[#1C1C1E] dark:text-white outline-none"
-                        autoFocus={!initialTransaction}
+                        autoFocus={!initialTransaction && !showMagicInput}
                     />
                 </div>
                 <div className="flex flex-col gap-2">

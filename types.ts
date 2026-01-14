@@ -224,6 +224,10 @@ export interface AppSettings {
 
   telegramBotToken?: string;
   telegramChatId?: string;
+  telegramState?: {
+    lastShoppingMessageId: number;
+    lastShoppingDate: string;
+  };
   autoSendEventsToTelegram: boolean;
   
   // Push Notifications

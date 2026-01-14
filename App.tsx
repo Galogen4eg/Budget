@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn, Bot, Plus } from 'lucide-react';
@@ -20,7 +19,7 @@ import CategoryProgress from './components/CategoryProgress';
 import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import LoginScreen from './components/LoginScreen';
 import ImportModal from './components/ImportModal';
-import FeedbackTool from './components/FeedbackTool'; // NEW IMPORT
+import FeedbackTool from './components/FeedbackTool';
 
 // Lazy Load Modals & Heavy Components
 const AddTransactionModal = React.lazy(() => import('./components/AddTransactionModal'));
@@ -92,7 +91,7 @@ export default function App() {
     savingsRate, setSavingsRate,
     budgetMode, setBudgetMode,
     notifications, setNotifications,
-    dismissedNotificationIds // Access dismissed list
+    dismissedNotificationIds
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -121,46 +120,34 @@ export default function App() {
   const [isBellRinging, setIsBellRinging] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   
-  // Track notifications to show toast
   const prevNotifCount = useRef(notifications.length);
 
-  // Scroll to top when active tab changes
   useEffect(() => {
-    // Only scroll on mobile or if not in overview "no-scroll" mode
     if (window.innerWidth < 768 || activeTab !== 'overview') {
         window.scrollTo(0, 0);
     }
   }, [activeTab]);
 
-  // Handle Invite Link Automatic Join
   useEffect(() => {
-      // Ensure auth is done and we have a user
       if (isAuthLoading || !user || isJoining) return;
 
       const params = new URLSearchParams(window.location.search);
       const inviteFamilyId = params.get('join');
 
-      // If invite ID exists and differs from current familyId
       if (inviteFamilyId) {
           if (inviteFamilyId === familyId) {
-              console.log("Already in this family");
-              // Clean URL silently
               const newUrl = window.location.pathname;
               window.history.replaceState({}, document.title, newUrl);
               return;
           }
 
           setIsJoining(true);
-          console.log(`Auto-joining family: ${inviteFamilyId}`);
           
           joinFamily(user, inviteFamilyId)
               .then(() => {
                   toast.success('Вы успешно присоединились к семье! 👨‍👩‍👧‍👦');
-                  // Clear query param
                   const newUrl = window.location.pathname;
                   window.history.replaceState({}, document.title, newUrl);
-                  
-                  // Force reload to ensure context resubscribes to new family ID correctly
                   setTimeout(() => window.location.reload(), 1500);
               })
               .catch(err => {
@@ -172,18 +159,14 @@ export default function App() {
   }, [user, isAuthLoading, familyId]);
 
   useEffect(() => {
-    // Check if a new notification arrived
     if (notifications.length > prevNotifCount.current) {
-        const latest = notifications[0]; // Assuming prepended
+        const latest = notifications[0];
         if (latest && !latest.isRead) {
-            // Vibrate if possible
             if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
             
-            // Trigger bell animation
             setIsBellRinging(true);
-            setTimeout(() => setIsBellRinging(false), 2000); // Ring for 2 seconds
+            setTimeout(() => setIsBellRinging(false), 2000);
 
-            // Show Toast using Sonner
             toast(latest.title, {
                 description: latest.message,
                 action: {
@@ -205,13 +188,12 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Safety timer for loading state
   useEffect(() => {
       let timer: any;
       if (isAuthLoading) {
           timer = setTimeout(() => {
               setShowLoadingFallback(true);
-          }, 7000); // Show fallback after 7 seconds
+          }, 7000);
       } else {
           setShowLoadingFallback(false);
       }
@@ -236,7 +218,6 @@ export default function App() {
       }
   }, [settings.theme]);
 
-  // Mandatory Expenses Check Logic - REFINED
   useEffect(() => {
       if (!settings.mandatoryExpenses || settings.mandatoryExpenses.length === 0) return;
 
@@ -250,7 +231,6 @@ export default function App() {
       });
 
       settings.mandatoryExpenses.forEach(expense => {
-          // Check if paid
           const keywords = expense.keywords || [];
           const matches = currentMonthTransactions.filter(tx => {
               if (keywords.length === 0) return false;
@@ -263,11 +243,8 @@ export default function App() {
 
           if (!isPaid) {
               const daysUntilDue = expense.day - currentDay;
-              
-              // Generate Stable IDs for this month
               const reminderId = `mandatory_${expense.id}_${daysUntilDue}`; 
               
-              // Only create notification if it hasn't been dismissed
               if (!dismissedNotificationIds.includes(reminderId)) {
                   if (daysUntilDue === 5 || daysUntilDue === 1) {
                       newNotifications.push({
@@ -297,14 +274,12 @@ export default function App() {
 
       if (newNotifications.length > 0) {
           setNotifications(prev => {
-              // Ensure we don't add duplicates that are already visible
               const uniqueNew = newNotifications.filter(n => !prev.some(p => p.id === n.id));
               return [...uniqueNew, ...prev];
           });
       }
   }, [settings.mandatoryExpenses, transactions, dismissedNotificationIds]);
 
-  // Derived state: Transactions specific to the dashboard (Current Calendar Month Only)
   const dashboardTransactions = useMemo(() => {
       const now = new Date();
       return filteredTransactions
@@ -321,28 +296,52 @@ export default function App() {
       else toast(message);
   };
 
-  const sendTelegramMessage = async (text: string) => {
+  const sendTelegramMessage = async (text: string, messageIdToEdit?: number, inlineKeyboard?: any): Promise<number | null> => {
       if (!settings.telegramBotToken || !settings.telegramChatId) {
           showNotify('error', 'Настройте Telegram в Настройках');
-          return false;
+          return null;
       }
+      
+      const baseUrl = `https://api.telegram.org/bot${settings.telegramBotToken}`;
+      
       try {
-          const url = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`;
-          const res = await fetch(url, {
+          let res;
+          let method = 'sendMessage';
+          const body: any = {
+              chat_id: settings.telegramChatId,
+              text: text,
+              parse_mode: 'Markdown',
+              reply_markup: inlineKeyboard ? { inline_keyboard: inlineKeyboard } : undefined
+          };
+
+          // Try to edit if messageId is provided
+          if (messageIdToEdit) {
+              method = 'editMessageText';
+              body.message_id = messageIdToEdit;
+          }
+
+          res = await fetch(`${baseUrl}/${method}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  chat_id: settings.telegramChatId,
-                  text: text,
-                  parse_mode: 'Markdown'
-              })
+              body: JSON.stringify(body)
           });
-          if (!res.ok) throw new Error('Failed to send');
-          return true;
-      } catch (e) {
+
+          const data = await res.json();
+
+          // If editing failed (e.g., message deleted), fallback to sending new message
+          if (!data.ok && method === 'editMessageText') {
+              console.warn("Edit failed, sending new message instead:", data.description);
+              // Recursively call without ID to force new message
+              return sendTelegramMessage(text, undefined, inlineKeyboard); 
+          }
+
+          if (!data.ok) throw new Error(data.description || 'Failed to send');
+          
+          return data.result.message_id;
+      } catch (e: any) {
           console.error(e);
-          showNotify('error', 'Ошибка отправки в Telegram');
-          return false;
+          showNotify('error', `Ошибка Telegram: ${e.message}`);
+          return null;
       }
   };
 
@@ -376,25 +375,89 @@ export default function App() {
           parts.push(`\n📋 *Чек-лист:*\n${checkLines.join('\n')}`);
       }
       const text = parts.join('\n');
-      return await sendTelegramMessage(text);
+      const msgId = await sendTelegramMessage(text);
+      return !!msgId;
   };
 
   const handleSendShoppingListToTelegram = async (items: ShoppingItem[]) => {
       if (items.length === 0) return false;
-      let text = settings.shoppingTemplate || `🛒 *Список покупок*\n\n{items}`;
-      const itemsList = items.map(i => {
-          // Removed category label from template
-          return `• ${i.title} (${i.amount} ${i.unit})`;
-      }).join('\n');
+      
+      const todayStr = new Date().toLocaleDateString('ru-RU'); 
+      const todayKey = new Date().toISOString().split('T')[0]; 
+
+      let text = settings.shoppingTemplate || `������ *Список покупок*\n\n{items}`;
+      
+      // Categorize items logic preserved for sorting, but output will be flat
+      const grouped: Record<string, string[]> = {};
+      
+      // Sort items by priority first, then normal
+      const sortedItems = [...items].sort((a, b) => {
+          if (a.priority === 'high' && b.priority !== 'high') return -1;
+          if (a.priority !== 'high' && b.priority === 'high') return 1;
+          return 0;
+      });
+
+      sortedItems.forEach(i => {
+          const cat = i.category || 'other';
+          if (!grouped[cat]) grouped[cat] = [];
+          
+          let line = `• ${i.title}`;
+          // Only add amount/unit if amount is present and not empty
+          if (i.amount && i.amount.trim().length > 0) {
+              line += ` (${i.amount} ${i.unit})`;
+          }
+          if (i.priority === 'high') line = `❗️ ${line}`; // Mark high priority
+          grouped[cat].push(line);
+      });
+
+      // Build flat list text without category headers
+      let itemsList = Object.values(grouped).map(lines => lines.join('\n')).join('\n');
+
       const replacements: Record<string, string> = {
           '{items}': itemsList,
           '{total}': String(items.length),
-          '{date}': new Date().toLocaleDateString('ru-RU')
+          '{date}': todayStr
       };
+      
       for (const [key, val] of Object.entries(replacements)) {
           text = text.replace(new RegExp(key, 'g'), val);
       }
-      return await sendTelegramMessage(text);
+
+      // Add timestamp to footer so user sees update
+      const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      text += `\n\n_Обновлено в ${time}_`;
+
+      // LOGIC: Edit or Send New
+      let messageIdToEdit: number | undefined = undefined;
+      
+      // Check if we already sent a list TODAY
+      if (settings.telegramState?.lastShoppingDate === todayKey && settings.telegramState?.lastShoppingMessageId) {
+          messageIdToEdit = settings.telegramState.lastShoppingMessageId;
+      }
+
+      // Feature 3: Interactive Button to open App
+      const inlineKeyboard = [[
+          { text: "📱 Открыть в приложении", url: window.location.href }
+      ]];
+
+      const sentMessageId = await sendTelegramMessage(text, messageIdToEdit, inlineKeyboard);
+
+      if (sentMessageId) {
+          // Save the new state
+          const newState = {
+              lastShoppingMessageId: sentMessageId,
+              lastShoppingDate: todayKey
+          };
+          
+          const newSettings = { ...settings, telegramState: newState };
+          setSettings(newSettings);
+          if (familyId) await saveSettings(familyId, newSettings);
+          
+          showNotify('success', messageIdToEdit ? 'Список в Telegram обновлен!' : 'Список отправлен в Telegram');
+          return true;
+      }
+      
+      return false;
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -447,7 +510,6 @@ export default function App() {
 
   const handleDrillDown = (categoryId: string, merchantName?: string) => setDrillDownState({ categoryId, merchantName });
   
-  // FIX: Clear all filters including date
   const handleClearFilters = () => { 
       setFilterCategory(null); 
       setFilterMerchant(null); 
@@ -512,7 +574,6 @@ export default function App() {
     } else { alert("Операций за этот период не найдено"); }
   };
 
-  // Helper to determine if a widget is enabled
   const isWidgetEnabled = (id: string) => {
       const config = settings.widgets?.find(w => w.id === id);
       const isVisible = config ? config.isVisible : true;
@@ -552,7 +613,6 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full bg-[#EBEFF5] dark:bg-[#000000] text-[#1C1C1E] dark:text-white transition-colors duration-300 flex flex-col md:flex-row overflow-hidden">
-      {/* GLOBAL NOTIFICATION TOASTER - Premium Styled */}
       <Toaster 
         position="top-center" 
         richColors 
@@ -563,7 +623,6 @@ export default function App() {
         }}
       />
 
-      {/* FEEDBACK & BUG REPORTING TOOL */}
       <FeedbackTool />
 
       <div className="md:hidden sticky top-0 z-30 bg-[#EBEFF5]/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 px-4 py-3 flex justify-between items-center shrink-0">
@@ -613,7 +672,7 @@ export default function App() {
 
             <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col md:h-full gap-6">
+                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col md:h-full gap-6 md:overflow-hidden">
                     <SmartHeader 
                         balance={totalBalance} 
                         spent={currentMonthSpent} 
@@ -627,12 +686,7 @@ export default function App() {
                         className="shrink-0"
                     />
                     
-                    {/* 
-                    SMART DASHBOARD LAYOUT
-                    */}
                     <div className="flex-1 min-h-[300px] flex flex-col md:flex-row gap-6">
-                        
-                        {/* LEFT ZONE: Categories + History (Stacked) */}
                         {(isWidgetEnabled('category_analysis') || isWidgetEnabled('recent_transactions')) && (
                             <div className="flex-1 min-w-[250px] flex flex-col gap-6 md:h-full w-full md:w-auto md:flex-1">
                                 {isWidgetEnabled('category_analysis') && (
@@ -648,14 +702,12 @@ export default function App() {
                             </div>
                         )}
 
-                        {/* CENTER ZONE: Chart (Full Height) */}
                         {isWidgetEnabled('month_chart') && (
                             <div className="w-full md:flex-[2] min-w-[300px] h-[300px] md:h-full">
                                 <MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} />
                             </div>
                         )}
 
-                        {/* RIGHT ZONE: Shopping + Goals */}
                         {(isWidgetEnabled('shopping') || isWidgetEnabled('goals')) && (
                             <div className="flex-1 min-w-[250px] flex flex-col gap-6 md:h-full w-full md:w-auto md:flex-1">
                                 {isWidgetEnabled('shopping') && (
@@ -691,7 +743,6 @@ export default function App() {
                                 )}
                             </div>
                         )}
-                        {/* Mobile Spacer to ensure scrolling above fixed nav */}
                         <div className="h-24 w-full md:hidden shrink-0" />
                     </div>
                 </motion.div>
@@ -717,7 +768,6 @@ export default function App() {
 
                     <SpendingCalendar transactions={filteredTransactions} selectedDate={calendarSelectedDate} onSelectDate={setCalendarSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
                     
-                    {/* Desktop: Split view for categories and mandatory expenses */}
                     <div className="flex flex-col md:flex-row gap-6">
                         <div className="flex-1 min-w-0">
                             <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
@@ -735,7 +785,6 @@ export default function App() {
                     </div>
 
                     <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} initialSearch={''} selectedCategoryId={filterCategory || undefined} selectedMerchantName={filterMerchant || undefined} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
-                    {/* Mobile Spacer */}
                     <div className="h-24 w-full md:hidden shrink-0" />
                 </motion.div>
             )}
@@ -747,12 +796,10 @@ export default function App() {
       </main>
 
       <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-28 md:h-screen md:bg-white md:border-r dark:md:border-white/5 md:rounded-none bg-[#1C1C1E]/90 dark:bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-between items-center z-50 transition-all duration-300">
-         {/* Logo Section */}
          <div className="hidden md:flex flex-col items-center justify-center h-20 shrink-0">
              <div className="text-2xl font-black text-[#1C1C1E] dark:text-white">FB.</div>
          </div>
 
-         {/* Menu Items Container */}
          <div className="flex md:flex-col w-full justify-around md:justify-start md:items-center md:gap-4 md:flex-1 md:pt-4 overflow-y-auto no-scrollbar">
              {TAB_CONFIG.filter(t => (settings.enabledTabs || []).includes(t.id)).map(tab => {
                  const isActive = activeTab === tab.id;
@@ -780,7 +827,6 @@ export default function App() {
              })}
          </div>
 
-         {/* Bottom Actions (Desktop) */}
          <div className="hidden md:flex flex-col gap-4 mb-6 w-full items-center shrink-0">
              <button onClick={() => setIsAIChatOpen(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
                  <Bot size={24} />

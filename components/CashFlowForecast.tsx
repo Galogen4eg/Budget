@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -80,7 +79,10 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
            });
 
            const paidAmount = currentMonthTx
-               .filter(t => keywords.some(k => (t.note || '').toLowerCase().includes(k.toLowerCase()) || (t.rawNote || '').toLowerCase().includes(k.toLowerCase())))
+               .filter(t => {
+                   if (t.linkedExpenseId === exp.id) return true;
+                   return keywords.some(k => (t.note || '').toLowerCase().includes(k.toLowerCase()) || (t.rawNote || '').toLowerCase().includes(k.toLowerCase()));
+               })
                .reduce((a, b) => a + b.amount, 0);
            
            // Heuristic: if paid > 95% of expected amount, consider it paid

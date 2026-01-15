@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, AlertCircle, DollarSign, Calendar, Edit2, Plus, Circle } from 'lucide-react';
@@ -60,8 +59,10 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
   const processedExpenses = (expenses || []).map(expense => {
     const keywords = expense.keywords || [];
     
-    // Find matching transactions based on keywords
+    // Find matching transactions based on keywords OR explicit link
     const matches = monthTransactions.filter(tx => {
+       if (tx.linkedExpenseId === expense.id) return true; // Explicit link
+
        if (keywords.length === 0) return false;
        const noteLower = (tx.note || '').toLowerCase();
        const rawLower = (tx.rawNote || '').toLowerCase();

@@ -12,6 +12,7 @@ export interface Transaction {
   date: string;
   rawNote?: string;
   projectId?: string; // Link to a project
+  linkedExpenseId?: string; // Explicit link to a mandatory expense
 }
 
 export interface LearnedRule {

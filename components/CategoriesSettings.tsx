@@ -4,9 +4,9 @@ import {
   Plus, BrainCircuit, Zap, ShoppingBag, Car, HeartPulse, Utensils, 
   Home, Briefcase, GraduationCap, Filter, X, ChevronLeft, Palette, 
   Coffee, Save, Layers, Sparkles, Gamepad2, Camera, Music, Plane, 
-  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3
+  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3, RefreshCw
 } from 'lucide-react';
-import { Category, LearnedRule, AppSettings } from '../types';
+import { Category, LearnedRule, AppSettings, Transaction } from '../types';
 
 interface CategoriesSettingsProps {
   categories: Category[];
@@ -14,6 +14,8 @@ interface CategoriesSettingsProps {
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   settings: AppSettings;
+  transactions?: Transaction[];
+  onUpdateTransactions?: (transactions: Transaction[]) => void;
 }
 
 const AVAILABLE_ICONS = [
@@ -50,7 +52,8 @@ const IconRenderer = ({ name, size = 18, className = "" }: { name: string, size?
 };
 
 const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({ 
-    categories, onUpdateCategories, learnedRules, onUpdateRules, settings 
+    categories, onUpdateCategories, learnedRules, onUpdateRules, settings,
+    transactions, onUpdateTransactions
 }) => {
   const isDarkMode = settings.theme === 'dark';
   const [view, setView] = useState<'main' | 'category_form' | 'manage_categories' | 'edit_rule'>('main');
@@ -152,6 +155,35 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       setRuleCategoryId(sortedCategories[0]?.id || null);
     }
     setView('edit_rule');
+  };
+
+  const handleApplyRuleToHistory = () => {
+      if (!transactions || !onUpdateTransactions || !ruleKeyword.trim() || !ruleCategoryId) return;
+
+      const keywords = ruleKeyword.split(';').map(k => k.trim().toLowerCase()).filter(k => k);
+      const targetCat = categories.find(c => c.id === ruleCategoryId);
+      if (!targetCat || keywords.length === 0) return;
+
+      let count = 0;
+      const updatedTransactions = transactions.map(tx => {
+          const raw = (tx.rawNote || tx.note || '').toLowerCase();
+          const match = keywords.some(k => raw.includes(k));
+          
+          if (match && tx.category !== ruleCategoryId) {
+              count++;
+              return { ...tx, category: ruleCategoryId, note: targetCat.label };
+          }
+          return tx;
+      });
+
+      if (count > 0) {
+          if (confirm(`Найдено ${count} операций. Обновить их категорию на "${targetCat.label}"?`)) {
+              onUpdateTransactions(updatedTransactions);
+              alert('Операции обновлены');
+          }
+      } else {
+          alert('Подходящих операций для обновления не найдено');
+      }
   };
 
   const handleSaveRule = () => {
@@ -517,10 +549,18 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 </div>
               </div>
             </div>
-            <div className="pt-4">
+            <div className="pt-4 space-y-3">
               <button onClick={handleSaveRule} className="w-full bg-blue-500 text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                 <Save size={18} /> {editingRule ? 'Обновить' : 'Применить правила'}
               </button>
+              {transactions && onUpdateTransactions && (
+                  <button 
+                    onClick={handleApplyRuleToHistory} 
+                    className="w-full bg-gray-100 dark:bg-[#3A3A3C] text-gray-600 dark:text-gray-300 py-4 rounded-[2rem] font-bold text-xs uppercase tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-[#48484A]"
+                  >
+                    <RefreshCw size={16} /> Применить к старым операциям
+                  </button>
+              )}
             </div>
           </div>
         )}

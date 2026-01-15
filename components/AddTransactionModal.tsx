@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -64,6 +63,7 @@ export default function AddTransactionModal({
       setNote(initialTransaction.rawNote || initialTransaction.note);
       setCategoryId(initialTransaction.category);
       setMemberId(initialTransaction.memberId);
+      setBoundExpenseId(initialTransaction.linkedExpenseId || '');
       
       const d = new Date(initialTransaction.date);
       // Ensure date string is valid YYYY-MM-DD
@@ -78,6 +78,7 @@ export default function AddTransactionModal({
         
         setCleanKeyword('');
         setRenamedTitle('');
+        setBoundExpenseId('');
     }
   }, [initialTransaction, members]);
 
@@ -116,7 +117,8 @@ export default function AddTransactionModal({
           note: finalDisplayName,
           date: new Date(date).toISOString(),
           rawNote: note.trim() || finalDisplayName, 
-          userId: auth.currentUser?.uid
+          userId: auth.currentUser?.uid,
+          linkedExpenseId: boundExpenseId || undefined
       };
 
       if (isLearningEnabled && cleanKeyword.trim()) {

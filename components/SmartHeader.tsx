@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { AppSettings, Transaction } from '../types';
 import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
@@ -81,6 +80,8 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
           mandatoryExpenses.forEach(expense => {
               const keywords = expense.keywords || [];
               const matches = currentMonthTransactions.filter(tx => {
+                  if (tx.linkedExpenseId === expense.id) return true; // Explicit link matches immediately
+                  
                   if (keywords.length === 0) return false;
                   const noteLower = (tx.note || '').toLowerCase();
                   const rawLower = (tx.rawNote || '').toLowerCase();

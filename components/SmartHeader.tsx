@@ -31,7 +31,7 @@ const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: b
 
     if (privacyMode) return <span className="text-4xl md:text-5xl font-black tracking-tighter">••••••</span>;
 
-    return <motion.span className="text-5xl md:text-8xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
+    return <motion.span className="text-4xl xs:text-5xl md:text-8xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
 };
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
@@ -63,14 +63,10 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       nextSalaryDate = new Date(now.getFullYear(), now.getMonth() + 1, sortedDates[0]);
   }
 
-  // Days calculations
   const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  
-  // Money calculations
   const mandatoryExpenses = settings.mandatoryExpenses || [];
   
-  // Filter transactions for current month only to check payments
   const currentMonthTransactions = useMemo(() => transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
@@ -93,23 +89,14 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
 
               const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
               const isManuallyPaid = manuallyPaidIds.includes(expense.id);
-              // Considered paid if amount matches OR manually marked
               const isPaid = (paidAmount >= expense.amount * 0.95) || isManuallyPaid;
-              
               const remainingToPay = isPaid ? 0 : Math.max(0, expense.amount - paidAmount);
 
-              // Calculate reserve: Include ALL unpaid items, even if "overdue" (past day in current month)
-              // If we don't reserve for overdue, the user might spend that money.
-              if (!isPaid) {
-                  total += remainingToPay;
-              }
-              
-              // Always add to list for visibility
+              if (!isPaid) total += remainingToPay;
               fullList.push({ expense, amountNeeded: remainingToPay, isManuallyPaid, isPaid });
           });
       }
 
-      // Sort: Unpaid first (by day), then Paid (by day)
       fullList.sort((a, b) => {
           if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
           return a.expense.day - b.expense.day;
@@ -133,20 +120,11 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const handleTogglePaid = async (expenseId: string, isPaid: boolean) => {
       const currentManuals = settings.manualPaidExpenses || {};
       const monthIds = currentManuals[currentMonthKey] || [];
-      
-      let newMonthIds;
-      if (isPaid) {
-          newMonthIds = [...monthIds, expenseId]; // Add to paid list
-      } else {
-          newMonthIds = monthIds.filter(id => id !== expenseId); // Remove
-      }
+      let newMonthIds = isPaid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
 
       const newSettings = { 
           ...settings, 
-          manualPaidExpenses: {
-              ...currentManuals,
-              [currentMonthKey]: newMonthIds
-          }
+          manualPaidExpenses: { ...currentManuals, [currentMonthKey]: newMonthIds }
       };
       setSettings(newSettings);
       if (familyId) await saveSettings(familyId, newSettings);
@@ -160,11 +138,9 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
         transition={{ type: "spring", duration: 0.6 }}
         className={`relative overflow-hidden rounded-[2.2rem] text-white shadow-xl dark:shadow-white/5 ${className} group flex flex-col justify-between`}
     >
-        {/* Premium Dark Gradient Background */}
         <div className="absolute inset-0 bg-[#151517] z-0" />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-800/90 opacity-100 z-0" />
         
-        {/* Decorative Blur Effects - Animated */}
         <motion.div 
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
@@ -176,10 +152,8 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
             className="absolute bottom-[-20px] left-[-20px] w-40 h-40 bg-blue-400 rounded-full blur-[50px] mix-blend-screen pointer-events-none" 
         />
 
-        <div className="relative z-10 flex flex-col h-full p-4 md:p-5">
-            
-            {/* 1. TOP ROW: Budget Mode Switcher + Invite + Privacy + Days */}
-            <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div className="relative z-10 flex flex-col h-full p-4 md:p-6">
+            <div className="flex justify-between items-start mb-2">
                 <div className="flex gap-2">
                     <button 
                         onClick={(e) => {
@@ -201,72 +175,65 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     </button>
                 </div>
                 
-                <div className="flex items-center gap-2 md:gap-3">
-                    {/* Invite Button */}
+                <div className="flex items-center gap-2">
                     <button 
                         onClick={(e) => { e.stopPropagation(); onInvite?.(); }}
-                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors flex items-center justify-center"
-                        title="Пригласить в семью"
+                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors flex items-center justify-center"
+                        title="Пригласить"
                     >
-                        <UserPlus size={12} />
+                        <UserPlus size={14} />
                     </button>
 
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-1 md:px-3 md:py-1.5 flex items-center gap-1.5 border border-white/10">
-                        <CalendarClock size={10} className="text-blue-200" />
-                        <span className="text-[9px] md:text-[10px] font-bold text-white tabular-nums">
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 border border-white/10">
+                        <CalendarClock size={12} className="text-blue-200" />
+                        <span className="text-[10px] font-bold text-white tabular-nums">
                             {daysRemaining} дн.
                         </span>
                     </div>
                     
                     <button 
                         onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }}
-                        className="p-1.5 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
+                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
                     >
-                        {settings.privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
+                        {settings.privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                 </div>
             </div>
 
-            {/* 2. MIDDLE: Huge Balance */}
-            <div className="flex-1 flex items-center min-h-0 mb-2 md:mb-4">
+            <div className="flex-1 flex items-center min-h-0 mb-4 overflow-hidden">
                 <div className="flex items-baseline gap-1 md:gap-2 w-full overflow-hidden">
                     <AnimatedCounter value={balance} privacyMode={settings.privacyMode} />
-                    <span className="text-xl md:text-3xl font-medium text-blue-200/60 mb-1 md:mb-2">{settings.currency}</span>
+                    <span className="text-lg md:text-3xl font-medium text-blue-200/60 mb-1">{settings.currency}</span>
                 </div>
             </div>
 
-            {/* 3. BOTTOM ROW: 3 Stats Grid */}
-            <div className="grid grid-cols-3 gap-2 md:gap-3 h-20 md:h-28 mt-auto">
-                {/* Daily Limit - Primary */}
-                <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-2 md:p-4 flex flex-col justify-between relative overflow-hidden group/item shadow-lg">
-                    <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-green-400/20 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity" />
+            <div className="grid grid-cols-3 gap-2 md:gap-4 h-24 md:h-28 mt-auto shrink-0">
+                <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between relative overflow-hidden group/item shadow-lg">
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-blue-100/80 tracking-wider flex items-center gap-1 truncate">
                         <TrendingUp size={10} className="text-green-300" /> На день
                     </span>
-                    <span className="text-base md:text-3xl font-black text-white tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-3xl font-black text-white tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()}
                     </span>
                 </div>
 
-                {/* Spent - Alert/Action */}
-                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between group/item">
+                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between group/item">
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-red-100/70 tracking-wider flex items-center gap-1 truncate">
                         <ArrowDownRight size={10} className="text-red-300" /> Траты
                     </span>
-                    <span className="text-base md:text-3xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-3xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(spent).toLocaleString()}
                     </span>
                 </div>
 
-                {/* Reserve - Secondary - Clickable for Modal */}
                 <button
                     onClick={() => setIsReserveModalOpen(true)}
-                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-2xl p-2 md:p-4 flex flex-col justify-between cursor-pointer hover:bg-black/30 transition-colors text-left"
+                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between cursor-pointer hover:bg-black/30 transition-colors text-left"
                 >
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1 truncate">
                         <Lock size={10} /> Резерв
                     </span>
-                    <span className="text-base md:text-3xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-3xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                     </span>
                 </button>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, WifiOff, LogIn, Bot, Plus } from 'lucide-react';
@@ -20,6 +21,7 @@ import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import LoginScreen from './components/LoginScreen';
 import ImportModal from './components/ImportModal';
 import FeedbackTool from './components/FeedbackTool';
+import ServicesHub from './components/ServicesHub'; // Eager load
 
 // Lazy Load Modals & Heavy Components
 const AddTransactionModal = React.lazy(() => import('./components/AddTransactionModal'));
@@ -30,7 +32,6 @@ const NotificationsModal = React.lazy(() => import('./components/NotificationsMo
 const GoalModal = React.lazy(() => import('./components/GoalModal'));
 const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExpenseModal'));
 const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
-const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
 const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'));
 const AIChatModal = React.lazy(() => import('./components/AIChatModal'));
 
@@ -314,7 +315,6 @@ export default function App() {
               reply_markup: inlineKeyboard ? { inline_keyboard: inlineKeyboard } : undefined
           };
 
-          // Try to edit if messageId is provided
           if (messageIdToEdit) {
               method = 'editMessageText';
               body.message_id = messageIdToEdit;
@@ -328,10 +328,8 @@ export default function App() {
 
           const data = await res.json();
 
-          // If editing failed (e.g., message deleted), fallback to sending new message
           if (!data.ok && method === 'editMessageText') {
               console.warn("Edit failed, sending new message instead:", data.description);
-              // Recursively call without ID to force new message
               return sendTelegramMessage(text, undefined, inlineKeyboard); 
           }
 
@@ -385,12 +383,8 @@ export default function App() {
       const todayStr = new Date().toLocaleDateString('ru-RU'); 
       const todayKey = new Date().toISOString().split('T')[0]; 
 
-      let text = settings.shoppingTemplate || `������ *Список покупок*\n\n{items}`;
-      
-      // Categorize items logic preserved for sorting, but output will be flat
+      let text = settings.shoppingTemplate || `🛒 *Список покупок*\n\n{items}`;
       const grouped: Record<string, string[]> = {};
-      
-      // Sort items by priority first, then normal
       const sortedItems = [...items].sort((a, b) => {
           if (a.priority === 'high' && b.priority !== 'high') return -1;
           if (a.priority !== 'high' && b.priority === 'high') return 1;
@@ -400,19 +394,15 @@ export default function App() {
       sortedItems.forEach(i => {
           const cat = i.category || 'other';
           if (!grouped[cat]) grouped[cat] = [];
-          
           let line = `• ${i.title}`;
-          // Only add amount/unit if amount is present and not empty
           if (i.amount && i.amount.trim().length > 0) {
               line += ` (${i.amount} ${i.unit})`;
           }
-          if (i.priority === 'high') line = `❗️ ${line}`; // Mark high priority
+          if (i.priority === 'high') line = `❗️ ${line}`;
           grouped[cat].push(line);
       });
 
-      // Build flat list text without category headers
       let itemsList = Object.values(grouped).map(lines => lines.join('\n')).join('\n');
-
       const replacements: Record<string, string> = {
           '{items}': itemsList,
           '{total}': String(items.length),
@@ -423,19 +413,14 @@ export default function App() {
           text = text.replace(new RegExp(key, 'g'), val);
       }
 
-      // Add timestamp to footer so user sees update
       const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
       text += `\n\n_Обновлено в ${time}_`;
 
-      // LOGIC: Edit or Send New
       let messageIdToEdit: number | undefined = undefined;
-      
-      // Check if we already sent a list TODAY
       if (settings.telegramState?.lastShoppingDate === todayKey && settings.telegramState?.lastShoppingMessageId) {
           messageIdToEdit = settings.telegramState.lastShoppingMessageId;
       }
 
-      // Feature 3: Interactive Button to open App
       const inlineKeyboard = [[
           { text: "📱 Открыть в приложении", url: window.location.href }
       ]];
@@ -443,20 +428,15 @@ export default function App() {
       const sentMessageId = await sendTelegramMessage(text, messageIdToEdit, inlineKeyboard);
 
       if (sentMessageId) {
-          // Save the new state
           const newState = {
               lastShoppingMessageId: sentMessageId,
               lastShoppingDate: todayKey
           };
-          
           const newSettings = { ...settings, telegramState: newState };
           setSettings(newSettings);
           if (familyId) await saveSettings(familyId, newSettings);
-          
-          showNotify('success', messageIdToEdit ? 'Список в Telegram обновлен!' : 'Список отправлен в Telegram');
           return true;
       }
-      
       return false;
   };
 
@@ -509,12 +489,7 @@ export default function App() {
   };
 
   const handleDrillDown = (categoryId: string, merchantName?: string) => setDrillDownState({ categoryId, merchantName });
-  
-  const handleClearFilters = () => { 
-      setFilterCategory(null); 
-      setFilterMerchant(null); 
-      setCalendarSelectedDate(null);
-  };
+  const handleClearFilters = () => { setFilterCategory(null); setFilterMerchant(null); setCalendarSelectedDate(null); };
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
@@ -592,16 +567,7 @@ export default function App() {
               {showLoadingFallback && !isJoining && (
                   <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="space-y-3">
                       <p className="text-sm font-bold text-gray-500">Авторизация занимает больше времени...</p>
-                      <button 
-                        onClick={() => {
-                            if (confirm("Вы перейдете в локальный Демо-режим без синхронизации. Продолжить?")) {
-                                enterDemoMode();
-                            }
-                        }} 
-                        className="bg-white dark:bg-[#1C1C1E] text-blue-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center gap-2 mx-auto"
-                      >
-                          <LogIn size={16} /> Войти в Демо-режим
-                      </button>
+                      <button onClick={() => { if (confirm("Войти в локальный Демо-режим?")) enterDemoMode(); }} className="bg-white dark:bg-[#1C1C1E] text-blue-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center gap-2 mx-auto"><LogIn size={16} /> Войти в Демо-режим</button>
                   </motion.div>
               )}
           </div>
@@ -613,58 +579,36 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full bg-[#EBEFF5] dark:bg-[#000000] text-[#1C1C1E] dark:text-white transition-colors duration-300 flex flex-col md:flex-row overflow-hidden">
-      <Toaster 
-        position="top-center" 
-        richColors 
-        closeButton 
-        theme={settings.theme === 'dark' ? 'dark' : 'light'} 
-        toastOptions={{
-            className: 'backdrop-blur-xl bg-white/80 dark:bg-[#1C1C1E]/90 border border-white/20 dark:border-white/10 shadow-2xl rounded-2xl'
-        }}
-      />
-
+      <Toaster position="top-center" richColors theme={settings.theme === 'dark' ? 'dark' : 'light'} />
       <FeedbackTool />
 
-      <div className="md:hidden sticky top-0 z-30 bg-[#EBEFF5]/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 px-4 py-3 flex justify-between items-center shrink-0">
+      <div className="md:hidden sticky top-0 z-30 bg-[#EBEFF5]/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 px-4 py-3 pt-safe flex justify-between items-center shrink-0">
          <div className="flex items-center gap-3">
              <div className="text-xl font-black">FB.</div>
              {(activeTab === 'overview' || activeTab === 'budget') && (
-                 <button onClick={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} className="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] p-1.5 pr-3 rounded-full border dark:border-white/10 shadow-sm ml-2">
+                 <button onClick={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} className="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] p-1.5 pr-3 rounded-full border dark:border-white/10 shadow-sm ml-2 active:scale-95 transition-transform">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${budgetMode === 'family' ? 'bg-purple-500' : 'bg-blue-500'}`}>{budgetMode === 'family' ? <Users size={14} /> : <User size={14} />}</div>
                     <span className="text-[10px] font-bold uppercase tracking-wide">{budgetMode === 'family' ? 'Семья' : 'Мой'}</span>
                  </button>
              )}
-             {isOfflineMode && <WifiOff size={16} className="text-gray-400" />}
          </div>
          <div className="flex gap-3">
-             <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
-                 <Bot size={20} />
+             <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform"><Bot size={20} /></button>
+             <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform">
+                 <motion.div animate={isBellRinging ? { rotate: [0, -25, 25, 0] } : {}} transition={{ duration: 0.5 }}><Bell size={20} className={isBellRinging ? "text-red-500" : ""} /></motion.div>
+                 {unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}
              </button>
-             <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
-                 <motion.div 
-                    animate={isBellRinging ? { rotate: [0, -25, 25, -25, 25, 0] } : {}}
-                    transition={{ duration: 0.5 }}
-                 >
-                    <Bell size={20} className={isBellRinging ? "text-red-500" : ""} />
-                 </motion.div>
-                 {unreadNotificationsCount > 0 && (
-                     <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
-                 )}
-             </button>
-             <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm">
-                 <SettingsIcon size={20} />
-             </button>
+             <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform"><SettingsIcon size={20} /></button>
          </div>
       </div>
 
-      <main className="flex-1 h-full overflow-y-auto overflow-x-hidden no-scrollbar p-4 md:p-6 pb-40 md:pb-6 relative">
-        <div className="max-w-7xl mx-auto w-full min-h-full md:h-full flex flex-col">
+      <main className="flex-1 h-full overflow-y-auto overflow-x-hidden no-scrollbar p-4 md:p-8 pb-40 md:pb-8 relative md:ml-28">
+        <div className="max-w-7xl mx-auto w-full min-h-full flex flex-col gap-6">
             <Suspense fallback={null}>
                 {showOnboarding && <OnboardingModal onSave={async (name, color) => {
                     if (familyId) {
                         const newMember: FamilyMember = { id: user?.uid || 'user', name, color, isAdmin: true, userId: user?.uid };
                         await updateItemsBatch(familyId, 'members', [newMember]);
-                        await saveSettings(familyId, { ...settings, familyName: `${name} Family` });
                     }
                     setShowOnboarding(false);
                 }} />}
@@ -672,179 +616,85 @@ export default function App() {
 
             <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col md:h-full gap-6 md:overflow-hidden">
-                    <SmartHeader 
-                        balance={totalBalance} 
-                        spent={currentMonthSpent} 
-                        savingsRate={savingsRate} 
-                        settings={settings} 
-                        budgetMode={budgetMode} 
-                        transactions={dashboardTransactions} 
-                        onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} 
-                        onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} 
-                        onInvite={handleInvite} 
-                        className="shrink-0"
-                    />
-                    
+                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col gap-6 md:overflow-hidden">
+                    <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={dashboardTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} onInvite={handleInvite} className="shrink-0" />
                     <div className="flex-1 min-h-[300px] flex flex-col md:flex-row gap-6">
                         {(isWidgetEnabled('category_analysis') || isWidgetEnabled('recent_transactions')) && (
-                            <div className="flex-1 min-w-[250px] flex flex-col gap-6 md:h-full w-full md:w-auto md:flex-1">
-                                {isWidgetEnabled('category_analysis') && (
-                                    <div className={`${isWidgetEnabled('recent_transactions') ? 'h-80 md:h-auto md:flex-1 md:min-h-0' : 'h-80 md:h-full'}`}>
-                                        <CategoryAnalysisWidget transactions={dashboardTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
-                                    </div>
-                                )}
-                                {isWidgetEnabled('recent_transactions') && (
-                                    <div className={`${isWidgetEnabled('category_analysis') ? 'h-80 md:h-auto md:flex-1 md:min-h-0' : 'h-80 md:h-full'}`}>
-                                        <RecentTransactionsWidget transactions={dashboardTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
-                                    </div>
-                                )}
+                            <div className="flex-1 flex flex-col gap-6 w-full">
+                                {isWidgetEnabled('category_analysis') && <div className="h-80 md:h-1/2"><CategoryAnalysisWidget transactions={dashboardTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} /></div>}
+                                {isWidgetEnabled('recent_transactions') && <div className="h-80 md:h-1/2"><RecentTransactionsWidget transactions={dashboardTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} /></div>}
                             </div>
                         )}
-
-                        {isWidgetEnabled('month_chart') && (
-                            <div className="w-full md:flex-[2] min-w-[300px] h-[300px] md:h-full">
-                                <MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} />
-                            </div>
-                        )}
-
+                        {isWidgetEnabled('month_chart') && <div className="w-full md:flex-[2] h-80 md:h-auto"><MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} /></div>}
                         {(isWidgetEnabled('shopping') || isWidgetEnabled('goals')) && (
-                            <div className="flex-1 min-w-[250px] flex flex-col gap-6 md:h-full w-full md:w-auto md:flex-1">
+                            <div className="flex-1 flex flex-col gap-6 w-full">
                                 {isWidgetEnabled('shopping') && (
-                                    <motion.div 
-                                        whileHover={{ scale: 1.01 }} 
-                                        className={`${shoppingItems.filter(i=>!i.completed).length === 0 ? 'hidden md:flex h-80' : 'h-auto'} ${isWidgetEnabled('goals') ? 'md:h-[calc(50%-12px)]' : 'md:h-full'} bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border dark:border-white/5 shadow-soft cursor-pointer relative overflow-hidden group md:flex-1`} 
-                                        onClick={() => setActiveTab('shopping')}
-                                    >
-                                        <div className="flex justify-between items-center mb-3">
+                                    <motion.div whileHover={{ scale: 1.01 }} className="flex-1 bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.2rem] border dark:border-white/5 shadow-soft cursor-pointer relative overflow-hidden group min-h-[160px]" onClick={() => setActiveTab('shopping')}>
+                                        <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="p-1.5 bg-green-50 dark:bg-green-900/30 rounded-xl"><ShoppingBag size={14} className="text-green-600"/></div>
+                                                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-xl"><ShoppingBag size={16} className="text-green-600"/></div>
                                                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Покупки</h3>
                                             </div>
-                                            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-white/10 px-2 py-1 rounded-lg">{shoppingItems.filter(i=>!i.completed).length}</span>
+                                            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-white/10 px-2.5 py-1 rounded-lg">{shoppingItems.filter(i=>!i.completed).length}</span>
                                         </div>
-                                        <div className="space-y-1.5 overflow-hidden">
+                                        <div className="space-y-2 overflow-hidden">
                                             {shoppingItems.filter(i=>!i.completed).slice(0,3).map(item => (
-                                                <div key={item.id} className="flex items-center gap-2.5">
-                                                    <div className="w-1 h-1 rounded-full bg-green-400 shrink-0" />
-                                                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-gray-200 truncate">{item.title}</span>
-                                                </div>
+                                                <div key={item.id} className="flex items-center gap-2.5"><div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" /><span className="text-xs font-bold text-[#1C1C1E] dark:text-gray-200 truncate">{item.title}</span></div>
                                             ))}
                                             {shoppingItems.filter(i=>!i.completed).length === 0 && <p className="text-[10px] text-gray-400 italic">Список пуст</p>}
                                         </div>
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-green-50/20 dark:bg-green-900/10 rounded-full blur-[50px] -mr-10 -mt-10" />
                                     </motion.div>
                                 )}
-                                
-                                {isWidgetEnabled('goals') && (
-                                    <div className={`${isWidgetEnabled('shopping') ? 'h-80 md:h-[calc(50%-12px)]' : 'h-80 md:h-full'}`}>
-                                        <GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} />
-                                    </div>
-                                )}
+                                {isWidgetEnabled('goals') && <div className="flex-1 min-h-[160px]"><GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} /></div>}
                             </div>
                         )}
-                        <div className="h-24 w-full md:hidden shrink-0" />
                     </div>
                 </motion.div>
             )}
             {activeTab === 'budget' && (
                 <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="space-y-8">
-                    <div className="flex justify-between items-center px-1">
-                        <h1 className="text-3xl font-black text-[#1C1C1E] dark:text-white tracking-tight">Бюджет</h1>
+                    <h1 className="text-3xl font-black tracking-tight">Бюджет</h1>
+                    <div className="flex gap-3 mb-6">
+                        <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}><Plus size={20} strokeWidth={3} /> Добавить</button>
+                        <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-500 p-5 rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>{isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} Импорт</button>
+                        <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
                     </div>
-                    
-                    <div className="flex gap-2 mb-4">
-                        <button className="flex-1 bg-white dark:bg-[#1C1C1E] py-3 px-4 md:p-4 rounded-[1.5rem] font-bold shadow-sm active:scale-95 transition-all text-[#1C1C1E] dark:text-white text-xs md:text-xl flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}>
-                            <Plus size={18} className="md:w-6 md:h-6" strokeWidth={3} /> 
-                            <span className="hidden xs:inline md:inline">Добавить операцию</span>
-                            <span className="xs:hidden md:hidden">Добавить</span>
-                        </button>
-                        <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E]/50 text-gray-500 dark:text-gray-400 py-3 px-4 md:p-4 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 text-xs md:text-base" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>
-                            {isImporting ? <Loader2 size={16} className="animate-spin md:w-5 md:h-5"/> : <Upload size={16} className="md:w-5 md:h-5" />} 
-                            <span>Импорт</span>
-                            <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
-                        </button>
-                    </div>
-
                     <SpendingCalendar transactions={filteredTransactions} selectedDate={calendarSelectedDate} onSelectDate={setCalendarSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
-                    
-                    <div className="flex flex-col md:flex-row gap-6">
-                        <div className="flex-1 min-w-0">
-                            <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <MandatoryExpensesList 
-                                expenses={settings.mandatoryExpenses || []} 
-                                transactions={filteredTransactions} 
-                                settings={settings} 
-                                currentMonth={currentMonth} 
-                                onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }}
-                                onAdd={() => { setEditingMandatoryExpense(null); setIsMandatoryModalOpen(true); }}
-                            />
-                        </div>
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
+                        <MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={filteredTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }} onAdd={() => { setEditingMandatoryExpense(null); setIsMandatoryModalOpen(true); }} />
                     </div>
-
-                    <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} initialSearch={''} selectedCategoryId={filterCategory || undefined} selectedMerchantName={filterMerchant || undefined} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
-                    <div className="h-24 w-full md:hidden shrink-0" />
+                    <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
                 </motion.div>
             )}
             {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={handleSendEventToTelegram} onDeleteEvent={handleDeleteEvent} /></motion.div>}
-            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onCompletePurchase={() => {}} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingListToTelegram} /></motion.div>}
-            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><Suspense fallback={<div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-300"/></div>}><ServicesHub /></Suspense></motion.div>}
+            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingListToTelegram} /></motion.div>}
+            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ServicesHub /></motion.div>}
             </AnimatePresence>
         </div>
       </main>
 
-      <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-28 md:h-screen md:bg-white md:border-r dark:md:border-white/5 md:rounded-none bg-[#1C1C1E]/90 dark:bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-between items-center z-50 transition-all duration-300">
-         <div className="hidden md:flex flex-col items-center justify-center h-20 shrink-0">
-             <div className="text-2xl font-black text-[#1C1C1E] dark:text-white">FB.</div>
-         </div>
-
+      <nav className="fixed bottom-6 left-4 right-4 md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-28 md:h-screen md:bg-white dark:md:bg-[#1C1C1E] md:border-r border-white/10 md:rounded-none bg-[#1C1C1E]/95 dark:bg-[#2C2C2E]/90 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-2 flex md:flex-col justify-between items-center z-50 transition-all duration-300 border border-white/5">
+         <div className="hidden md:flex flex-col items-center justify-center h-24 shrink-0"><div className="text-2xl font-black text-[#1C1C1E] dark:text-white">FB.</div></div>
          <div className="flex md:flex-col w-full justify-around md:justify-start md:items-center md:gap-4 md:flex-1 md:pt-4 overflow-y-auto no-scrollbar">
              {TAB_CONFIG.filter(t => (settings.enabledTabs || []).includes(t.id)).map(tab => {
                  const isActive = activeTab === tab.id;
                  return (
-                    <button 
-                        key={tab.id} 
-                        onClick={() => setActiveTab(tab.id)} 
-                        className="relative flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-auto md:py-3 group transition-all shrink-0"
-                    >
-                        {isActive && (
-                            <motion.div 
-                                layoutId="nav-pill" 
-                                className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/10 rounded-full md:rounded-2xl z-0" 
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }} 
-                            />
-                        )}
-                        <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-blue-400' : 'text-gray-400 group-hover:text-white md:group-hover:text-gray-600'}`}>
-                            {React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
-                        </span>
-                        <span className={`hidden md:block text-[10px] font-bold mt-1.5 relative z-10 transition-colors duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600'}`}>
-                            {tab.label}
-                        </span>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-auto md:py-4 group transition-all shrink-0">
+                        {isActive && <motion.div layoutId="nav-pill" className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/5 rounded-full md:rounded-2xl z-0" transition={{ type: "spring", stiffness: 300, damping: 30 }} />}
+                        <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-white md:text-blue-600 dark:md:text-blue-400' : 'text-gray-400 group-hover:text-white md:group-hover:text-gray-600'}`}>{React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}</span>
+                        <span className={`hidden md:block text-[10px] font-black mt-2 relative z-10 transition-colors duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600'}`}>{tab.label}</span>
                     </button>
                  )
              })}
          </div>
-
-         <div className="hidden md:flex flex-col gap-4 mb-6 w-full items-center shrink-0">
-             <button onClick={() => setIsAIChatOpen(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
-                 <Bot size={24} />
-             </button>
+         <div className="hidden md:flex flex-col gap-4 mb-8 w-full items-center shrink-0">
+             <button onClick={() => setIsAIChatOpen(true)} className="text-gray-400 hover:text-blue-500 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all"><Bot size={24} /></button>
              <button onClick={() => setShowNotifications(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
-                 <motion.div
-                    animate={isBellRinging ? { rotate: [0, -25, 25, -25, 25, 0] } : {}}
-                    transition={{ duration: 0.5 }}
-                 >
-                    <Bell size={24} className={isBellRinging ? "text-red-500" : ""} />
-                 </motion.div>
-                 {unreadNotificationsCount > 0 && (
-                     <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>
-                 )}
+                <Bell size={24} />
+                {unreadNotificationsCount > 0 && <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#1C1C1E]"/>}
              </button>
-             <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-blue-500 relative p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
-                 <SettingsIcon size={24} />
-             </button>
+             <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-blue-500 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all"><SettingsIcon size={24} /></button>
          </div>
       </nav>
 

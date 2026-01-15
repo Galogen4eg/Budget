@@ -54,7 +54,6 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         onClick={onClick}
         className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col cursor-pointer group relative overflow-hidden transition-all"
     >
-        {/* Header */}
         <div className="flex justify-between items-center mb-4 relative z-10 shrink-0">
             <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
@@ -67,7 +66,6 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 transition-colors" />
         </div>
 
-        {/* Content - Fixed to TOP with Mask */}
         <div 
             className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-start"
             style={{ 
@@ -76,11 +74,11 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             }}
         >
             {data.total === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
+                <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-4">
                     <div className="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-2">
                         <Info size={18} className="text-gray-400" />
                     </div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Нет трат</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Нет трат в этом месяце</p>
                 </div>
             ) : (
                 <div className="space-y-3 pt-1">
@@ -107,20 +105,19 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             )}
         </div>
 
-        {/* Spectrum Bar (Bottom) */}
         <div className="mt-4 pt-3 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
-            <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800/50">
+            <div className="flex h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800/50 p-[1px]">
                 {data.total > 0 ? (
                     data.allCategories.map((item) => (
                         <div 
                             key={item.id}
                             style={{ width: `${item.percent}%`, backgroundColor: item.color }}
-                            className="h-full border-r border-white/20 last:border-0"
+                            className="h-full border-r border-white/10 dark:border-black/20 last:border-0"
                         />
                     ))
-                ) : <div className="w-full h-full bg-gray-200 dark:bg-gray-800" />}
+                ) : <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-full" />}
             </div>
-            <div className="flex justify-between items-center mt-2">
+            <div className="flex justify-between items-center mt-2 px-0.5">
                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Итого</span>
                 <span className="text-[10px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
                     {settings.privacyMode ? '•••' : data.total.toLocaleString()} {settings.currency}
@@ -128,7 +125,6 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             </div>
         </div>
 
-        {/* Decorative Background */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full blur-[50px] -mr-10 -mt-10 pointer-events-none opacity-60" />
     </motion.div>
   );

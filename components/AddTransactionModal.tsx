@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Trash2, Calendar, ArrowUp, ArrowDown, User, FileText, Sparkles, Mic, Loader2 } from 'lucide-react';
-import { Transaction, AppSettings, FamilyMember, Category, LearnedRule } from '../types';
-import { getIconById } from '../constants';
+import { 
+  ChevronLeft, X, Calendar, Tag, FileText, Repeat, ChevronRight, User, Check, Trash2, 
+  BrainCircuit, Zap, Sparkles, Edit3, Layers, Link as LinkIcon, Type
+} from 'lucide-react';
+import { Transaction, AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense } from '../types';
 import { auth } from '../firebase';
-import { GoogleGenAI } from "@google/genai";
-import { toast } from 'sonner';
+import { getIconById, MemberMarker } from '../constants';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -20,313 +22,478 @@ interface AddTransactionModalProps {
   onDelete?: (id: string) => Promise<void>;
 }
 
-const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ 
-  onClose, onSubmit, settings, members, categories, initialTransaction, 
-  onLearnRule, onApplyRuleToExisting, transactions, onDelete 
-}) => {
+export default function AddTransactionModal({
+  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule
+}: AddTransactionModalProps) {
+  // Состояния интерфейса
+  const [currentView, setCurrentView] = useState<'main' | 'categories' | 'assignee' | 'monthly_binding'>('main');
+  
+  // Данные
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
-  const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [note, setNote] = useState(''); // Это поле теперь хранит полное описание (rawNote)
+  
+  // AI Learning State
+  const [isLearningEnabled, setIsLearningEnabled] = useState(false);
+  const [cleanKeyword, setCleanKeyword] = useState(''); // Ключевое слово (raw)
+  const [renamedTitle, setRenamedTitle] = useState(''); // Новое красивое имя
+  
+  // Selection State
+  const [categoryId, setCategoryId] = useState(categories[0]?.id || 'other');
   const [memberId, setMemberId] = useState(members[0]?.id || '');
-  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [boundExpenseId, setBoundExpenseId] = useState<string>('');
+  
+  // Date State
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Magic Input State
-  const [magicInput, setMagicInput] = useState('');
-  const [isMagicLoading, setIsMagicLoading] = useState(false);
-  const [showMagicInput, setShowMagicInput] = useState(false);
+  // Dynamic Input Width
+  const spanRef = useRef<HTMLSpanElement>(null);
+  const [inputWidth, setInputWidth] = useState(100);
 
+  // Derived Data
+  const selectedCategory = categories.find(c => c.id === categoryId) || categories[0];
+  const selectedMember = members.find(m => m.id === memberId) || members[0];
+  const boundExpense = settings.mandatoryExpenses?.find(e => e.id === boundExpenseId);
+  const mandatoryExpenses = settings.mandatoryExpenses || [];
+
+  // Initialization
   useEffect(() => {
     if (initialTransaction) {
       setAmount(initialTransaction.amount.toString());
-      setType(initialTransaction.type);
-      setSelectedCategory(initialTransaction.category);
-      setNote(initialTransaction.note);
-      setDate(initialTransaction.date.split('T')[0]);
+      // В поле заметки ставим rawNote (полная строка) или note, если raw нет
+      setNote(initialTransaction.rawNote || initialTransaction.note);
+      setCategoryId(initialTransaction.category);
       setMemberId(initialTransaction.memberId);
+      
+      const d = new Date(initialTransaction.date);
+      setDate(d.toISOString().split('T')[0]);
+      
+      // AI Setup
+      // Ключевое слово = полная строка
+      setCleanKeyword(initialTransaction.rawNote || initialTransaction.note);
+      // Новое имя = текущее красивое имя (note)
+      setRenamedTitle(initialTransaction.note);
     } else {
-        if (members.length > 0) {
-            const myMember = members.find(m => m.userId === auth.currentUser?.uid);
-            if (myMember) setMemberId(myMember.id);
-            else setMemberId(members[0].id);
-        }
+        const myMember = members.find(m => m.userId === auth.currentUser?.uid);
+        if (myMember) setMemberId(myMember.id);
+        
+        setCleanKeyword('');
+        setRenamedTitle('');
     }
   }, [initialTransaction, members]);
 
-  const handleMagicParse = async () => {
-      if (!magicInput.trim() || !process.env.API_KEY) return;
-      setIsMagicLoading(true);
+  // Adjust input width based on content
+  useEffect(() => {
+    if (spanRef.current) {
+      // Add buffer to prevent scroll
+      setInputWidth(spanRef.current.offsetWidth + 20); 
+    }
+  }, [amount]);
+
+  const handleSave = async () => {
+      // Clean amount string (allow comma or dot)
+      const cleanAmountStr = amount.replace(/\s/g, '').replace(',', '.');
+      const finalAmount = parseFloat(cleanAmountStr);
       
-      try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const prompt = `
-            Parse this expense text into JSON: "${magicInput}".
-            Categories available: ${categories.map(c => c.id).join(', ')}.
-            Current date: ${new Date().toISOString().split('T')[0]}.
-            
-            Return JSON: { "amount": number, "category": string (id from list or 'other'), "note": string, "type": "expense" | "income", "date": "YYYY-MM-DD" }.
-            If date is mentioned (e.g. yesterday), calculate it. Default to today.
-          `;
-          
-          const response = await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: prompt,
-              config: { responseMimeType: "application/json" }
-          });
-          
-          const data = JSON.parse(response.text || '{}');
-          
-          if (data.amount) setAmount(String(data.amount));
-          if (data.category) setSelectedCategory(data.category);
-          if (data.note) setNote(data.note);
-          if (data.type) setType(data.type);
-          if (data.date) setDate(data.date);
-          
-          setShowMagicInput(false);
-          setMagicInput('');
-          toast.success('Распознано!');
-      } catch (e) {
-          console.error(e);
-          toast.error('Не удалось распознать текст');
-      } finally {
-          setIsMagicLoading(false);
+      if (isNaN(finalAmount) || finalAmount <= 0) {
+          alert("Введите корректную сумму");
+          return;
       }
+
+      // Final display name is either the renamed title (from AI block) or the raw note if not specified
+      const finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
+
+      const txData: Omit<Transaction, 'id'> = {
+          amount: finalAmount,
+          type: 'expense', 
+          category: categoryId,
+          memberId: memberId,
+          note: finalDisplayName, // Красивое имя
+          date: new Date(date).toISOString(),
+          rawNote: note.trim(), // Полная строка из банка
+          userId: auth.currentUser?.uid
+      };
+
+      // Handle AI Learning
+      if (isLearningEnabled && cleanKeyword.trim()) {
+          const rule: LearnedRule = {
+              id: Date.now().toString(),
+              keyword: cleanKeyword.trim(),
+              cleanName: finalDisplayName,
+              categoryId: categoryId
+          };
+          onLearnRule(rule);
+      }
+
+      await onSubmit(txData);
+      onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!amount || !selectedCategory) return;
-
-    const txData: Omit<Transaction, 'id'> = {
-      amount: parseFloat(amount),
-      type,
-      category: selectedCategory,
-      memberId,
-      note: note.trim(),
-      date: new Date(date).toISOString(),
-      rawNote: initialTransaction?.rawNote || note.trim(), 
-      userId: auth.currentUser?.uid
-    };
-
-    await onSubmit(txData);
-    onClose();
+  const formatAmountInput = (val: string) => {
+      // Allow digits, spaces, one comma or dot
+      return val.replace(/[^0-9.,\s]/g, '');
   };
 
-  const visibleCategories = showAllCategories ? categories : categories.slice(0, 12);
+  // Subcomponents specifically for this modal's design language
+  const SubHeader = ({ title, onBack }: { title: string, onBack: () => void }) => (
+    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-10 bg-[#F2F2F7]/80 dark:bg-[#1C1C1E]/80 border-gray-200 dark:border-white/10 shrink-0">
+      <button onClick={onBack} className="text-[#007AFF] flex items-center text-[17px] active:opacity-50">
+        <ChevronLeft size={22} className="-ml-1"/>
+        <span>Назад</span>
+      </button>
+      <h1 className="text-[17px] font-semibold text-center flex-1 pr-16 text-black dark:text-white truncate">{title}</h1>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-[1200] flex items-end md:items-center justify-center p-0 md:p-4">
       <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        onClick={onClose} 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
       />
       
       <motion.div
-        initial={{ y: "100%" }}
+        initial={{ y: '100%' }}
         animate={{ y: 0 }}
-        exit={{ y: "100%" }}
+        exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
+        className="relative w-full max-w-md h-[95vh] md:h-auto md:max-h-[85vh] bg-[#F2F2F7] dark:bg-black md:rounded-[2.5rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
       >
-        <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 shrink-0">
-          <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">
-            {initialTransaction ? 'Редактировать' : 'Новая операция'}
-          </h3>
-          <div className="flex gap-2">
-              {!initialTransaction && process.env.API_KEY && (
-                  <button 
-                    onClick={() => setShowMagicInput(!showMagicInput)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${showMagicInput ? 'bg-purple-500 text-white' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}
-                  >
-                      <Sparkles size={20} />
-                  </button>
-              )}
-              <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#3A3A3C] transition-colors">
-                <X size={20} strokeWidth={2.5} />
-              </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-            
-            {/* Magic Input Section */}
-            <AnimatePresence>
-                {showMagicInput && (
-                    <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-[2rem] border border-purple-100 dark:border-purple-900/30">
-                            <label className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest ml-2 mb-2 block">AI Ввод</label>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    placeholder="Например: Такси 500 вчера" 
-                                    value={magicInput}
-                                    onChange={(e) => setMagicInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMagicParse())}
-                                    className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white"
-                                    autoFocus
-                                />
-                                <button 
-                                    type="button"
-                                    onClick={handleMagicParse}
-                                    disabled={isMagicLoading || !magicInput.trim()}
-                                    className="bg-purple-500 text-white p-3 rounded-xl disabled:opacity-50"
-                                >
-                                    {isMagicLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Amount & Type */}
-            <div className="flex gap-4">
-                <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] shadow-sm relative">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest absolute top-4 left-5">Сумма</span>
-                    <input 
-                        type="number" 
-                        inputMode="decimal"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0"
-                        className="w-full h-full pt-4 bg-transparent text-3xl font-black text-[#1C1C1E] dark:text-white outline-none"
-                        autoFocus={!initialTransaction && !showMagicInput}
-                    />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <button 
-                        type="button"
-                        onClick={() => setType('expense')}
-                        className={`w-16 h-14 rounded-2xl flex items-center justify-center transition-all ${type === 'expense' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-white dark:bg-[#1C1C1E] text-gray-400'}`}
-                    >
-                        <ArrowDown size={24} strokeWidth={3} />
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => setType('income')}
-                        className={`w-16 h-14 rounded-2xl flex items-center justify-center transition-all ${type === 'income' ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-white dark:bg-[#1C1C1E] text-gray-400'}`}
-                    >
-                        <ArrowUp size={24} strokeWidth={3} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Categories */}
-            <div className="space-y-5">
-                <div className="flex items-center justify-between px-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Категория</label>
-                    {categories.length > 12 && !showAllCategories && (
-                        <button 
-                            type="button" 
-                            onClick={() => setShowAllCategories(true)}
-                            className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg"
-                        >
-                            Показать все
-                        </button>
-                    )}
-                </div>
-                
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 px-1 max-h-[320px] overflow-y-auto no-scrollbar md:max-h-none">
-                {visibleCategories.map(cat => (
-                    <button 
-                        key={cat.id} 
-                        type="button"
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`flex flex-col items-center justify-center gap-1.5 aspect-square p-2 rounded-2xl border transition-all ${selectedCategory === cat.id ? 'bg-white dark:bg-[#1C1C1E] border-blue-200 dark:border-blue-800 shadow-sm scale-105 z-10' : 'bg-transparent border-transparent opacity-60 hover:bg-white/40 dark:hover:bg-white/5'}`}
-                    >
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0" style={{ backgroundColor: cat.color }}>
-                            {getIconById(cat.icon, 20)}
-                        </div>
-                        <span className="text-[10px] font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap truncate w-full px-1 leading-none">{cat.label}</span>
-                    </button>
-                ))}
-                
-                {categories.length > 12 && !showAllCategories && (
-                    <button 
-                        type="button"
-                        onClick={() => setShowAllCategories(true)}
-                        className="flex flex-col items-center justify-center gap-1.5 aspect-square p-2 rounded-2xl border border-transparent opacity-60 hover:bg-white/40 dark:hover:bg-white/5"
-                    >
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 shrink-0">
-                                <span className="text-[10px] font-black">+{categories.length - 12}</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-400 whitespace-nowrap leading-none">Еще...</span>
-                    </button>
-                )}
-                </div>
-            </div>
-
-            {/* Note & Date */}
-            <div className="space-y-4">
-                <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] flex items-center gap-3 border border-transparent focus-within:border-blue-500/20 transition-all shadow-sm">
-                    <FileText size={20} className="text-gray-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Комментарий..." 
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        className="flex-1 bg-transparent font-bold text-sm outline-none text-[#1C1C1E] dark:text-white"
-                    />
-                </div>
-
-                <div className="flex gap-4">
-                    <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] flex items-center gap-3 shadow-sm">
-                        <Calendar size={20} className="text-gray-400" />
-                        <input 
-                            type="date" 
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            className="flex-1 bg-transparent font-bold text-sm outline-none text-[#1C1C1E] dark:text-white"
-                        />
-                    </div>
-                    
-                    {members.length > 1 && (
-                        <div className="flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] flex items-center gap-3 shadow-sm overflow-hidden">
-                            <User size={20} className="text-gray-400" />
-                            <select 
-                                value={memberId}
-                                onChange={(e) => setMemberId(e.target.value)}
-                                className="flex-1 bg-transparent font-bold text-sm outline-none text-[#1C1C1E] dark:text-white appearance-none"
-                            >
-                                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                            </select>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-        </form>
-
-        <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 flex flex-col gap-3">
-            <button 
-                onClick={handleSubmit}
-                className={`w-full py-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all ${type === 'expense' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black' : 'bg-green-500 text-white'}`}
-            >
-                <Check size={18} strokeWidth={3} />
-                {initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}
-            </button>
-            
-            {initialTransaction && onDelete && (
-                <button 
-                    onClick={() => onDelete(initialTransaction.id)}
-                    className="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[2rem] transition-colors flex items-center justify-center gap-2"
+        <AnimatePresence initial={false} mode="popLayout">
+            {currentView === 'main' && (
+                <motion.div 
+                    key="main"
+                    initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-10 md:static md:h-auto"
                 >
-                    <Trash2 size={16} /> Удалить
-                </button>
+                    {/* Header */}
+                    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-10 bg-[#F2F2F7]/80 dark:bg-[#1C1C1E]/80 border-gray-200 dark:border-white/10 shrink-0">
+                        <button onClick={onClose} className="text-[#007AFF] text-[17px] active:opacity-50">Отменить</button>
+                        <h1 className="text-[17px] font-semibold text-black dark:text-white">{initialTransaction ? 'Правка' : 'Новая'}</h1>
+                        <button onClick={handleSave} className="text-[#007AFF] text-[17px] font-semibold active:opacity-50">Готово</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto no-scrollbar pb-safe">
+                        
+                        {/* Amount Input Section */}
+                        <div className="flex flex-col items-center py-10">
+                            <span className="text-gray-500 text-[13px] mb-2 uppercase tracking-wide font-medium">Сумма расхода</span>
+                            
+                            <div className="flex items-center justify-center relative h-16 w-full">
+                                {/* Hidden span to measure width */}
+                                <span ref={spanRef} className="absolute invisible whitespace-pre text-5xl font-black px-2">
+                                    {amount || '0'}
+                                </span>
+                                
+                                <div className="flex items-baseline justify-center relative" style={{ minWidth: '120px' }}>
+                                    <input 
+                                        type="text" 
+                                        inputMode="decimal"
+                                        value={amount}
+                                        onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                                        placeholder="0"
+                                        style={{ width: `${inputWidth}px` }}
+                                        className="bg-transparent text-5xl font-black text-center outline-none transition-all text-black dark:text-white caret-[#007AFF] p-0 m-0 z-10"
+                                        autoFocus={!initialTransaction}
+                                    />
+                                    <span className="text-5xl font-bold text-gray-400 ml-1 pointer-events-none relative top-0">{settings.currency}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-4 space-y-6 pb-8">
+                            
+                            {/* AI Learning Section */}
+                            <div className="space-y-2">
+                                <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Категоризация</p>
+                                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                                    <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-white/5">
+                                        <div className="flex items-center">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${isLearningEnabled ? 'bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                                                <BrainCircuit size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[15px] font-bold text-black dark:text-white">Авто-правило</p>
+                                                <p className="text-[11px] text-gray-500">Запомнить эту категорию</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setIsLearningEnabled(!isLearningEnabled)}
+                                            className={`w-[51px] h-[31px] rounded-full transition-colors duration-200 relative ${isLearningEnabled ? 'bg-[#32D74B]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                                        >
+                                            <div className={`absolute top-[2px] left-[2px] w-[27px] h-[27px] bg-white rounded-full shadow-md transform transition-transform duration-200 ${isLearningEnabled ? 'translate-x-[20px]' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    {isLearningEnabled && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 bg-indigo-50/50 dark:bg-indigo-900/10 space-y-3">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
+                                                        Если содержит (из SMS) <Zap size={10} fill="currentColor" />
+                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="text"
+                                                            value={cleanKeyword}
+                                                            onChange={(e) => setCleanKeyword(e.target.value)}
+                                                            className="flex-1 bg-transparent text-[13px] font-bold outline-none text-black dark:text-white border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 py-1"
+                                                            placeholder="Исходный текст..."
+                                                        />
+                                                        <Edit3 size={14} className="text-gray-400" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
+                                                        Новое название (в приложении) <Type size={10} />
+                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="text"
+                                                            value={renamedTitle}
+                                                            onChange={(e) => setRenamedTitle(e.target.value)}
+                                                            className="flex-1 bg-transparent text-[15px] font-bold outline-none text-black dark:text-white border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 py-1"
+                                                            placeholder="Например: Продукты"
+                                                        />
+                                                        <Edit3 size={14} className="text-gray-400" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    <button 
+                                        onClick={() => setCurrentView('categories')}
+                                        className="w-full flex items-center px-4 py-3 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                                    >
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 text-white shadow-sm" style={{ backgroundColor: selectedCategory.color }}>
+                                            {getIconById(selectedCategory.icon, 16)}
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <p className="text-[15px] font-semibold text-black dark:text-white">{selectedCategory.label}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-gray-400">
+                                            <span className="text-[13px]">Изменить</span>
+                                            <ChevronRight size={16} />
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Details Section */}
+                            <div className="space-y-2">
+                                <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
+                                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                                    
+                                    {/* Mandatory Binding */}
+                                    {mandatoryExpenses.length > 0 && (
+                                        <button 
+                                            onClick={() => setCurrentView('monthly_binding')}
+                                            className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center mr-3 text-orange-500">
+                                                <LinkIcon size={18} />
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="text-[15px] text-black dark:text-white">Привязать к платежу</p>
+                                                <p className={`text-[13px] font-medium ${boundExpense ? 'text-orange-500' : 'text-gray-400'}`}>
+                                                    {boundExpense?.name || 'Не выбрано'}
+                                                </p>
+                                            </div>
+                                            <ChevronRight size={16} className="text-gray-400" />
+                                        </button>
+                                    )}
+
+                                    {/* Assignee */}
+                                    <button 
+                                        onClick={() => setCurrentView('assignee')}
+                                        className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                                    >
+                                        <div className="mr-3">
+                                            <MemberMarker member={selectedMember} size="sm" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <p className="text-[15px] text-black dark:text-white">Исполнитель</p>
+                                            <p className="text-[13px] text-gray-500">{selectedMember.name}</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-gray-400" />
+                                    </button>
+
+                                    {/* Date - Native Input Overlay Full Width */}
+                                    <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors group">
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500 pointer-events-none">
+                                            <Calendar size={18} />
+                                        </div>
+                                        <div className="flex-1 text-left pointer-events-none">
+                                            <p className="text-[15px] text-black dark:text-white">Дата</p>
+                                            <p className="text-[13px] text-gray-500">
+                                                {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Date Input covering the entire row for easy clicking */}
+                                        <input 
+                                            type="date"
+                                            value={date}
+                                            onChange={(e) => setDate(e.target.value)}
+                                            className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                                        />
+                                        <ChevronRight size={16} className="text-gray-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Note Section (Raw Note) */}
+                            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                                <div className="flex items-start px-4 py-3.5">
+                                    <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3 mt-0.5 text-green-500">
+                                        <FileText size={18} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[13px] text-gray-500 mb-1">Оригинал из банка / Заметка</p>
+                                        <textarea 
+                                            rows={2}
+                                            className="w-full text-[15px] bg-transparent outline-none resize-none text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600"
+                                            placeholder="Полное описание операции..."
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Delete Button */}
+                            {initialTransaction && onDelete && (
+                                <button 
+                                    onClick={() => onDelete(initialTransaction.id).then(onClose)}
+                                    className="w-full bg-white dark:bg-[#1C1C1E] text-red-500 py-3.5 rounded-2xl font-medium active:bg-red-50 dark:active:bg-red-900/10 transition-colors shadow-sm border border-gray-100 dark:border-white/5 flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={18} /> Удалить операцию
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </motion.div>
             )}
-        </div>
+
+            {/* Selection Screens */}
+            {currentView === 'categories' && (
+                <motion.div 
+                    key="categories"
+                    initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
+                >
+                    <SubHeader title="Категория" onBack={() => setCurrentView('main')} />
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                            {categories
+                                .slice() // copy
+                                .sort((a, b) => a.label.localeCompare(b.label)) // Sort alphabetically
+                                .map((cat, idx) => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => { setCategoryId(cat.id); setCurrentView('main'); }}
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors ${idx !== categories.length - 1 ? 'border-b border-gray-100 dark:border-white/5' : ''}`}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: cat.color }}>
+                                            {getIconById(cat.icon, 16)}
+                                        </div>
+                                        <span className={`text-[16px] truncate ${categoryId === cat.id ? 'text-[#007AFF] font-medium' : 'text-black dark:text-white'}`}>{cat.label}</span>
+                                    </div>
+                                    {categoryId === cat.id && <Check size={20} className="text-[#007AFF]" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
+            {currentView === 'assignee' && (
+                <motion.div 
+                    key="assignee"
+                    initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
+                >
+                    <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                            {members.map((mem, idx) => (
+                                <button
+                                    key={mem.id}
+                                    onClick={() => { setMemberId(mem.id); setCurrentView('main'); }}
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors ${idx !== members.length - 1 ? 'border-b border-gray-100 dark:border-white/5' : ''}`}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <MemberMarker member={mem} size="sm" />
+                                        <div className="text-left">
+                                            <div className={`text-[16px] truncate ${memberId === mem.id ? 'text-[#007AFF] font-medium' : 'text-black dark:text-white'}`}>{mem.name}</div>
+                                            {mem.id === auth.currentUser?.uid && <div className="text-[11px] text-gray-400">Это вы</div>}
+                                        </div>
+                                    </div>
+                                    {memberId === mem.id && <Check size={20} className="text-[#007AFF]" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
+            {currentView === 'monthly_binding' && (
+                <motion.div 
+                    key="monthly"
+                    initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
+                >
+                    <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+                            <button
+                                onClick={() => { setBoundExpenseId(''); setCurrentView('main'); }}
+                                className="w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors border-b border-gray-100 dark:border-white/5"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <X size={18} className="text-gray-500" />
+                                    <span className="text-[16px] text-black dark:text-white">Не привязывать</span>
+                                </div>
+                                {boundExpenseId === '' && <Check size={20} className="text-[#007AFF]" />}
+                            </button>
+                            
+                            {mandatoryExpenses.map((exp, idx) => (
+                                <button
+                                    key={exp.id}
+                                    onClick={() => { 
+                                        setBoundExpenseId(exp.id); 
+                                        if(!note) setNote(exp.name); // Auto-fill note if empty
+                                        setCurrentView('main'); 
+                                    }}
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors ${idx !== mandatoryExpenses.length - 1 ? 'border-b border-gray-100 dark:border-white/5' : ''}`}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
+                                            <Repeat size={16} />
+                                        </div>
+                                        <div className="text-left min-w-0">
+                                            <div className={`text-[16px] truncate ${boundExpenseId === exp.id ? 'text-[#007AFF] font-medium' : 'text-black dark:text-white'}`}>{exp.name}</div>
+                                            <div className="text-[11px] text-gray-400">{exp.amount.toLocaleString()} {settings.currency} • до {exp.day}-го</div>
+                                        </div>
+                                    </div>
+                                    {boundExpenseId === exp.id && <Check size={20} className="text-[#007AFF]" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
-};
-
-export default AddTransactionModal;
+}

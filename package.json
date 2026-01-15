@@ -19,7 +19,7 @@
     "recharts": "^3.6.0",
     "xlsx": "0.18.5",
     "html5-qrcode": "2.3.8",
-    "@google/genai": "^0.1.2",
+    "@google/genai": "^0.2.0",
     "firebase": "^10.13.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.2",

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, X, Calendar, Tag, FileText, Repeat, ChevronRight, User, Check, Trash2, 
-  BrainCircuit, Zap, Sparkles, Edit3, Layers, Link as LinkIcon, Type
+  BrainCircuit, Zap, Sparkles, Edit3, Layers, Link as LinkIcon, Type, ArrowUpCircle, ArrowDownCircle
 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense } from '../types';
 import { auth } from '../firebase';
@@ -30,12 +30,13 @@ export default function AddTransactionModal({
   
   // Данные
   const [amount, setAmount] = useState('');
-  const [note, setNote] = useState(''); // Это поле теперь хранит полное описание (rawNote)
+  const [type, setType] = useState<'expense' | 'income'>('expense');
+  const [note, setNote] = useState(''); 
   
   // AI Learning State
   const [isLearningEnabled, setIsLearningEnabled] = useState(false);
-  const [cleanKeyword, setCleanKeyword] = useState(''); // Ключевое слово (raw)
-  const [renamedTitle, setRenamedTitle] = useState(''); // Новое красивое имя
+  const [cleanKeyword, setCleanKeyword] = useState(''); 
+  const [renamedTitle, setRenamedTitle] = useState(''); 
   
   // Selection State
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'other');
@@ -59,18 +60,17 @@ export default function AddTransactionModal({
   useEffect(() => {
     if (initialTransaction) {
       setAmount(initialTransaction.amount.toString());
-      // В поле заметки ставим rawNote (полная строка) или note, если raw нет
+      setType(initialTransaction.type);
       setNote(initialTransaction.rawNote || initialTransaction.note);
       setCategoryId(initialTransaction.category);
       setMemberId(initialTransaction.memberId);
       
       const d = new Date(initialTransaction.date);
-      setDate(d.toISOString().split('T')[0]);
+      // Ensure date string is valid YYYY-MM-DD
+      const dateStr = d.toISOString().split('T')[0];
+      setDate(dateStr);
       
-      // AI Setup
-      // Ключевое слово = полная строка
       setCleanKeyword(initialTransaction.rawNote || initialTransaction.note);
-      // Новое имя = текущее красивое имя (note)
       setRenamedTitle(initialTransaction.note);
     } else {
         const myMember = members.find(m => m.userId === auth.currentUser?.uid);
@@ -84,13 +84,11 @@ export default function AddTransactionModal({
   // Adjust input width based on content
   useEffect(() => {
     if (spanRef.current) {
-      // Add buffer to prevent scroll
       setInputWidth(spanRef.current.offsetWidth + 20); 
     }
   }, [amount]);
 
   const handleSave = async () => {
-      // Clean amount string (allow comma or dot)
       const cleanAmountStr = amount.replace(/\s/g, '').replace(',', '.');
       const finalAmount = parseFloat(cleanAmountStr);
       
@@ -99,21 +97,28 @@ export default function AddTransactionModal({
           return;
       }
 
-      // Final display name is either the renamed title (from AI block) or the raw note if not specified
-      const finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
+      let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
+
+      if (boundExpenseId) {
+          const expense = mandatoryExpenses.find(e => e.id === boundExpenseId);
+          if (expense) {
+              if (!finalDisplayName.toLowerCase().includes(expense.name.toLowerCase())) {
+                  finalDisplayName = `${expense.name} ${finalDisplayName}`;
+              }
+          }
+      }
 
       const txData: Omit<Transaction, 'id'> = {
           amount: finalAmount,
-          type: 'expense', 
+          type: type,
           category: categoryId,
           memberId: memberId,
-          note: finalDisplayName, // Красивое имя
+          note: finalDisplayName,
           date: new Date(date).toISOString(),
-          rawNote: note.trim(), // Полная строка из банка
+          rawNote: note.trim() || finalDisplayName, 
           userId: auth.currentUser?.uid
       };
 
-      // Handle AI Learning
       if (isLearningEnabled && cleanKeyword.trim()) {
           const rule: LearnedRule = {
               id: Date.now().toString(),
@@ -128,14 +133,22 @@ export default function AddTransactionModal({
       onClose();
   };
 
+  const handleDeleteAction = async () => {
+      if (!initialTransaction || !onDelete) return;
+      
+      if (window.confirm("Вы уверены, что хотите удалить эту операцию?")) {
+          await onDelete(initialTransaction.id);
+          // Parent component usually handles closing, but we call onClose just in case
+          onClose(); 
+      }
+  };
+
   const formatAmountInput = (val: string) => {
-      // Allow digits, spaces, one comma or dot
       return val.replace(/[^0-9.,\s]/g, '');
   };
 
-  // Subcomponents specifically for this modal's design language
   const SubHeader = ({ title, onBack }: { title: string, onBack: () => void }) => (
-    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-10 bg-[#F2F2F7]/80 dark:bg-[#1C1C1E]/80 border-gray-200 dark:border-white/10 shrink-0">
+    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-30 bg-[#F2F2F7]/90 dark:bg-[#1C1C1E]/90 border-gray-200 dark:border-white/10 shrink-0">
       <button onClick={onBack} className="text-[#007AFF] flex items-center text-[17px] active:opacity-50">
         <ChevronLeft size={22} className="-ml-1"/>
         <span>Назад</span>
@@ -171,20 +184,50 @@ export default function AddTransactionModal({
                     className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-10 md:static md:h-auto"
                 >
                     {/* Header */}
-                    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-10 bg-[#F2F2F7]/80 dark:bg-[#1C1C1E]/80 border-gray-200 dark:border-white/10 shrink-0">
-                        <button onClick={onClose} className="text-[#007AFF] text-[17px] active:opacity-50">Отменить</button>
-                        <h1 className="text-[17px] font-semibold text-black dark:text-white">{initialTransaction ? 'Правка' : 'Новая'}</h1>
+                    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-30 bg-[#F2F2F7]/90 dark:bg-[#1C1C1E]/90 border-gray-200 dark:border-white/10 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <button onClick={onClose} className="text-[#007AFF] text-[17px] active:opacity-50">Отменить</button>
+                            {initialTransaction && onDelete && (
+                                <button 
+                                    onClick={handleDeleteAction}
+                                    className="text-red-500 p-1 bg-red-50 dark:bg-red-900/20 rounded-lg active:scale-90 transition-transform"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            )}
+                        </div>
+                        <h1 className="text-[17px] font-semibold text-black dark:text-white absolute left-1/2 -translate-x-1/2 pointer-events-none">
+                            {initialTransaction ? 'Правка' : 'Новая'}
+                        </h1>
                         <button onClick={handleSave} className="text-[#007AFF] text-[17px] font-semibold active:opacity-50">Готово</button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto no-scrollbar pb-safe">
                         
                         {/* Amount Input Section */}
-                        <div className="flex flex-col items-center py-10">
-                            <span className="text-gray-500 text-[13px] mb-2 uppercase tracking-wide font-medium">Сумма расхода</span>
+                        <div className="flex flex-col items-center py-8">
+                            <div className="flex bg-gray-200 dark:bg-[#1C1C1E] p-1 rounded-xl mb-6">
+                                <button 
+                                    onClick={() => setType('expense')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'expense' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-black dark:text-white' : 'text-gray-500'}`}
+                                >
+                                    <ArrowUpCircle size={14} className={type === 'expense' ? 'text-black dark:text-white' : 'text-gray-400'} />
+                                    Расход
+                                </button>
+                                <button 
+                                    onClick={() => setType('income')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'income' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-green-600' : 'text-gray-500'}`}
+                                >
+                                    <ArrowDownCircle size={14} className={type === 'income' ? 'text-green-600' : 'text-gray-400'} />
+                                    Доход
+                                </button>
+                            </div>
+
+                            <span className="text-gray-500 text-[13px] mb-2 uppercase tracking-wide font-medium">
+                                {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
+                            </span>
                             
                             <div className="flex items-center justify-center relative h-16 w-full">
-                                {/* Hidden span to measure width */}
                                 <span ref={spanRef} className="absolute invisible whitespace-pre text-5xl font-black px-2">
                                     {amount || '0'}
                                 </span>
@@ -197,7 +240,7 @@ export default function AddTransactionModal({
                                         onChange={(e) => setAmount(formatAmountInput(e.target.value))}
                                         placeholder="0"
                                         style={{ width: `${inputWidth}px` }}
-                                        className="bg-transparent text-5xl font-black text-center outline-none transition-all text-black dark:text-white caret-[#007AFF] p-0 m-0 z-10"
+                                        className={`bg-transparent text-5xl font-black text-center outline-none transition-all p-0 m-0 z-10 ${type === 'income' ? 'text-green-500 caret-green-500' : 'text-black dark:text-white caret-[#007AFF]'}`}
                                         autoFocus={!initialTransaction}
                                     />
                                     <span className="text-5xl font-bold text-gray-400 ml-1 pointer-events-none relative top-0">{settings.currency}</span>
@@ -205,9 +248,8 @@ export default function AddTransactionModal({
                             </div>
                         </div>
 
-                        <div className="px-4 space-y-6 pb-8">
+                        <div className="px-4 space-y-6 pb-20">
                             
-                            {/* AI Learning Section */}
                             <div className="space-y-2">
                                 <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Категоризация</p>
                                 <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
@@ -284,13 +326,11 @@ export default function AddTransactionModal({
                                 </div>
                             </div>
 
-                            {/* Details Section */}
                             <div className="space-y-2">
                                 <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
                                 <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                                     
-                                    {/* Mandatory Binding */}
-                                    {mandatoryExpenses.length > 0 && (
+                                    {mandatoryExpenses.length > 0 && type === 'expense' && (
                                         <button 
                                             onClick={() => setCurrentView('monthly_binding')}
                                             className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
@@ -308,7 +348,6 @@ export default function AddTransactionModal({
                                         </button>
                                     )}
 
-                                    {/* Assignee */}
                                     <button 
                                         onClick={() => setCurrentView('assignee')}
                                         className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
@@ -323,31 +362,33 @@ export default function AddTransactionModal({
                                         <ChevronRight size={16} className="text-gray-400" />
                                     </button>
 
-                                    {/* Date - Native Input Overlay Full Width */}
-                                    <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors group">
-                                        <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500 pointer-events-none">
-                                            <Calendar size={18} />
-                                        </div>
-                                        <div className="flex-1 text-left pointer-events-none">
-                                            <p className="text-[15px] text-black dark:text-white">Дата</p>
-                                            <p className="text-[13px] text-gray-500">
-                                                {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            </p>
+                                    {/* Date Row - Fixed: Using div with pointer-events-none for children to allow input click */}
+                                    <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors w-full group">
+                                        <div className="flex items-center flex-1 pointer-events-none z-10">
+                                            <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500">
+                                                <Calendar size={18} />
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="text-[15px] text-black dark:text-white">Дата</p>
+                                                <p className="text-[13px] text-gray-500">
+                                                    {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </p>
+                                            </div>
+                                            <ChevronRight size={16} className="text-gray-400" />
                                         </div>
                                         
-                                        {/* Date Input covering the entire row for easy clicking */}
                                         <input 
                                             type="date"
                                             value={date}
                                             onChange={(e) => setDate(e.target.value)}
                                             className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                                            style={{ appearance: 'none' }}
+                                            required
                                         />
-                                        <ChevronRight size={16} className="text-gray-400 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Note Section (Raw Note) */}
                             <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                                 <div className="flex items-start px-4 py-3.5">
                                     <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3 mt-0.5 text-green-500">
@@ -366,10 +407,9 @@ export default function AddTransactionModal({
                                 </div>
                             </div>
 
-                            {/* Delete Button */}
                             {initialTransaction && onDelete && (
                                 <button 
-                                    onClick={() => onDelete(initialTransaction.id).then(onClose)}
+                                    onClick={handleDeleteAction}
                                     className="w-full bg-white dark:bg-[#1C1C1E] text-red-500 py-3.5 rounded-2xl font-medium active:bg-red-50 dark:active:bg-red-900/10 transition-colors shadow-sm border border-gray-100 dark:border-white/5 flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={18} /> Удалить операцию
@@ -380,7 +420,6 @@ export default function AddTransactionModal({
                 </motion.div>
             )}
 
-            {/* Selection Screens */}
             {currentView === 'categories' && (
                 <motion.div 
                     key="categories"
@@ -389,11 +428,12 @@ export default function AddTransactionModal({
                     className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
                 >
                     <SubHeader title="Категория" onBack={() => setCurrentView('main')} />
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                    {/* Fixed scroll: Added pb-safe and removed min-h-0 */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar pb-safe">
                         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                             {categories
-                                .slice() // copy
-                                .sort((a, b) => a.label.localeCompare(b.label)) // Sort alphabetically
+                                .slice()
+                                .sort((a, b) => a.label.localeCompare(b.label))
                                 .map((cat, idx) => (
                                 <button
                                     key={cat.id}
@@ -422,7 +462,7 @@ export default function AddTransactionModal({
                     className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
                 >
                     <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar pb-safe">
                         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                             {members.map((mem, idx) => (
                                 <button
@@ -453,7 +493,7 @@ export default function AddTransactionModal({
                     className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
                 >
                     <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar pb-safe">
                         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                             <button
                                 onClick={() => { setBoundExpenseId(''); setCurrentView('main'); }}
@@ -471,7 +511,9 @@ export default function AddTransactionModal({
                                     key={exp.id}
                                     onClick={() => { 
                                         setBoundExpenseId(exp.id); 
-                                        if(!note) setNote(exp.name); // Auto-fill note if empty
+                                        if(!note.includes(exp.name)) {
+                                            setNote(prev => prev ? `${exp.name} ${prev}` : exp.name);
+                                        }
                                         setCurrentView('main'); 
                                     }}
                                     className={`w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors ${idx !== mandatoryExpenses.length - 1 ? 'border-b border-gray-100 dark:border-white/5' : ''}`}

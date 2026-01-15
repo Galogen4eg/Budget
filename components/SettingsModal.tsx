@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -19,6 +18,7 @@ import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { createInvitation, deleteItem } from '../utils/db';
+import CategoriesSettings from './CategoriesSettings';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -153,17 +153,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [tempMemberEmail, setTempMemberEmail] = useState('');
   const [tempMemberColor, setTempMemberColor] = useState(PRESET_COLORS[0]);
 
-  // Categories Management
-  const [selectedCategoryForEdit, setSelectedCategoryForEdit] = useState<Category | null>(null);
-  const [catLabel, setCatLabel] = useState('');
-  const [catColor, setCatColor] = useState(PRESET_COLORS[0]);
-  const [catIcon, setCatIcon] = useState(PRESET_ICONS[0]);
-  
-  // Rules
-  const [ruleKeyword, setRuleKeyword] = useState('');
-  const [ruleCleanName, setRuleCleanName] = useState('');
-  const [ruleCategory, setRuleCategory] = useState(categories[0]?.id || 'other');
-  
   // Tools
   const [deleteStart, setDeleteStart] = useState('');
   const [deleteEnd, setDeleteEnd] = useState('');
@@ -224,35 +213,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       [widgets[index], widgets[targetIndex]] = [widgets[targetIndex], widgets[index]];
       handleChange('widgets', widgets);
     }
-  };
-
-  const handleApplyRulesToAll = () => {
-      if (!transactions || !onUpdateTransactions) return;
-      let count = 0;
-      const updatedTransactions = transactions.map(tx => {
-          const rawNote = (tx.rawNote || tx.note).toLowerCase();
-          const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
-          if (matchedRule && (tx.category !== matchedRule.categoryId || tx.note !== matchedRule.cleanName)) {
-              count++;
-              return { ...tx, category: matchedRule.categoryId, note: matchedRule.cleanName };
-          }
-          return tx;
-      });
-      if (count > 0) { onUpdateTransactions(updatedTransactions); alert(`Обновлено ${count} операций`); }
-      else alert('Нет операций для обновления по текущим правилам');
-  };
-
-  const handleAddManualRule = () => {
-      if (!ruleKeyword.trim()) return;
-      const newRule: LearnedRule = {
-          id: Date.now().toString(),
-          keyword: ruleKeyword.trim(),
-          cleanName: ruleCleanName.trim() || ruleKeyword.trim(),
-          categoryId: ruleCategory
-      };
-      onUpdateRules([...learnedRules, newRule]);
-      setRuleKeyword('');
-      setRuleCleanName('');
   };
 
   // --- Member Logic ---
@@ -625,101 +585,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             </div>
         );
         case 'categories': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Категории</h3>
-                        <button onClick={() => { setSelectedCategoryForEdit(null); setCatLabel(''); setCatIcon('ShoppingBag'); setCatColor(PRESET_COLORS[0]); }} className="p-1.5 bg-gray-50 dark:bg-white/5 rounded-xl text-gray-400 hover:text-blue-500"><Plus size={18}/></button>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto no-scrollbar mb-6">
-                        {categories.map(cat => (
-                            <div key={cat.id} className="relative group">
-                                <div onClick={() => { setSelectedCategoryForEdit(cat); setCatLabel(cat.label); setCatColor(cat.color); setCatIcon(cat.icon); }} className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col items-center text-center gap-2 ${selectedCategoryForEdit?.id === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500' : 'bg-gray-50 dark:bg-[#2C2C2E] border-transparent'}`}>
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: cat.color }}>{getIconById(cat.icon, 14)}</div>
-                                    <span className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate w-full">{cat.label}</span>
-                                </div>
-                                <button 
-                                    onClick={(e) => { 
-                                        e.stopPropagation();
-                                        e.preventDefault(); // Prevent accidental selection
-                                        if(confirm(`Удалить категорию "${cat.label}"?`)) {
-                                            onUpdateCategories(categories.filter(c => c.id !== cat.id));
-                                            if(selectedCategoryForEdit?.id === cat.id) setSelectedCategoryForEdit(null);
-                                        }
-                                    }}
-                                    className="absolute -top-1 -right-1 z-10 p-2 bg-white dark:bg-black text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full shadow-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-gray-100 dark:border-white/10"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                    {(selectedCategoryForEdit || catLabel === '') && (
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl space-y-4 border border-gray-100 dark:border-white/5">
-                            <input type="text" placeholder="Название..." value={catLabel} onChange={e => setCatLabel(e.target.value)} className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
-                            <div className="flex gap-2 overflow-x-auto no-scrollbar p-2">
-                                {PRESET_COLORS.map(c => (
-                                    <button 
-                                        key={c} 
-                                        onClick={() => setCatColor(c)} 
-                                        className={`w-8 h-8 rounded-full shrink-0 transition-transform ${catColor === c ? 'scale-110 ring-2 ring-offset-2 dark:ring-offset-[#2C2C2E] ring-blue-500' : ''}`} 
-                                        style={{ backgroundColor: c }} 
-                                    />
-                                ))}
-                            </div>
-                            <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                                {PRESET_ICONS.map(i => (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => setCatIcon(i)} 
-                                        className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-white dark:bg-white/5 text-gray-500 transition-colors ${catIcon === i ? 'bg-blue-500 text-white' : ''}`}
-                                    >
-                                        {getIconById(i, 16)}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="flex gap-2">
-                                {selectedCategoryForEdit && <button onClick={() => { if(confirm('Удалить категорию?')) onUpdateCategories(categories.filter(c => c.id !== selectedCategoryForEdit.id)); setSelectedCategoryForEdit(null); }} className="p-3 bg-red-50 text-red-500 rounded-xl"><Trash2 size={18}/></button>}
-                                <button onClick={() => {
-                                    if(!catLabel.trim()) return;
-                                    if(selectedCategoryForEdit) onUpdateCategories(categories.map(c => c.id === selectedCategoryForEdit.id ? { ...c, label: catLabel, color: catColor, icon: catIcon } : c));
-                                    else onUpdateCategories([...categories, { id: 'custom_' + Date.now(), label: catLabel, color: catColor, icon: catIcon, isCustom: true }]);
-                                    setCatLabel(''); setSelectedCategoryForEdit(null);
-                                }} className="flex-1 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-3 rounded-xl font-bold text-sm">{selectedCategoryForEdit ? 'Сохранить' : 'Добавить'}</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Правила авто-категоризации</h3>
-                        <button onClick={handleApplyRulesToAll} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold hover:bg-blue-100"><RefreshCw size={14}/> Обновить историю</button>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl space-y-3">
-                        <div className="flex gap-2">
-                            <input type="text" placeholder="Ключ (UBER, ПЯТЕРОЧКА)" value={ruleKeyword} onChange={e => setRuleKeyword(e.target.value)} className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-xs font-bold outline-none dark:text-white" />
-                            <input type="text" placeholder="Имя (Такси, Еда)" value={ruleCleanName} onChange={e => setRuleCleanName(e.target.value)} className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-xs font-bold outline-none dark:text-white" />
-                        </div>
-                        <div className="flex gap-2">
-                            <select value={ruleCategory} onChange={e => setRuleCategory(e.target.value)} className="flex-1 bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-xs font-bold outline-none dark:text-white">
-                                {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                            </select>
-                            <button onClick={handleAddManualRule} className="p-3 bg-blue-500 text-white rounded-xl"><Plus size={18}/></button>
-                        </div>
-                    </div>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar">
-                        {learnedRules.map(rule => (
-                            <div key={rule.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl border border-gray-100 dark:border-white/5">
-                                <div className="min-w-0 flex-1 pr-4">
-                                    <div className="text-[10px] font-bold text-blue-500 uppercase mb-1">{rule.keyword}</div>
-                                    <div className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate">→ {rule.cleanName} ({categories.find(c => c.id === rule.categoryId)?.label})</div>
-                                </div>
-                                <button onClick={() => onUpdateRules(learnedRules.filter(r => r.id !== rule.id))} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            <div className="h-full overflow-hidden">
+                <CategoriesSettings 
+                    categories={categories}
+                    onUpdateCategories={onUpdateCategories}
+                    learnedRules={learnedRules}
+                    onUpdateRules={onUpdateRules}
+                    settings={settings}
+                />
             </div>
         );
         case 'navigation': return (
@@ -962,7 +835,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <div className="flex items-center gap-2"><button onClick={() => setShowMobileMenu(true)} className="md:hidden p-2 text-gray-500"><ArrowLeft size={24} /></button><h2 className="text-xl font-black">{SECTIONS.find(s => s.id === activeSection)?.label}</h2></div>
                     <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar pb-24 md:pb-8 overscroll-contain"><div className="max-w-2xl mx-auto w-full">{renderSectionContent()}</div></div>
+                {/* Changed padding bottom for categories section specifically to handle its own scrolling */}
+                <div className={`flex-1 overflow-y-auto no-scrollbar overscroll-contain ${activeSection === 'categories' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'}`}>
+                    <div className={`max-w-2xl mx-auto w-full h-full ${activeSection === 'categories' ? 'max-w-full' : ''}`}>
+                        {renderSectionContent()}
+                    </div>
+                </div>
             </div>
         </motion.div>
         <AnimatePresence>{showInstallGuide && (

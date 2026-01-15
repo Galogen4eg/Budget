@@ -602,8 +602,8 @@ export default function App() {
          </div>
       </div>
 
-      <main className="flex-1 h-full overflow-y-auto overflow-x-hidden no-scrollbar p-4 md:p-8 pb-40 md:pb-8 relative md:ml-28">
-        <div className="max-w-7xl mx-auto w-full min-h-full flex flex-col gap-6">
+      <main className={`flex-1 h-full p-4 md:p-8 pb-40 md:pb-8 relative md:ml-28 ${activeTab === 'overview' ? 'md:overflow-hidden overflow-y-auto no-scrollbar' : 'overflow-y-auto overflow-x-hidden no-scrollbar'}`}>
+        <div className={`max-w-7xl mx-auto w-full flex flex-col gap-6 ${activeTab === 'overview' ? 'h-auto md:h-full min-h-0' : 'min-h-full'}`}>
             <Suspense fallback={null}>
                 {showOnboarding && <OnboardingModal onSave={async (name, color) => {
                     if (familyId) {
@@ -616,36 +616,59 @@ export default function App() {
 
             <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col gap-6 md:overflow-hidden">
+                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col gap-6 md:overflow-hidden md:h-full">
                     <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={dashboardTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} onInvite={handleInvite} className="shrink-0" />
-                    <div className="flex-1 min-h-[300px] flex flex-col md:flex-row gap-6">
+                    
+                    {/* Responsive Grid: Flex Column on Mobile with Gap, Grid on Desktop */}
+                    <div className="flex flex-col gap-6 md:grid md:grid-cols-4 md:gap-6 w-full md:h-full md:min-h-0">
+                        {/* LEFT COLUMN */}
                         {(isWidgetEnabled('category_analysis') || isWidgetEnabled('recent_transactions')) && (
-                            <div className="flex-1 flex flex-col gap-6 w-full">
-                                {isWidgetEnabled('category_analysis') && <div className="h-80 md:h-1/2"><CategoryAnalysisWidget transactions={dashboardTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} /></div>}
-                                {isWidgetEnabled('recent_transactions') && <div className="h-80 md:h-1/2"><RecentTransactionsWidget transactions={dashboardTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} /></div>}
+                            <div className="flex flex-col gap-6 w-full md:h-full md:min-h-0">
+                                {isWidgetEnabled('category_analysis') && (
+                                    <div className="md:flex-1 md:min-h-0 w-full">
+                                        <CategoryAnalysisWidget transactions={dashboardTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
+                                    </div>
+                                )}
+                                {isWidgetEnabled('recent_transactions') && (
+                                    <div className="md:flex-1 md:min-h-0 w-full">
+                                        <RecentTransactionsWidget transactions={dashboardTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
+                                    </div>
+                                )}
                             </div>
                         )}
-                        {isWidgetEnabled('month_chart') && <div className="w-full md:flex-[2] h-80 md:h-auto"><MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} /></div>}
+                        
+                        {/* MIDDLE COLUMN */}
+                        {isWidgetEnabled('month_chart') && (
+                            <div className="w-full md:col-span-2 h-80 md:h-full">
+                                <MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} />
+                            </div>
+                        )}
+                        
+                        {/* RIGHT COLUMN */}
                         {(isWidgetEnabled('shopping') || isWidgetEnabled('goals')) && (
-                            <div className="flex-1 flex flex-col gap-6 w-full">
+                            <div className="flex flex-col gap-6 w-full md:h-full md:min-h-0">
                                 {isWidgetEnabled('shopping') && (
-                                    <motion.div whileHover={{ scale: 1.01 }} className="flex-1 bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.2rem] border dark:border-white/5 shadow-soft cursor-pointer relative overflow-hidden group min-h-[160px]" onClick={() => setActiveTab('shopping')}>
-                                        <div className="flex justify-between items-center mb-4">
+                                    <motion.div whileHover={{ scale: 1.01 }} className="flex-1 bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.2rem] border dark:border-white/5 shadow-soft cursor-pointer relative overflow-hidden group min-h-[150px] md:min-h-0" onClick={() => setActiveTab('shopping')}>
+                                        <div className="flex justify-between items-center mb-4 h-8 shrink-0">
                                             <div className="flex items-center gap-2">
                                                 <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-xl"><ShoppingBag size={16} className="text-green-600"/></div>
                                                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Покупки</h3>
                                             </div>
                                             <span className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-white/10 px-2.5 py-1 rounded-lg">{shoppingItems.filter(i=>!i.completed).length}</span>
                                         </div>
-                                        <div className="space-y-2 overflow-hidden">
-                                            {shoppingItems.filter(i=>!i.completed).slice(0,3).map(item => (
+                                        <div className="space-y-2 overflow-hidden h-full pb-8">
+                                            {shoppingItems.filter(i=>!i.completed).slice(0,5).map(item => (
                                                 <div key={item.id} className="flex items-center gap-2.5"><div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" /><span className="text-xs font-bold text-[#1C1C1E] dark:text-gray-200 truncate">{item.title}</span></div>
                                             ))}
                                             {shoppingItems.filter(i=>!i.completed).length === 0 && <p className="text-[10px] text-gray-400 italic">Список пуст</p>}
                                         </div>
                                     </motion.div>
                                 )}
-                                {isWidgetEnabled('goals') && <div className="flex-1 min-h-[160px]"><GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} /></div>}
+                                {isWidgetEnabled('goals') && (
+                                    <div className="md:flex-1 md:min-h-0 w-full min-h-[150px]">
+                                        <GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} />
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

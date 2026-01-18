@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
@@ -13,14 +13,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Explicitly extend the imported Component with props and state interfaces to ensure inheritance of 'props' and 'state'.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly type the state property for internal class usage.
+// Fix: Explicitly extend React.Component with props and state interfaces to ensure inheritance of 'props' and 'state'.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly initialize state with type.
   state: ErrorBoundaryState = { hasError: false, error: null };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   // Fix: Standard Error Boundary static method to update state after an error occurs.
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -32,7 +28,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Access state correctly through this.state, inherited from Component.
+    // Fix: Access state correctly through this.state, inherited from React.Component.
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -59,7 +55,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: accessing children from this.props is now valid as 'props' is correctly inherited.
+    // Fix: Access children from this.props which is correctly inherited from React.Component.
     return this.props.children;
   }
 }
@@ -72,7 +68,6 @@ if (!rootElement) {
 const root = createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* Fix: Wrapped children in ErrorBoundary properly satisfies ReactNode requirements */}
     <ErrorBoundary>
       <AuthProvider>
         <DataProvider>

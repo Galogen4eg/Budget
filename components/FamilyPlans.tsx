@@ -32,17 +32,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const recognitionRef = useRef<any>(null);
   const { familyId } = useAuth();
 
-  // Time grid configuration from settings or defaults
   const startHour = settings.dayStartHour ?? 8;
   const endHour = settings.dayEndHour ?? 22;
   const hours = useMemo(() => {
-      // Ensure valid range
       const start = Math.max(0, Math.min(23, startHour));
       const end = Math.max(start + 1, Math.min(24, endHour));
       return Array.from({ length: end - start }, (_, i) => start + i);
   }, [startHour, endHour]);
 
-  // Helper to get YYYY-MM-DD in LOCAL time, ignoring timezone shifts
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -67,7 +64,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       });
 
       let responseText = response.text || "{}";
-      // Cleanup markdown if present
       responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
       let data;
@@ -126,39 +122,33 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     setSelectedDate(date);
   };
 
-  // Helper to get events for a specific date object
   const getEventsForDate = (date: Date) => {
     const dateStr = getLocalDateString(date);
     return events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   };
 
-  // Helper to determine event colors based on participants
   const getEventColors = (memberIds: string[]) => {
       const eventMembers = members.filter(m => memberIds.includes(m.id));
-      
-      // Default Blue Style
-      let background = '#EFF6FF'; // blue-50
-      let border = '#BFDBFE'; // blue-200
-      let text = '#1D4ED8'; // blue-700
-      let indicator = '#3B82F6'; // blue-500
+      let background = '#EFF6FF'; 
+      let border = '#BFDBFE'; 
+      let text = '#1D4ED8'; 
+      let indicator = '#3B82F6'; 
 
       if (eventMembers.length === 1) {
-          // Single member: Solid pastel color
           const c = eventMembers[0].color;
-          background = `${c}26`; // ~15% opacity
-          border = c; // solid border
-          text = '#1C1C1E'; // Dark text for readability (Will check dark mode in component)
+          background = `${c}26`; 
+          border = c; 
+          text = '#1C1C1E'; 
           indicator = c;
       } else if (eventMembers.length > 1) {
-          // Multiple members: Gradient
           const stops = eventMembers.map((m, i, arr) => {
               const percent = Math.round((i / (arr.length - 1)) * 100);
-              return `${m.color}33 ${percent}%`; // ~20% opacity
+              return `${m.color}33 ${percent}%`; 
           }).join(', ');
           background = `linear-gradient(135deg, ${stops})`;
-          border = 'transparent'; // Gradient border is tricky, keep transparent
+          border = 'transparent'; 
           text = '#1C1C1E';
-          indicator = eventMembers[0].color; // Primary indicator
+          indicator = eventMembers[0].color; 
       }
 
       return { background, borderColor: border, color: text, indicator };
@@ -166,13 +156,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const getEventStyle = (event: FamilyEvent) => {
       const [h, m] = event.time.split(':').map(Number);
-      if (h < startHour || h >= endHour) return null; // Event out of view bounds
+      if (h < startHour || h >= endHour) return null; 
       
       const startMinutes = (h - startHour) * 60 + m;
       const durationMinutes = (event.duration || 1) * 60;
       
-      // Calculate pixels (assuming 60px per hour height)
-      const top = (startMinutes / 60) * 64; // 64px is height of hour row (h-16)
+      const top = (startMinutes / 60) * 64; 
       const height = (durationMinutes / 60) * 64;
       
       const colors = getEventColors(event.memberIds);
@@ -186,7 +175,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       };
   };
 
-  // Generate days for Month View
   const monthDays = useMemo(() => {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
@@ -194,11 +182,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     return Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
   }, [selectedDate]);
 
-  // Generate days for Week View
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(selectedDate);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); 
     startOfWeek.setDate(diff);
     
     return Array.from({ length: 7 }, (_, i) => {
@@ -209,7 +196,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   }, [selectedDate]);
 
   const handleSaveEvent = async (e: FamilyEvent) => {
-      // 1. Optimistic Update
       setEvents(prev => {
         const updated = [...prev];
         const existingIndex = updated.findIndex(ev => ev.id === e.id);
@@ -222,9 +208,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       }); 
       setActiveEvent(null); 
       
-      // 2. DB Update
       if (familyId) {
-          // Check if it's an update or create
           const exists = events.some(ev => ev.id === e.id);
           if (exists) {
               await updateItem(familyId, 'events', e.id, e);
@@ -241,23 +225,17 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       if (familyId) {
           await deleteItem(familyId, 'events', id);
       }
-      if (onDeleteEvent) onDeleteEvent(id); // Propagate if needed
+      if (onDeleteEvent) onDeleteEvent(id); 
       setActiveEvent(null);
   };
 
   const renderTimeGrid = (days: Date[], hideHeader = false) => {
       return (
           <div className="flex flex-col h-[calc(100dvh-13rem)] md:h-[calc(100dvh-12rem)] min-h-[400px] bg-white dark:bg-[#1C1C1E] rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden relative">
-              {/* Single Scroll Container for Header + Body */}
               <div className="flex-1 overflow-auto relative no-scrollbar">
-                  
-                  {/* Sticky Header Row */}
                   {!hideHeader && (
                       <div className="flex min-w-full sticky top-0 z-20 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-sm border-b border-gray-100 dark:border-white/5">
-                          {/* Top-Left Corner (Sticky Left) */}
                           <div className="w-12 shrink-0 border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] sticky left-0 z-30" /> 
-                          
-                          {/* Day Columns Header */}
                           <div className="flex flex-1 min-w-0">
                               {days.map((day, idx) => {
                                   const isToday = day.toDateString() === new Date().toDateString();
@@ -276,9 +254,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                       </div>
                   )}
 
-                  {/* Grid Body */}
                   <div className="flex min-w-full relative">
-                      {/* Time Labels Column (Sticky Left) */}
                       <div className="w-12 shrink-0 border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] sticky left-0 z-10">
                           {hours.map(hour => (
                               <div key={hour} className="h-16 text-[9px] font-bold text-gray-400 dark:text-gray-600 text-center pt-2 relative">
@@ -288,22 +264,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                           ))}
                       </div>
 
-                      {/* Day Columns Container */}
                       <div className="flex flex-1 relative min-w-0">
-                          {/* Horizontal Grid Lines */}
                           <div className="absolute inset-0 flex flex-col pointer-events-none">
                               {hours.map(hour => (
                                   <div key={`line-${hour}`} className="h-16 border-b border-gray-50 dark:border-white/5 w-full" />
                               ))}
                           </div>
 
-                          {/* Vertical Day Columns */}
                           {days.map((day, dIdx) => {
                               const dayEvents = getEventsForDate(day);
                               
                               return (
                                   <div key={dIdx} className="flex-1 min-w-0 relative border-r border-gray-50 dark:border-white/5 last:border-0">
-                                      {/* Clickable Slots */}
                                       {hours.map(hour => (
                                           <div 
                                               key={`slot-${dIdx}-${hour}`}
@@ -316,7 +288,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                           />
                                       ))}
 
-                                      {/* Events Overlay */}
                                       {dayEvents.map(ev => {
                                           const style = getEventStyle(ev);
                                           if (!style) return null;
@@ -351,15 +322,19 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   const renderEventsList = (dateToRender: Date) => {
-    // Collect ALL events for the month of dateToRender
     const targetMonth = dateToRender.getMonth();
     const targetYear = dateToRender.getFullYear();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
     
-    // Filter and sort events for the entire month
     const monthEvents = events
         .filter(e => {
             const d = new Date(e.date);
-            return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            const isSameMonth = d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            
+            // Only upcoming events logic
+            const eventDate = new Date(e.date + 'T00:00:00');
+            return isSameMonth && eventDate >= now;
         })
         .sort((a, b) => {
             const dateA = new Date(`${a.date}T${a.time}`).getTime();
@@ -367,21 +342,24 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             return dateA - dateB;
         });
 
-    // Group by date string
     const groupedEvents: Record<string, FamilyEvent[]> = {};
     monthEvents.forEach(e => {
         if (!groupedEvents[e.date]) groupedEvents[e.date] = [];
         groupedEvents[e.date].push(e);
     });
 
-    const hasEvents = monthEvents.length > 0;
+    const hasUpcomingEvents = monthEvents.length > 0;
 
     return (
         <div className="space-y-4 pb-24 md:pb-0">
-             {!hasEvents ? (
+             {!hasUpcomingEvents ? (
                  <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
                     <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
-                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">В этом месяце событий нет</p>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                        {dateToRender.getMonth() < now.getMonth() && dateToRender.getFullYear() <= now.getFullYear() 
+                          ? 'Прошедший месяц' 
+                          : 'Предстоящих планов нет'}
+                    </p>
                     <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(dateToRender) } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
                         Создать
                     </button>
@@ -394,7 +372,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
                      return (
                         <div key={dateStr} className="space-y-2">
-                            {/* Day Header - INCREASED Z-INDEX to prevent icons from floating over it */}
                             <div className="sticky top-0 z-30 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-2 flex items-baseline gap-2">
                                 <span className={`text-base font-black ${isToday ? 'text-blue-500' : 'text-[#1C1C1E] dark:text-white'}`}>
                                     {dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
@@ -404,7 +381,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                 </span>
                             </div>
 
-                            {/* Events for this day */}
                             <div className="space-y-3">
                                 {dayEvents.map(event => {
                                      const eventMembers = members.filter(m => event.memberIds.includes(m.id));
@@ -414,7 +390,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                         <div 
                                             key={event.id} 
                                             onClick={() => setActiveEvent({ event })} 
-                                            // Removed hover:scale-[1.01], added active:scale-[0.99]
                                             className="p-5 rounded-[2rem] border shadow-sm active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group"
                                             style={{ 
                                                 background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background, 
@@ -473,7 +448,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       </AnimatePresence>
 
       <div className="flex flex-col gap-4">
-        {/* Single Row Header to match Budget tab height */}
         <div className="flex items-center justify-between gap-3 px-1">
           <div className="flex-1 min-w-0 flex bg-gray-100/50 dark:bg-[#1C1C1E] p-1 rounded-2xl border border-white/50 dark:border-white/5 shadow-sm overflow-x-auto no-scrollbar">
             {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
@@ -545,7 +519,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                     </div>
                     <div className="grid grid-cols-7 gap-y-4 gap-x-1 md:gap-x-2">
                         {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="text-center text-[9px] font-black text-gray-300 dark:text-gray-600 uppercase">{d}</div>)}
-                        {/* Empty cells for padding */}
                         {Array.from({ length: (new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).getDay() + 6) % 7 }).map((_, i) => <div key={`pad-${i}`} />)}
                         
                         {monthDays.map((date) => {
@@ -554,7 +527,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             const dayEvents = getEventsForDate(date);
                             const hasEvents = dayEvents.length > 0;
 
-                            // Collect all participant colors for this day's events
                             const dayDots: string[] = [];
                             dayEvents.forEach(ev => {
                                 if (ev.memberIds.length > 0) {
@@ -563,7 +535,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                         if (m) dayDots.push(m.color);
                                     });
                                 } else {
-                                    // Fallback for events with no members assigned
                                     dayDots.push('#9CA3AF'); 
                                 }
                             });
@@ -590,7 +561,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         })}
                     </div>
                 </div>
-                {/* Updated: Pass full month logic inside renderEventsList */}
                 <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
                     {renderEventsList(selectedDate)}
                 </div>
@@ -623,7 +593,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                          <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><ChevronRight size={20} className="text-[#1C1C1E] dark:text-white"/></button>
                     </div>
                 </div>
-                {/* Hide redundant header in day view */}
                 {renderTimeGrid([selectedDate], true)}
             </>
         )}

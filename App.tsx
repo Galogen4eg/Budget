@@ -21,9 +21,8 @@ import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import LoginScreen from './components/LoginScreen';
 import ImportModal from './components/ImportModal';
 import FeedbackTool from './components/FeedbackTool';
-import ServicesHub from './components/ServicesHub'; // Eager load
+import ServicesHub from './components/ServicesHub';
 
-// Lazy Load Modals & Heavy Components
 const AddTransactionModal = React.lazy(() => import('./components/AddTransactionModal'));
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
@@ -43,7 +42,7 @@ import {
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
-import { useData } from './contexts/DataContext';
+import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
 const TAB_CONFIG = [
   { id: 'overview', label: 'Обзор', icon: LayoutGrid },
@@ -75,7 +74,7 @@ const pageTransition = {
 };
 
 export default function App() {
-  const { user, familyId, loading: isAuthLoading, isOfflineMode, logout, enterDemoMode } = useAuth();
+  const { user, familyId, loading: isAuthLoading, logout } = useAuth();
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
@@ -84,15 +83,14 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    learnedRules, setLearnedRules,
     settings, setSettings,
+    learnedRules, setLearnedRules,
     filteredTransactions,
     totalBalance,
     currentMonthSpent,
     savingsRate, setSavingsRate,
     budgetMode, setBudgetMode,
-    notifications, setNotifications,
-    dismissedNotificationIds
+    notifications
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -105,25 +103,34 @@ export default function App() {
   const [isImporting, setIsImporting] = useState(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [pinMode, setPinMode] = useState<'unlock' | null>(null);
-  const [isAppUnlocked, setIsAppUnlocked] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const [filterMerchant, setFilterMerchant] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleDrillDown = (categoryId: string, merchantName?: string) => {
+    setDrillDownState({ categoryId, merchantName });
+  };
+
   const [editingGoal, setEditingGoal] = useState<any>(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingMandatoryExpense, setEditingMandatoryExpense] = useState<MandatoryExpense | null>(null);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
-  const [showLoadingFallback, setShowLoadingFallback] = useState(false);
-  const [isBellRinging, setIsBellRinging] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   
-  const prevNotifCount = useRef(notifications.length);
+  const dashboardTransactions = useMemo(() => filteredTransactions, [filteredTransactions]);
 
   useEffect(() => {
     if (window.innerWidth < 768 || activeTab !== 'overview') {
@@ -131,345 +138,28 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Scroll to section handler
   useEffect(() => {
-      if (activeTab === 'budget' && scrollToId) {
-          // Increase timeout to allow full rendering of the Budget tab
-          setTimeout(() => {
-              const element = document.getElementById(scrollToId);
-              if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-              setScrollToId(null);
-          }, 500);
-      }
-  }, [activeTab, scrollToId]);
-
-  useEffect(() => {
-      if (isAuthLoading || !user || isJoining) return;
-
-      const params = new URLSearchParams(window.location.search);
-      const inviteFamilyId = params.get('join');
-
-      if (inviteFamilyId) {
-          if (inviteFamilyId === familyId) {
-              const newUrl = window.location.pathname;
-              window.history.replaceState({}, document.title, newUrl);
-              return;
-          }
-
-          setIsJoining(true);
-          
-          joinFamily(user, inviteFamilyId)
-              .then(() => {
-                  toast.success('Вы успешно присоединились к семье! 👨‍👩‍👧‍👦');
-                  const newUrl = window.location.pathname;
-                  window.history.replaceState({}, document.title, newUrl);
-                  setTimeout(() => window.location.reload(), 1500);
-              })
-              .catch(err => {
-                  console.error("Auto-join failed:", err);
-                  toast.error(`Ошибка: ${err.message}`);
-                  setIsJoining(false);
-              });
-      }
-  }, [user, isAuthLoading, familyId]);
-
-  useEffect(() => {
-    if (notifications.length > prevNotifCount.current) {
-        const latest = notifications[0];
-        if (latest && !latest.isRead) {
-            if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-            
-            setIsBellRinging(true);
-            setTimeout(() => setIsBellRinging(false), 2000);
-
-            toast(latest.title, {
-                description: latest.message,
-                action: {
-                    label: 'Открыть',
-                    onClick: () => setShowNotifications(true)
-                }
-            });
-        }
-    }
-    prevNotifCount.current = notifications.length;
-  }, [notifications]);
-
-  useEffect(() => {
-    const handler = (e: any) => {
-        e.preventDefault();
-        setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  useEffect(() => {
-      let timer: any;
-      if (isAuthLoading) {
-          timer = setTimeout(() => {
-              setShowLoadingFallback(true);
-          }, 7000);
-      } else {
-          setShowLoadingFallback(false);
-      }
-      return () => clearTimeout(timer);
-  }, [isAuthLoading]);
-
-  useEffect(() => {
-    if (familyId && (!settings.widgets || settings.widgets.length === 0)) {
+    if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {
         const updatedSettings = { ...settings, widgets: DEFAULT_WIDGET_CONFIGS };
         setSettings(updatedSettings);
-        saveSettings(familyId, updatedSettings);
+        saveSettings(user.uid, updatedSettings);
     }
-  }, [familyId, settings.widgets]);
+  }, [user?.uid, settings.widgets]);
 
   useEffect(() => {
       if (settings.theme === 'dark') {
           document.documentElement.classList.add('dark');
-          localStorage.setItem('theme', 'dark');
       } else {
           document.documentElement.classList.remove('dark');
-          localStorage.setItem('theme', 'light');
       }
   }, [settings.theme]);
-
-  useEffect(() => {
-      if (!settings.mandatoryExpenses || settings.mandatoryExpenses.length === 0) return;
-
-      const now = new Date();
-      const currentDay = now.getDate();
-      const newNotifications: AppNotification[] = [];
-
-      const currentMonthTransactions = transactions.filter(t => {
-          const d = new Date(t.date);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
-      });
-
-      settings.mandatoryExpenses.forEach(expense => {
-          const keywords = expense.keywords || [];
-          const matches = currentMonthTransactions.filter(tx => {
-              if (keywords.length === 0) return false;
-              const noteLower = (tx.note || '').toLowerCase();
-              const rawLower = (tx.rawNote || '').toLowerCase();
-              return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
-          });
-          const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
-          const isPaid = paidAmount >= expense.amount * 0.95;
-
-          if (!isPaid) {
-              const daysUntilDue = expense.day - currentDay;
-              const reminderId = `mandatory_${expense.id}_${daysUntilDue}`; 
-              
-              if (!dismissedNotificationIds.includes(reminderId)) {
-                  if (daysUntilDue === 5 || daysUntilDue === 1) {
-                      newNotifications.push({
-                          id: reminderId,
-                          title: 'Обязательный платеж',
-                          message: `Не забудьте оплатить "${expense.name}" (${expense.amount} ${settings.currency}) через ${daysUntilDue === 1 ? '1 день' : '5 дней'}.`,
-                          type: 'warning',
-                          date: new Date().toISOString(),
-                          isRead: false
-                      });
-                  } else if (daysUntilDue < 0) {
-                       const overdueId = `mandatory_${expense.id}_overdue`;
-                       if (!dismissedNotificationIds.includes(overdueId)) {
-                           newNotifications.push({
-                              id: overdueId,
-                              title: 'Просроченный платеж',
-                              message: `Платеж "${expense.name}" был должен быть оплачен ${expense.day}-го числа.`,
-                              type: 'error',
-                              date: new Date().toISOString(),
-                              isRead: false
-                          });
-                       }
-                  }
-              }
-          }
-      });
-
-      if (newNotifications.length > 0) {
-          setNotifications(prev => {
-              const uniqueNew = newNotifications.filter(n => !prev.some(p => p.id === n.id));
-              return [...uniqueNew, ...prev];
-          });
-      }
-  }, [settings.mandatoryExpenses, transactions, dismissedNotificationIds]);
-
-  const dashboardTransactions = useMemo(() => {
-      const now = new Date();
-      return filteredTransactions
-        .filter(t => {
-            const d = new Date(t.date);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredTransactions]);
-
-  const showNotify = (type: 'success' | 'error' | 'info', message: string) => {
-      if (type === 'success') toast.success(message);
-      else if (type === 'error') toast.error(message);
-      else toast(message);
-  };
-
-  const sendTelegramMessage = async (text: string, messageIdToEdit?: number, inlineKeyboard?: any): Promise<number | null> => {
-      if (!settings.telegramBotToken || !settings.telegramChatId) {
-          showNotify('error', 'Настройте Telegram в Настройках');
-          return null;
-      }
-      
-      const baseUrl = `https://api.telegram.org/bot${settings.telegramBotToken}`;
-      
-      try {
-          let res;
-          let method = 'sendMessage';
-          const body: any = {
-              chat_id: settings.telegramChatId,
-              text: text,
-              parse_mode: 'Markdown',
-              reply_markup: inlineKeyboard ? { inline_keyboard: inlineKeyboard } : undefined
-          };
-
-          if (messageIdToEdit) {
-              method = 'editMessageText';
-              body.message_id = messageIdToEdit;
-          }
-
-          res = await fetch(`${baseUrl}/${method}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-          });
-
-          const data = await res.json();
-
-          if (!data.ok && method === 'editMessageText') {
-              console.warn("Edit failed, sending new message instead:", data.description);
-              return sendTelegramMessage(text, undefined, inlineKeyboard); 
-          }
-
-          if (!data.ok) throw new Error(data.description || 'Failed to send');
-          
-          return data.result.message_id;
-      } catch (e: any) {
-          console.error(e);
-          showNotify('error', `Ошибка Telegram: ${e.message}`);
-          return null;
-      }
-  };
-
-  const handleSendEventToTelegram = async (event: FamilyEvent) => {
-      const parts: string[] = [];
-      parts.push(`📅 *${event.title}*`);
-      const dateStr = new Date(event.date).toLocaleDateString('ru-RU', {
-          weekday: 'long', day: 'numeric', month: 'long'
-      });
-      parts.push(`🕒 ${dateStr} в ${event.time}`);
-      if (event.duration && event.duration > 0) {
-          parts.push(`⏳ Длительность: ${event.duration} ч.`);
-      }
-      if (event.description && event.description.trim()) {
-          parts.push(`\n📝 ${event.description.trim()}`);
-      }
-      if (event.memberIds && event.memberIds.length > 0) {
-          const memberNames = event.memberIds
-              .map(id => members.find(m => m.id === id)?.name)
-              .filter(Boolean)
-              .join(', ');
-          
-          if (memberNames) {
-              parts.push(`👥 Участники: ${memberNames}`);
-          }
-      }
-      if (event.checklist && event.checklist.length > 0) {
-          const checkLines = event.checklist.map(item => 
-              `${item.completed ? '✅' : '⬜'} ${item.text}`
-          );
-          parts.push(`\n📋 *Чек-лист:*\n${checkLines.join('\n')}`);
-      }
-      const text = parts.join('\n');
-      const msgId = await sendTelegramMessage(text);
-      return !!msgId;
-  };
-
-  const handleSendShoppingListToTelegram = async (items: ShoppingItem[]) => {
-      if (items.length === 0) return false;
-      
-      const todayStr = new Date().toLocaleDateString('ru-RU'); 
-      const todayKey = new Date().toISOString().split('T')[0]; 
-
-      let text = settings.shoppingTemplate || `🛒 *Список покупок*\n\n{items}`;
-      const grouped: Record<string, string[]> = {};
-      const sortedItems = [...items].sort((a, b) => {
-          if (a.priority === 'high' && b.priority !== 'high') return -1;
-          if (a.priority !== 'high' && b.priority === 'high') return 1;
-          return 0;
-      });
-
-      sortedItems.forEach(i => {
-          const cat = i.category || 'other';
-          if (!grouped[cat]) grouped[cat] = [];
-          let line = `• ${i.title}`;
-          if (i.amount && i.amount.trim().length > 0) {
-              line += ` (${i.amount} ${i.unit})`;
-          }
-          if (i.priority === 'high') line = `❗️ ${line}`;
-          grouped[cat].push(line);
-      });
-
-      let itemsList = Object.values(grouped).map(lines => lines.join('\n')).join('\n');
-      const replacements: Record<string, string> = {
-          '{items}': itemsList,
-          '{total}': String(items.length),
-          '{date}': todayStr
-      };
-      
-      for (const [key, val] of Object.entries(replacements)) {
-          text = text.replace(new RegExp(key, 'g'), val);
-      }
-
-      const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-      text += `\n\n_Обновлено в ${time}_`;
-
-      let messageIdToEdit: number | undefined = undefined;
-      if (settings.telegramState?.lastShoppingDate === todayKey && settings.telegramState?.lastShoppingMessageId) {
-          messageIdToEdit = settings.telegramState.lastShoppingMessageId;
-      }
-
-      const inlineKeyboard = [[
-          { text: "📱 Открыть в приложении", url: window.location.href }
-      ]];
-
-      const sentMessageId = await sendTelegramMessage(text, messageIdToEdit, inlineKeyboard);
-
-      if (sentMessageId) {
-          const newState = {
-              lastShoppingMessageId: sentMessageId,
-              lastShoppingDate: todayKey
-          };
-          const newSettings = { ...settings, telegramState: newState };
-          setSettings(newSettings);
-          if (familyId) await saveSettings(familyId, newSettings);
-          return true;
-      }
-      return false;
-  };
-
-  const handleDeleteEvent = async (id: string) => {
-      setEvents(prev => prev.filter(e => e.id !== id));
-      if (familyId) await deleteItem(familyId, 'events', id);
-      showNotify('success', 'Событие удалено');
-  };
 
   const handleTransactionSubmit = async (tx: Omit<Transaction, 'id'>) => {
     if (selectedTx) {
       if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, tx);
-      else setTransactions(prev => prev.map(t => t.id === selectedTx.id ? { ...t, ...tx } : t));
       setSelectedTx(null);
     } else {
       if (familyId) await addItem(familyId, 'transactions', tx);
-      else setTransactions(prev => [{ ...tx, id: Date.now().toString() } as Transaction, ...prev]);
     }
   };
 
@@ -478,34 +168,7 @@ export default function App() {
       setIsAddModalOpen(true);
   };
 
-  const handleLearnRule = async (rule: LearnedRule) => {
-      setLearnedRules(prev => [...prev, rule]);
-      if(familyId) await addItem(familyId, 'rules', rule);
-  };
-
-  const handleApplyRuleToExisting = async (rule: LearnedRule) => {
-      const changedTxs: Transaction[] = [];
-      const updatedTransactions = transactions.map(tx => {
-           const rawNote = (tx.rawNote || tx.note).toLowerCase();
-           if (rawNote.includes(rule.keyword.toLowerCase())) {
-               if (tx.category !== rule.categoryId || tx.note !== rule.cleanName) {
-                   const newTx = { ...tx, category: rule.categoryId, note: rule.cleanName };
-                   changedTxs.push(newTx);
-                   return newTx;
-               }
-           }
-           return tx;
-      });
-
-      if (changedTxs.length > 0) {
-          setTransactions(updatedTransactions);
-          showNotify('success', `Обновлено ${changedTxs.length} операций`);
-          if (familyId) await updateItemsBatch(familyId, 'transactions', changedTxs);
-      }
-  };
-
-  const handleDrillDown = (categoryId: string, merchantName?: string) => setDrillDownState({ categoryId, merchantName });
-  const handleClearFilters = () => { setFilterCategory(null); setFilterMerchant(null); setCalendarSelectedDate(null); };
+  const handleClearFilters = () => { setCalendarSelectedDate(null); };
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
@@ -524,12 +187,10 @@ export default function App() {
   };
 
   const handleAddCategory = async (cat: Category) => {
-      setCategories(prev => [...prev, cat]);
       if (familyId) await addItem(familyId, 'categories', cat);
   };
 
   const handleDeleteCategory = async (id: string) => {
-      setCategories(prev => prev.filter(c => c.id !== id));
       if (familyId) await deleteItem(familyId, 'categories', id);
   };
 
@@ -538,7 +199,7 @@ export default function App() {
       const link = `${window.location.origin}/?join=${familyId}`;
       const text = `Присоединяйся к бюджету "${settings.familyName}": ${link}`;
       if (navigator.share) navigator.share({ title: 'Бюджет', text, url: link });
-      else { navigator.clipboard.writeText(text); showNotify('success', 'Ссылка скопирована!'); }
+      else { navigator.clipboard.writeText(text); toast.success('Ссылка скопирована!'); }
   };
 
   const handleOpenDuplicates = () => { setShowDuplicatesModal(true); setIsSettingsOpen(false); };
@@ -548,31 +209,42 @@ export default function App() {
       const updatedIgnored = [...currentIgnored, ...pairs];
       const newSettings = { ...settings, ignoredDuplicatePairs: updatedIgnored };
       setSettings(newSettings);
-      if (familyId) await saveSettings(familyId, newSettings);
+      if (user?.uid) await saveSettings(user.uid, newSettings);
   };
 
   const handleDeleteTransactions = async (ids: string[]) => {
-      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       if (familyId && ids.length > 0) await deleteItemsBatch(familyId, 'transactions', ids);
-      showNotify('success', `Удалено ${ids.length} операций`);
+      toast.success(`Удалено ${ids.length} операций`);
   };
 
   const handleDeleteTransactionsByPeriod = async (start: string, end: string) => {
-    const toDelete = transactions.filter(t => {
-      const d = t.date.split('T')[0];
-      return d >= start && d <= end;
-    });
-    const ids = toDelete.map(t => t.id);
+    const s = new Date(start);
+    const e = new Date(end);
+    const ids = transactions
+        .filter(t => {
+            const d = new Date(t.date);
+            return d >= s && d <= e;
+        })
+        .map(t => t.id);
+    
     if (ids.length > 0) {
-      if (confirm(`Удалить ${ids.length} операций за период?`)) {
         await handleDeleteTransactions(ids);
-      }
-    } else { alert("Операций за этот период не найдено"); }
+    } else {
+        toast.error('Операций за этот период не найдено');
+    }
+  };
+
+  const handleResetSettings = async () => {
+    if (confirm("Сбросить все личные настройки и обязательные платежи? Это действие нельзя отменить.") && user?.uid) {
+        setSettings(DEFAULT_SETTINGS);
+        await saveSettings(user.uid, DEFAULT_SETTINGS);
+        toast.success("Настройки сброшены");
+    }
   };
 
   const isWidgetVisible = (id: string) => {
       const widget = settings.widgets?.find(w => w.id === id);
-      return widget ? widget.isVisible : true; // Default true if not found in settings (fallback)
+      return widget ? widget.isVisible : true;
   };
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
@@ -582,18 +254,12 @@ export default function App() {
           <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#EBEFF5] dark:bg-[#000000] gap-4 p-6 text-center">
               <div className="animate-spin text-blue-500"><Settings2 size={32}/></div>
               {isJoining && <p className="text-sm font-bold text-blue-500 animate-pulse">Присоединяемся к семье...</p>}
-              {showLoadingFallback && !isJoining && (
-                  <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="space-y-3">
-                      <p className="text-sm font-bold text-gray-500">Авторизация занимает больше времени...</p>
-                      <button onClick={() => { if (confirm("Войти в локальный Демо-режим?")) enterDemoMode(); }} className="bg-white dark:bg-[#1C1C1E] text-blue-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center gap-2 mx-auto"><LogIn size={16} /> Войти в Демо-режим</button>
-                  </motion.div>
-              )}
           </div>
       );
   }
 
   if (!user) return <LoginScreen />;
-  if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => { setPinMode(null); setIsAppUnlocked(true); }} onForgot={() => logout()} /></Suspense>;
+  if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => { setPinMode(null); }} onForgot={() => logout()} /></Suspense>;
 
   return (
     <div className="h-[100dvh] w-full bg-[#EBEFF5] dark:bg-[#000000] text-[#1C1C1E] dark:text-white transition-colors duration-300 flex flex-col md:flex-row overflow-hidden">
@@ -605,7 +271,7 @@ export default function App() {
              <div className="text-xl font-black">FB.</div>
              {(activeTab === 'overview' || activeTab === 'budget') && (
                  <button onClick={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} className="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] p-1.5 pr-3 rounded-full border dark:border-white/10 shadow-sm ml-2 active:scale-95 transition-transform">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${budgetMode === 'family' ? 'bg-purple-500' : 'bg-blue-500'}`}>{budgetMode === 'family' ? <Users size={14} /> : <User size={14} />}</div>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${budgetMode === 'family' ? 'bg-purple-50' : 'bg-blue-50'}`}>{budgetMode === 'family' ? <Users size={14} className="text-purple-500" /> : <User size={14} className="text-blue-500" />}</div>
                     <span className="text-[10px] font-bold uppercase tracking-wide">{budgetMode === 'family' ? 'Семья' : 'Мой'}</span>
                  </button>
              )}
@@ -613,7 +279,7 @@ export default function App() {
          <div className="flex gap-3">
              <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform"><Bot size={20} /></button>
              <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform">
-                 <motion.div animate={isBellRinging ? { rotate: [0, -25, 25, 0] } : {}} transition={{ duration: 0.5 }}><Bell size={20} className={isBellRinging ? "text-red-500" : ""} /></motion.div>
+                 <Bell size={20} />
                  {unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}
              </button>
              <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm active:scale-90 transition-transform"><SettingsIcon size={20} /></button>
@@ -637,17 +303,13 @@ export default function App() {
                 <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition} className="flex flex-col gap-6 md:overflow-hidden md:h-full">
                     <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={dashboardTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => setSettings(s => ({...s, privacyMode: !s.privacyMode}))} onInvite={handleInvite} className="shrink-0" />
                     
-                    {/* Fixed 3-Column Layout for Desktop, Stacked for Mobile */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full md:h-full md:min-h-0 md:overflow-hidden overflow-y-auto no-scrollbar pb-20 md:pb-0">
-                        
-                        {/* Column 1: Chart (Full Height) */}
                         {isWidgetVisible('month_chart') && (
                             <div className="md:col-span-1 h-80 md:h-full flex flex-col">
                                 <MonthlyAnalyticsWidget transactions={dashboardTransactions} currentMonth={currentMonth} settings={settings} />
                             </div>
                         )}
 
-                        {/* Column 2: History (Full Height) */}
                         {isWidgetVisible('recent_transactions') && (
                             <div className="md:col-span-1 h-full min-h-[300px] md:min-h-0 flex flex-col">
                                 <RecentTransactionsWidget 
@@ -664,7 +326,6 @@ export default function App() {
                             </div>
                         )}
 
-                        {/* Column 3: Stacked Categories & Shopping */}
                         <div className="md:col-span-1 flex flex-col gap-6 h-full min-h-[400px] md:min-h-0">
                             {isWidgetVisible('category_analysis') && (
                                 <div className="flex-1 min-h-[200px]">
@@ -694,16 +355,8 @@ export default function App() {
                                             {shoppingItems.filter(i=>!i.completed).slice(0,5).map(item => (
                                                 <div key={item.id} className="flex items-center gap-2.5"><div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" /><span className="text-xs font-bold text-[#1C1C1E] dark:text-gray-200 truncate">{item.title}</span></div>
                                             ))}
-                                            {shoppingItems.filter(i=>!i.completed).length === 0 && <p className="text-[10px] text-gray-400 italic">Список пуст</p>}
                                         </div>
                                     </motion.div>
-                                </div>
-                            )}
-                            
-                            {/* Goals fallback if enabled and space permits or just stacked on mobile */}
-                            {isWidgetVisible('goals') && (
-                                <div className="h-40 md:h-auto md:flex-1">
-                                    <GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} />
                                 </div>
                             )}
                         </div>
@@ -723,29 +376,24 @@ export default function App() {
 
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-24 xl:pb-0">
                         <div className="flex flex-col xl:grid xl:grid-cols-3 gap-6 h-full items-start">
-                            {/* Col 1: Calendar + Categories */}
                             <div className="flex flex-col gap-6 xl:col-span-1 w-full">
                                 <SpendingCalendar transactions={filteredTransactions} selectedDate={calendarSelectedDate} onSelectDate={setCalendarSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
                                 <div id="section-categories" className="flex-1 min-h-[300px]">
                                     <CategoryProgress transactions={filteredTransactions} categories={categories} settings={settings} onCategoryClick={(catId) => handleDrillDown(catId)} onSubCategoryClick={(catId, merchant) => handleDrillDown(catId, merchant)} currentMonth={currentMonth} selectedDate={calendarSelectedDate} />
                                 </div>
                             </div>
-
-                            {/* Col 2: Mandatory */}
                             <div className="xl:col-span-1 h-full w-full">
                                 <MandatoryExpensesList expenses={settings.mandatoryExpenses || []} transactions={filteredTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setEditingMandatoryExpense(e); setIsMandatoryModalOpen(true); }} onAdd={() => { setEditingMandatoryExpense(null); setIsMandatoryModalOpen(true); }} />
                             </div>
-
-                            {/* Col 3: History */}
                             <div id="section-history" className="xl:col-span-1 h-full min-h-[500px] w-full">
-                                <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} onClearFilters={handleClearFilters} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
+                                <TransactionHistory transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} filterMode={calendarSelectedDate ? 'day' : 'month'} selectedDate={calendarSelectedDate} onClearFilters={handleClearFilters} onLearnRule={(rule) => setLearnedRules(prev => [...prev, rule])} onEditTransaction={handleEditTransaction} onAddCategory={handleAddCategory} currentMonth={currentMonth} />
                             </div>
                         </div>
                     </div>
                 </motion.div>
             )}
-            {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={handleSendEventToTelegram} onDeleteEvent={handleDeleteEvent} /></motion.div>}
-            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingListToTelegram} /></motion.div>}
+            {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} /></motion.div>}
+            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={async () => true} /></motion.div>}
             {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}><ServicesHub /></motion.div>}
             </AnimatePresence>
         </div>
@@ -777,15 +425,15 @@ export default function App() {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} transactions={transactions} onDelete={async (id) => { setTransactions(prev => prev.filter(t => t.id !== id)); if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
-            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => { setSettings(s); if (familyId) await saveSettings(familyId, s); }} onReset={() => {}} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { setMembers(m); if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { setCategories(c); if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={handleDeleteCategory} learnedRules={learnedRules} onUpdateRules={async (r) => { if(familyId) await updateItemsBatch(familyId, 'rules', r); }} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { setTransactions(updatedTxs); if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} installPrompt={installPrompt} onOpenDuplicates={handleOpenDuplicates} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} />}
+            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={(rule) => setLearnedRules(prev => [...prev, rule])} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
+            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => { if (user?.uid) await saveSettings(user.uid, s); }} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={handleDeleteCategory} learnedRules={learnedRules} onUpdateRules={async (r) => { if(familyId) await updateItemsBatch(familyId, 'rules', r); }} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} installPrompt={installPrompt} onOpenDuplicates={handleOpenDuplicates} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} />}
             {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
-            {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={handleLearnRule} onApplyRuleToExisting={handleApplyRuleToExisting} onEditTransaction={handleEditTransaction} />}
+            {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={(rule) => setLearnedRules(prev => [...prev, rule])} onEditTransaction={handleEditTransaction} />}
             {showDuplicatesModal && <DuplicatesModal transactions={transactions} onClose={() => setShowDuplicatesModal(false)} onDelete={handleDeleteTransactions} onIgnore={handleIgnoreDuplicates} ignoredPairs={settings.ignoredDuplicatePairs} />}
-            {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview) { setTransactions(prev => [...importPreview.map(t => ({...t, id: Date.now().toString()}) as Transaction), ...prev]); if (familyId) await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); showNotify('success', `Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onLearnRule={handleLearnRule} onAddCategory={handleAddCategory} />}
+            {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onLearnRule={(rule) => setLearnedRules(prev => [...prev, rule])} onAddCategory={handleAddCategory} />}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
-            {isGoalModalOpen && <GoalModal goal={editingGoal} onClose={() => setIsGoalModalOpen(false)} settings={settings} onSave={async (g) => { if (editingGoal) setGoals(prev => prev.map(gl => gl.id === g.id ? g : gl)); else setGoals(prev => [...prev, g]); if (familyId) { if (editingGoal) await updateItem(familyId, 'goals', g.id, g); else await addItem(familyId, 'goals', g); } setIsGoalModalOpen(true); }} onDelete={async (id) => { setGoals(prev => prev.filter(g => g.id !== id)); if (familyId) await deleteItem(familyId, 'goals', id); }} />}
-            {isMandatoryModalOpen && <MandatoryExpenseModal expense={editingMandatoryExpense} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} onSave={async (e) => { const currentExpenses = settings.mandatoryExpenses || []; const updatedExpenses = editingMandatoryExpense ? currentExpenses.map(ex => ex.id === e.id ? e : ex) : [...currentExpenses, e]; setSettings({ ...settings, mandatoryExpenses: updatedExpenses }); if (familyId) await saveSettings(familyId, { ...settings, mandatoryExpenses: updatedExpenses }); setIsMandatoryModalOpen(false); }} onDelete={async (id) => { const updatedExpenses = (settings.mandatoryExpenses || []).filter(e => e.id !== id); setSettings({ ...settings, mandatoryExpenses: updatedExpenses }); if (familyId) await saveSettings(familyId, { ...settings, mandatoryExpenses: updatedExpenses }); setIsMandatoryModalOpen(false); }} />}
+            {isGoalModalOpen && <GoalModal goal={editingGoal} onClose={() => setIsGoalModalOpen(false)} settings={settings} onSave={async (g) => { if (familyId) { if (editingGoal) await updateItem(familyId, 'goals', g.id, g); else await addItem(familyId, 'goals', g); } }} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'goals', id); }} />}
+            {isMandatoryModalOpen && <MandatoryExpenseModal expense={editingMandatoryExpense} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} onSave={async (e) => { const currentExpenses = settings.mandatoryExpenses || []; const updatedExpenses = editingMandatoryExpense ? currentExpenses.map(ex => ex.id === e.id ? e : ex) : [...currentExpenses, e]; setSettings({ ...settings, mandatoryExpenses: updatedExpenses }); if (user?.uid) await saveSettings(user.uid, { ...settings, mandatoryExpenses: updatedExpenses }); setIsMandatoryModalOpen(false); }} onDelete={async (id) => { const updatedExpenses = (settings.mandatoryExpenses || []).filter(e => e.id !== id); setSettings({ ...settings, mandatoryExpenses: updatedExpenses }); if (user?.uid) await saveSettings(user.uid, { ...settings, mandatoryExpenses: updatedExpenses }); setIsMandatoryModalOpen(false); }} />}
         </AnimatePresence>
       </Suspense>
     </div>

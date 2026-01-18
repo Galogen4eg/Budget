@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
@@ -6,26 +5,25 @@ import {
   LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, AppNotification, Reminder, AIKnowledgeItem
 } from '../types';
 import { 
-  FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
-  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS
+  INITIAL_CATEGORIES
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToSettings, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, saveSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, saveSettings, getLegacyFamilySettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
+import { toast } from 'sonner';
 
-// Default Settings
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   familyName: 'Семья',
   currency: '₽',
   startOfMonthDay: 1,
   privacyMode: false,
-  theme: 'light', // Default theme
-  savingsRate: 10, // Default savings rate
+  theme: 'light',
+  savingsRate: 10,
   widgets: [
-    { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
-    { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+    { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+    { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
@@ -33,7 +31,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
-  enabledServices: ['wallet', 'projects'], 
+  enabledServices: ['wallet', 'projects', 'chat', 'pantry', 'debts', 'forecast', 'wishlist'], 
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,
   pushEnabled: false,
@@ -46,10 +44,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   manualReservedAmount: 0,
   manualPaidExpenses: {},
   ignoredDuplicatePairs: [],
-  showFeedbackTool: false, // Default hidden
+  showFeedbackTool: false,
   alfaMapping: { date: 'дата', time: '', amount: 'сумма', category: '', note: 'описание' },
-  eventTemplate: `📅 *{title}*\n\n🕒 {date} в {time} (на {duration}ч)\n📝 {desc}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`,
-  shoppingTemplate: `🛒 *Список покупок* ({total} поз.)\n📅 {date}\n\n{items}\n\nКупите по дороге домой! 🏠`,
+  eventTemplate: `📅 *{title}*\n\n🕒 {date} в {time}\n📝 {desc}`,
+  shoppingTemplate: `🛒 *Список покупок* ({total} поз.)\n\n{items}`,
 };
 
 interface DataContextType {
@@ -85,12 +83,8 @@ interface DataContextType {
   notifications: AppNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
   addReminder: (text: string, delayMs: number) => void;
-  
-  // Notification Management
   dismissedNotificationIds: string[];
   dismissNotification: (id: string) => void;
-
-  // Derived Stats
   filteredTransactions: Transaction[];
   totalBalance: number;
   currentMonthSpent: number;
@@ -105,9 +99,8 @@ const DataContext = createContext<DataContextType>({} as DataContextType);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { familyId, user, loading: authLoading, isOfflineMode } = useAuth();
+  const { familyId, user } = useAuth();
 
-  // --- Data State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [pantry, setPantryState] = useState<PantryItem[]>([]);
@@ -121,7 +114,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [aiKnowledge, setAiKnowledge] = useState<AIKnowledgeItem[]>([]);
-  
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
+
   const learnedRules = useMemo(() => {
       const ruleMap = new Map<string, LearnedRule>();
       globalRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
@@ -129,208 +128,65 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return Array.from(ruleMap.values());
   }, [localRules, globalRules]);
 
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-
-  // Removed isolated savingsRate state
-  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
-
-  const isInitialLoad = useRef(true);
-
-  // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
       const newSettings = { ...settings, savingsRate: rate };
       setSettings(newSettings);
-      if (familyId) await saveSettings(familyId, newSettings);
+      if (user?.uid) await saveSettings(user.uid, newSettings);
   };
 
-  // --- Subscriptions ---
   useEffect(() => {
-    const unsubGlobal = subscribeToGlobalRules((rules) => {
-        setGlobalRules(rules);
-    });
+    const unsubGlobal = subscribeToGlobalRules((rules) => setGlobalRules(rules));
 
-    if (!familyId) {
-        const loadLocal = (key: string, setter: (val: any) => void, fallback?: any) => {
-            const stored = localStorage.getItem(`local_${key}`);
-            if (stored) {
-                try {
-                    const parsed = JSON.parse(stored);
-                    if (isOfflineMode && Array.isArray(parsed) && parsed.length === 0 && fallback && Array.isArray(fallback) && fallback.length > 0) {
-                        setter(fallback);
-                        return;
-                    }
-                    setter(parsed);
-                } catch (e) {
-                    console.error(`Failed to parse local_${key}`, e);
-                    if (fallback) setter(fallback);
-                }
-            } else if (fallback) {
-                setter(fallback);
+    if (!user) return unsubGlobal;
+
+    const unsubs: (() => void)[] = [unsubGlobal];
+
+    // Подписка на персональные настройки (всегда доступна авторизованному пользователю)
+    unsubs.push(subscribeToSettings(user.uid, async (data) => {
+        if (data) {
+            setSettings(prev => ({ ...prev, ...data }));
+            if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
+        } else if (familyId) {
+            // Если личных настроек нет, пробуем мигрировать старые семейные
+            const legacy = await getLegacyFamilySettings(familyId);
+            if (legacy) {
+                setSettings(legacy);
+                await saveSettings(user.uid, legacy);
             }
+        }
+    }, (err) => {
+        if (err.code === 'permission-denied') {
+            console.warn("Permission denied for personal settings. This is unusual.");
+        }
+    }));
+
+    if (familyId) {
+        const handlePermissionError = (coll: string) => {
+            toast.error(`Доступ к ${coll} ограничен. Проверьте права.`, { id: 'perm-error-' + coll });
         };
 
-        const demoTransactions = isOfflineMode ? DEMO_TRANSACTIONS : [];
-        const demoShopping = isOfflineMode ? DEMO_SHOPPING_ITEMS : [];
-        const demoEvents = isOfflineMode ? DEMO_EVENTS : [];
-        const demoGoals = isOfflineMode ? DEMO_GOALS : [];
-        const demoDebts = isOfflineMode ? DEMO_DEBTS : [];
-        const demoProjects = isOfflineMode ? DEMO_PROJECTS : [];
-        const demoMembers = isOfflineMode ? FAMILY_MEMBERS : [];
-
-        loadLocal('transactions', setTransactions, demoTransactions);
-        loadLocal('shopping', setShoppingItems, demoShopping);
-        loadLocal('events', setEvents, demoEvents);
-        loadLocal('goals', setGoals, demoGoals);
-        loadLocal('debts', setDebts, demoDebts);
-        loadLocal('projects', setProjects, demoProjects);
-        loadLocal('pantry', setPantryState, []);
-        loadLocal('loyalty', setLoyaltyCards, []);
-        loadLocal('wishlist', setWishlist, []);
-        loadLocal('reminders', setReminders, []);
-        loadLocal('knowledge', setAiKnowledge, []);
-        // Load settings and ensure defaults are applied
-        loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s, savingsRate: s.savingsRate ?? prev.savingsRate})), DEFAULT_SETTINGS);
-        loadLocal('dismissed_notifs', setDismissedNotificationIds, []);
-        
-        const storedMembers = localStorage.getItem('local_members');
-        if (storedMembers) {
-            const parsedMembers = JSON.parse(storedMembers);
-            if (isOfflineMode && parsedMembers.length === 0 && demoMembers.length > 0) {
-                setMembers(demoMembers);
-            } else {
-                setMembers(parsedMembers);
-            }
-        } else {
-            setMembers(demoMembers);
-        }
-
-        isInitialLoad.current = false;
-        return unsubGlobal;
+        unsubs.push(subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]), () => handlePermissionError('операциям')));
+        unsubs.push(subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[]), () => handlePermissionError('покупкам')));
+        unsubs.push(subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])));
+        unsubs.push(subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])));
+        unsubs.push(subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])));
+        unsubs.push(subscribeToCollection(familyId, 'members', (data) => { if (data.length > 0) setMembers(data as FamilyMember[]); }));
+        unsubs.push(subscribeToCollection(familyId, 'categories', (data) => { if (data.length > 0) setCategories(data as Category[]); }));
+        unsubs.push(subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])));
+        unsubs.push(subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])));
+        unsubs.push(subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])));
+        unsubs.push(subscribeToCollection(familyId, 'projects', (data) => setProjects(data as Project[])));
+        unsubs.push(subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])));
+        unsubs.push(subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[])));
     }
 
-    const unsubs = [
-      unsubGlobal,
-      subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[])),
-      subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[])),
-      subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
-      subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
-      subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])),
-      subscribeToCollection(familyId, 'members', (data) => { 
-          if (data.length > 0) setMembers(data as FamilyMember[]);
-      }),
-      subscribeToCollection(familyId, 'categories', (data) => { 
-          if (data.length > 0) setCategories(data as Category[]);
-      }),
-      subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])),
-      subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
-      subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
-      subscribeToCollection(familyId, 'projects', (data) => setProjects(data as Project[])),
-      subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
-      subscribeToCollection(familyId, 'wishlist', (data) => setWishlist(data as WishlistItem[])),
-      subscribeToSettings(familyId, (data) => {
-          if (data) {
-              setSettings(prev => ({ ...prev, ...data }));
-              if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
-          }
-      })
-    ];
-    
-    // Always load dismissed notifications from local storage (device specific preference)
-    const storedDismissed = localStorage.getItem('local_dismissed_notifs');
-    if (storedDismissed) {
-        try { setDismissedNotificationIds(JSON.parse(storedDismissed)); } catch {}
-    }
-
-    isInitialLoad.current = false;
     return () => unsubs.forEach(u => u());
-  }, [familyId, isOfflineMode]);
-
-  // --- Local Storage Sync ---
-  useEffect(() => {
-      // Sync dismissed notifications to local storage immediately
-      localStorage.setItem('local_dismissed_notifs', JSON.stringify(dismissedNotificationIds));
-
-      if (!authLoading && !isInitialLoad.current && !familyId) {
-          localStorage.setItem('local_transactions', JSON.stringify(transactions));
-          localStorage.setItem('local_shopping', JSON.stringify(shoppingItems));
-          localStorage.setItem('local_events', JSON.stringify(events));
-          localStorage.setItem('local_pantry', JSON.stringify(pantry));
-          localStorage.setItem('local_goals', JSON.stringify(goals));
-          localStorage.setItem('local_debts', JSON.stringify(debts));
-          localStorage.setItem('local_projects', JSON.stringify(projects));
-          localStorage.setItem('local_loyalty', JSON.stringify(loyaltyCards));
-          localStorage.setItem('local_wishlist', JSON.stringify(wishlist));
-          localStorage.setItem('local_settings', JSON.stringify(settings));
-          localStorage.setItem('local_members', JSON.stringify(members));
-          localStorage.setItem('local_knowledge', JSON.stringify(aiKnowledge));
-          localStorage.setItem('local_reminders', JSON.stringify(reminders));
-      } else {
-          localStorage.setItem('local_reminders', JSON.stringify(reminders));
-      }
-  }, [
-      authLoading, familyId, transactions, shoppingItems, events, pantry, 
-      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, aiKnowledge, dismissedNotificationIds
-  ]);
+  }, [familyId, user?.uid]);
 
   const dismissNotification = (id: string) => {
       setNotifications(prev => prev.filter(n => n.id !== id));
       setDismissedNotificationIds(prev => [...prev, id]);
   };
-
-  // --- Reminder Logic ---
-  useEffect(() => {
-      const checkReminders = () => {
-          const now = Date.now();
-          let hasChanges = false;
-          
-          setReminders(prev => {
-              const due = prev.filter(r => r.targetTime <= now);
-              const upcoming = prev.filter(r => r.targetTime > now);
-              
-              if (due.length > 0) {
-                  hasChanges = true;
-                  const newNotifs: AppNotification[] = due.map(r => ({
-                      id: `reminder_${r.id}`,
-                      title: 'Напоминание ⏰',
-                      message: r.text,
-                      type: 'info',
-                      date: new Date().toISOString(),
-                      isRead: false
-                  }));
-                  
-                  // Filter out if they were somehow already dismissed/seen in this session
-                  const filteredNew = newNotifs.filter(n => !dismissedNotificationIds.includes(n.id));
-                  
-                  if (filteredNew.length > 0) {
-                      setNotifications(curr => {
-                          // Prevent duplicates in current list
-                          const unique = filteredNew.filter(n => !curr.some(c => c.id === n.id));
-                          return [...unique, ...curr];
-                      });
-                      
-                      if ("Notification" in window && Notification.permission === "granted") {
-                          due.forEach(r => new Notification("Напоминание", { body: r.text, icon: '/favicon.ico' }));
-                      }
-                      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                  }
-              }
-              
-              return hasChanges ? upcoming : prev;
-          });
-      };
-
-      if ("Notification" in window && Notification.permission === "default") {
-          Notification.requestPermission();
-      }
-
-      const interval = setInterval(checkReminders, 5000); 
-      return () => clearInterval(interval);
-  }, [dismissedNotificationIds]);
 
   const addReminder = (text: string, delayMs: number) => {
       const newReminder: Reminder = {
@@ -343,11 +199,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addAIKnowledge = async (text: string) => {
-      const newItem: AIKnowledgeItem = {
-          id: Date.now().toString(),
-          text,
-          addedDate: new Date().toISOString()
-      };
+      const newItem: AIKnowledgeItem = { id: Date.now().toString(), text, addedDate: new Date().toISOString() };
       setAiKnowledge(prev => [...prev, newItem]);
       if (familyId) await addItem(familyId, 'knowledge', newItem);
   };
@@ -357,23 +209,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (familyId) await deleteItem(familyId, 'knowledge', id);
   };
 
-  useEffect(() => {
-      if (categories.length === 0) {
-          setCategories(INITIAL_CATEGORIES);
-          if (familyId) {
-              addItemsBatch(familyId, 'categories', INITIAL_CATEGORIES)
-                .catch(err => console.error("Failed to restore categories to DB", err));
-          }
-      }
-  }, [categories, familyId]);
-
   const handlePantryUpdate = async (dataOrFn: PantryItem[] | ((prev: PantryItem[]) => PantryItem[])) => {
       const newData = typeof dataOrFn === 'function' ? dataOrFn(pantry) : dataOrFn;
-      
       if (familyId) {
           const addedItems = newData.filter(newItem => !pantry.some(oldItem => oldItem.id === newItem.id));
           if (addedItems.length > 0) await addItemsBatch(familyId, 'pantry', addedItems);
-
           const removedIds = pantry.filter(oldItem => !newData.some(newItem => newItem.id === oldItem.id)).map(i => i.id);
           if (removedIds.length > 0) await deleteItemsBatch(familyId, 'pantry', removedIds);
       }
@@ -385,7 +225,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentUserId = user?.uid;
       const myMemberId = members.find(m => m.userId === currentUserId)?.id;
       if (!myMemberId) return transactions;
-      return transactions.filter(t => t.memberId === myMemberId);
+      return transactions.filter(t => t.memberId === myMemberId || t.userId === currentUserId);
   }, [transactions, budgetMode, members, user]);
 
   const totalBalance = useMemo(() => {
@@ -407,36 +247,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((acc, t) => acc + t.amount, 0);
   }, [filteredTransactions]);
 
-  const value = {
-    transactions, setTransactions,
-    shoppingItems, setShoppingItems,
-    pantry, setPantry: handlePantryUpdate,
-    events, setEvents,
-    goals, setGoals,
-    members, setMembers,
-    categories, setCategories,
-    learnedRules, setLearnedRules: setLocalRules,
-    aiKnowledge, addAIKnowledge, deleteAIKnowledge,
-    settings, setSettings,
-    debts, setDebts,
-    projects, setProjects,
-    loyaltyCards, setLoyaltyCards,
-    wishlist, setWishlist,
-    notifications, setNotifications,
-    addReminder,
-    dismissedNotificationIds,
-    dismissNotification,
-    
-    filteredTransactions,
-    totalBalance,
-    currentMonthSpent,
-    savingsRate: settings.savingsRate ?? 10, // Use from settings
-    setSavingsRate: updateSavingsRate, // Use setter that updates settings
-    budgetMode, setBudgetMode
-  };
-
   return (
-    <DataContext.Provider value={value}>
+    <DataContext.Provider value={{
+      transactions, setTransactions,
+      shoppingItems, setShoppingItems,
+      pantry, setPantry: handlePantryUpdate,
+      events, setEvents,
+      goals, setGoals,
+      members, setMembers,
+      categories, setCategories,
+      learnedRules, setLearnedRules: setLocalRules,
+      aiKnowledge, addAIKnowledge, deleteAIKnowledge,
+      settings, setSettings,
+      debts, setDebts,
+      projects, setProjects,
+      loyaltyCards, setLoyaltyCards,
+      wishlist, setWishlist,
+      notifications, setNotifications,
+      addReminder,
+      dismissedNotificationIds,
+      dismissNotification,
+      filteredTransactions,
+      totalBalance,
+      currentMonthSpent,
+      savingsRate: settings.savingsRate ?? 10,
+      setSavingsRate: updateSavingsRate,
+      budgetMode, setBudgetMode
+    }}>
       {children}
     </DataContext.Provider>
   );

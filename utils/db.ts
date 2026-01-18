@@ -145,43 +145,61 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error("Invalid params");
+  if (!targetFamilyId || !user) throw new Error("ID семьи или пользователь не определены");
   
   const cleanFamilyId = targetFamilyId.trim();
   const userRef = doc(db, 'users', user.uid);
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
   const familyRef = doc(db, 'families', cleanFamilyId);
+  const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
 
-  const familySnap = await getDoc(familyRef);
-  const memberSnap = await getDoc(memberRef);
-  
-  const batch = writeBatch(db);
-  batch.set(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
-  
-  if (!familySnap.exists()) {
-      batch.set(familyRef, { ownerId: user.uid, name: 'Семья ' + cleanFamilyId, createdAt: new Date().toISOString(), members: [user.uid] });
-  } else {
-      batch.update(familyRef, { members: arrayUnion(user.uid) });
+  // 1. Сначала пробуем обновить профиль пользователя (на это обычно есть права)
+  try {
+    await setDoc(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (e: any) {
+    console.error("Failed to update user profile familyId:", e);
+    throw new Error("Не удалось обновить ваш профиль. Проверьте права доступа.");
   }
 
-  if (!memberSnap.exists()) {
-      const newMember: FamilyMember = {
-          id: user.uid,
-          userId: user.uid,
-          name: user.displayName || user.email?.split('@')[0] || 'Участник',
-          color: '#34C759', 
-          isAdmin: !familySnap.exists() // First one is admin
-      };
-      if (user.photoURL) newMember.avatar = user.photoURL;
-      batch.set(memberRef, newMember);
-  }
+  // 2. Затем пробуем обновить документ семьи и добавить участника
+  try {
+    const familySnap = await getDoc(familyRef);
+    const batch = writeBatch(db);
 
-  await batch.commit();
+    if (!familySnap.exists()) {
+        // Если семьи нет, создаем её (пользователь становится владельцем)
+        batch.set(familyRef, { 
+            ownerId: user.uid, 
+            name: 'Семья ' + cleanFamilyId, 
+            createdAt: new Date().toISOString(), 
+            members: [user.uid] 
+        });
+    } else {
+        // Если есть, просто добавляем в список ID участников
+        batch.update(familyRef, { members: arrayUnion(user.uid) });
+    }
+
+    // Создаем запись в подколлекции участников
+    const newMember: FamilyMember = {
+        id: user.uid,
+        userId: user.uid,
+        name: user.displayName || user.email?.split('@')[0] || 'Участник',
+        color: '#34C759', 
+        isAdmin: !familySnap.exists()
+    };
+    if (user.photoURL) newMember.avatar = user.photoURL;
+    
+    batch.set(memberRef, newMember, { merge: true });
+
+    await batch.commit();
+  } catch (e: any) {
+    console.error("Firestore permission error in joinFamily:", e);
+    if (e.code === 'permission-denied') {
+        throw new Error("Доступ запрещен. Попросите администратора семьи проверить настройки доступа (Firestore Rules).");
+    }
+    throw e;
+  }
 };
 
-/**
- * Migrates (copies) all documents from source family to target family.
- */
 export const migrateFamilyData = async (sourceId: string, targetId: string) => {
     if (!sourceId || !targetId || sourceId === targetId) return;
 
@@ -191,21 +209,18 @@ export const migrateFamilyData = async (sourceId: string, targetId: string) => {
         'knowledge', 'debts', 'projects', 'loyalty', 'wishlist'
     ];
 
-    // 1. Migrate Settings
     const settingsRef = doc(db, 'families', sourceId, 'config', 'settings');
     const settingsSnap = await getDoc(settingsRef);
     if (settingsSnap.exists()) {
         await setDoc(doc(db, 'families', targetId, 'config', 'settings'), settingsSnap.data());
     }
 
-    // 2. Migrate Subcollections
     for (const collName of collectionsToMigrate) {
         const sourceColl = collection(db, 'families', sourceId, collName);
         const snapshot = await getDocs(sourceColl);
         
         if (snapshot.empty) continue;
 
-        // Process in batches of 500
         const docs = snapshot.docs;
         for (let i = 0; i < docs.length; i += 450) {
             const batch = writeBatch(db);

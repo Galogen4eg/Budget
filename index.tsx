@@ -13,18 +13,15 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Import Component directly and extend it to ensure 'props' and 'state' properties are correctly inherited and recognized by TypeScript.
+// Fixed ErrorBoundary class component by using direct import of Component
+// to ensure base class properties like 'props' and 'state' are correctly recognized
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare the state property on the class to resolve potential "Property 'state' does not exist" errors.
-  state: ErrorBoundaryState = { hasError: false, error: null };
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: Initialize state in the constructor to follow recommended class component patterns.
+    // Fix: Initializing state property which will now be correctly typed via generic inheritance
     this.state = { hasError: false, error: null };
   }
 
-  // Fix: Use standard getDerivedStateFromError to catch errors and update the state.
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
@@ -34,12 +31,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Accessing this.state is now correctly typed as it's inherited from the React Component base class.
+    // Fix: Properly accessing state property
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Что-то пошло не так 😔</h2>
           <div style={{ maxWidth: '400px', background: '#FFEEEE', color: 'red', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.85rem', wordBreak: 'break-word' }}>
+            {/* Fix: Accessing error property from state */}
             {this.state.error?.message}
           </div>
           <button 
@@ -61,7 +59,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: Correctly return this.props.children, ensuring it defaults to null if undefined to satisfy React's return type requirements.
+    // Fix: Accessing children from props which is now recognized by using direct Component import
     return this.props.children || null;
   }
 }

@@ -13,7 +13,7 @@ const LoginScreen: React.FC = () => {
   const [registerType, setRegisterType] = useState<RegisterType>('new');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Form State
+  // Состояние формы
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -31,7 +31,6 @@ const LoginScreen: React.FC = () => {
     if (!email || !password) return;
     
     setIsLoading(true);
-    // Passing inviteCode even for 'new' if user explicitly filled it
     await registerWithEmail(email, password, inviteCode.trim());
     setIsLoading(false);
   };
@@ -44,7 +43,7 @@ const LoginScreen: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-[#F2F2F7] dark:bg-black flex flex-col items-center justify-center p-6 overflow-hidden text-[#1C1C1E] dark:text-white">
-      {/* Background Decor */}
+      {/* Декор фона */}
       <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-blue-400/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-purple-400/10 rounded-full blur-[120px] pointer-events-none" />
 
@@ -201,7 +200,7 @@ const LoginScreen: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Google Button specifically for Registration/Join Context */}
+                        {/* Кнопка Google в контексте регистрации/вступления */}
                         <motion.button 
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -231,7 +230,7 @@ const LoginScreen: React.FC = () => {
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
                                 <input 
-                                    type="password" placeholder="Придумайте пароль" value={password} onChange={set => setPassword(set.target.value)}
+                                    type="password" placeholder="Придумайте пароль" value={password} onChange={e => setPassword(e.target.value)}
                                     className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-sm font-bold outline-none border border-transparent focus:border-blue-500 transition-all dark:text-white"
                                 />
                             </div>

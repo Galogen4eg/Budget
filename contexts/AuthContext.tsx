@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           setUser(currentUser);
           
-          // Check for a pending family join (from Google login flow)
+          // Проверка отложенного вступления в семью (после логина Google)
           const pendingFid = localStorage.getItem('pending_join_family');
           if (pendingFid) {
               try {
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   toast.success('Вы успешно вошли и присоединились к семье!');
               } catch (e: any) {
                   console.error("Failed to join pending family:", e);
-                  toast.error(`Не удалось присоединиться к семье: ${e.message}`);
+                  toast.error(`Не удалось присоединиться: ${e.message}`);
               } finally {
                   localStorage.removeItem('pending_join_family');
               }
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   toast.error(`Аккаунт создан, но войти в семью не удалось: ${joinErr.message}`);
               }
           } else {
-              toast.success('Добро пожаловать в новый бюджет!');
+              toast.success('Добро пожаловать!');
           }
       } catch (e: any) {
           let msg = 'Ошибка при регистрации';

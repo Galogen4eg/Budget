@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -19,6 +20,7 @@ import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { createInvitation, deleteItem } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
+import { toast } from 'sonner';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -31,6 +33,7 @@ interface SettingsModalProps {
   onUpdateMembers: (members: FamilyMember[]) => void;
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
+  onDeleteCategory?: (id: string) => void;
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   currentFamilyId: string | null;
@@ -45,10 +48,10 @@ interface SettingsModalProps {
 
 const WIDGET_METADATA = [ 
   { id: 'month_chart', label: 'График расходов' },
+  { id: 'recent_transactions', label: 'История операций' },
   { id: 'category_analysis', label: 'Анализ категорий' },
   { id: 'shopping', label: 'Список покупок' },
   { id: 'goals', label: 'Цели и копилка' }, 
-  { id: 'recent_transactions', label: 'История операций' }
 ];
 
 type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family' | 'ai_memory';
@@ -137,7 +140,7 @@ const TemplateEditor = ({ label, value, onChange, variables, previewData }: { la
     );
 };
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, learnedRules, onUpdateRules, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, onDeleteCategory, learnedRules, onUpdateRules, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
   const [showMobileMenu, setShowMobileMenu] = useState(window.innerWidth < 768);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -152,6 +155,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [tempMemberName, setTempMemberName] = useState('');
   const [tempMemberEmail, setTempMemberEmail] = useState('');
   const [tempMemberColor, setTempMemberColor] = useState(PRESET_COLORS[0]);
+
+  // Family ID Management
+  const [customFid, setCustomFid] = useState(currentFamilyId || '');
 
   // Tools
   const [deleteStart, setDeleteStart] = useState('');
@@ -204,15 +210,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const toggleWidgetVisibility = (id: string) => {
     const updated = (settings.widgets || []).map(w => w.id === id ? { ...w, isVisible: !w.isVisible } : w);
     handleChange('widgets', updated);
-  };
-
-  const moveWidget = (index: number, direction: 'up' | 'down') => {
-    const widgets = [...(settings.widgets || [])];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex >= 0 && targetIndex < widgets.length) {
-      [widgets[index], widgets[targetIndex]] = [widgets[targetIndex], widgets[index]];
-      handleChange('widgets', widgets);
-    }
   };
 
   // --- Member Logic ---
@@ -301,6 +298,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
               }
           }
           setIsMemberModalOpen(false);
+      }
+  };
+
+  const handleApplyNewFid = async () => {
+      if (!customFid.trim()) return;
+      if (confirm(`Вы действительно хотите сменить код семьи на "${customFid.trim()}"? Это переключит вас на новый бюджет.`)) {
+          onJoinFamily(customFid.trim());
       }
   };
 
@@ -589,9 +593,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 <CategoriesSettings 
                     categories={categories}
                     onUpdateCategories={onUpdateCategories}
+                    onDeleteCategory={onDeleteCategory}
                     learnedRules={learnedRules}
                     onUpdateRules={onUpdateRules}
                     settings={settings}
+                    transactions={transactions}
+                    onUpdateTransactions={onUpdateTransactions}
                 />
             </div>
         );
@@ -635,13 +642,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                             if (!meta) return null;
                             return (
                                 <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex flex-col gap-1">
-                                            <button disabled={idx === 0} onClick={() => moveWidget(idx, 'up')} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ChevronUp size={14}/></button>
-                                            <button disabled={idx === (settings.widgets?.length || 1) - 1} onClick={() => moveWidget(idx, 'down')} className="text-gray-300 hover:text-blue-500 disabled:opacity-30"><ChevronDown size={14}/></button>
-                                        </div>
-                                        <span className="font-bold text-sm">{meta.label}</span>
-                                    </div>
+                                    <span className="font-bold text-sm">{meta.label}</span>
                                     <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
                                 </div>
                             );
@@ -717,11 +718,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Ваш Family ID</p>
-                        <p className={`font-mono text-lg font-bold break-all select-all ${currentFamilyId ? 'text-blue-500' : 'text-gray-400 italic'}`}>
-                            {currentFamilyId || 'Не присвоен (Данные только на этом устройстве)'}
-                        </p>
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5 space-y-4">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Ваш Family ID (Уникальный код)</p>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={customFid} 
+                                    onChange={e => setCustomFid(e.target.value)}
+                                    placeholder="Напр: IVANOV_FAMILY"
+                                    className="flex-1 bg-white dark:bg-[#1C1C1E] py-3 px-4 rounded-xl font-mono text-sm font-bold text-blue-500 outline-none border border-transparent focus:border-blue-500/50 transition-all"
+                                />
+                                <button 
+                                    onClick={handleApplyNewFid}
+                                    disabled={!customFid.trim() || customFid.trim() === currentFamilyId}
+                                    className="px-4 py-3 bg-blue-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50 disabled:grayscale"
+                                >
+                                    Сменить
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {currentFamilyId && (
@@ -817,7 +833,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-5xl h-[85vh] md:rounded-[3rem] rounded-[2rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-white/10">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-7xl h-[85vh] md:rounded-[3rem] rounded-[2rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-white/10">
             <div className={`bg-white dark:bg-[#1C1C1E] border-r dark:border-white/10 flex-col shrink-0 overflow-y-auto no-scrollbar md:w-64 md:flex md:static ${showMobileMenu ? 'flex absolute inset-0 w-full z-20' : 'hidden'}`}>
                 <div className="p-6 md:p-8 border-b dark:border-white/5 flex items-center justify-between md:justify-start gap-3"><span className="font-black text-xl">Настройки</span><button onClick={onClose} className="md:hidden w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button></div>
                 <div className="flex-1 p-4 space-y-2">
@@ -837,7 +853,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 </div>
                 {/* Changed padding bottom for categories section specifically to handle its own scrolling */}
                 <div className={`flex-1 overflow-y-auto no-scrollbar overscroll-contain ${activeSection === 'categories' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'}`}>
-                    <div className={`max-w-2xl mx-auto w-full h-full ${activeSection === 'categories' ? 'max-w-full' : ''}`}>
+                    <div className={`max-w-4xl mx-auto w-full h-full ${activeSection === 'categories' ? 'max-w-full' : ''}`}>
                         {renderSectionContent()}
                     </div>
                 </div>

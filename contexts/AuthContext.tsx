@@ -8,18 +8,22 @@ import {
   signInWithRedirect, 
   getRedirectResult,
   signOut,
-  AuthError
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { getOrInitUserFamily } from '../utils/db';
+import { getOrInitUserFamily, joinFamily } from '../utils/db';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   familyId: string | null;
   loading: boolean;
   isOfflineMode: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (inviteCode?: string) => Promise<void>;
   loginAnonymously: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string, inviteCode?: string) => Promise<void>;
   enterDemoMode: () => void;
   logout: () => Promise<void>;
 }
@@ -31,6 +35,8 @@ const AuthContext = createContext<AuthContextType>({
     isOfflineMode: false,
     loginWithGoogle: async () => {},
     loginAnonymously: async () => {},
+    loginWithEmail: async () => {},
+    registerWithEmail: async () => {},
     enterDemoMode: () => {},
     logout: async () => {}
 });
@@ -43,9 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
-  // Helper to enable local demo mode consistently
   const enterDemoMode = () => {
-      console.warn("Switching to Local Demo Mode");
       const mockUser = {
           uid: 'demo-local-user',
           displayName: 'Демо Пользователь',
@@ -56,116 +60,94 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } as unknown as User;
 
       setUser(mockUser);
-      setFamilyId(null); // Null familyId triggers local storage mode in DataContext
+      setFamilyId(null);
       setIsOfflineMode(true);
       setLoading(false);
   };
 
   useEffect(() => {
     let unsubscribe: () => void;
-
-    // Failsafe timer: Если Firebase не инициализировался за 7 секунд (например, завис Redirect на Android),
-    // принудительно убираем загрузку, чтобы пользователь мог выбрать Демо-режим.
-    const safetyTimer = setTimeout(() => {
-        if (loading) {
-            console.warn("Auth initialization timed out. Forcing app load.");
-            setLoading(false);
-        }
-    }, 7000);
+    const safetyTimer = setTimeout(() => { if (loading) setLoading(false); }, 7000);
 
     const initAuth = async () => {
-       // Check for redirect result (from signInWithRedirect fallback)
-       try {
-         await getRedirectResult(auth);
-       } catch (e: any) {
-         console.error("Redirect auth error:", e);
-       }
+       try { await getRedirectResult(auth); } catch (e) { console.error("Redirect auth error:", e); }
 
        unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
           setUser(currentUser);
-          
           const cachedFid = localStorage.getItem('cached_familyId');
-
           try {
             const fid = await getOrInitUserFamily(currentUser);
             if (fid) {
                 setFamilyId(fid);
                 localStorage.setItem('cached_familyId', fid);
                 setIsOfflineMode(false);
-            } else {
-                console.error("Family ID is null after init");
             }
           } catch (e) {
-            console.error("Family Init Failed:", e);
-            if (cachedFid) {
-                setFamilyId(cachedFid);
-            }
+            if (cachedFid) setFamilyId(cachedFid);
             setIsOfflineMode(true);
           }
         } else {
-          // Пользователь вышел
           setUser(null);
           setFamilyId(null);
           localStorage.removeItem('cached_familyId');
         }
-        
-        // Auth state resolved (either logged in or not), remove loader
         clearTimeout(safetyTimer);
         setLoading(false);
       });
     };
 
     initAuth();
-
     return () => {
       clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };
   }, []); 
 
-  const loginWithGoogle = async () => {
-      // ВАЖНО: Не вызываем setLoading(true) здесь.
-      // Это разрывает связь с пользовательским кликом и браузер блокирует попап.
-      // Состояние loading обработается автоматически в onAuthStateChanged, когда пользователь авторизуется.
-      
+  const loginWithGoogle = async (inviteCode?: string) => {
       try {
-          await signInWithPopup(auth, googleProvider);
-          // Успех -> сработает onAuthStateChanged -> setUser -> setLoading(false)
-      } catch (error: any) {
-          console.error("Google Auth Popup Error:", error);
-          const errorCode = error.code;
-
-          // Если попап заблокирован или закрыт пользователем, или не поддерживается (iOS PWA)
-          // пробуем редирект (вход в том же окне)
-          if (
-              errorCode === 'auth/popup-blocked' || 
-              errorCode === 'auth/popup-closed-by-user' || 
-              errorCode === 'auth/operation-not-supported-in-this-environment' ||
-              errorCode === 'auth/cancelled-popup-request'
-          ) {
-              console.log("Falling back to redirect method...");
-              try {
-                  setLoading(true); // Здесь уже можно, так как редирект перезагрузит страницу
-                  await signInWithRedirect(auth, googleProvider);
-                  return;
-              } catch (redirectError: any) {
-                  console.error("Redirect Error:", redirectError);
-                  if (redirectError.code === 'auth/network-request-failed') {
-                      if (confirm("Ошибка соединения. Войти в локальный Демо-режим?")) {
-                          enterDemoMode();
-                          return;
-                      }
-                  }
-              }
-          } else if (errorCode === 'auth/network-request-failed') {
-              if (confirm("Ошибка соединения с сервером. Войти в локальный Демо-режим?")) {
-                  enterDemoMode();
-                  return;
-              }
+          const res = await signInWithPopup(auth, googleProvider);
+          if (inviteCode && inviteCode.trim()) {
+              await joinFamily(res.user, inviteCode.trim());
+              toast.success('Вы успешно присоединились к семье!');
+              setTimeout(() => window.location.reload(), 1000);
           }
-          
-          alert(`Ошибка входа через Google: ${error.message}`);
+      } catch (error: any) {
+          const errorCode = error.code;
+          if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/operation-not-supported-in-this-environment'].includes(errorCode)) {
+              await signInWithRedirect(auth, googleProvider);
+          } else {
+              toast.error(`Ошибка входа: ${error.message}`);
+          }
+      }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+      setLoading(true);
+      try {
+          await signInWithEmailAndPassword(auth, email, pass);
+          toast.success('С возвращением!');
+      } catch (e: any) {
+          toast.error('Неверный логин или пароль');
+          setLoading(false);
+      }
+  };
+
+  const registerWithEmail = async (email: string, pass: string, inviteCode?: string) => {
+      setLoading(true);
+      try {
+          const res = await createUserWithEmailAndPassword(auth, email, pass);
+          if (inviteCode && inviteCode.trim()) {
+              await joinFamily(res.user, inviteCode.trim());
+              toast.success('Аккаунт создан, вы добавлены в семью!');
+          } else {
+              toast.success('Добро пожаловать в новый бюджет!');
+          }
+      } catch (e: any) {
+          let msg = 'Ошибка при регистрации';
+          if (e.code === 'auth/email-already-in-use') msg = 'Этот email уже занят';
+          if (e.code === 'auth/weak-password') msg = 'Слишком слабый пароль (мин. 6 симв.)';
+          toast.error(msg);
           setLoading(false);
       }
   };
@@ -175,35 +157,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
           await signInAnonymously(auth);
       } catch (e: any) {
-          console.error("Auth Error:", e);
-          const msg = e.message || '';
-          const code = e.code || '';
-          
-          // Локальный демо режим, если Firebase Auth недоступен или отключен
-          if (code === 'auth/network-request-failed' || code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted') || msg.includes('network-request-failed')) {
-              enterDemoMode();
-              return;
-          }
-          
-          alert(`Ошибка входа: ${msg}`);
-          setLoading(false); 
+          enterDemoMode();
       }
   };
 
   const logout = async () => {
-      try {
-          await signOut(auth);
-      } catch (e) {
-          console.warn("Sign out error", e);
-      }
+      await signOut(auth);
       setUser(null);
       setFamilyId(null);
-      localStorage.removeItem('cached_familyId');
       setIsOfflineMode(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, familyId, loading, isOfflineMode, loginWithGoogle, loginAnonymously, enterDemoMode, logout }}>
+    <AuthContext.Provider value={{ 
+        user, familyId, loading, isOfflineMode, 
+        loginWithGoogle, loginAnonymously, loginWithEmail, registerWithEmail, 
+        enterDemoMode, logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

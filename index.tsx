@@ -5,7 +5,6 @@ import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 
 interface ErrorBoundaryProps {
-  // Fix: Make children optional to avoid "missing property" error when used as a JSX wrapper
   children?: ReactNode;
 }
 
@@ -14,16 +13,16 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use React.Component to ensure TypeScript correctly recognizes inherited properties like 'props'
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare the state property to ensure TypeScript recognizes it on the class instance
+// Fix: Explicitly extend the imported Component with props and state interfaces to ensure inheritance of 'props' and 'state'.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly type the state property for internal class usage.
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
   }
 
-  // Fix: Add return type for static lifecycle method
+  // Fix: Standard Error Boundary static method to update state after an error occurs.
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
@@ -33,7 +32,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Fix: State and props access is now correctly recognized by TypeScript
+    // Fix: Access state correctly through this.state, inherited from Component.
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -60,7 +59,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    // Fix: Accessing children via this.props now recognized correctly
+    // Fix: accessing children from this.props is now valid as 'props' is correctly inherited.
     return this.props.children;
   }
 }
@@ -73,7 +72,7 @@ if (!rootElement) {
 const root = createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* Fix: Usage of ErrorBoundary with children between tags satisfies requirement when property is optional */}
+    {/* Fix: Wrapped children in ErrorBoundary properly satisfies ReactNode requirements */}
     <ErrorBoundary>
       <AuthProvider>
         <DataProvider>

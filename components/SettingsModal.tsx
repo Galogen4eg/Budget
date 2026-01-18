@@ -1,26 +1,24 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, User, Trash2, CheckCircle2, Plus, Edit2, Check, Clock, 
   Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, 
-  LayoutGrid, ToggleLeft, ToggleRight, Shield, Lock, Copy, 
+  LayoutGrid, ToggleLeft, ToggleRight, Shield, Lock, Key, Copy, 
   Users, Share, LogOut, ChevronRight, Download, Calculator, 
   DollarSign, GripVertical, Loader2, Monitor, Menu, 
   MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, Bug
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, RefreshCcw
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
-import { createInvitation, deleteItem } from '../utils/db';
+import { createInvitation, deleteItem, joinFamily } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
-import { toast } from 'sonner';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -70,15 +68,6 @@ const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
 ];
 
 const PRESET_COLORS = [ '#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2', '#1C1C1E' ];
-const PRESET_ICONS = [ 
-  'Utensils', 'Car', 'Home', 'ShoppingBag', 'Heart', 'Zap', 'Plane', 
-  'Briefcase', 'PiggyBank', 'Coffee', 'Tv', 'MoreHorizontal', 'Shirt', 
-  'Music', 'Gamepad2', 'Baby', 'Dog', 'Cat', 'Flower2', 'Hammer', 
-  'Wrench', 'BookOpen', 'GraduationCap', 'Palmtree', 'Gift', 
-  'Smartphone', 'Wifi', 'Scissors', 'Bath', 'Bed', 'Sofa', 'Bike', 'Drumstick',
-  'Pill', 'Stethoscope', 'Dumbbell', 'Ticket', 'Monitor', 
-  'Footprints', 'Smile', 'HeartHandshake', 'FileText', 'ShieldCheck', 'Landmark', 'SmartphoneCharging', 'Armchair', 'Watch', 'Sun', 'Umbrella', 'Wine', 'GlassWater'
-];
 
 const AVAILABLE_TABS = [
     { id: 'overview', label: 'Обзор', icon: <LayoutGrid size={20}/> },
@@ -156,8 +145,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [tempMemberEmail, setTempMemberEmail] = useState('');
   const [tempMemberColor, setTempMemberColor] = useState(PRESET_COLORS[0]);
 
-  // Family ID Management
-  const [customFid, setCustomFid] = useState(currentFamilyId || '');
+  // Family ID Switch State
+  const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
+  const [isJoining, setIsJoining] = useState(false);
 
   // Tools
   const [deleteStart, setDeleteStart] = useState('');
@@ -166,6 +156,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   // AI Testing State
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const isAIEnabled = !!process.env.API_KEY;
+
+  // Sync internal state with prop
+  useEffect(() => {
+    if (currentFamilyId) setNewFamilyId(currentFamilyId);
+  }, [currentFamilyId]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -254,15 +249,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           }
       } else {
           const newMemberId = Math.random().toString(36).substr(2, 9);
-          // Explicitly set default values for isAdmin, avatar, and userId to ensure they exist in DB
           const newMember: FamilyMember = { 
               id: newMemberId, 
               name: tempMemberName, 
               color: tempMemberColor,
               email: email || undefined,
               isAdmin: false,
-              avatar: '', // Initialize empty to ensure field existence
-              userId: ''  // Initialize empty to ensure field existence (placeholder)
+              avatar: '', 
+              userId: ''  
           };
           onUpdateMembers([...members, newMember]);
 
@@ -286,10 +280,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
           return;
       }
       if (confirm(`Удалить участника ${editingMember.name}?`)) {
-          // 1. Optimistic Update
           onUpdateMembers(members.filter(m => m.id !== editingMember.id));
-          
-          // 2. Explicit DB Deletion
           if (currentFamilyId) {
               try {
                   await deleteItem(currentFamilyId, 'members', editingMember.id);
@@ -298,13 +289,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
               }
           }
           setIsMemberModalOpen(false);
-      }
-  };
-
-  const handleApplyNewFid = async () => {
-      if (!customFid.trim()) return;
-      if (confirm(`Вы действительно хотите сменить код семьи на "${customFid.trim()}"? Это переключит вас на новый бюджет.`)) {
-          onJoinFamily(customFid.trim());
       }
   };
 
@@ -343,6 +327,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
               }
           );
       });
+  };
+
+  const handleUpdateFamilyId = async () => {
+      const targetId = newFamilyId.trim();
+      if (!targetId) {
+          alert("ID не может быть пустым");
+          return;
+      }
+      if (targetId === currentFamilyId) return;
+
+      if (!confirm("Вы уверены, что хотите сменить ID семьи? Это переключит приложение на новый набор данных. Старые данные останутся под старым ID.")) return;
+
+      setIsJoining(true);
+      try {
+          await onJoinFamily(targetId);
+      } catch (e: any) {
+          alert(e.message || "Ошибка при смене ID");
+          setIsJoining(false);
+      }
   };
 
   const renderSectionContent = () => {
@@ -700,7 +703,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     <h3 className="text-lg font-bold mb-4 text-[#1C1C1E] dark:text-white">Семейный доступ</h3>
                     
                     {/* Status Card */}
-                    <div className={`p-5 rounded-2xl flex items-center gap-4 mb-6 ${currentFamilyId ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-100 dark:border-orange-900/30'}`}>
+                    <div className={`p-5 rounded-2xl flex items-center gap-4 mb-6 ${currentFamilyId ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-100 dark:border-green-900/30'}`}>
                         <div className={`p-3 rounded-full ${currentFamilyId ? 'bg-white/50 dark:bg-white/10' : 'bg-white/50 dark:bg-white/10'}`}>
                             {currentFamilyId ? <Cloud size={24} /> : <CloudOff size={24} />}
                         </div>
@@ -718,25 +721,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5 space-y-4">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Ваш Family ID (Уникальный код)</p>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={customFid} 
-                                    onChange={e => setCustomFid(e.target.value)}
-                                    placeholder="Напр: IVANOV_FAMILY"
-                                    className="flex-1 bg-white dark:bg-[#1C1C1E] py-3 px-4 rounded-xl font-mono text-sm font-bold text-blue-500 outline-none border border-transparent focus:border-blue-500/50 transition-all"
-                                />
+                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
+                        <div className="flex items-center gap-2 mb-3">
+                            {/* Fix: Added Key icon import to fix build error. */}
+                            <Key size={16} className="text-purple-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Текущий Family ID</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                value={newFamilyId}
+                                onChange={(e) => setNewFamilyId(e.target.value)}
+                                className={`flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-xl font-mono text-sm font-bold border transition-all ${newFamilyId !== currentFamilyId ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-transparent'}`}
+                                placeholder="Введите ID"
+                            />
+                            {newFamilyId !== currentFamilyId && (
                                 <button 
-                                    onClick={handleApplyNewFid}
-                                    disabled={!customFid.trim() || customFid.trim() === currentFamilyId}
-                                    className="px-4 py-3 bg-blue-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50 disabled:grayscale"
+                                    onClick={handleUpdateFamilyId}
+                                    disabled={isJoining}
+                                    className="bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50 shadow-lg shadow-blue-500/20"
                                 >
-                                    Сменить
+                                    {isJoining ? <Loader2 size={20} className="animate-spin" /> : <RefreshCcw size={20} />}
                                 </button>
-                            </div>
+                            )}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-2 leading-relaxed px-1">Чтобы присоединиться к существующей семье, введите её ID выше и нажмите кнопку обновления. Чтобы создать свою группу, введите любой уникальный ID.</p>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t dark:border-white/10">
+                        <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
+                            <AlertOctagon size={18} className="text-amber-500 shrink-0" />
+                            <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold leading-relaxed uppercase tracking-wider">
+                                Внимание: переключение ID сменит текущий набор данных. Старые данные не переносятся автоматически.
+                            </p>
                         </div>
                     </div>
 
@@ -745,8 +762,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                             const link = `${window.location.origin}/?join=${currentFamilyId}`;
                             if (navigator.share) navigator.share({ title: 'Семейный Бюджет', text: 'Присоединяйся к нашему бюджету!', url: link });
                             else { navigator.clipboard.writeText(link); alert("Ссылка скопирована"); }
-                        }} className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform">
-                            <Share size={16} /> Поделиться ссылкой
+                        }} className="w-full mt-6 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg">
+                            <Share size={16} /> Поделиться кодом
                         </button>
                     )}
                 </div>
@@ -765,18 +782,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
                       <div className="flex items-center gap-3"><div className="p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm text-gray-500 dark:text-white">{settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</div><span className="font-bold text-sm">Темная тема</span></div>
                       <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
-                  </div>
-
-                  {/* Feedback Tool Toggle */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                      <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-white dark:bg-white/10 text-red-500"><Bug size={20} /></div>
-                          <div>
-                              <span className="font-bold text-sm block">Кнопка баг-репорта</span>
-                              <span className="text-[10px] text-gray-400">Включить Feedback Tool</span>
-                          </div>
-                      </div>
-                      <Switch checked={settings.showFeedbackTool ?? false} onChange={() => handleChange('showFeedbackTool', !settings.showFeedbackTool)} />
                   </div>
 
                   {/* AI Status Indicator with Test Button */}
@@ -807,9 +812,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                                   disabled={aiTestStatus === 'loading' || aiTestStatus === 'success'}
                                   className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
                                       aiTestStatus === 'success' 
-                                          ? 'bg-green-500 text-white' 
+                                          ? 'bg-green-50 text-white' 
                                           : aiTestStatus === 'error'
-                                              ? 'bg-red-500 text-white'
+                                              ? 'bg-red-50 text-white'
                                               : 'bg-white dark:bg-[#2C2C2E] text-purple-600 dark:text-purple-400 shadow-sm hover:bg-purple-50 dark:hover:bg-purple-900/30'
                                   }`}
                               >
@@ -833,12 +838,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-7xl h-[85vh] md:rounded-[3rem] rounded-[2rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-white/10">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-7xl h-[85vh] md:rounded-[3rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row border dark:border-white/10">
             <div className={`bg-white dark:bg-[#1C1C1E] border-r dark:border-white/10 flex-col shrink-0 overflow-y-auto no-scrollbar md:w-64 md:flex md:static ${showMobileMenu ? 'flex absolute inset-0 w-full z-20' : 'hidden'}`}>
-                <div className="p-6 md:p-8 border-b dark:border-white/5 flex items-center justify-between md:justify-start gap-3"><span className="font-black text-xl">Настройки</span><button onClick={onClose} className="md:hidden w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button></div>
+                <div className="p-6 md:p-8 border-b dark:border-white/5 flex items-center justify-between md:justify-start gap-3 text-[#1C1C1E] dark:text-white"><span className="font-black text-xl">Настройки</span><button onClick={onClose} className="md:hidden w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button></div>
                 <div className="flex-1 p-4 space-y-2">
                     {SECTIONS.map(section => (
-                        <button key={section.id} onClick={() => { setActiveSection(section.id); setShowMobileMenu(false); }} className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${activeSection === section.id && !showMobileMenu ? 'bg-blue-500 text-white shadow-lg' : 'bg-transparent hover:bg-gray-50 dark:hover:bg-white/5'}`}>
+                        <button key={section.id} onClick={() => { setActiveSection(section.id); setShowMobileMenu(false); }} className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${activeSection === section.id && !showMobileMenu ? 'bg-blue-500 text-white shadow-lg' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}>
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeSection === section.id && !showMobileMenu ? 'bg-white/20' : 'bg-gray-50 dark:bg-white/10'}`}>{section.icon}</div>
                             <span className="font-bold text-sm flex-1 text-left">{section.label}</span>
                             <ChevronRight size={16} className="opacity-40" />
@@ -847,11 +852,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                 </div>
             </div>
             <div className={`flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#F2F2F7] dark:bg-black ${showMobileMenu ? 'hidden' : 'flex'}`}>
-                <div className="p-4 md:p-6 border-b dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex justify-between items-center">
+                <div className="p-4 md:p-6 border-b dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex justify-between items-center text-[#1C1C1E] dark:text-white">
                     <div className="flex items-center gap-2"><button onClick={() => setShowMobileMenu(true)} className="md:hidden p-2 text-gray-500"><ArrowLeft size={24} /></button><h2 className="text-xl font-black">{SECTIONS.find(s => s.id === activeSection)?.label}</h2></div>
                     <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button>
                 </div>
-                {/* Changed padding bottom for categories section specifically to handle its own scrolling */}
                 <div className={`flex-1 overflow-y-auto no-scrollbar overscroll-contain ${activeSection === 'categories' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'}`}>
                     <div className={`max-w-4xl mx-auto w-full h-full ${activeSection === 'categories' ? 'max-w-full' : ''}`}>
                         {renderSectionContent()}
@@ -860,7 +864,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             </div>
         </motion.div>
         <AnimatePresence>{showInstallGuide && (
-            <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-xl" /><motion.div initial={{scale:0.9, opacity:0, y:20}} animate={{scale:1, opacity:1, y:0}} exit={{scale:0.9, opacity:0, y:20}} className="relative bg-white dark:bg-[#1C1C1E] p-8 rounded-[3rem] shadow-2xl max-w-sm w-full space-y-6"><div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-2xl flex items-center justify-center mx-auto"><Smartphone size={32} /></div><div className="text-center"><h3 className="text-xl font-black">Установка</h3><p className="text-sm text-gray-500">Добавьте приложение на главный экран для быстрого доступа.</p></div><div className="space-y-4"><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0">1</div><p className="text-xs font-bold">Нажмите <span className="inline-block p-1 bg-white dark:bg-black rounded shadow-sm mx-1"><Share size={12}/> Поделиться</span></p></div><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0">2</div><p className="text-xs font-bold">Выберите <span className="text-blue-500">«На экран "Домой"»</span></p></div></div><button onClick={() => setShowInstallGuide(false)} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-2xl font-black uppercase text-xs">Понятно</button></motion.div></div>
+            <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-xl" /><motion.div initial={{scale:0.9, opacity:0, y:20}} animate={{scale:1, opacity:1, y:0}} exit={{scale:0.9, opacity:0, y:20}} className="relative bg-white dark:bg-[#1C1C1E] p-8 rounded-[3rem] shadow-2xl max-w-sm w-full space-y-6"><div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-2xl flex items-center justify-center mx-auto"><Smartphone size={32} /></div><div className="text-center"><h3 className="text-xl font-black">Установка</h3><p className="text-sm text-gray-500">Добавьте приложение на главный экран для быстрого доступа.</p></div><div className="space-y-4"><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0 text-black dark:text-white">1</div><p className="text-xs font-bold">Нажмите <span className="inline-block p-1 bg-white dark:bg-black rounded shadow-sm mx-1"><Share size={12}/> Поделиться</span></p></div><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0 text-black dark:text-white">2</div><p className="text-xs font-bold">Выберите <span className="text-blue-500">«На экран "Домой"»</span></p></div></div><button onClick={() => setShowInstallGuide(false)} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-2xl font-black uppercase text-xs">Понятно</button></motion.div></div>
         )}</AnimatePresence>
     </div>
   );

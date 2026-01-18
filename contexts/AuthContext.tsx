@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -20,10 +19,10 @@ interface AuthContextType {
   familyId: string | null;
   loading: boolean;
   isOfflineMode: boolean;
-  loginWithGoogle: (inviteCode?: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   loginAnonymously: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
-  registerWithEmail: (email: string, pass: string, inviteCode?: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string, familyId?: string) => Promise<void>;
   enterDemoMode: () => void;
   logout: () => Promise<void>;
 }
@@ -104,14 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []); 
 
-  const loginWithGoogle = async (inviteCode?: string) => {
+  const loginWithGoogle = async () => {
       try {
-          const res = await signInWithPopup(auth, googleProvider);
-          if (inviteCode && inviteCode.trim()) {
-              await joinFamily(res.user, inviteCode.trim());
-              toast.success('Вы успешно присоединились к семье!');
-              setTimeout(() => window.location.reload(), 1000);
-          }
+          await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
           const errorCode = error.code;
           if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/operation-not-supported-in-this-environment'].includes(errorCode)) {
@@ -133,13 +127,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
-  const registerWithEmail = async (email: string, pass: string, inviteCode?: string) => {
+  const registerWithEmail = async (email: string, pass: string, targetFamilyId?: string) => {
       setLoading(true);
       try {
           const res = await createUserWithEmailAndPassword(auth, email, pass);
-          if (inviteCode && inviteCode.trim()) {
-              await joinFamily(res.user, inviteCode.trim());
-              toast.success('Аккаунт создан, вы добавлены в семью!');
+          if (targetFamilyId && targetFamilyId.trim()) {
+              try {
+                  await joinFamily(res.user, targetFamilyId.trim());
+                  toast.success('Аккаунт создан, вы добавлены в семью!');
+              } catch (joinErr: any) {
+                  toast.error(`Аккаунт создан, но войти в семью не удалось: ${joinErr.message}`);
+              }
           } else {
               toast.success('Добро пожаловать в новый бюджет!');
           }

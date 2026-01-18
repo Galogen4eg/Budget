@@ -1,4 +1,3 @@
-
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
   onSnapshot, query, orderBy, where, getDocs, writeBatch, arrayUnion 
@@ -8,13 +7,10 @@ import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, Fami
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
 
-// Improved ID generation using UUID
 export const generateUniqueId = () => {
   return uuidv4();
 };
 
-// --- DEBUG LOGGING SYSTEM ---
-// Writes logs directly to Firestore so we can inspect what's happening on the device
 export const logDebug = async (user: FirebaseUser | null, action: string, details: any = null, type: 'info' | 'error' = 'info') => {
     try {
         const logRef = collection(db, 'system_logs');
@@ -53,15 +49,13 @@ export const subscribeToSettings = (familyId: string, callback: (settings: AppSe
   });
 };
 
-// --- GLOBAL RULES (SHARED KNOWLEDGE BASE) ---
-
 export const subscribeToGlobalRules = (callback: (rules: LearnedRule[]) => void) => {
   const q = query(collection(db, 'global_rules'));
   return onSnapshot(q, (snapshot) => {
     const rules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LearnedRule));
     callback(rules);
   }, (error) => {
-    console.warn("Global rules subscription failed (likely permission or offline):", error);
+    console.warn("Global rules subscription failed:", error);
     callback([]);
   });
 };
@@ -75,12 +69,9 @@ export const addGlobalRule = async (rule: LearnedRule) => {
   }
 };
 
-// --- INVITATIONS SYSTEM ---
-
 export const createInvitation = async (familyId: string, email: string, memberId: string) => {
     if (!email) return;
     const cleanEmail = email.toLowerCase().trim();
-    // Using email as doc ID for easy lookup, but adding field for robustness
     await setDoc(doc(db, 'invitations', cleanEmail), {
         familyId,
         placeholderMemberId: memberId,
@@ -89,211 +80,103 @@ export const createInvitation = async (familyId: string, email: string, memberId
     });
 };
 
-// ---------------------------------------------
+export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
+    if (!familyId) return false;
+    const famRef = doc(db, 'families', familyId);
+    const snap = await getDoc(famRef);
+    return snap.exists();
+};
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   await logDebug(user, 'getOrInitUserFamily_START', { email: user.email });
   
   const userRef = doc(db, 'users', user.uid);
-  let currentFamilyId = user.uid; // Default fallback (Demo/Self mode)
-  let profileExists = false;
+  const userSnap = await getDoc(userRef);
+  
+  if (userSnap.exists()) {
+      const data = userSnap.data();
+      if (data.familyId) return data.familyId;
+  }
 
-  // 1. CHECK INVITATIONS (PRIORITY OVER EVERYTHING)
   if (user.email) {
       const cleanEmail = user.email.toLowerCase().trim();
-      await logDebug(user, 'checking_invitations', { cleanEmail });
-      
       try {
           const inviteRef = doc(db, 'invitations', cleanEmail);
           const inviteSnap = await getDoc(inviteRef);
           
-          let inviteData = null;
-          let inviteRefToDelete = inviteRef;
-
           if (inviteSnap.exists()) {
-              inviteData = inviteSnap.data();
-              await logDebug(user, 'invite_found_direct', inviteData);
-          } else {
-              // FALLBACK: Query by field in case ID generation differed
-              await logDebug(user, 'invite_doc_missing_trying_query', { cleanEmail });
-              const q = query(collection(db, 'invitations'), where('email', '==', cleanEmail));
-              const querySnap = await getDocs(q);
-              
-              if (!querySnap.empty) {
-                  const doc = querySnap.docs[0];
-                  inviteData = doc.data();
-                  inviteRefToDelete = doc.ref;
-                  await logDebug(user, 'invite_found_via_query', inviteData);
-              } else {
-                  await logDebug(user, 'no_invite_found_via_query');
-              }
-          }
-
-          if (inviteData && inviteData.familyId) {
-              try {
-                  // USE BATCH for atomicity. If one fails (due to permissions), all fail.
-                  // This prevents the user from being stuck in a "joined but no permissions" state.
-                  const batch = writeBatch(db);
-
-                  // A. Update User Profile
-                  batch.set(userRef, {
-                      email: user.email,
-                      familyId: inviteData.familyId,
-                      lastLogin: new Date().toISOString(),
-                      updatedAt: new Date().toISOString()
-                  }, { merge: true });
-
-                  // B. Link Member Card
-                  if (inviteData.placeholderMemberId) {
-                      const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
-                      batch.set(memberRef, { 
-                          userId: user.uid, 
-                          avatar: user.photoURL || null 
-                      }, { merge: true });
-                  }
-
-                  // C. Add to Family Members List
-                  const famRef = doc(db, 'families', inviteData.familyId);
-                  batch.update(famRef, { members: arrayUnion(user.uid) });
-
-                  // D. Delete Invitation
-                  batch.delete(inviteRefToDelete);
-
-                  await batch.commit();
-
-                  // SUCCESS
-                  await logDebug(user, 'SUCCESS_joined_via_invite_batch', { familyId: inviteData.familyId });
-                  return inviteData.familyId;
-
-              } catch (criticalErr: any) {
-                  await logDebug(user, 'CRITICAL_invite_batch_failed', { 
-                      code: criticalErr.code, 
-                      message: criticalErr.message 
-                  }, 'error');
-                  // Do NOT return the invite family ID if write failed. Fallback to normal flow.
-              }
-          }
-      } catch (inviteErr: any) {
-          await logDebug(user, 'error_reading_invites', inviteErr.message, 'error');
-      }
-  }
-
-  // 2. Standard Profile Check (If no invite processed)
-  try {
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-          const data = userSnap.data();
-          if (data.familyId) {
-              currentFamilyId = data.familyId;
-              profileExists = true;
-              await logDebug(user, 'existing_profile_found', { familyId: currentFamilyId });
-          } else {
-              await logDebug(user, 'profile_exists_but_no_familyId');
-          }
-      } else {
-          await logDebug(user, 'no_user_profile_doc');
-      }
-  } catch (e: any) {
-      await logDebug(user, 'error_reading_profile', e.message, 'error');
-  }
-
-  // 3. Initialize Profile if missing
-  if (!profileExists) {
-      try {
-          await setDoc(userRef, {
-              email: user.email,
-              familyId: currentFamilyId,
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString()
-          }, { merge: true });
-          await logDebug(user, 'created_new_profile', { familyId: currentFamilyId });
-      } catch (e: any) {
-          await logDebug(user, 'failed_create_profile', e.message, 'error');
-      }
-  }
-
-  // 4. Initialize Self-Family if needed
-  // Only if the ID matches our UID (meaning we are NOT in someone else's family)
-  if (currentFamilyId === user.uid) {
-      const familyRef = doc(db, 'families', currentFamilyId);
-      try {
-          const famSnap = await getDoc(familyRef);
-          if (!famSnap.exists()) {
-              await logDebug(user, 'initializing_personal_family', { familyId: currentFamilyId });
-              
-              const newMember: FamilyMember = {
-                  id: user.uid,
-                  userId: user.uid,
-                  name: user.displayName || 'Пользователь',
-                  color: '#007AFF',
-                  avatar: user.photoURL || undefined,
-                  isAdmin: true
-              };
-              
+              const inviteData = inviteSnap.data();
               const batch = writeBatch(db);
-              batch.set(familyRef, {
-                  ownerId: user.uid,
-                  name: 'Моя семья',
-                  createdAt: new Date().toISOString(),
-                  members: [user.uid]
-              });
-              batch.set(doc(db, 'families', currentFamilyId, 'members', user.uid), newMember);
+              batch.set(userRef, { email: user.email, familyId: inviteData.familyId, updatedAt: new Date().toISOString() }, { merge: true });
+              if (inviteData.placeholderMemberId) {
+                  const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
+                  batch.set(memberRef, { userId: user.uid, avatar: user.photoURL || null }, { merge: true });
+              }
+              const famRef = doc(db, 'families', inviteData.familyId);
+              batch.update(famRef, { members: arrayUnion(user.uid) });
+              batch.delete(inviteRef);
               await batch.commit();
-              await logDebug(user, 'personal_family_created');
+              return inviteData.familyId;
           }
       } catch (e: any) {
-          await logDebug(user, 'family_init_error', e.message, 'error');
+          console.error("Invite processing failed", e);
       }
   }
 
-  await logDebug(user, 'getOrInitUserFamily_DONE', { returning: currentFamilyId });
-  return currentFamilyId;
+  const defaultFamilyId = user.uid;
+  await setDoc(userRef, {
+      email: user.email,
+      familyId: defaultFamilyId,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString()
+  }, { merge: true });
+
+  const familyRef = doc(db, 'families', defaultFamilyId);
+  const famSnap = await getDoc(familyRef);
+  if (!famSnap.exists()) {
+      const batch = writeBatch(db);
+      batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
+      const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
+      batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
+      await batch.commit();
+  }
+
+  return defaultFamilyId;
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error("Invalid params for joinFamily");
-  await logDebug(user, 'joinFamily_START', { targetFamilyId });
+  if (!targetFamilyId || !user) throw new Error("Invalid params");
   
   const cleanFamilyId = targetFamilyId.trim();
   const userRef = doc(db, 'users', user.uid);
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
   const familyRef = doc(db, 'families', cleanFamilyId);
 
-  const newMember: FamilyMember = {
-      id: user.uid,
-      userId: user.uid,
-      name: user.displayName || 'Новый участник',
-      color: '#34C759', 
-      isAdmin: false
-  };
-
-  if (user.photoURL) {
-      newMember.avatar = user.photoURL;
+  const familySnap = await getDoc(familyRef);
+  const memberSnap = await getDoc(memberRef);
+  
+  const batch = writeBatch(db);
+  batch.set(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
+  
+  if (!familySnap.exists()) {
+      batch.set(familyRef, { ownerId: user.uid, name: 'Семья ' + cleanFamilyId, createdAt: new Date().toISOString(), members: [user.uid] });
+  } else {
+      batch.update(familyRef, { members: arrayUnion(user.uid) });
   }
 
-  try {
-      const batch = writeBatch(db);
-      batch.set(userRef, { 
-          familyId: cleanFamilyId,
-          email: user.email,
-          updatedAt: new Date().toISOString()
-      }, { merge: true });
+  if (!memberSnap.exists()) {
+      const newMember: FamilyMember = {
+          id: user.uid,
+          userId: user.uid,
+          name: user.displayName || user.email?.split('@')[0] || 'Участник',
+          color: '#34C759', 
+          isAdmin: !familySnap.exists() // First one is admin
+      };
+      if (user.photoURL) newMember.avatar = user.photoURL;
       batch.set(memberRef, newMember);
-      await batch.commit();
-      await logDebug(user, 'joinFamily_batch_success');
-  } catch (e: any) {
-      await logDebug(user, 'joinFamily_batch_failed', e.message, 'error');
-      // Fallback
-      await setDoc(userRef, { familyId: cleanFamilyId }, { merge: true });
   }
 
-  try {
-      await updateDoc(familyRef, {
-          members: arrayUnion(user.uid)
-      });
-  } catch (e: any) {
-      await logDebug(user, 'joinFamily_update_parent_failed', e.message, 'error');
-  }
+  await batch.commit();
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {

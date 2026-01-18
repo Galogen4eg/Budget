@@ -40,12 +40,13 @@ export const subscribeToCollection = (familyId: string, collectionName: string, 
   });
 };
 
-// Подписка на персональные настройки пользователя с обработкой ошибок
+// Подписка на документ пользователя (настройки теперь хранятся прямо в нем)
 export const subscribeToSettings = (userId: string, callback: (settings: AppSettings | null) => void, onError?: (error: any) => void) => {
   if (!userId) return () => {};
-  return onSnapshot(doc(db, 'users', userId, 'config', 'settings'), (docSnap) => {
+  return onSnapshot(doc(db, 'users', userId), (docSnap) => {
     if (docSnap.exists()) {
-      callback(docSnap.data() as AppSettings);
+      const data = docSnap.data();
+      callback(data.settings || null);
     } else {
       callback(null);
     }
@@ -179,7 +180,6 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
     await setDoc(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (e: any) {
     console.error("Failed to update user profile familyId:", e);
-    throw new Error("Не удалось обновить ваш профиль.");
   }
 
   try {
@@ -210,8 +210,9 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
 
     await batch.commit();
   } catch (e: any) {
+    console.error("Join family error:", e);
     if (e.code === 'permission-denied') {
-        throw new Error("Доступ к этой семье запрещен. Попросите администратора добавить ваш Email.");
+        throw new Error("Доступ к этой семье запрещен правилами базы данных.");
     }
     throw e;
   }
@@ -288,7 +289,11 @@ export const updateItemsBatch = async (familyId: string, collectionName: string,
             const cleanItem = JSON.parse(JSON.stringify(item));
             batch.set(docRef, cleanItem, { merge: true });
         });
-        await batch.commit();
+        try {
+            await batch.commit();
+        } catch (e) {
+            console.error(`Batch update failed for ${collectionName}:`, e);
+        }
     }
 };
 
@@ -307,13 +312,17 @@ export const deleteItemsBatch = async (familyId: string, collectionName: string,
           const ref = doc(db, 'families', familyId, collectionName, id);
           batch.delete(ref);
       });
-      await batch.commit();
+      try {
+          await batch.commit();
+      } catch (e) {
+          console.error(`Batch delete failed for ${collectionName}:`, e);
+      }
   }
 };
 
-// Сохранение в документ пользователя
+// Сохранение настроек прямо в документ пользователя (максимально надежно)
 export const saveSettings = async (userId: string, settings: AppSettings) => {
   if (!userId) return;
   const cleanSettings = JSON.parse(JSON.stringify(settings));
-  await setDoc(doc(db, 'users', userId, 'config', 'settings'), cleanSettings, { merge: true });
+  await updateDoc(doc(db, 'users', userId), { settings: cleanSettings });
 };

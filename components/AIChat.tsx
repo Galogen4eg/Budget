@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Bot, User, AlertCircle, Mic, MicOff, ShoppingBag, Calendar, Box, RefreshCw, Trash2, Sparkles, Clock, BrainCircuit, Settings, X, ImageIcon, Download } from 'lucide-react';
@@ -145,6 +144,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
   const handleGenerateImage = async (prompt: string) => {
       try {
+          // Fix: Use process.env.API_KEY directly for initialization.
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
               model: 'gemini-2.5-flash-image',
@@ -185,8 +185,8 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     setInput('');
     setLoading(true);
 
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
+    // Fix: Access process.env.API_KEY directly for initialization.
+    if (!process.env.API_KEY) {
         setMessages(prev => [...prev, { 
             role: 'model', 
             text: 'Ошибка: API ключ не настроен. Проверьте настройки.',
@@ -225,9 +225,8 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       `;
 
       // 2. Prepare Chat History
-      // NOTE: Removed explicit type definition to avoid import errors
       const chatHistory = messages
-        .filter(m => !m.isError && !m.image) // Filter out image responses from context to save tokens/avoid format issues
+        .filter(m => !m.isError && !m.image)
         .map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
@@ -236,7 +235,8 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       // 3. User Message with Context (Hidden from user history, visible to model)
       const finalPrompt = `User Input: "${userMsg}"\n\n${contextData}`;
 
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      // Fix: Always initialize GoogleGenAI with process.env.API_KEY directly inside methods.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -274,6 +274,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         }
       });
 
+      // Fix: Use the .text property directly instead of calling .text() as a function.
       const responseText = response.text || '';
       let handled = false;
       

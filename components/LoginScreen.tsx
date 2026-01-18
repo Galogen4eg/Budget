@@ -72,7 +72,7 @@ const LoginScreen: React.FC = () => {
 
                     <div className="space-y-3">
                         <button 
-                            onClick={loginWithGoogle}
+                            onClick={() => loginWithGoogle()}
                             className="w-full bg-white dark:bg-[#1C1C1E] text-[#1C1C1E] dark:text-white py-4 rounded-[1.5rem] font-bold text-sm shadow-sm border border-gray-200 dark:border-white/5 flex items-center justify-center gap-3 active:scale-95 transition-transform"
                         >
                             <Globe size={18} />
@@ -182,48 +182,68 @@ const LoginScreen: React.FC = () => {
                         </button>
                     </div>
                     
-                    <form onSubmit={handleEmailRegister} className="space-y-4">
-                        <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                            <input 
-                                type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)}
-                                className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-sm font-bold outline-none border border-transparent focus:border-blue-500 transition-all dark:text-white"
-                            />
-                        </div>
-                        <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                            <input 
-                                type="password" placeholder="Придумайте пароль" value={password} onChange={e => setPassword(e.target.value)}
-                                className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-sm font-bold outline-none border border-transparent focus:border-blue-500 transition-all dark:text-white"
-                            />
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 ml-2">
-                                <Key size={14} className="text-purple-500"/>
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                    {registerType === 'join' ? 'ID Семьи (Обязательно)' : 'ID Семьи (Опционально)'}
-                                </span>
+                    <div className="space-y-4">
+                        {registerType === 'join' && (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 ml-2">
+                                    <Key size={14} className="text-purple-500"/>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        ID Семьи
+                                    </span>
+                                </div>
+                                <div className="relative">
+                                    <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                    <input 
+                                        type="text" placeholder="Введите Family ID" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
+                                        className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-xs font-bold outline-none border border-transparent focus:border-purple-500 transition-all dark:text-white"
+                                    />
+                                </div>
                             </div>
-                            <div className="relative">
-                                <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                                <input 
-                                    type="text" placeholder="Введите Family ID" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
-                                    className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-xs font-bold outline-none border border-transparent focus:border-purple-500 transition-all dark:text-white"
-                                />
-                            </div>
-                            {registerType === 'new' && (
-                                <p className="text-[9px] text-gray-400 px-2 leading-relaxed">Если оставить пустым, система создаст для вас новый уникальный ID, которым вы сможете поделиться позже.</p>
-                            )}
+                        )}
+
+                        {/* Google Button specifically for Registration/Join Context */}
+                        <motion.button 
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            onClick={() => loginWithGoogle(registerType === 'join' ? inviteCode : undefined)}
+                            className="w-full bg-white dark:bg-[#1C1C1E] text-[#1C1C1E] dark:text-white py-4 rounded-[1.2rem] font-bold text-sm shadow-sm border border-gray-200 dark:border-white/5 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                        >
+                            <Globe size={18} className="text-blue-500" />
+                            Войти через Google
+                        </motion.button>
+
+                        <div className="relative py-2 flex items-center gap-4">
+                            <div className="h-[1px] flex-1 bg-gray-200 dark:bg-white/10" />
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                Или через почту
+                            </span>
+                            <div className="h-[1px] flex-1 bg-gray-200 dark:bg-white/10" />
                         </div>
 
-                        <button 
-                            type="submit" disabled={isLoading || (registerType === 'join' && !inviteCode.trim())}
-                            className={`w-full py-4 rounded-[1.2rem] font-bold text-sm shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 ${registerType === 'join' ? 'bg-purple-500 text-white shadow-purple-500/20' : 'bg-blue-500 text-white shadow-blue-500/20'}`}
-                        >
-                            {isLoading ? <Loader2 className="animate-spin" size={18}/> : registerType === 'join' ? 'Вступить в семью' : 'Создать аккаунт'}
-                        </button>
-                    </form>
+                        <form onSubmit={handleEmailRegister} className="space-y-4">
+                            <div className="relative">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                <input 
+                                    type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)}
+                                    className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-sm font-bold outline-none border border-transparent focus:border-blue-500 transition-all dark:text-white"
+                                />
+                            </div>
+                            <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                <input 
+                                    type="password" placeholder="Придумайте пароль" value={password} onChange={set => setPassword(set.target.value)}
+                                    className="w-full bg-white dark:bg-[#1C1C1E] py-4 pl-12 pr-4 rounded-[1.2rem] text-sm font-bold outline-none border border-transparent focus:border-blue-500 transition-all dark:text-white"
+                                />
+                            </div>
+
+                            <button 
+                                type="submit" disabled={isLoading || (registerType === 'join' && !inviteCode.trim())}
+                                className={`w-full py-4 rounded-[1.2rem] font-bold text-sm shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 ${registerType === 'join' ? 'bg-purple-500 text-white shadow-purple-500/20' : 'bg-blue-500 text-white shadow-blue-500/20'}`}
+                            >
+                                {isLoading ? <Loader2 className="animate-spin" size={18}/> : registerType === 'join' ? 'Вступить в семью' : 'Создать аккаунт'}
+                            </button>
+                        </form>
+                    </div>
                     
                     <p className="text-center text-xs font-bold text-gray-400">
                         Уже есть аккаунт? <button onClick={() => setView('login')} className="text-blue-500">Войти</button>

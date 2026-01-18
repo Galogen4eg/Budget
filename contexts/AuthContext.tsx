@@ -19,7 +19,7 @@ interface AuthContextType {
   familyId: string | null;
   loading: boolean;
   isOfflineMode: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (targetFamilyId?: string) => Promise<void>;
   loginAnonymously: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, familyId?: string) => Promise<void>;
@@ -74,6 +74,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
           setUser(currentUser);
+          
+          // Check for a pending family join (from Google login flow)
+          const pendingFid = localStorage.getItem('pending_join_family');
+          if (pendingFid) {
+              try {
+                  await joinFamily(currentUser, pendingFid);
+                  toast.success('Вы успешно вошли и присоединились к семье!');
+              } catch (e: any) {
+                  console.error("Failed to join pending family:", e);
+                  toast.error(`Не удалось присоединиться к семье: ${e.message}`);
+              } finally {
+                  localStorage.removeItem('pending_join_family');
+              }
+          }
+
           const cachedFid = localStorage.getItem('cached_familyId');
           try {
             const fid = await getOrInitUserFamily(currentUser);
@@ -103,7 +118,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []); 
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (targetFamilyId?: string) => {
+      if (targetFamilyId?.trim()) {
+          localStorage.setItem('pending_join_family', targetFamilyId.trim());
+      }
+      
       try {
           await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
@@ -112,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await signInWithRedirect(auth, googleProvider);
           } else {
               toast.error(`Ошибка входа: ${error.message}`);
+              localStorage.removeItem('pending_join_family');
           }
       }
   };

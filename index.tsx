@@ -13,14 +13,18 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use destructured Component and an explicit constructor with super(props) to ensure 'props' is correctly inherited and recognized by the TypeScript compiler.
+// Fix: Import Component directly and extend it to ensure 'props' and 'state' properties are correctly inherited and recognized by TypeScript.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare the state property on the class to resolve potential "Property 'state' does not exist" errors.
+  state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Fix: Initialize state in the constructor to follow recommended class component patterns.
     this.state = { hasError: false, error: null };
   }
 
-  // Fix: Standard Error Boundary static method to update state after an error occurs.
+  // Fix: Use standard getDerivedStateFromError to catch errors and update the state.
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
@@ -30,7 +34,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Access state correctly through this.state, inherited from Component.
+    // Fix: Accessing this.state is now correctly typed as it's inherited from the React Component base class.
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,8 +61,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: Access children from this.props which is correctly inherited from Component.
-    return this.props.children;
+    // Fix: Correctly return this.props.children, ensuring it defaults to null if undefined to satisfy React's return type requirements.
+    return this.props.children || null;
   }
 }
 

@@ -179,6 +179,48 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   await batch.commit();
 };
 
+/**
+ * Migrates (copies) all documents from source family to target family.
+ */
+export const migrateFamilyData = async (sourceId: string, targetId: string) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+
+    const collectionsToMigrate = [
+        'transactions', 'shopping', 'pantry', 'events', 
+        'goals', 'members', 'categories', 'rules', 
+        'knowledge', 'debts', 'projects', 'loyalty', 'wishlist'
+    ];
+
+    // 1. Migrate Settings
+    const settingsRef = doc(db, 'families', sourceId, 'config', 'settings');
+    const settingsSnap = await getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+        await setDoc(doc(db, 'families', targetId, 'config', 'settings'), settingsSnap.data());
+    }
+
+    // 2. Migrate Subcollections
+    for (const collName of collectionsToMigrate) {
+        const sourceColl = collection(db, 'families', sourceId, collName);
+        const snapshot = await getDocs(sourceColl);
+        
+        if (snapshot.empty) continue;
+
+        // Process in batches of 500
+        const docs = snapshot.docs;
+        for (let i = 0; i < docs.length; i += 450) {
+            const batch = writeBatch(db);
+            const chunk = docs.slice(i, i + 450);
+            
+            chunk.forEach(d => {
+                const targetRef = doc(db, 'families', targetId, collName, d.id);
+                batch.set(targetRef, d.data());
+            });
+            
+            await batch.commit();
+        }
+    }
+};
+
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();

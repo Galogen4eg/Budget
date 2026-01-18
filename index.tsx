@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
@@ -13,10 +13,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Explicitly extend React.Component with props and state interfaces to ensure inheritance of 'props' and 'state'.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly initialize state with type.
-  state: ErrorBoundaryState = { hasError: false, error: null };
+// Fix: Use destructured Component and an explicit constructor with super(props) to ensure 'props' is correctly inherited and recognized by the TypeScript compiler.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   // Fix: Standard Error Boundary static method to update state after an error occurs.
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -28,7 +30,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Fix: Access state correctly through this.state, inherited from React.Component.
+    // Fix: Access state correctly through this.state, inherited from Component.
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -55,7 +57,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    // Fix: Access children from this.props which is correctly inherited from React.Component.
+    // Fix: Access children from this.props which is correctly inherited from Component.
     return this.props.children;
   }
 }

@@ -10,15 +10,16 @@ import {
   ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
   ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
   BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, RefreshCcw
+  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, RefreshCcw, MoveUpRight
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
-import { createInvitation, deleteItem, joinFamily } from '../utils/db';
+import { createInvitation, deleteItem, joinFamily, migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
+import { toast } from 'sonner';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -148,6 +149,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
+  const [shouldMigrate, setShouldMigrate] = useState(false);
 
   // Tools
   const [deleteStart, setDeleteStart] = useState('');
@@ -337,13 +339,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       }
       if (targetId === currentFamilyId) return;
 
-      if (!confirm("Вы уверены, что хотите сменить ID семьи? Это переключит приложение на новый набор данных. Старые данные останутся под старым ID.")) return;
+      if (!confirm(`Вы уверены, что хотите сменить ID на ${targetId}?`)) return;
 
       setIsJoining(true);
       try {
+          if (shouldMigrate && currentFamilyId) {
+              toast.info('Начинаем перенос данных...');
+              await migrateFamilyData(currentFamilyId, targetId);
+              toast.success('Данные успешно перенесены!');
+          }
           await onJoinFamily(targetId);
       } catch (e: any) {
-          alert(e.message || "Ошибка при смене ID");
+          toast.error(e.message || "Ошибка при смене ID");
           setIsJoining(false);
       }
   };
@@ -723,26 +730,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
                     <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
                         <div className="flex items-center gap-2 mb-3">
-                            {/* Fix: Added Key icon import to fix build error. */}
                             <Key size={16} className="text-purple-500" />
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Текущий Family ID</p>
                         </div>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={newFamilyId}
-                                onChange={(e) => setNewFamilyId(e.target.value)}
-                                className={`flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-xl font-mono text-sm font-bold border transition-all ${newFamilyId !== currentFamilyId ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-transparent'}`}
-                                placeholder="Введите ID"
-                            />
+                        <div className="flex flex-col gap-3">
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={newFamilyId}
+                                    onChange={(e) => setNewFamilyId(e.target.value)}
+                                    className={`flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-xl font-mono text-sm font-bold border transition-all ${newFamilyId !== currentFamilyId ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-transparent'}`}
+                                    placeholder="Введите ID"
+                                />
+                                {newFamilyId !== currentFamilyId && (
+                                    <button 
+                                        onClick={handleUpdateFamilyId}
+                                        disabled={isJoining}
+                                        className="bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50 shadow-lg shadow-blue-500/20"
+                                    >
+                                        {isJoining ? <Loader2 size={20} className="animate-spin" /> : <RefreshCcw size={20} />}
+                                    </button>
+                                )}
+                            </div>
+                            
                             {newFamilyId !== currentFamilyId && (
-                                <button 
-                                    onClick={handleUpdateFamilyId}
-                                    disabled={isJoining}
-                                    className="bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50 shadow-lg shadow-blue-500/20"
+                                <motion.div 
+                                    initial={{ opacity: 0, height: 0 }} 
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="px-1"
                                 >
-                                    {isJoining ? <Loader2 size={20} className="animate-spin" /> : <RefreshCcw size={20} />}
-                                </button>
+                                    <label className="flex items-center gap-3 p-3 bg-white dark:bg-[#1C1C1E] rounded-xl border border-blue-100 dark:border-blue-900/20 cursor-pointer active:scale-98 transition-transform shadow-sm">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${shouldMigrate ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-[#3A3A3C] text-gray-400'}`}>
+                                            <MoveUpRight size={20} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold dark:text-white leading-tight">Перенести текущие данные</p>
+                                            <p className="text-[10px] text-gray-400 mt-0.5">Скопировать все записи в новую семью</p>
+                                        </div>
+                                        <Switch checked={shouldMigrate} onChange={() => setShouldMigrate(!shouldMigrate)} />
+                                    </label>
+                                </motion.div>
                             )}
                         </div>
                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed px-1">Чтобы присоединиться к существующей семье, введите её ID выше и нажмите кнопку обновления. Чтобы создать свою группу, введите любой уникальный ID.</p>
@@ -752,7 +779,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
                             <AlertOctagon size={18} className="text-amber-500 shrink-0" />
                             <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold leading-relaxed uppercase tracking-wider">
-                                Внимание: переключение ID сменит текущий набор данных. Старые данные не переносятся автоматически.
+                                Внимание: переключение ID сменит текущий набор данных. Используйте опцию "Перенос", если хотите сохранить записи.
                             </p>
                         </div>
                     </div>

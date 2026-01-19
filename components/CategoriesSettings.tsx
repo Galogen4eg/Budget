@@ -77,15 +77,34 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const [ruleKeyword, setRuleKeyword] = useState('');
   const [ruleCategoryId, setRuleCategoryId] = useState<string | null>(null);
 
+  // Calculate usage frequency from transactions
+  const categoryUsage = useMemo(() => {
+      const counts: Record<string, number> = {};
+      if (transactions) {
+          transactions.forEach(t => {
+              counts[t.category] = (counts[t.category] || 0) + 1;
+          });
+      }
+      return counts;
+  }, [transactions]);
+
   const sortedCategories = useMemo(() => {
-      return [...categories].sort((a, b) => a.label.localeCompare(b.label));
-  }, [categories]);
+      return [...categories].sort((a, b) => {
+          // Sort by usage count descending
+          const countA = categoryUsage[a.id] || 0;
+          const countB = categoryUsage[b.id] || 0;
+          if (countB !== countA) return countB - countA;
+          
+          // Then alphabetically
+          return a.label.localeCompare(b.label);
+      });
+  }, [categories, categoryUsage]);
 
   // Determine which categories to show based on "Show All" toggle
   const visibleCategories = useMemo(() => {
       if (showAll) return sortedCategories;
-      // Show first 6 items
-      return sortedCategories.slice(0, 6);
+      // Show first 5 items (popular ones)
+      return sortedCategories.slice(0, 5);
   }, [sortedCategories, showAll]);
 
   const theme = {
@@ -312,12 +331,12 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               </div>
 
               {/* Show All Toggle for Main View */}
-              {!showAll && sortedCategories.length > 6 && (
+              {!showAll && sortedCategories.length > 5 && (
                   <button 
                     onClick={() => setShowAll(true)}
                     className={`w-full mt-3 py-3 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
                   >
-                      Показать еще {sortedCategories.length - 6} <ChevronDown size={14} />
+                      Показать еще {sortedCategories.length - 5} <ChevronDown size={14} />
                   </button>
               )}
               
@@ -565,12 +584,12 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   ))}
               </div>
               
-              {!showAll && categories.length > 6 && (
+              {!showAll && sortedCategories.length > 5 && (
                   <button 
                     onClick={() => setShowAll(true)}
                     className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
                   >
-                      Показать еще {categories.length - 6} <ChevronDown size={14} />
+                      Показать еще {sortedCategories.length - 5} <ChevronDown size={14} />
                   </button>
               )}
               

@@ -1,3 +1,4 @@
+
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
   onSnapshot, query, orderBy, where, getDocs, writeBatch, arrayUnion 
@@ -23,12 +24,13 @@ export const logDebug = async (user: FirebaseUser | null, action: string, detail
             type,
             userAgent: navigator.userAgent
         });
+        console.log(`[DB-LOG] ${action}`, details);
     } catch (e) {
         console.error("Failed to write debug log to DB:", e);
     }
 };
 
-export const subscribeToCollection = (familyId: string, collectionName: string, callback: (data: any[]) => void, onError?: (error: any) => void) => {
+export const subscribeToCollection = (familyId: string, collectionName: string, callback: (data: any[]) => void) => {
   if (!familyId) return () => {};
   const q = query(collection(db, 'families', familyId, collectionName));
   return onSnapshot(q, (snapshot) => {
@@ -36,36 +38,98 @@ export const subscribeToCollection = (familyId: string, collectionName: string, 
     callback(data);
   }, (error) => {
     console.error(`Error subscribing to ${collectionName}:`, error);
-    if (onError) onError(error);
   });
 };
 
-// Подписка на персональные настройки пользователя с обработкой ошибок
-export const subscribeToSettings = (userId: string, callback: (settings: AppSettings | null) => void, onError?: (error: any) => void) => {
-  if (!userId) return () => {};
-  return onSnapshot(doc(db, 'users', userId, 'config', 'settings'), (docSnap) => {
-    if (docSnap.exists()) {
-      callback(docSnap.data() as AppSettings);
-    } else {
-      callback(null);
+// Keys that are specific to the user and should not be shared across the family
+const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
+    'theme', 
+    'privacyMode', 
+    'widgets', 
+    'isPinEnabled', 
+    'pinCode', 
+    'enabledTabs', 
+    'enabledServices', 
+    'defaultBudgetMode', 
+    'pushEnabled', 
+    'fcmToken', 
+    'showFeedbackTool', 
+    'eventTemplate', 
+    'shoppingTemplate', 
+    'dayStartHour', 
+    'dayEndHour', 
+    'salaryDates', // Personal salary dates
+    'telegramBotToken', // Personal bot settings
+    'telegramChatId'
+];
+
+// Subscribe to both Shared Settings (Family) and User Settings (Member)
+export const subscribeToAppSettings = (familyId: string, userId: string, callback: (settings: AppSettings) => void) => {
+  if (!familyId || !userId) return () => {};
+
+  let sharedSettings: Partial<AppSettings> = {};
+  let userSettings: Partial<AppSettings> = {};
+
+  const mergeAndCallback = () => {
+      callback({ ...sharedSettings, ...userSettings } as AppSettings);
+  };
+
+  const unsubShared = onSnapshot(doc(db, 'families', familyId, 'config', 'settings'), (doc) => {
+    if (doc.exists()) {
+      sharedSettings = doc.data() as AppSettings;
+      mergeAndCallback();
     }
-  }, (error) => {
-    console.error("Error subscribing to settings:", error);
-    if (onError) onError(error);
   });
+
+  const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), (doc) => {
+    if (doc.exists()) {
+      userSettings = doc.data() as Partial<AppSettings>;
+      mergeAndCallback();
+    }
+  });
+
+  return () => {
+      unsubShared();
+      unsubUser();
+  };
 };
 
-// Функция для получения старых настроек семьи (безопасно)
-export const getLegacyFamilySettings = async (familyId: string): Promise<AppSettings | null> => {
-    if (!familyId) return null;
-    try {
-        const docRef = doc(db, 'families', familyId, 'config', 'settings');
-        const snap = await getDoc(docRef);
-        return snap.exists() ? (snap.data() as AppSettings) : null;
-    } catch (e) {
-        console.warn("Could not fetch legacy settings (likely permission denied):", e);
-        return null;
-    }
+// Save settings splitting them into Shared and User buckets
+export const saveAppSettings = async (familyId: string, userId: string, settings: AppSettings) => {
+  if (!familyId || !userId) return;
+
+  const sharedPart: any = {};
+  const userPart: any = {};
+
+  Object.keys(settings).forEach((key) => {
+      const k = key as keyof AppSettings;
+      if (USER_SPECIFIC_KEYS.includes(k)) {
+          userPart[k] = settings[k];
+      } else {
+          sharedPart[k] = settings[k];
+      }
+  });
+
+  const batch = writeBatch(db);
+  
+  // Update Shared
+  const sharedRef = doc(db, 'families', familyId, 'config', 'settings');
+  batch.set(sharedRef, sharedPart, { merge: true });
+
+  // Update User
+  const userRef = doc(db, 'families', familyId, 'members', userId, 'config', 'settings');
+  batch.set(userRef, userPart, { merge: true });
+
+  await batch.commit();
+};
+
+// Legacy support wrapper (deprecated for direct use in components)
+export const saveSettings = async (familyId: string, settings: AppSettings) => {
+    // This function assumes it receives the FULL settings object but doesn't know the USER ID context for splitting properly if called directly without userId.
+    // However, for backward compatibility or when userId is unknown (rare), we might dump to shared. 
+    // Ideally, avoid using this export and use saveAppSettings with userId.
+    const sharedRef = doc(db, 'families', familyId, 'config', 'settings');
+    await setDoc(sharedRef, settings, { merge: true });
 };
 
 export const subscribeToGlobalRules = (callback: (rules: LearnedRule[]) => void) => {
@@ -101,16 +165,14 @@ export const createInvitation = async (familyId: string, email: string, memberId
 
 export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
     if (!familyId) return false;
-    try {
-        const famRef = doc(db, 'families', familyId);
-        const snap = await getDoc(famRef);
-        return snap.exists();
-    } catch (e) {
-        return false;
-    }
+    const famRef = doc(db, 'families', familyId);
+    const snap = await getDoc(famRef);
+    return snap.exists();
 };
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
+  await logDebug(user, 'getOrInitUserFamily_START', { email: user.email });
+  
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   
@@ -119,7 +181,6 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       if (data.familyId) return data.familyId;
   }
 
-  // Проверка приглашений
   if (user.email) {
       const cleanEmail = user.email.toLowerCase().trim();
       try {
@@ -145,7 +206,6 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       }
   }
 
-  // Создание новой семьи по умолчанию
   const defaultFamilyId = user.uid;
   await setDoc(userRef, {
       email: user.email,
@@ -161,6 +221,8 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
       batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
       const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
       batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
+      // Initialize shared settings for new family
+      batch.set(doc(db, 'families', defaultFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Моя семья' });
       await batch.commit();
   }
 
@@ -175,28 +237,35 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const familyRef = doc(db, 'families', cleanFamilyId);
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
 
+  // 1. Сначала пробуем обновить профиль пользователя (на это обычно есть права)
   try {
     await setDoc(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (e: any) {
     console.error("Failed to update user profile familyId:", e);
-    throw new Error("Не удалось обновить ваш профиль.");
+    throw new Error("Не удалось обновить ваш профиль. Проверьте права доступа.");
   }
 
+  // 2. Затем пробуем обновить документ семьи и добавить участника
   try {
     const familySnap = await getDoc(familyRef);
     const batch = writeBatch(db);
 
     if (!familySnap.exists()) {
+        // Если семьи нет, создаем её (пользователь становится владельцем)
         batch.set(familyRef, { 
             ownerId: user.uid, 
             name: 'Семья ' + cleanFamilyId, 
             createdAt: new Date().toISOString(), 
             members: [user.uid] 
         });
+        // Init default shared settings
+        batch.set(doc(db, 'families', cleanFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Семья' });
     } else {
+        // Если есть, просто добавляем в список ID участников
         batch.update(familyRef, { members: arrayUnion(user.uid) });
     }
 
+    // Создаем запись в подколлекции участников
     const newMember: FamilyMember = {
         id: user.uid,
         userId: user.uid,
@@ -210,8 +279,9 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
 
     await batch.commit();
   } catch (e: any) {
+    console.error("Firestore permission error in joinFamily:", e);
     if (e.code === 'permission-denied') {
-        throw new Error("Доступ к этой семье запрещен. Попросите администратора добавить ваш Email.");
+        throw new Error("Доступ запрещен. Попросите администратора семьи проверить настройки доступа (Firestore Rules).");
     }
     throw e;
   }
@@ -226,27 +296,29 @@ export const migrateFamilyData = async (sourceId: string, targetId: string) => {
         'knowledge', 'debts', 'projects', 'loyalty', 'wishlist'
     ];
 
-    for (const collName of collectionsToMigrate) {
-        try {
-            const sourceColl = collection(db, 'families', sourceId, collName);
-            const snapshot = await getDocs(sourceColl);
-            
-            if (snapshot.empty) continue;
+    const settingsRef = doc(db, 'families', sourceId, 'config', 'settings');
+    const settingsSnap = await getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+        await setDoc(doc(db, 'families', targetId, 'config', 'settings'), settingsSnap.data());
+    }
 
-            const docs = snapshot.docs;
-            for (let i = 0; i < docs.length; i += 450) {
-                const batch = writeBatch(db);
-                const chunk = docs.slice(i, i + 450);
-                
-                chunk.forEach(d => {
-                    const targetRef = doc(db, 'families', targetId, collName, d.id);
-                    batch.set(targetRef, d.data());
-                });
-                
-                await batch.commit();
-            }
-        } catch (e) {
-            console.warn(`Migration failed for collection ${collName}:`, e);
+    for (const collName of collectionsToMigrate) {
+        const sourceColl = collection(db, 'families', sourceId, collName);
+        const snapshot = await getDocs(sourceColl);
+        
+        if (snapshot.empty) continue;
+
+        const docs = snapshot.docs;
+        for (let i = 0; i < docs.length; i += 450) {
+            const batch = writeBatch(db);
+            const chunk = docs.slice(i, i + 450);
+            
+            chunk.forEach(d => {
+                const targetRef = doc(db, 'families', targetId, collName, d.id);
+                batch.set(targetRef, d.data());
+            });
+            
+            await batch.commit();
         }
     }
 };
@@ -309,11 +381,4 @@ export const deleteItemsBatch = async (familyId: string, collectionName: string,
       });
       await batch.commit();
   }
-};
-
-// Сохранение в документ пользователя
-export const saveSettings = async (userId: string, settings: AppSettings) => {
-  if (!userId) return;
-  const cleanSettings = JSON.parse(JSON.stringify(settings));
-  await setDoc(doc(db, 'users', userId, 'config', 'settings'), cleanSettings, { merge: true });
 };

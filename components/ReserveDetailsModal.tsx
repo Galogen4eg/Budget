@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X, Lock, PiggyBank, Receipt, CalendarClock, AlertCircle, Save, CheckCircle2, Circle, Coins } from 'lucide-react';
 import { MandatoryExpense, AppSettings } from '../types';
+import { useData } from '../contexts/DataContext';
 
 interface ReserveDetailsModalProps {
   onClose: () => void;

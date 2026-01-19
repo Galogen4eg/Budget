@@ -1,10 +1,10 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { AppSettings, Transaction } from '../types';
 import { Wallet, Eye, EyeOff, TrendingUp, Lock, CalendarClock, ArrowDownRight, Users, User, UserPlus } from 'lucide-react';
 import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import ReserveDetailsModal from './ReserveDetailsModal';
 import { useData } from '../contexts/DataContext';
-import { saveSettings } from '../utils/db';
 import { useAuth } from '../contexts/AuthContext';
 
 interface SmartHeaderProps {
@@ -38,13 +38,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
-  const { setSettings } = useData();
-  const { familyId } = useAuth();
+  const { updateSettings, members } = useData();
+  const { user: firebaseUser } = useAuth();
 
   const now = new Date();
   const currentDay = now.getDate();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   
+  const myMemberId = members.find(m => m.userId === firebaseUser?.uid)?.id;
+
   const salaryDates = settings.salaryDates && settings.salaryDates.length > 0 
     ? settings.salaryDates 
     : [settings.startOfMonthDay];
@@ -64,7 +66,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
 
   const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  const mandatoryExpenses = settings.mandatoryExpenses || [];
+  
+  // Релевантные платежи для режима
+  const relevantMandatoryExpenses = useMemo(() => {
+      const all = settings.mandatoryExpenses || [];
+      if (budgetMode === 'personal' && myMemberId) {
+          return all.filter(e => e.memberId === myMemberId);
+      }
+      return all;
+  }, [settings.mandatoryExpenses, budgetMode, myMemberId]);
   
   const currentMonthTransactions = useMemo(() => transactions.filter(t => {
       const d = new Date(t.date);
@@ -77,7 +87,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
 
       if (settings.enableSmartReserve ?? true) {
-          mandatoryExpenses.forEach(expense => {
+          relevantMandatoryExpenses.forEach(expense => {
               const keywords = expense.keywords || [];
               const matches = currentMonthTransactions.filter(tx => {
                   if (tx.linkedExpenseId === expense.id) return true; // Explicit link matches immediately
@@ -104,7 +114,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       });
 
       return { unpaidMandatoryTotal: total, futureExpenses: fullList };
-  }, [mandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
+  }, [relevantMandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
 
   const savingsAmount = balance * (savingsRate / 100);
   const manualReserved = settings.manualReservedAmount || 0;
@@ -113,9 +123,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const dailyBudget = availableBalance / daysRemaining;
 
   const handleUpdateManualSavings = async (amount: number) => {
-      const newSettings = { ...settings, manualReservedAmount: amount };
-      setSettings(newSettings);
-      if (familyId) await saveSettings(familyId, newSettings);
+      await updateSettings({ ...settings, manualReservedAmount: amount });
   };
 
   const handleTogglePaid = async (expenseId: string, isPaid: boolean) => {
@@ -127,8 +135,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
           ...settings, 
           manualPaidExpenses: { ...currentManuals, [currentMonthKey]: newMonthIds }
       };
-      setSettings(newSettings);
-      if (familyId) await saveSettings(familyId, newSettings);
+      await updateSettings(newSettings);
   };
 
   return (

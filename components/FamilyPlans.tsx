@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ChevronLeft, ChevronRight, Clock, Mic, BrainCircuit, Calendar as CalendarIcon, MapPin } from 'lucide-react';
@@ -19,7 +18,8 @@ interface FamilyPlansProps {
   onDeleteEvent?: (id: string) => void;
 }
 
-type ViewMode = 'month' | 'week' | 'day' | 'list';
+// Removed 'week' from type
+type ViewMode = 'month' | 'day' | 'list';
 type ListFilter = 'upcoming' | 'past';
 
 const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram, onDeleteEvent }) => {
@@ -120,6 +120,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
+    setViewMode('day'); // Automatically switch to day view
   };
 
   const getEventsForDate = (date: Date) => {
@@ -182,15 +183,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     return Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
   }, [selectedDate]);
 
+  // Week days generation for Day View Header
   const weekDays = useMemo(() => {
-    const startOfWeek = new Date(selectedDate);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); 
-    startOfWeek.setDate(diff);
+    const current = new Date(selectedDate);
+    const day = current.getDay();
+    const diff = current.getDate() - day + (day === 0 ? -6 : 1); // Adjust to get Monday
+    const monday = new Date(current.setDate(diff));
     
     return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(startOfWeek);
-        d.setDate(startOfWeek.getDate() + i);
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
         return d;
     });
   }, [selectedDate]);
@@ -301,7 +303,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                                                   style={style}
                                               >
                                                   <div className="flex flex-col h-full">
-                                                      <span className="text-[9px] font-black leading-tight truncate opacity-90 dark:text-white">{ev.title}</span>
+                                                      <span className="text-[9px] md:text-xs font-black leading-tight truncate opacity-90 dark:text-white">{ev.title}</span>
                                                       {!isShort && (
                                                           <div className="text-[8px] font-bold truncate opacity-70 dark:text-white/80">
                                                               {ev.time} ({ev.duration || 1}ч)
@@ -321,148 +323,29 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       );
   };
 
-  const renderEventsList = (dateToRender: Date) => {
-    const targetMonth = dateToRender.getMonth();
-    const targetYear = dateToRender.getFullYear();
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    const monthEvents = events
-        .filter(e => {
-            const d = new Date(e.date);
-            const isSameMonth = d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-            
-            // Only upcoming events logic
-            const eventDate = new Date(e.date + 'T00:00:00');
-            return isSameMonth && eventDate >= now;
-        })
-        .sort((a, b) => {
-            const dateA = new Date(`${a.date}T${a.time}`).getTime();
-            const dateB = new Date(`${b.date}T${b.time}`).getTime();
-            return dateA - dateB;
-        });
-
-    const groupedEvents: Record<string, FamilyEvent[]> = {};
-    monthEvents.forEach(e => {
-        if (!groupedEvents[e.date]) groupedEvents[e.date] = [];
-        groupedEvents[e.date].push(e);
-    });
-
-    const hasUpcomingEvents = monthEvents.length > 0;
-
-    return (
-        <div className="space-y-4 pb-24 md:pb-0">
-             {!hasUpcomingEvents ? (
-                 <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] border border-dashed border-gray-200 dark:border-white/10 text-center">
-                    <CalendarIcon size={24} className="text-gray-300 dark:text-gray-600 mb-2" />
-                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                        {dateToRender.getMonth() < now.getMonth() && dateToRender.getFullYear() <= now.getFullYear() 
-                          ? 'Прошедший месяц' 
-                          : 'Предстоящих планов нет'}
-                    </p>
-                    <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(dateToRender) } })} className="mt-4 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
-                        Создать
-                    </button>
-                 </div>
-             ) : (
-                 Object.keys(groupedEvents).sort().map(dateStr => {
-                     const dateObj = new Date(dateStr);
-                     const isToday = new Date().toDateString() === dateObj.toDateString();
-                     const dayEvents = groupedEvents[dateStr];
-
-                     return (
-                        <div key={dateStr} className="space-y-2">
-                            <div className="sticky top-0 z-30 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-2 flex items-baseline gap-2">
-                                <span className={`text-base font-black ${isToday ? 'text-blue-500' : 'text-[#1C1C1E] dark:text-white'}`}>
-                                    {dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-                                </span>
-                                <span className={`text-[10px] font-bold uppercase ${isToday ? 'text-blue-400' : 'text-gray-400'}`}>
-                                    {dateObj.toLocaleDateString('ru-RU', { weekday: 'long' })}
-                                </span>
-                            </div>
-
-                            <div className="space-y-3">
-                                {dayEvents.map(event => {
-                                     const eventMembers = members.filter(m => event.memberIds.includes(m.id));
-                                     const colors = getEventColors(event.memberIds);
-                                     
-                                     return (
-                                        <div 
-                                            key={event.id} 
-                                            onClick={() => setActiveEvent({ event })} 
-                                            className="p-5 rounded-[2rem] border shadow-sm active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group"
-                                            style={{ 
-                                                background: colors.background === '#EFF6FF' ? 'var(--bg-card-default, white)' : colors.background, 
-                                                borderColor: colors.borderColor === '#BFDBFE' ? 'transparent' : colors.borderColor 
-                                            }}
-                                        >
-                                            <style>{`:root { --bg-card-default: white; } .dark { --bg-card-default: #1C1C1E; }`}</style>
-
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex flex-col items-center gap-1 min-w-[3rem]">
-                                                    <div className="text-sm font-black text-[#1C1C1E] dark:text-white">{event.time}</div>
-                                                    <div className="flex items-center gap-1 text-[9px] font-black bg-white/50 dark:bg-white/10 px-1.5 py-0.5 rounded-md" style={{ color: colors.indicator }}>
-                                                        <Clock size={10} />
-                                                        {event.duration ? `${event.duration}ч` : '1ч'}
-                                                    </div>
-                                                </div>
-                                                <div className="flex-1 min-w-0 pb-2">
-                                                    <h4 className="font-black text-[15px] leading-tight text-[#1C1C1E] dark:text-white mb-1">{event.title}</h4>
-                                                    {event.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{event.description}</p>}
-                                                    
-                                                    <div className="flex items-center justify-between mt-2">
-                                                        <div className="flex -space-x-2">
-                                                            {eventMembers.map(m => (
-                                                                <div key={m.id} className="border-2 border-white dark:border-[#1C1C1E] rounded-[1rem] relative z-10">
-                                                                    <MemberMarker member={m} size="sm" />
-                                                                </div>
-                                                            ))}
-                                                            {eventMembers.length === 0 && <span className="text-[10px] text-gray-400 italic">Нет участников</span>}
-                                                        </div>
-                                                        {event.checklist && event.checklist.length > 0 && (
-                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-white/60 dark:bg-white/5 px-2 py-1 rounded-lg">
-                                                                <span className={event.checklist.every(i => i.completed) ? 'text-green-500' : ''}>
-                                                                    {event.checklist.filter(i => i.completed).length}/{event.checklist.length}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                     );
-                                 })}
-                            </div>
-                        </div>
-                     );
-                 })
-             )}
-        </div>
-    );
-  };
-
   return (
-    <div className="space-y-4 relative w-full flex flex-col">
+    <div className="space-y-4 relative w-full flex flex-col h-full">
       <AnimatePresence>
         {(isListening || isProcessingVoice) && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[700] bg-white/80 dark:bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center"><div className="bg-white dark:bg-[#1C1C1E] p-10 rounded-[3rem] shadow-2xl border dark:border-white/10 flex flex-col items-center gap-6"><div className="relative"><div className={`absolute inset-0 bg-blue-500/30 rounded-full blur-xl ${isListening ? 'animate-ping' : 'animate-pulse'}`} />{isListening ? <Mic size={56} className="text-blue-500 relative" /> : <BrainCircuit size={56} className="text-purple-500 relative animate-pulse" />}</div><div className="text-center"><p className="font-black text-xl text-[#1C1C1E] dark:text-white mb-2">{isListening ? 'Говорите...' : 'Анализирую...'}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-[200px]">Например: "Записаться к врачу завтра в 14:00"</p></div></div></motion.div>}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 shrink-0">
         <div className="flex items-center justify-between gap-3 px-1">
           <div className="flex-1 min-w-0 flex bg-gray-100/50 dark:bg-[#1C1C1E] p-1 rounded-2xl border border-white/50 dark:border-white/5 shadow-sm overflow-x-auto no-scrollbar">
-            {(['month', 'week', 'day', 'list'] as ViewMode[]).map((mode) => (
+            {(['month', 'day', 'list'] as ViewMode[]).map((mode) => (
               <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${viewMode === mode ? 'bg-white dark:bg-[#2C2C2E] text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'}`}>
-                {mode === 'month' ? 'Месяц' : mode === 'week' ? 'Неделя' : mode === 'day' ? 'День' : 'Все'}
+                {mode === 'month' ? 'Месяц' : mode === 'day' ? 'День' : 'Все'}
               </button>
             ))}
           </div>
           <div className="flex gap-2 shrink-0">
             <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white dark:bg-[#1C1C1E] text-blue-500 border dark:border-white/5'}`}><Mic size={22} /></button>
-            <button onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate) } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
+            <button onClick={() => setActiveEvent({ event: null, prefill: { date: '' } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
           </div>
         </div>
+      </div>
 
-        {viewMode === 'list' && (
+      {viewMode === 'list' && (
           <div className="flex flex-col h-[calc(100dvh-13rem)] md:h-[calc(100dvh-12rem)]">
             <div className="flex bg-white/50 dark:bg-white/5 p-1 rounded-2xl border dark:border-white/5 w-fit mb-4 shrink-0">
               <button onClick={() => setListFilter('upcoming')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${listFilter === 'upcoming' ? 'bg-blue-500 text-white' : 'text-gray-400'}`}>Будущие</button>
@@ -510,19 +393,22 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         )}
 
         {viewMode === 'month' && (
-            <div className="flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-12rem)]">
-                <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 shrink-0 mb-2">
-                    <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col h-[calc(100dvh-13rem)] md:h-[calc(100dvh-8rem)]">
+                <div className="bg-white dark:bg-[#1C1C1E] p-4 md:p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 flex-1 flex flex-col overflow-hidden">
+                    <div className="flex justify-between items-center mb-4 shrink-0">
                         <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()-1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronLeft size={20} className="text-gray-400"/></button>
                         <span className="font-black text-sm uppercase tracking-widest text-[#1C1C1E] dark:text-white">{selectedDate.toLocaleDateString('ru-RU', {month:'long', year:'numeric'})}</span>
                         <button onClick={() => { const d = new Date(selectedDate); d.setMonth(d.getMonth()+1); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full transition-colors"><ChevronRight size={20} className="text-gray-400"/></button>
                     </div>
-                    <div className="grid grid-cols-7 gap-y-4 gap-x-1 md:gap-x-2">
+                    
+                    <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 shrink-0">
                         {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="text-center text-[9px] font-black text-gray-300 dark:text-gray-600 uppercase">{d}</div>)}
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-7 grid-rows-6 gap-1 md:gap-2 min-h-0">
                         {Array.from({ length: (new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).getDay() + 6) % 7 }).map((_, i) => <div key={`pad-${i}`} />)}
                         
                         {monthDays.map((date) => {
-                            const isSelected = date.toDateString() === selectedDate.toDateString();
                             const isToday = date.toDateString() === new Date().toDateString();
                             const dayEvents = getEventsForDate(date);
                             const hasEvents = dayEvents.length > 0;
@@ -542,18 +428,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                             return (
                                 <button 
                                     key={date.toISOString()} 
-                                    onClick={() => {
-                                        handleDateSelect(date);
-                                    }}
-                                    className={`relative flex flex-col items-center justify-center h-10 w-full rounded-xl transition-all ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isToday ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400' : 'text-[#1C1C1E] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
+                                    onClick={() => handleDateSelect(date)}
+                                    className={`relative flex flex-col items-center h-full w-full rounded-xl transition-all pt-1 md:pt-2 ${isToday ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400' : 'text-[#1C1C1E] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
                                 >
-                                    <span className={`text-xs ${isSelected || isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
-                                    {hasEvents && !isSelected && (
-                                        <div className="absolute bottom-1.5 flex gap-0.5 justify-center px-1">
+                                    <span className={`text-xs ${isToday ? 'font-black' : 'font-bold'}`}>{date.getDate()}</span>
+                                    {hasEvents && (
+                                        <div className="flex gap-0.5 justify-center px-1 mt-1">
                                             {dayDots.slice(0, 4).map((color, i) => (
-                                                <div key={i} className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                                <div key={i} className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
                                             ))}
-                                            {dayDots.length > 4 && <div className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />}
+                                            {dayDots.length > 4 && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />}
                                         </div>
                                     )}
                                 </button>
@@ -561,42 +445,73 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         })}
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-                    {renderEventsList(selectedDate)}
-                </div>
             </div>
-        )}
-
-        {viewMode === 'week' && (
-            <>
-                <div className="flex justify-between items-center mb-4 px-2">
-                     <span className="font-black text-xs uppercase tracking-widest text-gray-400">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
-                     <div className="flex gap-1">
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 dark:bg-[#1C1C1E] rounded-lg"><ChevronLeft size={16} className="text-gray-400"/></button>
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-1.5 bg-gray-50 dark:bg-[#1C1C1E] rounded-lg"><ChevronRight size={16} className="text-gray-400"/></button>
-                     </div>
-                </div>
-                {renderTimeGrid(weekDays)}
-            </>
         )}
 
         {viewMode === 'day' && (
             <>
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 text-center mb-4">
-                    <div className="flex items-center justify-between">
-                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-1); setSelectedDate(d); }} className="p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><ChevronLeft size={20} className="text-[#1C1C1E] dark:text-white"/></button>
-                         <div className="flex flex-col items-center">
-                             <span className="text-sm font-black text-gray-400 uppercase tracking-widest">{selectedDate.toLocaleDateString('ru-RU', {weekday:'long'})}</span>
-                             <span className="text-4xl font-black text-[#1C1C1E] dark:text-white">{selectedDate.getDate()}</span>
-                             <span className="text-sm font-bold text-blue-500 uppercase tracking-wide">{selectedDate.toLocaleDateString('ru-RU', {month:'long'})}</span>
+                <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 mb-4 shrink-0">
+                    <div className="flex items-center justify-between mb-3 px-2">
+                         <span className="text-sm font-black text-[#1C1C1E] dark:text-white capitalize">
+                            {selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                         </span>
+                         <div className="flex gap-1">
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full"><ChevronLeft size={18} className="text-gray-400"/></button>
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] rounded-full"><ChevronRight size={18} className="text-gray-400"/></button>
                          </div>
-                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+1); setSelectedDate(d); }} className="p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><ChevronRight size={20} className="text-[#1C1C1E] dark:text-white"/></button>
+                    </div>
+                    
+                    <div className="grid grid-cols-7 gap-1">
+                        {weekDays.map((date) => {
+                            const isSelected = date.toDateString() === selectedDate.toDateString();
+                            const isToday = date.toDateString() === new Date().toDateString();
+                            const dayEvents = getEventsForDate(date);
+                            const hasEvents = dayEvents.length > 0;
+                            
+                            const dayDots: string[] = [];
+                            dayEvents.forEach(ev => {
+                                if (ev.memberIds.length > 0) {
+                                    ev.memberIds.forEach(mId => {
+                                        const m = members.find(mem => mem.id === mId);
+                                        if (m) dayDots.push(m.color);
+                                    });
+                                } else {
+                                    dayDots.push('#9CA3AF'); 
+                                }
+                            });
+
+                            return (
+                                <button
+                                    key={date.toISOString()}
+                                    onClick={() => setSelectedDate(date)}
+                                    className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all relative ${
+                                        isSelected 
+                                            ? 'bg-blue-500 text-white shadow-md' 
+                                            : isToday
+                                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'
+                                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'
+                                    }`}
+                                >
+                                    <span className="text-[9px] font-bold uppercase tracking-wide mb-0.5 opacity-80">
+                                        {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                                    </span>
+                                    <span className="text-sm font-black leading-none mb-1">
+                                        {date.getDate()}
+                                    </span>
+                                    
+                                    <div className="flex gap-0.5 h-1.5 items-end">
+                                        {hasEvents && dayDots.slice(0, 3).map((color, i) => (
+                                            <div key={i} className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : ''}`} style={!isSelected ? { backgroundColor: color } : {}} />
+                                        ))}
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
                 {renderTimeGrid([selectedDate], true)}
             </>
         )}
-      </div>
 
       <AnimatePresence>
         {activeEvent && (

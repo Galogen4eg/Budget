@@ -1,4 +1,5 @@
 
+
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
@@ -177,6 +178,7 @@ export interface MandatoryExpense {
   day: number; // Day of the month (1-31)
   remind: boolean;
   keywords?: string[];
+  memberId?: string; // Adding memberId
 }
 
 export interface WidgetConfig {

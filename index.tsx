@@ -13,10 +13,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Explicitly extending from the imported 'Component' and using a constructor to ensure TypeScript correctly recognizes inherited 'props' and 'state'.
+// Fixed ErrorBoundary class component by using direct import of Component
+// to ensure base class properties like 'props' and 'state' are correctly recognized
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Fix: Initializing state property which will now be correctly typed via generic inheritance
     this.state = { hasError: false, error: null };
   }
 
@@ -29,12 +31,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Correctly accessing state which is inherited from Component.
+    // Fix: Properly accessing state property
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Что-то пошло не так 😔</h2>
           <div style={{ maxWidth: '400px', background: '#FFEEEE', color: 'red', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.85rem', wordBreak: 'break-word' }}>
+            {/* Fix: Accessing error property from state */}
             {this.state.error?.message}
           </div>
           <button 
@@ -56,7 +59,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: Correctly accessing children from inherited props.
+    // Fix: Accessing children from props which is now recognized by using direct Component import
     return this.props.children || null;
   }
 }

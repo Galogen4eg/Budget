@@ -141,13 +141,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubs: (() => void)[] = [unsubGlobal];
 
-    // Подписка на настройки (хранятся в профиле пользователя)
+    // Подписка на персональные настройки (всегда доступна авторизованному пользователю)
     unsubs.push(subscribeToSettings(user.uid, async (data) => {
         if (data) {
             setSettings(prev => ({ ...prev, ...data }));
             if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
         } else if (familyId) {
-            // Если в профиле пусто, пробуем мигрировать старые семейные
+            // Если личных настроек нет, пробуем мигрировать старые семейные
             const legacy = await getLegacyFamilySettings(familyId);
             if (legacy) {
                 setSettings(legacy);
@@ -156,17 +156,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, (err) => {
         if (err.code === 'permission-denied') {
-            toast.error("Доступ к профилю ограничен. Проверьте вход.");
+            console.warn("Permission denied for personal settings. This is unusual.");
         }
     }));
 
     if (familyId) {
         const handlePermissionError = (coll: string) => {
-            console.warn(`Permission error for: ${coll}`);
+            toast.error(`Доступ к ${coll} ограничен. Проверьте права.`, { id: 'perm-error-' + coll });
         };
 
-        unsubs.push(subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]), () => handlePermissionError('transactions')));
-        unsubs.push(subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[]), () => handlePermissionError('shopping')));
+        unsubs.push(subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[]), () => handlePermissionError('операциям')));
+        unsubs.push(subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[]), () => handlePermissionError('покупкам')));
         unsubs.push(subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])));
         unsubs.push(subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])));
         unsubs.push(subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])));

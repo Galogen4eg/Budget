@@ -13,14 +13,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Explicitly using React.Component with generics to ensure properties like 'props' and 'state' are correctly inherited and recognized.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declaring the state property to resolve "Property 'state' does not exist on type 'ErrorBoundary'" errors.
-  state: ErrorBoundaryState;
-
+// Fix: Explicitly extending from the imported 'Component' and using a constructor to ensure TypeScript correctly recognizes inherited 'props' and 'state'.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: Correctly initializing state within the constructor.
     this.state = { hasError: false, error: null };
   }
 
@@ -33,13 +29,12 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Fix: Accessing state via this.state which is now properly defined and inherited.
+    // Correctly accessing state which is inherited from Component.
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Что-то пошло не так 😔</h2>
           <div style={{ maxWidth: '400px', background: '#FFEEEE', color: 'red', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.85rem', wordBreak: 'break-word' }}>
-            {/* Fix: Accessing error property from the recognized state. */}
             {this.state.error?.message}
           </div>
           <button 
@@ -61,7 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    // Fix: Accessing children through this.props which is now properly inherited from React.Component.
+    // Fix: Correctly accessing children from inherited props.
     return this.props.children || null;
   }
 }

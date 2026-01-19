@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2 } from 'lucide-react';
 import { 
@@ -90,6 +90,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
+  const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isImporting, setIsImporting] = useState(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -122,7 +123,7 @@ export default function App() {
       } else {
           // Personal mode: show only expenses assigned to current user
           const myMemberId = members.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return allExpenses; // Fallback if member not found
+          if (!myMemberId) return []; // Safety: if member not found, return empty instead of exposing all
           return allExpenses.filter(e => e.memberId === myMemberId);
       }
   }, [settings.mandatoryExpenses, budgetMode, members, user?.uid]);
@@ -244,6 +245,40 @@ export default function App() {
       }
   };
 
+  const handleDeleteTransactionsByPeriod = async (startDate: string, endDate: string) => {
+      if (!startDate || !endDate) return;
+      const start = new Date(startDate);
+      start.setHours(0,0,0,0);
+      const end = new Date(endDate);
+      end.setHours(23,59,59,999);
+      
+      const startTime = start.getTime();
+      const endTime = end.getTime();
+      
+      const toDelete = transactions.filter(t => {
+          const tDate = new Date(t.date).getTime();
+          return tDate >= startTime && tDate <= endTime;
+      });
+
+      if (toDelete.length === 0) {
+          toast.info("Нет операций за этот период");
+          return;
+      }
+
+      if (!window.confirm(`Удалить ${toDelete.length} операций? Это действие нельзя отменить.`)) return;
+
+      const ids = toDelete.map(t => t.id);
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      toast.success("Операции удалены");
+  };
+
+  const handleBatchDelete = async (ids: string[]) => {
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      toast.success(`Удалено ${ids.length} записей`);
+  };
+
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-black"><Loader2 className="animate-spin text-blue-500" size={32}/></div>;
@@ -297,6 +332,7 @@ export default function App() {
                             <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
                             <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
                         </div>
+                        {/* Pass filtered expenses here */}
                         <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
                         <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
                     </div>
@@ -334,12 +370,13 @@ export default function App() {
       <Suspense fallback={null}>
         <AnimatePresence>
             {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={() => {}} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
-            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={[]} onUpdateRules={() => {}} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} />}
+            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={[]} onUpdateRules={() => {}} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} />}
             {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
             {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={() => {}} onEditTransaction={handleEditTransaction} />}
             {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onLearnRule={() => {}} onAddCategory={() => {}} />}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
             {isMandatoryModalOpen && <MandatoryExpenseModal expense={null} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} members={members} onSave={async (e) => { const updated = [...(settings.mandatoryExpenses || []), e]; await updateSettings({ ...settings, mandatoryExpenses: updated }); setIsMandatoryModalOpen(false); }} />}
+            {isDuplicatesOpen && <DuplicatesModal transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
         </AnimatePresence>
       </Suspense>
     </div>

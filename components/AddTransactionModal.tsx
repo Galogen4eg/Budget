@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -65,10 +66,12 @@ export default function AddTransactionModal({
       setMemberId(initialTransaction.memberId);
       setBoundExpenseId(initialTransaction.linkedExpenseId || '');
       
+      // Fix Timezone Issue: Construct date string manually from local date parts
       const d = new Date(initialTransaction.date);
-      // Ensure date string is valid YYYY-MM-DD
-      const dateStr = d.toISOString().split('T')[0];
-      setDate(dateStr);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      setDate(`${year}-${month}-${day}`);
       
       setCleanKeyword(initialTransaction.rawNote || initialTransaction.note);
       setRenamedTitle(initialTransaction.note);
@@ -79,6 +82,13 @@ export default function AddTransactionModal({
         setCleanKeyword('');
         setRenamedTitle('');
         setBoundExpenseId('');
+        
+        // Reset date to today
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        setDate(`${year}-${month}-${day}`);
     }
   }, [initialTransaction, members]);
 
@@ -109,13 +119,39 @@ export default function AddTransactionModal({
           }
       }
 
+      // Preserve time if editing today, otherwise default to current time or noon
+      let dateObj = new Date(date);
+      const now = new Date();
+      
+      // If the selected date is today, use current time (unless editing, then keep logic below)
+      if (dateObj.toDateString() === now.toDateString() && !initialTransaction) {
+          dateObj = now;
+      } else if (initialTransaction) {
+          // If editing, check if date changed
+          const originalDate = new Date(initialTransaction.date);
+          const isSameDay = originalDate.getFullYear() === dateObj.getFullYear() &&
+                            originalDate.getMonth() === dateObj.getMonth() &&
+                            originalDate.getDate() === dateObj.getDate();
+          
+          if (isSameDay) {
+              // Keep original time
+              dateObj = originalDate;
+          } else {
+              // Date changed: set to noon to avoid timezone shifts
+              dateObj.setHours(12, 0, 0, 0);
+          }
+      } else {
+          // New transaction, past/future date: set to noon
+          dateObj.setHours(12, 0, 0, 0);
+      }
+
       const txData: Omit<Transaction, 'id'> = {
           amount: finalAmount,
           type: type,
           category: categoryId,
           memberId: memberId,
           note: finalDisplayName,
-          date: new Date(date).toISOString(),
+          date: dateObj.toISOString(),
           rawNote: note.trim() || finalDisplayName, 
           userId: auth.currentUser?.uid,
           linkedExpenseId: boundExpenseId || undefined
@@ -140,7 +176,6 @@ export default function AddTransactionModal({
       
       if (window.confirm("Вы уверены, что хотите удалить эту операцию?")) {
           await onDelete(initialTransaction.id);
-          // Parent component usually handles closing, but we call onClose just in case
           onClose(); 
       }
   };
@@ -174,7 +209,7 @@ export default function AddTransactionModal({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative w-full max-w-md h-[95vh] md:h-auto md:max-h-[85vh] bg-[#F2F2F7] dark:bg-black md:rounded-[2.5rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md md:max-w-2xl h-[95vh] md:h-auto md:max-h-[85vh] bg-[#F2F2F7] dark:bg-black md:rounded-[2.5rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <AnimatePresence initial={false} mode="popLayout">

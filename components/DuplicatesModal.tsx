@@ -35,8 +35,10 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             if (processedIds.has(next.id)) continue;
 
             const timeDiff = Math.abs(new Date(current.date).getTime() - new Date(next.date).getTime());
-            // 5 minutes threshold
-            if (timeDiff > 5 * 60 * 1000) break; 
+            
+            // Allow up to 24 hours difference to catch timezone shifted duplicates
+            // but strict check on other fields
+            if (timeDiff > 24 * 60 * 60 * 1000) break; 
 
             // Strict amount check
             const isSameAmount = Math.abs(current.amount - next.amount) < 0.01;

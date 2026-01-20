@@ -44,7 +44,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         })
         .sort((a, b) => b.amount - a.amount);
 
-    return { total, topCategories: sorted.slice(0, 5), allCategories: sorted };
+    return { total, topCategories: sorted.slice(0, 12), allCategories: sorted };
   }, [transactions, categories]);
 
   return (
@@ -69,8 +69,8 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         <div 
             className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-start"
             style={{ 
-                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
-                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+                maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)' 
             }}
         >
             {data.total === 0 ? (
@@ -83,7 +83,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             ) : (
                 <div className="space-y-3 pt-1">
                     {data.topCategories.map((item, index) => (
-                        <div key={item.id} className={`flex items-center justify-between gap-3 ${index >= 4 ? 'hidden md:flex' : ''}`}>
+                        <div key={item.id} className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <div 
                                     className="w-6 h-6 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"

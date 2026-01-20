@@ -14,7 +14,7 @@ import {
   Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella,
   Wine, GlassWater
 } from 'lucide-react';
-import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEvent, SavingsGoal, Debt, Project } from './types';
+import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEvent, SavingsGoal, Debt, Project, LoyaltyCard } from './types';
 
 export const INITIAL_CATEGORIES: Category[] = [
   // Food & Dining
@@ -118,6 +118,14 @@ export const DEMO_DEBTS: Debt[] = [
 
 export const DEMO_PROJECTS: Project[] = [
     { id: 'p1', title: 'Ремонт кухни', totalBudget: 500000, currency: '₽', status: 'active', startDate: today.toISOString(), color: '#FF9500', icon: 'Hammer', expenses: [] },
+];
+
+export const DEMO_LOYALTY_CARDS: LoyaltyCard[] = [
+    { id: 'l1', name: 'Пятерочка', number: '7789000123456789', color: '#2FAC66', icon: 'ShoppingBag', barcodeFormat: 'ean13' },
+    { id: 'l2', name: 'Спортмастер', number: '12345678', color: '#007AFF', icon: 'Dumbbell', barcodeFormat: 'code128' },
+    { id: 'l3', name: 'Лента', number: '9876543210123', color: '#003399', icon: 'ShoppingBag', barcodeFormat: 'ean13' },
+    { id: 'l4', name: 'Красное & Белое', number: '2200112233', color: '#DA291C', icon: 'Wine', barcodeFormat: 'qr' },
+    { id: 'l5', name: 'Аэрофлот', number: 'SU 123 456 789', color: '#003366', icon: 'Plane', barcodeFormat: 'code128' },
 ];
 
 export const getIconById = (id: string, size = 20) => {

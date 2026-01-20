@@ -11,12 +11,15 @@ import SmartHeader from './components/SmartHeader';
 import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
 import RecentTransactionsWidget from './components/RecentTransactionsWidget';
 import ShoppingList from './components/ShoppingList';
+import ShoppingWidget from './components/ShoppingWidget';
+import WalletWidget from './components/WalletWidget';
 import FamilyPlans from './components/FamilyPlans';
 import TransactionHistory from './components/TransactionHistory';
 import SpendingCalendar from './components/SpendingCalendar';
 import MandatoryExpensesList from './components/MandatoryExpensesList';
 import CategoryProgress from './components/CategoryProgress';
 import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
+import GoalsSection from './components/GoalsSection';
 import LoginScreen from './components/LoginScreen';
 import ImportModal from './components/ImportModal';
 import FeedbackTool from './components/FeedbackTool';
@@ -57,6 +60,7 @@ const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } }, 
     { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+    { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
 ];
 
@@ -71,8 +75,10 @@ export default function App() {
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
+    loyaltyCards,
     setPantry,
     events, setEvents,
+    goals, setGoals,
     members,
     categories, setCategories,
     settings, updateSettings, 
@@ -86,10 +92,13 @@ export default function App() {
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<any>(null);
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isImporting, setIsImporting] = useState(false); 
@@ -105,8 +114,16 @@ export default function App() {
 
   // Scroll to top when tab changes
   useEffect(() => {
-      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      // For mobile layouts or non-overview tabs
+      if (activeTab !== 'overview' || window.innerWidth < 768) {
+          mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }
   }, [activeTab]);
+
+  const navigateToService = (serviceId: string) => {
+      setTargetService(serviceId);
+      setActiveTab('services');
+  };
 
   // Filter transactions for Budget tab widgets
   const budgetTransactions = useMemo(() => {
@@ -279,6 +296,76 @@ export default function App() {
       toast.success(`Удалено ${ids.length} записей`);
   };
 
+  const handleGoalSave = async (goal: any) => {
+      if (editingGoal) {
+          setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
+          if (familyId) await updateItem(familyId, 'goals', goal.id, goal);
+      } else {
+          setGoals(prev => [...prev, goal]);
+          if (familyId) await addItem(familyId, 'goals', goal);
+      }
+      setIsGoalModalOpen(false);
+      setEditingGoal(null);
+  };
+
+  const handleGoalDelete = async (id: string) => {
+      if (confirm('Удалить цель?')) {
+          setGoals(prev => prev.filter(g => g.id !== id));
+          if (familyId) await deleteItem(familyId, 'goals', id);
+          setIsGoalModalOpen(false);
+          setEditingGoal(null);
+      }
+  };
+
+  // Helper to check widget visibility
+  const isWidgetVisible = (id: string) => {
+      const widget = settings.widgets?.find(w => w.id === id);
+      return widget ? widget.isVisible : true; // Default to true if not found in config
+  };
+
+  // Widget Renderer Helper
+  const renderWidget = (id: string, className?: string) => {
+      switch(id) {
+          case 'month_chart':
+              return (
+                  <div key="month_chart" className={className || "h-80 md:h-[320px]"}>
+                      <MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} />
+                  </div>
+              );
+          case 'recent_transactions':
+              return (
+                  <div key="recent_transactions" className={className || "flex-1 min-h-[300px]"}>
+                      <RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
+                  </div>
+              );
+          case 'shopping':
+              return (
+                  <div key="shopping" className={className || "flex-1 min-h-[160px]"}>
+                      <ShoppingWidget items={shoppingItems} onClick={() => setActiveTab('shopping')} />
+                  </div>
+              );
+          case 'wallet':
+              return (
+                  <div key="wallet" className={className || "flex-1 min-h-[160px]"}>
+                      <WalletWidget cards={loyaltyCards} onClick={() => navigateToService('wallet')} />
+                  </div>
+              );
+          case 'goals':
+              return (
+                  <div key="goals" className={className || "flex-1 min-h-[180px]"}>
+                      <GoalsSection goals={goals} settings={settings} onEditGoal={(g) => { setEditingGoal(g); setIsGoalModalOpen(true); }} onAddGoal={() => { setEditingGoal(null); setIsGoalModalOpen(true); }} />
+                  </div>
+              );
+          case 'category_analysis':
+              return (
+                  <div key="category_analysis" className={className || "flex-1 min-h-[220px]"}>
+                      <CategoryAnalysisWidget transactions={filteredTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
+                  </div>
+              );
+          default: return null;
+      }
+  };
+
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-black"><Loader2 className="animate-spin text-blue-500" size={32}/></div>;
@@ -299,50 +386,87 @@ export default function App() {
          </div>
       </div>
 
-      <main ref={mainRef} className="flex-1 h-full p-4 md:p-8 pb-32 md:pb-8 relative md:ml-28 overflow-y-auto no-scrollbar">
-        <div className="w-full flex flex-col gap-6 min-h-full">
-            <AnimatePresence mode="wait">
-            {activeTab === 'overview' && (
-                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6">
-                    <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} className="shrink-0" />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="h-80 md:h-[400px]"><MonthlyAnalyticsWidget transactions={filteredTransactions} currentMonth={currentMonth} settings={settings} /></div>
-                        <div className="h-full min-h-[300px]"><RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} /></div>
-                        <div className="flex flex-col gap-6"><CategoryAnalysisWidget transactions={filteredTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} /></div>
-                    </div>
-                </motion.div>
-            )}
-            
-            {activeTab === 'budget' && (
-                <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6">
-                    <div className="space-y-4">
-                        <h1 className="text-3xl font-black">Бюджет</h1>
-                        <div className="flex gap-3">
-                            <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] font-black text-xs uppercase shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}><Plus size={20} /> Добавить</button>
-                            <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E] text-gray-500 p-5 rounded-[2rem] font-black text-xs uppercase flex items-center justify-center gap-2" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>{isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} Импорт</button>
-                            <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
+      <main ref={mainRef} className="flex-1 h-full relative md:ml-28 flex flex-col overflow-hidden">
+        {/* Scrollable Container */}
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pb-32 md:pb-8 h-full"> 
+            <div className="w-full min-h-full flex flex-col gap-6">
+                <AnimatePresence mode="wait">
+                {activeTab === 'overview' && (
+                    <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex-1 flex flex-col h-full">
+                        
+                        {/* MOBILE VIEW (Stack) */}
+                        <div className="flex flex-col gap-3 md:hidden">
+                            <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} />
+                            {(settings.widgets || []).map(widget => (
+                                widget.isVisible && renderWidget(widget.id)
+                            ))}
                         </div>
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4 w-[calc(100%+2rem)]">
-                            <button onClick={() => setMemberFilter('all')} className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-[#1C1C1E] text-gray-400 border-white dark:border-white/5'}`}><Users2 size={14} /> Все</button>
-                            {members.map(m => (<button key={m.id} onClick={() => setMemberFilter(m.id)} className={`flex items-center gap-2 px-3 py-1.5 pr-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-500 text-blue-500 shadow-md scale-105' : 'bg-white/50 dark:bg-[#1C1C1E]/50 text-gray-400 border-white/50 dark:border-white/5 grayscale opacity-60'}`}><MemberMarker member={m} size="sm" /> {m.name}</button>))}
+
+                        {/* DESKTOP VIEW (3 Columns: Left 2/3, Right 1/3) */}
+                        <div className="hidden md:grid grid-cols-3 gap-6 flex-1 h-full">
+                            
+                            {/* LEFT COLUMN (2/3) - Fixed Main Layout */}
+                            <div className="col-span-2 flex flex-col gap-6 h-full">
+                                {/* Header (Fixed Height) */}
+                                <div className="h-[280px] shrink-0">
+                                    <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} className="h-full" />
+                                </div>
+                                
+                                {/* Analytics Chart - Fills remaining space */}
+                                <div className="flex-1 min-h-[300px]">
+                                    {isWidgetVisible('month_chart') && renderWidget('month_chart', 'h-full')}
+                                </div>
+                            </div>
+                            
+                            {/* RIGHT COLUMN (1/3) - Flex Column that stretches */}
+                            <div className="col-span-1 flex flex-col gap-6 h-full">
+                                {/* Shopping - Dynamic Height (Content based) */}
+                                {isWidgetVisible('shopping') && renderWidget('shopping', 'w-full shrink-0')}
+                                
+                                {/* Goals - Fixed Height (Smaller) */}
+                                {isWidgetVisible('goals') && renderWidget('goals', 'h-[160px] shrink-0')}
+
+                                {/* History - Fixed Height (Smaller to fit) */}
+                                {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions', 'h-[240px] shrink-0')}
+                                
+                                {/* Categories - Flexible (Fills remaining space) */}
+                                {isWidgetVisible('category_analysis') && renderWidget('category_analysis', 'flex-1 min-h-[200px]')}
+                            </div>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-                        <div className="flex flex-col gap-6">
-                            <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
-                            <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
+                    </motion.div>
+                )}
+                
+                {activeTab === 'budget' && (
+                    <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6">
+                        <div className="space-y-4">
+                            <h1 className="text-3xl font-black">Бюджет</h1>
+                            <div className="flex gap-3">
+                                <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] font-black text-xs uppercase shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}><Plus size={20} /> Добавить</button>
+                                <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E] text-gray-500 p-5 rounded-[2rem] font-black text-xs uppercase flex items-center justify-center gap-2" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>{isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} Импорт</button>
+                                <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
+                            </div>
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4 w-[calc(100%+2rem)]">
+                                <button onClick={() => setMemberFilter('all')} className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-[#1C1C1E] text-gray-400 border-white dark:border-white/5'}`}><Users2 size={14} /> Все</button>
+                                {members.map(m => (<button key={m.id} onClick={() => setMemberFilter(m.id)} className={`flex items-center gap-2 px-3 py-1.5 pr-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-500 text-blue-500 shadow-md scale-105' : 'bg-white/50 dark:bg-[#1C1C1E]/50 text-gray-400 border-white/50 dark:border-white/5 grayscale opacity-60'}`}><MemberMarker member={m} size="sm" /> {m.name}</button>))}
+                            </div>
                         </div>
-                        {/* Pass filtered expenses here */}
-                        <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
-                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
-                    </div>
-                </motion.div>
-            )}
-            
-            {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} onDeleteEvent={handleDeleteEvent} /></motion.div>}
-            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
-            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants}><ServicesHub /></motion.div>}
-            </AnimatePresence>
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+                            <div className="flex flex-col gap-6">
+                                <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
+                                <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
+                            </div>
+                            {/* Pass filtered expenses here */}
+                            <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
+                            <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
+                        </div>
+                    </motion.div>
+                )}
+                
+                {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} onDeleteEvent={handleDeleteEvent} /></motion.div>}
+                {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
+                {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants}><ServicesHub initialService={targetService} /></motion.div>}
+                </AnimatePresence>
+            </div>
         </div>
       </main>
 
@@ -352,7 +476,7 @@ export default function App() {
              {TAB_CONFIG.map(tab => {
                  const isActive = activeTab === tab.id;
                  return (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-auto md:py-4 group">
+                    <button key={tab.id} onClick={() => { setActiveTab(tab.id); setTargetService(null); }} className="relative flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-auto md:py-4 group">
                         {isActive && <motion.div layoutId="nav-pill" className="absolute inset-0 bg-white/20 md:bg-blue-50 dark:md:bg-white/5 rounded-full md:rounded-2xl z-0" />}
                         <span className={`relative z-10 ${isActive ? 'text-white md:text-blue-600' : 'text-gray-400'}`}>{React.createElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}</span>
                         <span className={`hidden md:block text-[10px] font-black mt-2 relative z-10 ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>{tab.label}</span>
@@ -377,6 +501,7 @@ export default function App() {
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
             {isMandatoryModalOpen && <MandatoryExpenseModal expense={null} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} members={members} onSave={async (e) => { const updated = [...(settings.mandatoryExpenses || []), e]; await updateSettings({ ...settings, mandatoryExpenses: updated }); setIsMandatoryModalOpen(false); }} />}
             {isDuplicatesOpen && <DuplicatesModal transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
+            {isGoalModalOpen && <GoalModal goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
         </AnimatePresence>
       </Suspense>
     </div>

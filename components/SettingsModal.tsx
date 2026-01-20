@@ -51,6 +51,7 @@ const WIDGET_METADATA = [
   { id: 'recent_transactions', label: 'История операций' },
   { id: 'category_analysis', label: 'Анализ категорий' },
   { id: 'shopping', label: 'Список покупок' },
+  { id: 'wallet', label: 'Кошелек' },
   { id: 'goals', label: 'Цели и копилка' }, 
 ];
 
@@ -208,6 +209,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const toggleWidgetVisibility = (id: string) => {
     const updated = (settings.widgets || []).map(w => w.id === id ? { ...w, isVisible: !w.isVisible } : w);
     handleChange('widgets', updated);
+  };
+
+  const moveWidget = (index: number, direction: -1 | 1) => {
+      const currentWidgets = settings.widgets || [];
+      const newWidgets = [...currentWidgets];
+      
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= newWidgets.length) return;
+      
+      [newWidgets[index], newWidgets[newIndex]] = [newWidgets[newIndex], newWidgets[index]];
+      
+      handleChange('widgets', newWidgets);
   };
 
   // --- Member Logic ---
@@ -646,15 +659,40 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         case 'widgets': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-4">Главный экран</h3>
-                    <div className="space-y-3">
+                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-2">Главный экран</h3>
+                    <p className="text-xs text-gray-400 mb-4">Настройте порядок виджетов для мобильной версии</p>
+                    <div className="space-y-2">
                         {(settings.widgets || []).map((widget, idx) => {
                             const meta = WIDGET_METADATA.find(m => m.id === widget.id);
                             if (!meta) return null;
+                            const isFirst = idx === 0;
+                            const isLast = idx === (settings.widgets || []).length - 1;
+
                             return (
                                 <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                                    <span className="font-bold text-sm">{meta.label}</span>
-                                    <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
+                                    <span className="font-bold text-sm flex-1">{meta.label}</span>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        {/* Reordering Controls */}
+                                        <div className="flex flex-col gap-1 mr-2">
+                                            <button 
+                                                onClick={() => moveWidget(idx, -1)} 
+                                                disabled={isFirst}
+                                                className={`p-1 rounded-md transition-colors ${isFirst ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}`}
+                                            >
+                                                <ChevronUp size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={() => moveWidget(idx, 1)} 
+                                                disabled={isLast}
+                                                className={`p-1 rounded-md transition-colors ${isLast ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}`}
+                                            >
+                                                <ChevronDown size={14} />
+                                            </button>
+                                        </div>
+
+                                        <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
+                                    </div>
                                 </div>
                             );
                         })}

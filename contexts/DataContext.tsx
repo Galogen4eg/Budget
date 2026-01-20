@@ -7,7 +7,8 @@ import {
 } from '../types';
 import { 
   FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
-  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS
+  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS,
+  DEMO_LOYALTY_CARDS
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+    { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'balance', isVisible: false, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
@@ -190,6 +192,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const demoDebts = isOfflineMode ? DEMO_DEBTS : [];
         const demoProjects = isOfflineMode ? DEMO_PROJECTS : [];
         const demoMembers = isOfflineMode ? FAMILY_MEMBERS : [];
+        const demoLoyalty = isOfflineMode ? DEMO_LOYALTY_CARDS : [];
 
         loadLocal('transactions', setTransactions, demoTransactions);
         loadLocal('shopping', setShoppingItems, demoShopping);
@@ -198,7 +201,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('debts', setDebts, demoDebts);
         loadLocal('projects', setProjects, demoProjects);
         loadLocal('pantry', setPantryState, []);
-        loadLocal('loyalty', setLoyaltyCards, []);
+        loadLocal('loyalty', setLoyaltyCards, demoLoyalty);
         loadLocal('wishlist', setWishlist, []);
         loadLocal('reminders', setReminders, []);
         loadLocal('knowledge', setAiKnowledge, []);

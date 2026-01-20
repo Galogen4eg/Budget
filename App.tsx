@@ -419,18 +419,18 @@ export default function App() {
                             </div>
                             
                             {/* RIGHT COLUMN (1/3) - Flex Column that stretches */}
-                            <div className="col-span-1 flex flex-col gap-6 h-full">
-                                {/* Shopping - Dynamic Height (Content based) */}
-                                {isWidgetVisible('shopping') && renderWidget('shopping', 'w-full shrink-0')}
+                            <div className="col-span-1 flex flex-col gap-4 h-full overflow-hidden">
+                                {/* Shopping - Flexible */}
+                                {isWidgetVisible('shopping') && renderWidget('shopping', 'flex-1 min-h-[100px] overflow-hidden')}
                                 
-                                {/* Goals - Fixed Height (Smaller) */}
-                                {isWidgetVisible('goals') && renderWidget('goals', 'h-[160px] shrink-0')}
+                                {/* Goals - Fixed Height (Compact) */}
+                                {isWidgetVisible('goals') && renderWidget('goals', 'h-[140px] shrink-0')}
 
-                                {/* History - Fixed Height (Smaller to fit) */}
-                                {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions', 'h-[240px] shrink-0')}
+                                {/* History - Fixed Height (Compact) */}
+                                {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions', 'h-[200px] shrink-0')}
                                 
-                                {/* Categories - Flexible (Fills remaining space) */}
-                                {isWidgetVisible('category_analysis') && renderWidget('category_analysis', 'flex-1 min-h-[200px]')}
+                                {/* Categories - Flexible (Takes slightly more space) */}
+                                {isWidgetVisible('category_analysis') && renderWidget('category_analysis', 'flex-[1.2] min-h-[160px] overflow-hidden')}
                             </div>
                         </div>
                     </motion.div>

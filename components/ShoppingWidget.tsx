@@ -10,13 +10,13 @@ interface ShoppingWidgetProps {
 
 const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
   const activeItems = items.filter(i => !i.completed);
-  // Show up to 8 items to be dynamic but reasonable
-  const displayItems = activeItems.slice(0, 8);
+  // Show up to 50 items, let internal scroll handle the rest
+  const displayItems = activeItems.slice(0, 50);
 
   return (
     <div 
         onClick={onClick}
-        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full flex flex-col cursor-pointer group relative overflow-hidden transition-all hover:scale-[1.01] active:scale-[0.99]"
+        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full h-full flex flex-col cursor-pointer group relative overflow-hidden transition-all hover:scale-[1.01] active:scale-[0.99]"
     >
         {/* Header */}
         <div className="flex justify-between items-center mb-4 relative z-10 shrink-0">
@@ -37,7 +37,13 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 space-y-2.5 relative z-10 min-h-[60px]">
+        <div 
+            className="flex-1 space-y-2.5 relative z-10 min-h-0 overflow-y-auto no-scrollbar pb-1"
+            style={{ 
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+            }}
+        >
             {activeItems.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-2">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Все куплено!</p>
@@ -56,11 +62,6 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
                         )}
                     </div>
                 ))
-            )}
-            {activeItems.length > 8 && (
-                <div className="text-[9px] font-bold text-gray-400 text-center pt-1">
-                    + еще {activeItems.length - 8}
-                </div>
             )}
         </div>
         

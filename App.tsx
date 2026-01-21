@@ -387,58 +387,58 @@ export default function App() {
       </div>
 
       <main ref={mainRef} className="flex-1 h-full relative md:ml-28 flex flex-col overflow-hidden">
-        {/* Scrollable Container */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pb-32 md:pb-8 h-full"> 
-            <div className="w-full min-h-full flex flex-col gap-6">
+        {/* Scrollable Container with tighter padding for desktop */}
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-5 md:overflow-hidden h-full"> 
+            <div className="w-full h-full flex flex-col gap-6">
                 <AnimatePresence mode="wait">
                 {activeTab === 'overview' && (
-                    <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex-1 flex flex-col h-full">
+                    <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex-1 flex flex-col h-full overflow-hidden">
                         
                         {/* MOBILE VIEW (Stack) */}
-                        <div className="flex flex-col gap-3 md:hidden">
+                        <div className="flex flex-col gap-3 md:hidden overflow-y-auto pb-32">
                             <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} />
                             {(settings.widgets || []).map(widget => (
                                 widget.isVisible && renderWidget(widget.id)
                             ))}
                         </div>
 
-                        {/* DESKTOP VIEW (3 Columns: Left 2/3, Right 1/3) */}
-                        <div className="hidden md:grid grid-cols-3 gap-6 flex-1 h-full">
+                        {/* DESKTOP VIEW (3 Columns: Left 2/3, Right 1/3) - Fixed layout, no scroll */}
+                        <div className="hidden md:grid grid-cols-3 gap-6 flex-1 h-full max-h-full">
                             
                             {/* LEFT COLUMN (2/3) - Fixed Main Layout */}
-                            <div className="col-span-2 flex flex-col gap-6 h-full">
-                                {/* Header (Fixed Height) */}
-                                <div className="h-[280px] shrink-0">
+                            <div className="col-span-2 flex flex-col gap-6 h-full overflow-hidden">
+                                {/* Header (Compact Height) */}
+                                <div className="h-[230px] shrink-0">
                                     <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} className="h-full" />
                                 </div>
                                 
                                 {/* Analytics Chart - Fills remaining space */}
-                                <div className="flex-1 min-h-[300px]">
+                                <div className="flex-1 min-h-0">
                                     {isWidgetVisible('month_chart') && renderWidget('month_chart', 'h-full')}
                                 </div>
                             </div>
                             
-                            {/* RIGHT COLUMN (1/3) - Flex Column that stretches */}
-                            <div className="col-span-1 flex flex-col gap-4 h-full overflow-hidden">
+                            {/* RIGHT COLUMN (1/3) - Flex Column that stretches - tighter gaps */}
+                            <div className="col-span-1 flex flex-col gap-3 h-full overflow-hidden">
                                 {/* Shopping - Flexible */}
-                                {isWidgetVisible('shopping') && renderWidget('shopping', 'flex-1 min-h-[100px] overflow-hidden')}
+                                {isWidgetVisible('shopping') && renderWidget('shopping', 'flex-[1.2] min-h-[100px] overflow-hidden')}
                                 
-                                {/* Goals - Fixed Height (Compact) */}
-                                {isWidgetVisible('goals') && renderWidget('goals', 'h-[140px] shrink-0')}
+                                {/* Goals - Compact Fixed Height */}
+                                {isWidgetVisible('goals') && renderWidget('goals', 'h-[120px] shrink-0')}
 
-                                {/* History - Fixed Height (Compact) */}
-                                {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions', 'h-[200px] shrink-0')}
+                                {/* History - Compact Fixed Height */}
+                                {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions', 'h-[180px] shrink-0')}
                                 
-                                {/* Categories - Flexible (Takes slightly more space) */}
-                                {isWidgetVisible('category_analysis') && renderWidget('category_analysis', 'flex-[1.2] min-h-[160px] overflow-hidden')}
+                                {/* Categories - Flexible */}
+                                {isWidgetVisible('category_analysis') && renderWidget('category_analysis', 'flex-1 min-h-[140px] overflow-hidden')}
                             </div>
                         </div>
                     </motion.div>
                 )}
                 
                 {activeTab === 'budget' && (
-                    <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6">
-                        <div className="space-y-4">
+                    <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6 overflow-y-auto pb-8 h-full">
+                        <div className="space-y-4 shrink-0">
                             <h1 className="text-3xl font-black">Бюджет</h1>
                             <div className="flex gap-3">
                                 <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] font-black text-xs uppercase shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}><Plus size={20} /> Добавить</button>
@@ -450,21 +450,20 @@ export default function App() {
                                 {members.map(m => (<button key={m.id} onClick={() => setMemberFilter(m.id)} className={`flex items-center gap-2 px-3 py-1.5 pr-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-500 text-blue-500 shadow-md scale-105' : 'bg-white/50 dark:bg-[#1C1C1E]/50 text-gray-400 border-white/50 dark:border-white/5 grayscale opacity-60'}`}><MemberMarker member={m} size="sm" /> {m.name}</button>))}
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-                            <div className="flex flex-col gap-6">
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start flex-1">
+                            <div className="flex flex-col gap-6 h-full">
                                 <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
                                 <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
                             </div>
-                            {/* Pass filtered expenses here */}
-                            <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
-                            <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
+                            <div className="h-full min-h-[400px]"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
+                            <div className="h-full min-h-[400px]"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
                         </div>
                     </motion.div>
                 )}
                 
-                {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants}><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} onDeleteEvent={handleDeleteEvent} /></motion.div>}
-                {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants}><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
-                {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants}><ServicesHub initialService={targetService} /></motion.div>}
+                {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto"><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} onDeleteEvent={handleDeleteEvent} /></motion.div>}
+                {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto"><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
+                {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto"><ServicesHub initialService={targetService} /></motion.div>}
                 </AnimatePresence>
             </div>
         </div>

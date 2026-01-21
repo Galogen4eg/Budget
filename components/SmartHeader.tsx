@@ -28,9 +28,9 @@ const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: b
         spring.set(value);
     }, [value, spring]);
 
-    if (privacyMode) return <span className="text-4xl md:text-5xl font-black tracking-tighter">••••••</span>;
+    if (privacyMode) return <span className="text-4xl md:text-6xl font-black tracking-tighter">••••••</span>;
 
-    return <motion.span className="text-4xl xs:text-5xl md:text-8xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
+    return <motion.span className="text-4xl xs:text-5xl md:text-6xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
 };
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
@@ -220,7 +220,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-blue-100/80 tracking-wider flex items-center gap-1 truncate">
                         <TrendingUp size={10} className="text-green-300" /> На день
                     </span>
-                    <span className="text-lg md:text-3xl font-black text-white tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-white tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()}
                     </span>
                 </div>
@@ -229,7 +229,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-red-100/70 tracking-wider flex items-center gap-1 truncate">
                         <ArrowDownRight size={10} className="text-red-300" /> Траты
                     </span>
-                    <span className="text-lg md:text-3xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(spent).toLocaleString()}
                     </span>
                 </div>
@@ -241,7 +241,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
                     <span className="text-[8px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1 truncate">
                         <Lock size={10} /> Резерв
                     </span>
-                    <span className="text-lg md:text-3xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
                         {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                     </span>
                 </button>

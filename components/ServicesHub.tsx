@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen, TrendingUp } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
@@ -14,7 +14,12 @@ import CashFlowForecast from './CashFlowForecast';
 
 type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects' | 'forecast';
 
-const ServicesHub: React.FC = () => {
+interface ServicesHubProps {
+    initialService?: string | null;
+    onClearService?: () => void;
+}
+
+const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearService }) => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
   const { 
     settings, members, 
@@ -25,6 +30,13 @@ const ServicesHub: React.FC = () => {
     transactions, totalBalance,
     savingsRate 
   } = useData();
+
+  useEffect(() => {
+      if (initialService) {
+          setActiveService(initialService as ServiceType);
+          if (onClearService) onClearService();
+      }
+  }, [initialService, onClearService]);
   
   const ALL_APPS = [
     { 

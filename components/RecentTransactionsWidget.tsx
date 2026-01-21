@@ -22,10 +22,10 @@ const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> = ({
   onTransactionClick,
   onViewAllClick
 }) => {
-  // Sort descending by date and take top 5 to balance visually with categories
+  // Sort descending by date and take top 50 to allow scrolling
   const recent = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+    .slice(0, 50);
 
   return (
     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col relative overflow-hidden group">

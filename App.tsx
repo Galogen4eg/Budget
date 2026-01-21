@@ -93,6 +93,7 @@ export default function App() {
   } = useData();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
@@ -335,13 +336,19 @@ export default function App() {
               );
           case 'wallet':
               return (
-                  <div className="flex-shrink-0 h-auto">
-                      <WalletWidget cards={loyaltyCards} onClick={() => setActiveTab('services')} />
+                  <div className="flex-shrink-0 h-72">
+                      <WalletWidget 
+                        cards={loyaltyCards} 
+                        onClick={() => {
+                            setTargetService('wallet');
+                            setActiveTab('services');
+                        }} 
+                      />
                   </div>
               );
           case 'recent_transactions':
               return (
-                  <div className="flex-shrink-0 h-auto">
+                  <div className="flex-shrink-0 h-80">
                       <RecentTransactionsWidget transactions={filteredTransactions} categories={categories} members={members} settings={settings} onTransactionClick={handleEditTransaction} onViewAllClick={() => setActiveTab('budget')} />
                   </div>
               );
@@ -413,11 +420,8 @@ export default function App() {
                         <div className="flex flex-col gap-4 h-auto lg:h-full lg:min-h-0 lg:overflow-hidden">
                             {/* 1. Shopping (Shrink to fit content) */}
                             {isWidgetVisible('shopping') && renderWidget('shopping')}
-
-                            {/* Wallet Widget */}
-                            {isWidgetVisible('wallet') && renderWidget('wallet')}
                             
-                            {/* 2. History (Shrink to fit 5 items) */}
+                            {/* 2. History (Fixed height 80 for internal scroll) */}
                             {isWidgetVisible('recent_transactions') && renderWidget('recent_transactions')}
 
                             {/* 3. Goals (Optional) */}
@@ -458,7 +462,7 @@ export default function App() {
             
             {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={async () => true} onDeleteEvent={handleDeleteEvent} /></motion.div>}
             {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
-            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ServicesHub /></motion.div>}
+            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ServicesHub initialService={targetService} onClearService={() => setTargetService(null)} /></motion.div>}
             </AnimatePresence>
         </div>
       </main>

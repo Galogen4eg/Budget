@@ -79,7 +79,13 @@ const WalletWidget: React.FC<WalletWidgetProps> = ({ cards, onClick }) => {
         </div>
 
         {/* Content - Scrollable List */}
-        <div className="flex-1 relative z-10 min-h-[60px] flex flex-col gap-1 overflow-y-auto no-scrollbar">
+        <div 
+            className="flex-1 relative z-10 min-h-[60px] flex flex-col gap-1 overflow-y-auto no-scrollbar"
+            style={{ 
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
+            }}
+        >
             {cards.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-2 border-2 border-dashed border-gray-100 dark:border-white/5 rounded-2xl cursor-pointer" onClick={onClick}>
                     <Plus size={20} className="mb-1" />
@@ -135,10 +141,7 @@ const WalletWidget: React.FC<WalletWidgetProps> = ({ cards, onClick }) => {
                     >
                         <div className="h-32 p-6 relative flex flex-col justify-between" style={{ background: selectedCard.color }}>
                             <div className="flex justify-between items-start text-white">
-                                <h3 className="text-2xl font-black truncate pr-4">{selectedCard.name}</h3>
-                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shrink-0">
-                                    {getIconById(selectedCard.icon, 20)}
-                                </div>
+                                <h3 className="text-2xl font-black truncate pr-12">{selectedCard.name}</h3>
                             </div>
                             <button onClick={() => setSelectedCard(null)} className="absolute top-4 right-4 text-white/50 hover:text-white bg-black/10 rounded-full p-1"><X size={20}/></button>
                         </div>

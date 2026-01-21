@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ChevronLeft, ChevronRight, Clock, Mic, BrainCircuit, Calendar as CalendarIcon, MapPin } from 'lucide-react';
@@ -340,7 +341,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
           </div>
           <div className="flex gap-2 shrink-0">
             <button onClick={startListening} className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white dark:bg-[#1C1C1E] text-blue-500 border dark:border-white/5'}`}><Mic size={22} /></button>
-            <button onClick={() => setActiveEvent({ event: null, prefill: { date: '' } })} className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Plus size={24} strokeWidth={3} /></button>
+            <button 
+                onClick={() => setActiveEvent({ 
+                    event: null, 
+                    prefill: { 
+                        date: getLocalDateString(selectedDate),
+                        time: '12:00'
+                    } 
+                })} 
+                className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"
+            >
+                <Plus size={24} strokeWidth={3} />
+            </button>
           </div>
         </div>
       </div>

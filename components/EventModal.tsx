@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -27,6 +27,12 @@ const REMINDER_OPTIONS = [
   { label: 'За 1 день', value: 1440 },
   { label: 'За 2 дня', value: 2880 },
 ];
+
+const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
+    <button type="button" onClick={onChange} className={`w-11 h-6 rounded-full p-1 transition-colors relative ${checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+    </button>
+);
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
@@ -165,16 +171,26 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                         onChange={e => setDesc(e.target.value)} 
                         className="w-full text-sm font-medium outline-none bg-gray-50/50 dark:bg-[#2C2C2E] p-4 rounded-2xl resize-none h-24 text-[#1C1C1E] dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600" 
                     />
+                    
+                    {/* Save as Template Toggle */}
+                    <div className="flex items-center justify-between px-2 pt-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Сохранить как шаблон</span>
+                        <Switch checked={isT} onChange={() => setIsT(!isT)} />
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border border-white dark:border-white/5">
-                        <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
                     </div>
-                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] border border-white dark:border-white/5">
-                        <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Время начала</span>
-                        <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-sm outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Время</span>
+                        <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                    </div>
+                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Длит. (ч)</span>
+                        <input type="number" step="0.5" min="0.5" value={dur} onChange={e => setDur(Number(e.target.value))} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
                     </div>
                 </div>
                 

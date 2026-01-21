@@ -7,8 +7,7 @@ import {
 } from '../types';
 import { 
   FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
-  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS,
-  DEMO_LOYALTY_CARDS
+  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS, DEMO_LOYALTY_CARDS
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
@@ -25,13 +24,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light', // Default theme
   savingsRate: 10, // Default savings rate
   widgets: [
-    { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+    { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
     { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
+    { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
+    { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
-    { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
-    { id: 'balance', isVisible: false, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   ],
   isPinEnabled: false,
   enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
@@ -106,6 +105,17 @@ interface DataContextType {
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export const useData = () => useContext(DataContext);
+
+// Helper to merge widgets
+const mergeWidgets = (currentWidgets: any[] = []) => {
+    const defaultWidgets = DEFAULT_SETTINGS.widgets || [];
+    const currentIds = new Set(currentWidgets.map(w => w.id));
+    const missing = defaultWidgets.filter(w => !currentIds.has(w.id));
+    if (missing.length > 0) {
+        return [...currentWidgets, ...missing];
+    }
+    return currentWidgets;
+};
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { familyId, user, loading: authLoading, isOfflineMode } = useAuth();
@@ -192,7 +202,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const demoDebts = isOfflineMode ? DEMO_DEBTS : [];
         const demoProjects = isOfflineMode ? DEMO_PROJECTS : [];
         const demoMembers = isOfflineMode ? FAMILY_MEMBERS : [];
-        const demoLoyalty = isOfflineMode ? DEMO_LOYALTY_CARDS : [];
+        const demoCards = isOfflineMode ? DEMO_LOYALTY_CARDS : [];
 
         loadLocal('transactions', setTransactions, demoTransactions);
         loadLocal('shopping', setShoppingItems, demoShopping);
@@ -201,12 +211,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('debts', setDebts, demoDebts);
         loadLocal('projects', setProjects, demoProjects);
         loadLocal('pantry', setPantryState, []);
-        loadLocal('loyalty', setLoyaltyCards, demoLoyalty);
+        loadLocal('loyalty', setLoyaltyCards, demoCards);
         loadLocal('wishlist', setWishlist, []);
         loadLocal('reminders', setReminders, []);
         loadLocal('knowledge', setAiKnowledge, []);
-        // Load settings and ensure defaults are applied
-        loadLocal('settings', (s: AppSettings) => setSettings(prev => ({...prev, ...s, savingsRate: s.savingsRate ?? prev.savingsRate})), DEFAULT_SETTINGS);
+        // Load settings and ensure defaults are applied and widgets merged
+        loadLocal('settings', (s: AppSettings) => {
+            const mergedSettings = {
+                ...s, 
+                savingsRate: s.savingsRate ?? 10,
+                widgets: mergeWidgets(s.widgets)
+            };
+            setSettings(prev => ({...prev, ...mergedSettings}));
+        }, DEFAULT_SETTINGS);
         loadLocal('dismissed_notifs', setDismissedNotificationIds, []);
         
         const storedMembers = localStorage.getItem('local_members');
@@ -247,7 +264,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // NEW: Subscribe to merged settings (Shared + User)
       subscribeToAppSettings(familyId, user?.uid || 'unknown', (data) => {
           if (data) {
-              setSettings(prev => ({ ...prev, ...data }));
+              const mergedWidgets = mergeWidgets(data.widgets);
+              setSettings(prev => ({ ...prev, ...data, widgets: mergedWidgets }));
               if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
           }
       })

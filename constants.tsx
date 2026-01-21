@@ -12,7 +12,7 @@ import {
   Pill, Stethoscope, Dumbbell, Ticket, Monitor, 
   Footprints, Smile, HeartHandshake, FileText, ShieldCheck,
   Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella,
-  Wine, GlassWater
+  Wine, GlassWater, CreditCard
 } from 'lucide-react';
 import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEvent, SavingsGoal, Debt, Project, LoyaltyCard } from './types';
 
@@ -121,11 +121,9 @@ export const DEMO_PROJECTS: Project[] = [
 ];
 
 export const DEMO_LOYALTY_CARDS: LoyaltyCard[] = [
-    { id: 'l1', name: 'Пятерочка', number: '7789000123456789', color: '#2FAC66', icon: 'ShoppingBag', barcodeFormat: 'ean13' },
+    { id: 'l1', name: 'Пятерочка', number: '7789000123456', color: '#2FAC66', icon: 'ShoppingBag', barcodeFormat: 'ean13' },
     { id: 'l2', name: 'Спортмастер', number: '12345678', color: '#007AFF', icon: 'Dumbbell', barcodeFormat: 'code128' },
-    { id: 'l3', name: 'Лента', number: '9876543210123', color: '#003399', icon: 'ShoppingBag', barcodeFormat: 'ean13' },
-    { id: 'l4', name: 'Красное & Белое', number: '2200112233', color: '#DA291C', icon: 'Wine', barcodeFormat: 'qr' },
-    { id: 'l5', name: 'Аэрофлот', number: 'SU 123 456 789', color: '#003366', icon: 'Plane', barcodeFormat: 'code128' },
+    { id: 'l3', name: 'IKEA', number: '9876543210', color: '#FFCC00', icon: 'Home', barcodeFormat: 'qr' },
 ];
 
 export const getIconById = (id: string, size = 20) => {
@@ -185,6 +183,7 @@ export const getIconById = (id: string, size = 20) => {
     case 'Umbrella': return <Umbrella size={size} />;
     case 'Wine': return <Wine size={size} />;
     case 'GlassWater': return <GlassWater size={size} />;
+    case 'CreditCard': return <CreditCard size={size} />;
     default: return <MoreHorizontal size={size} />;
   }
 };

@@ -44,7 +44,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         })
         .sort((a, b) => b.amount - a.amount);
 
-    return { total, topCategories: sorted.slice(0, 12), allCategories: sorted };
+    return { total, allCategories: sorted };
   }, [transactions, categories]);
 
   return (
@@ -52,9 +52,9 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={onClick}
-        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col cursor-pointer group relative overflow-hidden transition-all"
+        className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none h-full flex flex-col cursor-pointer group relative overflow-hidden transition-all"
     >
-        <div className="flex justify-between items-center mb-4 relative z-10 shrink-0">
+        <div className="flex justify-between items-center mb-2 relative z-10 shrink-0">
             <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
                     <PieChart size={14} className="text-indigo-500 dark:text-indigo-400" />
@@ -67,11 +67,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         </div>
 
         <div 
-            className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative z-10 flex flex-col justify-start"
-            style={{ 
-                maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)', 
-                WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)' 
-            }}
+            className="flex-1 min-h-0 relative z-10 flex flex-col justify-start overflow-hidden"
         >
             {data.total === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-4">
@@ -81,32 +77,34 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Нет трат в этом месяце</p>
                 </div>
             ) : (
-                <div className="space-y-3 pt-1">
-                    {data.topCategories.map((item, index) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3">
+                <div className="space-y-1.5 pt-1 overflow-y-auto no-scrollbar">
+                    {data.allCategories.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between gap-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors px-1">
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <div 
-                                    className="w-6 h-6 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
+                                    className="w-5 h-5 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
                                     style={{ backgroundColor: item.color }}
                                 >
-                                    <span className="scale-[0.65]">{getIconById(item.icon, 14)}</span>
+                                    <span className="scale-[0.6]">{getIconById(item.icon, 14)}</span>
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[11px] font-bold text-[#1C1C1E] dark:text-white truncate leading-tight">{item.label}</span>
-                                    <span className="text-[8px] font-bold text-gray-400 tabular-nums">{Math.round(item.percent)}%</span>
                                 </div>
                             </div>
-                            <span className="text-[11px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums">
-                                {settings.privacyMode ? '•••' : item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[11px] font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
+                                    {settings.privacyMode ? '•••' : item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                                <span className="text-[8px] font-bold text-gray-400 tabular-nums">{Math.round(item.percent)}%</span>
+                            </div>
                         </div>
                     ))}
                 </div>
             )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
-            <div className="flex h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800/50 p-[1px]">
+        <div className="mt-2 pt-2 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
+            <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800/50 p-[1px]">
                 {data.total > 0 ? (
                     data.allCategories.map((item) => (
                         <div 
@@ -116,12 +114,6 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                         />
                     ))
                 ) : <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-full" />}
-            </div>
-            <div className="flex justify-between items-center mt-2 px-0.5">
-                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Итого</span>
-                <span className="text-[10px] md:text-sm font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
-                    {settings.privacyMode ? '•••' : data.total.toLocaleString()} {settings.currency}
-                </span>
             </div>
         </div>
 

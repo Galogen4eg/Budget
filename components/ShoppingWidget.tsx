@@ -10,8 +10,7 @@ interface ShoppingWidgetProps {
 
 const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
   const activeItems = items.filter(i => !i.completed);
-  // Show up to 50 items, let internal scroll handle the rest
-  const displayItems = activeItems.slice(0, 50);
+  const displayItems = activeItems.slice(0, 4);
 
   return (
     <div 
@@ -37,13 +36,7 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
         </div>
 
         {/* Content */}
-        <div 
-            className="flex-1 space-y-2.5 relative z-10 min-h-0 overflow-y-auto no-scrollbar pb-1"
-            style={{ 
-                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', 
-                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' 
-            }}
-        >
+        <div className="flex-1 space-y-2.5 relative z-10 min-h-[60px]">
             {activeItems.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-2">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Все куплено!</p>
@@ -62,6 +55,11 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
                         )}
                     </div>
                 ))
+            )}
+            {activeItems.length > 4 && (
+                <div className="text-[9px] font-bold text-gray-400 text-center pt-1">
+                    + еще {activeItems.length - 4}
+                </div>
             )}
         </div>
         

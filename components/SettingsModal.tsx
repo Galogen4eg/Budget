@@ -47,11 +47,12 @@ interface SettingsModalProps {
 }
 
 const WIDGET_METADATA = [ 
+  { id: 'balance', label: 'Главный баланс' },
   { id: 'month_chart', label: 'График расходов' },
   { id: 'recent_transactions', label: 'История операций' },
   { id: 'category_analysis', label: 'Анализ категорий' },
   { id: 'shopping', label: 'Список покупок' },
-  { id: 'wallet', label: 'Кошелек' },
+  { id: 'wallet', label: 'Кошелек (Карты)' },
   { id: 'goals', label: 'Цели и копилка' }, 
 ];
 
@@ -211,16 +212,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     handleChange('widgets', updated);
   };
 
-  const moveWidget = (index: number, direction: -1 | 1) => {
-      const currentWidgets = settings.widgets || [];
-      const newWidgets = [...currentWidgets];
-      
-      const newIndex = index + direction;
-      if (newIndex < 0 || newIndex >= newWidgets.length) return;
-      
-      [newWidgets[index], newWidgets[newIndex]] = [newWidgets[newIndex], newWidgets[index]];
-      
-      handleChange('widgets', newWidgets);
+  const moveWidget = (index: number, direction: 'up' | 'down') => {
+      const widgets = [...(settings.widgets || [])];
+      if (direction === 'up' && index > 0) {
+          [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
+      } else if (direction === 'down' && index < widgets.length - 1) {
+          [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
+      }
+      handleChange('widgets', widgets);
   };
 
   // --- Member Logic ---
@@ -659,9 +658,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         case 'widgets': return (
             <div className="space-y-6">
                 <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-2">Главный экран</h3>
-                    <p className="text-xs text-gray-400 mb-4">Настройте порядок виджетов для мобильной версии</p>
-                    <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-4">Главный экран</h3>
+                    <p className="text-xs text-gray-400 mb-4">Настройте видимость и порядок виджетов (для мобильной версии).</p>
+                    <div className="space-y-3">
                         {(settings.widgets || []).map((widget, idx) => {
                             const meta = WIDGET_METADATA.find(m => m.id === widget.id);
                             if (!meta) return null;
@@ -670,29 +669,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
                             return (
                                 <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                                    <span className="font-bold text-sm flex-1">{meta.label}</span>
-                                    
-                                    <div className="flex items-center gap-2">
-                                        {/* Reordering Controls */}
+                                    <div className="flex items-center gap-2 flex-1">
                                         <div className="flex flex-col gap-1 mr-2">
                                             <button 
-                                                onClick={() => moveWidget(idx, -1)} 
+                                                onClick={() => !isFirst && moveWidget(idx, 'up')} 
                                                 disabled={isFirst}
-                                                className={`p-1 rounded-md transition-colors ${isFirst ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}`}
+                                                className={`p-1 rounded-md transition-colors ${isFirst ? 'text-gray-300 dark:text-gray-600' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}
                                             >
-                                                <ChevronUp size={14} />
+                                                <ArrowUp size={14} />
                                             </button>
                                             <button 
-                                                onClick={() => moveWidget(idx, 1)} 
+                                                onClick={() => !isLast && moveWidget(idx, 'down')} 
                                                 disabled={isLast}
-                                                className={`p-1 rounded-md transition-colors ${isLast ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}`}
+                                                className={`p-1 rounded-md transition-colors ${isLast ? 'text-gray-300 dark:text-gray-600' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}
                                             >
-                                                <ChevronDown size={14} />
+                                                <ArrowDown size={14} />
                                             </button>
                                         </div>
-
-                                        <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
+                                        <span className="font-bold text-sm">{meta.label}</span>
                                     </div>
+                                    <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
                                 </div>
                             );
                         })}

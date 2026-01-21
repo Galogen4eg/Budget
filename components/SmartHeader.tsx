@@ -28,9 +28,9 @@ const AnimatedCounter = ({ value, privacyMode }: { value: number, privacyMode: b
         spring.set(value);
     }, [value, spring]);
 
-    if (privacyMode) return <span className="text-4xl md:text-6xl font-black tracking-tighter">••••••</span>;
+    if (privacyMode) return <span className="text-3xl md:text-5xl font-black tracking-tighter">••••••</span>;
 
-    return <motion.span className="text-4xl xs:text-5xl md:text-6xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
+    return <motion.span className="text-3xl xs:text-4xl md:text-6xl font-black tracking-tighter tabular-nums leading-none truncate">{displayValue}</motion.span>;
 };
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ 
@@ -144,104 +144,84 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", duration: 0.6 }}
-        className={`relative overflow-hidden rounded-[2.2rem] text-white shadow-xl dark:shadow-white/5 ${className} group flex flex-col justify-between`}
+        className={`relative overflow-hidden rounded-[2.5rem] text-white shadow-2xl dark:shadow-white/5 ${className} group flex flex-col justify-between`}
     >
-        <div className="absolute inset-0 bg-[#151517] z-0" />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-800/90 opacity-100 z-0" />
+        {/* Background Gradients */}
+        <div className="absolute inset-0 bg-[#3B59E9] z-0" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-[#3B59E9] to-indigo-800 opacity-90 z-0" />
         
-        <motion.div 
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-[-40px] right-[-20px] w-32 h-32 bg-pink-500 rounded-full blur-[60px] mix-blend-screen pointer-events-none" 
-        />
-        <motion.div 
-            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute bottom-[-20px] left-[-20px] w-40 h-40 bg-blue-400 rounded-full blur-[50px] mix-blend-screen pointer-events-none" 
-        />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/30 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/20 rounded-full blur-[60px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col h-full p-4 md:p-6">
-            <div className="flex justify-between items-start mb-2">
-                <div className="flex gap-2">
-                    <button 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            if (onToggleBudgetMode) onToggleBudgetMode();
-                        }}
-                        className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-2xl px-3 py-1.5 border border-white/10 hover:bg-white/20 transition-all active:scale-95"
-                    >
-                        <AnimatePresence mode="wait">
-                            {budgetMode === 'family' ? (
-                                <motion.div key="fam" initial={{scale:0}} animate={{scale:1}} exit={{scale:0}}><Users size={14} className="text-purple-200"/></motion.div>
-                            ) : (
-                                <motion.div key="pers" initial={{scale:0}} animate={{scale:1}} exit={{scale:0}}><User size={14} className="text-blue-200"/></motion.div>
-                            )}
-                        </AnimatePresence>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-white">
-                            {budgetMode === 'family' ? 'Семья' : 'Личный'}
-                        </span>
-                    </button>
-                </div>
+        <div className="relative z-10 flex flex-col h-full p-5 md:p-8">
+            {/* Top Row */}
+            <div className="flex justify-between items-start mb-4">
+                <button 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        if (onToggleBudgetMode) onToggleBudgetMode();
+                    }}
+                    className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full pl-2 pr-3 py-1 border border-white/20 hover:bg-white/20 transition-all active:scale-95"
+                >
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                        <User size={14} className="text-white" />
+                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+                        {budgetMode === 'family' ? 'Семья' : 'Личный'}
+                    </span>
+                </button>
                 
                 <div className="flex items-center gap-2">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onInvite?.(); }}
-                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors flex items-center justify-center"
-                        title="Пригласить"
-                    >
-                        <UserPlus size={14} />
+                    <button onClick={(e) => { e.stopPropagation(); onInvite?.(); }} className="w-9 h-9 bg-white/10 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors">
+                        <UserPlus size={16} />
                     </button>
-
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 border border-white/10">
-                        <CalendarClock size={12} className="text-blue-200" />
-                        <span className="text-[10px] font-bold text-white tabular-nums">
-                            {daysRemaining} дн.
-                        </span>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl px-3 py-2 flex items-center gap-1.5 border border-white/10 h-9">
+                        <CalendarClock size={14} className="text-blue-200" />
+                        <span className="text-xs font-bold text-white tabular-nums">{daysRemaining} дн.</span>
                     </div>
-                    
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }}
-                        className="p-2 bg-white/10 rounded-full text-blue-100 hover:bg-white/20 transition-colors"
-                    >
-                        {settings.privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                    <button onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.(); }} className="w-9 h-9 bg-white/10 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors">
+                        {settings.privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 flex items-center min-h-0 mb-4 overflow-hidden">
-                <div className="flex items-baseline gap-1 md:gap-2 w-full overflow-hidden">
+            {/* Big Balance */}
+            <div className="flex-1 flex flex-col justify-center mb-6">
+                <div className="flex items-baseline gap-2">
                     <AnimatedCounter value={balance} privacyMode={settings.privacyMode} />
-                    <span className="text-lg md:text-3xl font-medium text-blue-200/60 mb-1">{settings.currency}</span>
+                    <span className="text-xl md:text-3xl font-medium text-blue-200/80">{settings.currency}</span>
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:gap-4 h-24 md:h-28 mt-auto shrink-0">
-                <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between relative overflow-hidden group/item shadow-lg">
-                    <span className="text-[8px] md:text-[10px] font-bold uppercase text-blue-100/80 tracking-wider flex items-center gap-1 truncate">
-                        <TrendingUp size={10} className="text-green-300" /> На день
+            {/* Stats Row (Inside Card) */}
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-[1.5rem] p-3 md:p-4 flex flex-col gap-1 relative overflow-hidden group/item">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase text-blue-100/70 tracking-widest flex items-center gap-1.5 truncate">
+                        <TrendingUp size={10} className="text-blue-300" /> На день
                     </span>
-                    <span className="text-lg md:text-2xl font-black text-white tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-white tabular-nums leading-tight truncate">
                         {settings.privacyMode ? '•••' : Math.round(dailyBudget).toLocaleString()}
                     </span>
                 </div>
 
-                <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between group/item">
-                    <span className="text-[8px] md:text-[10px] font-bold uppercase text-red-100/70 tracking-wider flex items-center gap-1 truncate">
-                        <ArrowDownRight size={10} className="text-red-300" /> Траты
+                <div className="bg-black/20 backdrop-blur-sm border border-white/5 rounded-[1.5rem] p-3 md:p-4 flex flex-col gap-1">
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-widest flex items-center gap-1.5 truncate">
+                        <ArrowDownRight size={10} className="text-indigo-300" /> Траты
                     </span>
-                    <span className="text-lg md:text-2xl font-black text-white/95 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-white tabular-nums leading-tight truncate">
                         {settings.privacyMode ? '•••' : Math.round(spent).toLocaleString()}
                     </span>
                 </div>
 
                 <button
                     onClick={() => setIsReserveModalOpen(true)}
-                    className="bg-black/20 backdrop-blur-md border border-white/5 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-4 flex flex-col justify-between cursor-pointer hover:bg-black/30 transition-colors text-left"
+                    className="bg-black/20 backdrop-blur-sm border border-white/5 rounded-[1.5rem] p-3 md:p-4 flex flex-col gap-1 cursor-pointer hover:bg-black/30 transition-colors text-left"
                 >
-                    <span className="text-[8px] md:text-[10px] font-bold uppercase text-indigo-200/60 tracking-wider flex items-center gap-1 truncate">
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase text-purple-200/60 tracking-widest flex items-center gap-1.5 truncate">
                         <Lock size={10} /> Резерв
                     </span>
-                    <span className="text-lg md:text-2xl font-black text-indigo-100/90 tabular-nums leading-none truncate mt-auto">
+                    <span className="text-lg md:text-2xl font-black text-purple-100/90 tabular-nums leading-tight truncate">
                         {settings.privacyMode ? '•••' : Math.round(reservedAmount).toLocaleString()}
                     </span>
                 </button>

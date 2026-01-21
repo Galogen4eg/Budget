@@ -103,7 +103,7 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-2xl md:text-3xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
+                    <h2 className="text-xl md:text-2xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
                     <span className="text-xs font-bold text-gray-400">{settings.currency}</span>

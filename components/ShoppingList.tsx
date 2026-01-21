@@ -8,6 +8,7 @@ import { addItem, updateItem, deleteItem, addItemsBatch } from '../utils/db';
 import { searchOnlineDatabase } from '../utils/barcodeLookup';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
+import ShoppingListDesktop from './ShoppingListDesktop';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -39,8 +40,8 @@ const AISLES = [
 
 const UNITS = ['шт', 'кг', 'уп', 'л'] as const;
 
-const ShoppingList: React.FC<ShoppingListProps> = ({ 
-    items, setItems, settings, members, onMoveToPantry, onSendToTelegram 
+const ShoppingListMobile: React.FC<ShoppingListProps> = ({ 
+  items, setItems, settings, members, onMoveToPantry, onSendToTelegram 
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
@@ -384,7 +385,7 @@ const ShoppingList: React.FC<ShoppingListProps> = ({
       );
   }
 
-  // Standard Mode
+  // Standard Mobile Mode
   return (
     <div className="space-y-4 h-full flex flex-col relative">
         {/* Loading Overlay for AI */}
@@ -641,6 +642,23 @@ const ShoppingList: React.FC<ShoppingListProps> = ({
         </AnimatePresence>
     </div>
   );
+};
+
+const ShoppingList: React.FC<ShoppingListProps> = (props) => {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  if (isDesktop) {
+      return <ShoppingListDesktop {...props} />;
+  }
+
+  return <ShoppingListMobile {...props} />;
 };
 
 export default ShoppingList;

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
@@ -325,8 +326,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 // Adjusted Top Position
                 const top = ((h - safeStart) * HOUR_HEIGHT) + (m * HOUR_HEIGHT / 60);
                 const height = ((event.duration || 1) * HOUR_HEIGHT);
-                const color = getMemberColor(event.memberIds);
                 const isSmall = height < 50; // Less than 40 mins approx
+                
+                // Find members
+                const eventMembers = members.filter(m => event.memberIds.includes(m.id));
 
                 return (
                   <div 
@@ -336,26 +339,38 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                     style={{ 
                         top: `${top}px`, 
                         height: `${Math.max(30, height - 2)}px`,
-                        backgroundColor: `${color}30`, // Increased opacity for dark mode visibility
-                        borderLeftColor: color,
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)', // Always Blue background
+                        borderLeftColor: '#3B82F6', // Always Blue border
                         padding: isSmall ? '2px 6px' : '8px 10px'
                     }}
                   >
                     {/* Improved Short Event Layout */}
                     {isSmall ? (
                         <div className="flex items-center gap-2 h-full">
-                            <span className="text-gray-600 dark:text-gray-300 text-[10px] font-bold whitespace-nowrap leading-none">{event.time}</span>
+                            <span className="text-blue-600 dark:text-blue-300 text-[10px] font-bold whitespace-nowrap leading-none">{event.time}</span>
                             <p className="text-[#1C1C1E] dark:text-white font-extrabold text-xs leading-none truncate flex-1 min-w-0 drop-shadow-sm">{event.title}</p>
+                            {/* Dots for participants */}
+                            <div className="flex -space-x-1">
+                                {eventMembers.map(m => (
+                                    <div key={m.id} className="w-2 h-2 rounded-full border border-white dark:border-[#1C1C1E]" style={{ backgroundColor: m.color }} />
+                                ))}
+                            </div>
                         </div>
                     ) : (
                         <div className="flex justify-between items-start h-full">
                           <div className="flex-1 min-w-0 pr-1 flex flex-col gap-0.5">
                             <p className="text-[#1C1C1E] dark:text-white font-extrabold text-xs md:text-sm leading-tight truncate drop-shadow-sm">{event.title}</p>
-                            <p className="text-gray-600 dark:text-gray-300 text-[10px] md:text-xs flex items-center gap-1 truncate font-medium">
+                            <p className="text-blue-600 dark:text-blue-300 text-[10px] md:text-xs flex items-center gap-1 truncate font-medium">
                               <Clock size={10} /> {event.time} — {event.duration || 1} ч
                             </p>
+                            {/* Dots for participants */}
+                            <div className="flex -space-x-1 mt-1">
+                                {eventMembers.map(m => (
+                                    <div key={m.id} className="w-3 h-3 rounded-full border border-white dark:border-[#1C1C1E]" style={{ backgroundColor: m.color }} title={m.name} />
+                                ))}
+                            </div>
                           </div>
-                          <MoreHorizontal size={14} className="text-gray-500 dark:text-gray-300 group-hover:text-[#1C1C1E] dark:group-hover:text-white shrink-0 mt-0.5" />
+                          <MoreHorizontal size={14} className="text-blue-400 group-hover:text-blue-600 shrink-0 mt-0.5" />
                         </div>
                     )}
                   </div>
@@ -383,11 +398,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                               <h2 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-4 px-2 top-0 bg-[#F2F2F7] dark:bg-black z-10 py-2 sticky">{date}</h2>
                               <div className="space-y-3">
                                   {items.map(event => {
-                                      const color = getMemberColor(event.memberIds);
                                       const dateObj = new Date(event.date);
                                       return (
                                           <div key={event.id} onClick={() => setActiveEvent({ event })} className="group bg-white dark:bg-[#1C1C1E] p-4 rounded-[1.5rem] border border-black/5 dark:border-white/5 shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center gap-4">
-                                              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg shrink-0" style={{ backgroundColor: color }}>
+                                              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg shrink-0 bg-blue-500">
                                                   <span className="text-[10px] font-black uppercase opacity-80">{dateObj.toLocaleDateString('ru-RU', { month: 'short' })}</span>
                                                   <span className="text-xl font-black leading-none">{dateObj.getDate()}</span>
                                               </div>
@@ -554,12 +568,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                       
                       <div className="mt-1 space-y-1 overflow-hidden">
                         {dayEvents.slice(0, 2).map(event => {
-                            const color = getMemberColor(event.memberIds);
+                            // Use blue color always for the bar in month view
                             return (
                               <div 
                                 key={event.id} 
-                                className="text-white text-[8px] md:text-[9px] py-0.5 px-1.5 rounded-md font-bold truncate shadow-sm hidden md:block"
-                                style={{ backgroundColor: color }}
+                                className="text-white text-[8px] md:text-[9px] py-0.5 px-1.5 rounded-md font-bold truncate shadow-sm hidden md:block bg-blue-500"
                               >
                                 {event.time} {event.title}
                               </div>
@@ -588,13 +601,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         </div>
       </main>
 
-      {/* Mobile Floating Action Button (FAB) */}
-      <button 
-          onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate) } })}
-          className="md:hidden fixed bottom-28 right-4 z-40 bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-500/30 flex items-center justify-center active:scale-90 transition-transform"
-      >
-          <Plus size={28} strokeWidth={3} />
-      </button>
+      {/* Mobile Floating Action Button (FAB) - Uses Portal to escape scrolling and transform context */}
+      {typeof document !== 'undefined' && createPortal(
+          <button 
+              onClick={() => setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate) } })}
+              className="md:hidden fixed bottom-28 right-4 z-50 bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-500/30 flex items-center justify-center active:scale-90 transition-transform"
+          >
+              <Plus size={28} strokeWidth={3} />
+          </button>,
+          document.body
+      )}
 
       {/* Right Details Panel (Inspector) - Hidden on Mobile */}
       <aside className="hidden lg:flex w-96 bg-white dark:bg-[#1C1C1E] border-l border-black/5 dark:border-white/10 flex-col shadow-[-20px_0_40px_rgba(0,0,0,0.02)] dark:shadow-none z-20 h-full">
@@ -616,7 +632,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
             {selectedDayEvents.length > 0 ? (
               <div className="space-y-8">
                 {selectedDayEvents.map(event => {
-                    const color = getMemberColor(event.memberIds);
+                    // Use blue color theme for inspector icons
                     const assignedMembers = members.filter(m => event.memberIds.includes(m.id));
                     const hasChecklist = event.checklist && event.checklist.length > 0;
                     const hasReminders = event.reminders && event.reminders.length > 0;
@@ -624,7 +640,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                     return (
                       <div key={event.id} className="group animate-in fade-in slide-in-from-right-4 duration-400 cursor-pointer" onClick={() => setActiveEvent({ event })}>
                         <div className="flex items-center gap-4 mb-4">
-                          <div className={`w-12 h-12 rounded-2xl bg-opacity-15 flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color: color }}>
+                          <div className={`w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500`}>
                             <CalendarIcon size={24} strokeWidth={2.5} />
                           </div>
                           <div className="flex-1 min-w-0">

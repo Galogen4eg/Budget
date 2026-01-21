@@ -191,17 +191,14 @@ export default function App() {
   };
 
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]) => {
+      // Allow sending even if empty to "Clear" the list in Telegram (mark as all bought)
       const activeItems = items.filter(i => !i.completed);
-      if (activeItems.length === 0) {
-          toast.info('Нет активных покупок');
-          return false;
-      }
-
-      // Format message
+      
       const dateStr = new Date().toLocaleDateString('ru-RU');
       let text = settings.shoppingTemplate || `🛒 *Список покупок* ({date})\n\n{items}`;
       
-      const itemsList = activeItems.map(i => `• ${i.title}${i.amount ? ` (${i.amount} ${i.unit})` : ''}`).join('\n');
+      let itemsList = activeItems.map(i => `• ${i.title}${i.amount ? ` (${i.amount} ${i.unit})` : ''}`).join('\n');
+      if (activeItems.length === 0) itemsList = "✅ Все куплено!";
       
       text = text.replace('{date}', dateStr)
                  .replace('{items}', itemsList)
@@ -209,48 +206,89 @@ export default function App() {
 
       // 1. Try Telegram Bot API if configured
       if (settings.telegramBotToken && settings.telegramChatId) {
-          const loadingToast = toast.loading('Отправка в Telegram...');
+          const loadingToast = toast.loading('Синхронизация с Telegram...');
           try {
-              const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      chat_id: settings.telegramChatId,
-                      text: text,
-                      parse_mode: 'Markdown'
-                  })
-              });
+              const todayStr = new Date().toDateString();
+              const savedState = settings.telegramState;
+              let messageIdToEdit = null;
+
+              // Check if we have a message from today to edit
+              if (savedState && savedState.lastShoppingDate === todayStr) {
+                  messageIdToEdit = savedState.lastShoppingMessageId;
+              }
+
+              let response;
+              let isEdit = false;
+
+              if (messageIdToEdit) {
+                  // Try to edit existing message
+                  try {
+                      response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/editMessageText`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              chat_id: settings.telegramChatId,
+                              message_id: messageIdToEdit,
+                              text: text,
+                              parse_mode: 'Markdown'
+                          })
+                      });
+                      
+                      const resData = await response.json();
+                      if (resData.ok) {
+                          isEdit = true;
+                      } else {
+                          // If edit failed (e.g. message deleted), suppress error and fall through to send new
+                          console.warn("Failed to edit message, sending new one:", resData.description);
+                      }
+                  } catch (e) {
+                      console.error("Edit request failed", e);
+                  }
+              }
+
+              // If not editing or edit failed, send new message
+              if (!isEdit) {
+                  response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          chat_id: settings.telegramChatId,
+                          text: text,
+                          parse_mode: 'Markdown'
+                      })
+                  });
+              }
               
-              if (response.ok) {
-                  toast.success('Отправлено в Telegram!', { id: loadingToast });
+              const data = await response?.json();
+              
+              if (data && data.ok) {
+                  const newMessageId = data.result.message_id;
+                  
+                  // Update settings with new state so we can edit it next time
+                  // Only update if we sent a NEW message, or if we successfully edited (id stays same)
+                  const idToSave = isEdit ? messageIdToEdit : newMessageId;
+                  
+                  await updateSettings({
+                      ...settings,
+                      telegramState: {
+                          lastShoppingMessageId: idToSave as number,
+                          lastShoppingDate: todayStr
+                      }
+                  });
+
+                  toast.success(isEdit ? 'Список в Telegram обновлен!' : 'Список отправлен в Telegram!', { id: loadingToast });
                   return true;
               } else {
-                  throw new Error('Ошибка API Telegram');
+                  console.error("Telegram API Error:", data);
+                  throw new Error(data?.description || 'Ошибка API Telegram');
               }
           } catch (e) {
               console.error(e);
-              toast.dismiss(loadingToast);
-              // Fallthrough to native share
+              toast.error('Не удалось отправить в Telegram. Проверьте настройки.', { id: loadingToast });
+              return false;
           }
-      }
-
-      // 2. Native Share API (Mobile)
-      if (navigator.share) {
-          try {
-              await navigator.share({ title: 'Список покупок', text: text });
-              return true;
-          } catch (e) {
-              // User cancelled or error
-          }
-      }
-
-      // 3. Fallback to Clipboard
-      try {
-          await navigator.clipboard.writeText(text);
-          toast.success('Список скопирован! (Telegram не настроен)');
-          return true;
-      } catch (e) {
-          toast.error('Не удалось отправить или скопировать');
+      } else {
+          toast.error("Настройте Telegram бота в настройках!");
           return false;
       }
   };

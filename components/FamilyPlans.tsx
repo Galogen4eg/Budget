@@ -62,6 +62,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const safeEnd = Math.max(safeStart, Math.min(23, endHour));
   // Ensure we display at least one hour if start == end
   const displayEnd = safeEnd === safeStart ? safeStart + 1 : safeEnd;
+  
+  // CONSTANTS for layout
+  const HOUR_HEIGHT = 80;
 
   // Update current time indicator
   useEffect(() => {
@@ -270,89 +273,95 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     const currentMinutes = currentTime.getMinutes();
     
     // Calculate top position relative to startHour
-    const timeIndicatorTop = ((currentHour - safeStart) * 80) + (currentMinutes * 80 / 60);
+    const timeIndicatorTop = ((currentHour - safeStart) * HOUR_HEIGHT) + (currentMinutes * HOUR_HEIGHT / 60);
     const showTimeIndicator = isToday && currentHour >= safeStart && currentHour <= displayEnd;
 
     return (
-      <div className="relative flex flex-1 bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm h-full">
-        {/* Time Scale */}
-        <div className="w-16 md:w-20 border-r border-black/5 dark:border-white/10 flex flex-col bg-gray-50/50 dark:bg-black/20 shrink-0">
-          {hours.map(hour => (
-            <div key={hour} className="h-20 border-b border-black/[0.02] dark:border-white/[0.02] flex justify-center pt-2">
-              <span className="text-[10px] md:text-[11px] font-medium text-gray-400 dark:text-gray-500">{`${hour.toString().padStart(2, '0')}:00`}</span>
+      <div className="relative flex-1 bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 shadow-sm h-full overflow-y-auto no-scrollbar isolate">
+        <div className="flex min-h-full">
+            {/* Time Scale */}
+            <div className="w-16 md:w-20 border-r border-black/5 dark:border-white/10 flex flex-col bg-gray-50/50 dark:bg-black/20 shrink-0">
+              {hours.map(hour => (
+                <div key={hour} className="relative border-b border-black/[0.02] dark:border-white/[0.02] box-border" style={{ height: `${HOUR_HEIGHT}px` }}>
+                  <span className="absolute -top-3 left-0 right-0 text-center text-[10px] md:text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                    {`${hour.toString().padStart(2, '0')}:00`}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Grid */}
-        <div className="flex-1 relative overflow-y-auto overflow-x-hidden no-scrollbar h-full">
-          {hours.map(hour => (
-            <div 
-                key={hour} 
-                className="h-20 border-b border-black/[0.03] dark:border-white/[0.05] w-full cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
-                onClick={() => {
-                    const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-                    setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate), time: timeStr } });
-                }}
-            ></div>
-          ))}
+            {/* Grid */}
+            <div className="flex-1 relative min-w-0">
+              {hours.map(hour => (
+                <div 
+                    key={hour} 
+                    className="border-b border-black/[0.03] dark:border-white/[0.05] w-full cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02] box-border"
+                    style={{ height: `${HOUR_HEIGHT}px` }}
+                    onClick={() => {
+                        const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                        setActiveEvent({ event: null, prefill: { date: getLocalDateString(selectedDate), time: timeStr } });
+                    }}
+                ></div>
+              ))}
 
-          {/* Time Indicator */}
-          {showTimeIndicator && (
-            <div 
-              className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
-              style={{ top: `${timeIndicatorTop}px` }}
-            >
-              <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shadow-sm"></div>
-              <div className="flex-1 h-px bg-red-500"></div>
+              {/* Time Indicator */}
+              {showTimeIndicator && (
+                <div 
+                  className="absolute left-0 right-0 z-30 flex items-center pointer-events-none"
+                  style={{ top: `${timeIndicatorTop}px` }}
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shadow-sm"></div>
+                  <div className="flex-1 h-px bg-red-500"></div>
+                </div>
+              )}
+
+              {/* Events */}
+              {selectedDayEvents.map(event => {
+                const [h, m] = event.time.split(':').map(Number);
+                
+                // Skip events outside visible range
+                if (h < safeStart || h > displayEnd) return null;
+
+                // Adjusted Top Position
+                const top = ((h - safeStart) * HOUR_HEIGHT) + (m * HOUR_HEIGHT / 60);
+                const height = ((event.duration || 1) * HOUR_HEIGHT);
+                const color = getMemberColor(event.memberIds);
+                const isSmall = height < 50; // Less than 40 mins approx
+
+                return (
+                  <div 
+                    key={event.id}
+                    onClick={() => setActiveEvent({ event })}
+                    className={`absolute left-2 right-2 md:left-4 md:right-8 rounded-xl shadow-sm border-l-4 transition-transform active:scale-[0.98] cursor-pointer group hover:brightness-110 overflow-hidden flex flex-col justify-start z-10 box-border`}
+                    style={{ 
+                        top: `${top}px`, 
+                        height: `${Math.max(30, height - 2)}px`,
+                        backgroundColor: `${color}30`, // Increased opacity for dark mode visibility
+                        borderLeftColor: color,
+                        padding: isSmall ? '2px 6px' : '8px 10px'
+                    }}
+                  >
+                    {/* Improved Short Event Layout */}
+                    {isSmall ? (
+                        <div className="flex items-center gap-2 h-full">
+                            <span className="text-gray-600 dark:text-gray-300 text-[10px] font-bold whitespace-nowrap leading-none">{event.time}</span>
+                            <p className="text-[#1C1C1E] dark:text-white font-extrabold text-xs leading-none truncate flex-1 min-w-0 drop-shadow-sm">{event.title}</p>
+                        </div>
+                    ) : (
+                        <div className="flex justify-between items-start h-full">
+                          <div className="flex-1 min-w-0 pr-1 flex flex-col gap-0.5">
+                            <p className="text-[#1C1C1E] dark:text-white font-extrabold text-xs md:text-sm leading-tight truncate drop-shadow-sm">{event.title}</p>
+                            <p className="text-gray-600 dark:text-gray-300 text-[10px] md:text-xs flex items-center gap-1 truncate font-medium">
+                              <Clock size={10} /> {event.time} — {event.duration || 1} ч
+                            </p>
+                          </div>
+                          <MoreHorizontal size={14} className="text-gray-500 dark:text-gray-300 group-hover:text-[#1C1C1E] dark:group-hover:text-white shrink-0 mt-0.5" />
+                        </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Events */}
-          {selectedDayEvents.map(event => {
-            const [h, m] = event.time.split(':').map(Number);
-            
-            // Skip events outside visible range
-            if (h < safeStart || h > displayEnd) return null;
-
-            // Adjusted Top Position
-            const top = ((h - safeStart) * 80) + (m * 80 / 60);
-            const height = ((event.duration || 1) * 80 / 60);
-            const color = getMemberColor(event.memberIds);
-            const isSmall = height < 60; // Less than 45 mins approx
-
-            return (
-              <div 
-                key={event.id}
-                onClick={() => setActiveEvent({ event })}
-                className={`absolute left-2 right-2 md:left-4 md:right-8 rounded-xl p-2 md:p-3 shadow-sm border-l-4 transition-transform active:scale-[0.98] cursor-pointer group hover:brightness-110 overflow-hidden flex flex-col justify-start`}
-                style={{ 
-                    top: `${top + 2}px`, 
-                    height: `${Math.max(30, height - 4)}px`,
-                    backgroundColor: `${color}20`,
-                    borderLeftColor: color
-                }}
-              >
-                {/* Improved Short Event Layout */}
-                {isSmall ? (
-                    <div className="flex items-center gap-2 h-full">
-                        <span className="text-gray-500 dark:text-gray-400 text-[10px] md:text-xs font-medium whitespace-nowrap">{event.time}</span>
-                        <p className="text-[#1C1C1E] dark:text-white font-bold text-xs md:text-sm leading-tight truncate flex-1 min-w-0">{event.title}</p>
-                    </div>
-                ) : (
-                    <div className="flex justify-between items-start h-full">
-                      <div className="flex-1 min-w-0 pr-1">
-                        <p className="text-[#1C1C1E] dark:text-white font-bold text-xs md:text-sm leading-tight truncate">{event.title}</p>
-                        <p className="text-gray-500 dark:text-gray-400 text-[10px] md:text-xs mt-0.5 flex items-center gap-1 truncate">
-                          <Clock size={10} /> {event.time} — {event.duration || 1} ч
-                        </p>
-                      </div>
-                      <MoreHorizontal size={16} className="text-gray-400 group-hover:text-[#1C1C1E] dark:group-hover:text-white shrink-0" />
-                    </div>
-                )}
-              </div>
-            );
-          })}
         </div>
       </div>
     );
@@ -516,6 +525,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                   const isSelected = selectedDate.getDate() === d.day && selectedDate.getMonth() === d.month && selectedDate.getFullYear() === d.year;
                   const isToday = new Date().getDate() === d.day && new Date().getMonth() === d.month && new Date().getFullYear() === d.year;
 
+                  // Get unique colors for dots
+                  const uniqueColors = Array.from(new Set(dayEvents.flatMap(e => e.memberIds).map(id => {
+                      const m = members.find(mem => mem.id === id);
+                      return m ? m.color : '#9CA3AF';
+                  }))).slice(0, 3); // Max 3 dots
+
                   return (
                     <div 
                       key={i} 
@@ -526,7 +541,15 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                         <span className={`text-[10px] md:text-sm font-bold flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full transition-all ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-110' : isSelected ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-gray-700 dark:text-gray-300'}`}>
                           {d.day}
                         </span>
-                        {dayEvents.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2 mr-1"></div>}
+                        
+                        {/* Member Dots */}
+                        {uniqueColors.length > 0 && (
+                            <div className="flex gap-1 mt-1.5 mr-1">
+                                {uniqueColors.map(c => (
+                                    <div key={c} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }} />
+                                ))}
+                            </div>
+                        )}
                       </div>
                       
                       <div className="mt-1 space-y-1 overflow-hidden">

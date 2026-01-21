@@ -182,11 +182,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
                         <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white dark:[color-scheme:dark]" />
                     </div>
                     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
                         <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Время</span>
-                        <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                        <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white dark:[color-scheme:dark]" />
                     </div>
                     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
                         <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Длит. (ч)</span>

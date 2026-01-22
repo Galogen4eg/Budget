@@ -6,8 +6,8 @@ import {
   LoyaltyCard, WishlistItem, SavingsGoal, LearnedRule, Category, AppNotification, Reminder, AIKnowledgeItem
 } from '../types';
 import { 
-  FAMILY_MEMBERS, INITIAL_CATEGORIES, DEMO_TRANSACTIONS,
-  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS, DEMO_LOYALTY_CARDS
+  FAMILY_MEMBERS, INITIAL_CATEGORIES, DEFAULT_RULES, DEMO_TRANSACTIONS,
+  DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_PROJECTS, DEMO_LOYALTY_CARDS, DEMO_MANDATORY_EXPENSES
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
@@ -137,8 +137,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const learnedRules = useMemo(() => {
       const ruleMap = new Map<string, LearnedRule>();
+      
+      // 1. Apply Default Rules (Lowest Priority)
+      DEFAULT_RULES.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      
+      // 2. Apply Global Database Rules (Medium Priority)
       globalRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      
+      // 3. Apply Local Family Rules (Highest Priority - Overrides others)
       localRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      
       return Array.from(ruleMap.values());
   }, [localRules, globalRules]);
 
@@ -220,6 +228,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const mergedSettings = {
                 ...s, 
                 savingsRate: s.savingsRate ?? 10,
+                // Only merge demo expenses if offline and array is empty
+                mandatoryExpenses: (isOfflineMode && (!s.mandatoryExpenses || s.mandatoryExpenses.length === 0)) ? DEMO_MANDATORY_EXPENSES : s.mandatoryExpenses || [],
                 widgets: mergeWidgets(s.widgets)
             };
             setSettings(prev => ({...prev, ...mergedSettings}));

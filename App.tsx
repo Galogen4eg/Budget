@@ -131,10 +131,10 @@ export default function App() {
       if (budgetMode === 'family') {
           return allExpenses;
       } else {
-          // Personal mode: show only expenses assigned to current user
+          // Personal mode: show expenses assigned to current user OR unassigned (legacy/shared)
           const myMemberId = members.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return []; // Safety: if member not found, return empty instead of exposing all
-          return allExpenses.filter(e => e.memberId === myMemberId);
+          if (!myMemberId) return allExpenses; // Fallback to all if member not found
+          return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
       }
   }, [settings.mandatoryExpenses, budgetMode, members, user?.uid]);
 

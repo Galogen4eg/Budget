@@ -67,11 +67,12 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
   const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   
-  // Релевантные платежи для режима
+  // Filter relevant mandatory expenses
+  // In Personal mode, include items assigned to me OR unassigned (legacy/shared)
   const relevantMandatoryExpenses = useMemo(() => {
       const all = settings.mandatoryExpenses || [];
       if (budgetMode === 'personal' && myMemberId) {
-          return all.filter(e => e.memberId === myMemberId);
+          return all.filter(e => !e.memberId || e.memberId === myMemberId);
       }
       return all;
   }, [settings.mandatoryExpenses, budgetMode, myMemberId]);

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, X, Calendar, Tag, FileText, Repeat, ChevronRight, User, Check, Trash2, 
@@ -272,8 +273,72 @@ export default function AddTransactionModal({
     </div>
   );
 
-  return (
-    <div className="fixed inset-0 z-[1200] flex items-end md:items-center justify-center p-0 md:p-4">
+  const DetailsSection = () => (
+    <div className="space-y-2">
+        <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+            
+            {mandatoryExpenses.length > 0 && type === 'expense' && (
+                <button 
+                    onClick={() => setCurrentView('monthly_binding')}
+                    className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                >
+                    <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center mr-3 text-orange-500">
+                        <LinkIcon size={18} />
+                    </div>
+                    <div className="flex-1 text-left">
+                        <p className="text-[15px] text-black dark:text-white">Привязать к платежу</p>
+                        <p className={`text-[13px] font-medium ${boundExpense ? 'text-orange-500' : 'text-gray-400'}`}>
+                            {boundExpense?.name || 'Не выбрано'}
+                        </p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-400" />
+                </button>
+            )}
+
+            <button 
+                onClick={() => setCurrentView('assignee')}
+                className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+            >
+                <div className="mr-3">
+                    <MemberMarker member={selectedMember} size="sm" />
+                </div>
+                <div className="flex-1 text-left">
+                    <p className="text-[15px] text-black dark:text-white">Исполнитель</p>
+                    <p className="text-[13px] text-gray-500">{selectedMember.name}</p>
+                </div>
+                <ChevronRight size={16} className="text-gray-400" />
+            </button>
+
+            <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors w-full group">
+                <div className="flex items-center flex-1 pointer-events-none z-10">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500">
+                        <Calendar size={18} />
+                    </div>
+                    <div className="flex-1 text-left">
+                        <p className="text-[15px] text-black dark:text-white">Дата</p>
+                        <p className="text-[13px] text-gray-500">
+                            {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-400" />
+                </div>
+                
+                <input 
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                    style={{ appearance: 'none' }}
+                    required
+                />
+            </div>
+        </div>
+    </div>
+  );
+
+  return createPortal(
+    <div className="fixed inset-0 z-[3000] flex items-end md:items-center justify-center p-0 md:p-4">
       <motion.div 
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
@@ -287,7 +352,7 @@ export default function AddTransactionModal({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative w-full max-w-md md:max-w-5xl h-[95vh] md:h-auto md:max-h-[85vh] bg-[#F2F2F7] dark:bg-black md:rounded-[2.5rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md md:max-w-5xl h-[95vh] md:h-[85vh] bg-[#F2F2F7] dark:bg-black md:rounded-[2.5rem] rounded-t-[2rem] shadow-2xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <AnimatePresence initial={false} mode="popLayout">
@@ -296,7 +361,7 @@ export default function AddTransactionModal({
                     key="main"
                     initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-10 md:static md:h-auto"
+                    className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-10 md:static md:h-full"
                 >
                     {/* Header */}
                     <div className="px-4 py-3 md:px-8 md:py-6 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-30 bg-[#F2F2F7]/90 dark:bg-[#1C1C1E]/90 border-gray-200 dark:border-white/10 shrink-0">
@@ -324,11 +389,11 @@ export default function AddTransactionModal({
                         <div className="flex flex-col md:grid md:grid-cols-2 md:h-full">
                             
                             {/* Left Column (Desktop) / Top (Mobile) */}
-                            <div className="flex flex-col items-center py-8 md:py-0 md:p-8 md:overflow-y-auto no-scrollbar h-full md:border-r border-gray-200 dark:border-white/5">
-                                <div className="w-full flex flex-col gap-8">
+                            <div className="flex flex-col items-center py-6 md:px-6 md:py-0 md:overflow-y-auto no-scrollbar h-full md:border-r border-gray-200 dark:border-white/5 md:justify-center">
+                                <div className="w-full flex flex-col gap-4">
                                     {/* Amount & Type Switcher */}
                                     <div className="flex flex-col items-center w-full">
-                                        <div className="flex bg-gray-200 dark:bg-[#1C1C1E] p-1 rounded-xl mb-6">
+                                        <div className="flex bg-gray-200 dark:bg-[#1C1C1E] p-1 rounded-xl mb-4">
                                             <button 
                                                 onClick={() => setType('expense')}
                                                 className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'expense' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-black dark:text-white' : 'text-gray-500'}`}
@@ -370,6 +435,11 @@ export default function AddTransactionModal({
                                         </div>
                                     </div>
                                     
+                                    {/* Desktop Details Section Moved to Left */}
+                                    <div className="hidden md:block w-full">
+                                        <DetailsSection />
+                                    </div>
+
                                     {/* Desktop Category Section */}
                                     <div className="hidden md:block w-full">
                                         <CategorySection />
@@ -378,76 +448,14 @@ export default function AddTransactionModal({
                             </div>
 
                             {/* Right Column (Desktop) / Bottom (Mobile) */}
-                            <div className="px-4 space-y-6 pb-20 md:pb-0 md:p-8 md:overflow-y-auto no-scrollbar flex flex-col h-full">
-                                {/* Mobile Category Section */}
-                                <div className="md:hidden">
+                            <div className="px-4 space-y-6 pb-20 md:p-8 md:overflow-y-auto no-scrollbar flex flex-col h-full">
+                                {/* Mobile Details & Category Section */}
+                                <div className="md:hidden space-y-6">
+                                    <DetailsSection />
                                     <CategorySection />
                                 </div>
 
-                                <div className="flex-1 flex flex-col space-y-6">
-                                    {/* Details */}
-                                    <div className="space-y-2">
-                                        <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
-                                        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
-                                            
-                                            {mandatoryExpenses.length > 0 && type === 'expense' && (
-                                                <button 
-                                                    onClick={() => setCurrentView('monthly_binding')}
-                                                    className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
-                                                >
-                                                    <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center mr-3 text-orange-500">
-                                                        <LinkIcon size={18} />
-                                                    </div>
-                                                    <div className="flex-1 text-left">
-                                                        <p className="text-[15px] text-black dark:text-white">Привязать к платежу</p>
-                                                        <p className={`text-[13px] font-medium ${boundExpense ? 'text-orange-500' : 'text-gray-400'}`}>
-                                                            {boundExpense?.name || 'Не выбрано'}
-                                                        </p>
-                                                    </div>
-                                                    <ChevronRight size={16} className="text-gray-400" />
-                                                </button>
-                                            )}
-
-                                            <button 
-                                                onClick={() => setCurrentView('assignee')}
-                                                className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
-                                            >
-                                                <div className="mr-3">
-                                                    <MemberMarker member={selectedMember} size="sm" />
-                                                </div>
-                                                <div className="flex-1 text-left">
-                                                    <p className="text-[15px] text-black dark:text-white">Исполнитель</p>
-                                                    <p className="text-[13px] text-gray-500">{selectedMember.name}</p>
-                                                </div>
-                                                <ChevronRight size={16} className="text-gray-400" />
-                                            </button>
-
-                                            <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors w-full group">
-                                                <div className="flex items-center flex-1 pointer-events-none z-10">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500">
-                                                        <Calendar size={18} />
-                                                    </div>
-                                                    <div className="flex-1 text-left">
-                                                        <p className="text-[15px] text-black dark:text-white">Дата</p>
-                                                        <p className="text-[13px] text-gray-500">
-                                                            {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                                        </p>
-                                                    </div>
-                                                    <ChevronRight size={16} className="text-gray-400" />
-                                                </div>
-                                                
-                                                <input 
-                                                    type="date"
-                                                    value={date}
-                                                    onChange={(e) => setDate(e.target.value)}
-                                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                                                    style={{ appearance: 'none' }}
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                <div className="flex-1 flex flex-col space-y-6 h-full">
                                     {/* Note */}
                                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 flex-1 min-h-[120px] flex flex-col">
                                         <div className="flex items-start px-4 py-3.5 h-full">
@@ -468,7 +476,7 @@ export default function AddTransactionModal({
                                 </div>
 
                                 {/* Desktop Actions Footer */}
-                                <div className="hidden md:flex flex-col gap-3 mt-auto pt-4">
+                                <div className="hidden md:flex flex-col gap-3 mt-auto pt-4 shrink-0">
                                     <button 
                                         onClick={handleSave}
                                         className="w-full bg-[#007AFF] hover:bg-blue-600 text-white py-4 rounded-2xl font-black text-sm active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 uppercase tracking-wide"
@@ -617,6 +625,7 @@ export default function AddTransactionModal({
             )}
         </AnimatePresence>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

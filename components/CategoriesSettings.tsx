@@ -194,6 +194,37 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     setView('edit_rule');
   };
 
+  const handleApplyRulesToAll = () => {
+      if (!transactions || !onUpdateTransactions || learnedRules.length === 0) return;
+      
+      if (!confirm("Это обновит категории всех прошлых операций на основе текущих правил. Продолжить?")) return;
+
+      let count = 0;
+      const updatedTransactions = transactions.map(tx => {
+          const rawNote = (tx.rawNote || tx.note || '').toLowerCase();
+          
+          // Find first matching rule
+          const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
+          
+          if (matchedRule && tx.category !== matchedRule.categoryId) {
+              count++;
+              return { 
+                  ...tx, 
+                  category: matchedRule.categoryId,
+                  note: matchedRule.cleanName || tx.note // Optionally update visible note
+              };
+          }
+          return tx;
+      });
+
+      if (count > 0) {
+          onUpdateTransactions(updatedTransactions);
+          alert(`Обновлено ${count} операций.`);
+      } else {
+          alert('Изменений не требуется.');
+      }
+  };
+
   const handleApplyRuleToHistory = () => {
       if (!transactions || !onUpdateTransactions || !ruleKeyword.trim() || !ruleCategoryId) return;
 
@@ -357,12 +388,23 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   <div className="p-1.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg"><BrainCircuit size={16} className="text-purple-500" /></div>
                   <h2 className={`text-[11px] font-black uppercase tracking-[0.15em] ${theme.subtext}`}>Правила ИИ</h2>
                 </div>
-                <button 
-                  onClick={() => openEditRule()}
-                  className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg active:scale-95 transition-all uppercase tracking-wider"
-                >
-                  <Plus size={12} strokeWidth={3} /> Добавить
-                </button>
+                <div className="flex gap-2">
+                    {transactions && onUpdateTransactions && (
+                        <button 
+                            onClick={handleApplyRulesToAll}
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all uppercase tracking-wider bg-gray-100 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 hover:text-blue-500`}
+                            title="Применить правила ко всем старым операциям"
+                        >
+                            <RefreshCw size={12} /> Обновить операции
+                        </button>
+                    )}
+                    <button 
+                    onClick={() => openEditRule()}
+                    className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg active:scale-95 transition-all uppercase tracking-wider"
+                    >
+                    <Plus size={12} strokeWidth={3} /> Добавить
+                    </button>
+                </div>
               </div>
 
               <div className={`flex items-center px-4 py-3 rounded-[20px] mb-4 shadow-sm border ${theme.border} ${theme.card}`}>

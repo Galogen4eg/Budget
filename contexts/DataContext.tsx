@@ -223,6 +223,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadLocal('wishlist', setWishlist, []);
         loadLocal('reminders', setReminders, []);
         loadLocal('knowledge', setAiKnowledge, []);
+        // RESTORED: Loading local rules for offline mode
+        loadLocal('rules', setLocalRules, []);
+        
         // Load settings and ensure defaults are applied and widgets merged
         loadLocal('settings', (s: AppSettings) => {
             const mergedSettings = {
@@ -310,12 +313,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('local_members', JSON.stringify(members));
           localStorage.setItem('local_knowledge', JSON.stringify(aiKnowledge));
           localStorage.setItem('local_reminders', JSON.stringify(reminders));
+          // RESTORED: Saving rules to local storage
+          localStorage.setItem('local_rules', JSON.stringify(localRules));
       } else {
           localStorage.setItem('local_reminders', JSON.stringify(reminders));
       }
   }, [
       authLoading, familyId, transactions, shoppingItems, events, pantry, 
-      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, aiKnowledge, dismissedNotificationIds
+      goals, debts, projects, loyaltyCards, wishlist, settings, members, reminders, 
+      aiKnowledge, dismissedNotificationIds, localRules
   ]);
 
   const dismissNotification = (id: string) => {

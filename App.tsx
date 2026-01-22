@@ -83,7 +83,7 @@ export default function App() {
     members,
     categories, setCategories,
     settings, updateSettings, 
-    setLearnedRules,
+    setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
     currentMonthSpent,
@@ -158,6 +158,17 @@ export default function App() {
     }
   };
 
+  const handleLearnRule = async (rule: LearnedRule) => {
+      // Optimistic update for UI
+      setLearnedRules(prev => [...prev, rule]);
+      
+      // Save to Firestore if online
+      if (familyId) {
+          await addItem(familyId, 'rules', rule);
+      }
+      toast.success("Правило сохранено");
+  };
+
   const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
 
   const handleResetSettings = async () => {
@@ -179,7 +190,7 @@ export default function App() {
     try {
         const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
         const memberId = currentUserMember ? currentUserMember.id : 'unknown';
-        const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, [], categories, transactions);
+        const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
         setImportPreview(data);
     } catch (err: any) { toast.error(err.message || "Ошибка чтения"); }
     finally { setIsImporting(false); }
@@ -495,7 +506,7 @@ export default function App() {
                         </div>
                         {/* Pass filtered expenses here */}
                         <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
-                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={() => {}} /></div>
+                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={handleLearnRule} /></div>
                     </div>
                 </motion.div>
             )}
@@ -530,11 +541,11 @@ export default function App() {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={() => {}} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
-            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={[]} onUpdateRules={() => {}} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} />}
+            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
+            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={learnedRules} onUpdateRules={setLearnedRules} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} />}
             {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
-            {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={() => {}} onEditTransaction={handleEditTransaction} />}
-            {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onUpdateAll={(items) => setImportPreview(items)} onLearnRule={() => {}} onAddCategory={() => {}} members={members} />}
+            {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={handleLearnRule} onEditTransaction={handleEditTransaction} />}
+            {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onUpdateAll={(items) => setImportPreview(items)} onLearnRule={handleLearnRule} onAddCategory={() => {}} members={members} />}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
             {isMandatoryModalOpen && <MandatoryExpenseModal expense={null} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} members={members} onSave={async (e) => { const updated = [...(settings.mandatoryExpenses || []), e]; await updateSettings({ ...settings, mandatoryExpenses: updated }); setIsMandatoryModalOpen(false); }} />}
             {isDuplicatesOpen && <DuplicatesModal transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}

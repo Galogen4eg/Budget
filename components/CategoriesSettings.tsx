@@ -73,7 +73,8 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Rule Form State
-  const [editingRule, setEditingRule] = useState<LearnedRule | null>(null);
+  // We now store a list of IDs being edited to support grouping
+  const [editingRuleIds, setEditingRuleIds] = useState<string[]>([]);
   const [ruleKeyword, setRuleKeyword] = useState('');
   const [ruleCategoryId, setRuleCategoryId] = useState<string | null>(null);
 
@@ -103,9 +104,46 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   // Determine which categories to show based on "Show All" toggle
   const visibleCategories = useMemo(() => {
       if (showAll) return sortedCategories;
-      // Show first 5 items (popular ones)
-      return sortedCategories.slice(0, 5);
+      // Show first 6 items (popular ones) + "All" button creates a nice 7-col grid on desktop
+      return sortedCategories.slice(0, 6);
   }, [sortedCategories, showAll]);
+
+  // Group rules logic
+  const groupedRules = useMemo(() => {
+      // First filter by search/category
+      const filtered = learnedRules.filter(r => {
+        const matchesSearch = r.keyword.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategoryId ? r.categoryId === selectedCategoryId : true;
+        return matchesSearch && matchesCategory;
+      });
+
+      // Then group by CategoryID + CleanName
+      const groups: Record<string, { 
+          ids: string[], 
+          categoryId: string, 
+          cleanName: string, 
+          keywords: string[] 
+      }> = {};
+
+      filtered.forEach(rule => {
+          // Key for grouping: Same Category AND Same Output Name
+          const key = `${rule.categoryId}_${rule.cleanName.toLowerCase()}`;
+          
+          if (!groups[key]) {
+              groups[key] = {
+                  ids: [rule.id],
+                  categoryId: rule.categoryId,
+                  cleanName: rule.cleanName,
+                  keywords: [rule.keyword]
+              };
+          } else {
+              groups[key].ids.push(rule.id);
+              groups[key].keywords.push(rule.keyword);
+          }
+      });
+
+      return Object.values(groups).sort((a, b) => a.cleanName.localeCompare(b.cleanName));
+  }, [learnedRules, searchQuery, selectedCategoryId]);
 
   const theme = {
     bg: 'bg-transparent', 
@@ -173,7 +211,6 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       if (onDeleteCategory) {
           onDeleteCategory(id);
       } else {
-          // Fallback for local update if prop missing
           const updated = categories.filter(c => c.id !== id);
           onUpdateCategories(updated);
       }
@@ -181,13 +218,13 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       if (view === 'category_form') setView('manage_categories');
   };
 
-  const openEditRule = (rule: LearnedRule | null = null) => {
-    if (rule) {
-      setEditingRule(rule);
-      setRuleKeyword(rule.keyword);
-      setRuleCategoryId(rule.categoryId);
+  const openEditRule = (group: { ids: string[], keywords: string[], categoryId: string, cleanName: string } | null = null) => {
+    if (group) {
+      setEditingRuleIds(group.ids);
+      setRuleKeyword(group.keywords.join('; '));
+      setRuleCategoryId(group.categoryId);
     } else {
-      setEditingRule(null);
+      setEditingRuleIds([]);
       setRuleKeyword('');
       setRuleCategoryId(sortedCategories[0]?.id || null);
     }
@@ -202,8 +239,6 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       let count = 0;
       const updatedTransactions = transactions.map(tx => {
           const rawNote = (tx.rawNote || tx.note || '').toLowerCase();
-          
-          // Find first matching rule
           const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
           
           if (matchedRule && tx.category !== matchedRule.categoryId) {
@@ -211,7 +246,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               return { 
                   ...tx, 
                   category: matchedRule.categoryId,
-                  note: matchedRule.cleanName || tx.note // Optionally update visible note
+                  note: matchedRule.cleanName || tx.note
               };
           }
           return tx;
@@ -257,35 +292,28 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     const selectedCat = categories.find(c => c.id === ruleCategoryId);
     if (!selectedCat) return;
     
-    if (editingRule) {
-      onUpdateRules(learnedRules.map(r => r.id === editingRule.id ? {
-        ...r, keyword: ruleKeyword, categoryId: ruleCategoryId, cleanName: selectedCat.label
-      } : r));
-    } else {
-      const keywords = ruleKeyword.split(';').map(k => k.trim()).filter(k => k.length > 0);
-      const newEntries: LearnedRule[] = keywords.map((word, index) => ({
-        id: (Date.now() + index).toString(), 
-        keyword: word, 
-        categoryId: ruleCategoryId, 
-        cleanName: selectedCat.label
-      }));
-      onUpdateRules([...newEntries, ...learnedRules]);
-    }
+    // Split input into keywords
+    const keywords = ruleKeyword.split(';').map(k => k.trim()).filter(k => k.length > 0);
+    
+    // 1. Remove old rules being edited
+    const rulesWithoutEdited = learnedRules.filter(r => !editingRuleIds.includes(r.id));
+    
+    // 2. Create new rules
+    const newEntries: LearnedRule[] = keywords.map((word, index) => ({
+      id: (Date.now() + index).toString(), 
+      keyword: word, 
+      categoryId: ruleCategoryId, 
+      cleanName: selectedCat.label
+    }));
+
+    onUpdateRules([...newEntries, ...rulesWithoutEdited]);
     setView('main');
   };
 
-  const handleDeleteRule = (e: React.MouseEvent, id: string) => {
+  const handleDeleteRuleGroup = (e: React.MouseEvent, ids: string[]) => {
     e.stopPropagation();
-    // Replacing confirm with simple toggle or assumption for now to avoid sandbox issues
-    // For rules, deletion is less critical, but we can make it safer later if needed
-    onUpdateRules(learnedRules.filter(r => r.id !== id));
+    onUpdateRules(learnedRules.filter(r => !ids.includes(r.id)));
   };
-
-  const filteredRules = learnedRules.filter(r => {
-    const matchesSearch = r.keyword.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategoryId ? r.categoryId === selectedCategoryId : true;
-    return matchesSearch && matchesCategory;
-  });
 
   return (
     <div className={`h-full flex flex-col ${theme.bg}`}>
@@ -362,12 +390,12 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               </div>
 
               {/* Show All Toggle for Main View */}
-              {!showAll && sortedCategories.length > 5 && (
+              {!showAll && sortedCategories.length > 6 && (
                   <button 
                     onClick={() => setShowAll(true)}
                     className={`w-full mt-3 py-3 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
                   >
-                      Показать еще {sortedCategories.length - 5} <ChevronDown size={14} />
+                      Показать еще {sortedCategories.length - 6} <ChevronDown size={14} />
                   </button>
               )}
               
@@ -419,12 +447,12 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               </div>
 
               <div className="space-y-3">
-                {filteredRules.length > 0 ? filteredRules.map((rule) => {
-                  const catConfig = categories.find(c => c.id === rule.categoryId);
+                {groupedRules.length > 0 ? groupedRules.map((group) => {
+                  const catConfig = categories.find(c => c.id === group.categoryId);
                   return (
                     <button 
-                      key={rule.id} 
-                      onClick={() => openEditRule(rule)}
+                      key={group.ids[0]} 
+                      onClick={() => openEditRule(group)}
                       className={`w-full text-left ${theme.card} p-4 rounded-[24px] border ${theme.border} flex items-center justify-between group shadow-sm hover:border-blue-200 dark:hover:border-blue-800 transition-colors`}
                     >
                       <div className="flex items-center gap-4 overflow-hidden">
@@ -436,7 +464,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className={`text-sm font-bold ${theme.text} truncate`}>{rule.keyword}</span>
+                            <span className={`text-sm font-bold ${theme.text} truncate`}>{group.keywords.join('; ')}</span>
                             <Zap size={12} className="text-orange-400 fill-orange-400 shrink-0" />
                           </div>
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate flex items-center gap-1">
@@ -447,7 +475,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                       </div>
                       <div className="flex items-center gap-2 pl-2">
                          <div 
-                           onClick={(e) => handleDeleteRule(e, rule.id)}
+                           onClick={(e) => handleDeleteRuleGroup(e, group.ids)}
                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-full"
                          >
                            <Trash2 size={16} />
@@ -626,12 +654,12 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   ))}
               </div>
               
-              {!showAll && sortedCategories.length > 5 && (
+              {!showAll && sortedCategories.length > 6 && (
                   <button 
                     onClick={() => setShowAll(true)}
                     className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
                   >
-                      Показать еще {sortedCategories.length - 5} <ChevronDown size={14} />
+                      Показать еще {sortedCategories.length - 6} <ChevronDown size={14} />
                   </button>
               )}
               
@@ -647,55 +675,56 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         )}
 
         {view === 'edit_rule' && (
-          <div className="space-y-8 max-w-md mx-auto animate-in fade-in slide-in-from-right-4">
-            <div className="flex flex-col items-center gap-4 text-center">
+          <div className="max-w-md md:max-w-4xl mx-auto animate-in fade-in slide-in-from-right-4">
+            <div className="flex flex-col items-center gap-4 text-center mb-8">
               <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner">
-                {editingRule ? <Zap size={40} fill="currentColor" /> : <Layers size={40} />}
+                {editingRuleIds.length > 0 ? <Zap size={40} fill="currentColor" /> : <Layers size={40} />}
               </div>
               <h3 className={`text-xl font-bold ${theme.text}`}>
-                {editingRule ? 'Редактировать фразу' : 'Массовый ввод правил'}
+                {editingRuleIds.length > 0 ? 'Редактировать группу' : 'Массовый ввод правил'}
               </h3>
             </div>
             
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Ключевое слово (или список через ";")</label>
-                <textarea 
-                  rows={4}
-                  value={ruleKeyword}
-                  onChange={(e) => setRuleKeyword(e.target.value)}
-                  placeholder="Напр: Яндекс; Uber; Такси"
-                  className={`w-full px-5 py-4 rounded-[2rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-lg font-medium resize-none`}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Целевая категория</label>
-                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  {sortedCategories.map(cat => (
-                    <button 
-                      key={cat.id}
-                      onClick={() => setRuleCategoryId(cat.id)}
-                      className={`p-3 rounded-2xl border-2 transition-all flex items-center gap-2 text-left ${
-                        ruleCategoryId === cat.id 
-                        ? `border-blue-500 bg-blue-50 dark:bg-blue-900/20` 
-                        : `${theme.card} ${theme.border} opacity-70 hover:opacity-100`
-                      }`}
-                    >
-                      <div 
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 ${getColorClass(cat.color)}`}
-                        style={getColorStyle(cat.color)}
-                      >
-                         <IconRenderer name={cat.icon} size={14} />
-                      </div>
-                      <span className={`text-[11px] font-bold truncate ${theme.text}`}>{cat.label}</span>
-                    </button>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="space-y-2 h-full">
+                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Ключевые слова (через ";")</label>
+                    <textarea 
+                    rows={4}
+                    value={ruleKeyword}
+                    onChange={(e) => setRuleKeyword(e.target.value)}
+                    placeholder="Напр: Яндекс; Uber; Такси"
+                    className={`w-full h-full min-h-[280px] px-5 py-4 rounded-[2rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-lg font-medium resize-none`}
+                    />
                 </div>
-              </div>
+                <div className="space-y-3 flex flex-col h-full">
+                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Целевая категория</label>
+                    <div className="grid grid-cols-2 gap-2 h-[280px] overflow-y-auto pr-2 custom-scrollbar content-start">
+                    {sortedCategories.map(cat => (
+                        <button 
+                        key={cat.id}
+                        onClick={() => setRuleCategoryId(cat.id)}
+                        className={`p-3 rounded-2xl border-2 transition-all flex items-center gap-2 text-left h-[60px] ${
+                            ruleCategoryId === cat.id 
+                            ? `border-blue-500 bg-blue-50 dark:bg-blue-900/20` 
+                            : `${theme.card} ${theme.border} opacity-70 hover:opacity-100`
+                        }`}
+                        >
+                        <div 
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 ${getColorClass(cat.color)}`}
+                            style={getColorStyle(cat.color)}
+                        >
+                            <IconRenderer name={cat.icon} size={14} />
+                        </div>
+                        <span className={`text-[11px] font-bold truncate ${theme.text}`}>{cat.label}</span>
+                        </button>
+                    ))}
+                    </div>
+                </div>
             </div>
-            <div className="pt-4 space-y-3">
+
+            <div className="pt-8 space-y-3 md:max-w-md md:mx-auto">
               <button onClick={handleSaveRule} className="w-full bg-blue-500 text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                <Save size={18} /> {editingRule ? 'Обновить' : 'Применить правила'}
+                <Save size={18} /> {editingRuleIds.length > 0 ? 'Обновить группу' : 'Применить правила'}
               </button>
               {transactions && onUpdateTransactions && (
                   <button 

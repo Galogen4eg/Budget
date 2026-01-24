@@ -360,7 +360,8 @@ export default function App() {
 
       optionalFields.forEach(field => {
           const val = dataMap[field];
-          if (!val || val.trim() === '') {
+          // Aggressive check for empty content (null, undefined, whitespace)
+          if (!val || String(val).trim() === '') {
               // Remove the entire line containing this field
               // Escape curly braces for RegExp
               const safeField = field.replace('{', '\\{').replace('}', '\\}');

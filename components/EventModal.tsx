@@ -45,7 +45,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [desc, setDesc] = useState(event?.description || '');
   const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
-  const [dur, setDur] = useState(event?.duration || 1);
+  
+  // Use string | number for duration to allow empty input
+  const [dur, setDur] = useState<string | number>(event?.duration || 1);
   
   // Initialize members: use event data, prefill, or default to current user if new
   const [mIds, setMIds] = useState<string[]>(
@@ -67,9 +69,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [conflictEvent, setConflictEvent] = useState<FamilyEvent | null>(null);
 
   const handleManualSend = async () => {
+    const finalDuration = parseFloat(String(dur)) || 1;
     const tempEvent: FamilyEvent = {
         id: event?.id || 'temp',
-        title, description: desc, date, time, duration: dur, memberIds: mIds, isTemplate: isT, checklist, reminders
+        title, description: desc, date, time, duration: finalDuration, memberIds: mIds, isTemplate: isT, checklist, reminders
     };
     
     setLoading(true);
@@ -154,11 +157,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
     if (!title.trim()) { alert("Введите название события"); return; }
 
+    const finalDuration = parseFloat(String(dur)) || 1;
+
     const newEventData = {
         id: event?.id || Date.now().toString(), 
         title: title.trim(), 
         description: desc, 
-        date, time, duration: dur, 
+        date, time, 
+        duration: finalDuration, 
         memberIds: mIds, isTemplate: isT, checklist,
         reminders,
         userId: auth.currentUser?.uid
@@ -324,7 +330,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                     </div>
                     <div className="bg-white dark:bg-[#1C1C1E] p-3 rounded-[2rem] border border-white dark:border-white/5">
                         <span className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Часы</span>
-                        <input type="number" step="0.5" min="0.5" value={dur} onChange={e => setDur(Number(e.target.value))} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
+                        <input 
+                            type="number" 
+                            step="0.5" 
+                            min="0.5" 
+                            value={dur} 
+                            onChange={e => setDur(e.target.value)} 
+                            className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" 
+                        />
                     </div>
                 </div>
                 

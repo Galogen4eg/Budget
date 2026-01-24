@@ -234,7 +234,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             className="absolute left-0 right-0 z-40 flex items-center pointer-events-none"
             style={{ top: `${timeLineTop}px` }}
           >
-            <div className={`w-16 text-[11px] font-black text-red-500 pr-3 text-right ${isDarkMode ? 'bg-[#0D0D0E]' : 'bg-[#F4F7FB]'}`}>
+            <div className={`w-12 text-[11px] font-black text-red-500 pr-3 text-right ${isDarkMode ? 'bg-[#0D0D0E]' : 'bg-[#F4F7FB]'}`}>
               {currentHour}:{String(currentMinutes).padStart(2, '0')}
             </div>
             <div className="flex-1 h-[2px] bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)]"></div>
@@ -248,7 +248,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             className="relative h-20 flex cursor-pointer"
             onClick={() => onOpenEvent(null, { date: selectedDateStr, time: `${hour.toString().padStart(2, '0')}:00` })}
           >
-            <div className={`w-16 -mt-2.5 text-[11px] font-bold text-gray-400 dark:text-gray-500 text-right pr-3 z-10 ${isDarkMode ? 'bg-[#0D0D0E]' : 'bg-[#F4F7FB]'}`}>
+            <div className={`w-12 -mt-2.5 text-[11px] font-bold text-gray-400 dark:text-gray-500 text-right pr-2 z-10 ${isDarkMode ? 'bg-[#0D0D0E]' : 'bg-[#F4F7FB]'}`}>
               {String(hour).padStart(2, '0')}:00
             </div>
             <div className="flex-1 border-t border-gray-200 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"></div>
@@ -275,30 +275,30 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <div 
               key={event.id}
               onClick={() => onOpenEvent(event)}
-              className={`absolute left-16 right-2 rounded-3xl p-4 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform`}
+              className={`absolute left-14 right-2 rounded-2xl p-2 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform`}
               style={{ top: `${topPosition}px`, height: `${height - 4}px`, backgroundColor }}
             >
               <div className="flex justify-between items-start mb-1">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold opacity-90">
-                    <Clock size={12} strokeWidth={2.5} />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold opacity-90">
+                    <Clock size={10} strokeWidth={2.5} />
                     {event.time}
                   </div>
-                  <h4 className="font-bold text-sm leading-tight truncate pr-2">{event.title}</h4>
+                  <h4 className="font-bold text-xs leading-tight truncate pr-2">{event.title}</h4>
                   {attendeeNames && (
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold opacity-90 mt-0.5">
-                      <User size={12} strokeWidth={2.5} />
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold opacity-90 mt-0.5">
+                      <User size={10} strokeWidth={2.5} />
                       {attendeeNames}
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-2 shrink-0 -mt-1 -mr-1">
+                <div className="flex flex-col gap-2 shrink-0 -mt-0.5 -mr-0.5">
                     <button 
                         onClick={(e) => { e.stopPropagation(); onSendToTelegram(event); }} 
-                        className="text-white/60 hover:text-white"
+                        className="text-white/60 hover:text-white p-1"
                         title="Отправить в Telegram"
                     >
-                        <Send size={14} />
+                        <Send size={12} />
                     </button>
                 </div>
               </div>

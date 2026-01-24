@@ -78,11 +78,18 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     if (viewMode === 'day') {
       const now = new Date();
       const hour = now.getHours();
-      scrollRef.current.scrollTop = hour * 80 - 100;
+      // Adjust scroll based on start hour setting
+      const startHour = settings.dayStartHour ?? 0;
+      const scrollPos = Math.max(0, (hour - startHour) * 80 - 100);
+      
+      // Use setTimeout to ensure layout is ready
+      setTimeout(() => {
+          scrollRef.current?.scrollTo({ top: scrollPos, behavior: 'smooth' });
+      }, 100);
     } else {
       scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [viewMode]);
+  }, [viewMode, settings.dayStartHour]);
 
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (year: number, month: number) => {
@@ -200,22 +207,35 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   };
 
   const renderDayView = () => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const startHour = settings.dayStartHour ?? 0;
+    const endHour = settings.dayEndHour ?? 23;
+    const totalHours = endHour - startHour + 1;
+    
+    // Generate hours based on settings range
+    const hours = Array.from({ length: totalHours }, (_, i) => startHour + i);
+    
     const selectedDateStr = formatDateKey(selectedDate);
     const dayEvents = events.filter(e => e.date === selectedDateStr);
     const isToday = formatDateKey(new Date()) === selectedDateStr;
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // Calculate current time line position relative to startHour
+    // If current time is outside view range, we don't render the line
+    const showTimeLine = isToday && currentHour >= startHour && currentHour <= endHour;
+    const timeLineTop = ((currentHour - startHour) * 60 + currentMinutes) / 60 * 80;
 
     return (
-      <div className="relative flex flex-col" style={{ height: '1920px' }}>
-        {isToday && (
+      <div className="relative flex flex-col" style={{ height: `${totalHours * 80}px` }}>
+        {showTimeLine && (
           <div 
             className="absolute left-0 right-0 z-40 flex items-center pointer-events-none"
-            style={{ top: `${(currentMinutes / 60) * 80}px` }}
+            style={{ top: `${timeLineTop}px` }}
           >
             <div className={`w-16 text-[11px] font-black text-red-500 pr-3 text-right ${isDarkMode ? 'bg-[#0D0D0E]' : 'bg-[#F4F7FB]'}`}>
-              {now.getHours()}:{String(now.getMinutes()).padStart(2, '0')}
+              {currentHour}:{String(currentMinutes).padStart(2, '0')}
             </div>
             <div className="flex-1 h-[2px] bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)]"></div>
             <div className="w-3 h-3 rounded-full bg-red-500 -ml-1.5 border-2 border-white dark:border-[#0D0D0E]"></div>
@@ -237,8 +257,13 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
         {dayEvents.map(event => {
           const [h, m] = event.time.split(':').map(Number);
-          const topPosition = (h + m / 60) * 80;
+          
+          // Only render if event starts within or overlaps the visible range
+          // For simplicity, we render all for that day, but offset logic clips them visually
+          
+          const topPosition = ((h - startHour) + m / 60) * 80;
           const height = (event.duration || 1) * 80;
+          
           // Use single color for Day View cards as requested
           const backgroundColor = getSingleEventColor(event); 
           const attendeeNames = event.memberIds

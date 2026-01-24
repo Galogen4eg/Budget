@@ -143,7 +143,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   const selectedDayEvents = useMemo(() => {
-      return getEventsForDate(selectedDate);
+      const dayEvents = getEventsForDate(selectedDate);
+      // Sort events by time ascending (08:00 before 12:00)
+      return dayEvents.sort((a, b) => a.time.localeCompare(b.time));
   }, [selectedDate, events]);
 
   const filteredListEvents = useMemo(() => {

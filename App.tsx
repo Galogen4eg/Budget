@@ -325,7 +325,8 @@ export default function App() {
   };
 
   const handleSendEventToTelegram = async (event: FamilyEvent) => {
-      const template = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {desc}`;
+      // Use richer default template
+      const template = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {desc}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`;
       
       const memberNames = event.memberIds
           .map(id => members.find(m => m.id === id)?.name)
@@ -338,17 +339,40 @@ export default function App() {
 
       const dateStr = new Date(event.date).toLocaleDateString('ru-RU');
 
-      let text = template
-          .replace('{title}', event.title)
-          .replace('{date}', dateStr)
-          .replace('{time}', event.time)
-          .replace('{duration}', (event.duration || 1).toString())
-          .replace('{desc}', event.description || '')
-          .replace('{members}', memberNames || 'Все')
-          .replace('{checklist}', checklistStr || '');
+      const dataMap: Record<string, string> = {
+          '{title}': event.title,
+          '{date}': dateStr,
+          '{time}': event.time,
+          '{duration}': (event.duration || 1).toString(),
+          '{desc}': event.description || '',
+          '{members}': memberNames, 
+          '{checklist}': checklistStr 
+      };
 
-      // Clean up empty lines if variables were empty
-      text = text.replace(/\n\n+/g, '\n\n').trim();
+      let text = template;
+
+      // 1. Line Removal Logic for empty optional fields
+      // Fields that, if empty, should cause their line to be removed
+      const optionalFields = ['{desc}', '{members}', '{checklist}'];
+
+      optionalFields.forEach(field => {
+          if (!dataMap[field] || dataMap[field].trim() === '') {
+              // Remove the entire line containing this field
+              // Escape curly braces for RegExp
+              const safeField = field.replace('{', '\\{').replace('}', '\\}');
+              const lineRegex = new RegExp(`^.*${safeField}.*(\\r?\\n|$)`, 'gm');
+              text = text.replace(lineRegex, '');
+          }
+      });
+
+      // 2. Standard Replacement
+      Object.entries(dataMap).forEach(([key, value]) => {
+          // Replace all occurrences
+          text = text.split(key).join(value);
+      });
+
+      // 3. Cleanup
+      text = text.replace(/\n{3,}/g, '\n\n').trim();
 
       const loadingToast = toast.loading('Отправка события...');
       const result = await sendTelegramMessage(text);

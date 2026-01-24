@@ -730,10 +730,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         />
                         <TemplateEditor 
                             label="Шаблон событий" 
-                            value={settings.eventTemplate || '📅 *Новое событие*\n\n📌 {title}\n🕒 {date} {time}'} 
+                            value={settings.eventTemplate || '📅 *{title}*\n🕒 {date} {time}\n📝 {desc}\n👥 {members}\n📋 {checklist}'} 
                             onChange={(val) => handleChange('eventTemplate', val)} 
-                            variables={['{title}', '{date}', '{time}', '{desc}']} 
-                            previewData={{ '{title}': 'Врач', '{date}': '10.10.2023', '{time}': '14:00', '{desc}': 'Взять полис' }}
+                            variables={['{title}', '{date}', '{time}', '{desc}', '{members}', '{checklist}']} 
+                            previewData={{ '{title}': 'Врач', '{date}': '10.10.2023', '{time}': '14:00', '{desc}': 'Взять полис', '{members}': 'Мама, Папа', '{checklist}': '• Паспорт' }}
                         />
                     </div>
                 </div>

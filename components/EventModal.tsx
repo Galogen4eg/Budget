@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock, AlertTriangle, User } from 'lucide-react';
@@ -36,12 +36,24 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void 
 );
 
 const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings, allEvents = [] }) => {
+  // Determine default member based on auth
+  const currentUserMemberId = useMemo(() => {
+      return members.find(m => m.userId === auth.currentUser?.uid)?.id;
+  }, [members]);
+
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
   const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
   const [dur, setDur] = useState(event?.duration || 1);
-  const [mIds, setMIds] = useState<string[]>(event?.memberIds || prefill?.memberIds || []);
+  
+  // Initialize members: use event data, prefill, or default to current user if new
+  const [mIds, setMIds] = useState<string[]>(
+      event?.memberIds || 
+      prefill?.memberIds || 
+      (currentUserMemberId ? [currentUserMemberId] : [])
+  );
+
   const [isT, setIsT] = useState(event?.isTemplate || false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
@@ -97,7 +109,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   };
 
   const checkForConflicts = (currentEvt: { date: string, time: string, duration: number, memberIds: string[], id?: string }): FamilyEvent | null => {
-      // Fix: explicit parsing to avoid "Expected 2-3 arguments" error with map(Number)
       const [currH, currM] = currentEvt.time.split(':').map(t => parseInt(t, 10));
       const currStart = currH * 60 + currM;
       const currEnd = currStart + (currentEvt.duration * 60);
@@ -113,12 +124,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
           
           let isMemberConflict = false;
           
-          // 1. If both have specific members, check for intersection (overlap)
+          // Conflict rules:
+          // 1. If BOTH have members, check for intersection.
+          // 2. If EITHER is empty, it means "General/Family Event" -> Conflicts with everything in that slot.
           if (curMembers.length > 0 && exMembers.length > 0) {
               isMemberConflict = curMembers.some(mid => exMembers.includes(mid));
-          }
-          // 2. If BOTH are empty, they are both "General/Family" events and should conflict
-          else if (curMembers.length === 0 && exMembers.length === 0) {
+          } else {
+              // One or both are general events -> Conflict implies
               isMemberConflict = true;
           }
           

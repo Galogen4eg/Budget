@@ -325,26 +325,29 @@ export default function App() {
   };
 
   const handleSendEventToTelegram = async (event: FamilyEvent) => {
-      // Use richer default template
-      const template = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {desc}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`;
+      // Use richer default template and include {description} for flexibility
+      const template = settings.eventTemplate || `📅 *{title}*\n\n🕒 {date} {time}\n📝 {description}\n\n👥 Участники: {members}\n📋 Чек-лист: {checklist}`;
       
-      const memberNames = event.memberIds
+      const memberNames = (event.memberIds || [])
           .map(id => members.find(m => m.id === id)?.name)
           .filter(Boolean)
           .join(', ');
           
       const checklistStr = (event.checklist || [])
+          .filter(i => i.text && i.text.trim() !== '')
           .map(i => `• ${i.text} ${i.completed ? '✅' : ''}`)
           .join('\n');
 
       const dateStr = new Date(event.date).toLocaleDateString('ru-RU');
 
+      // Comprehensive Data Map
       const dataMap: Record<string, string> = {
           '{title}': event.title,
           '{date}': dateStr,
           '{time}': event.time,
           '{duration}': (event.duration || 1).toString(),
-          '{desc}': event.description || '',
+          '{desc}': event.description || '', // Legacy support
+          '{description}': event.description || '', // Robust support
           '{members}': memberNames, 
           '{checklist}': checklistStr 
       };
@@ -353,13 +356,15 @@ export default function App() {
 
       // 1. Line Removal Logic for empty optional fields
       // Fields that, if empty, should cause their line to be removed
-      const optionalFields = ['{desc}', '{members}', '{checklist}'];
+      const optionalFields = ['{desc}', '{description}', '{members}', '{checklist}'];
 
       optionalFields.forEach(field => {
-          if (!dataMap[field] || dataMap[field].trim() === '') {
+          const val = dataMap[field];
+          if (!val || val.trim() === '') {
               // Remove the entire line containing this field
               // Escape curly braces for RegExp
               const safeField = field.replace('{', '\\{').replace('}', '\\}');
+              // Matches the whole line including the placeholder
               const lineRegex = new RegExp(`^.*${safeField}.*(\\r?\\n|$)`, 'gm');
               text = text.replace(lineRegex, '');
           }
@@ -371,7 +376,7 @@ export default function App() {
           text = text.split(key).join(value);
       });
 
-      // 3. Cleanup
+      // 3. Cleanup extra newlines
       text = text.replace(/\n{3,}/g, '\n\n').trim();
 
       const loadingToast = toast.loading('Отправка события...');

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock } from 'lucide-react';
+import { X, Trash2, Copy, Bookmark, Send, Sparkles, Check, Loader2, Minus, Plus, Timer, ListChecks, CheckCircle2, Circle, Bell, Smartphone, Clock, AlertTriangle, User } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
@@ -17,6 +17,7 @@ interface EventModalProps {
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   templates: FamilyEvent[];
   settings: AppSettings;
+  allEvents?: FamilyEvent[]; // Added for conflict checking
 }
 
 const REMINDER_OPTIONS = [
@@ -34,7 +35,7 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: () => void 
     </button>
 );
 
-const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings }) => {
+const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClose, onSave, onDelete, onSendToTelegram, templates, settings, allEvents = [] }) => {
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
   const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
@@ -49,6 +50,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  
+  // Conflict State
+  const [conflictEvent, setConflictEvent] = useState<FamilyEvent | null>(null);
 
   const handleManualSend = async () => {
     const tempEvent: FamilyEvent = {
@@ -92,19 +96,71 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
     }
   };
 
-  const validateAndSave = () => {
+  const checkForConflicts = (currentEvt: { date: string, time: string, duration: number, memberIds: string[], id?: string }): FamilyEvent | null => {
+      // Fix: explicit parsing to avoid "Expected 2-3 arguments" error with map(Number)
+      const [currH, currM] = currentEvt.time.split(':').map(t => parseInt(t, 10));
+      const currStart = currH * 60 + currM;
+      const currEnd = currStart + (currentEvt.duration * 60);
+
+      // Check against all other events
+      for (const existing of allEvents) {
+          if (existing.id === currentEvt.id) continue; // Skip self
+          if (existing.date !== currentEvt.date) continue; // Must be same day
+
+          // --- Improved Member Check Logic ---
+          const curMembers = currentEvt.memberIds || [];
+          const exMembers = existing.memberIds || [];
+          
+          let isMemberConflict = false;
+          
+          // 1. If both have specific members, check for intersection (overlap)
+          if (curMembers.length > 0 && exMembers.length > 0) {
+              isMemberConflict = curMembers.some(mid => exMembers.includes(mid));
+          }
+          // 2. If BOTH are empty, they are both "General/Family" events and should conflict
+          else if (curMembers.length === 0 && exMembers.length === 0) {
+              isMemberConflict = true;
+          }
+          
+          if (!isMemberConflict) continue;
+
+          // Check time overlap
+          const [exH, exM] = existing.time.split(':').map(t => parseInt(t, 10));
+          const exStart = exH * 60 + exM;
+          const exEnd = exStart + ((existing.duration || 1) * 60);
+
+          // Standard overlap check: StartA < EndB && EndA > StartB
+          if (currStart < exEnd && currEnd > exStart) {
+              return existing; // Found conflict!
+          }
+      }
+      return null;
+  };
+
+  const validateAndSave = (force: boolean = false) => {
     const yearMatch = date.match(/^(\d+)-/);
     if (yearMatch && yearMatch[1].length > 4) { alert("Год должен содержать не более 4 цифр"); return; }
     if (!title.trim()) { alert("Введите название события"); return; }
-    onSave({ 
-      id: event?.id || Date.now().toString(), 
-      title: title.trim(), 
-      description: desc, 
-      date, time, duration: dur, 
-      memberIds: mIds, isTemplate: isT, checklist,
-      reminders,
-      userId: auth.currentUser?.uid
-    });
+
+    const newEventData = {
+        id: event?.id || Date.now().toString(), 
+        title: title.trim(), 
+        description: desc, 
+        date, time, duration: dur, 
+        memberIds: mIds, isTemplate: isT, checklist,
+        reminders,
+        userId: auth.currentUser?.uid
+    };
+
+    if (!force) {
+        const conflict = checkForConflicts(newEventData);
+        if (conflict) {
+            setConflictEvent(conflict);
+            return;
+        }
+    }
+
+    onSave(newEventData);
     onClose();
   };
 
@@ -124,6 +180,71 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:max-w-4xl md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] md:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* CONFLICT OVERLAY */}
+        <AnimatePresence>
+            {conflictEvent && (
+                <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-50 bg-white/90 dark:bg-[#1C1C1E]/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
+                >
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-full mb-4">
+                        <AlertTriangle size={48} className="text-orange-500" />
+                    </div>
+                    <h3 className="text-2xl font-black text-[#1C1C1E] dark:text-white mb-2">Пересечение!</h3>
+                    <p className="text-sm font-medium text-gray-500 mb-6 max-w-xs">
+                        Это время уже занято другим событием.
+                    </p>
+
+                    <div className="bg-white dark:bg-black p-4 rounded-[2rem] shadow-lg border border-gray-100 dark:border-white/10 w-full max-w-sm mb-8 text-left">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 bg-gray-100 dark:bg-[#3A3A3C] rounded-2xl flex items-center justify-center font-bold text-gray-500 dark:text-gray-400">
+                                {conflictEvent.time}
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-lg text-[#1C1C1E] dark:text-white leading-tight">{conflictEvent.title}</h4>
+                                <div className="flex items-center gap-1 mt-1 text-gray-400 text-xs font-bold">
+                                    <Clock size={12} /> {conflictEvent.duration || 1} ч
+                                </div>
+                                <div className="flex gap-1 mt-2">
+                                    {conflictEvent.memberIds?.length > 0 ? (
+                                        conflictEvent.memberIds.map(mid => {
+                                            const m = members.find(x => x.id === mid);
+                                            return m ? (
+                                                <span key={mid} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#3A3A3C] text-gray-500">
+                                                    {m.name}
+                                                </span>
+                                            ) : null;
+                                        })
+                                    ) : (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#3A3A3C] text-gray-500">
+                                            Общее
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full max-w-sm">
+                        <button 
+                            onClick={() => validateAndSave(true)}
+                            className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-transform"
+                        >
+                            Сохранить всё равно
+                        </button>
+                        <button 
+                            onClick={() => setConflictEvent(null)}
+                            className="w-full bg-white dark:bg-[#3A3A3C] text-[#1C1C1E] dark:text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest border border-gray-200 dark:border-white/5 active:scale-95 transition-transform"
+                        >
+                            Изменить время
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 relative z-20 shrink-0">
           <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">{event ? 'Редактировать' : 'Новое событие'}</h3>
           <div className="flex gap-2 items-center">
@@ -258,7 +379,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
         </div>
 
         <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5 shrink-0 space-y-3">
-             <button type="button" onClick={() => validateAndSave()} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
+             <button type="button" onClick={() => validateAndSave(false)} className="w-full bg-blue-500 text-white font-black py-5 rounded-[1.8rem] uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl">
                 <Check size={20} strokeWidth={3} /> {event ? 'Обновить' : 'Создать'}
              </button>
              {event && onDelete && (

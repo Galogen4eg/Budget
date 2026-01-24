@@ -172,7 +172,7 @@ export default function App() {
   const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
 
   const handleResetSettings = async () => {
-    if (window.confirm("Вы уверены, что хотите сбросить настройки? Это вернет все параметры к значениям по умолчанию.")) {
+    if (window.confirm("Вы уверены, что хотите сбросить настройки? Это вернет все параметры к значениям к значениям по умолчанию.")) {
       await updateSettings(DEFAULT_SETTINGS);
       toast.success("Настройки сброшены");
     }
@@ -203,7 +203,7 @@ export default function App() {
       if (familyId) await deleteItem(familyId, 'shopping', item.id);
   };
 
-  // Robust Telegram Sender (Handles CORS & Edits)
+  // Robust Telegram Sender with Retries
   const sendTelegramMessage = async (text: string, messageIdToEdit?: number) => {
       if (!settings.telegramBotToken || !settings.telegramChatId) {
           toast.error("Telegram не настроен. Проверьте настройки.");
@@ -212,56 +212,73 @@ export default function App() {
 
       const token = settings.telegramBotToken;
       const chatId = settings.telegramChatId;
+      const maxAttempts = 3;
 
-      // 1. Try Editing Existing Message (if ID provided)
-      if (messageIdToEdit) {
+      // Wrap sending logic in a loop for retries
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-              const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ chat_id: chatId, message_id: messageIdToEdit, text, parse_mode: 'Markdown' })
-              });
-              const data = await res.json();
-              if (data.ok) return { success: true, messageId: messageIdToEdit };
+              // 1. Try Editing Existing Message (if ID provided)
+              if (messageIdToEdit) {
+                  try {
+                      const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ chat_id: chatId, message_id: messageIdToEdit, text, parse_mode: 'Markdown' })
+                      });
+                      const data = await res.json();
+                      if (data.ok) return { success: true, messageId: messageIdToEdit };
+                  } catch (e) {
+                      console.warn(`Telegram Edit Failed (Attempt ${attempt}):`, e);
+                      // Don't retry just for edit failure, proceed to send new
+                  }
+              }
+
+              // 2. Try Sending New Message (Standard JSON)
+              try {
+                  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
+                  });
+                  const data = await res.json();
+                  if (data.ok) return { success: true, messageId: data.result.message_id };
+                  else throw new Error(data.description || "API Error");
+              } catch (e) {
+                  console.warn(`Telegram JSON Send Failed (Attempt ${attempt}):`, e);
+                  
+                  // 3. Fallback: No-CORS Simple Request (Only if standard failed)
+                  // Note: We cannot verify success here, so if this "succeeds" (no network error), we break loop.
+                  // Only try this if network is working but CORS is blocking (browsers).
+                  try {
+                      const params = new URLSearchParams();
+                      params.append('chat_id', chatId);
+                      params.append('text', text);
+                      params.append('parse_mode', 'Markdown');
+                      
+                      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                          method: 'POST',
+                          mode: 'no-cors',
+                          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                          body: params
+                      });
+                      
+                      // Assume success since request was sent without network error
+                      return { success: true, messageId: null }; 
+                  } catch (fallbackErr) {
+                      throw fallbackErr; // Throw to trigger outer loop retry logic
+                  }
+              }
+
           } catch (e) {
-              console.warn("Telegram Edit Failed:", e);
+              console.error(`Telegram Send Failed (Attempt ${attempt}/${maxAttempts}):`, e);
+              // Wait 2 seconds before retrying if not the last attempt
+              if (attempt < maxAttempts) {
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+              }
           }
       }
 
-      // 2. Try Sending New Message (Standard JSON)
-      try {
-          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-          });
-          const data = await res.json();
-          if (data.ok) return { success: true, messageId: data.result.message_id };
-      } catch (e) {
-          console.warn("Telegram JSON Send Failed (Likely CORS), trying fallback...", e);
-      }
-
-      // 3. Fallback: No-CORS Simple Request (For Web/CORS restricted environments)
-      // Note: We cannot read the response (message_id) in this mode, so editing won't work next time for this message.
-      try {
-          const params = new URLSearchParams();
-          params.append('chat_id', chatId);
-          params.append('text', text);
-          params.append('parse_mode', 'Markdown');
-          
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: params
-          });
-          
-          // Assume success since request was sent
-          return { success: true, messageId: null }; 
-      } catch (e) {
-          console.error("Telegram All Methods Failed:", e);
-          return { success: false };
-      }
+      return { success: false };
   };
 
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]) => {

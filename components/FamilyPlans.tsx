@@ -212,7 +212,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       onOpenEvent: (event: FamilyEvent | null | undefined, prefill?: any) => setActiveEvent({ event: event || null, prefill }),
       isListening,
       isProcessingVoice,
-      startListening
+      startListening,
+      onSendToTelegram // Pass this down
   };
 
   return (
@@ -243,7 +244,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
                 onDelete={handleDeleteEvent}
                 onSendToTelegram={onSendToTelegram} 
                 templates={events.filter(ev => ev.isTemplate)} 
-                settings={settings} 
+                settings={settings}
+                allEvents={events} // Pass all events for conflict detection
             />
             )}
         </AnimatePresence>

@@ -275,7 +275,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <div 
               key={event.id}
               onClick={() => onOpenEvent(event)}
-              className={`absolute left-20 right-4 rounded-3xl p-4 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform`}
+              className={`absolute left-16 right-2 rounded-3xl p-4 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform`}
               style={{ top: `${topPosition}px`, height: `${height - 4}px`, backgroundColor }}
             >
               <div className="flex justify-between items-start mb-1">

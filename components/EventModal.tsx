@@ -312,17 +312,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, prefill, members, onClos
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
-                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Дата</span>
+                {/* Modified Grid Layout for better date fit on mobile */}
+                <div className="grid grid-cols-[1.5fr_1fr_0.8fr] gap-2">
+                    <div className="bg-white dark:bg-[#1C1C1E] p-3 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Дата</span>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)} max="9999-12-31" className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white dark:[color-scheme:dark]" />
                     </div>
-                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
-                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Время</span>
+                    <div className="bg-white dark:bg-[#1C1C1E] p-3 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Время</span>
                         <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white dark:[color-scheme:dark]" />
                     </div>
-                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[2rem] border border-white dark:border-white/5">
-                        <span className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Длит. (ч)</span>
+                    <div className="bg-white dark:bg-[#1C1C1E] p-3 rounded-[2rem] border border-white dark:border-white/5">
+                        <span className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Часы</span>
                         <input type="number" step="0.5" min="0.5" value={dur} onChange={e => setDur(Number(e.target.value))} className="w-full font-black text-xs outline-none bg-transparent text-[#1C1C1E] dark:text-white" />
                     </div>
                 </div>

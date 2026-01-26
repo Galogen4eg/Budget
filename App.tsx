@@ -697,7 +697,20 @@ export default function App() {
             {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={learnedRules} onUpdateRules={setLearnedRules} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} />}
             {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
-            {drillDownState && <DrillDownModal categoryId={drillDownState.categoryId} merchantName={drillDownState.merchantName} onClose={() => setDrillDownState(null)} transactions={filteredTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} onLearnRule={handleLearnRule} onEditTransaction={handleEditTransaction} />}
+            {drillDownState && <DrillDownModal 
+                categoryId={drillDownState.categoryId} 
+                merchantName={drillDownState.merchantName} 
+                onClose={() => setDrillDownState(null)} 
+                transactions={filteredTransactions} 
+                setTransactions={setTransactions} 
+                settings={settings} 
+                members={members} 
+                categories={categories} 
+                onLearnRule={handleLearnRule} 
+                onEditTransaction={handleEditTransaction}
+                currentMonth={currentMonth}
+                selectedDate={selectedDate}
+            />}
             {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onUpdateAll={(items) => setImportPreview(items)} onLearnRule={handleLearnRule} onAddCategory={() => {}} members={members} />}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
             {isMandatoryModalOpen && <MandatoryExpenseModal expense={null} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} members={members} onSave={async (e) => { const updated = [...(settings.mandatoryExpenses || []), e]; await updateSettings({ ...settings, mandatoryExpenses: updated }); setIsMandatoryModalOpen(false); }} />}

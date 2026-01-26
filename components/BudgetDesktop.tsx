@@ -3,19 +3,17 @@ import React, { useMemo } from 'react';
 import { Transaction, FamilyMember, Category } from '../types';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
-import { Sparkles } from 'lucide-react';
 
 interface BudgetDesktopProps {
   transactions: Transaction[];
   categories: Category[];
   members: FamilyMember[];
   onEdit: (tx: Transaction) => void;
-  onStartLearning: (tx: Transaction) => void;
   privacyMode: boolean;
 }
 
 const BudgetDesktop: React.FC<BudgetDesktopProps> = ({ 
-  transactions, categories, members, onEdit, onStartLearning, privacyMode 
+  transactions, categories, members, onEdit, privacyMode 
 }) => {
   // Grouping Logic
   const groupedTransactions = useMemo(() => {
@@ -77,7 +75,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                  <div 
                                      key={tx.id}
                                      onClick={() => onEdit(tx)}
-                                     className={`group flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-transparent transition-all cursor-pointer ${isUnrecognized ? 'bg-yellow-50/50 border-yellow-100/50' : 'hover:bg-gray-100 dark:hover:bg-[#3A3A3C]'}`}
+                                     className={`group flex items-center justify-between p-3 rounded-2xl border border-transparent transition-all cursor-pointer ${isUnrecognized ? 'bg-yellow-50/50 border-yellow-100/50' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
                                  >
                                      <div className="flex items-center gap-4 overflow-hidden flex-1">
                                          <div className="shrink-0">
@@ -109,17 +107,6 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                          <span className={`text-lg font-black tabular-nums ${tx.type === 'income' ? 'text-green-500' : 'text-[#1C1C1E] dark:text-white'}`}>
                                              {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}`}
                                          </span>
-                                         
-                                         {/* Actions on Hover */}
-                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                             <button 
-                                                 onClick={(e) => { e.stopPropagation(); onStartLearning(tx); }}
-                                                 className={`p-2 rounded-xl transition-colors ${isUnrecognized ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' : 'bg-white dark:bg-[#3A3A3C] hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 hover:text-blue-500'}`}
-                                                 title="Обучить"
-                                             >
-                                                 <Sparkles size={16} fill={isUnrecognized ? "currentColor" : "none"} />
-                                             </button>
-                                         </div>
                                      </div>
                                  </div>
                              );

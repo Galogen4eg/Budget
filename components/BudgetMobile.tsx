@@ -4,14 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, FamilyMember, Category } from '../types';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface BudgetMobileProps {
   transactions: Transaction[];
   categories: Category[];
   members: FamilyMember[];
   onEdit: (tx: Transaction) => void;
-  onStartLearning: (tx: Transaction) => void;
   privacyMode: boolean;
 }
 
@@ -21,7 +20,7 @@ const itemVariants = {
 };
 
 const BudgetMobile: React.FC<BudgetMobileProps> = ({ 
-  transactions, categories, members, onEdit, onStartLearning, privacyMode 
+  transactions, categories, members, onEdit, privacyMode 
 }) => {
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
@@ -131,17 +130,6 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                                 </span>
                                               </div>
                                           </div>
-                                          <button 
-                                              onClick={(e) => { e.stopPropagation(); onStartLearning(tx); }}
-                                              className={`p-2 rounded-xl transition-all ${
-                                                  isUnrecognized 
-                                                      ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400 opacity-100 shadow-sm' 
-                                                      : 'bg-gray-50 dark:bg-[#3A3A3C] text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100'
-                                              }`}
-                                              title="Обучить категорию"
-                                          >
-                                              <Sparkles size={16} fill={isUnrecognized ? "currentColor" : "none"} />
-                                          </button>
                                       </motion.div>
                                   );
                               })}

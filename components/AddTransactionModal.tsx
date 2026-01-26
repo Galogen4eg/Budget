@@ -202,7 +202,7 @@ export default function AddTransactionModal({
             <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-white/5">
                 <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${isLearningEnabled ? 'bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
-                        <BrainCircuit size={18} />
+                        <Sparkles size={18} fill={isLearningEnabled ? "currentColor" : "none"} />
                     </div>
                     <div>
                         <p className="text-[15px] font-bold text-black dark:text-white">Авто-правило</p>

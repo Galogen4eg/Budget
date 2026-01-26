@@ -19,12 +19,15 @@ interface DrillDownModalProps {
   onLearnRule: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   onEditTransaction: (tx: Transaction) => void;
+  currentMonth?: Date;
+  selectedDate?: Date | null;
 }
 
 const DrillDownModal: React.FC<DrillDownModalProps> = ({ 
     categoryId, merchantName, onClose, 
     transactions, setTransactions, settings, members, categories, 
-    onLearnRule, onApplyRuleToExisting, onEditTransaction 
+    onLearnRule, onApplyRuleToExisting, onEditTransaction,
+    currentMonth, selectedDate
 }) => {
   const category = categories.find(c => c.id === categoryId);
   const title = merchantName || category?.label || 'История';
@@ -87,7 +90,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 onEditTransaction={onEditTransaction}
                 selectedCategoryId={categoryId}
                 selectedMerchantName={merchantName}
-                filterMode="month" // Or 'all', keeping month for consistency with charts
+                filterMode={selectedDate ? 'day' : 'month'}
+                selectedDate={selectedDate}
+                currentMonth={currentMonth}
                 hideActiveFilterBadge={true} // Cleaner look since modal header tells the context
                 hideTitle={true}
             />

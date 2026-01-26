@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Check, AlertCircle, DollarSign, Calendar, Edit2, Plus, Circle, CheckCircle2 } from 'lucide-react';
 import { MandatoryExpense, Transaction, AppSettings } from '../types';
@@ -49,54 +49,62 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
       if (familyId) await saveSettings(familyId, newSettings);
   };
 
-  // Filter transactions for the displayed month
-  const monthTransactions = transactions.filter(t => {
-    const d = new Date(t.date);
-    return d.getMonth() === currentMonth.getMonth() && 
-           d.getFullYear() === currentMonth.getFullYear() &&
-           t.type === 'expense';
-  });
+  // Calculate stats strictly based on current month
+  const { processedExpenses, totalPaid, totalBudget } = useMemo(() => {
+      // 1. Filter transactions strictly for the current month view
+      const monthTransactions = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === currentMonth.getMonth() && 
+               d.getFullYear() === currentMonth.getFullYear() &&
+               t.type === 'expense';
+      });
 
-  const processedExpenses = (expenses || []).map(expense => {
-    const keywords = expense.keywords || [];
-    
-    // Find matching transactions based on keywords OR explicit link
-    const matches = monthTransactions.filter(tx => {
-       if (tx.linkedExpenseId === expense.id) return true; // Explicit link
+      const processed = (expenses || []).map(expense => {
+        const keywords = expense.keywords || [];
+        
+        // Find matching transactions based on keywords OR explicit link
+        const matches = monthTransactions.filter(tx => {
+           if (tx.linkedExpenseId === expense.id) return true; // Explicit link
 
-       if (keywords.length === 0) return false;
-       const noteLower = (tx.note || '').toLowerCase();
-       const rawLower = (tx.rawNote || '').toLowerCase();
-       return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
-    });
+           if (keywords.length === 0) return false;
+           const noteLower = (tx.note || '').toLowerCase();
+           const rawLower = (tx.rawNote || '').toLowerCase();
+           return keywords.some(k => noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()));
+        });
 
-    const paidAmount = matches.reduce((sum, tx) => sum + tx.amount, 0);
-    const isAutoPaid = paidAmount >= (expense.amount * 0.95);
-    const isManuallyPaid = (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id);
-    const isPaid = isAutoPaid || isManuallyPaid;
-    
-    const progress = Math.min(100, (paidAmount / expense.amount) * 100);
-    
-    const today = new Date();
-    const isCurrentMonth = today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
-    const isOverdue = !isPaid && isCurrentMonth && today.getDate() > (expense.day || 1);
+        const paidAmount = matches.reduce((sum, tx) => sum + tx.amount, 0);
+        const isAutoPaid = paidAmount >= (expense.amount * 0.95);
+        const isManuallyPaid = (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id);
+        const isPaid = isAutoPaid || isManuallyPaid;
+        
+        const progress = Math.min(100, (paidAmount / expense.amount) * 100);
+        
+        const today = new Date();
+        const isCurrentMonth = today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
+        const isOverdue = !isPaid && isCurrentMonth && today.getDate() > (expense.day || 1);
 
-    return { ...expense, paidAmount, isPaid, isAutoPaid, isManuallyPaid, progress, isOverdue };
-  }).sort((a, b) => {
-      // 1. Sort by Paid Status (Unpaid first)
-      if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+        return { ...expense, paidAmount, isPaid, isAutoPaid, isManuallyPaid, progress, isOverdue };
+      }).sort((a, b) => {
+          // 1. Sort by Paid Status (Unpaid first)
+          if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+          // 2. Sort by Day
+          return (a.day || 0) - (b.day || 0);
+      });
+
+      const budget = processed.reduce((sum, e) => sum + e.amount, 0);
       
-      // 2. Sort by Day (Chronological - earlier days first)
-      // This effectively puts Overdue items (early days) at the top of the Unpaid list
-      return (a.day || 0) - (b.day || 0);
-  });
+      // Calculate visual total paid
+      const paid = processed.reduce((sum, e) => {
+          // If manually marked paid, count the full budget amount (if actual payment is less)
+          // otherwise count strictly what was paid
+          if (e.isManuallyPaid) return sum + Math.max(e.paidAmount, e.amount);
+          // If auto-paid (or partially paid), count actuals. 
+          // If auto-paid exceeds budget, count actuals.
+          return sum + e.paidAmount;
+      }, 0);
 
-  const totalBudget = processedExpenses.reduce((sum, e) => sum + e.amount, 0);
-  // Calculate total paid (using full amount if manually marked, otherwise actual paid)
-  const totalPaid = processedExpenses.reduce((sum, e) => {
-      if (e.isPaid) return sum + Math.max(e.paidAmount, e.amount); 
-      return sum + e.paidAmount;
-  }, 0);
+      return { processedExpenses: processed, totalPaid: paid, totalBudget: budget };
+  }, [expenses, transactions, currentMonth, settings.manualPaidExpenses, currentMonthKey]);
 
   return (
     <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full flex flex-col h-auto">

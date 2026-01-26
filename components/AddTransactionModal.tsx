@@ -34,7 +34,7 @@ export default function AddTransactionModal({
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [note, setNote] = useState(''); 
   
-  // AI Learning State
+  // AI Learning & Naming State
   const [isLearningEnabled, setIsLearningEnabled] = useState(false);
   const [cleanKeyword, setCleanKeyword] = useState(''); 
   const [renamedTitle, setRenamedTitle] = useState(''); 
@@ -62,7 +62,7 @@ export default function AddTransactionModal({
     if (initialTransaction) {
       setAmount(initialTransaction.amount.toString());
       setType(initialTransaction.type);
-      setNote(initialTransaction.rawNote || initialTransaction.note);
+      setNote(initialTransaction.rawNote || '');
       setCategoryId(initialTransaction.category);
       setMemberId(initialTransaction.memberId);
       setBoundExpenseId(initialTransaction.linkedExpenseId || '');
@@ -74,7 +74,7 @@ export default function AddTransactionModal({
       const day = String(d.getDate()).padStart(2, '0');
       setDate(`${year}-${month}-${day}`);
       
-      setCleanKeyword(initialTransaction.rawNote || initialTransaction.note);
+      setCleanKeyword(initialTransaction.rawNote || '');
       setRenamedTitle(initialTransaction.note);
     } else {
         const myMember = members.find(m => m.userId === auth.currentUser?.uid);
@@ -109,6 +109,7 @@ export default function AddTransactionModal({
           return;
       }
 
+      // Priority: Renamed Title -> Note -> Category Label
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
 
       if (boundExpenseId) {
@@ -195,100 +196,109 @@ export default function AddTransactionModal({
     </div>
   );
 
+  // New Block for Smart Naming in Left Column
+  const SmartNamingSection = () => (
+      <div className="space-y-2 w-full">
+          <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Название и Правила</p>
+          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 p-4 space-y-4">
+              {/* Transaction Name Input */}
+              <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
+                      <Type size={10} /> Название в истории
+                  </label>
+                  <input 
+                      type="text"
+                      value={renamedTitle}
+                      onChange={(e) => setRenamedTitle(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-bold text-sm text-[#1C1C1E] dark:text-white outline-none border border-transparent focus:border-blue-500 transition-all placeholder:text-gray-300"
+                      placeholder={selectedCategory.label}
+                  />
+              </div>
+
+              <div className="h-px bg-gray-100 dark:bg-white/5 w-full" />
+
+              {/* Rule Toggle */}
+              <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${isLearningEnabled ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-400'}`}>
+                          <Sparkles size={14} fill={isLearningEnabled ? "currentColor" : "none"} />
+                      </div>
+                      <div>
+                          <p className="text-xs font-bold text-[#1C1C1E] dark:text-white">Запомнить правило</p>
+                          <p className="text-[9px] text-gray-400">Авто-категория для будущих операций</p>
+                      </div>
+                  </div>
+                  <button 
+                      onClick={() => setIsLearningEnabled(!isLearningEnabled)}
+                      className={`w-10 h-6 rounded-full p-1 transition-colors relative ${isLearningEnabled ? 'bg-purple-500' : 'bg-gray-200 dark:bg-gray-600'}`}
+                  >
+                      <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isLearningEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+              </div>
+
+              {/* Keyword Input (Conditional) */}
+              <AnimatePresence>
+                  {isLearningEnabled && (
+                      <motion.div 
+                          initial={{ height: 0, opacity: 0 }} 
+                          animate={{ height: 'auto', opacity: 1 }} 
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                      >
+                          <div className="bg-purple-50 dark:bg-purple-900/10 p-3 rounded-xl border border-purple-100 dark:border-purple-900/20 mt-2">
+                              <label className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase mb-1 block">Если содержит текст</label>
+                              <input 
+                                  type="text"
+                                  value={cleanKeyword}
+                                  onChange={(e) => setCleanKeyword(e.target.value)}
+                                  className="w-full bg-white dark:bg-[#1C1C1E] p-2 rounded-lg text-xs font-bold text-[#1C1C1E] dark:text-white outline-none border border-transparent focus:border-purple-500"
+                                  placeholder="Напр: Uber; Yandex..."
+                              />
+                          </div>
+                      </motion.div>
+                  )}
+              </AnimatePresence>
+          </div>
+      </div>
+  );
+
   const CategorySection = () => (
-    <div className="space-y-2">
-        <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Категоризация</p>
+    <div className="space-y-2 w-full">
+        <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Категория</p>
         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-white/5">
-                <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${isLearningEnabled ? 'bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
-                        <Sparkles size={18} fill={isLearningEnabled ? "currentColor" : "none"} />
-                    </div>
-                    <div>
-                        <p className="text-[15px] font-bold text-black dark:text-white">Авто-правило</p>
-                        <p className="text-[11px] text-gray-500">Запомнить эту категорию</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={() => setIsLearningEnabled(!isLearningEnabled)}
-                    className={`w-[51px] h-[31px] rounded-full transition-colors duration-200 relative ${isLearningEnabled ? 'bg-[#32D74B]' : 'bg-gray-200 dark:bg-gray-600'}`}
-                >
-                    <div className={`absolute top-[2px] left-[2px] w-[27px] h-[27px] bg-white rounded-full shadow-md transform transition-transform duration-200 ${isLearningEnabled ? 'translate-x-[20px]' : 'translate-x-0'}`} />
-                </button>
-            </div>
-
-            {isLearningEnabled && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 bg-indigo-50/50 dark:bg-indigo-900/10 space-y-3">
-                        <div>
-                            <p className="text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
-                                Если содержит (из SMS) <Zap size={10} fill="currentColor" />
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="text"
-                                    value={cleanKeyword}
-                                    onChange={(e) => setCleanKeyword(e.target.value)}
-                                    className="flex-1 bg-transparent text-[13px] font-bold outline-none text-black dark:text-white border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 py-1"
-                                    placeholder="Исходный текст..."
-                                />
-                                <Edit3 size={14} className="text-gray-400" />
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
-                                Новое название (в приложении) <Type size={10} />
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="text"
-                                    value={renamedTitle}
-                                    onChange={(e) => setRenamedTitle(e.target.value)}
-                                    className="flex-1 bg-transparent text-[15px] font-bold outline-none text-black dark:text-white border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 py-1"
-                                    placeholder="Например: Продукты"
-                                />
-                                <Edit3 size={14} className="text-gray-400" />
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-
             <button 
                 onClick={() => setCurrentView('categories')}
                 className="w-full flex items-center px-4 py-3 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
             >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 text-white shadow-sm" style={{ backgroundColor: selectedCategory.color }}>
-                    {getIconById(selectedCategory.icon, 16)}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mr-3 text-white shadow-sm transition-transform hover:scale-105" style={{ backgroundColor: selectedCategory.color }}>
+                    {getIconById(selectedCategory.icon, 20)}
                 </div>
                 <div className="flex-1 text-left">
-                    <p className="text-[15px] font-semibold text-black dark:text-white">{selectedCategory.label}</p>
+                    <p className="text-sm font-bold text-black dark:text-white">{selectedCategory.label}</p>
+                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Нажмите, чтобы изменить</p>
                 </div>
-                <div className="flex items-center gap-1 text-gray-400">
-                    <span className="text-[13px]">Изменить</span>
-                    <ChevronRight size={16} />
-                </div>
+                <ChevronRight size={16} className="text-gray-400" />
             </button>
         </div>
     </div>
   );
 
   const DetailsSection = () => (
-    <div className="space-y-2">
+    <div className="space-y-2 w-full">
         <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 divide-y divide-gray-100 dark:divide-white/5">
             
             {mandatoryExpenses.length > 0 && type === 'expense' && (
                 <button 
                     onClick={() => setCurrentView('monthly_binding')}
-                    className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                    className="w-full flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E]"
                 >
                     <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center mr-3 text-orange-500">
-                        <LinkIcon size={18} />
+                        <LinkIcon size={16} />
                     </div>
                     <div className="flex-1 text-left">
-                        <p className="text-[15px] text-black dark:text-white">Привязать к платежу</p>
-                        <p className={`text-[13px] font-medium ${boundExpense ? 'text-orange-500' : 'text-gray-400'}`}>
+                        <p className="text-sm font-medium text-black dark:text-white">Привязать к платежу</p>
+                        <p className={`text-xs font-bold ${boundExpense ? 'text-orange-500' : 'text-gray-400'}`}>
                             {boundExpense?.name || 'Не выбрано'}
                         </p>
                     </div>
@@ -298,26 +308,26 @@ export default function AddTransactionModal({
 
             <button 
                 onClick={() => setCurrentView('assignee')}
-                className="w-full flex items-center px-4 py-3.5 border-b border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors"
+                className="w-full flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E]"
             >
                 <div className="mr-3">
                     <MemberMarker member={selectedMember} size="sm" />
                 </div>
                 <div className="flex-1 text-left">
-                    <p className="text-[15px] text-black dark:text-white">Исполнитель</p>
-                    <p className="text-[13px] text-gray-500">{selectedMember.name}</p>
+                    <p className="text-sm font-medium text-black dark:text-white">Исполнитель</p>
+                    <p className="text-xs text-gray-500 font-bold">{selectedMember.name}</p>
                 </div>
                 <ChevronRight size={16} className="text-gray-400" />
             </button>
 
-            <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors w-full group">
+            <div className="relative flex items-center px-4 py-3.5 active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E] group cursor-pointer">
                 <div className="flex items-center flex-1 pointer-events-none z-10">
                     <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mr-3 text-blue-500">
-                        <Calendar size={18} />
+                        <Calendar size={16} />
                     </div>
                     <div className="flex-1 text-left">
-                        <p className="text-[15px] text-black dark:text-white">Дата</p>
-                        <p className="text-[13px] text-gray-500">
+                        <p className="text-sm font-medium text-black dark:text-white">Дата</p>
+                        <p className="text-xs text-gray-500 font-bold">
                             {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                     </div>
@@ -389,84 +399,88 @@ export default function AddTransactionModal({
                         <div className="flex flex-col md:grid md:grid-cols-2 md:h-full">
                             
                             {/* Left Column (Desktop) / Top (Mobile) */}
-                            <div className="flex flex-col items-center py-6 md:px-6 md:py-0 md:overflow-y-auto no-scrollbar h-full md:border-r border-gray-200 dark:border-white/5 md:justify-center">
-                                <div className="w-full flex flex-col gap-4">
-                                    {/* Amount & Type Switcher */}
-                                    <div className="flex flex-col items-center w-full">
-                                        <div className="flex bg-gray-200 dark:bg-[#1C1C1E] p-1 rounded-xl mb-4">
-                                            <button 
-                                                onClick={() => setType('expense')}
-                                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'expense' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-black dark:text-white' : 'text-gray-500'}`}
-                                            >
-                                                <ArrowUpCircle size={14} className={type === 'expense' ? 'text-black dark:text-white' : 'text-gray-400'} />
-                                                Расход
-                                            </button>
-                                            <button 
-                                                onClick={() => setType('income')}
-                                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'income' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-green-600' : 'text-gray-500'}`}
-                                            >
-                                                <ArrowDownCircle size={14} className={type === 'income' ? 'text-green-600' : 'text-gray-400'} />
-                                                Доход
-                                            </button>
-                                        </div>
+                            <div className="flex flex-col items-center py-6 md:px-8 md:py-8 md:overflow-y-auto no-scrollbar h-full md:border-r border-gray-200 dark:border-white/5 md:justify-start space-y-6">
+                                {/* Amount & Type Switcher */}
+                                <div className="flex flex-col items-center w-full">
+                                    <div className="flex bg-gray-200 dark:bg-[#1C1C1E] p-1 rounded-xl mb-4">
+                                        <button 
+                                            onClick={() => setType('expense')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'expense' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-black dark:text-white' : 'text-gray-500'}`}
+                                        >
+                                            <ArrowUpCircle size={14} className={type === 'expense' ? 'text-black dark:text-white' : 'text-gray-400'} />
+                                            Расход
+                                        </button>
+                                        <button 
+                                            onClick={() => setType('income')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${type === 'income' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-green-600' : 'text-gray-500'}`}
+                                        >
+                                            <ArrowDownCircle size={14} className={type === 'income' ? 'text-green-600' : 'text-gray-400'} />
+                                            Доход
+                                        </button>
+                                    </div>
 
-                                        <span className="text-gray-500 text-[13px] mb-2 uppercase tracking-wide font-medium">
-                                            {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
+                                    <span className="text-gray-500 text-[13px] mb-1 uppercase tracking-wide font-medium">
+                                        {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
+                                    </span>
+                                    
+                                    <div className="flex items-center justify-center relative h-20 w-full mb-2">
+                                        <span ref={spanRef} className="absolute invisible whitespace-pre text-6xl font-black px-2">
+                                            {amount || '0'}
                                         </span>
                                         
-                                        <div className="flex items-center justify-center relative h-16 w-full">
-                                            <span ref={spanRef} className="absolute invisible whitespace-pre text-5xl font-black px-2">
-                                                {amount || '0'}
-                                            </span>
-                                            
-                                            <div className="flex items-baseline justify-center relative" style={{ minWidth: '120px' }}>
-                                                <input 
-                                                    type="text" 
-                                                    inputMode="decimal"
-                                                    value={amount}
-                                                    onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-                                                    placeholder="0"
-                                                    style={{ width: `${inputWidth}px` }}
-                                                    className={`bg-transparent text-5xl font-black text-center outline-none transition-all p-0 m-0 z-10 ${type === 'income' ? 'text-green-500 caret-green-500' : 'text-black dark:text-white caret-[#007AFF]'}`}
-                                                    autoFocus={!initialTransaction}
-                                                />
-                                                <span className="text-5xl font-bold text-gray-400 ml-1 pointer-events-none relative top-0">{settings.currency}</span>
-                                            </div>
+                                        <div className="flex items-baseline justify-center relative" style={{ minWidth: '120px' }}>
+                                            <input 
+                                                type="text" 
+                                                inputMode="decimal"
+                                                value={amount}
+                                                onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                                                placeholder="0"
+                                                style={{ width: `${inputWidth}px` }}
+                                                className={`bg-transparent text-6xl font-black text-center outline-none transition-all p-0 m-0 z-10 ${type === 'income' ? 'text-green-500 caret-green-500' : 'text-black dark:text-white caret-[#007AFF]'}`}
+                                                autoFocus={!initialTransaction}
+                                            />
+                                            <span className="text-3xl font-bold text-gray-400 ml-2 pointer-events-none relative -top-1">{settings.currency}</span>
                                         </div>
                                     </div>
-                                    
-                                    {/* Desktop Details Section Moved to Left */}
-                                    <div className="hidden md:block w-full">
-                                        <DetailsSection />
-                                    </div>
+                                </div>
+                                
+                                {/* New Smart Naming Block (Desktop Only/Prominent) */}
+                                <div className="hidden md:block w-full">
+                                    <SmartNamingSection />
+                                </div>
 
-                                    {/* Desktop Category Section */}
-                                    <div className="hidden md:block w-full">
-                                        <CategorySection />
-                                    </div>
+                                {/* Desktop Details Section */}
+                                <div className="hidden md:block w-full">
+                                    <DetailsSection />
+                                </div>
+
+                                {/* Desktop Category Section */}
+                                <div className="hidden md:block w-full">
+                                    <CategorySection />
                                 </div>
                             </div>
 
                             {/* Right Column (Desktop) / Bottom (Mobile) */}
-                            <div className="px-4 space-y-6 pb-20 md:p-8 md:overflow-y-auto no-scrollbar flex flex-col h-full">
+                            <div className="px-4 space-y-6 pb-20 md:p-8 md:overflow-y-auto no-scrollbar flex flex-col h-full bg-white md:bg-transparent dark:bg-black">
                                 {/* Mobile Details & Category Section */}
-                                <div className="md:hidden space-y-6">
-                                    <DetailsSection />
+                                <div className="md:hidden space-y-6 mt-4">
+                                    <SmartNamingSection />
                                     <CategorySection />
+                                    <DetailsSection />
                                 </div>
 
-                                <div className="flex-1 flex flex-col space-y-6 h-full">
-                                    {/* Note */}
-                                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 flex-1 min-h-[120px] flex flex-col">
-                                        <div className="flex items-start px-4 py-3.5 h-full">
-                                            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3 mt-0.5 text-green-500 shrink-0">
-                                                <FileText size={18} />
-                                            </div>
-                                            <div className="flex-1 h-full flex flex-col">
-                                                <p className="text-[13px] text-gray-500 mb-1">Оригинал из банка / Заметка</p>
+                                <div className="flex-1 flex flex-col space-y-6 h-full mt-4 md:mt-0">
+                                    {/* Raw Note / Comment */}
+                                    <div className="space-y-2 flex-1 flex flex-col min-h-[160px]">
+                                        <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest md:px-0">Заметка / Оригинал</p>
+                                        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 flex-1 flex flex-col">
+                                            <div className="flex items-start px-4 py-3.5 h-full">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mr-3 mt-0.5 text-gray-500 shrink-0">
+                                                    <FileText size={16} />
+                                                </div>
                                                 <textarea 
-                                                    className="w-full h-full text-[15px] bg-transparent outline-none resize-none text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600"
-                                                    placeholder="Полное описание операции..."
+                                                    className="w-full h-full text-[15px] bg-transparent outline-none resize-none text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 font-medium"
+                                                    placeholder="Дополнительные детали или оригинальный текст из банка..."
                                                     value={note}
                                                     onChange={(e) => setNote(e.target.value)}
                                                 />
@@ -481,7 +495,7 @@ export default function AddTransactionModal({
                                         onClick={handleSave}
                                         className="w-full bg-[#007AFF] hover:bg-blue-600 text-white py-4 rounded-2xl font-black text-sm active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 uppercase tracking-wide"
                                     >
-                                        Сохранить
+                                        {initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}
                                     </button>
                                     
                                     {initialTransaction && onDelete && (
@@ -600,8 +614,8 @@ export default function AddTransactionModal({
                                     key={exp.id}
                                     onClick={() => { 
                                         setBoundExpenseId(exp.id); 
-                                        if(!note.includes(exp.name)) {
-                                            setNote(prev => prev ? `${exp.name} ${prev}` : exp.name);
+                                        if(!note.includes(exp.name) && !renamedTitle.includes(exp.name)) {
+                                            setRenamedTitle(exp.name); // Auto-name based on expense
                                         }
                                         setCurrentView('main'); 
                                     }}

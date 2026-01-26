@@ -95,7 +95,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   // Determine if we should force mobile view (e.g. inside DrillDownModal which is narrow)
   const effectiveIsDesktop = isDesktop && !hideTitle; 
 
-  const MainContent = () => (
+  const content = (
       <>
           {/* Header Section (Mobile or Embedded) */}
           {!effectiveIsDesktop && !hideTitle && (
@@ -203,11 +203,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                       <ChevronRight size={20} />
                   </button>
               </div>
-              <MainContent />
+              {content}
           </div>
       ) : (
           <div className="space-y-4 h-full flex flex-col">
-              <MainContent />
+              {content}
           </div>
       )}
     </div>

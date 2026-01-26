@@ -52,8 +52,8 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
              const isPositiveDay = group.net > 0;
              return (
                  <div key={group.date} className="space-y-3">
-                     {/* Date Header */}
-                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-10 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-sm">
+                     {/* Date Header - Increased z-index to 30 */}
+                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-30 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md">
                          <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                              {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
                          </span>

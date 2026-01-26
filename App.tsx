@@ -647,7 +647,15 @@ export default function App() {
                         {/* MIDDLE COLUMN: Categories (Fills height of Left Col) */}
                         <div className="w-full xl:w-1/3 xl:relative flex flex-col min-h-[400px]">
                             <div className="xl:absolute xl:inset-0 h-full">
-                                <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
+                                <CategoryProgress 
+                                    transactions={budgetTransactions} 
+                                    categories={categories} 
+                                    settings={settings} 
+                                    currentMonth={currentMonth} 
+                                    selectedDate={selectedDate} 
+                                    onCategoryClick={(id) => setDrillDownState({categoryId: id})}
+                                    onSubCategoryClick={(id, merchant) => setDrillDownState({categoryId: id, merchantName: merchant})} 
+                                />
                             </div>
                         </div>
 

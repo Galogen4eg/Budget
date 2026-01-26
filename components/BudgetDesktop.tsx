@@ -44,7 +44,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
   }, [transactions]);
 
   return (
-    <div className="space-y-6 h-full overflow-y-auto custom-scrollbar pr-2 pb-4">
+    <div className="space-y-6 h-full max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-4">
       {groupedTransactions.length === 0 ? (
          <div className="text-center py-20 text-gray-400 font-bold text-sm uppercase tracking-widest">
              Операций не найдено
@@ -77,7 +77,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                  <div 
                                      key={tx.id}
                                      onClick={() => onEdit(tx)}
-                                     className={`group flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-transparent hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer ${isUnrecognized ? 'bg-yellow-50/50 border-yellow-100/50' : ''}`}
+                                     className={`group flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-transparent transition-all cursor-pointer ${isUnrecognized ? 'bg-yellow-50/50 border-yellow-100/50' : 'hover:bg-gray-100 dark:hover:bg-[#3A3A3C]'}`}
                                  >
                                      <div className="flex items-center gap-4 overflow-hidden flex-1">
                                          <div className="shrink-0">

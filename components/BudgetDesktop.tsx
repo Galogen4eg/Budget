@@ -52,8 +52,8 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
              const isPositiveDay = group.net > 0;
              return (
                  <div key={group.date} className="space-y-3">
-                     {/* Date Header - Increased z-index to 30 */}
-                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-30 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md">
+                     {/* Date Header - Increased z-index to 40 to stay above rows */}
+                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-sm dark:shadow-none">
                          <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                              {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
                          </span>
@@ -62,8 +62,8 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                          </span>
                      </div>
 
-                     {/* Transactions Grid/List */}
-                     <div className="grid grid-cols-1 gap-2">
+                     {/* Transactions Grid/List - Ensure relative z-index is lower than header */}
+                     <div className="grid grid-cols-1 gap-2 relative z-0">
                          {group.transactions.map(tx => {
                              const category = categories.find(c => c.id === tx.category);
                              const member = members.find(m => m.id === tx.memberId);

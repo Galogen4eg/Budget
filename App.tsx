@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2 } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit } from 'lucide-react';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
@@ -603,6 +603,15 @@ export default function App() {
                             <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-1"></div>
 
                             {/* Desktop Actions */}
+                            <button 
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1C1C1E] rounded-xl font-bold text-sm shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all text-[#1C1C1E] dark:text-white" 
+                                onClick={() => setDrillDownState({ categoryId: 'other' })} 
+                                title="Обучить категории"
+                            >
+                                <BrainCircuit size={16} className="text-purple-500" /> 
+                                Обучить
+                            </button>
+
                             <button 
                                 className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1C1C1E] rounded-xl font-bold text-sm shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all text-[#1C1C1E] dark:text-white" 
                                 onClick={() => document.getElementById('import-input')?.click()} 

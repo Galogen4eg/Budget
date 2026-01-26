@@ -95,12 +95,13 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
       
       // Calculate visual total paid
       const paid = processed.reduce((sum, e) => {
-          // If manually marked paid, count the full budget amount (if actual payment is less)
-          // otherwise count strictly what was paid
-          if (e.isManuallyPaid) return sum + Math.max(e.paidAmount, e.amount);
-          // If auto-paid (or partially paid), count actuals. 
-          // If auto-paid exceeds budget, count actuals.
-          return sum + e.paidAmount;
+          // If manually marked paid, count the full budget amount (assume fulfilled)
+          if (e.isManuallyPaid) return sum + e.amount;
+          
+          // If auto-paid (or partially paid), count actuals but CAP at the budget amount.
+          // This prevents one overpaid item (e.g. paying 20k instead of 10k) from 
+          // masking the fact that another 10k bill hasn't been paid yet in the total progress bar.
+          return sum + Math.min(e.paidAmount, e.amount);
       }, 0);
 
       return { processedExpenses: processed, totalPaid: paid, totalBudget: budget };

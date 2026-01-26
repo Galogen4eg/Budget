@@ -636,14 +636,15 @@ export default function App() {
                     {/* Shared Hidden Input */}
                     <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
 
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+                    {/* Removed items-start to allow columns to stretch */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         <div className="flex flex-col gap-6">
                             <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
                             <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
                         </div>
                         {/* Pass filtered expenses here */}
                         <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
-                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={handleLearnRule} /></div>
+                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={handleLearnRule} onClearFilters={() => { setSelectedDate(null); }} /></div>
                     </div>
                 </motion.div>
             )}

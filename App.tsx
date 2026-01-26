@@ -644,7 +644,22 @@ export default function App() {
                         </div>
                         {/* Pass filtered expenses here */}
                         <div className="h-full"><MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} /></div>
-                        <div className="h-full"><TransactionHistory transactions={budgetTransactions} setTransactions={setTransactions} settings={settings} members={members} categories={categories} currentMonth={currentMonth} selectedDate={selectedDate} filterMode={selectedDate ? 'day' : 'month'} onEditTransaction={handleEditTransaction} onLearnRule={handleLearnRule} onClearFilters={() => { setSelectedDate(null); }} /></div>
+                        <div className="h-full">
+                            <TransactionHistory 
+                                transactions={budgetTransactions} 
+                                setTransactions={setTransactions} 
+                                settings={settings} 
+                                members={members} 
+                                categories={categories} 
+                                currentMonth={currentMonth} 
+                                selectedDate={selectedDate} 
+                                filterMode={selectedDate ? 'day' : 'month'} 
+                                onEditTransaction={handleEditTransaction} 
+                                onLearnRule={handleLearnRule} 
+                                onClearFilters={() => { setSelectedDate(null); toast.info('Фильтр по дате сброшен'); }} 
+                                onViewAll={() => setDrillDownState({categoryId: 'all'})}
+                            />
+                        </div>
                     </div>
                 </motion.div>
             )}

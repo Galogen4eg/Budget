@@ -22,6 +22,7 @@ interface TransactionHistoryProps {
   selectedCategoryId?: string;
   selectedMerchantName?: string;
   onClearFilters?: () => void;
+  onViewAll?: () => void;
   hideActiveFilterBadge?: boolean;
   onAddCategory?: (category: Category) => void;
   selectedDate?: Date | null;
@@ -35,7 +36,7 @@ const PRESET_ICONS = [ 'Utensils', 'Car', 'Home', 'ShoppingBag', 'Heart', 'Zap',
 const TransactionHistory: React.FC<TransactionHistoryProps> = ({ 
     transactions, setTransactions, settings, members, onLearnRule, onApplyRuleToExisting, 
     categories, filterMode = 'month', onEditTransaction, initialSearch = '', 
-    selectedCategoryId, selectedMerchantName, onClearFilters, hideActiveFilterBadge = false, 
+    selectedCategoryId, selectedMerchantName, onClearFilters, onViewAll, hideActiveFilterBadge = false, 
     onAddCategory, selectedDate, currentMonth, hideTitle = false 
 }) => {
   const [learningTx, setLearningTx] = useState<Transaction | null>(null);
@@ -82,7 +83,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         });
     }
 
-    if (selectedCategoryId) {
+    if (selectedCategoryId && selectedCategoryId !== 'all') {
         result = result.filter(tx => tx.category === selectedCategoryId);
     }
     if (selectedMerchantName) {
@@ -272,13 +273,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   {/* Arrow for interaction */}
                   <button 
                     onClick={() => {
-                        // Assuming "View All" action clears filters or triggers parent handler
-                        if (onClearFilters) onClearFilters();
-                        // Also reset search
+                        if (onViewAll) {
+                            onViewAll();
+                        } else if (onClearFilters) {
+                            onClearFilters();
+                        }
                         setSearchQuery('');
                     }}
                     className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#2C2C2E] text-gray-300 hover:text-blue-500 transition-colors"
-                    title="Сбросить фильтры / Показать все"
+                    title="Открыть полный список"
                   >
                       <ChevronRight size={20} />
                   </button>

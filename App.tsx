@@ -636,32 +636,39 @@ export default function App() {
                     {/* Shared Hidden Input */}
                     <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
 
-                    {/* Removed items-start to allow columns to stretch */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <div className="flex flex-col gap-6">
+                    {/* FLEX LAYOUT for Desktop (Master-Slave Height) - MOBILE is Grid/Stack */}
+                    <div className="flex flex-col xl:flex-row gap-6 items-stretch">
+                        {/* LEFT COLUMN: Calendar & Mandatory Expenses (Master of Height) */}
+                        <div className="w-full xl:w-1/3 flex flex-col gap-6 shrink-0 h-auto">
                             <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />
-                            <div className="flex-1 min-h-0">
-                                <MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} />
+                            <MandatoryExpensesList expenses={filteredMandatoryExpenses} transactions={budgetTransactions} settings={settings} currentMonth={currentMonth} onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} onAdd={() => setIsMandatoryModalOpen(true)} />
+                        </div>
+
+                        {/* MIDDLE COLUMN: Categories (Fills height of Left Col) */}
+                        <div className="w-full xl:w-1/3 xl:relative flex flex-col min-h-[400px]">
+                            <div className="xl:absolute xl:inset-0 h-full">
+                                <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
                             </div>
                         </div>
-                        <div className="h-full">
-                            <CategoryProgress transactions={budgetTransactions} categories={categories} settings={settings} currentMonth={currentMonth} selectedDate={selectedDate} onCategoryClick={(id) => setDrillDownState({categoryId: id})} />
-                        </div>
-                        <div className="h-full">
-                            <TransactionHistory 
-                                transactions={budgetTransactions} 
-                                setTransactions={setTransactions} 
-                                settings={settings} 
-                                members={members} 
-                                categories={categories} 
-                                currentMonth={currentMonth} 
-                                selectedDate={selectedDate} 
-                                filterMode={selectedDate ? 'day' : 'month'} 
-                                onEditTransaction={handleEditTransaction} 
-                                onLearnRule={handleLearnRule} 
-                                onClearFilters={() => { setSelectedDate(null); toast.info('Фильтр по дате сброшен'); }} 
-                                onViewAll={() => setDrillDownState({categoryId: 'all'})}
-                            />
+
+                        {/* RIGHT COLUMN: History (Fills height of Left Col) */}
+                        <div className="w-full xl:w-1/3 xl:relative flex flex-col min-h-[400px]">
+                            <div className="xl:absolute xl:inset-0 h-full">
+                                <TransactionHistory 
+                                    transactions={budgetTransactions} 
+                                    setTransactions={setTransactions} 
+                                    settings={settings} 
+                                    members={members} 
+                                    categories={categories} 
+                                    currentMonth={currentMonth} 
+                                    selectedDate={selectedDate} 
+                                    filterMode={selectedDate ? 'day' : 'month'} 
+                                    onEditTransaction={handleEditTransaction} 
+                                    onLearnRule={handleLearnRule} 
+                                    onClearFilters={() => { setSelectedDate(null); toast.info('Фильтр по дате сброшен'); }} 
+                                    onViewAll={() => setDrillDownState({categoryId: 'all'})}
+                                />
+                            </div>
                         </div>
                     </div>
                 </motion.div>

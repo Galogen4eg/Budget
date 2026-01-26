@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, AlertCircle, DollarSign, Calendar, Edit2, Plus, Circle } from 'lucide-react';
+import { Check, AlertCircle, DollarSign, Calendar, Edit2, Plus, Circle, CheckCircle2 } from 'lucide-react';
 import { MandatoryExpense, Transaction, AppSettings } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -98,7 +99,7 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
   }, 0);
 
   return (
-    <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full flex flex-col h-full">
+    <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full flex flex-col h-auto">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
             <div className="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl shrink-0">
@@ -121,9 +122,9 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
         )}
       </div>
 
-      <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar min-h-[100px]">
+      <div className="space-y-3">
         {processedExpenses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center opacity-40 py-4">
+            <div className="flex flex-col items-center justify-center py-8 text-center opacity-40">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Список пуст</span>
             </div>
         ) : (

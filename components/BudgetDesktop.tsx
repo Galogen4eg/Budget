@@ -44,7 +44,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
   }, [transactions]);
 
   return (
-    <div className="space-y-6 h-full max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-4">
+    <div className="space-y-6 h-full overflow-y-auto custom-scrollbar pr-2 pb-4">
       {groupedTransactions.length === 0 ? (
          <div className="text-center py-20 text-gray-400 font-bold text-sm uppercase tracking-widest">
              Операций не найдено

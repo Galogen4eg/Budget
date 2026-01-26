@@ -4,7 +4,13 @@ import {
   Plus, BrainCircuit, Zap, ShoppingBag, Car, HeartPulse, Utensils, 
   Home, Briefcase, GraduationCap, Filter, X, ChevronLeft, Palette, 
   Coffee, Save, Layers, Sparkles, Gamepad2, Camera, Music, Plane, 
-  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3, RefreshCw, ChevronDown, ChevronUp, AlertCircle
+  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3, RefreshCw, ChevronDown, ChevronUp, AlertCircle,
+  Bus, Train, Ship, ShoppingBasket, Shirt, Baby, Dog, Cat, Flower2, Hammer, Wrench, BookOpen,
+  Palmtree, Wifi, Scissors, Bath, Bed, Sofa, Bike, Drumstick, Pill, Stethoscope, Dumbbell, Ticket, Monitor,
+  Footprints, Smile, HeartHandshake, FileText, ShieldCheck, Landmark, SmartphoneCharging, Armchair, Watch,
+  Sun, Umbrella, Wine, GlassWater, ShoppingCart, Map, Flag, Star, Bell, Mail, Video, Mic, Speaker,
+  Laptop, Printer, HardDrive, Cloud, Droplets, Flame, Key, Lock, Anchor, CheckCircle2, AlertTriangle, HelpCircle,
+  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv
 } from 'lucide-react';
 import { Category, LearnedRule, AppSettings, Transaction } from '../types';
 
@@ -20,15 +26,28 @@ interface CategoriesSettingsProps {
 }
 
 const AVAILABLE_ICONS = [
-  'ShoppingBag', 'Car', 'HeartPulse', 'Utensils', 'Home', 'Briefcase', 
-  'Gamepad2', 'GraduationCap', 'Coffee', 'Camera', 'Music', 'Plane', 
-  'Gift', 'Smartphone', 'CreditCard', 'Palette'
+  'ShoppingBag', 'ShoppingCart', 'ShoppingBasket', 'Utensils', 'Coffee', 'Beer', 'Wine', 'GlassWater', 'Cigarette',
+  'Car', 'Bus', 'Train', 'Plane', 'Ship', 'Bike', 'Map', 'Flag',
+  'Home', 'Bed', 'Bath', 'Sofa', 'Armchair', 'Wifi', 'Zap', 'Droplets', 'Flame', 'Key', 'Lock',
+  'Briefcase', 'Building', 'Landmark', 'FileText', 'ShieldCheck', 'Mail', 'Phone',
+  'HeartPulse', 'Pill', 'Stethoscope', 'Dumbbell', 'Footprints', 'Smile', 'Ghost',
+  'Gamepad2', 'Music', 'Clapperboard', 'Ticket', 'Tv', 'Camera', 'Video', 'Mic', 'Speaker',
+  'BookOpen', 'GraduationCap', 'Palette', 'Crown', 'Gem', 'Star',
+  'Shirt', 'Scissors', 'Watch', 'Sun', 'Umbrella',
+  'Baby', 'Dog', 'Cat', 'Flower2', 'Palmtree',
+  'Gift', 'CreditCard', 'PiggyBank', 'Anchor', 'Bell',
+  'Smartphone', 'Laptop', 'Monitor', 'Printer', 'HardDrive', 'Cloud', 'SmartphoneCharging',
+  'Hammer', 'Wrench', 'Settings2', 'HelpCircle', 'AlertTriangle', 'CheckCircle2'
 ];
 
 const PRESET_COLORS = [
+  // Vibrant
   'bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-yellow-500', 
-  'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-600', 
-  'bg-zinc-600', 'bg-cyan-500', 'bg-amber-700'
+  'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-600', 'bg-cyan-500',
+  // Dark/Neutral
+  'bg-zinc-800', 'bg-slate-600', 'bg-stone-500', 'bg-neutral-400',
+  // Pastel/Light (Good for dark mode contrast)
+  'bg-teal-400', 'bg-lime-500', 'bg-emerald-500', 'bg-sky-400', 'bg-violet-400', 'bg-rose-400', 'bg-amber-400'
 ];
 
 // Helper to convert hex/tailwind colors from app to the specific tailwind classes used in the design
@@ -44,9 +63,18 @@ const getColorClass = (colorStr: string) => {
 
 const IconRenderer = ({ name, size = 18, className = "" }: { name: string, size?: number, className?: string }) => {
     const icons: any = {
-      ShoppingBag, Car, HeartPulse, Utensils, Home, Briefcase, 
-      Gamepad2, GraduationCap, Coffee, Camera, Music, Plane, 
-      Gift, Smartphone, CreditCard, Palette, Settings2
+      ShoppingBag, ShoppingCart, ShoppingBasket, Utensils, Coffee, Beer, Wine, GlassWater, Cigarette,
+      Car, Bus, Train, Plane, Ship, Bike, Map, Flag,
+      Home, Bed, Bath, Sofa, Armchair, Wifi, Zap, Droplets, Flame, Key, Lock,
+      Briefcase, Landmark, FileText, ShieldCheck, Mail,
+      HeartPulse, Pill, Stethoscope, Dumbbell, Footprints, Smile, Ghost,
+      Gamepad2, Music, Clapperboard, Ticket, Tv, Camera, Video, Mic, Speaker,
+      BookOpen, GraduationCap, Palette, Crown, Gem, Star,
+      Shirt, Scissors, Watch, Sun, Umbrella,
+      Baby, Dog, Cat, Flower2, Palmtree,
+      Gift, CreditCard, Anchor, Bell,
+      Smartphone, Laptop, Monitor, Printer, HardDrive, Cloud, SmartphoneCharging,
+      Hammer, Wrench, Settings2, HelpCircle, AlertTriangle, CheckCircle2
     };
     const IconComponent = icons[name] || Settings2;
     return <IconComponent size={size} className={className} />;
@@ -188,7 +216,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           id: currentCatId, 
           label: catName, 
           icon: catIcon, 
-          color: catColor,
+          color: catColor, 
           isCustom: true 
       };
       onUpdateCategories([...categories, newCategory]);
@@ -453,16 +481,16 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     <button 
                       key={group.ids[0]} 
                       onClick={() => openEditRule(group)}
-                      className={`w-full text-left ${theme.card} p-4 rounded-[24px] border ${theme.border} flex items-center justify-between group shadow-sm hover:border-blue-200 dark:hover:border-blue-800 transition-colors`}
+                      className={`w-full text-left ${theme.card} p-4 rounded-[24px] border ${theme.border} flex items-center justify-center group shadow-sm hover:border-blue-200 dark:hover:border-blue-800 transition-colors`}
                     >
-                      <div className="flex items-center gap-4 overflow-hidden">
+                      <div className="flex items-center gap-4 overflow-hidden w-full">
                         <div 
                           className={`w-1.5 h-10 rounded-full shrink-0`} 
                           style={getColorStyle(catConfig?.color || '#ccc')}
                         >
                             <div className={`w-full h-full ${getColorClass(catConfig?.color || 'bg-gray-400')}`} />
                         </div>
-                        <div className="flex flex-col min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className={`text-sm font-bold ${theme.text} truncate`}>{group.keywords.join('; ')}</span>
                             <Zap size={12} className="text-orange-400 fill-orange-400 shrink-0" />
@@ -472,14 +500,14 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                              {catConfig?.label || '???'}
                           </span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 pl-2">
-                         <div 
-                           onClick={(e) => handleDeleteRuleGroup(e, group.ids)}
-                           className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-full"
-                         >
-                           <Trash2 size={16} />
-                         </div>
+                        <div className="flex items-center gap-2 pl-2 shrink-0">
+                           <div 
+                             onClick={(e) => handleDeleteRuleGroup(e, group.ids)}
+                             className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-full"
+                           >
+                             <Trash2 size={16} />
+                           </div>
+                        </div>
                       </div>
                     </button>
                   );
@@ -497,15 +525,17 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         {view === 'category_form' && (
            <div className="space-y-6 max-w-md mx-auto animate-in fade-in slide-in-from-right-4">
               <div className="flex flex-col items-center gap-4">
+                {/* Large Preview */}
                 <div 
-                    className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all ${getColorClass(catColor)}`}
+                    className={`w-32 h-32 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl transition-all ${getColorClass(catColor)}`}
                     style={getColorStyle(catColor)}
                 >
-                  <IconRenderer name={catIcon} size={48} />
+                  <IconRenderer name={catIcon} size={64} />
                 </div>
+                <span className="text-xs font-black uppercase tracking-widest opacity-60">Предпросмотр</span>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Название</label>
@@ -519,32 +549,34 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Иконка</label>
-                    <div className={`grid grid-cols-6 gap-2 p-4 rounded-[2rem] border ${theme.border} ${theme.card}`}>
-                      {AVAILABLE_ICONS.map(icon => (
-                        <button 
-                          key={icon}
-                          onClick={() => setCatIcon(icon)}
-                          className={`w-full aspect-square rounded-xl flex items-center justify-center transition-all ${
-                            catIcon === icon 
-                            ? 'bg-blue-500 text-white shadow-lg scale-110' 
-                            : `hover:bg-gray-100 dark:hover:bg-white/10 ${theme.text} opacity-60`
-                          }`}
-                        >
-                          <IconRenderer name={icon} size={20} />
-                        </button>
-                      ))}
+                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Выберите иконку</label>
+                    <div className={`p-4 rounded-[2rem] border ${theme.border} ${theme.card} max-h-60 overflow-y-auto custom-scrollbar`}>
+                      <div className="grid grid-cols-6 gap-3">
+                        {AVAILABLE_ICONS.map(icon => (
+                          <button 
+                            key={icon}
+                            onClick={() => setCatIcon(icon)}
+                            className={`w-full aspect-square rounded-xl flex items-center justify-center transition-all ${
+                              catIcon === icon 
+                              ? 'bg-blue-500 text-white shadow-lg scale-110 ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-[#1C1C1E]' 
+                              : `hover:bg-gray-100 dark:hover:bg-white/10 ${theme.text} opacity-60`
+                            }`}
+                          >
+                            <IconRenderer name={icon} size={20} />
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Цвет оформления</label>
+                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Цвет подложки</label>
                     <div className={`flex flex-wrap gap-3 justify-center ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'} p-4 rounded-[2rem]`}>
                       {PRESET_COLORS.map(c => (
                         <button 
                             key={c} 
                             onClick={() => setCatColor(c)} 
-                            className={`w-10 h-10 rounded-full border-4 transition-all ${catColor === c ? 'border-white dark:border-gray-600 scale-110 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`} 
+                            className={`w-10 h-10 rounded-full transition-all flex items-center justify-center ${catColor === c ? 'scale-110 shadow-lg ring-4 ring-offset-2 ring-blue-500 dark:ring-offset-[#2C2C2E]' : 'opacity-80 hover:opacity-100'}`} 
                             style={getColorStyle(c)} 
                         >
                             <div className={`w-full h-full rounded-full ${getColorClass(c)}`} />

@@ -149,12 +149,28 @@ export default function App() {
       document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
-  const handleTransactionSubmit = async (tx: Omit<Transaction, 'id'>) => {
+  const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
     if (selectedTx) {
-      if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, tx);
+      // Edit
+      const updatedTx = { ...txData, id: selectedTx.id };
+      
+      // Update Local State Immediately
+      setTransactions(prev => prev.map(t => t.id === selectedTx.id ? updatedTx : t));
+      
+      // Update DB if available
+      if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, txData);
+      
       setSelectedTx(null);
     } else {
-      if (familyId) await addItem(familyId, 'transactions', tx);
+      // Create
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+      const newTx = { ...txData, id };
+      
+      // Update Local State Immediately
+      setTransactions(prev => [newTx, ...prev]);
+      
+      // Update DB if available
+      if (familyId) await addItem(familyId, 'transactions', newTx);
     }
   };
 
@@ -721,8 +737,37 @@ export default function App() {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { if (familyId) await deleteItem(familyId, 'transactions', id); setIsAddModalOpen(false); }} />}
-            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onUpdate={async (s) => await updateSettings(s)} onReset={handleResetSettings} savingsRate={savingsRate} setSavingsRate={setSavingsRate} members={members} onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} categories={categories} onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} learnedRules={learnedRules} onUpdateRules={setLearnedRules} currentFamilyId={familyId} onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} onLogout={logout} transactions={transactions} onUpdateTransactions={async (updatedTxs) => { if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); }} onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} />}
+            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { 
+                // Optimistic delete
+                setTransactions(prev => prev.filter(t => t.id !== id));
+                if (familyId) await deleteItem(familyId, 'transactions', id); 
+                setIsAddModalOpen(false); 
+            }} />}
+            {isSettingsOpen && <SettingsModal 
+                settings={settings} 
+                onClose={() => setIsSettingsOpen(false)} 
+                onUpdate={async (s) => await updateSettings(s)} 
+                onReset={handleResetSettings} 
+                savingsRate={savingsRate} 
+                setSavingsRate={setSavingsRate} 
+                members={members} 
+                onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} 
+                categories={categories} 
+                onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} 
+                onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} 
+                learnedRules={learnedRules} 
+                onUpdateRules={setLearnedRules} 
+                currentFamilyId={familyId} 
+                onJoinFamily={async (id) => { if(auth.currentUser) { await joinFamily(auth.currentUser, id); window.location.reload(); } }} 
+                onLogout={logout} 
+                transactions={transactions} 
+                onUpdateTransactions={async (updatedTxs) => { 
+                    setTransactions(updatedTxs); // Update local state immediately!
+                    if (familyId) await updateItemsBatch(familyId, 'transactions', updatedTxs); 
+                }} 
+                onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} 
+                onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} 
+            />}
             {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
             {drillDownState && <DrillDownModal 
                 categoryId={drillDownState.categoryId} 

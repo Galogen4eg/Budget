@@ -12,7 +12,11 @@ import {
   Pill, Stethoscope, Dumbbell, Ticket, Monitor, 
   Footprints, Smile, HeartHandshake, FileText, ShieldCheck,
   Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella,
-  Wine, GlassWater, CreditCard
+  Wine, GlassWater, CreditCard, ShoppingCart, Train, Ship,
+  Map, Flag, Star, Bell, Mail, Camera, Video, Mic, Speaker,
+  Laptop, Printer, HardDrive, Cloud, Droplets, Flame, Key, Lock,
+  Anchor, CheckCircle2, AlertTriangle, HelpCircle, Palette, Settings2,
+  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem
 } from 'lucide-react';
 import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEvent, SavingsGoal, Debt, Project, LoyaltyCard, LearnedRule, MandatoryExpense } from './types';
 
@@ -324,7 +328,10 @@ export const getIconById = (iconName: string, size: number = 24) => {
     BookOpen, GraduationCap, Palmtree, Gift, Smartphone, Wifi, Scissors,
     Bath, Bed, Sofa, Bike, Drumstick, Sparkles, Pill, Stethoscope, Dumbbell,
     Ticket, Monitor, Footprints, Smile, HeartHandshake, FileText, ShieldCheck,
-    Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella, Wine, GlassWater, CreditCard
+    Landmark, SmartphoneCharging, Armchair, Watch, Sun, Umbrella, Wine, GlassWater, CreditCard,
+    ShoppingCart, Train, Ship, Map, Flag, Star, Bell, Mail, Camera, Video, Mic, Speaker,
+    Laptop, Printer, HardDrive, Cloud, Droplets, Flame, Key, Lock, Anchor, CheckCircle2,
+    AlertTriangle, HelpCircle, Palette, Settings2, Beer, Cigarette, Clapperboard, Ghost, Crown, Gem
   };
   const IconComponent = icons[iconName] || ShoppingBag;
   return <IconComponent size={size} />;

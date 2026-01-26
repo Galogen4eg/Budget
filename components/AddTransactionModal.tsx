@@ -23,6 +23,16 @@ interface AddTransactionModalProps {
   onDelete?: (id: string) => Promise<void>;
 }
 
+const SubHeader = ({ title, onBack }: { title: string, onBack: () => void }) => (
+  <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-30 bg-[#F2F2F7]/90 dark:bg-[#1C1C1E]/90 border-gray-200 dark:border-white/10 shrink-0">
+    <button onClick={onBack} className="text-[#007AFF] flex items-center text-[17px] active:opacity-50">
+      <ChevronLeft size={22} className="-ml-1"/>
+      <span>Назад</span>
+    </button>
+    <h1 className="text-[17px] font-semibold text-center flex-1 pr-16 text-black dark:text-white truncate">{title}</h1>
+  </div>
+);
+
 export default function AddTransactionModal({
   onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule
 }: AddTransactionModalProps) {
@@ -186,18 +196,7 @@ export default function AddTransactionModal({
       return val.replace(/[^0-9.,\s]/g, '');
   };
 
-  const SubHeader = ({ title, onBack }: { title: string, onBack: () => void }) => (
-    <div className="px-4 py-3 backdrop-blur-md border-b flex justify-between items-center sticky top-0 z-30 bg-[#F2F2F7]/90 dark:bg-[#1C1C1E]/90 border-gray-200 dark:border-white/10 shrink-0">
-      <button onClick={onBack} className="text-[#007AFF] flex items-center text-[17px] active:opacity-50">
-        <ChevronLeft size={22} className="-ml-1"/>
-        <span>Назад</span>
-      </button>
-      <h1 className="text-[17px] font-semibold text-center flex-1 pr-16 text-black dark:text-white truncate">{title}</h1>
-    </div>
-  );
-
-  // New Block for Smart Naming in Left Column
-  const SmartNamingSection = () => (
+  const renderSmartNamingSection = () => (
       <div className="space-y-2 w-full">
           <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Название и Правила</p>
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 p-4 space-y-4">
@@ -262,7 +261,7 @@ export default function AddTransactionModal({
       </div>
   );
 
-  const CategorySection = () => (
+  const renderCategorySection = () => (
     <div className="space-y-2 w-full">
         <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Категория</p>
         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
@@ -283,7 +282,7 @@ export default function AddTransactionModal({
     </div>
   );
 
-  const DetailsSection = () => (
+  const renderDetailsSection = () => (
     <div className="space-y-2 w-full">
         <p className="px-4 text-[11px] text-gray-500 uppercase font-bold tracking-widest">Детали</p>
         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5 divide-y divide-gray-100 dark:divide-white/5">
@@ -444,29 +443,27 @@ export default function AddTransactionModal({
                                     </div>
                                 </div>
                                 
-                                {/* New Smart Naming Block (Desktop Only/Prominent) */}
+                                {/* Desktop Components (Calling Functions) */}
                                 <div className="hidden md:block w-full">
-                                    <SmartNamingSection />
+                                    {renderSmartNamingSection()}
                                 </div>
 
-                                {/* Desktop Details Section */}
                                 <div className="hidden md:block w-full">
-                                    <DetailsSection />
+                                    {renderDetailsSection()}
                                 </div>
 
-                                {/* Desktop Category Section */}
                                 <div className="hidden md:block w-full">
-                                    <CategorySection />
+                                    {renderCategorySection()}
                                 </div>
                             </div>
 
                             {/* Right Column (Desktop) / Bottom (Mobile) */}
                             <div className="px-4 space-y-6 pb-20 md:p-8 md:overflow-y-auto no-scrollbar flex flex-col h-full bg-white md:bg-transparent dark:bg-black">
-                                {/* Mobile Details & Category Section */}
+                                {/* Mobile Components (Calling Functions) */}
                                 <div className="md:hidden space-y-6 mt-4">
-                                    <SmartNamingSection />
-                                    <CategorySection />
-                                    <DetailsSection />
+                                    {renderSmartNamingSection()}
+                                    {renderCategorySection()}
+                                    {renderDetailsSection()}
                                 </div>
 
                                 <div className="flex-1 flex flex-col space-y-6 h-full mt-4 md:mt-0">
@@ -508,7 +505,7 @@ export default function AddTransactionModal({
                                     )}
                                 </div>
 
-                                {/* Mobile Delete Button (in flow) */}
+                                {/* Mobile Delete Button */}
                                 {initialTransaction && onDelete && (
                                     <button 
                                         onClick={handleDeleteAction}
@@ -531,7 +528,6 @@ export default function AddTransactionModal({
                     className="absolute inset-0 flex flex-col bg-[#F2F2F7] dark:bg-black z-20 md:static md:h-full"
                 >
                     <SubHeader title="Категория" onBack={() => setCurrentView('main')} />
-                    {/* Fixed scroll: Added pb-safe and removed min-h-0 */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar pb-safe">
                         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                             {categories

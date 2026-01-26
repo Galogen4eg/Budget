@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
-  Clock, Mic, Loader2, CheckSquare, Square, Users, BellRing
+  Clock, Mic, Loader2, CheckSquare, Square, Users, BellRing,
+  LayoutGrid, List, History, Sparkles, Send, Hourglass
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { MemberMarker } from '../constants';
@@ -21,6 +22,7 @@ interface FamilyPlansDesktopProps {
   selectedDayEvents: FamilyEvent[];
   
   onOpenEvent: (event?: FamilyEvent | null, prefill?: any) => void;
+  onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   
   isListening: boolean;
   isProcessingVoice: boolean;
@@ -33,9 +35,12 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   currentDate, setCurrentDate,
   selectedDate, setSelectedDate,
   calendarData, selectedDayEvents,
-  onOpenEvent,
+  onOpenEvent, onSendToTelegram,
   isListening, isProcessingVoice, startListening
 }) => {
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [listTab, setListTab] = useState<'upcoming' | 'past'>('upcoming');
+
   const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
   const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -63,6 +68,37 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       return `За ${minutes} мин.`;
   };
 
+  // --- List View Logic ---
+  const filteredListEvents = useMemo(() => {
+    const now = new Date();
+    // Reset time for accurate day comparison if needed, but for "upcoming" we usually want exact time
+    // For simplicity, strict time comparison
+    
+    return events.filter(e => {
+        const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
+        if (listTab === 'upcoming') {
+            return eDate >= now;
+        } else {
+            return eDate < now;
+        }
+    }).sort((a, b) => {
+        const da = new Date(`${a.date}T${a.time || '00:00'}`);
+        const db = new Date(`${b.date}T${b.time || '00:00'}`);
+        return listTab === 'upcoming' ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
+    });
+  }, [events, listTab]);
+
+  const groupedListEvents = useMemo(() => {
+      const groups: Record<string, FamilyEvent[]> = {};
+      filteredListEvents.forEach(e => {
+          const d = new Date(e.date);
+          const key = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(e);
+      });
+      return groups;
+  }, [filteredListEvents]);
+
   return (
     <div className="flex h-full w-full bg-[#F2F2F7] dark:bg-black text-[#1C1C1E] dark:text-white font-sans overflow-hidden">
         
@@ -70,29 +106,66 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         <main className="flex-1 flex flex-col min-w-0 h-full">
             <header className="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/10 flex items-center justify-between px-8 h-20 shrink-0">
                 <div className="flex items-center gap-6">
-                    <h1 className="text-2xl font-extrabold capitalize leading-tight truncate">{monthName}</h1>
+                    {viewMode === 'calendar' ? (
+                        <h1 className="text-2xl font-extrabold capitalize leading-tight truncate">{monthName}</h1>
+                    ) : (
+                        <div className="flex bg-gray-200 dark:bg-white/10 p-1 rounded-xl">
+                            <button 
+                                onClick={() => setListTab('upcoming')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${listTab === 'upcoming' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}
+                            >
+                                <Sparkles size={14} /> Будущие
+                            </button>
+                            <button 
+                                onClick={() => setListTab('past')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${listTab === 'past' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-gray-800 dark:text-white' : 'text-gray-500'}`}
+                            >
+                                <History size={14} /> Прошедшие
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {/* View Switcher */}
+                    <div className="flex bg-gray-200 dark:bg-white/10 p-1 rounded-xl">
+                        <button 
+                            onClick={() => setViewMode('calendar')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'calendar' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}
+                        >
+                            <List size={18} />
+                        </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-300 dark:bg-white/10 mx-1"></div>
+
                     <button onClick={startListening} className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-white dark:hover:bg-white/10 text-blue-500'}`}>
                         {isProcessingVoice ? <Loader2 size={20} className="animate-spin" /> : <Mic size={20} />}
                     </button>
 
-                    <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-xl p-1">
-                        <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm rounded-lg transition-all active:scale-90 text-gray-600 dark:text-gray-300">
-                            <ChevronLeft size={20} />
-                        </button>
-                        <button onClick={() => {
-                            const now = new Date();
-                            setCurrentDate(now);
-                            setSelectedDate(now);
-                        }} className="px-4 py-1.5 text-xs font-bold hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            Сегодня
-                        </button>
-                        <button onClick={() => changeDate(1)} className="p-2 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm rounded-lg transition-all active:scale-90 text-gray-600 dark:text-gray-300">
-                            <ChevronRight size={20} />
-                        </button>
-                    </div>
+                    {viewMode === 'calendar' && (
+                        <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-xl p-1">
+                            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm rounded-lg transition-all active:scale-90 text-gray-600 dark:text-gray-300">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button onClick={() => {
+                                const now = new Date();
+                                setCurrentDate(now);
+                                setSelectedDate(now);
+                            }} className="px-4 py-1.5 text-xs font-bold hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                Сегодня
+                            </button>
+                            <button onClick={() => changeDate(1)} className="p-2 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm rounded-lg transition-all active:scale-90 text-gray-600 dark:text-gray-300">
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
 
                     <button 
                         onClick={() => onOpenEvent(null, { date: getLocalDateString(selectedDate) })}
@@ -105,71 +178,151 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </header>
 
             <div className="flex-1 p-8 overflow-hidden flex flex-col">
-                <div className="grid grid-cols-7 mb-2 px-2 shrink-0">
-                    {weekDays.map(day => (
-                        <div key={day} className="text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                            {day}
+                {viewMode === 'calendar' ? (
+                    <>
+                        <div className="grid grid-cols-7 mb-2 px-2 shrink-0">
+                            {weekDays.map(day => (
+                                <div key={day} className="text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                                    {day}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-                
-                <div className="grid grid-cols-7 grid-rows-6 flex-1 gap-px bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-3xl overflow-hidden shadow-2xl shadow-black/5 min-h-0">
-                    {calendarData.map((d, i) => {
-                        const dateObj = new Date(d.year, d.month, d.day);
-                        const dateStr = getLocalDateString(dateObj);
-                        const dayEvents = events.filter((e: FamilyEvent) => e.date === dateStr);
+                        
+                        <div className="grid grid-cols-7 grid-rows-6 flex-1 gap-px bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-3xl overflow-hidden shadow-2xl shadow-black/5 min-h-0">
+                            {calendarData.map((d, i) => {
+                                const dateObj = new Date(d.year, d.month, d.day);
+                                const dateStr = getLocalDateString(dateObj);
+                                const dayEvents = events.filter((e: FamilyEvent) => e.date === dateStr);
 
-                        const isSelected = selectedDate.getDate() === d.day && selectedDate.getMonth() === d.month && selectedDate.getFullYear() === d.year;
-                        const isToday = new Date().getDate() === d.day && new Date().getMonth() === d.month && new Date().getFullYear() === d.year;
+                                const isSelected = selectedDate.getDate() === d.day && selectedDate.getMonth() === d.month && selectedDate.getFullYear() === d.year;
+                                const isToday = new Date().getDate() === d.day && new Date().getMonth() === d.month && new Date().getFullYear() === d.year;
 
-                        const uniqueColors = Array.from(new Set(dayEvents.flatMap((e: FamilyEvent) => e.memberIds).map((id: string) => {
-                            const m = members.find(mem => mem.id === id);
-                            return m ? m.color : '#9CA3AF';
-                        }))).slice(0, 3);
+                                const uniqueColors = Array.from(new Set(dayEvents.flatMap((e: FamilyEvent) => e.memberIds).map((id: string) => {
+                                    const m = members.find(mem => mem.id === id);
+                                    return m ? m.color : '#9CA3AF';
+                                }))).slice(0, 3);
 
-                        return (
-                            <div 
-                                key={i} 
-                                onClick={() => handleDateClick(d)}
-                                className={`p-2 transition-all cursor-pointer relative flex flex-col ${d.current ? 'bg-white dark:bg-[#1C1C1E]' : 'bg-[#F9F9FB] dark:bg-black/20 opacity-40'} ${isSelected ? 'bg-blue-50/50 dark:bg-blue-500/10 z-10' : 'hover:bg-blue-50/20 dark:hover:bg-blue-500/5'}`}
-                            >
-                                <div className="flex justify-between items-start shrink-0">
-                                    <span className={`text-sm font-bold flex items-center justify-center w-8 h-8 rounded-full transition-all ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-110' : isSelected ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-gray-700 dark:text-gray-300'}`}>
-                                        {d.day}
-                                    </span>
-                                    {uniqueColors.length > 0 && (
-                                        <div className="flex gap-1 mt-1.5 mr-1">
-                                            {uniqueColors.map((c: string) => (
-                                                <div key={c} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }} />
+                                return (
+                                    <div 
+                                        key={i} 
+                                        onClick={() => handleDateClick(d)}
+                                        className={`p-2 transition-all cursor-pointer relative flex flex-col ${d.current ? 'bg-white dark:bg-[#1C1C1E]' : 'bg-[#F9F9FB] dark:bg-black/20 opacity-40'} ${isSelected ? 'bg-blue-50/50 dark:bg-blue-500/10 z-10' : 'hover:bg-blue-50/20 dark:hover:bg-blue-500/5'}`}
+                                    >
+                                        <div className="flex justify-between items-start shrink-0">
+                                            <span className={`text-sm font-bold flex items-center justify-center w-8 h-8 rounded-full transition-all ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-110' : isSelected ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                {d.day}
+                                            </span>
+                                            {uniqueColors.length > 0 && (
+                                                <div className="flex gap-1 mt-1.5 mr-1">
+                                                    {uniqueColors.map((c: string) => (
+                                                        <div key={c} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="mt-1 space-y-1 overflow-hidden">
+                                            {dayEvents.slice(0, 2).map((event: FamilyEvent) => (
+                                                <div 
+                                                    key={event.id} 
+                                                    className="text-white text-[9px] py-0.5 px-1.5 rounded-md font-bold truncate shadow-sm bg-blue-500"
+                                                >
+                                                    {event.time} {event.title}
+                                                </div>
                                             ))}
+                                            {dayEvents.length > 2 && (
+                                                <div className="text-[9px] text-gray-400 dark:text-gray-500 font-bold px-1 italic">
+                                                    + {dayEvents.length - 2}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                
-                                <div className="mt-1 space-y-1 overflow-hidden">
-                                    {dayEvents.slice(0, 2).map((event: FamilyEvent) => (
-                                        <div 
-                                            key={event.id} 
-                                            className="text-white text-[9px] py-0.5 px-1.5 rounded-md font-bold truncate shadow-sm bg-blue-500"
-                                        >
-                                            {event.time} {event.title}
-                                        </div>
-                                    ))}
-                                    {dayEvents.length > 2 && (
-                                        <div className="text-[9px] text-gray-400 dark:text-gray-500 font-bold px-1 italic">
-                                            + {dayEvents.length - 2}
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                ) : (
+                    /* LIST VIEW */
+                    <div className="h-full overflow-y-auto pr-2 custom-scrollbar space-y-8 pb-20">
+                        {Object.keys(groupedListEvents).length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+                                <CalendarIcon size={48} className="mb-4 opacity-20" />
+                                <p className="font-bold text-sm uppercase tracking-widest">
+                                    {listTab === 'upcoming' ? 'Нет будущих событий' : 'История пуста'}
+                                </p>
                             </div>
-                        );
-                    })}
-                </div>
+                        ) : (
+                            Object.entries(groupedListEvents).map(([month, monthEvents]) => (
+                                <div key={month}>
+                                    <div className="sticky top-0 bg-[#F2F2F7]/95 dark:bg-black/95 backdrop-blur-sm py-3 px-1 z-10 mb-2 border-b border-gray-200 dark:border-white/10">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">{month}</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {monthEvents.map(event => {
+                                            const eventDate = new Date(event.date);
+                                            const dayNum = eventDate.getDate();
+                                            const weekDay = eventDate.toLocaleDateString('ru-RU', { weekday: 'short' });
+                                            const attendeeNames = event.memberIds
+                                                .map(id => members.find(m => m.id === id)?.name)
+                                                .filter(Boolean)
+                                                .join(', ');
+
+                                            return (
+                                                <div 
+                                                    key={event.id}
+                                                    onClick={() => { setSelectedDate(eventDate); onOpenEvent(event); }}
+                                                    className="group flex items-center bg-white dark:bg-[#1C1C1E] p-4 rounded-3xl border border-transparent hover:border-blue-500/20 shadow-sm hover:shadow-lg transition-all cursor-pointer"
+                                                >
+                                                    {/* Date Badge */}
+                                                    <div className="flex flex-col items-center justify-center w-14 h-14 bg-gray-50 dark:bg-white/5 rounded-2xl mr-6 border border-gray-100 dark:border-white/5">
+                                                        <span className="text-xl font-black text-[#1C1C1E] dark:text-white leading-none">{dayNum}</span>
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{weekDay}</span>
+                                                    </div>
+
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-lg">
+                                                                <Clock size={12} className="text-blue-600 dark:text-blue-400"/>
+                                                                <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{event.time}</span>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                                <Hourglass size={10} /> {event.duration || 1} ч
+                                                            </span>
+                                                        </div>
+                                                        <h4 className="text-lg font-bold text-[#1C1C1E] dark:text-white truncate pr-4">{event.title}</h4>
+                                                        {attendeeNames && (
+                                                            <div className="flex items-center gap-1.5 mt-1">
+                                                                <Users size={12} className="text-gray-400" />
+                                                                <span className="text-xs font-medium text-gray-500">{attendeeNames}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onSendToTelegram(event); }}
+                                                            className="p-3 bg-gray-50 dark:bg-[#2C2C2E] hover:bg-blue-500 hover:text-white text-gray-400 rounded-xl transition-colors"
+                                                            title="Отправить в Telegram"
+                                                        >
+                                                            <Send size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
         </main>
 
         {/* Right Details Panel (Inspector) */}
-        <aside className="w-96 bg-white dark:bg-[#1C1C1E] border-l border-black/5 dark:border-white/10 flex-col shadow-[-20px_0_40px_rgba(0,0,0,0.02)] dark:shadow-none z-20 h-full">
+        <aside className="w-96 bg-white dark:bg-[#1C1C1E] border-l border-black/5 dark:border-white/10 flex-col shadow-[-20px_0_40px_rgba(0,0,0,0.02)] dark:shadow-none z-20 h-full hidden xl:flex">
             <div className="p-8 h-full flex flex-col">
                 <div className="flex justify-between items-center mb-10 shrink-0">
                     <h2 className="text-xl font-extrabold tracking-tight">Инспектор</h2>

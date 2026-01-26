@@ -574,18 +574,68 @@ export default function App() {
             
             {activeTab === 'budget' && (
                 <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="flex flex-col gap-6 h-full overflow-y-auto no-scrollbar">
-                    <div className="space-y-4">
+                    {/* Responsive Header Container */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 shrink-0">
                         <h1 className="text-3xl font-black">Бюджет</h1>
+
+                        {/* DESKTOP TOOLBAR */}
+                        <div className="hidden lg:flex items-center gap-3">
+                            {/* Member Filter Desktop */}
+                            <div className="flex items-center bg-white dark:bg-[#1C1C1E] p-1 rounded-xl border border-gray-100 dark:border-white/5 shadow-sm">
+                                <button 
+                                    onClick={() => setMemberFilter('all')} 
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${memberFilter === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
+                                >
+                                    <Users2 size={12} /> Все
+                                </button>
+                                {members.map(m => (
+                                    <button 
+                                        key={m.id} 
+                                        onClick={() => setMemberFilter(m.id)} 
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${memberFilter === m.id ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}`}
+                                    >
+                                        <MemberMarker member={m} size="sm" />
+                                        {m.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-1"></div>
+
+                            {/* Desktop Actions */}
+                            <button 
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1C1C1E] rounded-xl font-bold text-sm shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all text-[#1C1C1E] dark:text-white" 
+                                onClick={() => document.getElementById('import-input')?.click()} 
+                                disabled={isImporting}
+                            >
+                                {isImporting ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16} />} 
+                                Импорт
+                            </button>
+                            <button 
+                                className="flex items-center gap-2 px-4 py-2 bg-[#1C1C1E] dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm shadow-lg shadow-black/5 active:scale-95 transition-all" 
+                                onClick={() => setIsAddModalOpen(true)}
+                            >
+                                <Plus size={16} strokeWidth={3} /> 
+                                Добавить
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* MOBILE TOOLBAR (Hidden on Desktop) */}
+                    <div className="lg:hidden space-y-4">
                         <div className="flex gap-3">
                             <button className="flex-1 bg-white dark:bg-[#1C1C1E] p-5 rounded-[2rem] font-black text-xs uppercase shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" onClick={() => setIsAddModalOpen(true)}><Plus size={20} /> Добавить</button>
                             <button className="flex-1 bg-gray-100 dark:bg-[#1C1C1E] text-gray-500 p-5 rounded-[2rem] font-black text-xs uppercase flex items-center justify-center gap-2" onClick={() => document.getElementById('import-input')?.click()} disabled={isImporting}>{isImporting ? <Loader2 size={18} className="animate-spin"/> : <Upload size={18} />} Импорт</button>
-                            <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4 w-[calc(100%+2rem)]">
                             <button onClick={() => setMemberFilter('all')} className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-[#1C1C1E] text-gray-400 border-white dark:border-white/5'}`}><Users2 size={14} /> Все</button>
                             {members.map(m => (<button key={m.id} onClick={() => setMemberFilter(m.id)} className={`flex items-center gap-2 px-3 py-1.5 pr-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${memberFilter === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-500 text-blue-500 shadow-md scale-105' : 'bg-white/50 dark:bg-[#1C1C1E]/50 text-gray-400 border-white/50 dark:border-white/5 grayscale opacity-60'}`}><MemberMarker member={m} size="sm" /> {m.name}</button>))}
                         </div>
                     </div>
+
+                    {/* Shared Hidden Input */}
+                    <input id="import-input" type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleImport(e.target.files[0]); }} />
+
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
                         <div className="flex flex-col gap-6">
                             <SpendingCalendar transactions={budgetTransactions} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentMonth={currentMonth} onMonthChange={setCurrentMonth} settings={settings} />

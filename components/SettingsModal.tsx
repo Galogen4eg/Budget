@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -849,55 +848,63 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                   </div>
 
                   {/* AI Status Indicator with Key Input */}
-                  <div className={`p-4 rounded-2xl border ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-xl shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/10 text-gray-400'}`}>
-                                  <Cpu size={20} />
-                              </div>
-                              <div>
-                                  <span className={`font-bold text-sm ${isAIEnabled ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                      AI Функции (Gemini)
-                                  </span>
-                                  <div className="text-[10px] opacity-70">
-                                      {isAIEnabled ? 'Ключ активен' : 'Ключ не найден'}
-                                  </div>
-                              </div>
+                  <div className={`p-5 rounded-[1.5rem] border transition-all ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/20' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
+                      <div className="flex items-center gap-3 mb-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/5 text-gray-400'}`}>
+                              <Sparkles size={20} />
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
-                              {isAIEnabled ? 'ON' : 'OFF'}
+                          <div>
+                              <h3 className={`font-bold text-sm ${isAIEnabled ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>AI Ассистент (Gemini)</h3>
+                              <p className="text-[10px] opacity-70">
+                                  {isAIEnabled ? 'Функции доступны' : 'Требуется настройка'}
+                              </p>
+                          </div>
+                          <div className={`ml-auto px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                              {isAIEnabled ? 'Active' : 'Setup'}
                           </div>
                       </div>
                       
                       <div className="space-y-3">
-                          <div>
-                              <label className="text-[10px] font-bold text-gray-400 ml-2 mb-1 block">API Key (из aistudio.google.com)</label>
+                          <div className="relative">
+                              <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                               <input 
                                   type="password" 
                                   value={settings.geminiApiKey || ''} 
                                   onChange={e => handleChange('geminiApiKey', e.target.value)}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-mono text-xs outline-none border border-transparent focus:border-purple-500 transition-all text-[#1C1C1E] dark:text-white" 
-                                  placeholder="AIzaSy..." 
+                                  className="w-full bg-white dark:bg-[#1C1C1E] pl-11 pr-4 py-3 rounded-xl font-mono text-xs outline-none border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-[#1C1C1E] dark:text-white shadow-sm" 
+                                  placeholder="Вставьте API ключ (AIza...)" 
                               />
-                              <p className="text-[9px] text-gray-400 mt-1 ml-2">Ключ будет сохранен только в настройках вашей семьи.</p>
+                          </div>
+                          
+                          <div className="flex justify-between items-center px-1">
+                              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-500 hover:text-blue-600 flex items-center gap-1 hover:underline">
+                                  Получить ключ бесплатно <MoveUpRight size={10} />
+                              </a>
+                              {settings.geminiApiKey && (
+                                  <span className="text-[9px] text-green-500 font-bold flex items-center gap-1">
+                                      <Check size={10} /> Сохранено
+                                  </span>
+                              )}
                           </div>
 
-                          <button 
-                              onClick={handleTestKey} 
-                              disabled={aiTestStatus === 'loading' || !apiKey}
-                              className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                                  aiTestStatus === 'success' 
-                                      ? 'bg-green-500 text-white' 
-                                      : aiTestStatus === 'error'
-                                          ? 'bg-red-500 text-white'
-                                          : 'bg-white dark:bg-[#2C2C2E] text-purple-600 dark:text-purple-400 shadow-sm hover:bg-purple-50 dark:hover:bg-purple-900/30'
-                              }`}
-                          >
-                              {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
-                               aiTestStatus === 'success' ? <Check size={14}/> : 
-                               aiTestStatus === 'error' ? 'Ошибка' : <Play size={14}/>}
-                              {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Сбой проверки' : 'Проверить ключ'}
-                          </button>
+                          {settings.geminiApiKey && (
+                              <button 
+                                  onClick={handleTestKey} 
+                                  disabled={aiTestStatus === 'loading'}
+                                  className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                                      aiTestStatus === 'success' 
+                                          ? 'bg-green-500 text-white' 
+                                          : aiTestStatus === 'error'
+                                              ? 'bg-red-500 text-white'
+                                              : 'bg-white dark:bg-[#2C2C2E] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5'
+                                  }`}
+                              >
+                                  {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
+                                   aiTestStatus === 'success' ? <Check size={14}/> : 
+                                   aiTestStatus === 'error' ? <AlertOctagon size={14}/> : <Play size={14}/>}
+                                  {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Ошибка проверки' : 'Проверить ключ'}
+                              </button>
+                          )}
                       </div>
                   </div>
 

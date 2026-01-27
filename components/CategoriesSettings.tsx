@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   Plus, BrainCircuit, Zap, ShoppingBag, Car, HeartPulse, Utensils, 
@@ -86,7 +87,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const isDarkMode = settings.theme === 'dark';
   const [view, setView] = useState<'main' | 'category_form' | 'manage_categories' | 'edit_rule'>('main');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState(''); // New state for category search
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   
   // Collapse state for manage categories
@@ -139,6 +140,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   // Determine categories for Manage view (with search)
   const filteredManageCategories = useMemo(() => {
       let list = sortedCategories;
+      // Filter by search query if present
       if (categorySearchQuery.trim()) {
           return list.filter(c => c.label.toLowerCase().includes(categorySearchQuery.toLowerCase()));
       }

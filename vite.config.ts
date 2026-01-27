@@ -12,12 +12,14 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     
     return {
+      // Важно для GitHub Pages: относительные пути к ассетам
+      base: './', 
       server: {
         port: 3000,
         host: '0.0.0.0',
       },
       build: {
-        outDir: 'dist', // Важно для Capacitor
+        outDir: 'dist',
       },
       plugins: [
         react(),

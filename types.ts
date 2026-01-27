@@ -216,6 +216,9 @@ export interface AppSettings {
   theme: 'light' | 'dark'; // New Theme property
   savingsRate: number; // PERSISTED SAVINGS RATE
   
+  // New: Store API Key in settings
+  geminiApiKey?: string;
+
   widgets: WidgetConfig[]; 
   
   isPinEnabled: boolean;

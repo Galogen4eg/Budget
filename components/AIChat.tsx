@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Bot, User, AlertCircle, Mic, MicOff, ShoppingBag, Calendar, Box, RefreshCw, Trash2, Sparkles, Clock, BrainCircuit, Settings, X, ImageIcon, Download } from 'lucide-react';
@@ -39,6 +41,9 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Use API key from settings first, then fallback to env
+  const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -142,7 +147,8 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
   const handleGenerateImage = async (prompt: string) => {
       try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          if (!apiKey) throw new Error("API Key not set");
+          const ai = new GoogleGenAI({ apiKey });
           const response = await ai.models.generateContent({
               model: 'gemini-2.5-flash-image',
               contents: { parts: [{ text: prompt }] },
@@ -180,10 +186,10 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     setInput('');
     setLoading(true);
 
-    if (!process.env.API_KEY) {
+    if (!apiKey) {
         setMessages(prev => [...prev, { 
             role: 'model', 
-            text: 'API ключ не настроен.',
+            text: 'API ключ не настроен. Пожалуйста, добавьте его в Настройках приложения (Общее -> AI Функции).',
             isError: true 
         }]);
         setLoading(false);
@@ -191,7 +197,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -223,7 +229,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       }
 
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'model', text: "Ошибка связи с нейросетью.", isError: true }]);
+      setMessages(prev => [...prev, { role: 'model', text: "Ошибка связи с нейросетью. Проверьте API ключ в настройках.", isError: true }]);
     } finally {
       setLoading(false);
     }

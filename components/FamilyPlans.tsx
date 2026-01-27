@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
@@ -33,6 +34,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   const recognitionRef = useRef<any>(null);
   const { familyId } = useAuth();
 
+  const apiKey = settings.geminiApiKey || process.env.API_KEY;
+
   // Responsive Check
   useEffect(() => {
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
@@ -50,14 +53,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
   };
 
   const processVoiceWithGemini = async (text: string) => {
-    if (!process.env.API_KEY) {
-        toast.error('API Key не настроен');
+    if (!apiKey) {
+        toast.error('API Key не настроен в настройках приложения');
         return;
     }
     
     setIsProcessingVoice(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const todayStr = getLocalDateString(new Date());
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",

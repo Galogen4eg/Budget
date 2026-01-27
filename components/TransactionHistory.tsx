@@ -59,7 +59,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   // Dropdown State
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
-  const startDateInputRef = useRef<HTMLInputElement>(null); // Ref for auto-opening calendar
+  const startDateInputRef = useRef<HTMLInputElement>(null);
   useClickAway(filterMenuRef, () => setIsFilterMenuOpen(false));
 
   const [showAll, setShowAll] = useState(false);
@@ -223,7 +223,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                                   onClick={() => {
                                       setPeriodFilter(key);
                                       if (key === 'custom') {
-                                          // Attempt to open the native date picker immediately after render
+                                          // Auto-open picker logic
                                           setTimeout(() => {
                                               if (startDateInputRef.current) {
                                                   try {
@@ -255,7 +255,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                                           type="date" 
                                           value={customStartDate} 
                                           onChange={(e) => setCustomStartDate(e.target.value)}
-                                          // Added explicit onClick to trigger picker on whole input click 
+                                          // Force native picker on click
                                           onClick={(e) => {
                                               try {
                                                   e.currentTarget.showPicker();

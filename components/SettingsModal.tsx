@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -160,7 +161,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
   // AI Testing State
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const isAIEnabled = !!process.env.API_KEY;
+  const apiKey = settings.geminiApiKey || process.env.API_KEY;
+  const isAIEnabled = !!apiKey;
 
   // Sync internal state with prop
   useEffect(() => {
@@ -176,10 +178,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   }, []);
 
   const handleTestKey = async () => {
-      if (!isAIEnabled) return;
+      if (!apiKey) return;
       setAiTestStatus('loading');
       try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const ai = new GoogleGenAI({ apiKey: apiKey });
           await ai.models.generateContent({
               model: "gemini-3-flash-preview",
               contents: "Hello",
@@ -846,7 +848,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                       <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
                   </div>
 
-                  {/* AI Status Indicator with Test Button */}
+                  {/* AI Status Indicator with Key Input */}
                   <div className={`p-4 rounded-2xl border ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
                       <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
@@ -855,10 +857,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                               </div>
                               <div>
                                   <span className={`font-bold text-sm ${isAIEnabled ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                      AI Функции
+                                      AI Функции (Gemini)
                                   </span>
                                   <div className="text-[10px] opacity-70">
-                                      {isAIEnabled ? 'Ключ активирован' : 'Создайте .env файл с GEMINI_API_KEY'}
+                                      {isAIEnabled ? 'Ключ активен' : 'Ключ не найден'}
                                   </div>
                               </div>
                           </div>
@@ -867,26 +869,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                           </div>
                       </div>
                       
-                      {isAIEnabled && (
-                          <div className="flex items-center gap-2">
-                              <button 
-                                  onClick={handleTestKey} 
-                                  disabled={aiTestStatus === 'loading' || aiTestStatus === 'success'}
-                                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                                      aiTestStatus === 'success' 
-                                          ? 'bg-green-50 text-white' 
-                                          : aiTestStatus === 'error'
-                                              ? 'bg-red-50 text-white'
-                                              : 'bg-white dark:bg-[#2C2C2E] text-purple-600 dark:text-purple-400 shadow-sm hover:bg-purple-50 dark:hover:bg-purple-900/30'
-                                  }`}
-                              >
-                                  {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
-                                   aiTestStatus === 'success' ? <Check size={14}/> : 
-                                   aiTestStatus === 'error' ? 'Ошибка' : <Play size={14}/>}
-                                  {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Сбой' : 'Проверить работу'}
-                              </button>
+                      <div className="space-y-3">
+                          <div>
+                              <label className="text-[10px] font-bold text-gray-400 ml-2 mb-1 block">API Key (из aistudio.google.com)</label>
+                              <input 
+                                  type="password" 
+                                  value={settings.geminiApiKey || ''} 
+                                  onChange={e => handleChange('geminiApiKey', e.target.value)}
+                                  className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-mono text-xs outline-none border border-transparent focus:border-purple-500 transition-all text-[#1C1C1E] dark:text-white" 
+                                  placeholder="AIzaSy..." 
+                              />
+                              <p className="text-[9px] text-gray-400 mt-1 ml-2">Ключ будет сохранен только в настройках вашей семьи.</p>
                           </div>
-                      )}
+
+                          <button 
+                              onClick={handleTestKey} 
+                              disabled={aiTestStatus === 'loading' || !apiKey}
+                              className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                                  aiTestStatus === 'success' 
+                                      ? 'bg-green-500 text-white' 
+                                      : aiTestStatus === 'error'
+                                          ? 'bg-red-500 text-white'
+                                          : 'bg-white dark:bg-[#2C2C2E] text-purple-600 dark:text-purple-400 shadow-sm hover:bg-purple-50 dark:hover:bg-purple-900/30'
+                              }`}
+                          >
+                              {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
+                               aiTestStatus === 'success' ? <Check size={14}/> : 
+                               aiTestStatus === 'error' ? 'Ошибка' : <Play size={14}/>}
+                              {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Сбой проверки' : 'Проверить ключ'}
+                          </button>
+                      </div>
                   </div>
 
                   <div className="pt-2"><button onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} className="w-full flex items-center justify-center gap-3 p-5 bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"><Smartphone size={20} /> Установить на телефон</button></div>

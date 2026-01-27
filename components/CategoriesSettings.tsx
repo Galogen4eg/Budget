@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   Plus, BrainCircuit, Zap, ShoppingBag, Car, HeartPulse, Utensils, 
@@ -87,6 +86,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const isDarkMode = settings.theme === 'dark';
   const [view, setView] = useState<'main' | 'category_form' | 'manage_categories' | 'edit_rule'>('main');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   
   // Collapse state for manage categories
@@ -129,12 +129,21 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       });
   }, [categories, categoryUsage]);
 
-  // Determine which categories to show based on "Show All" toggle
+  // Determine which categories to show based on "Show All" toggle for Main view
   const visibleCategories = useMemo(() => {
       if (showAll) return sortedCategories;
       // Show first 6 items (popular ones) + "All" button creates a nice 7-col grid on desktop
       return sortedCategories.slice(0, 6);
   }, [sortedCategories, showAll]);
+
+  // Determine categories for Manage view (with search)
+  const filteredManageCategories = useMemo(() => {
+      let list = sortedCategories;
+      if (categorySearchQuery.trim()) {
+          return list.filter(c => c.label.toLowerCase().includes(categorySearchQuery.toLowerCase()));
+      }
+      return showAll ? list : list.slice(0, 6);
+  }, [sortedCategories, categorySearchQuery, showAll]);
 
   // Group rules logic
   const groupedRules = useMemo(() => {
@@ -640,8 +649,25 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
         {view === 'manage_categories' && (
            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 pb-20">
+              
+              <div className={`flex items-center px-4 py-3 rounded-[20px] shadow-sm border ${theme.border} ${theme.card}`}>
+                <Search size={18} className="text-gray-400 mr-3" />
+                <input 
+                  type="text" 
+                  placeholder="Поиск категории..."
+                  className={`bg-transparent outline-none w-full text-sm font-bold ${theme.text} placeholder:font-medium`}
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  autoFocus
+                />
+                {categorySearchQuery && (
+                    <button onClick={() => setCategorySearchQuery('')} className="text-gray-400 hover:text-red-500">
+                        <X size={16} />
+                    </button>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {/* Create New Button */}
                   <button 
                     onClick={() => openCategoryForm()}
                     className={`w-full aspect-auto min-h-[100px] rounded-[24px] border-2 border-dashed ${theme.border} flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-blue-500 hover:border-blue-500/50 transition-all`}
@@ -650,7 +676,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     <span className="text-[10px] font-black uppercase tracking-widest">Новая</span>
                   </button>
 
-                  {visibleCategories.map(cat => (
+                  {filteredManageCategories.map(cat => (
                     <div key={cat.id} className="relative group">
                       <button 
                         onClick={() => openCategoryForm(cat)}
@@ -665,7 +691,6 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                         <span className={`text-xs font-bold ${theme.text} truncate w-full text-center px-1`}>{cat.label}</span>
                       </button>
                       
-                      {/* Integrated Delete Button with Confirmation Logic for Grid Items */}
                       {confirmDeleteId === cat.id ? (
                           <div className="absolute inset-0 bg-red-500 rounded-[24px] z-20 flex flex-col items-center justify-center text-white p-2">
                               <span className="text-[9px] font-black uppercase mb-1">Удалить?</span>
@@ -686,7 +711,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   ))}
               </div>
               
-              {!showAll && sortedCategories.length > 6 && (
+              {!categorySearchQuery && !showAll && sortedCategories.length > 6 && (
                   <button 
                     onClick={() => setShowAll(true)}
                     className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
@@ -695,7 +720,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   </button>
               )}
               
-              {showAll && (
+              {!categorySearchQuery && showAll && (
                   <button 
                     onClick={() => setShowAll(false)}
                     className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}

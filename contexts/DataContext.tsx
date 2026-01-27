@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Transaction, AppSettings, FamilyMember, ShoppingItem, FamilyEvent, 
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   privacyMode: false,
   theme: 'light', // Default theme
   savingsRate: 10, // Default savings rate
+  geminiApiKey: '', // Default empty key
   widgets: [
     { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
     { id: 'month_chart', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },

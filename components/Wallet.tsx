@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, Loader2, Camera, Edit2, Barcode, ScanLine, AlertCircle, Coffee, Tv, Zap, Briefcase, Gift, CreditCard } from 'lucide-react';
@@ -8,6 +9,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Html5Qrcode } from 'html5-qrcode';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, updateItem, deleteItem } from '../utils/db';
+import { useData } from '../contexts/DataContext';
 
 interface WalletProps {
   cards: LoyaltyCard[];
@@ -67,6 +69,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   const [selectedCard, setSelectedCard] = useState<LoyaltyCard | null>(null);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const { familyId } = useAuth();
+  const { settings } = useData();
   
   // New Card State
   const [newName, setNewName] = useState('');
@@ -77,6 +80,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
   const handleSave = async () => {
     if (!newName.trim()) return;
@@ -179,7 +184,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
   };
 
   const analyzeImageWithGemini = async (file: File): Promise<any> => {
-      if (!process.env.API_KEY) return {};
+      if (!apiKey) return {};
       try {
           const base64Data = await new Promise<string>((resolve) => {
             const reader = new FileReader();
@@ -190,7 +195,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
             reader.readAsDataURL(file);
           });
 
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const ai = new GoogleGenAI({ apiKey });
           const prompt = `Analyze this image of a loyalty/membership card.
           Extract the following information:
           1. "name": The store or brand name (e.g., IKEA, Tesco, Пятерочка).
@@ -416,7 +421,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                                   {getIconById(selectedCard.icon, 24)}
                               </div>
                           </div>
-                          <button onClick={() => setSelectedCard(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X size={24}/></button>
+                          <button onClick={() => setSelectedCard(null)} className="absolute top-4 right-4 text-white/50 hover:text-white bg-black/10 rounded-full p-1"><X size={20}/></button>
                       </div>
                       
                       <div className="p-8 bg-white dark:bg-[#1C1C1E] flex flex-col items-center gap-6">

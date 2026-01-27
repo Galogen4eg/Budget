@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, RefreshCw, Lightbulb } from 'lucide-react';
@@ -26,14 +27,16 @@ const AIInsightWidget: React.FC<AIInsightWidgetProps> = ({ transactions, goals, 
       return;
     }
 
-    if (!process.env.API_KEY || transactions.length === 0) {
+    const apiKey = settings.geminiApiKey || process.env.API_KEY;
+
+    if (!apiKey || transactions.length === 0) {
         setInsight("Начните добавлять расходы, и я дам совет!");
         return;
     }
 
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       
       // Prepare lightweight context
       const recentTx = transactions.slice(0, 10).map(t => `${t.amount} ${t.category}`).join(', ');

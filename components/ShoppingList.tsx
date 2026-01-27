@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Check, Share, X, ScanLine, ShoppingBag, Loader2, Play, Edit2, ChevronLeft, Mic, BrainCircuit, ArrowRight } from 'lucide-react';
@@ -62,6 +63,8 @@ const ShoppingListMobile: React.FC<ShoppingListProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
   // Computed properties for categories in modal
   const sortedAisles = AISLES;
@@ -222,14 +225,14 @@ const ShoppingListMobile: React.FC<ShoppingListProps> = ({
 
   // AI Voice Processing
   const processVoiceInputWithGemini = async (text: string) => {
-      if (!process.env.API_KEY) {
-          alert('API Key не настроен');
+      if (!apiKey) {
+          alert('API Key не настроен в настройках приложения');
           return;
       }
       
       setIsProcessingAI(true);
       try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const ai = new GoogleGenAI({ apiKey });
           const prompt = `
             Analyze the following shopping list request in Russian: "${text}".
             Return a pure JSON array of objects. 

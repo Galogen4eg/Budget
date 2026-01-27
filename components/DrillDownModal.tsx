@@ -57,7 +57,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: 'spring', damping: 25, stiffness: 180 }}
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:max-w-5xl md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 shrink-0">
           <div className="flex items-center gap-3">

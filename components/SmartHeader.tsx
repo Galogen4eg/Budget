@@ -38,7 +38,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
-  const { updateSettings, members } = useData();
+  const { updateSettings, members, categories } = useData();
   const { user: firebaseUser } = useAuth();
 
   const now = new Date();
@@ -79,18 +79,19 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   
   const currentMonthTransactions = useMemo(() => transactions.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense';
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }), [transactions, now]);
 
   const { unpaidMandatoryTotal, futureExpenses } = useMemo(() => {
       let total = 0;
       const fullList: { expense: any; amountNeeded: number; isManuallyPaid: boolean; isPaid: boolean }[] = [];
       const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
+      const expensesTx = currentMonthTransactions.filter(t => t.type === 'expense');
 
       if (settings.enableSmartReserve ?? true) {
           relevantMandatoryExpenses.forEach(expense => {
               const keywords = expense.keywords || [];
-              const matches = currentMonthTransactions.filter(tx => {
+              const matches = expensesTx.filter(tx => {
                   if (tx.linkedExpenseId === expense.id) return true; // Explicit link matches immediately
                   
                   if (keywords.length === 0) return false;
@@ -117,7 +118,25 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
       return { unpaidMandatoryTotal: total, futureExpenses: fullList };
   }, [relevantMandatoryExpenses, currentMonthTransactions, currentDay, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
 
-  const savingsAmount = balance * (savingsRate / 100);
+  // --- Auto Savings Calculation Fix ---
+  // Calculate based on INCOME with category 'salary' received in the current month
+  const currentMonthSalary = useMemo(() => {
+      return currentMonthTransactions
+          .filter(t => {
+              // Check if type is income AND (category id is 'salary' OR label is 'Зарплата')
+              const isSalaryCat = t.category === 'salary';
+              // Also check if user mapped a custom category named "Зарплата"
+              const catLabel = categories.find(c => c.id === t.category)?.label.toLowerCase();
+              const isCustomSalary = catLabel?.includes('зарплата') || catLabel?.includes('salary');
+              
+              return t.type === 'income' && (isSalaryCat || isCustomSalary);
+          })
+          .reduce((acc, t) => acc + t.amount, 0);
+  }, [currentMonthTransactions, categories]);
+
+  // If no salary transactions yet, assume 0 for savings (or user can use manual reserve)
+  const savingsAmount = currentMonthSalary * (savingsRate / 100);
+  
   const manualReserved = settings.manualReservedAmount || 0;
   const reservedAmount = savingsAmount + unpaidMandatoryTotal + manualReserved;
   const availableBalance = Math.max(0, balance - reservedAmount);

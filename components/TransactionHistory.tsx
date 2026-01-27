@@ -97,8 +97,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         .slice(0, 15);
   }, [searchedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate, isDesktop]);
 
-  // Determine if we should force mobile view (e.g. inside DrillDownModal which is narrow)
-  const effectiveIsDesktop = isDesktop && !hideTitle; 
+  // Render Desktop view if screen is wide enough, regardless of whether title is hidden (Modal vs Widget)
+  const effectiveIsDesktop = isDesktop;
 
   const DesktopHeader = (
       <div className="flex justify-between items-center mb-4 shrink-0">
@@ -129,8 +129,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       {effectiveIsDesktop ? (
-          <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] h-full flex flex-col border border-white dark:border-white/5 shadow-soft dark:shadow-none relative group">
-              {DesktopHeader}
+          <div className={`bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] h-full flex flex-col border border-white dark:border-white/5 shadow-soft dark:shadow-none relative group ${hideTitle ? '!p-0 !border-0 !shadow-none !bg-transparent rounded-none' : ''}`}>
+              {!hideTitle && DesktopHeader}
               
               {/* Search Input */}
               {transactions.length > 0 && (
@@ -153,7 +153,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               )}
 
               {/* Main List */}
-              <div className="flex-1 min-h-0">
+              <div className={`flex-1 min-w-0 ${!hideTitle ? 'overflow-y-auto custom-scrollbar' : ''}`}>
                   {transactions.length === 0 ? (
                     <div className="text-center py-10 text-gray-300 dark:text-gray-600 font-bold text-xs uppercase tracking-widest">Нет операций</div>
                   ) : searchedTransactions.length === 0 ? (
@@ -165,6 +165,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         members={members}
                         onEdit={(tx) => onEditTransaction && onEditTransaction(tx)}
                         privacyMode={settings.privacyMode}
+                        isModal={hideTitle} // Enable multi-column grid only in modal mode
                     />
                   )}
               </div>

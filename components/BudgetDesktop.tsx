@@ -10,10 +10,11 @@ interface BudgetDesktopProps {
   members: FamilyMember[];
   onEdit: (tx: Transaction) => void;
   privacyMode: boolean;
+  isModal?: boolean;
 }
 
 const BudgetDesktop: React.FC<BudgetDesktopProps> = ({ 
-  transactions, categories, members, onEdit, privacyMode 
+  transactions, categories, members, onEdit, privacyMode, isModal 
 }) => {
   // Grouping Logic
   const groupedTransactions = useMemo(() => {
@@ -42,7 +43,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
   }, [transactions]);
 
   return (
-    <div className="space-y-6 h-full overflow-y-auto custom-scrollbar pr-2 pb-4">
+    <div className="space-y-6 pb-4">
       {groupedTransactions.length === 0 ? (
          <div className="text-center py-20 text-gray-400 font-bold text-sm uppercase tracking-widest">
              Операций не найдено
@@ -53,7 +54,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
              return (
                  <div key={group.date} className="space-y-3">
                      {/* Date Header - Increased z-index to 40 to stay above rows */}
-                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-sm dark:shadow-none">
+                     <div className="flex items-center justify-between px-2 py-2 sticky top-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-sm dark:shadow-none rounded-xl">
                          <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                              {new Date(group.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
                          </span>
@@ -62,8 +63,8 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                          </span>
                      </div>
 
-                     {/* Transactions Grid/List - Ensure relative z-index is lower than header */}
-                     <div className="grid grid-cols-1 gap-2 relative z-0">
+                     {/* Transactions Grid/List - Adaptive Columns */}
+                     <div className={`${isModal ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'grid grid-cols-1 gap-2'} relative z-0`}>
                          {group.transactions.map(tx => {
                              const category = categories.find(c => c.id === tx.category);
                              const member = members.find(m => m.id === tx.memberId);
@@ -74,7 +75,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                  <div 
                                      key={tx.id}
                                      onClick={() => onEdit(tx)}
-                                     className="group flex items-center justify-between p-3 rounded-2xl border border-transparent transition-all cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2C2C2E]"
+                                     className="group flex items-center justify-between p-3 rounded-2xl border border-transparent transition-all cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2C2C2E] bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5"
                                  >
                                      <div className="flex items-center gap-4 overflow-hidden flex-1">
                                          <div className="shrink-0">
@@ -87,7 +88,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                              <div className="flex items-center gap-2 mt-0.5">
                                                  <span className="text-[10px] font-bold text-gray-400">{category?.label}</span>
                                                  {member && (
-                                                     <div className="flex items-center gap-1 bg-white dark:bg-black/20 px-1.5 py-0.5 rounded text-[9px] font-bold text-gray-500">
+                                                     <div className="flex items-center gap-1 bg-gray-100 dark:bg-black/20 px-1.5 py-0.5 rounded text-[9px] font-bold text-gray-500">
                                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member.color }}/>
                                                          {member.name}
                                                      </div>

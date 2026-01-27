@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -91,8 +92,18 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
            return sum + Math.max(0, exp.amount - paidAmount);
       }, 0);
 
-      // Deduct Savings & Manual Reserve
-      const savingsAmount = currentBalance * (savingsRate / 100);
+      // Deduct Savings (Based on SALARY, not Balance)
+      const currentMonthSalary = transactions
+          .filter(t => {
+              const d = new Date(t.date);
+              return t.type === 'income' && 
+                     t.category === 'salary' && 
+                     d.getMonth() === now.getMonth() && 
+                     d.getFullYear() === now.getFullYear();
+          })
+          .reduce((acc, t) => acc + t.amount, 0);
+
+      const savingsAmount = currentMonthSalary * (savingsRate / 100);
       const manualReserved = settings.manualReservedAmount || 0;
       
       const available = currentBalance - unpaidBills - savingsAmount - manualReserved;
@@ -126,10 +137,6 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
           runningBalance -= simDailySpend;
 
           // 2. Subtract Mandatory Expenses for this day
-          // For logic simplicity in forecast, we assume BILLS are separate from daily spend.
-          // In the 'safeDailySpend' calculation we already deducted UNPAID bills from the starting pool.
-          // BUT for the projection graph (future days), we need to subtract bills as they occur.
-          
           const isCurrentMonth = date.getMonth() === today.getMonth();
           const daysBills = mandatory.filter(m => {
               if (isCurrentMonth && m.day < today.getDate()) return false; // Already passed/handled in initial calc
@@ -142,7 +149,9 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
 
           // 3. Add Income
           if (salaryDates.includes(dayOfMonth)) {
-              runningBalance += simIncome;
+              // Automatically deduct savings from future income in simulation
+              const incomeAfterSavings = simIncome * (1 - (savingsRate / 100));
+              runningBalance += incomeAfterSavings;
           }
 
           if (runningBalance < 0 && !dangerDate) {
@@ -162,7 +171,7 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
       }
 
       return { data, dangerDate, minBalance };
-  }, [currentBalance, simDailySpend, simIncome, forecastDays, settings]);
+  }, [currentBalance, simDailySpend, simIncome, forecastDays, settings, savingsRate]);
 
   return (
     <div className="space-y-6 w-full">
@@ -290,7 +299,7 @@ const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ transactions, setti
                 <p className="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
                     {projection.minBalance < 0 
                         ? `При текущих расходах (${simDailySpend} в день) деньги закончатся ${projection.dangerDate?.toLocaleDateString()}. Рекомендуем снизить траты до ${safeDailySpend} ${settings.currency}.`
-                        : `Отличная ситуация! Вы укладываетесь в бюджет. Минимальный остаток составит ${projection.minBalance.toLocaleString()} ${settings.currency}. Можно отложить часть в копилку.`
+                        : `Отличная ситуация! Вы укладываетесь в бюджет. Минимальный остаток составит ${projection.minBalance.toLocaleString()} ${settings.currency}.`
                     }
                 </p>
             </div>

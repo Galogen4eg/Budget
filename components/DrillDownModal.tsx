@@ -93,8 +93,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 filterMode={selectedDate ? 'day' : 'month'}
                 selectedDate={selectedDate}
                 currentMonth={currentMonth}
-                hideActiveFilterBadge={true} // Cleaner look since modal header tells the context
+                hideActiveFilterBadge={true} 
                 hideTitle={true}
+                hideFilters={false} // Show filters in Full History view
             />
         </div>
       </motion.div>

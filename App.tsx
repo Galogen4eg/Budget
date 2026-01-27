@@ -700,6 +700,7 @@ export default function App() {
                                     onLearnRule={handleLearnRule} 
                                     onClearFilters={() => { setSelectedDate(null); toast.info('Фильтр по дате сброшен'); }} 
                                     onViewAll={() => setDrillDownState({categoryId: 'all'})}
+                                    hideFilters={true} // Enable filters on embedded view
                                 />
                             </div>
                         </div>

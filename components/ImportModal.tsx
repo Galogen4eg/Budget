@@ -50,8 +50,11 @@ const ImportModal: React.FC<ImportModalProps> = ({
     .reduce((acc, t) => acc + t.amount, 0);
 
   const handleSelectCategory = (idx: number, catId: string) => {
-    const item = preview[idx];
-    onUpdateItem(idx, { category: catId });
+    let currentPreview = [...preview];
+    const item = currentPreview[idx];
+    
+    // Update target item
+    currentPreview[idx] = { ...item, category: catId };
     
     if (item.rawNote) {
        let keywordToLearn = item.rawNote.trim();
@@ -68,8 +71,19 @@ const ImportModal: React.FC<ImportModalProps> = ({
            });
            setJustLearnedId(ruleId);
            setTimeout(() => setJustLearnedId(null), 2000);
+           
+           // Apply to other items in preview
+           const kw = keywordToLearn.toLowerCase();
+           currentPreview = currentPreview.map((p, i) => {
+               if (i === idx) return p;
+               const raw = (p.rawNote || p.note || '').toLowerCase();
+               if (raw.includes(kw)) return { ...p, category: catId };
+               return p;
+           });
        }
     }
+    
+    onUpdateAll(currentPreview);
     setActiveSelect(null);
     setShowAllCategories(false);
   };

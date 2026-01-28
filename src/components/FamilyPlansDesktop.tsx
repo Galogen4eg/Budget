@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
@@ -75,7 +74,7 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   // --- List View Logic ---
-  const filteredListEvents = useMemo(() => {
+  const filteredListEvents: FamilyEvent[] = useMemo(() => {
     const now = new Date();
     
     return events.filter(e => {
@@ -92,7 +91,7 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     });
   }, [events, listTab]);
 
-  const groupedListEvents = useMemo(() => {
+  const groupedListEvents: Record<string, FamilyEvent[]> = useMemo(() => {
       const groups: Record<string, FamilyEvent[]> = {};
       filteredListEvents.forEach(e => {
           const d = new Date(e.date);

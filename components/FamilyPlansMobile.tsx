@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -22,9 +21,11 @@ import {
   User,
   Hourglass,
   Filter,
-  Send
+  Send,
+  Users2
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
+import { MemberMarker } from '../constants';
 
 interface FamilyPlansMobileProps {
   events: FamilyEvent[];
@@ -65,6 +66,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 }) => {
   const isDarkMode = settings.theme === 'dark';
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
 
   const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -136,6 +138,11 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       return <Heart size={12} />;
   };
 
+  const isEventDimmed = (event: FamilyEvent) => {
+      if (filterMemberId === 'all') return false;
+      return !event.memberIds.includes(filterMemberId);
+  };
+
   const renderCalendar = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -161,15 +168,29 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
       // Collect distinct separate dots for each participant in each event
       // If one event has 2 participants, we show 2 dots.
+      // If filter is active, only show relevant dots OR dim irrelevant ones.
+      // Strategy: Show only dots for the filtered member if active, otherwise all.
+      // Wait, request is "dimmed", not hidden. But dots are small. 
+      // Let's filter dots if a specific member is selected to make calendar cleaner?
+      // No, user said "events... dimmed". Let's dim the dots if they belong to other members?
+      // Simpler: If filtered, only show dots for that member. Otherwise all.
+      // Actually, if I filter by member, I expect to see days where THAT member is busy.
+      
       const dayDots: string[] = [];
       dayEvents.forEach(e => {
+          if (filterMemberId !== 'all' && !e.memberIds.includes(filterMemberId)) return; // Skip dot if not for this member
+
           if (e.memberIds && e.memberIds.length > 0) {
               e.memberIds.forEach(mid => {
+                  if (filterMemberId !== 'all' && mid !== filterMemberId) return; // Only dot for filtered member
                   const m = members.find(x => x.id === mid);
                   if (m) dayDots.push(m.color);
                   else dayDots.push('#3B82F6');
               });
           } else {
+              // Event without members (family event)
+              // If filtering by specific member, maybe show it? Usually family event implies everyone.
+              // Let's assume family events (no specific members) show for everyone.
               dayDots.push('#3B82F6');
           }
       });
@@ -258,9 +279,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
         {dayEvents.map(event => {
           const [h, m] = event.time.split(':').map(Number);
+          const dimmed = isEventDimmed(event);
           
           // Only render if event starts within or overlaps the visible range
-          // For simplicity, we render all for that day, but offset logic clips them visually
           
           const topPosition = ((h - startHour) + m / 60) * 80;
           const height = (event.duration || 1) * 80;
@@ -276,7 +297,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <div 
               key={event.id}
               onClick={() => onOpenEvent(event)}
-              className={`absolute left-14 right-2 rounded-2xl p-2 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform`}
+              className={`absolute left-14 right-2 rounded-2xl p-2 border border-white/20 shadow-xl text-white animate-in fade-in slide-in-from-left-4 duration-500 z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform ${dimmed ? 'opacity-30 grayscale' : ''}`}
               style={{ top: `${topPosition}px`, height: `${height - 4}px`, backgroundColor }}
             >
               <div className="flex justify-between items-start mb-1">
@@ -293,15 +314,17 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-2 shrink-0 -mt-0.5 -mr-0.5">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onSendToTelegram(event); }} 
-                        className="text-white/60 hover:text-white p-1"
-                        title="Отправить в Telegram"
-                    >
-                        <Send size={12} />
-                    </button>
-                </div>
+                {!dimmed && (
+                    <div className="flex flex-col gap-2 shrink-0 -mt-0.5 -mr-0.5">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onSendToTelegram(event); }} 
+                            className="text-white/60 hover:text-white p-1"
+                            title="Отправить в Telegram"
+                        >
+                            <Send size={12} />
+                        </button>
+                    </div>
+                )}
               </div>
             </div>
           );
@@ -349,17 +372,18 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     .map(id => members.find(m => m.id === id)?.name)
                     .filter(Boolean)
                     .join(', ');
+                const dimmed = isEventDimmed(e);
 
                 return (
                   <div 
                     key={e.id}
                     onClick={() => onOpenEvent(e)} 
-                    className={`p-5 rounded-[28px] flex items-center justify-between border transition-all animate-in fade-in slide-in-from-bottom-2 cursor-pointer active:scale-[0.98] ${isDarkMode ? 'bg-[#1A1A1C] border-white/5' : 'bg-white border-black/[0.03] shadow-sm'} ${listTab === 'past' ? 'opacity-60 grayscale-[0.2]' : ''}`}
+                    className={`p-5 rounded-[28px] flex items-center justify-between border transition-all animate-in fade-in slide-in-from-bottom-2 cursor-pointer active:scale-[0.98] ${isDarkMode ? 'bg-[#1A1A1C] border-white/5' : 'bg-white border-black/[0.03] shadow-sm'} ${listTab === 'past' || dimmed ? 'opacity-60 grayscale-[0.8]' : ''}`}
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div 
                         className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0`}
-                        style={{ backgroundColor }}
+                        style={{ backgroundColor: dimmed ? '#9CA3AF' : backgroundColor }}
                       >
                         {getEventIcon(e)}
                       </div>
@@ -386,14 +410,16 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 shrink-0 pl-2">
-                        <button 
-                            onClick={(evt) => { evt.stopPropagation(); onSendToTelegram(e); }}
-                            className="text-gray-400 hover:text-blue-500 transition-colors"
-                        >
-                            <Send size={16} />
-                        </button>
-                    </div>
+                    {!dimmed && (
+                        <div className="flex flex-col gap-2 shrink-0 pl-2">
+                            <button 
+                                onClick={(evt) => { evt.stopPropagation(); onSendToTelegram(e); }}
+                                className="text-gray-400 hover:text-blue-500 transition-colors"
+                            >
+                                <Send size={16} />
+                            </button>
+                        </div>
+                    )}
                   </div>
                 );
             })
@@ -411,7 +437,28 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   return (
     <div className={`relative flex flex-col h-full w-full max-w-[480px] mx-auto overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-[#0D0D0E] text-white' : 'bg-[#F4F7FB] text-[#1C1C1E]'}`}>
       
-      <div className="px-6 py-4 z-50 bg-inherit shrink-0 mt-2">
+      {/* Filters & View Switcher */}
+      <div className="px-6 py-4 z-50 bg-inherit shrink-0 mt-2 space-y-4">
+        {/* Member Filter - Horizontal Scroll */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-6 px-6">
+            <button 
+                onClick={() => setFilterMemberId('all')} 
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${filterMemberId === 'all' ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-[#1C1C1E] text-gray-400 border-white dark:border-white/5'}`}
+            >
+                <Users2 size={14} /> Все
+            </button>
+            {members.map(m => (
+                <button 
+                    key={m.id} 
+                    onClick={() => setFilterMemberId(m.id)} 
+                    className={`flex items-center gap-2 px-3 py-1.5 pr-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 shrink-0 ${filterMemberId === m.id ? 'bg-white dark:bg-[#2C2C2E] border-blue-500 text-blue-500 shadow-md scale-105' : 'bg-white/50 dark:bg-[#1C1C1E]/50 text-gray-400 border-white/50 dark:border-white/5 grayscale opacity-60'}`}
+                >
+                    <MemberMarker member={m} size="sm" /> 
+                    {m.name}
+                </button>
+            ))}
+        </div>
+
         <div className={`p-1.5 rounded-2xl flex items-center ${isDarkMode ? 'bg-[#1A1A1C]' : 'bg-gray-200/60'}`}>
           <button 
             onClick={() => setViewMode('month')}
@@ -466,9 +513,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                         .map(id => members.find(m => m.id === id)?.name)
                         .filter(Boolean)
                         .join(', ');
+                    const dimmed = isEventDimmed(e);
                     
                     return (
-                        <div key={e.id} onClick={() => onOpenEvent(e)} className={`p-5 rounded-[24px] flex items-center justify-between border transition-all cursor-pointer active:scale-[0.98] ${isDarkMode ? 'bg-[#1A1A1C] border-white/5' : 'bg-white border-black/[0.03] shadow-sm'}`}>
+                        <div key={e.id} onClick={() => onOpenEvent(e)} className={`p-5 rounded-[24px] flex items-center justify-between border transition-all cursor-pointer active:scale-[0.98] ${isDarkMode ? 'bg-[#1A1A1C] border-white/5' : 'bg-white border-black/[0.03] shadow-sm'} ${dimmed ? 'opacity-40 grayscale' : ''}`}>
                         <div className="flex items-center gap-4">
                             <div className={`w-3.5 h-3.5 rounded-full`} style={{ backgroundColor }} />
                             <div>
@@ -477,7 +525,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                             </div>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] font-black text-gray-400">
-                            <button onClick={(evt) => { evt.stopPropagation(); onSendToTelegram(e); }} className="hover:text-blue-500 mr-2"><Send size={14}/></button>
+                            {!dimmed && <button onClick={(evt) => { evt.stopPropagation(); onSendToTelegram(e); }} className="hover:text-blue-500 mr-2"><Send size={14}/></button>}
                             <span className="text-blue-500">{e.time}</span>
                             <span className="opacity-30">|</span>
                             <span className="flex items-center gap-1"><Hourglass size={10} /> {e.duration || 1} ч</span>

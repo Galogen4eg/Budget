@@ -182,8 +182,8 @@ const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const activeItems: ShoppingItem[] = filteredItems.filter(i => !i.completed);
   const completedItems: ShoppingItem[] = filteredItems.filter(i => i.completed);
 
-  const groupedActiveItems = useMemo(() => {
-    return activeItems.reduce((groups, item) => {
+  const groupedActiveItems: Record<string, ShoppingItem[]> = useMemo(() => {
+    return activeItems.reduce<Record<string, ShoppingItem[]>>((groups, item) => {
       // Map ID to Label for grouping display
       const cat = AISLES.find(a => a.id === item.category);
       const catLabel = cat ? cat.label : 'Разное';
@@ -191,7 +191,7 @@ const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (!groups[catLabel]) groups[catLabel] = [];
       groups[catLabel].push(item);
       return groups;
-    }, {} as Record<string, ShoppingItem[]>);
+    }, {});
   }, [activeItems]);
 
   const progress = items.length ? Math.round((completedItems.length / items.length) * 100) : 0;

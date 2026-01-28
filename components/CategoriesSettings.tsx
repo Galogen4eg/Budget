@@ -13,6 +13,7 @@ import {
   Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv
 } from 'lucide-react';
 import { Category, LearnedRule, AppSettings, Transaction } from '../types';
+import { toast } from 'sonner';
 
 interface CategoriesSettingsProps {
   categories: Category[];
@@ -195,6 +196,31 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     inputBg: isDarkMode ? 'bg-black/20' : 'bg-gray-50',
   };
 
+  const applyRulesToTransactions = (rulesToApply: LearnedRule[]) => {
+      if (!transactions || !onUpdateTransactions) return;
+      
+      let count = 0;
+      const updatedTransactions = transactions.map(tx => {
+          const rawNote = (tx.rawNote || tx.note || '').toLowerCase();
+          const matchedRule = rulesToApply.find(r => rawNote.includes(r.keyword.toLowerCase()));
+          
+          if (matchedRule && tx.category !== matchedRule.categoryId) {
+              count++;
+              return { 
+                  ...tx, 
+                  category: matchedRule.categoryId,
+                  note: matchedRule.cleanName || tx.note
+              };
+          }
+          return tx;
+      });
+
+      if (count > 0) {
+          onUpdateTransactions(updatedTransactions);
+          toast.success(`Обновлено операций: ${count}`);
+      }
+  };
+
   const openCategoryForm = (category: Category | null = null) => {
     if (category) {
       setEditingCategory(category);
@@ -241,7 +267,10 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         cleanName: catName,
         categoryId: currentCatId!
       }));
-      onUpdateRules([...newRulesList, ...learnedRules]);
+      
+      const updatedRules = [...newRulesList, ...learnedRules];
+      onUpdateRules(updatedRules);
+      applyRulesToTransactions(updatedRules);
     }
     setView('main');
   };
@@ -274,29 +303,8 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       if (!transactions || !onUpdateTransactions || learnedRules.length === 0) return;
       
       if (!confirm("Это обновит категории всех прошлых операций на основе текущих правил. Продолжить?")) return;
-
-      let count = 0;
-      const updatedTransactions = transactions.map(tx => {
-          const rawNote = (tx.rawNote || tx.note || '').toLowerCase();
-          const matchedRule = learnedRules.find(r => rawNote.includes(r.keyword.toLowerCase()));
-          
-          if (matchedRule && tx.category !== matchedRule.categoryId) {
-              count++;
-              return { 
-                  ...tx, 
-                  category: matchedRule.categoryId,
-                  note: matchedRule.cleanName || tx.note
-              };
-          }
-          return tx;
-      });
-
-      if (count > 0) {
-          onUpdateTransactions(updatedTransactions);
-          alert(`Обновлено ${count} операций.`);
-      } else {
-          alert('Изменений не требуется.');
-      }
+      
+      applyRulesToTransactions(learnedRules);
   };
 
   const handleApplyRuleToHistory = () => {
@@ -320,9 +328,9 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
       if (count > 0) {
           onUpdateTransactions(updatedTransactions);
-          alert('Операции обновлены');
+          toast.success(`Обновлено операций: ${count}`);
       } else {
-          alert('Подходящих операций для обновления не найдено');
+          toast.info('Подходящих операций для обновления не найдено');
       }
   };
 
@@ -345,7 +353,9 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       cleanName: selectedCat.label
     }));
 
-    onUpdateRules([...newEntries, ...rulesWithoutEdited]);
+    const finalRules = [...newEntries, ...rulesWithoutEdited];
+    onUpdateRules(finalRules);
+    applyRulesToTransactions(finalRules);
     setView('main');
   };
 

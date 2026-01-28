@@ -140,7 +140,8 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
             </div>
         ) : (
             processedExpenses.map(expense => {
-                const assignedMember = members.find(m => m.id === expense.memberId);
+                // Safeguard members access
+                const assignedMember = (members || []).find(m => m.id === expense.memberId);
                 
                 return (
                     <div key={expense.id} onClick={() => onEdit && onEdit(expense)} className={`relative flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer group ${expense.isPaid ? 'bg-gray-50/50 dark:bg-[#2C2C2E]/30 border-transparent opacity-70 hover:opacity-100' : 'bg-white dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5 hover:border-blue-200 dark:hover:border-blue-800'}`}>
@@ -165,6 +166,7 @@ const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({ expenses,
                                     <span className={`text-xs font-bold truncate ${expense.isPaid ? 'text-gray-400 line-through decoration-gray-300' : 'text-[#1C1C1E] dark:text-white'}`}>
                                         {expense.name}
                                     </span>
+                                    {/* Show member avatar if assigned */}
                                     {assignedMember && !expense.isPaid && (
                                         <div className="scale-75 origin-left">
                                             <MemberMarker member={assignedMember} size="sm" />

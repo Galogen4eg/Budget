@@ -98,6 +98,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
+  const [selectedMandatoryExpense, setSelectedMandatoryExpense] = useState<MandatoryExpense | null>(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
@@ -125,18 +126,29 @@ export default function App() {
       return txs;
   }, [filteredTransactions, memberFilter]);
 
-  // Filter Mandatory Expenses based on Budget Mode
+  // Filter Mandatory Expenses based on Member Filter & Budget Mode
   const filteredMandatoryExpenses = useMemo(() => {
       const allExpenses = settings.mandatoryExpenses || [];
+      const safeMembers = members || [];
+      
+      // 1. Strict Member Filter from UI (Higher priority)
+      if (memberFilter !== 'all') {
+          // STRICT MODE: Only show items explicitly assigned to this member.
+          // Shared items (where memberId is undefined/null) are hidden to reduce noise.
+          return allExpenses.filter(e => e.memberId === memberFilter);
+      }
+
+      // 2. Budget Mode Logic (Fallback when 'All' is selected in filter)
       if (budgetMode === 'family') {
+          // Show all expenses in Family mode when filter is 'All'
           return allExpenses;
       } else {
           // Personal mode: show expenses assigned to current user OR unassigned (legacy/shared)
-          const myMemberId = members.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return allExpenses; // Fallback to all if member not found
+          const myMemberId = safeMembers.find(m => m.userId === user?.uid)?.id;
+          if (!myMemberId) return allExpenses; 
           return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
       }
-  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid]);
+  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
 
   useEffect(() => {
     if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {
@@ -707,8 +719,8 @@ export default function App() {
                                 settings={settings} 
                                 currentMonth={currentMonth} 
                                 members={members}
-                                onEdit={(e) => { setSelectedTx(null); setIsMandatoryModalOpen(true); }} 
-                                onAdd={() => setIsMandatoryModalOpen(true)} 
+                                onEdit={(e) => { setSelectedMandatoryExpense(e); setIsMandatoryModalOpen(true); }} 
+                                onAdd={() => { setSelectedMandatoryExpense(null); setIsMandatoryModalOpen(true); }} 
                             />
                         </div>
 
@@ -829,7 +841,31 @@ export default function App() {
             />}
             {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onUpdateAll={(items) => setImportPreview(items)} onLearnRule={handleLearnRule} onAddCategory={() => {}} members={members} />}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
-            {isMandatoryModalOpen && <MandatoryExpenseModal expense={null} onClose={() => setIsMandatoryModalOpen(false)} settings={settings} members={members} onSave={async (e) => { const updated = [...(settings.mandatoryExpenses || []), e]; await updateSettings({ ...settings, mandatoryExpenses: updated }); setIsMandatoryModalOpen(false); }} />}
+            
+            {isMandatoryModalOpen && <MandatoryExpenseModal 
+                expense={selectedMandatoryExpense} 
+                onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }} 
+                settings={settings} 
+                members={members} 
+                onSave={async (e) => { 
+                    let updated;
+                    if (selectedMandatoryExpense) {
+                        updated = (settings.mandatoryExpenses || []).map(ex => ex.id === e.id ? e : ex);
+                    } else {
+                        updated = [...(settings.mandatoryExpenses || []), e];
+                    }
+                    await updateSettings({ ...settings, mandatoryExpenses: updated }); 
+                    setIsMandatoryModalOpen(false); 
+                    setSelectedMandatoryExpense(null);
+                }} 
+                onDelete={async (id) => {
+                    const updated = (settings.mandatoryExpenses || []).filter(ex => ex.id !== id);
+                    await updateSettings({ ...settings, mandatoryExpenses: updated });
+                    setIsMandatoryModalOpen(false);
+                    setSelectedMandatoryExpense(null);
+                }}
+            />}
+            
             {isDuplicatesOpen && <DuplicatesModal transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {isGoalModalOpen && <GoalModal goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
         </AnimatePresence>

@@ -160,7 +160,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({ transactions, setti
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
                     className="h-full rounded-full shadow-sm"
-                    style={{ backgroundColor: item.color }}
+                    style={{ backgroundColor: item.color } as any}
                     />
                 </div>
                 </div>

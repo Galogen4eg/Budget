@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
@@ -14,8 +15,10 @@ interface ErrorBoundaryState {
 }
 
 // Fixed ErrorBoundary class component by using direct import of Component
-// to ensure base class properties like 'props' and 'state' are correctly recognized
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// and explicit property definition to ensure base class properties like 'props' and 'state' are correctly recognized
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly define props to fix "Property 'props' does not exist on type 'ErrorBoundary'" error
+  public props: ErrorBoundaryProps;
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {

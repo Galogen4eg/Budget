@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
@@ -325,7 +326,8 @@ const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           {/* Grid Layout - Active Items */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-10 items-start">
             {Object.keys(groupedActiveItems).length > 0 ? (
-              Object.entries(groupedActiveItems).map(([category, catItems]) => (
+              // Fix: Explicitly cast Object.entries result to handle type inference issues
+              (Object.entries(groupedActiveItems) as [string, ShoppingItem[]][]).map(([category, catItems]) => (
                 <div key={category} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 break-inside-avoid">
                   <div className="flex items-center justify-between px-2">
                     <div className="flex items-center gap-3">
@@ -334,10 +336,12 @@ const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         {category}
                       </h3>
                     </div>
+                    {/* Fix: Access catItems.length safely */}
                     <span className="text-[10px] font-black bg-white dark:bg-white/5 px-2 py-0.5 rounded-lg border border-black/5 dark:border-white/5">{catItems.length} поз.</span>
                   </div>
                   
                   <div className="bg-white dark:bg-[#161618] rounded-[36px] shadow-[0_10px_50px_-15px_rgba(0,0,0,0.04)] dark:shadow-none border border-black/5 dark:border-white/5 overflow-hidden">
+                    {/* Fix: Access catItems.map safely */}
                     {catItems.map((item, idx) => (
                         <div 
                         key={item.id}

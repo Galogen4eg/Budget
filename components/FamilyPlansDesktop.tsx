@@ -75,7 +75,7 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   // --- List View Logic ---
-  const filteredListEvents = useMemo(() => {
+  const filteredListEvents: FamilyEvent[] = useMemo(() => {
     const now = new Date();
     
     return events.filter(e => {
@@ -92,7 +92,7 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     });
   }, [events, listTab]);
 
-  const groupedListEvents = useMemo(() => {
+  const groupedListEvents: Record<string, FamilyEvent[]> = useMemo(() => {
       const groups: Record<string, FamilyEvent[]> = {};
       filteredListEvents.forEach(e => {
           const d = new Date(e.date);
@@ -219,7 +219,7 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                             {calendarData.map((d, i) => {
                                 const dateObj = new Date(d.year, d.month, d.day);
                                 const dateStr = getLocalDateString(dateObj);
-                                const dayEvents = events.filter((e: FamilyEvent) => e.date === dateStr);
+                                const dayEvents: FamilyEvent[] = events.filter((e: FamilyEvent) => e.date === dateStr);
 
                                 const isSelected = selectedDate.getDate() === d.day && selectedDate.getMonth() === d.month && selectedDate.getFullYear() === d.year;
                                 const isToday = new Date().getDate() === d.day && new Date().getMonth() === d.month && new Date().getFullYear() === d.year;
@@ -435,9 +435,9 @@ const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                                                 </div>
                                             )}
 
-                                            {hasReminders && (
+                                            {hasReminders && event.reminders && (
                                                 <div className="flex flex-wrap gap-2">
-                                                    {event.reminders!.map((r, i) => (
+                                                    {event.reminders.map((r, i) => (
                                                         <div key={i} className="flex items-center gap-1 text-[10px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded-lg">
                                                             <BellRing size={10} /> {getFormatReminder(r)}
                                                         </div>

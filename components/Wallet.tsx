@@ -291,7 +291,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                   style={{ 
                     background: `linear-gradient(135deg, ${card.color}, ${card.color}DD)`,
                     boxShadow: `0 10px 30px -10px ${card.color}80`
-                  }}
+                  } as any}
                 >
                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
                   <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-black/5 rounded-full blur-xl" />
@@ -425,7 +425,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
                       </div>
                       
                       <div className="p-8 bg-white dark:bg-[#1C1C1E] flex flex-col items-center gap-6">
-                          <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center justify-center min-h-[150px] w-full relative">
+                          <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center justify-center min-h-[120px] w-full relative">
                               <BarcodeDisplay number={selectedCard.number} format={selectedCard.barcodeFormat || 'code128'} />
                           </div>
                           

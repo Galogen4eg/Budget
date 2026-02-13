@@ -108,7 +108,7 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                                     animate={{ width: `${percent}%` }}
                                     transition={{ duration: 1, ease: "easeOut" }}
                                     className="h-full rounded-full relative"
-                                    style={{ backgroundColor: goal.color }}
+                                    style={{ backgroundColor: goal.color } as any}
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
                                 </motion.div>

@@ -86,9 +86,6 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
       await updateSettings(newSettings);
   };
 
-  // Utility class to hide spinners
-  const noSpinnerClass = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
-
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
       <motion.div 
@@ -136,7 +133,7 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
                   placeholder="0" 
                   value={amount} 
                   onChange={e => setAmount(e.target.value)} 
-                  className={`w-full bg-white dark:bg-[#2C2C2E] p-5 rounded-[2rem] font-black text-lg text-[#1C1C1E] dark:text-white outline-none border border-gray-100 dark:border-white/5 ${noSpinnerClass}`}
+                  className="w-full bg-white dark:bg-[#2C2C2E] p-5 rounded-[2rem] font-black text-lg text-[#1C1C1E] dark:text-white outline-none border border-gray-100 dark:border-white/5"
                 />
             </div>
             <div className="space-y-4">
@@ -148,7 +145,7 @@ const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({ expense, 
                   placeholder="1" 
                   value={day} 
                   onChange={e => setDay(e.target.value)} 
-                  className={`w-full bg-white dark:bg-[#2C2C2E] p-5 rounded-[2rem] font-black text-lg text-[#1C1C1E] dark:text-white outline-none border border-gray-100 dark:border-white/5 text-center ${noSpinnerClass}`}
+                  className="w-full bg-white dark:bg-[#2C2C2E] p-5 rounded-[2rem] font-black text-lg text-[#1C1C1E] dark:text-white outline-none border border-gray-100 dark:border-white/5 text-center"
                 />
             </div>
           </div>

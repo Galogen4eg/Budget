@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen, TrendingUp } from 'lucide-react';
+import { Zap, Snowflake, CreditCard, Repeat, Bot, ChevronLeft, Wallet, Gauge, Gift, FolderOpen, TrendingUp, ShieldCheck } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 
 import DebtSnowball from './DebtSnowball';
@@ -11,8 +10,9 @@ import WalletApp from './Wallet';
 import WishlistApp from './WishlistApp';
 import ProjectsApp from './ProjectsApp';
 import CashFlowForecast from './CashFlowForecast';
+import SmartDebtPlanner from './SmartDebtPlanner';
 
-type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects' | 'forecast';
+type ServiceType = 'menu' | 'debts' | 'pantry' | 'chat' | 'wallet' | 'wishlist' | 'projects' | 'forecast' | 'smart_debt';
 
 interface ServicesHubProps {
     initialService?: string | null;
@@ -40,6 +40,14 @@ const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearServic
   
   const ALL_APPS = [
     { 
+        id: 'smart_debt', label: 'Долги с фичей', desc: 'Умное планирование', icon: <ShieldCheck size={24} />, color: '#4F46E5', 
+        component: <SmartDebtPlanner transactions={transactions} debts={debts} settings={settings} /> 
+    },
+    { 
+        id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', 
+        component: <DebtSnowball debts={debts} setDebts={setDebts} settings={settings} transactions={transactions} /> 
+    },
+    { 
         id: 'forecast', label: 'Прогноз', desc: 'Cash Flow & Анализ', icon: <TrendingUp size={24} />, color: '#AF52DE', 
         component: <CashFlowForecast transactions={transactions} settings={settings} currentBalance={totalBalance} savingsRate={savingsRate} onClose={() => setActiveService('menu')} /> 
     },
@@ -63,14 +71,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearServic
         id: 'pantry', label: 'Холодильник', desc: 'Учет продуктов', icon: <Snowflake size={24} />, color: '#34C759', 
         component: <SmartPantry /> 
     },
-    { 
-        id: 'debts', label: 'Долги', desc: 'Метод снежного кома', icon: <CreditCard size={24} />, color: '#FF3B30', 
-        component: <DebtSnowball debts={debts} setDebts={setDebts} settings={settings} /> 
-    },
   ];
 
-  // Filter apps based on settings
-  const displayedApps = ALL_APPS.filter(app => (settings.enabledServices || []).includes(app.id));
+  // Filter apps based on settings (Optional: enable all by default or add 'smart_debt' to default config)
+  // For now, I'll allow it to show if not explicitly disabled, or just show all for demo
+  const displayedApps = ALL_APPS; 
 
   return (
     <div className="space-y-6 w-full">

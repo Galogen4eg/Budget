@@ -120,6 +120,18 @@ export interface Debt {
   interestRate?: number;
   minPayment?: number;
   color: string;
+  
+  // Extended fields for Smart Debt
+  strategy?: 'fixed' | 'flexible'; // Type A or Type B
+  paymentDay?: number; // For Fixed: Day of month (1-31)
+  monthlyPayment?: number;
+  dueDate?: string; // Next specific due date (computed or manual)
+  finalClosingDate?: string; // For Flexible: Target date
+  
+  paidThisMonth?: boolean;
+  notifyBefore?: number;
+  notifyIfOverdue?: boolean;
+  channels?: string[];
 }
 
 export interface ProjectExpense {

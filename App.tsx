@@ -848,21 +848,38 @@ export default function App() {
                 settings={settings} 
                 members={members} 
                 onSave={async (e) => { 
-                    let updated;
-                    if (selectedMandatoryExpense) {
-                        updated = (settings.mandatoryExpenses || []).map(ex => ex.id === e.id ? e : ex);
-                    } else {
-                        updated = [...(settings.mandatoryExpenses || []), e];
+                    try {
+                        let updated;
+                        if (selectedMandatoryExpense) {
+                            const targetId = selectedMandatoryExpense.id;
+                            updated = (settings.mandatoryExpenses || []).map(ex => {
+                                if ((targetId && ex.id === targetId) || ex === selectedMandatoryExpense) {
+                                    return { ...e, id: targetId || e.id };
+                                }
+                                return ex;
+                            });
+                        } else {
+                            updated = [...(settings.mandatoryExpenses || []), { ...e, id: e.id || Date.now().toString() }];
+                        }
+                        await updateSettings({ ...settings, mandatoryExpenses: updated }); 
+                        setIsMandatoryModalOpen(false); 
+                        setSelectedMandatoryExpense(null);
+                    } catch (error: any) {
+                        toast.error('Ошибка при сохранении: ' + (error.message || String(error)));
                     }
-                    await updateSettings({ ...settings, mandatoryExpenses: updated }); 
-                    setIsMandatoryModalOpen(false); 
-                    setSelectedMandatoryExpense(null);
                 }} 
                 onDelete={async (id) => {
-                    const updated = (settings.mandatoryExpenses || []).filter(ex => ex.id !== id);
-                    await updateSettings({ ...settings, mandatoryExpenses: updated });
-                    setIsMandatoryModalOpen(false);
-                    setSelectedMandatoryExpense(null);
+                    try {
+                        const updated = (settings.mandatoryExpenses || []).filter(ex => {
+                            if (selectedMandatoryExpense && ex === selectedMandatoryExpense) return false;
+                            return ex.id !== id;
+                        });
+                        await updateSettings({ ...settings, mandatoryExpenses: updated });
+                        setIsMandatoryModalOpen(false);
+                        setSelectedMandatoryExpense(null);
+                    } catch (error: any) {
+                        toast.error('Ошбика при удалении: ' + (error.message || String(error)));
+                    }
                 }}
             />}
             

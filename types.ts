@@ -31,11 +31,11 @@ export interface AIKnowledgeItem {
 
 export interface FamilyMember {
   id: string;
-  userId?: string;
+  userId?: string | null;
   name: string;
-  email?: string; // Email for invitation
+  email?: string | null; // Email for invitation
   color: string;
-  avatar?: string;
+  avatar?: string | null;
   isAdmin?: boolean;
 }
 
@@ -190,7 +190,7 @@ export interface MandatoryExpense {
   day: number; // Day of the month (1-31)
   remind: boolean;
   keywords?: string[];
-  memberId?: string; // Adding memberId
+  memberId?: string | null;
 }
 
 export interface WidgetConfig {
@@ -291,6 +291,7 @@ export interface Category {
   icon: string;
   color: string;
   isCustom?: boolean;
+  parentId?: string;
 }
 
 export enum Type {

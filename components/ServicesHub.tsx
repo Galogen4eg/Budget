@@ -1,0 +1,107 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Bot, ChevronLeft, Wallet, FolderOpen } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
+
+import AIChat from './AIChat';
+import WalletApp from './Wallet';
+import ProjectsApp from './ProjectsApp';
+
+type ServiceType = 'menu' | 'chat' | 'wallet' | 'projects';
+
+interface ServicesHubProps {
+    initialService?: string | null;
+    onClearService?: () => void;
+}
+
+const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearService }) => {
+  const [activeService, setActiveService] = useState<ServiceType>('menu');
+  const { 
+    settings,
+    loyaltyCards, setLoyaltyCards,
+    projects, setProjects
+  } = useData();
+
+  useEffect(() => {
+      if (initialService) {
+          setActiveService(initialService as ServiceType);
+          if (onClearService) onClearService();
+      }
+  }, [initialService, onClearService]);
+  
+  const ALL_APPS = [
+    { 
+        id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={24} />, color: '#007AFF', 
+        component: <ProjectsApp projects={projects} setProjects={setProjects} settings={settings} /> 
+    },
+    { 
+        id: 'wallet', label: 'Wallet', desc: 'Карты лояльности', icon: <Wallet size={24} />, color: '#1C1C1E', 
+        component: <WalletApp cards={loyaltyCards} setCards={setLoyaltyCards} /> 
+    },
+    { 
+        id: 'chat', label: 'AI Ассистент', desc: 'Чат, Советы, Управление', icon: <Bot size={24} />, color: '#1C1C1E', 
+        component: <AIChat /> 
+    }
+  ];
+
+  // Filter apps based on settings (Optional: enable all by default or add 'smart_debt' to default config)
+  // For now, I'll allow it to show if not explicitly disabled, or just show all for demo
+  const displayedApps = ALL_APPS; 
+
+  return (
+    <div className="space-y-6 w-full">
+      <AnimatePresence mode="wait">
+        {activeService === 'menu' ? (
+          <motion.div 
+            key="menu"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+          >
+            {displayedApps.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-gray-400 font-bold uppercase text-xs tracking-widest border-2 border-dashed border-gray-100 dark:border-white/10 rounded-[2.5rem]">
+                    Нет активных сервисов.<br/>Включите их в настройках.
+                </div>
+            ) : (
+                displayedApps.map(app => (
+                  <button
+                    key={app.id}
+                    onClick={() => setActiveService(app.id as ServiceType)}
+                    className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2.5rem] shadow-soft dark:shadow-none border border-white dark:border-white/5 flex flex-col items-center text-center gap-3 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-all ios-btn-active"
+                  >
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: app.color }}>
+                      {app.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-black text-[#1C1C1E] dark:text-white text-sm">{app.label}</h3>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1">{app.desc}</p>
+                    </div>
+                  </button>
+                ))
+            )}
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="service"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+          >
+            <div className="flex items-center gap-2 mb-6">
+              <button onClick={() => setActiveService('menu')} className="p-2 bg-white dark:bg-[#1C1C1E] rounded-full shadow-sm border border-gray-100 dark:border-white/5 text-gray-500 dark:text-gray-300">
+                  <ChevronLeft size={24} />
+              </button>
+              <h2 className="text-xl font-black text-[#1C1C1E] dark:text-white">
+                  {ALL_APPS.find(a => a.id === activeService)?.label}
+              </h2>
+            </div>
+            {ALL_APPS.find(a => a.id === activeService)?.component}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default ServicesHub;

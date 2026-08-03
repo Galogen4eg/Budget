@@ -61,19 +61,6 @@ export interface ShoppingItem {
   category: string;
 }
 
-export interface WishlistItem {
-  id: string;
-  title: string;
-  price?: number;
-  currency: string;
-  url?: string;
-  imageUrl?: string;
-  ownerId: string;
-  reservedBy?: string;
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-}
-
 export interface Subscription {
   id: string;
   name: string;
@@ -112,28 +99,6 @@ export interface Reminder {
   createdAt: number;
 }
 
-export interface Debt {
-  id: string;
-  name: string;
-  totalAmount: number;
-  currentBalance: number;
-  interestRate?: number;
-  minPayment?: number;
-  color: string;
-  
-  // Extended fields for Smart Debt
-  strategy?: 'fixed' | 'flexible'; // Type A or Type B
-  paymentDay?: number; // For Fixed: Day of month (1-31)
-  monthlyPayment?: number;
-  dueDate?: string; // Next specific due date (computed or manual)
-  finalClosingDate?: string; // For Flexible: Target date
-  
-  paidThisMonth?: boolean;
-  notifyBefore?: number;
-  notifyIfOverdue?: boolean;
-  channels?: string[];
-}
-
 export interface ProjectExpense {
   id: string;
   title: string;
@@ -154,16 +119,6 @@ export interface Project {
   color: string;
   icon: string;
   expenses: ProjectExpense[];
-}
-
-export interface PantryItem {
-  id: string;
-  title: string;
-  amount: string;
-  unit: string;
-  category: string;
-  expiryDate?: string;
-  addedDate: string;
 }
 
 export interface MeterReading {
@@ -220,6 +175,13 @@ export interface FeedbackItem {
   path: string; // Current URL path
 }
 
+export interface CatalogItem {
+  id: string;
+  title: string;
+  category: string;
+  unit: string;
+}
+
 export interface AppSettings {
   familyName: string;
   currency: string;
@@ -242,6 +204,9 @@ export interface AppSettings {
 
   telegramBotToken?: string;
   telegramChatId?: string;
+  
+  productCatalog?: CatalogItem[];
+
   telegramState?: {
     lastShoppingMessageId: number;
     lastShoppingDate: string;

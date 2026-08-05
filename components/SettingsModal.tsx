@@ -179,15 +179,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
       try {
           const ai = new GoogleGenAI({ apiKey: apiKey });
           await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: "Hello",
+              model: "gemini-2.5-flash",
+              contents: "Hello, test connection",
           });
           setAiTestStatus('success');
+          toast.success('API-ключ Gemini успешно проверен и работает!');
           setTimeout(() => setAiTestStatus('idle'), 3000);
-      } catch (e) {
-          console.error(e);
+      } catch (e: any) {
+          console.error("Gemini test key error:", e);
           setAiTestStatus('error');
-          setTimeout(() => setAiTestStatus('idle'), 3000);
+          toast.error(`Ошибка проверки ключа Gemini: ${e.message || e}`, { duration: 8000 });
+          setTimeout(() => setAiTestStatus('idle'), 5000);
       }
   };
 

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Globe, User, Mail, Lock, Key, ArrowLeft, Loader2, Sparkles, Plus, Users, UserPlus } from 'lucide-react';
+import { Wallet, Globe, User, Mail, Lock, Key, ArrowLeft, Loader2, Sparkles, Plus, Users, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { toast } from 'sonner';
+import { AuthErrorModal } from './AuthErrorModal';
 
 type ViewMode = 'select' | 'login' | 'register';
 type RegisterType = 'new' | 'join';
 
 const LoginScreen: React.FC = () => {
-  const { loginWithGoogle, enterDemoMode, loginWithEmail, registerWithEmail } = useAuth();
+  const { loginWithGoogle, enterDemoMode, loginWithEmail, registerWithEmail, authError, clearAuthError } = useAuth();
   const [view, setView] = useState<ViewMode>('select');
   const [registerType, setRegisterType] = useState<RegisterType>('new');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,10 +51,25 @@ const LoginScreen: React.FC = () => {
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 bg-white dark:bg-[#1C1C1E] rounded-[2rem] shadow-2xl flex items-center justify-center mb-8 border border-white/50 dark:border-white/5"
+          className="w-20 h-20 bg-white dark:bg-[#1C1C1E] rounded-[2rem] shadow-2xl flex items-center justify-center mb-6 border border-white/50 dark:border-white/5"
         >
             <Wallet size={40} className="text-[#1C1C1E] dark:text-white" />
         </motion.div>
+
+        {/* Заметный баннер последней ошибки (если окно закрыли, но ошибка еще есть) */}
+        {authError && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full mb-4 p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/40 rounded-2xl flex items-start gap-3 text-red-600 dark:text-red-400 text-xs font-semibold"
+          >
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-[11px] uppercase tracking-wider">{authError.title}</div>
+              <p className="text-[11px] opacity-90 leading-tight mt-0.5 line-clamp-2">{authError.description}</p>
+            </div>
+          </motion.div>
+        )}
 
         <AnimatePresence mode="wait">
             {view === 'select' && (
@@ -254,6 +269,14 @@ const LoginScreen: React.FC = () => {
         <p className="mt-12 text-[10px] text-gray-400 font-medium text-center leading-relaxed">
             Ваши данные в безопасности и синхронизируются<br/>в реальном времени через Google Cloud
         </p>
+
+        {/* Модальное окно с подробным разбором ошибки авторизации */}
+        <AuthErrorModal
+          error={authError}
+          onClose={clearAuthError}
+          onRetry={() => loginWithGoogle()}
+          onEnterDemo={enterDemoMode}
+        />
       </div>
     </div>
   );

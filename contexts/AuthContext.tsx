@@ -127,12 +127,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
           const errorCode = error.code;
-          if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/operation-not-supported-in-this-environment'].includes(errorCode)) {
-              await signInWithRedirect(auth, googleProvider);
+          if (errorCode === 'auth/popup-blocked') {
+              try {
+                  await signInWithRedirect(auth, googleProvider);
+                  return;
+              } catch (redirectErr: any) {
+                  toast.error(`Ошибка перенаправления: ${redirectErr.message}`);
+              }
+          } else if (errorCode === 'auth/unauthorized-domain') {
+              toast.error('Ваш домен не добавлен в Firebase Console (Authentication -> Settings -> Authorized domains)');
+          } else if (errorCode === 'auth/popup-closed-by-user') {
+              // Пользователь сам закрыл окно — не нужно перенаправлять всю страницу
           } else {
-              toast.error(`Ошибка входа: ${error.message}`);
-              localStorage.removeItem('pending_join_family');
+              toast.error(`Ошибка входа Google: ${error.message || errorCode}`);
           }
+          localStorage.removeItem('pending_join_family');
       }
   };
 

@@ -143,7 +143,7 @@ const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       };
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: [{ role: 'user', parts: [{ text: `Контекст данных пользователя (последние транзакции, события, и т.д.): ${JSON.stringify(contextData)}\n\nВходной запрос пользователя: "${userMsg}"` }] }],
         config: {
             systemInstruction: `You are Gemini, an AI assistant for a family budget app. You are friendly and helpful.

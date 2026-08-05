@@ -207,7 +207,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards }) => {
           Return ONLY valid JSON: { "name": string, "number": string, "color": string, "icon": string, "format": "qr" | "code128" | "ean13" }`;
 
           const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.5-flash",
             contents: {
               parts: [
                 { inlineData: { mimeType: file.type, data: base64Data } },

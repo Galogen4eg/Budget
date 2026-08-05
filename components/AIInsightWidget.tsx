@@ -43,7 +43,7 @@ const AIInsightWidget: React.FC<AIInsightWidgetProps> = ({ transactions, goals, 
       const goalsStatus = goals.map(g => `${g.title}: ${Math.round(g.currentAmount/g.targetAmount*100)}%`).join(', ');
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: `
           Analyze these financial snippets. 
           Recent tx: [${recentTx}]. 

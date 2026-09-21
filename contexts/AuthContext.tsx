@@ -126,11 +126,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
           await signInWithPopup(auth, googleProvider);
       } catch (error: any) {
-          const errorCode = error.code;
-          if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/operation-not-supported-in-this-environment'].includes(errorCode)) {
-              await signInWithRedirect(auth, googleProvider);
+          const errorCode = error?.code || '';
+          
+          if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request') {
+              toast.info('Вход через Google отменён');
+              localStorage.removeItem('pending_join_family');
+              return;
+          }
+
+          if (errorCode === 'auth/unauthorized-domain') {
+              toast.warning('Текущий домен не авторизован в Firebase Console. Входим в демо-режим');
+              enterDemoMode();
+              localStorage.removeItem('pending_join_family');
+              return;
+          }
+
+          if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(errorCode)) {
+              try {
+                  await signInWithRedirect(auth, googleProvider);
+              } catch (redirectErr: any) {
+                  toast.error(`Не удалось перенаправить: ${redirectErr.message}`);
+                  localStorage.removeItem('pending_join_family');
+              }
           } else {
-              toast.error(`Ошибка входа: ${error.message}`);
+              toast.error(`Ошибка входа Google: ${error.message || errorCode}`);
               localStorage.removeItem('pending_join_family');
           }
       }

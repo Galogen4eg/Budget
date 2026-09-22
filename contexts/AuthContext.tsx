@@ -135,8 +135,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (errorCode === 'auth/unauthorized-domain') {
-              toast.warning('Текущий домен не авторизован в Firebase Console. Входим в демо-режим');
-              enterDemoMode();
+              toast.error(
+                `Домен (${window.location.hostname}) не авторизован в Firebase Console. Добавьте его в Firebase Console -> Authentication -> Settings -> Authorized domains или используйте вход по Email.`
+              );
               localStorage.removeItem('pending_join_family');
               return;
           }

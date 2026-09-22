@@ -79,3 +79,18 @@ input[type=number] {
   opacity: 0.8;
   transition: transform 0.1s ease;
 }
+
+@keyframes ripple-effect {
+  0% {
+    transform: scale(0);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple-effect 0.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}

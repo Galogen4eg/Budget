@@ -815,8 +815,8 @@ export default function App() {
       </nav>
 
       <Suspense fallback={null}>
-        <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { 
+        <AnimatePresence mode="wait">
+            {isAddModalOpen && <AddTransactionModal key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { 
                 // Optimistic delete
                 setTransactions(prev => prev.filter(t => t.id !== id));
                 if (familyId) await deleteItem(familyId, 'transactions', id); 
@@ -825,6 +825,7 @@ export default function App() {
                 toast.success('Операция удалена');
             }} />}
             {isSettingsOpen && <SettingsModal 
+                key="settings-modal"
                 settings={settings} 
                 onClose={() => setIsSettingsOpen(false)} 
                 onUpdate={async (s) => await updateSettings(s)} 
@@ -849,8 +850,9 @@ export default function App() {
                 onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} 
                 onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} 
             />}
-            {isAIChatOpen && <AIChatModal onClose={() => setIsAIChatOpen(false)} />}
+            {isAIChatOpen && <AIChatModal key="ai-chat-modal" onClose={() => setIsAIChatOpen(false)} />}
             {drillDownState && <DrillDownModal 
+                key={`drilldown-${drillDownState.categoryId || drillDownState.merchantName}`}
                 categoryId={drillDownState.categoryId} 
                 merchantName={drillDownState.merchantName} 
                 onClose={() => setDrillDownState(null)} 
@@ -866,25 +868,35 @@ export default function App() {
             />}
             {importPreview && (
               <ImportModal 
+                key="import-modal"
                 preview={importPreview} 
                 onCancel={() => setImportPreview(null)} 
                 onConfirm={async (finalItems) => { 
-                  const itemsToImport = finalItems || importPreview;
-                  if (itemsToImport && itemsToImport.length > 0) {
-                    const prepared = itemsToImport.map(item => ({
-                      ...item,
-                      id: (item as any).id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
-                    }));
+                  try {
+                    const itemsToImport = finalItems || importPreview;
+                    if (!itemsToImport || itemsToImport.length === 0) return;
+
+                    const prepared = itemsToImport.map(item => {
+                      const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
+                      return {
+                        ...clean,
+                        id: clean.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
+                      };
+                    });
                     
-                    // Optimistic local state update
+                    // Immediately close preview modal & update local transactions
+                    setImportPreview(null); 
                     setTransactions(prev => [...prepared, ...prev]);
-                    
+                    toast.success(`Импортировано ${prepared.length} операций`); 
+
+                    // Sync to Firestore if in family mode
                     if (familyId) {
                       await addItemsBatch(familyId, 'transactions', prepared);
                     }
-                    setImportPreview(null); 
-                    toast.success(`Импортировано ${prepared.length} операций`); 
-                  } 
+                  } catch (err: any) {
+                    console.error("Import error:", err);
+                    toast.error("Ошибка сохранения: " + (err.message || String(err)));
+                  }
                 }} 
                 settings={settings} 
                 categories={categories} 
@@ -899,25 +911,10 @@ export default function App() {
                 members={members} 
               />
             )}
-            
-            {/* Hidden input for importing statements */}
-            <input 
-              id="import-input" 
-              type="file" 
-              accept=".xlsx,.xls,.csv,.txt" 
-              className="hidden" 
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  handleImport(file);
-                  e.target.value = '';
-                }
-              }} 
-            />
-            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
+            {showNotifications && <NotificationsModal key="notifications-modal" onClose={() => setShowNotifications(false)} />}
             
             {isMandatoryModalOpen && <MandatoryExpenseModal 
+                key={selectedMandatoryExpense ? `edit-exp-${selectedMandatoryExpense.id}` : 'mandatory-exp-modal'}
                 expense={selectedMandatoryExpense} 
                 onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }} 
                 settings={settings} 
@@ -958,9 +955,25 @@ export default function App() {
                 }}
             />}
             
-            {isDuplicatesOpen && <DuplicatesModal transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
-            {isGoalModalOpen && <GoalModal goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
+            {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
+            {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
         </AnimatePresence>
+
+        {/* Hidden input for importing statements */}
+        <input 
+          id="import-input" 
+          type="file" 
+          accept=".xlsx,.xls,.csv,.txt" 
+          className="hidden" 
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              handleImport(file);
+              e.target.value = '';
+            }
+          }} 
+        />
       </Suspense>
     </div>
   );

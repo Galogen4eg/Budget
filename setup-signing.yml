@@ -1,0 +1,52 @@
+
+name: 1. Setup Android Signing (Run Once)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-keys:
+    name: Generate Keystore & SHA-1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Generate Keystore
+        run: |
+          # Генерация стабильного хранилища ключей
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -alias androiddebugkey \
+            -dname "CN=Android Debug, O=Android, C=US" \
+            -storepass android \
+            -keypass android
+
+          echo "✅ Keystore generated successfully."
+
+      - name: Get SHA-1 Fingerprint (For Firebase)
+        run: |
+          echo "========================================================"
+          echo "👇 1. СКОПИРУЙТЕ ЭТОТ SHA-1 В FIREBASE CONSOLE 👇"
+          echo "========================================================"
+          keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android | grep "SHA1:"
+          echo "========================================================"
+
+      - name: Encode Keystore to Base64 (For GitHub Secrets)
+        id: encode_key
+        run: |
+          # Кодируем файл в текст
+          BASE64_KEY=$(base64 -w 0 debug.keystore)
+          
+          echo "========================================================"
+          echo "👇 2. СОЗДАЙТЕ SECRET В GITHUB С ИМЕНЕМ: ANDROID_KEYSTORE_BASE64 👇"
+          echo "👇 ВСТАВЬТЕ ТУДА ЭТОТ ДЛИННЫЙ ТЕКСТ: 👇"
+          echo "========================================================"
+          echo "$BASE64_KEY"
+          echo "========================================================"

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
 export const LoginScreen: React.FC = () => {
-  const { enterDemoMode, loginWithEmail, registerWithEmail } = useAuth();
+  const { enterDemoMode, loginWithEmail, registerWithEmail, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +24,26 @@ export const LoginScreen: React.FC = () => {
     }
     // If user enters plain username like "alex", convert internally to "alex@family.local"
     return `${trimmed}@family.local`;
+  };
+
+  const handleForgotPassword = async () => {
+    const cleanUsername = username.trim();
+    if (!cleanUsername) {
+      toast.error('Укажите ваш логин или email в поле выше');
+      return;
+    }
+
+    const formattedLogin = formatLoginToEmail(cleanUsername);
+
+    try {
+      setIsLoading(true);
+      await resetPassword(formattedLogin);
+      toast.success(`Ссылка для сброса пароля отправлена на ${formattedLogin}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Не удалось отправить письмо для сброса пароля');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,18 +193,26 @@ export const LoginScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Чекбокс Запомнить меня */}
+            {/* Чекбокс Запомнить меня и кнопка Забыли пароль? */}
             {mode === 'login' && (
               <div className="flex items-center justify-between pt-0.5">
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={e => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-[#cbcfc7] text-[#3e6b48] focus:ring-[#3e6b48] focus:ring-offset-0 transition-colors"
                   />
-                  <span className="text-xs text-[#525e55] font-medium">Запомнить меня на этом устройстве</span>
+                  <span className="text-[11px] sm:text-xs text-[#525e55] font-medium">Запомнить меня</span>
                 </label>
+
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-[11px] sm:text-xs text-[#3e6b48] hover:text-[#2d4f34] font-bold transition-colors hover:underline cursor-pointer"
+                >
+                  Забыли пароль?
+                </button>
               </div>
             )}
 

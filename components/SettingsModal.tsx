@@ -16,7 +16,7 @@ import {
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
-import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { createInvitation, deleteItem, joinFamily, migrateFamilyData } from '../utils/db';
@@ -168,8 +168,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     : (currentUser?.displayName || currentEmail);
 
   const [accountLogin, setAccountLogin] = useState(initialUsername);
+  const [currentPasswordForLogin, setCurrentPasswordForLogin] = useState('');
+  const [requiresLoginPassword, setRequiresLoginPassword] = useState(false);
   const [isUpdatingLogin, setIsUpdatingLogin] = useState(false);
 
+  const [currentPasswordForPass, setCurrentPasswordForPass] = useState('');
+  const [requiresPassConfirm, setRequiresPassConfirm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showAccountPass, setShowAccountPass] = useState(false);
@@ -193,21 +197,53 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
     setIsUpdatingLogin(true);
     try {
-      const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
-      
-      if (currentUser.email !== formattedEmail) {
-        await updateEmail(currentUser, formattedEmail);
-      }
+      // 1. Always update profile display name
       await updateProfile(currentUser, { displayName: cleanLogin });
-      toast.success('Логин успешно обновлен!');
-    } catch (err: any) {
-      if (err?.code === 'auth/requires-recent-login') {
-        toast.error('Для смены логина требуется заново войти в аккаунт');
-      } else if (err?.code === 'auth/email-already-in-use') {
-        toast.error('Этот логин уже занят другим пользователем');
-      } else {
-        toast.error(err?.message || 'Не удалось обновить логин');
+
+      // 2. Update family member record if available
+      if (members && onUpdateMembers) {
+        const updatedMembers = members.map(m => 
+          m.userId === currentUser.uid || m.email === currentUser.email 
+            ? { ...m, name: cleanLogin } 
+            : m
+        );
+        onUpdateMembers(updatedMembers);
       }
+
+      // 3. Try updating primary email credential if different
+      const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
+      if (currentUser.email !== formattedEmail) {
+        try {
+          if (currentPasswordForLogin && currentUser.email) {
+            const credential = EmailAuthProvider.credential(currentUser.email, currentPasswordForLogin);
+            await reauthenticateWithCredential(currentUser, credential);
+          }
+          await updateEmail(currentUser, formattedEmail);
+          setRequiresLoginPassword(false);
+          setCurrentPasswordForLogin('');
+        } catch (emailErr: any) {
+          if (emailErr?.code === 'auth/requires-recent-login') {
+            setRequiresLoginPassword(true);
+            toast.error('Для изменения основного e-mail/логина введите ваш текущий пароль ниже');
+            setIsUpdatingLogin(false);
+            return;
+          } else if (emailErr?.code === 'auth/email-already-in-use') {
+            toast.error('Этот логин или e-mail уже занят другим пользователем');
+            setIsUpdatingLogin(false);
+            return;
+          } else if (emailErr?.code === 'auth/wrong-password' || emailErr?.code === 'auth/invalid-credential') {
+            toast.error('Неверный текущий пароль');
+            setIsUpdatingLogin(false);
+            return;
+          } else {
+            console.warn('Unable to change email credential:', emailErr);
+          }
+        }
+      }
+
+      toast.success('Логин и профиль успешно обновлены!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Не удалось обновить логин');
     } finally {
       setIsUpdatingLogin(false);
     }
@@ -229,13 +265,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
     setIsUpdatingPassword(true);
     try {
+      if (currentPasswordForPass && currentUser.email) {
+        const credential = EmailAuthProvider.credential(currentUser.email, currentPasswordForPass);
+        await reauthenticateWithCredential(currentUser, credential);
+      }
       await updatePassword(currentUser, newPassword);
       toast.success('Пароль успешно изменен!');
       setNewPassword('');
       setConfirmPassword('');
+      setCurrentPasswordForPass('');
+      setRequiresPassConfirm(false);
     } catch (err: any) {
       if (err?.code === 'auth/requires-recent-login') {
-        toast.error('Сессия устарела. Перезайдите в аккаунт, чтобы сменить пароль.');
+        setRequiresPassConfirm(true);
+        toast.error('Для изменения пароля введите ваш текущий пароль ниже');
+      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        toast.error('Неверный текущий пароль');
       } else {
         toast.error(err?.message || 'Не удалось обновить пароль');
       }
@@ -967,8 +1012,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                                 <span>Сохранить</span>
                             </button>
                         </div>
+
+                        {requiresLoginPassword && (
+                            <div className="pt-2 space-y-1.5 animate-fadeIn">
+                                <label className="text-xs font-bold text-amber-600 dark:text-amber-400 block">
+                                    Введите текущий пароль для смены авторизационного логина:
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={currentPasswordForLogin}
+                                    onChange={e => setCurrentPasswordForLogin(e.target.value)}
+                                    placeholder="Ваш текущий пароль"
+                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm border border-amber-300 dark:border-amber-500/30 outline-none"
+                                />
+                            </div>
+                        )}
+
                         <p className="text-[11px] text-gray-400">
-                            Это логин, под которым вы входите в приложение.
+                            Это имя профиля и логин, под которым вы входите в приложение.
                         </p>
                     </div>
                 </div>
@@ -986,6 +1047,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                     </div>
 
                     <div className="space-y-4">
+                        {requiresPassConfirm && (
+                            <div className="space-y-1.5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
+                                <label className="text-xs font-bold text-amber-700 dark:text-amber-300 block">
+                                    Для смены пароля введите ваш текущий пароль:
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={currentPasswordForPass}
+                                    onChange={e => setCurrentPasswordForPass(e.target.value)}
+                                    placeholder="Текущий пароль"
+                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm border border-amber-300 dark:border-amber-500/30 outline-none"
+                                />
+                            </div>
+                        )}
+
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-gray-500">Новый пароль</label>
                             <div className="relative">

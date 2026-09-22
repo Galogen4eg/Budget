@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn, X, Mail, KeyRound, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -16,6 +16,12 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
 
+  // Password Reset Modal State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetInput, setResetInput] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   // Helper to format short login (e.g. "alex") into internal format
   const formatLoginToEmail = (loginInput: string) => {
     const trimmed = loginInput.trim().toLowerCase();
@@ -26,23 +32,32 @@ export const LoginScreen: React.FC = () => {
     return `${trimmed}@family.local`;
   };
 
-  const handleForgotPassword = async () => {
-    const cleanUsername = username.trim();
-    if (!cleanUsername) {
-      toast.error('Укажите ваш логин или email в поле выше');
+  const openResetModal = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResetInput(username);
+    setResetSuccess(false);
+    setIsResetModalOpen(true);
+  };
+
+  const handleSendResetLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = resetInput.trim();
+    if (!clean) {
+      toast.error('Введите ваш логин или email');
       return;
     }
 
-    const formattedLogin = formatLoginToEmail(cleanUsername);
+    const formattedLogin = formatLoginToEmail(clean);
 
+    setIsSendingReset(true);
     try {
-      setIsLoading(true);
       await resetPassword(formattedLogin);
-      toast.success(`Ссылка для сброса пароля отправлена на ${formattedLogin}`);
+      setResetSuccess(true);
     } catch (err: any) {
       toast.error(err?.message || 'Не удалось отправить письмо для сброса пароля');
     } finally {
-      setIsLoading(false);
+      setIsSendingReset(false);
     }
   };
 
@@ -208,7 +223,7 @@ export const LoginScreen: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={handleForgotPassword}
+                  onClick={openResetModal}
                   className="text-[11px] sm:text-xs text-[#3e6b48] hover:text-[#2d4f34] font-bold transition-colors hover:underline cursor-pointer"
                 >
                   Забыли пароль?
@@ -249,6 +264,96 @@ export const LoginScreen: React.FC = () => {
           <span>Защищено сквозным шифрованием семейных баз данных</span>
         </div>
       </main>
+
+      {/* Модальное окно восстановления пароля */}
+      <AnimatePresence>
+        {isResetModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#faf7f2] border border-[#e8e2d8] rounded-[2rem] p-6 sm:p-7 shadow-2xl max-w-sm w-full relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#3e6b48]/10 text-[#3e6b48] flex items-center justify-center font-bold">
+                    <KeyRound size={18} />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-[#1c241f]">Восстановление пароля</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsResetModalOpen(false); setResetSuccess(false); }}
+                  className="p-1.5 rounded-full hover:bg-[#ece7df] text-[#78857a] hover:text-[#1c241f] transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {!resetSuccess ? (
+                <form onSubmit={handleSendResetLink} className="space-y-4">
+                  <p className="text-xs text-[#525e55] leading-relaxed">
+                    Введите логин или e-mail от вашего аккаунта. Мы отправим ссылку для сброса пароля.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-[#354037]">Логин или E-mail</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#78857a]">
+                        <User size={16} />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={resetInput}
+                        onChange={e => setResetInput(e.target.value)}
+                        placeholder="например: alexander или user@gmail.com"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#f5f2eb] border border-[#e4ded3] rounded-xl text-sm placeholder-[#9ba59d] text-[#1c241f] focus:bg-white focus:border-[#3e6b48] focus:ring-2 focus:ring-[#3e6b48]/15 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsResetModalOpen(false)}
+                      className="flex-1 py-2.5 px-4 bg-[#ece7df] hover:bg-[#e2dcd3] text-[#354037] font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSendingReset || !resetInput.trim()}
+                      className="flex-1 py-2.5 px-4 bg-[#3e6b48] hover:bg-[#33593c] text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                      <span>Отправить</span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="text-center py-3 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <h4 className="font-bold text-sm text-[#1c241f]">Письмо отправлено!</h4>
+                  <p className="text-xs text-[#525e55] leading-relaxed">
+                    Инструкции по сбросу пароля отправлены. Проверьте почту (включая папку «Спам»).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="w-full py-2.5 bg-[#3e6b48] text-white font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    Понятно, закрыть
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -864,7 +864,57 @@ export default function App() {
                 currentMonth={currentMonth}
                 selectedDate={selectedDate}
             />}
-            {importPreview && <ImportModal preview={importPreview} onCancel={() => setImportPreview(null)} onConfirm={async () => { if (importPreview && familyId) { await addItemsBatch(familyId, 'transactions', importPreview); setImportPreview(null); toast.success(`Импортировано ${importPreview.length} операций`); } }} settings={settings} categories={categories} onUpdateItem={(idx, updates) => { const updated = [...importPreview!]; updated[idx] = { ...updated[idx], ...updates }; setImportPreview(updated); }} onUpdateAll={(items) => setImportPreview(items)} onLearnRule={handleLearnRule} onAddCategory={() => {}} members={members} />}
+            {importPreview && (
+              <ImportModal 
+                preview={importPreview} 
+                onCancel={() => setImportPreview(null)} 
+                onConfirm={async (finalItems) => { 
+                  const itemsToImport = finalItems || importPreview;
+                  if (itemsToImport && itemsToImport.length > 0) {
+                    const prepared = itemsToImport.map(item => ({
+                      ...item,
+                      id: (item as any).id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
+                    }));
+                    
+                    // Optimistic local state update
+                    setTransactions(prev => [...prepared, ...prev]);
+                    
+                    if (familyId) {
+                      await addItemsBatch(familyId, 'transactions', prepared);
+                    }
+                    setImportPreview(null); 
+                    toast.success(`Импортировано ${prepared.length} операций`); 
+                  } 
+                }} 
+                settings={settings} 
+                categories={categories} 
+                onUpdateItem={(idx, updates) => { 
+                  const updated = [...importPreview!]; 
+                  updated[idx] = { ...updated[idx], ...updates }; 
+                  setImportPreview(updated); 
+                }} 
+                onUpdateAll={(items) => setImportPreview(items)} 
+                onLearnRule={handleLearnRule} 
+                onAddCategory={() => {}} 
+                members={members} 
+              />
+            )}
+            
+            {/* Hidden input for importing statements */}
+            <input 
+              id="import-input" 
+              type="file" 
+              accept=".xlsx,.xls,.csv,.txt" 
+              className="hidden" 
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleImport(file);
+                  e.target.value = '';
+                }
+              }} 
+            />
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
             
             {isMandatoryModalOpen && <MandatoryExpenseModal 

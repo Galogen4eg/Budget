@@ -18,7 +18,7 @@ interface ImportItem extends Omit<Transaction, 'id'> {
 
 interface ImportModalProps {
   preview: Omit<Transaction, 'id'>[];
-  onConfirm: () => void;
+  onConfirm: (items?: Omit<Transaction, 'id'>[]) => void;
   onCancel: () => void;
   settings: AppSettings;
   onUpdateItem: (index: number, updates: Partial<Transaction>) => void;
@@ -767,7 +767,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {/* Кнопка "Подтвердить импорт" */}
             <button 
               type="button"
-              onClick={onConfirm}
+              onClick={() => onConfirm(items)}
               disabled={items.length === 0}
               className="py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
             >

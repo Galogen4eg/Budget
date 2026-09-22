@@ -16,6 +16,7 @@ import {
 import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
 import { MemberMarker, getIconById } from '../constants';
 import { auth } from '../firebase';
+import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { createInvitation, deleteItem, joinFamily, migrateFamilyData } from '../utils/db';
@@ -56,10 +57,11 @@ const WIDGET_METADATA = [
   { id: 'goals', label: 'Цели и копилка' }, 
 ];
 
-type SectionType = 'general' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family' | 'ai_memory';
+type SectionType = 'general' | 'account' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family' | 'ai_memory';
 
 const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'Общее', icon: <Globe size={20} /> },
+  { id: 'account', label: 'Аккаунт и Пароль', icon: <User size={20} /> },
   { id: 'budget', label: 'Бюджет', icon: <Calculator size={20} /> },
   { id: 'members', label: 'Участники', icon: <Users size={20} /> },
   { id: 'categories', label: 'Категории и правила', icon: <Tag size={20} /> },
@@ -157,6 +159,106 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   // Tools
   const [deleteStart, setDeleteStart] = useState('');
   const [deleteEnd, setDeleteEnd] = useState('');
+
+  // Account & Password Management State
+  const currentUser = auth.currentUser;
+  const currentEmail = currentUser?.email || '';
+  const initialUsername = currentEmail.endsWith('@family.local')
+    ? currentEmail.replace('@family.local', '')
+    : (currentUser?.displayName || currentEmail);
+
+  const [accountLogin, setAccountLogin] = useState(initialUsername);
+  const [isUpdatingLogin, setIsUpdatingLogin] = useState(false);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showAccountPass, setShowAccountPass] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
+
+  useEffect(() => {
+    setAccountLogin(initialUsername);
+  }, [initialUsername]);
+
+  const handleUpdateAccountLogin = async () => {
+    if (!currentUser) {
+      toast.error('Вы находитесь в локальном демо-режиме');
+      return;
+    }
+    const cleanLogin = accountLogin.trim();
+    if (!cleanLogin) {
+      toast.error('Логин не может быть пустым');
+      return;
+    }
+
+    setIsUpdatingLogin(true);
+    try {
+      const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
+      
+      if (currentUser.email !== formattedEmail) {
+        await updateEmail(currentUser, formattedEmail);
+      }
+      await updateProfile(currentUser, { displayName: cleanLogin });
+      toast.success('Логин успешно обновлен!');
+    } catch (err: any) {
+      if (err?.code === 'auth/requires-recent-login') {
+        toast.error('Для смены логина требуется заново войти в аккаунт');
+      } else if (err?.code === 'auth/email-already-in-use') {
+        toast.error('Этот логин уже занят другим пользователем');
+      } else {
+        toast.error(err?.message || 'Не удалось обновить логин');
+      }
+    } finally {
+      setIsUpdatingLogin(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!currentUser) {
+      toast.error('Вы находитесь в локальном демо-режиме');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Пароль должен содержать минимум 6 символов');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Пароли не совпадают');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      await updatePassword(currentUser, newPassword);
+      toast.success('Пароль успешно изменен!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      if (err?.code === 'auth/requires-recent-login') {
+        toast.error('Сессия устарела. Перезайдите в аккаунт, чтобы сменить пароль.');
+      } else {
+        toast.error(err?.message || 'Не удалось обновить пароль');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!currentUser?.email) {
+      toast.error('Учетная запись не привязана к e-mail');
+      return;
+    }
+    setIsSendingResetEmail(true);
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email);
+      toast.success(`Ссылка для сброса отправлена на ${currentUser.email}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Ошибка отправки письма');
+    } finally {
+      setIsSendingResetEmail(false);
+    }
+  };
 
   // AI Testing State
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -827,6 +929,118 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
                         }} className="w-full mt-6 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg">
                             <Share size={16} /> Поделиться кодом
                         </button>
+                    )}
+                </div>
+            </div>
+        );
+        case 'account': return (
+            <div className="space-y-6">
+                {/* Данные аккаунта / Логин */}
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-5">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400">
+                            <User size={22} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Логин и Профиль</h3>
+                            <p className="text-xs text-gray-400">Настройка логина вашей учетной записи</p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5 space-y-3">
+                        <label className="text-xs font-bold text-gray-500 block">Логин / Имя пользователя</label>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                value={accountLogin}
+                                onChange={e => setAccountLogin(e.target.value)}
+                                className="flex-1 bg-white dark:bg-[#1C1C1E] p-3.5 rounded-xl text-sm font-bold text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-emerald-500"
+                                placeholder="Ваш логин"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleUpdateAccountLogin}
+                                disabled={isUpdatingLogin || !accountLogin.trim() || accountLogin === initialUsername}
+                                className="px-4 py-3 bg-[#3e6b48] hover:bg-[#33593c] text-white font-bold text-xs rounded-xl transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
+                            >
+                                {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                <span>Сохранить</span>
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                            Это логин, под которым вы входите в приложение.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Безопасность и Смена пароля */}
+                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-5">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400">
+                            <ShieldCheck size={22} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Смена пароля</h3>
+                            <p className="text-xs text-gray-400">Задайте новый пароль для входа в приложение</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-500">Новый пароль</label>
+                            <div className="relative">
+                                <input 
+                                    type={showAccountPass ? 'text' : 'password'}
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="Минимум 6 символов"
+                                    className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3.5 pr-11 rounded-xl text-sm font-medium text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-blue-500"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAccountPass(!showAccountPass)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                                >
+                                    {showAccountPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-500">Подтвердите новый пароль</label>
+                            <input 
+                                type={showAccountPass ? 'text' : 'password'}
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                placeholder="Повторите новый пароль"
+                                className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3.5 rounded-xl text-sm font-medium text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-blue-500"
+                            />
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleUpdatePassword}
+                            disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-500/20"
+                        >
+                            {isUpdatingPassword ? <Loader2 size={18} className="animate-spin" /> : <Key size={18} />}
+                            <span>Обновить пароль</span>
+                        </button>
+                    </div>
+
+                    {currentUser?.email && !currentUser.email.endsWith('@family.local') && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-white/5 space-y-2">
+                            <p className="text-xs font-bold text-gray-500">Сброс пароля через электронную почту</p>
+                            <button
+                                type="button"
+                                onClick={handleSendResetEmail}
+                                disabled={isSendingResetEmail}
+                                className="w-full py-3 bg-gray-100 dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-[#3A3A3C] text-gray-700 dark:text-gray-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                {isSendingResetEmail ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                                <span>Отправить ссылку для сброса на {currentUser.email}</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

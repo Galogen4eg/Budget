@@ -8,7 +8,8 @@ import {
   getRedirectResult,
   signOut,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { getOrInitUserFamily, joinFamily } from '../utils/db';
@@ -23,6 +24,7 @@ interface AuthContextType {
   loginAnonymously: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, familyId?: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   enterDemoMode: () => void;
   logout: () => Promise<void>;
 }
@@ -36,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
     loginAnonymously: async () => {},
     loginWithEmail: async () => {},
     registerWithEmail: async () => {},
+    resetPassword: async () => {},
     enterDemoMode: () => {},
     logout: async () => {}
 });
@@ -190,6 +193,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  const resetPassword = async (email: string) => {
+      if (!email.trim()) {
+          toast.error('Введите ваш email');
+          return;
+      }
+      try {
+          await sendPasswordResetEmail(auth, email.trim());
+          toast.success(`Ссылка для сброса/задания пароля отправлена на ${email}`);
+      } catch (e: any) {
+          toast.error(`Ошибка отправки: ${e.message || 'Не удалось отправить письмо'}`);
+      }
+  };
+
   const loginAnonymously = async () => {
       setLoading(true);
       try {
@@ -210,7 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
         user, familyId, loading, isOfflineMode, 
         loginWithGoogle, loginAnonymously, loginWithEmail, registerWithEmail, 
-        enterDemoMode, logout 
+        resetPassword, enterDemoMode, logout 
     }}>
       {children}
     </AuthContext.Provider>

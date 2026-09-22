@@ -1,54 +1,63 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
 export const LoginScreen: React.FC = () => {
-  const { loginWithGoogle, enterDemoMode, loginWithEmail } = useAuth();
+  const { enterDemoMode, loginWithEmail, registerWithEmail } = useAuth();
 
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Form State
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
 
-  const handleGoogleClick = async () => {
-    try {
-      setIsGoogleLoading(true);
-      await loginWithGoogle();
-    } catch (e: any) {
-      toast.error(e?.message || 'Ошибка входа через Google');
-    } finally {
-      setIsGoogleLoading(false);
+  // Helper to format short login (e.g. "alex") into internal format
+  const formatLoginToEmail = (loginInput: string) => {
+    const trimmed = loginInput.trim().toLowerCase();
+    if (trimmed.includes('@')) {
+      return trimmed;
     }
+    // If user enters plain username like "alex", convert internally to "alex@family.local"
+    return `${trimmed}@family.local`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const cleanUsername = username.trim();
+
+    if (!cleanUsername || !password) {
       toast.error('Пожалуйста, введите логин и пароль');
       return;
     }
 
+    if (password.length < 6) {
+      toast.error('Пароль должен содержать минимум 6 символов');
+      return;
+    }
+
+    const formattedLogin = formatLoginToEmail(cleanUsername);
+
     setIsLoading(true);
     try {
-      await loginWithEmail(email, password);
+      if (mode === 'login') {
+        await loginWithEmail(formattedLogin, password);
+      } else {
+        await registerWithEmail(formattedLogin, password);
+        toast.success('Аккаунт успешно создан!');
+      }
     } catch (err: any) {
-      toast.error(err?.message || 'Ошибка входа');
+      if (mode === 'register' && err?.code === 'auth/email-already-in-use') {
+        toast.error('Логин уже занят, выберите другой');
+      } else {
+        toast.error(err?.message || (mode === 'login' ? 'Неверный логин или пароль' : 'Ошибка регистрации'));
+      }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleForgotPassword = () => {
-    if (!email) {
-      toast.info('Введите ваш Email в поле ввода выше, чтобы получить инструкцию по сбросу пароля');
-    } else {
-      toast.success(`Ссылка для сброса пароля отправлена на ${email}`);
     }
   };
 
@@ -81,27 +90,55 @@ export const LoginScreen: React.FC = () => {
               Семейный Бюджет
             </h1>
             <p className="text-xs font-semibold tracking-wide text-[#6b776d] mt-1.5 flex items-center gap-1.5">
-              <span>Авторизация</span>
+              <span>{mode === 'login' ? 'Авторизация' : 'Регистрация'}</span>
               <span className="w-1 h-1 rounded-full bg-[#9ba79e]"></span>
-              <span>Семейное пространство</span>
+              <span>Вход по логину и паролю</span>
             </p>
           </header>
 
-          {/* Форма входа */}
-          <form onSubmit={handleSubmit} className="mt-6 space-y-3.5 relative z-10">
-            {/* Поле Email */}
+          {/* Табы режима: Вход / Создать аккаунт */}
+          <div className="mt-5 p-1 bg-[#ece7df] rounded-xl flex items-center text-xs font-semibold text-[#6b776d] relative">
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className={`flex-1 py-2 rounded-lg text-center transition-all duration-200 cursor-pointer ${
+                mode === 'login'
+                  ? 'bg-white text-[#1c241f] shadow-xs font-bold'
+                  : 'hover:text-[#1c241f] font-semibold'
+              }`}
+            >
+              Вход
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className={`flex-1 py-2 rounded-lg text-center transition-all duration-200 cursor-pointer ${
+                mode === 'register'
+                  ? 'bg-white text-[#1c241f] shadow-xs font-bold'
+                  : 'hover:text-[#1c241f] font-semibold'
+              }`}
+            >
+              Регистрация
+            </button>
+          </div>
+
+          {/* Форма */}
+          <form onSubmit={handleSubmit} className="mt-5 space-y-3.5 relative z-10">
+            {/* Поле Логин */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#354037] ml-1">Логин или Email</label>
+              <label className="block text-xs font-bold text-[#354037] ml-1">
+                {mode === 'login' ? 'Логин' : 'Придумайте логин'}
+              </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#78857a]">
-                  <Mail size={16} />
+                  <User size={16} />
                 </span>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="family@example.com"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="например: alexander или family1"
                   className="w-full pl-10 pr-4 py-2.5 bg-[#f5f2eb] border border-[#e4ded3] rounded-xl text-sm placeholder-[#9ba59d] text-[#1c241f] focus:bg-white focus:border-[#3e6b48] focus:ring-3 focus:ring-[#3e6b48]/15 focus:outline-none transition-all"
                 />
               </div>
@@ -109,16 +146,9 @@ export const LoginScreen: React.FC = () => {
 
             {/* Поле Пароль */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between ml-1">
-                <label className="text-xs font-bold text-[#354037]">Пароль</label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-xs font-semibold text-[#4a7c59] hover:text-[#33593c] hover:underline transition-colors cursor-pointer"
-                >
-                  Забыли пароль?
-                </button>
-              </div>
+              <label className="block text-xs font-bold text-[#354037] ml-1">
+                {mode === 'login' ? 'Пароль' : 'Придумайте пароль'}
+              </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#78857a]">
                   <Lock size={16} />
@@ -126,6 +156,7 @@ export const LoginScreen: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={6}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••••••"
@@ -143,63 +174,30 @@ export const LoginScreen: React.FC = () => {
             </div>
 
             {/* Чекбокс Запомнить меня */}
-            <div className="flex items-center justify-between pt-0.5">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#cbcfc7] text-[#3e6b48] focus:ring-[#3e6b48] focus:ring-offset-0 transition-colors"
-                />
-                <span className="text-xs text-[#525e55] font-medium">Запомнить меня на этом устройстве</span>
-              </label>
-            </div>
+            {mode === 'login' && (
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#cbcfc7] text-[#3e6b48] focus:ring-[#3e6b48] focus:ring-offset-0 transition-colors"
+                  />
+                  <span className="text-xs text-[#525e55] font-medium">Запомнить меня на этом устройстве</span>
+                </label>
+              </div>
+            )}
 
-            {/* Кнопка Войти */}
+            {/* Кнопка действия */}
             <button
               type="submit"
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading}
               className="w-full mt-2 py-3 px-4 bg-[#3e6b48] hover:bg-[#33593c] active:scale-[0.99] text-white font-bold rounded-xl shadow-[0_10px_24px_-6px_rgba(62,107,72,0.38)] transition-all duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-60 cursor-pointer"
             >
-              <span>{isLoading ? 'Загрузка...' : 'Войти'}</span>
+              <span>{isLoading ? 'Загрузка...' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</span>
               <ArrowRight size={16} />
             </button>
           </form>
-
-          {/* Альтернативные варианты входа */}
-          <div className="mt-5">
-            <div className="relative flex items-center justify-center my-4">
-              <div className="border-t border-[#e2dcd1] w-full"></div>
-              <span className="bg-[#faf7f2] px-3 text-[11px] font-bold uppercase tracking-wider text-[#9ba59d] absolute">
-                или
-              </span>
-            </div>
-
-            {/* Кнопка Google */}
-            <button
-              type="button"
-              disabled={isGoogleLoading || isLoading}
-              onClick={handleGoogleClick}
-              className="w-full py-2.5 px-4 bg-white hover:bg-[#f5f1ea] border border-[#ded7cb] text-[#2c332e] font-semibold rounded-xl shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 text-sm active:scale-[0.99] cursor-pointer disabled:opacity-60"
-            >
-              {isGoogleLoading ? (
-                <span className="flex items-center gap-2 text-[#3e6b48]">
-                  <div className="w-4 h-4 border-2 border-[#3e6b48] border-t-transparent rounded-full animate-spin" />
-                  Подключение к Google...
-                </span>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
-                  </svg>
-                  <span>Войти через Google</span>
-                </>
-              )}
-            </button>
-          </div>
 
           {/* Локальный демо-режим */}
           <footer className="mt-5 pt-4 border-t border-[#ece7df] flex flex-col items-center text-center space-y-3">
@@ -208,11 +206,11 @@ export const LoginScreen: React.FC = () => {
               onClick={enterDemoMode}
               className="inline-flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-[#4a584d] hover:text-[#3e6b48] transition-colors py-1.5 px-3 rounded-lg hover:bg-[#ece7df]/70 cursor-pointer"
             >
-              <User size={15} className="text-[#78857a]" />
+              <UserPlus size={14} className="text-[#78857a]" />
               <span>Локальный демо-режим</span>
             </button>
             <p className="text-[11px] leading-relaxed text-[#7c887e] max-w-[290px]">
-              Ваши данные в безопасности и синхронизируются в реальном времени через защищённое облако
+              Ваши данные в безопасности и сохраняются в защищенной базе данных
             </p>
           </footer>
         </motion.div>

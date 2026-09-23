@@ -4,10 +4,10 @@ import {
   Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, 
   Loader2, Camera, Edit2, Barcode, ScanLine, AlertCircle, 
   Coffee, Tv, Zap, Briefcase, Gift, CreditCard, Sparkles, 
-  Check, ChevronLeft, Search, Grid, List, Copy, Sun, Moon, 
+  Check, ChevronLeft, ChevronRight, Search, Grid, List, Copy, Sun, Moon, 
   ShieldCheck, Smartphone, Wifi, Tag, Store, HeartHandshake,
   CheckCircle2, AlertTriangle, Upload, Eye, ShoppingCart, 
-  Activity, Dumbbell, Baby, Pill
+  Activity, Dumbbell, Baby, Pill, Layers, ArrowUp, ArrowDown, Folder
 } from 'lucide-react';
 import { LoyaltyCard } from '../types';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -73,6 +73,20 @@ export const getCardIcon = (iconName?: string) => {
     case 'ShoppingBag':
     default:
       return <ShoppingBag className="w-6 h-6" />;
+  }
+};
+
+export const getCategoryIcon = (catId: string) => {
+  switch (catId) {
+    case 'groceries': return <ShoppingCart className="w-4 h-4 text-[#4A7C59]" />;
+    case 'sport': return <Dumbbell className="w-4 h-4 text-[#2A9D8F]" />;
+    case 'pharma': return <Pill className="w-4 h-4 text-[#4A7C59]" />;
+    case 'kids': return <Baby className="w-4 h-4 text-[#F4A261]" />;
+    case 'cafe': return <Coffee className="w-4 h-4 text-[#A2845E]" />;
+    case 'auto': return <Car className="w-4 h-4 text-[#457B9D]" />;
+    case 'other':
+    default:
+      return <CreditCard className="w-4 h-4 text-[#E07A5F]" />;
   }
 };
 
@@ -184,9 +198,9 @@ const DEFAULT_SAMPLE_CARDS: LoyaltyCard[] = [
     color: '#277848',
     icon: 'ShoppingCart',
     category: 'groceries',
-    subtitle: 'Выручай-карта • Семья',
+    subtitle: 'Карта Выручайка • Семья',
     discount: '5% кэшбэк',
-    balance: '450 баллов (~45 ₽)',
+    balance: '450 ₽ скидки',
     barcodeFormat: 'ean13'
   },
   {
@@ -198,7 +212,7 @@ const DEFAULT_SAMPLE_CARDS: LoyaltyCard[] = [
     category: 'sport',
     subtitle: 'Клубная карта Синяя',
     discount: 'Скидка 10%',
-    balance: '1 200 бонусов (до 15 ноя)',
+    balance: '1 200 ₽ (до 15 ноя)',
     barcodeFormat: 'code128'
   },
   {
@@ -210,7 +224,7 @@ const DEFAULT_SAMPLE_CARDS: LoyaltyCard[] = [
     category: 'groceries',
     subtitle: 'Семейная программа',
     discount: 'Уровень 2',
-    balance: '180 бонусов',
+    balance: 'Скидка 5%',
     barcodeFormat: 'ean13'
   },
   {
@@ -244,9 +258,9 @@ const DEFAULT_SAMPLE_CARDS: LoyaltyCard[] = [
     color: '#ea580c',
     icon: 'Baby',
     category: 'kids',
-    subtitle: 'Бонусная карта родителя',
-    discount: 'Бонусы ×2',
-    balance: '640 бонусов',
+    subtitle: 'Семейная карта родителя',
+    discount: 'Скидка ×2',
+    balance: '640 ₽ скидки',
     barcodeFormat: 'code128'
   }
 ];
@@ -255,6 +269,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const amount = direction === 'left' ? -220 : 220;
+      categoryScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
 
   // Modals state
   const [activeBarcodeCard, setActiveBarcodeCard] = useState<LoyaltyCard | null>(null);
@@ -323,7 +345,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       barcodeFormat: 'code128',
       subtitle: '',
       discount: 'Активна',
-      balance: '0 баллов'
+      balance: 'Активна'
     });
     setFormName('');
     setFormCategory('groceries');
@@ -333,7 +355,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     setFormFormat('code128');
     setFormSubtitle('');
     setFormDiscount('Активна');
-    setFormBalance('0 баллов');
+    setFormBalance('Активна');
   };
 
   const handleOpenEditModal = (card: LoyaltyCard) => {
@@ -368,7 +390,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       barcodeFormat: formFormat,
       subtitle: formSubtitle.trim() || 'Карта лояльности',
       discount: formDiscount.trim() || 'Активна',
-      balance: formBalance.trim() || '0 бонусов'
+      balance: formBalance.trim() || 'Активна'
     };
 
     if (editingCard?.id) {
@@ -429,7 +451,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               Мои карты
             </h1>
             <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 hidden sm:inline-block">
-              Скидочные и бонусные карты семьи
+              Скидочные и накопительные карты семьи
             </span>
           </div>
         </div>
@@ -446,31 +468,55 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
       {/* 2. Filter Bar & View Toggle */}
       <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-4 sm:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
           
-          {/* Category Badges Ribbon */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar max-w-full">
-            {CATEGORIES.map(cat => {
-              const count = categoryCounts[cat.id] || 0;
-              const isActive = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                    isActive
-                      ? 'bg-[#4a7c59] text-white shadow-xs'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-700'
-                  }`}
-                >
-                  <span>{cat.name}</span>
-                  <span className={`text-[11px] ${isActive ? 'opacity-90' : 'text-stone-400'}`}>
-                    ({count})
-                  </span>
-                </button>
-              );
-            })}
+          {/* Category Badges Horizontal Ribbon with Scroll Buttons */}
+          <div className="relative flex items-center min-w-0 flex-1">
+            <button 
+              type="button"
+              onClick={() => scrollCategories('left')}
+              className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs flex items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer mr-1.5 z-10"
+              title="Прокрутить влево"
+            >
+              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            <div 
+              ref={categoryScrollRef}
+              className="flex items-center gap-2 overflow-x-auto py-1 scroll-smooth no-scrollbar flex-1 min-w-0"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {CATEGORIES.map(cat => {
+                const count = categoryCounts[cat.id] || 0;
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                      isActive
+                        ? 'bg-[#4a7c59] text-white shadow-xs'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-700'
+                    }`}
+                  >
+                    <span>{cat.name}</span>
+                    <span className={`text-[11px] ${isActive ? 'opacity-90' : 'text-stone-400'}`}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => scrollCategories('right')}
+              className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs flex items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer ml-1.5 z-10"
+              title="Прокрутить вправо"
+            >
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </button>
           </div>
 
           {/* Search Input & Grid/List switcher */}
@@ -1250,7 +1296,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1">
-                    Скидка / Бонус
+                    Скидка / Статус
                   </label>
                   <input 
                     type="text"
@@ -1269,7 +1315,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                     type="text"
                     value={formBalance}
                     onChange={(e) => setFormBalance(e.target.value)}
-                    placeholder="450 баллов"
+                    placeholder="450 ₽ или Скидка 10%"
                     className="w-full h-10 px-3.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
                   />
                 </div>

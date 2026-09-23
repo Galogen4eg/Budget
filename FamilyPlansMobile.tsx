@@ -487,7 +487,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <div className={`rounded-[36px] p-7 shadow-2xl border ${isDarkMode ? 'bg-[#1A1A1C] border-white/5' : 'bg-white border-black/[0.03]'}`}>
               <div className="flex items-center justify-between mb-8 px-1">
                 <h2 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  {currentDate.toLocaleString('ru', { month: 'long', year: 'numeric' })}
+                  {currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '')}
                 </h2>
                 <div className="flex gap-2">
                   <button onClick={() => changeMonth(-1)} className={`p-2.5 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-white/5 text-white' : 'hover:bg-gray-100 text-gray-600'}`}><ChevronLeft size={20}/></button>

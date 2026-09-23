@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
+import { toast } from 'sonner';
+import { triggerHaptic } from '../utils/haptics';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -339,6 +341,89 @@ export const EventModal: React.FC<EventModalProps> = ({
                     <ArrowRight size={14} />
                   </span>
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* 1.5 Выбор из сохраненного шаблона */}
+          {templates && templates.length > 0 && (
+            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs space-y-3">
+              <div 
+                onClick={() => setShowTemplates(!showTemplates)}
+                className="flex items-center justify-between cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center font-bold text-xs shrink-0">
+                    <Sparkles size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
+                      <span>Шаблоны событий</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300 text-[10px] font-extrabold">
+                        {templates.length}
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-stone-500 dark:text-gray-400 font-medium mt-0.5">
+                      Заполнить название, участников и продолжительность из шаблона
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-1 shrink-0">
+                  <span>{showTemplates ? 'Свернуть' : 'Выбрать шаблон'}</span>
+                  {showTemplates ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </span>
+              </div>
+
+              {showTemplates && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#ECE6DE] dark:border-white/10 animate-in fade-in duration-200">
+                  {templates.map(tmpl => {
+                    const tmplMembers = members.filter(m => (tmpl.memberIds || []).includes(m.id));
+                    return (
+                      <button
+                        key={tmpl.id}
+                        type="button"
+                        onClick={() => {
+                          setTitle(tmpl.title);
+                          if (tmpl.memberIds && tmpl.memberIds.length > 0) {
+                            setMIds(tmpl.memberIds);
+                          }
+                          if (tmpl.duration) {
+                            setDur(tmpl.duration);
+                          }
+                          if (tmpl.description) {
+                            setDesc(tmpl.description);
+                          }
+                          if (tmpl.checklist && tmpl.checklist.length > 0) {
+                            setChecklist(tmpl.checklist);
+                          }
+                          triggerHaptic('light');
+                          toast.success(`Шаблон «${tmpl.title}» применён`);
+                        }}
+                        className="p-3 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] hover:bg-[#EAF2EC] dark:hover:bg-primary/20 border border-[#ECE6DE] dark:border-white/10 text-left transition flex flex-col justify-between gap-2 group cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-bold text-xs text-stone-900 dark:text-white group-hover:text-[#4A7C59] dark:group-hover:text-green-400 transition-colors line-clamp-1">
+                            {tmpl.title}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-gray-300 shrink-0">
+                            {tmpl.duration || 1} ч
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1 truncate max-w-[170px]">
+                            <Users size={12} className="shrink-0 text-[#4A7C59]" />
+                            <span className="truncate">
+                              {tmplMembers.length > 0 ? tmplMembers.map(m => m.name).join(', ') : 'Все члены семьи'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400 group-hover:underline shrink-0">
+                            Применить →
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}

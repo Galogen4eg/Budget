@@ -45,7 +45,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'schedule'>('month');
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
 
-  const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
   const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
 
   const getLocalDateString = (date: Date) => {

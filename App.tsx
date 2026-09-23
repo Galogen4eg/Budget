@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -684,10 +684,10 @@ export default function App() {
       {activeTab !== 'overview' && (
         <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-surface-border dark:border-white/5 px-4 py-3 pt-safe flex justify-between items-center shrink-0">
            <div className="text-xl font-headline font-black tracking-tighter text-graphite dark:text-white flex items-center gap-2">
-             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white text-xs shadow-sm shadow-[#4A7C59]/20">
-               С+
+             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-sm shadow-[#4A7C59]/20">
+               <Globe className="w-4.5 h-4.5 text-white stroke-[2.2]" />
              </div>
-             <span className="text-sm font-headline font-bold">Семья+</span>
+             <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
            </div>
            <div className="flex gap-2">
                <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-primary"><Bot size={18} /></button>
@@ -708,16 +708,16 @@ export default function App() {
                 className="flex items-center gap-3 cursor-pointer group text-left"
                 title={isSidebarExpanded ? "Свернуть меню" : "Развернуть меню"}
               >
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white text-lg shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 group-hover:scale-105 transition-transform">
-                  С+
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 group-hover:scale-105 transition-transform">
+                  <Globe className="w-5 h-5 text-white stroke-[2.2]" />
                 </div>
                 {isSidebarExpanded && (
                   <div className="flex flex-col">
-                    <span className="text-sm font-headline font-bold tracking-tight text-graphite dark:text-white flex items-center gap-1.5">
-                      Семья+
+                    <span className="text-base font-headline font-black tracking-tight text-graphite dark:text-white flex items-center gap-1.5">
+                      Terra
                       <span className="w-2 h-2 rounded-full bg-primary"></span>
                     </span>
-                    <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-medium">Уютный дом</span>
+                    <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-medium">Семейный бюджет</span>
                   </div>
                 )}
               </button>
@@ -731,7 +731,10 @@ export default function App() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setIsSidebarExpanded(false);
+                    }}
                     title={tab.label}
                     className={`w-full flex items-center ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 

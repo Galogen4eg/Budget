@@ -84,7 +84,7 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
 
   const getPeriodLabel = () => {
     if (periodFilter === 'week') return 'Текущая неделя';
-    if (periodFilter === 'month') return currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    if (periodFilter === 'month') return currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
     if (periodFilter === 'quarter') {
       const qNum = Math.floor(currentMonth.getMonth() / 3) + 1;
       return `${qNum}-й квартал ${currentMonth.getFullYear()}`;

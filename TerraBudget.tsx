@@ -204,7 +204,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const daysArray = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
 
   // Month label
-  const monthTitle = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).toUpperCase();
+  const monthTitle = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '').toUpperCase();
 
   return (
     <div className="flex flex-col gap-5 pb-12">
@@ -287,16 +287,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {onOpenTrainModal && (
-            <button 
-              onClick={onOpenTrainModal}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-graphite dark:text-white bg-white dark:bg-[#1C1C1E] hover:bg-[#F3EFE7] dark:hover:bg-[#2C2C2E] border border-surface-border dark:border-white/10 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-              type="button"
-            >
-              <BrainCircuit size={15} className="text-purple-600" />
-              <span>Обучить</span>
-            </button>
-          )}
+          {/* Temporarily hidden 'Обучить' button per user request */}
 
           {onImportClick && (
             <button 
@@ -779,7 +770,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {cat.label}
                         </span>
                         <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-semibold tabular-nums">
-                          {settings.privacyMode ? '•••' : `${cat.sum.toLocaleString('ru-RU')} ₽`} 
+                          {settings.privacyMode ? '•••' : `${Math.round(cat.sum).toLocaleString('ru-RU')} ₽`} 
                           <span className="text-primary dark:text-green-400 font-bold ml-1">({roundedPct}%)</span>
                         </span>
                       </div>

@@ -65,7 +65,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   
   // Russian Month Label (e.g. "Май 2025")
   const currentMonthName = useMemo(() => {
-    const raw = now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+    const raw = now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [now]);
 

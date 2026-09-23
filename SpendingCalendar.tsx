@@ -92,7 +92,7 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
          
          <div className="flex flex-col items-center">
              <span className="text-sm md:text-base font-headline font-bold text-graphite dark:text-white capitalize tracking-tight">
-                 {currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                 {currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '')}
              </span>
              {selectedDate && (
                  <button 

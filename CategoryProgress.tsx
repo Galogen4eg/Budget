@@ -55,7 +55,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
 
     // Get all transactions for parent + children
     const familyTransactions = expenses.filter(t => familyIds.includes(t.category));
-    const totalValue = familyTransactions.reduce((acc, t) => acc + t.amount, 0);
+    const totalValue = Math.round(familyTransactions.reduce((acc, t) => acc + t.amount, 0));
     
     // Group by merchant OR subcategory label
     const merchants = familyTransactions.reduce((acc, t) => {
@@ -65,11 +65,12 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
           name = txCat.label;
       }
 
+      const roundedAmount = Math.round(t.amount);
       const existing = acc.find(m => m.name === name);
       if (existing) {
-        existing.value += t.amount;
+        existing.value += roundedAmount;
       } else {
-        acc.push({ name, value: t.amount, brandKey: getMerchantBrandKey(name) });
+        acc.push({ name, value: roundedAmount, brandKey: getMerchantBrandKey(name) });
       }
       return acc;
     }, [] as { name: string; value: number; brandKey?: string }[])
@@ -84,7 +85,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
   .filter(cat => cat.totalValue > 0)
   .sort((a, b) => b.totalValue - a.totalValue);
 
-  const totalExpense = categoryData.reduce((acc, item) => acc + item.totalValue, 0);
+  const totalExpense = Math.round(categoryData.reduce((acc, item) => acc + item.totalValue, 0));
 
   if (categoryData.length === 0) {
     return (

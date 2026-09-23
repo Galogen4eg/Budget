@@ -53,9 +53,9 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
       return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
     });
 
-    const income = dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    const net = income - expense;
+    const income = Math.round(dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
+    const expense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
+    const net = Math.round(income - expense);
 
     return {
       income,
@@ -66,12 +66,12 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
   };
 
   const formatCompact = (val: number) => {
-    const abs = Math.abs(val);
+    const abs = Math.round(Math.abs(val));
     if (abs >= 1000000) {
-      return `${(abs / 1000000).toFixed(1).replace('.0', '')}M`;
+      return `${Math.round(abs / 1000000)}M`;
     }
     if (abs >= 1000) {
-      return `${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1).replace('.0', '')}k`;
+      return `${Math.round(abs / 1000)}k`;
     }
     return `${abs}`;
   };

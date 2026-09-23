@@ -11,6 +11,7 @@ interface BudgetMobileProps {
   members: FamilyMember[];
   onEdit: (tx: Transaction) => void;
   privacyMode: boolean;
+  onCategoryChange?: (txId: string, newCategoryId: string) => void;
 }
 
 const itemVariants = {
@@ -23,7 +24,7 @@ const itemVariants = {
  * Implements the Terra design system matching the user screenshot.
  */
 const BudgetMobile: React.FC<BudgetMobileProps> = ({ 
-  transactions, categories, members, onEdit, privacyMode 
+  transactions, categories, members, onEdit, privacyMode, onCategoryChange 
 }) => {
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
@@ -118,8 +119,24 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                                   <span className="font-bold text-sm text-graphite dark:text-white truncate">
                                                       {displayTitle}
                                                   </span>
-                                                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-graphite-muted dark:text-gray-400">
-                                                      {category?.label && <span>{category.label}</span>}
+                                                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-graphite-muted dark:text-gray-400 flex-wrap">
+                                                      {onCategoryChange ? (
+                                                          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                              <select
+                                                                  value={tx.category}
+                                                                  onChange={(e) => onCategoryChange(tx.id, e.target.value)}
+                                                                  className="bg-[#F5F1EA] dark:bg-[#353538] hover:bg-[#EBE6DC] dark:hover:bg-[#404044] text-graphite dark:text-white px-2 py-0.5 rounded-lg text-xs font-bold border border-surface-border/60 dark:border-white/10 outline-none cursor-pointer transition-colors shadow-xs"
+                                                              >
+                                                                  {categories.map(c => (
+                                                                      <option key={c.id} value={c.id} className="bg-white dark:bg-[#1C1C1E] text-graphite dark:text-white">
+                                                                          {c.label}
+                                                                      </option>
+                                                                  ))}
+                                                              </select>
+                                                          </div>
+                                                      ) : (
+                                                          category?.label && <span>{category.label}</span>
+                                                      )}
                                                       {category?.label && member && <span className="opacity-40">•</span>}
                                                       {member && (
                                                           <div className="flex items-center gap-1">

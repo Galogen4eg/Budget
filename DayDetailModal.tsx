@@ -42,9 +42,9 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
            d.getFullYear() === date.getFullYear();
   });
 
-  const income = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const expense = dayTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  const net = income - expense;
+  const income = Math.round(dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
+  const expense = Math.round(dayTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
+  const net = Math.round(income - expense);
 
   const dayNumber = date.getDate();
   const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

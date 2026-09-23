@@ -23,6 +23,7 @@ interface TerraOverviewProps {
   onEditTransaction: (tx: Transaction) => void;
   onNavigateTab: (tabId: string) => void;
   onDrillDown: (categoryId: string) => void;
+  onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
 }
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
@@ -31,7 +32,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onOpenSettings,
   onEditTransaction,
   onNavigateTab,
-  onDrillDown
+  onDrillDown,
+  onEditMandatoryExpense
 }) => {
   const { 
     transactions, 
@@ -1287,6 +1289,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           }}
           onTogglePaid={handleToggleMandatoryPaid}
           onPayExpenses={handlePayMandatoryExpenses}
+          onEditExpense={onEditMandatoryExpense}
           privacyMode={settings.privacyMode}
           currency="₽"
         />

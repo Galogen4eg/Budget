@@ -27,6 +27,8 @@ interface TerraBudgetProps {
   onImportClick?: () => void;
   onToggleMandatoryPaid?: (expenseId: string) => void;
   onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => void;
+  onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
+  onSelectCategory?: (categoryId: string) => void;
 }
 
 /**
@@ -47,7 +49,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onOpenTrainModal,
   onImportClick,
   onToggleMandatoryPaid,
-  onQuickAddTransaction
+  onQuickAddTransaction,
+  onEditMandatoryExpense,
+  onSelectCategory
 }) => {
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
@@ -86,14 +90,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Income, Expense, Balance calculations
   const monthIncome = useMemo(() => {
-    return monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    return Math.round(monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
   }, [monthTransactions]);
 
   const monthExpense = useMemo(() => {
-    return monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    return Math.round(monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
   }, [monthTransactions]);
 
-  const monthBalance = monthIncome - monthExpense;
+  const monthBalance = Math.round(monthIncome - monthExpense);
 
   // Remaining days in month calculation
   const totalDaysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
@@ -107,19 +111,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Today's spend
   const todaySpent = useMemo(() => {
-    return monthTransactions.filter(t => {
+    return Math.round(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === currentDayNum && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0);
+    }).reduce((sum, t) => sum + t.amount, 0));
   }, [monthTransactions, currentDayNum]);
 
   // Yesterday's spend
   const yesterdaySpent = useMemo(() => {
     if (currentDayNum <= 1) return 0;
-    return monthTransactions.filter(t => {
+    return Math.round(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0);
+    }).reduce((sum, t) => sum + t.amount, 0));
   }, [monthTransactions, currentDayNum]);
 
   const todayReserve = safeDailyLimit - todaySpent;
@@ -140,7 +144,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const selectedDayNet = useMemo(() => {
     const inc = selectedDayTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const exp = selectedDayTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    return inc - exp;
+    return Math.round(inc - exp);
   }, [selectedDayTransactions]);
 
   // Category donut chart computation
@@ -199,11 +203,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Month label
   const monthTitle = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).toUpperCase();
-
-  // Status badge label
-  const statusBadgeText = selectedMember === 'all' 
-    ? 'Показаны траты: Вся семья (общий бюджет)' 
-    : `Показаны траты: ${members.find(m => m.id === selectedMember)?.name || 'Участник'}`;
 
   return (
     <div className="flex flex-col gap-5 pb-12">
@@ -281,10 +280,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 );
               })}
             </div>
-
-            <span className="hidden xl:inline-flex items-center gap-1 text-[10px] font-semibold text-primary dark:text-green-400 bg-primary-light dark:bg-green-950/30 border border-primary-border/60 dark:border-green-800/40 px-2 py-1 rounded-lg">
-              {statusBadgeText}
-            </span>
           </div>
         </div>
 
@@ -505,25 +500,31 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {/* Day cells */}
               {daysArray.map(dayNum => {
                 const dayTxs = monthTransactions.filter(t => new Date(t.date).getDate() === dayNum);
-                const dayExpense = dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-                const dayIncome = dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-                const dayNet = dayIncome - dayExpense;
+                const dayExpense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
+                const dayIncome = Math.round(dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
+                const dayNet = Math.round(dayIncome - dayExpense);
                 const hasTransactions = dayTxs.length > 0;
 
-                // Mandatory payment on this day
-                const dayMandatory = mandatoryExpenses.find(e => e.day === dayNum);
+                // Mandatory payment on this day - only mark after fact of payment
+                const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
+                const paidMandatory = mandatoryExpenses.find(e => {
+                  if (e.day !== dayNum) return false;
+                  return manuallyPaidIds.includes(e.id) || 
+                    monthTransactions.some(t => t.type === 'expense' && (t.linkedExpenseId === e.id || (e.keywords && e.keywords.some(k => t.note.toLowerCase().includes(k.toLowerCase())))));
+                });
 
                 const isSelected = selectedDay === dayNum;
                 const isCurrentToday = isCurrentMonthView && today.getDate() === dayNum;
 
-                // Format number with compact 'k' suffix if needed
+                // Format number with compact integer suffix (strictly no kopecks or decimal fractions)
                 const formatDayAmount = (val: number) => {
-                  const absVal = Math.abs(val);
+                  const absVal = Math.round(Math.abs(val));
                   if (absVal >= 1000000) {
-                    return `${(absVal / 1000000).toFixed(1).replace('.0', '')}M`;
+                    return `${Math.round(absVal / 1000000)}M`;
                   }
                   if (absVal >= 1000) {
-                    return `${(absVal / 1000).toFixed(absVal >= 10000 ? 0 : 1).replace('.0', '')}k`;
+                    return `${Math.round(absVal / 1000)}k`;
                   }
                   return `${absVal}`;
                 };
@@ -553,8 +554,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1">
-                        {dayMandatory && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#C4A66A]" title={`Обязательный платеж: ${dayMandatory.name}`} />
+                        {paidMandatory && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#C4A66A]" title={`Оплаченный обязательный платеж: ${paidMandatory.name}`} />
                         )}
                         {dayIncome > 0 && (
                           <span className="w-1.5 h-1.5 rounded-full bg-primary" title="Доход" />
@@ -580,9 +581,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {settings.privacyMode ? '•••' : '0 ₽'}
                         </div>
                       )
-                    ) : dayMandatory ? (
+                    ) : paidMandatory ? (
                       <div className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
-                        {settings.privacyMode ? '•••' : `${formatDayAmount(dayMandatory.amount)} ₽`}
+                        {settings.privacyMode ? '•••' : `${formatDayAmount(paidMandatory.amount)} ₽`}
                       </div>
                     ) : null}
                   </div>
@@ -735,7 +736,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
-                    Категории и лимиты
+                    Категории расходов
                   </h3>
                   <p className="text-[10px] text-graphite-muted dark:text-gray-400">
                     {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽ израсходовано`}
@@ -748,30 +749,36 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 className="text-[10px] font-bold text-primary dark:text-green-400 hover:underline cursor-pointer flex items-center gap-1"
                 type="button"
               >
-                Настроить
+                Подробнее
               </button>
             </div>
 
             {/* Category Bars */}
-            <div className="space-y-2 mt-2">
+            <div className="space-y-1 mt-2">
               {categoryBreakdown.length === 0 ? (
                 <div className="text-center py-4 text-xs text-graphite-muted dark:text-gray-500 italic">
                   Пока нет расходов для отображения
                 </div>
               ) : (
-                categoryBreakdown.slice(0, 4).map(cat => {
-                  const limit = cat.id === 'food' ? 25000 : cat.id === 'transport' ? 5000 : 10000;
-                  const pct = Math.min(100, Math.round((cat.sum / limit) * 100));
+                categoryBreakdown.slice(0, 6).map(cat => {
+                  const pct = monthExpense > 0 ? (cat.sum / monthExpense) * 100 : 0;
+                  const roundedPct = Math.round(pct);
 
                   return (
-                    <div key={cat.id} className="space-y-1">
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => onSelectCategory?.(cat.id)}
+                      className="w-full text-left space-y-1.5 p-2 -mx-2 rounded-xl hover:bg-[#FAF8F5] dark:hover:bg-[#252528] transition cursor-pointer group"
+                    >
                       <div className="flex justify-between text-xs">
-                        <span className="font-bold text-graphite dark:text-white">
+                        <span className="font-bold text-graphite dark:text-white group-hover:text-primary dark:group-hover:text-green-400 transition-colors flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                           {cat.label}
                         </span>
                         <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-semibold tabular-nums">
-                          {cat.sum.toLocaleString('ru-RU')} / {limit.toLocaleString('ru-RU')} ₽ 
-                          <span className="text-primary dark:text-green-400 font-bold ml-1">({pct}%)</span>
+                          {settings.privacyMode ? '•••' : `${cat.sum.toLocaleString('ru-RU')} ₽`} 
+                          <span className="text-primary dark:text-green-400 font-bold ml-1">({roundedPct}%)</span>
                         </span>
                       </div>
                       <div className="w-full bg-[#EAE6DE] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
@@ -780,7 +787,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           style={{ width: `${pct}%`, backgroundColor: cat.color }}
                         />
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -833,7 +840,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   return (
                     <div 
                       key={expense.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl border border-surface-border dark:border-white/5 hover:border-primary/40 bg-[#FAF9F6] dark:bg-[#252528] transition"
+                      onClick={() => onEditMandatoryExpense?.(expense)}
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-surface-border dark:border-white/5 hover:border-primary/40 bg-[#FAF9F6] dark:bg-[#252528] transition cursor-pointer group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 text-graphite-muted dark:text-gray-400 font-bold text-xs flex items-center justify-center shrink-0">
@@ -862,7 +870,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         </span>
                         {onToggleMandatoryPaid && (
                           <button 
-                            onClick={() => onToggleMandatoryPaid(expense.id)}
+                            onClick={(e) => { e.stopPropagation(); onToggleMandatoryPaid(expense.id); }}
                             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-xs cursor-pointer transition-all active:scale-95 ${
                               isPaid 
                                 ? 'text-emerald-800 bg-emerald-100 border border-emerald-300 dark:bg-green-950/40 dark:text-green-400' 
@@ -945,6 +953,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         transactions={transactions}
         currentMonth={currentMonth}
         settings={settings}
+        onSelectCategory={onSelectCategory}
       />
 
       <DayDetailModal 

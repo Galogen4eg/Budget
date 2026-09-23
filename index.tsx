@@ -67,6 +67,19 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+// Suppress background non-fatal Firestore internal assertion rejections in iframe/sandbox preview
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason && (
+      String(event.reason?.message || event.reason).includes('FIRESTORE') ||
+      String(event.reason?.message || event.reason).includes('INTERNAL ASSERTION FAILED')
+    )) {
+      console.warn("Handled background Firestore assertion:", event.reason);
+      event.preventDefault();
+    }
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

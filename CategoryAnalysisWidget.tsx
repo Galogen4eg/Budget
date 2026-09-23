@@ -22,9 +22,9 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                d.getFullYear() === currentMonth.getFullYear();
     });
 
-    const total = expenses.reduce((acc, t) => acc + Number(t.amount), 0);
+    const total = Math.round(expenses.reduce((acc, t) => acc + Number(t.amount), 0));
     const grouped = expenses.reduce((acc, t) => {
-        const amt = Number(t.amount);
+        const amt = Math.round(Number(t.amount));
         const cat = categories.find(c => c.id === t.category);
         const effectiveCatId = cat?.parentId || t.category;
         acc[effectiveCatId] = (acc[effectiveCatId] || 0) + amt;
@@ -34,7 +34,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
     const sorted = Object.entries(grouped)
         .map(([catId, amount]) => {
             const cat = categories.find(c => c.id === catId);
-            const numAmount = Number(amount);
+            const numAmount = Math.round(Number(amount));
             return {
                 id: catId,
                 label: cat?.label || 'Другое',

@@ -35,7 +35,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 const GoalModal = React.lazy(() => import('./components/GoalModal'));
 const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExpenseModal'));
-const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
+import DrillDownModal from './components/DrillDownModal';
 const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'));
 const AIChatModal = React.lazy(() => import('./components/AIChatModal'));
 
@@ -750,6 +750,10 @@ export default function App() {
                         onEditTransaction={handleEditTransaction}
                         onNavigateTab={(tabId) => setActiveTab(tabId)}
                         onDrillDown={(catId) => setDrillDownState({ categoryId: catId })}
+                        onEditMandatoryExpense={(expense) => {
+                            setSelectedMandatoryExpense(expense);
+                            setIsMandatoryModalOpen(true);
+                        }}
                     />
                 </motion.div>
             )}
@@ -769,6 +773,11 @@ export default function App() {
                         onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
                         onImportClick={() => document.getElementById('import-input')?.click()}
                         onToggleMandatoryPaid={handleToggleMandatoryPaid}
+                        onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
+                        onEditMandatoryExpense={(expense) => {
+                            setSelectedMandatoryExpense(expense);
+                            setIsMandatoryModalOpen(true);
+                        }}
                         onQuickAddTransaction={(title, amount, date, memberId) => {
                             const dateStr = date.toISOString().split('T')[0];
                             handleTransactionSubmit({
@@ -815,7 +824,7 @@ export default function App() {
       </nav>
 
       <Suspense fallback={null}>
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
             {isAddModalOpen && <AddTransactionModal key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { 
                 // Optimistic delete
                 setTransactions(prev => prev.filter(t => t.id !== id));
@@ -907,6 +916,7 @@ export default function App() {
                 }} 
                 onUpdateAll={(items) => setImportPreview(items)} 
                 onLearnRule={handleLearnRule} 
+                learnedRules={learnedRules}
                 onAddCategory={() => {}} 
                 members={members} 
               />

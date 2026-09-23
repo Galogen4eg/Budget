@@ -1,13 +1,18 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Check, X, FileText, ArrowDownRight, ArrowUpRight, 
   ChevronDown, Plus, Trash2, Search, 
-  AlertCircle, Tag, CheckCheck, Filter, Lightbulb, AlertTriangle, Bus, ShoppingCart, HeartPulse
+  AlertCircle, Tag, CheckCheck, Lightbulb, AlertTriangle, Bus, ShoppingCart, HeartPulse,
+  Calendar, User, Edit3, Sparkles
 } from 'lucide-react';
 import { Transaction, AppSettings, LearnedRule, Category, FamilyMember } from '../types';
 import { getIconById } from '../constants';
 import { useClickAway } from 'react-use';
 import { RippleButton } from './RippleButton';
+import AddTransactionModal from './AddTransactionModal';
+import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
+import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
+import { toast } from 'sonner';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -25,6 +30,7 @@ interface ImportModalProps {
   onUpdateItem: (index: number, updates: Partial<Transaction>) => void;
   onUpdateAll: (items: Omit<Transaction, 'id'>[]) => void;
   onLearnRule: (rule: LearnedRule) => void;
+  learnedRules?: LearnedRule[];
   categories: Category[];
   onAddCategory: (category: Category) => void;
   members: FamilyMember[];
@@ -65,10 +71,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   settings, 
   onUpdateAll, 
   onLearnRule, 
+  learnedRules = [],
   categories, 
   onAddCategory, 
   members 
 }) => {
+  const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   // Локальный список операций с уникальными стабильными ключами
   const [items, setItems] = useState<ImportItem[]>(() => {
     return preview.map((p, idx) => ({
@@ -89,7 +97,162 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтры и поиск
   const [filterTab, setFilterTab] = useState<'all' | 'unrecognized' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [onlyAttention, setOnlyAttention] = useState(false);
+
+  // Сортировка категорий по алфавиту
+  const sortedCategories = useMemo(() => {
+    return [...categories]
+      .filter(c => c.id !== 'other')
+      .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }));
+  }, [categories]);
+
+  // Модальное окно редактирования отдельной операции
+  const [editingItem, setEditingItem] = useState<ImportItem | null>(null);
+  const [editForm, setEditForm] = useState<{
+    amount: string;
+    type: 'expense' | 'income';
+    note: string;
+    rawNote: string;
+    category: string;
+    memberId: string;
+    date: string;
+    rememberRule: boolean;
+  }>({
+    amount: '',
+    type: 'expense',
+    note: '',
+    rawNote: '',
+    category: 'other',
+    memberId: '',
+    date: '',
+    rememberRule: false,
+  });
+
+  const handleOpenEditModal = (item: ImportItem) => {
+    setEditingItem(item);
+    const d = new Date(item.date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateFormatted = !isNaN(d.getTime()) ? `${year}-${month}-${day}` : new Date().toISOString().split('T')[0];
+
+    setEditForm({
+      amount: item.amount.toString(),
+      type: item.type,
+      note: item.note || '',
+      rawNote: item.rawNote || '',
+      category: item.category || 'other',
+      memberId: item.memberId || (members[0]?.id || ''),
+      date: dateFormatted,
+      rememberRule: !!item.rememberRule,
+    });
+  };
+
+  // Подсветка вспышкой для авто-распознанных карточек
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+
+  const triggerHighlight = (tempIds: string[]) => {
+    if (tempIds.length === 0) return;
+    setHighlightedIds(prev => new Set([...prev, ...tempIds]));
+    setTimeout(() => {
+      setHighlightedIds(prev => {
+        const next = new Set(prev);
+        tempIds.forEach(id => next.delete(id));
+        return next;
+      });
+    }, 3500);
+  };
+
+  /**
+   * Автоматически применяет автоправило к остальным нераспознанным операциям выписки
+   */
+  const applyRuleToUnassigned = (
+    itemList: ImportItem[],
+    newRule?: LearnedRule,
+    excludeTempId?: string
+  ): { updatedList: ImportItem[]; matchedCount: number; matchedIds: string[] } => {
+    const rulesToApply = newRule ? [newRule, ...learnedRules] : learnedRules;
+    if (rulesToApply.length === 0) return { updatedList: itemList, matchedCount: 0, matchedIds: [] };
+
+    let matchedCount = 0;
+    const matchedIds: string[] = [];
+    const updatedList = itemList.map(item => {
+      // Сканируем только нераспознанные операции
+      if (item.tempId !== excludeTempId && (item.category === 'other' || !item.category)) {
+        const raw = (item.rawNote || item.note || '').toLowerCase();
+        const cleanRaw = extractCleanRuleKeyword(item.rawNote, item.note).toLowerCase();
+
+        for (const rule of rulesToApply) {
+          if (!rule.keyword) continue;
+          const kwLower = rule.keyword.toLowerCase().trim();
+          if (!kwLower) continue;
+
+          if (raw.includes(kwLower) || cleanRaw.includes(kwLower) || (cleanRaw.length >= 3 && kwLower.includes(cleanRaw))) {
+            matchedCount++;
+            matchedIds.push(item.tempId);
+            return {
+              ...item,
+              category: rule.categoryId,
+              note: rule.cleanName || item.note,
+              isVerified: true
+            };
+          }
+        }
+      }
+      return item;
+    });
+
+    if (matchedIds.length > 0) {
+      triggerHighlight(matchedIds);
+    }
+
+    return { updatedList, matchedCount, matchedIds };
+  };
+
+  const handleSaveEditModal = () => {
+    if (!editingItem) return;
+    const numAmount = Math.abs(parseFloat(editForm.amount.replace(',', '.'))) || 0;
+    const updated: ImportItem = {
+      ...editingItem,
+      amount: numAmount,
+      type: editForm.type,
+      note: editForm.note.trim() || 'Операция',
+      rawNote: editForm.rawNote,
+      category: editForm.category,
+      memberId: editForm.memberId,
+      date: editForm.date,
+      rememberRule: editForm.rememberRule,
+      isVerified: true
+    };
+
+    let newItems = items.map(i => i.tempId === editingItem.tempId ? updated : i);
+
+    if (editForm.rememberRule && editForm.category && editForm.category !== 'other' && editForm.rawNote) {
+      const keyword = extractCleanRuleKeyword(editForm.rawNote, editForm.note);
+      const newRule: LearnedRule = {
+        id: Date.now().toString(),
+        keyword,
+        cleanName: editForm.note,
+        categoryId: editForm.category
+      };
+      onLearnRule(newRule);
+
+      const { updatedList, matchedCount } = applyRuleToUnassigned(newItems, newRule, editingItem.tempId);
+      newItems = updatedList;
+      if (matchedCount > 0) {
+        toast.success(`Автоправило «${keyword}» дополнительно распознало еще ${matchedCount} операций!`);
+      }
+    }
+
+    syncToParent(newItems);
+    setEditingItem(null);
+  };
+
+  const handleDeleteFromEditModal = () => {
+    if (!editingItem) return;
+    const newItems = items.filter(i => i.tempId !== editingItem.tempId);
+    syncToParent(newItems);
+    setEditingItem(null);
+  };
 
   // Выпадающее меню категорий для конкретной карточки
   const [activeCategoryDropdown, setActiveCategoryDropdown] = useState<string | null>(null);
@@ -136,27 +299,22 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     let updated = items.map(i => i.tempId === tempId ? { ...i, category: catId, isVerified: true } : i);
 
     if (item && item.rawNote) {
-      let keyword = item.rawNote.trim();
-      if (/\s\d{4,}$/.test(keyword)) {
-        keyword = keyword.replace(/\s\d+$/, '').trim();
-      }
+      const keyword = extractCleanRuleKeyword(item.rawNote, item.note);
       if (keyword.length > 2) {
-        onLearnRule({
+        const newRule: LearnedRule = {
           id: Date.now().toString(),
           keyword,
           cleanName: item.note,
           categoryId: catId
-        });
+        };
+        onLearnRule(newRule);
 
         // Применяем правило ко всем подходящим операциям текущей выписки
-        const kwLower = keyword.toLowerCase();
-        updated = updated.map(other => {
-          const raw = (other.rawNote || other.note || '').toLowerCase();
-          if (raw.includes(kwLower) && (other.category === 'other' || !other.category)) {
-            return { ...other, category: catId };
-          }
-          return other;
-        });
+        const { updatedList, matchedCount } = applyRuleToUnassigned(updated, newRule, tempId);
+        updated = updatedList;
+        if (matchedCount > 0) {
+          toast.success(`Автоправило «${keyword}» дополнительно распознало еще ${matchedCount} операций!`);
+        }
       }
     }
 
@@ -203,15 +361,23 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     if (!item) return;
 
     const newRemember = !item.rememberRule;
-    const updated = items.map(i => i.tempId === tempId ? { ...i, rememberRule: newRemember } : i);
+    let updated = items.map(i => i.tempId === tempId ? { ...i, rememberRule: newRemember } : i);
     
     if (newRemember && item.category && item.category !== 'other' && item.rawNote) {
-      onLearnRule({
+      const keyword = extractCleanRuleKeyword(item.rawNote, item.note);
+      const newRule: LearnedRule = {
         id: Date.now().toString(),
-        keyword: item.rawNote.trim(),
+        keyword,
         cleanName: item.note,
         categoryId: item.category
-      });
+      };
+      onLearnRule(newRule);
+
+      const { updatedList, matchedCount } = applyRuleToUnassigned(updated, newRule, tempId);
+      updated = updatedList;
+      if (matchedCount > 0) {
+        toast.success(`Автоправило «${keyword}» дополнительно распознало еще ${matchedCount} операций!`);
+      }
     }
 
     syncToParent(updated);
@@ -236,7 +402,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       if (item.rememberRule && item.category && item.category !== 'other' && item.rawNote) {
         onLearnRule({
           id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-          keyword: item.rawNote.trim(),
+          keyword: extractCleanRuleKeyword(item.rawNote, item.note),
           cleanName: item.note,
           categoryId: item.category
         });
@@ -277,7 +443,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       if (filterTab === 'unrecognized' && item.category !== 'other' && item.category) return false;
       if (filterTab === 'income' && item.type !== 'income') return false;
       if (filterTab === 'expense' && item.type !== 'expense') return false;
-      if (onlyAttention && item.category !== 'other' && item.isVerified) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -290,7 +455,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
       return true;
     });
-  }, [items, filterTab, onlyAttention, searchQuery]);
+  }, [items, filterTab, searchQuery]);
 
   return (
     <div className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 transition-all duration-300 select-none">
@@ -453,9 +618,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </RippleButton>
             </div>
 
-            {/* Поиск и переключатель "Только требующие внимания" */}
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex-1 md:w-64">
+            {/* Поиск */}
+            <div className="flex items-center gap-2.5 flex-1 md:w-64">
+              <div className="relative w-full">
                 <Search size={14} className="text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
@@ -465,20 +630,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] transition-all"
                 />
               </div>
-
-              <button 
-                type="button"
-                onClick={() => setOnlyAttention(!onlyAttention)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors shrink-0 cursor-pointer ${
-                  onlyAttention 
-                    ? 'bg-[#E09F3E] text-white border-[#E09F3E]' 
-                    : 'border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:text-stone-900'
-                }`}
-              >
-                <Filter size={14} className={onlyAttention ? 'text-white' : 'text-[#E09F3E]'} />
-                <span className="hidden sm:inline">Только требующие внимания</span>
-                <span className="sm:hidden">Внимание</span>
-              </button>
             </div>
 
           </div>
@@ -487,6 +638,34 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
         {/* СПИСОК ОПЕРАЦИЙ */}
         <div className="overflow-y-auto px-6 sm:px-8 py-4 space-y-2.5 flex-1 bg-[#FAF8F5] dark:bg-[#18181A]">
+          {unassignedCount > 0 && (
+            <div className="bg-gradient-to-r from-[#FEF7EC] to-[#FAF6EE] dark:from-[#282118] dark:to-[#1C1C1E] border-2 border-[#E09F3E]/60 dark:border-amber-900/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#E09F3E] text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+                  <Sparkles size={20} className="animate-pulse" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                    <span>Найдено {unassignedCount} нераспознанных операций</span>
+                    <span className="text-[10px] bg-[#E09F3E]/20 text-[#B87008] dark:text-amber-300 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                      Требует разбора
+                    </span>
+                  </div>
+                  <div className="text-xs text-stone-500 dark:text-gray-400 mt-0.5">
+                    Анализатор определит категории, покажет обоснование и сохранит правила для будущих выписок.
+                  </div>
+                </div>
+              </div>
+              <RippleButton
+                onClick={() => setIsAnalyzerOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold shadow-md transition cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Sparkles size={16} />
+                <span>Запустить анализатор ({unassignedCount})</span>
+              </RippleButton>
+            </div>
+          )}
+
           {filteredItems.length === 0 ? (
             <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-10 text-center border border-[#EBE4DC] dark:border-white/10 space-y-2">
               <p className="text-sm font-bold text-stone-700 dark:text-gray-300">Операций по выбранным фильтрам не найдено</p>
@@ -505,13 +684,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 ? itemDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
                 : item.date;
 
+              const isHighlighted = highlightedIds.has(item.tempId);
+
               return (
                 <div 
                   key={item.tempId}
-                  className={`rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                    isUnrecognized 
-                      ? 'bg-[#FFFDF7] dark:bg-[#241F18] border-2 border-[#E09F3E]/45 shadow-[0_2px_12px_rgba(224,159,62,0.08)] hover:border-[#E09F3E]' 
-                      : 'bg-white dark:bg-[#1C1C1E] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
+                  onClick={() => handleOpenEditModal(item)}
+                  className={`rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
+                    isHighlighted
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
+                      : isUnrecognized 
+                        ? 'bg-[#FFFDF7] dark:bg-[#241F18] border-2 border-[#E09F3E]/45 shadow-[0_2px_12px_rgba(224,159,62,0.08)] hover:border-[#E09F3E]' 
+                        : 'bg-white dark:bg-[#1C1C1E] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
                   }`}
                 >
                   {/* Левая часть: Иконка, Заголовок, МСС, Описание, Дата и Правило */}
@@ -527,8 +711,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         <span className="font-bold text-stone-900 dark:text-white text-sm">
                           {item.note || category?.label || 'Банковская операция'}
                         </span>
-                        
-                        {isUnrecognized ? (
+
+                        {isHighlighted ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold shadow-sm animate-bounce">
+                            <Sparkles size={13} className="text-emerald-200" />
+                            Авто-распознано правилом!
+                          </span>
+                        ) : isUnrecognized ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF7EC] dark:bg-amber-950/60 text-[#B87008] dark:text-amber-300 text-[11px] font-bold border border-[#F3D5A5]/60">
                             <Lightbulb size={12} className="text-[#E09F3E]" />
                             Не определено автоматически
@@ -574,7 +763,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     <div className="relative">
                       <button 
                         type="button"
-                        onClick={() => setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId);
+                        }}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer ${
                           isUnrecognized 
                             ? 'bg-[#E09F3E] text-white hover:bg-[#C98A2F]' 
@@ -589,6 +781,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       {isDropdownOpen && (
                         <div 
                           ref={dropdownRef}
+                          onClick={(e) => e.stopPropagation()}
                           className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl border border-stone-200 dark:border-white/10 p-2.5 z-50 space-y-2"
                         >
                           {creatingCategoryFor === item.tempId ? (
@@ -638,7 +831,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                               </button>
 
                               <div className="max-h-52 overflow-y-auto no-scrollbar grid grid-cols-1 gap-1 pt-1">
-                                {categories.filter(c => c.id !== 'other').map(cat => (
+                                {sortedCategories.map(cat => (
                                   <button 
                                     key={cat.id}
                                     type="button"
@@ -754,7 +947,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     ref={batchDropdownRef}
                     className="absolute right-0 bottom-full mb-2 w-56 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl border border-stone-200 dark:border-white/10 p-2 z-50 max-h-52 overflow-y-auto no-scrollbar grid grid-cols-1 gap-1"
                   >
-                    {categories.filter(c => c.id !== 'other').map(cat => (
+                    {sortedCategories.map(cat => (
                       <button 
                         key={cat.id}
                         type="button"
@@ -794,6 +987,132 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </footer>
 
       </div>
+
+      {/* МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ОПЕРАЦИИ ИМПОРТА */}
+      {editingItem && (
+        <AddTransactionModal
+          initialTransaction={{
+            id: editingItem.tempId,
+            amount: editingItem.amount,
+            type: editingItem.type,
+            category: editingItem.category || 'other',
+            memberId: editingItem.memberId || members[0]?.id || '',
+            note: editingItem.note || '',
+            rawNote: editingItem.rawNote || '',
+            date: editingItem.date,
+            userId: editingItem.userId,
+            linkedExpenseId: editingItem.linkedExpenseId
+          }}
+          onClose={() => setEditingItem(null)}
+          onSubmit={async (updatedTx) => {
+            const updated: ImportItem = {
+              ...editingItem,
+              amount: updatedTx.amount,
+              type: updatedTx.type,
+              note: updatedTx.note || 'Операция',
+              rawNote: updatedTx.rawNote || editingItem.rawNote,
+              category: updatedTx.category,
+              memberId: updatedTx.memberId,
+              date: updatedTx.date,
+              linkedExpenseId: updatedTx.linkedExpenseId,
+              isVerified: true
+            };
+            const newItems = items.map(i => i.tempId === editingItem.tempId ? updated : i);
+            syncToParent(newItems);
+            setEditingItem(null);
+          }}
+          onDelete={async () => {
+            handleDeleteFromEditModal();
+          }}
+          onLearnRule={onLearnRule}
+          settings={settings}
+          members={members}
+          categories={categories}
+          transactions={[]}
+        />
+      )}
+
+      {/* АНАЛИЗАТОР НЕРАСПОЗНАННЫХ ОПЕРАЦИЙ */}
+      <UnrecognizedAnalyzerModal
+        isOpen={isAnalyzerOpen}
+        onClose={() => setIsAnalyzerOpen(false)}
+        items={items.map(i => ({
+          id: i.tempId,
+          note: i.note,
+          rawNote: i.rawNote,
+          amount: i.amount,
+          type: i.type,
+          date: i.date,
+          mcc: i.mcc,
+          category: i.category,
+          accountMask: i.accountMask
+        }))}
+        categories={categories}
+        learnedRules={learnedRules}
+        onAddCategory={onAddCategory}
+        onEditItem={(analyzerItem) => {
+          const matched = items.find(i => i.tempId === analyzerItem.id);
+          if (matched) {
+            setEditingItem(matched);
+          }
+        }}
+        onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {
+          if (ruleToLearn) {
+            onLearnRule(ruleToLearn);
+          }
+          let updated = items.map(i => {
+            if (i.tempId === itemId) {
+              return { 
+                ...i, 
+                category: catId, 
+                note: ruleToLearn?.cleanName || i.note,
+                isVerified: true 
+              };
+            }
+            return i;
+          });
+          
+          if (ruleToLearn && ruleToLearn.keyword) {
+            const { updatedList, matchedCount } = applyRuleToUnassigned(updated, ruleToLearn, itemId);
+            updated = updatedList;
+            if (matchedCount > 0) {
+              toast.success(`Автоправило «${ruleToLearn.keyword}» дополнительно распознало еще ${matchedCount} операций!`);
+            }
+          }
+          syncToParent(updated);
+        }}
+        onApplyAllSuggestions={(results) => {
+          let updated = [...items];
+          let totalAutoMatched = 0;
+          results.forEach(({ itemId, categoryId, ruleToLearn }) => {
+            if (ruleToLearn) {
+              onLearnRule(ruleToLearn);
+            }
+            updated = updated.map(i => {
+              if (i.tempId === itemId) {
+                return { 
+                  ...i, 
+                  category: categoryId, 
+                  note: ruleToLearn?.cleanName || i.note,
+                  isVerified: true 
+                };
+              }
+              return i;
+            });
+
+            if (ruleToLearn) {
+              const { updatedList, matchedCount } = applyRuleToUnassigned(updated, ruleToLearn, itemId);
+              updated = updatedList;
+              totalAutoMatched += matchedCount;
+            }
+          });
+
+          if (totalAutoMatched > 0) {
+            toast.success(`Автоправила дополнительно распознали еще ${totalAutoMatched} неразобранных операций!`);
+          }
+          syncToParent(updated);
+        }}
+      />
     </div>
   );
 };

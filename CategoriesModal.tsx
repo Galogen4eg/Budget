@@ -16,6 +16,7 @@ interface CategoriesModalProps {
   settings: AppSettings;
   onSaveCategoryLimit?: (categoryId: string, limit: number) => void;
   onAddCategory?: () => void;
+  onSelectCategory?: (categoryId: string) => void;
 }
 
 /**
@@ -29,40 +30,67 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
   transactions,
   currentMonth,
   settings,
+  onSelectCategory,
 }) => {
-  const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({
-    food: true,
-    transport: true
-  });
+  const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
+  const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
 
   if (!isOpen) return null;
 
-  // Filter expenses for current month
-  const monthExpenses = transactions.filter(t => {
+  // Filter expenses based on periodFilter relative to currentMonth / reference date
+  const filteredExpenses = transactions.filter(t => {
     if (t.type !== 'expense') return false;
-    const d = new Date(t.date);
-    return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+    const tDate = new Date(t.date);
+
+    if (periodFilter === 'week') {
+      const ref = new Date(currentMonth);
+      const day = ref.getDay();
+      const diffToMon = ref.getDate() - day + (day === 0 ? -6 : 1);
+      const mon = new Date(ref.setDate(diffToMon));
+      mon.setHours(0, 0, 0, 0);
+      const sun = new Date(mon);
+      sun.setDate(sun.getDate() + 6);
+      sun.setHours(23, 59, 59, 999);
+      return tDate >= mon && tDate <= sun;
+    }
+
+    if (periodFilter === 'month') {
+      return tDate.getMonth() === currentMonth.getMonth() && tDate.getFullYear() === currentMonth.getFullYear();
+    }
+
+    if (periodFilter === 'quarter') {
+      const qStartMonth = Math.floor(currentMonth.getMonth() / 3) * 3;
+      const qStart = new Date(currentMonth.getFullYear(), qStartMonth, 1);
+      const qEnd = new Date(currentMonth.getFullYear(), qStartMonth + 3, 0, 23, 59, 59);
+      return tDate >= qStart && tDate <= qEnd;
+    }
+
+    if (periodFilter === 'year') {
+      return tDate.getFullYear() === currentMonth.getFullYear();
+    }
+
+    return true;
   });
 
   const parentCategories = categories.filter(c => !c.parentId);
 
   // Calculate stats
-  const totalSpent = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
-  const totalIncome = transactions
-    .filter(t => {
-      const d = new Date(t.date);
-      return t.type === 'income' && d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-    })
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const defaultLimit = totalIncome > 0 ? totalIncome : 50000;
-  const freeBalance = Math.max(0, defaultLimit - totalSpent);
+  const totalSpent = Math.round(filteredExpenses.reduce((sum, t) => sum + t.amount, 0));
 
   const toggleExpand = (catId: string) => {
     setExpandedCatIds(prev => ({ ...prev, [catId]: !prev[catId] }));
   };
 
-  const monthName = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const getPeriodLabel = () => {
+    if (periodFilter === 'week') return 'Текущая неделя';
+    if (periodFilter === 'month') return currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    if (periodFilter === 'quarter') {
+      const qNum = Math.floor(currentMonth.getMonth() / 3) + 1;
+      return `${qNum}-й квартал ${currentMonth.getFullYear()}`;
+    }
+    if (periodFilter === 'year') return `${currentMonth.getFullYear()} год`;
+    return '';
+  };
 
   return (
     <div 
@@ -81,10 +109,10 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
-                Категории и лимиты трат
+                Категории расходов
               </h3>
               <p className="text-xs text-graphite-muted dark:text-gray-400">
-                Управление иерархией расходов, лимитами и привязкой магазинов
+                Аналитика и структура расходов по категориям за месяц
               </p>
             </div>
           </div>
@@ -100,152 +128,252 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
           </div>
         </div>
 
-        {/* Progress summary banner */}
-        <div className="p-3 sm:px-5 bg-[#FAF6F0] dark:bg-[#1E1E20] border-b border-surface-border/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
+        {/* Progress summary banner with Period Selector */}
+        <div className="p-3 sm:px-5 bg-[#FAF6F0] dark:bg-[#1E1E20] border-b border-surface-border/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="text-graphite-muted dark:text-gray-400">
-              Общий бюджет: <b className="text-graphite dark:text-white">{defaultLimit.toLocaleString('ru-RU')} ₽</b>
+              Расходы: <b className="text-primary dark:text-green-400 font-extrabold">{settings.privacyMode ? '•••' : `${totalSpent.toLocaleString('ru-RU')} ₽`}</b>
             </span>
             <span className="text-graphite-muted opacity-40">•</span>
-            <span className="text-graphite-muted dark:text-gray-400">
-              Потрачено: <b className="text-primary dark:text-green-400">{totalSpent.toLocaleString('ru-RU')} ₽ ({Math.round((totalSpent / defaultLimit) * 100)}%)</b>
-            </span>
-            <span className="text-graphite-muted opacity-40">•</span>
-            <span className="text-graphite-muted dark:text-gray-400">
-              Остаток: <b className="text-[#4A7C59] dark:text-green-400">{freeBalance.toLocaleString('ru-RU')} ₽</b>
+            <span className="text-[11px] font-semibold text-graphite-muted dark:text-gray-400 bg-white dark:bg-white/5 border border-surface-border dark:border-white/10 px-2 py-0.5 rounded-lg capitalize">
+              {getPeriodLabel()}
             </span>
           </div>
-          <span className="text-[11px] font-semibold text-graphite-muted dark:text-gray-400 bg-white dark:bg-white/5 border border-surface-border dark:border-white/10 px-2 py-0.5 rounded-lg capitalize">
-            {monthName}
-          </span>
+
+          {/* Period Selector Buttons */}
+          <div className="flex items-center bg-[#EFE9DF] dark:bg-white/10 p-0.5 rounded-xl text-xs font-bold shadow-xs">
+            {(['week', 'month', 'quarter', 'year'] as const).map(p => {
+              const labels = {
+                week: 'Неделя',
+                month: 'Месяц',
+                quarter: 'Квартал',
+                year: 'Год'
+              };
+              const isActive = periodFilter === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriodFilter(p)}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[11px] ${
+                    isActive
+                      ? 'bg-white dark:bg-[#2A2A2D] text-graphite dark:text-white shadow-xs font-black'
+                      : 'text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  {labels[p]}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Categories Accordion List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 no-scrollbar">
-          {parentCategories.map(parentCat => {
-            const children = categories.filter(c => c.parentId === parentCat.id);
-            const familyIds = [parentCat.id, ...children.map(c => c.id)];
-            const catTransactions = monthExpenses.filter(t => familyIds.includes(t.category));
-            const catSpent = catTransactions.reduce((sum, t) => sum + t.amount, 0);
+          {(() => {
+            const categoryListWithStats = parentCategories.map(parentCat => {
+              const children = categories.filter(c => c.parentId === parentCat.id);
+              const familyIds = [parentCat.id, ...children.map(c => c.id)];
+              const catTransactions = filteredExpenses.filter(t => familyIds.includes(t.category));
+              const catSpent = Math.round(catTransactions.reduce((sum, t) => sum + t.amount, 0));
+              const percentage = totalSpent > 0 ? (catSpent / totalSpent) * 100 : 0;
 
-            // Mock or proportional category budget limit
-            const catLimit = parentCat.id === 'food' ? 25000 
-              : parentCat.id === 'transport' ? 5000 
-              : parentCat.id === 'mandatory' ? 35800 
-              : parentCat.id === 'home' ? 10000 
-              : 5000;
+              const merchantMap = catTransactions.reduce((acc, t) => {
+                const name = t.note || parentCat.label;
+                acc[name] = (acc[name] || 0) + Math.round(t.amount);
+                return acc;
+              }, {} as Record<string, number>);
 
-            const percentage = Math.min(100, Math.round((catSpent / catLimit) * 100));
-            const isExpanded = !!expandedCatIds[parentCat.id];
+              const merchantEntries = Object.entries(merchantMap).sort((a, b) => b[1] - a[1]);
 
-            // Subcategories / merchants
-            const merchantMap = catTransactions.reduce((acc, t) => {
-              const name = t.note || parentCat.label;
-              acc[name] = (acc[name] || 0) + t.amount;
-              return acc;
-            }, {} as Record<string, number>);
+              return {
+                parentCat,
+                children,
+                catSpent,
+                percentage,
+                merchantEntries
+              };
+            }).sort((a, b) => {
+              if (b.catSpent !== a.catSpent) {
+                return b.catSpent - a.catSpent;
+              }
+              return a.parentCat.label.localeCompare(b.parentCat.label, 'ru', { sensitivity: 'base' });
+            });
 
-            const merchantEntries = Object.entries(merchantMap).sort((a, b) => b[1] - a[1]);
+            return categoryListWithStats.map(({ parentCat, children, catSpent, percentage, merchantEntries }) => {
+              const isExpanded = !!expandedCatIds[parentCat.id];
 
-            return (
-              <div 
-                key={parentCat.id}
-                className="border border-surface-border dark:border-white/10 rounded-xl bg-white dark:bg-[#252528] shadow-sm overflow-hidden transition-all"
-              >
-                {/* Accordion Header */}
+              return (
                 <div 
-                  onClick={() => toggleExpand(parentCat.id)}
-                  className="p-3.5 flex flex-wrap items-center justify-between gap-3 cursor-pointer bg-[#FAF9F6] dark:bg-[#2A2A2D] hover:bg-[#F4EFEA] dark:hover:bg-[#323236] transition border-b border-surface-border/60 dark:border-white/5"
+                  key={parentCat.id}
+                  className="border border-surface-border dark:border-white/10 rounded-xl bg-white dark:bg-[#252528] shadow-sm overflow-hidden transition-all"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div 
-                      className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-xs shrink-0"
-                      style={{ backgroundColor: parentCat.color }}
-                    >
-                      {getIconById(parentCat.icon, 15)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-graphite dark:text-white">
-                          {parentCat.label}
-                        </h4>
-                        <span className="text-[10px] font-semibold text-graphite-muted dark:text-gray-400 bg-[#F5F1EA] dark:bg-white/5 px-1.5 py-0.5 rounded">
-                          {children.length > 0 ? `${children.length} подкат.` : `${merchantEntries.length} позиций`}
-                        </span>
+                  {/* Accordion Header */}
+                  <div 
+                    onClick={() => toggleExpand(parentCat.id)}
+                    className="p-3.5 flex flex-wrap items-center justify-between gap-3 cursor-pointer bg-[#FAF9F6] dark:bg-[#2A2A2D] hover:bg-[#F4EFEA] dark:hover:bg-[#323236] transition border-b border-surface-border/60 dark:border-white/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div 
+                        className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-xs shrink-0"
+                        style={{ backgroundColor: parentCat.color }}
+                      >
+                        {getIconById(parentCat.icon, 15)}
                       </div>
-                      <p className="text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
-                        Лимит: {catLimit.toLocaleString('ru-RU')} ₽ • Факт: {catSpent.toLocaleString('ru-RU')} ₽
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-graphite dark:text-white tabular-nums">
-                        {catSpent.toLocaleString('ru-RU')} / {catLimit.toLocaleString('ru-RU')} ₽ 
-                        <span className="text-primary dark:text-green-400 font-bold text-[10px] ml-1">
-                          ({percentage}%)
-                        </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-graphite dark:text-white">
+                            {parentCat.label}
+                          </h4>
+                          {onSelectCategory && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectCategory(parentCat.id);
+                                onClose();
+                              }}
+                              className="text-[10px] font-bold text-primary dark:text-green-400 hover:underline px-2 py-0.5 rounded bg-primary/10 dark:bg-green-500/10 cursor-pointer"
+                            >
+                              Карточка →
+                            </button>
+                          )}
+                          <span className="text-[10px] font-semibold text-graphite-muted dark:text-gray-400 bg-[#F5F1EA] dark:bg-white/5 px-1.5 py-0.5 rounded">
+                            {children.length > 0 ? `${children.length} подкат.` : `${merchantEntries.length} позиций`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                          Доля в расходах: {Math.round(percentage)}%
+                        </p>
                       </div>
-                      <div className="w-24 bg-[#EAE6DE] dark:bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
-                        <div 
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%`, backgroundColor: parentCat.color }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="text-graphite-muted dark:text-gray-400 transition-transform">
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subcategories list when expanded */}
-                {isExpanded && (
-                  <div className="p-3.5 pt-3 bg-white dark:bg-[#222225] space-y-2">
-                    <div className="text-[11px] font-bold text-graphite-muted dark:text-gray-400 uppercase tracking-wider mb-2">
-                      Подкатегории и торговые сети:
                     </div>
 
-                    {merchantEntries.length === 0 ? (
-                      <div className="text-xs text-graphite-muted dark:text-gray-500 py-1 italic">
-                        В этом месяце трат по категории ещё не было
-                      </div>
-                    ) : (
-                      merchantEntries.map(([name, sum], idx) => {
-                        const brandKey = getMerchantBrandKey(name);
-                        return (
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-graphite dark:text-white tabular-nums">
+                          {settings.privacyMode ? '•••' : `${catSpent.toLocaleString('ru-RU')} ₽`}
+                          <span className="text-primary dark:text-green-400 font-bold text-[10px] ml-1.5">
+                            ({Math.round(percentage)}%)
+                          </span>
+                        </div>
+                        <div className="w-24 bg-[#EAE6DE] dark:bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
                           <div 
-                            key={idx}
-                            className="flex items-center justify-between p-2 rounded-lg bg-[#FAF9F6] dark:bg-[#2A2A2D] border border-surface-border/70 dark:border-white/5 text-xs"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <BrandIcon name={name} brandKey={brandKey} category={parentCat} size="sm" />
-                              <span className="font-semibold text-graphite dark:text-white truncate">
-                                {name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-graphite dark:text-white tabular-nums">
-                                {sum.toLocaleString('ru-RU')} ₽
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%`, backgroundColor: parentCat.color }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="text-graphite-muted dark:text-gray-400 transition-transform">
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Subcategories & Merchants list when expanded */}
+                  {isExpanded && (
+                    <div className="p-3.5 pt-3 bg-white dark:bg-[#222225] space-y-3">
+                      {/* Explicit Child Subcategories list if defined */}
+                      {children.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-bold text-graphite-muted dark:text-gray-400 uppercase tracking-wider">
+                            Подкатегории:
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {children.map(childCat => {
+                              const childTxs = filteredExpenses.filter(t => t.category === childCat.id);
+                              const childSpent = Math.round(childTxs.reduce((sum, t) => sum + t.amount, 0));
+                              return (
+                                <button
+                                  key={childCat.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (onSelectCategory) {
+                                      onSelectCategory(childCat.id);
+                                      onClose();
+                                    }
+                                  }}
+                                  className="flex items-center justify-between p-2 rounded-xl bg-[#FAF9F6] dark:bg-[#2A2A2D] hover:bg-[#F0ECE1] dark:hover:bg-[#353538] border border-surface-border/70 dark:border-white/5 text-xs transition cursor-pointer text-left group"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div 
+                                      className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0"
+                                      style={{ backgroundColor: childCat.color || parentCat.color }}
+                                    >
+                                      {getIconById(childCat.icon, 12)}
+                                    </div>
+                                    <span className="font-bold text-graphite dark:text-white group-hover:text-primary dark:group-hover:text-green-400 truncate">
+                                      {childCat.label}
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-graphite dark:text-white tabular-nums shrink-0 ml-2">
+                                    {settings.privacyMode ? '•••' : `${childSpent.toLocaleString('ru-RU')} ₽`}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Merchants breakdown */}
+                      <div>
+                        <div className="text-[11px] font-bold text-graphite-muted dark:text-gray-400 uppercase tracking-wider mb-2">
+                          Торговые сети и заведения:
+                        </div>
+
+                        {merchantEntries.length === 0 ? (
+                          <div className="text-xs text-graphite-muted dark:text-gray-500 py-1 italic">
+                            В этом месяце трат по категории ещё не было
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {merchantEntries.map(([name, sum], idx) => {
+                              const brandKey = getMerchantBrandKey(name);
+                              return (
+                                <button 
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    if (onSelectCategory) {
+                                      onSelectCategory(parentCat.id);
+                                      onClose();
+                                    }
+                                  }}
+                                  className="w-full text-left flex items-center justify-between p-2 rounded-lg bg-[#FAF9F6] dark:bg-[#2A2A2D] hover:bg-[#F4EFEA] dark:hover:bg-[#353538] border border-surface-border/70 dark:border-white/5 text-xs transition cursor-pointer group"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <BrandIcon name={name} brandKey={brandKey} category={parentCat} size="sm" />
+                                    <span className="font-semibold text-graphite dark:text-white group-hover:text-primary dark:group-hover:text-green-400 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className="font-bold text-graphite dark:text-white tabular-nums">
+                                      {settings.privacyMode ? '•••' : `${sum.toLocaleString('ru-RU')} ₽`}
+                                    </span>
+                                    <span className="text-[10px] text-primary dark:text-green-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                      Открыть →
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {/* Modal Footer */}
         <div className="p-4 sm:px-5 border-t border-surface-border dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528] flex items-center justify-between gap-3">
           <div className="text-xs text-graphite-muted dark:text-gray-400 hidden sm:block">
-            Изменения лимитов автоматически учитываются при расчёте дневного темпа
+            Аналитика формируется на основе совершенных операций
           </div>
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
             <button 

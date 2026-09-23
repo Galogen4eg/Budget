@@ -2,10 +2,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { 
-  getFirestore, 
   initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+  memoryLocalCache 
 } from 'firebase/firestore';
 import { getMessaging } from 'firebase/messaging';
 
@@ -31,11 +29,9 @@ googleProvider.setCustomParameters({
     prompt: 'select_account'
 });
 
-// Initialize Firestore with persistent local cache (Offline support)
+// Initialize Firestore with memory local cache (Prevents IndexedDB assertion crashes in iframes/sandboxes)
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  }),
+  localCache: memoryLocalCache(),
   ignoreUndefinedProperties: true // CRITICAL: Allows saving objects with undefined fields without crashing
 });
 

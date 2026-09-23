@@ -34,6 +34,7 @@ export interface ReserveDetailsModalProps {
   onUpdateManualSavings?: (amount: number) => void;
   onTogglePaid?: (expenseId: string, isPaid: boolean) => void;
   onPayExpenses?: (expenseIds: string[]) => void;
+  onEditExpense?: (expense: MandatoryExpense) => void;
   privacyMode?: boolean;
   currency?: string;
 }
@@ -86,6 +87,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   onUpdateManualSavings,
   onTogglePaid,
   onPayExpenses,
+  onEditExpense,
   privacyMode = false,
   currency = '₽'
 }) => {
@@ -410,8 +412,23 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm font-bold text-stone-700 dark:text-stone-300 line-through decoration-emerald-500/60">
-                                {item.expense.name}
+                              <h4 className="text-sm font-bold text-stone-700 dark:text-stone-300 line-through decoration-emerald-500/60 flex items-center gap-1.5">
+                                <span>{item.expense.name}</span>
+                                {onEditExpense && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onEditExpense(item.expense);
+                                      onClose();
+                                    }}
+                                    title="Редактировать обязательный платеж"
+                                    className="p-1 rounded text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-white/10 transition"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                  </button>
+                                )}
                               </h4>
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40">
                                 Оплачено
@@ -459,8 +476,23 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                         />
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-stone-900 dark:text-white">
-                              {item.expense.name}
+                            <h4 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                              <span>{item.expense.name}</span>
+                              {onEditExpense && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onEditExpense(item.expense);
+                                    onClose();
+                                  }}
+                                  title="Редактировать обязательный платеж"
+                                  className="p-1 rounded text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-white/10 transition"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </button>
+                              )}
                             </h4>
                             
                             {/* Status Badge */}

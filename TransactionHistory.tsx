@@ -9,10 +9,10 @@ import { RippleButton } from './RippleButton';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
-  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+  setTransactions?: React.Dispatch<React.SetStateAction<Transaction[]>>;
   settings: AppSettings;
   members: FamilyMember[];
-  onLearnRule: (rule: LearnedRule) => void;
+  onLearnRule?: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   categories: Category[];
   filterMode?: 'day' | 'month';
@@ -43,11 +43,11 @@ const PERIOD_LABELS: Record<PeriodFilter, string> = {
 };
 
 const TransactionHistory: React.FC<TransactionHistoryProps> = ({ 
-    transactions, settings, members, categories, filterMode = 'month', 
+    transactions, setTransactions, settings, members, categories, filterMode = 'month', 
     onEditTransaction, initialSearch = '', selectedCategoryId, 
     selectedMerchantName, onClearFilters, onViewAll, 
     selectedDate, currentMonth, hideTitle = false,
-    hideFilters = false
+    hideFilters = false, onLearnRule, onApplyRuleToExisting, onAddCategory, hideActiveFilterBadge
 }) => {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -152,7 +152,18 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
     // 2. Category Filtering
     if (selectedCategoryId && selectedCategoryId !== 'all') {
-        result = result.filter(tx => tx.category === selectedCategoryId);
+        const targetCat = categories.find(c => c.id === selectedCategoryId);
+        if (targetCat) {
+            const childCats = categories.filter(c => c.parentId === targetCat.id);
+            if (childCats.length > 0) {
+                const familyIds = [targetCat.id, ...childCats.map(c => c.id)];
+                result = result.filter(tx => familyIds.includes(tx.category));
+            } else {
+                result = result.filter(tx => tx.category === selectedCategoryId);
+            }
+        } else {
+            result = result.filter(tx => tx.category === selectedCategoryId);
+        }
     }
     
     // 3. Merchant Name Filtering (Drill down)
@@ -199,6 +210,26 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 15);
   }, [searchedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate, isDesktop, typeFilter, periodFilter]);
+
+  const handleCategoryChange = (txId: string, newCategoryId: string) => {
+    if (!setTransactions) return;
+    setTransactions(prev => prev.map(t => {
+      if (t.id === txId) {
+        const updated = { ...t, category: newCategoryId };
+        const merchantKey = t.note || t.rawNote || '';
+        if (merchantKey && onLearnRule) {
+          onLearnRule({
+            id: 'rule-' + Date.now(),
+            pattern: merchantKey,
+            categoryId: newCategoryId,
+            exactMatch: false
+          });
+        }
+        return updated;
+      }
+      return t;
+    }));
+  };
 
   const FilterControls = (
       <div className="flex gap-2.5 mb-4 flex-wrap items-center relative z-[100]">
@@ -455,6 +486,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         onEdit={(tx) => onEditTransaction && onEditTransaction(tx)}
                         privacyMode={settings.privacyMode}
                         isModal={hideTitle} // Enable multi-column grid only in modal mode
+                        onCategoryChange={setTransactions ? handleCategoryChange : undefined}
                     />
                   )}
               </div>
@@ -512,6 +544,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         members={members}
                         onEdit={(tx) => onEditTransaction && onEditTransaction(tx)}
                         privacyMode={settings.privacyMode}
+                        onCategoryChange={setTransactions ? handleCategoryChange : undefined}
                     />
                   )}
                   

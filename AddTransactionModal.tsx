@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, X, Calendar, FileText, Repeat, ChevronRight, Check, Trash2, 
-  Sparkles, Link as LinkIcon, Plus, Send
+  Sparkles, Link as LinkIcon, Plus, Send, Search, RotateCcw
 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, Category, LearnedRule } from '../types';
 import { auth } from '../firebase';
 import { getIconById, MemberMarker } from '../constants';
+import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -39,10 +40,11 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule
+  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule, transactions = []
 }: AddTransactionModalProps) {
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'categories' | 'assignee' | 'monthly_binding'>('main');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
   
   // Form State
   const [amount, setAmount] = useState(() => initialTransaction ? initialTransaction.amount.toString() : '');
@@ -51,7 +53,10 @@ export default function AddTransactionModal({
   
   // AI Learning & Naming State
   const [isLearningEnabled, setIsLearningEnabled] = useState(false);
-  const [cleanKeyword, setCleanKeyword] = useState(() => initialTransaction ? (initialTransaction.rawNote || '') : ''); 
+  const [cleanKeyword, setCleanKeyword] = useState(() => {
+    if (!initialTransaction) return '';
+    return extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note);
+  }); 
   const [renamedTitle, setRenamedTitle] = useState(() => initialTransaction ? initialTransaction.note : ''); 
   
   // Selection State
@@ -84,6 +89,28 @@ export default function AddTransactionModal({
   const selectedMember = members.find(m => m.id === memberId) || members[0] || { id: 'default', name: 'Гена', color: '#4A7C59' };
   const boundExpense = settings.mandatoryExpenses?.find(e => e.id === boundExpenseId);
   const mandatoryExpenses = settings.mandatoryExpenses || [];
+
+  // History of keywords for quick suggestions
+  const popularKeywords = useMemo(() => {
+    const set = new Set<string>();
+
+    if (initialTransaction?.rawNote) {
+      const autoClean = extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note);
+      if (autoClean && autoClean.length >= 3) set.add(autoClean);
+    }
+
+    if (renamedTitle && renamedTitle.length >= 3 && renamedTitle !== selectedCategory.label) {
+      set.add(renamedTitle.trim());
+    }
+
+    (transactions || []).slice(0, 150).forEach(t => {
+      if (t.note && t.note.length >= 3 && !t.note.startsWith('Операция') && t.note !== 'Операция') {
+        set.add(t.note.trim());
+      }
+    });
+
+    return Array.from(set).slice(0, 6);
+  }, [transactions, initialTransaction, renamedTitle, selectedCategory.label]);
 
   // Adjust input width dynamically based on content
   useEffect(() => {
@@ -227,7 +254,7 @@ export default function AddTransactionModal({
         className="relative w-full max-w-3xl h-[88vh] sm:h-[620px] max-h-[92vh] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-surface-border dark:border-white/10 z-10"
         onClick={e => e.stopPropagation()}
       >
-        <AnimatePresence initial={false} mode="wait">
+        <AnimatePresence initial={false} mode="popLayout">
           {currentView === 'main' && (
             <motion.div 
               key="main"
@@ -373,7 +400,14 @@ export default function AddTransactionModal({
                         <input 
                           type="checkbox"
                           checked={isLearningEnabled}
-                          onChange={(e) => setIsLearningEnabled(e.target.checked)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsLearningEnabled(checked);
+                            if (checked && (!cleanKeyword.trim() || cleanKeyword === initialTransaction?.rawNote)) {
+                              const raw = initialTransaction?.rawNote || note || '';
+                              setCleanKeyword(extractCleanRuleKeyword(raw, renamedTitle || note));
+                            }
+                          }}
                           className="sr-only peer"
                         />
                         <div className="w-10 h-5 bg-[#EAE6DE] dark:bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
@@ -388,10 +422,34 @@ export default function AddTransactionModal({
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1">
-                            <label className="text-[10px] font-mono uppercase font-bold text-primary dark:text-green-400 block">
-                              КЛЮЧЕВОЕ СЛОВО (ДЛЯ АВТО-ПРАВИЛА)
-                            </label>
+                          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-mono uppercase font-bold text-primary dark:text-green-400 block">
+                                КЛЮЧЕВОЕ СЛОВО (ДЛЯ АВТО-ПРАВИЛА)
+                              </label>
+                              {initialTransaction?.rawNote && (
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCleanKeyword(extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note))}
+                                    className="text-primary dark:text-green-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    title="Восстановить авто-очищенное ключевое слово"
+                                  >
+                                    <RotateCcw size={10} />
+                                    <span>Очищенное</span>
+                                  </button>
+                                  <span className="text-stone-300 dark:text-gray-600">|</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCleanKeyword(initialTransaction.rawNote || '')}
+                                    className="text-graphite-muted dark:text-gray-400 font-bold hover:underline cursor-pointer"
+                                    title="Вставить полный оригинальный текст из банка"
+                                  >
+                                    <span>Оригинал</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <input 
                               type="text"
                               value={cleanKeyword}
@@ -399,6 +457,23 @@ export default function AddTransactionModal({
                               placeholder="Напр: Uber; Магнит; ВкусВилл..."
                               className="w-full bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-graphite dark:text-white outline-none focus:border-primary"
                             />
+
+                            {/* Suggestion chips from history */}
+                            {popularKeywords.length > 0 && (
+                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[9px] font-bold text-stone-400 dark:text-stone-500 uppercase">Из истории:</span>
+                                {popularKeywords.map((kw, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setCleanKeyword(kw)}
+                                    className="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 hover:bg-[#EAF2EC] dark:hover:bg-green-950/40 text-stone-700 dark:text-gray-300 hover:text-[#4A7C59] dark:hover:text-green-300 text-[10px] font-bold transition cursor-pointer"
+                                  >
+                                    {kw}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       )}
@@ -587,45 +662,127 @@ export default function AddTransactionModal({
               transition={{ type: 'spring', stiffness: 320, damping: 30 }}
               className="flex flex-col h-full bg-[#F8F6F2] dark:bg-[#121214]"
             >
-              <SubHeader title="Категория" onBack={() => setCurrentView('main')} />
+              <SubHeader title="Категория" onBack={() => { setCategorySearchQuery(''); setCurrentView('main'); }} />
+
+              {/* Search Field */}
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-graphite-muted dark:text-gray-400 pointer-events-none" />
+                  <input 
+                    type="text"
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    placeholder="Поиск категории..."
+                    className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl text-xs font-bold text-graphite dark:text-white placeholder:text-graphite-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                    autoFocus
+                  />
+                  {categorySearchQuery && (
+                    <button 
+                      type="button"
+                      onClick={() => setCategorySearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 no-scrollbar">
-                {categories.filter(c => !c.parentId).sort((a, b) => a.label.localeCompare(b.label)).map(parentCat => {
-                  const children = categories.filter(c => c.parentId === parentCat.id).sort((a, b) => a.label.localeCompare(b.label));
-                  const family = [parentCat, ...children];
+                {categorySearchQuery.trim() ? (
+                  (() => {
+                    const q = categorySearchQuery.toLowerCase().trim();
+                    const filtered = categories.filter(c => c.label.toLowerCase().includes(q)).sort((a, b) => a.label.localeCompare(b.label));
 
-                  return (
-                    <div key={parentCat.id} className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
-                      {family.map((cat) => {
-                        const isChild = cat.parentId === parentCat.id;
-                        const isSelected = categoryId === cat.id;
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-10 text-xs font-bold text-graphite-muted dark:text-gray-400">
+                          Категорий по запросу «{categorySearchQuery}» не найдено
+                        </div>
+                      );
+                    }
 
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => { setCategoryId(cat.id); setCurrentView('main'); }}
-                            className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors ${
-                              isChild ? 'pl-8 bg-[#FAF8F5]/50 dark:bg-[#1C1C1E]/50' : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 overflow-hidden">
-                              <div 
-                                className={`rounded-xl flex items-center justify-center text-white shadow-sm shrink-0 ${isChild ? 'w-7 h-7' : 'w-8 h-8'}`} 
-                                style={{ backgroundColor: cat.color || '#4A7C59' }}
-                              >
-                                {getIconById(cat.icon, isChild ? 14 : 16)}
+                    return (
+                      <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
+                        {filtered.map(cat => {
+                          const isSelected = categoryId === cat.id;
+                          const parentCat = cat.parentId ? categories.find(p => p.id === cat.parentId) : null;
+
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => { 
+                                setCategoryId(cat.id); 
+                                setCategorySearchQuery(''); 
+                                setCurrentView('main'); 
+                              }}
+                              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div 
+                                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0" 
+                                  style={{ backgroundColor: cat.color || '#4A7C59' }}
+                                >
+                                  {getIconById(cat.icon, 16)}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className={`text-sm block truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white font-medium'}`}>
+                                    {cat.label}
+                                  </span>
+                                  {parentCat && (
+                                    <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block">
+                                      в категории {parentCat.label}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              <span className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
-                                {cat.label}
-                              </span>
-                            </div>
-                            {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                              {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  categories.filter(c => !c.parentId).sort((a, b) => a.label.localeCompare(b.label)).map(parentCat => {
+                    const children = categories.filter(c => c.parentId === parentCat.id).sort((a, b) => a.label.localeCompare(b.label));
+                    const family = [parentCat, ...children];
+
+                    return (
+                      <div key={parentCat.id} className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
+                        {family.map((cat) => {
+                          const isChild = cat.parentId === parentCat.id;
+                          const isSelected = categoryId === cat.id;
+
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => { setCategoryId(cat.id); setCategorySearchQuery(''); setCurrentView('main'); }}
+                              className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors ${
+                                isChild ? 'pl-8 bg-[#FAF8F5]/50 dark:bg-[#1C1C1E]/50' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div 
+                                  className={`rounded-xl flex items-center justify-center text-white shadow-sm shrink-0 ${isChild ? 'w-7 h-7' : 'w-8 h-8'}`} 
+                                  style={{ backgroundColor: cat.color || '#4A7C59' }}
+                                >
+                                  {getIconById(cat.icon, isChild ? 14 : 16)}
+                                </div>
+                                <span className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
+                                  {cat.label}
+                                </span>
+                              </div>
+                              {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </motion.div>
           )}

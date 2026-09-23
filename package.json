@@ -10,6 +10,10 @@
     "preview": "vite preview",
     "cap:sync": "npx cap sync",
     "cap:android": "npx cap open android"
+    "allowScripts": {
+  "esbuild": true,
+  "protobufjs": true
+}
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -3,12 +3,11 @@ import { createPortal } from 'react-dom';
 import { 
   X, Trash2, Send, Sparkles, Check, Loader2, Plus, 
   Calendar as CalendarIcon, Clock, AlertTriangle, ArrowRight,
-  CheckCircle2, Bell, CheckSquare, Square, Users, MessageSquare, ChevronDown, ChevronUp
+  Bell, CheckSquare, Square
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
 import { toast } from 'sonner';
-import { triggerHaptic } from '../utils/haptics';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -66,11 +65,10 @@ export const EventModal: React.FC<EventModalProps> = ({
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showTelegramPreview, setShowTelegramPreview] = useState(true);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
 
-  // Вычисление времени окончания
+  // End time calculation
   const endTimeStr = useMemo(() => {
     const [h, m] = (time || '12:00').split(':').map(n => parseInt(n, 10) || 0);
     const durationHours = parseFloat(String(dur)) || 1;
@@ -80,14 +78,25 @@ export const EventModal: React.FC<EventModalProps> = ({
     return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
   }, [time, dur]);
 
-  // Форматирование даты
-  const dateFormatted = useMemo(() => {
+  // Formatted date string for badge: e.g. "чт, 24 сент. 2026 г."
+  const dateFormattedPill = useMemo(() => {
     const d = new Date(date);
     if (isNaN(d.getTime())) return date;
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' });
+    const weekday = d.toLocaleString('ru-RU', { weekday: 'short' });
+    const day = d.getDate();
+    const month = d.toLocaleString('ru-RU', { month: 'short' });
+    const year = d.getFullYear();
+    return `${weekday}, ${day} ${month} ${year} г.`;
   }, [date]);
 
-  // Проверка конфликтов в расписании
+  // Formatted date string for 3-col box: "24.09.2026"
+  const dateFormattedDot = useMemo(() => {
+    const [y, m, d] = (date || '').split('-');
+    if (!y || !m || !d) return date;
+    return `${d}.${m}.${y}`;
+  }, [date]);
+
+  // Conflict detection
   const conflict = useMemo(() => {
     const [currH, currM] = (time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
     const durationHours = parseFloat(String(dur)) || 1;
@@ -121,7 +130,7 @@ export const EventModal: React.FC<EventModalProps> = ({
     return null;
   }, [date, time, dur, mIds, allEvents, event?.id]);
 
-  // Предложение свободного слота времени
+  // Suggested conflict-free time slot
   const suggestedSlot = useMemo(() => {
     if (!conflict) return null;
     const [cStartH, cStartM] = (conflict.time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
@@ -139,7 +148,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       startTime: suggestedTime,
       endTime: suggestedEndTime,
       label: `${suggestedTime} – ${suggestedEndTime}`,
-      description: 'Оба члена семьи свободны после завершения предыдущего события'
+      description: 'Свободное время после завершения предыдущего события'
     };
   }, [conflict, dur]);
 
@@ -198,9 +207,19 @@ export const EventModal: React.FC<EventModalProps> = ({
     );
   };
 
+  const applyTemplate = (t: FamilyEvent) => {
+    setTitle(t.title);
+    if (t.description) setDesc(t.description);
+    if (t.duration) setDur(t.duration);
+    if (t.checklist) setChecklist(t.checklist);
+    if (t.memberIds) setMIds(t.memberIds);
+    setShowTemplatesDropdown(false);
+    toast.success(`Шаблон «${t.title}» применён`);
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
-      alert('Введите название события');
+      toast.error('Введите название события');
       return;
     }
 
@@ -226,309 +245,263 @@ export const EventModal: React.FC<EventModalProps> = ({
   const completedCount = checklist.filter(i => i.completed).length;
   const progressPercent = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : 0;
 
+  // Duration label formatting
+  const durationLabel = useMemo(() => {
+    const dVal = parseFloat(String(dur)) || 1;
+    if (dVal === 1) return '1 час';
+    if (dVal === 1.5) return '1.5 ч';
+    if (dVal === 2) return '2 часа';
+    return `${dVal} ч`;
+  }, [dur]);
+
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000] bg-stone-950/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 transition-all duration-300 select-none"
+      className="fixed inset-0 z-[2000] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 select-none animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div 
+      <main 
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-headline"
-        className="relative w-full max-w-4xl bg-[#FAF8F5] dark:bg-[#18181A] rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border border-[#ECE6DE] dark:border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white"
         onClick={e => e.stopPropagation()}
+        className="w-full max-w-[430px] sm:max-w-xl h-[92vh] max-h-[920px] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-[32px] sm:rounded-[28px] shadow-[0_-8px_30px_rgba(44,39,35,0.15),0_20px_40px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden border border-[#EAE5DB]/80 dark:border-white/10 relative animate-in slide-in-from-bottom-8 duration-300 text-[#2C2723] dark:text-gray-100"
       >
-        
-        {/* Шапка модального окна */}
-        <div className="px-6 sm:px-8 py-5 bg-white dark:bg-[#1C1C1E] border-b border-[#ECE6DE] dark:border-white/10 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center shadow-xs">
-              <CalendarIcon size={22} strokeWidth={2.5} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 id="modal-headline" className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-stone-900 dark:text-white">
-                  {event ? 'Редактирование события' : 'Новое событие'}
-                </h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FAF6EE] dark:bg-amber-950/30 text-[#C58D33] dark:text-amber-300 border border-[#F3D5A5]/60">
-                  <Sparkles size={12} />
-                  <span>AI Помощник</span>
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F1FA] dark:bg-blue-950/30 text-[#2275B8] dark:text-blue-300">
-                  <span>Telegram Sync</span>
-                </span>
-              </div>
-              <p className="text-xs text-stone-500 dark:text-gray-400 font-medium mt-0.5">
-                Добавьте семейный план с распределением задач и уведомлением в Telegram
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button 
-              type="button" 
-              onClick={handleManualSend} 
-              disabled={loading} 
-              className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
-                sent ? 'bg-emerald-600 text-white' : 'bg-stone-100 dark:bg-white/10 hover:bg-[#EAF2EC] text-[#2275B8]'
-              }`}
-              title="Отправить тестовое сообщение в Telegram"
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : sent ? <Check size={18} /> : <Send size={18} />}
-            </button>
-
-            <button 
-              type="button" 
-              onClick={onClose} 
-              aria-label="Закрыть" 
-              className="w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-500 hover:text-stone-900 dark:text-gray-300 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-          </div>
+        {/* Mobile Pull Handle */}
+        <div className="w-full flex justify-center pt-2.5 pb-1">
+          <div aria-hidden="true" className="w-10 h-1 bg-[#E4DFD5] dark:bg-white/20 rounded-full" />
         </div>
 
-        {/* Тело модального окна */}
-        <div className="p-6 sm:p-8 overflow-y-auto space-y-5 max-h-[calc(90vh-140px)] bg-[#FAF8F5] dark:bg-[#18181A]">
+        {/* Header Section */}
+        <header className="px-5 pt-1.5 pb-3.5 border-b border-[#EAE5DB]/60 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#18181A] shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Icon & Title Block */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#EAF2EC] dark:bg-[#4A7C59]/20 border border-[#CBD7CB]/70 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-green-300 shadow-2xs shrink-0">
+                <CalendarIcon size={22} strokeWidth={2.2} />
+              </div>
+              <div>
+                <h1 className="text-[19px] font-bold tracking-tight text-[#2C2723] dark:text-white leading-tight">
+                  {event ? 'Редактирование' : 'Новое событие'}
+                </h1>
+                {templates && templates.length > 0 && !event && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
+                    className="text-[11px] text-[#4A7C59] font-bold flex items-center gap-1 hover:underline mt-0.5 cursor-pointer"
+                  >
+                    <Sparkles size={11} />
+                    <span>Выбрать из шаблона</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right Quick Action Controls */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button 
+                type="button"
+                onClick={handleManualSend} 
+                disabled={loading} 
+                aria-label="Быстрая отправка в Telegram"
+                className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                  sent 
+                    ? 'bg-emerald-600 text-white border-emerald-600' 
+                    : 'bg-[#F5F2EB] dark:bg-white/10 border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#4A7C59]'
+                }`}
+                title="Отправить в Telegram"
+              >
+                {loading ? <Loader2 size={14} className="animate-spin" /> : sent ? <Check size={14} /> : <Send size={14} />}
+              </button>
+              <button 
+                type="button"
+                onClick={onClose} 
+                aria-label="Закрыть"
+                className="w-8 h-8 rounded-full bg-[#F5F2EB] dark:bg-white/10 border border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#2C2723] dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+
+          {/* Optional template drawer */}
+          {showTemplatesDropdown && templates && templates.length > 0 && (
+            <div className="mt-3 p-2 bg-white dark:bg-[#252528] rounded-xl border border-[#EAE5DB] dark:border-white/10 space-y-1 max-h-36 overflow-y-auto no-scrollbar animate-in fade-in">
+              <p className="text-[10px] font-extrabold uppercase text-stone-400 px-2 py-1">
+                Сохраненные шаблоны:
+              </p>
+              {templates.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => applyTemplate(t)}
+                  className="w-full text-left text-xs font-bold py-1.5 px-2.5 rounded-lg hover:bg-[#F5F2EB] dark:hover:bg-white/5 flex items-center justify-between text-[#2C2723] dark:text-white"
+                >
+                  <span className="truncate">{t.title}</span>
+                  <span className="text-[10px] text-[#4A7C59]">{t.duration || 1} ч</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </header>
+
+        {/* Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 no-scrollbar">
           
-          {/* 1. Баннер конфликта расписания */}
+          {/* Conflict Warning Banner */}
           {conflict && (
-            <div className="rounded-2xl p-4 bg-[#FEF7EC] dark:bg-amber-950/30 border border-[#F3D5A5] dark:border-amber-800/40 shadow-xs flex flex-col gap-2.5 animate-in fade-in duration-200">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#F8E0A8] dark:bg-amber-900/50 text-[#705C30] dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertTriangle size={18} />
-                </div>
-                <div className="flex-1">
+            <div className="rounded-2xl p-3.5 bg-[#FEF7EC] dark:bg-amber-950/40 border border-[#F3D5A5] dark:border-amber-800/40 shadow-xs flex flex-col gap-2">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle size={18} className="text-[#C58D33] shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#705C30] dark:text-amber-300">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#705C30] dark:text-amber-300">
                       Пересечение в расписании
-                    </p>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-[#C58D33] text-white">
-                      Конфликт занятости
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#C58D33] text-white">
+                      Конфликт
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-stone-900 dark:text-stone-100 leading-snug mt-1">
-                    В этот промежуток уже назначено событие <strong className="underline decoration-[#C58D33] decoration-2 underline-offset-2">«{conflict.title}» ({conflict.time} – {(conflict.time || '12:00')})</strong>.
-                  </p>
-                  <p className="text-xs text-stone-600 dark:text-gray-300 mt-0.5">
-                    Предложить бесконфликтное время для всей семьи или создать встречу всё равно?
+                  <p className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-0.5 leading-snug">
+                    Уже назначено: «{conflict.title}» ({conflict.time})
                   </p>
                 </div>
               </div>
-
-              {/* AI-предложение свободного слота */}
               {suggestedSlot && (
                 <button
                   type="button"
                   onClick={applySuggestedSlot}
-                  className="w-full group p-3 rounded-xl bg-white dark:bg-[#252528] hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 transition-all flex items-center justify-between text-left shadow-xs cursor-pointer"
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-[#252528] border border-emerald-300 dark:border-emerald-800/50 hover:bg-emerald-50 text-left flex items-center justify-between shadow-2xs transition cursor-pointer"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-300 flex items-center justify-center font-bold text-sm">
-                      ✨
-                    </span>
-                    <div>
-                      <span className="text-xs font-bold text-stone-900 dark:text-white block">
-                        Свободное окно: {suggestedSlot.label}
-                      </span>
-                      <span className="text-[11px] text-stone-500 dark:text-gray-400 font-medium">
-                        {suggestedSlot.description}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#4A7C59]">✨ Окно: {suggestedSlot.label}</span>
                   </div>
-                  <span className="text-xs font-bold text-[#4A7C59] dark:text-green-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                    <span>Перенести сюда</span>
-                    <ArrowRight size={14} />
+                  <span className="text-[11px] font-bold text-[#4A7C59] flex items-center gap-0.5">
+                    <span>Сдвинуть</span>
+                    <ArrowRight size={12} />
                   </span>
                 </button>
               )}
             </div>
           )}
 
-          {/* 1.5 Выбор из сохраненного шаблона */}
-          {templates && templates.length > 0 && (
-            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs space-y-3">
-              <div 
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="flex items-center justify-between cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center font-bold text-xs shrink-0">
-                    <Sparkles size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
-                      <span>Шаблоны событий</span>
-                      <span className="px-2 py-0.5 rounded-full bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300 text-[10px] font-extrabold">
-                        {templates.length}
-                      </span>
-                    </h3>
-                    <p className="text-[11px] text-stone-500 dark:text-gray-400 font-medium mt-0.5">
-                      Заполнить название, участников и продолжительность из шаблона
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-1 shrink-0">
-                  <span>{showTemplates ? 'Свернуть' : 'Выбрать шаблон'}</span>
-                  {showTemplates ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </span>
-              </div>
-
-              {showTemplates && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#ECE6DE] dark:border-white/10 animate-in fade-in duration-200">
-                  {templates.map(tmpl => {
-                    const tmplMembers = members.filter(m => (tmpl.memberIds || []).includes(m.id));
-                    return (
-                      <button
-                        key={tmpl.id}
-                        type="button"
-                        onClick={() => {
-                          setTitle(tmpl.title);
-                          if (tmpl.memberIds && tmpl.memberIds.length > 0) {
-                            setMIds(tmpl.memberIds);
-                          }
-                          if (tmpl.duration) {
-                            setDur(tmpl.duration);
-                          }
-                          if (tmpl.description) {
-                            setDesc(tmpl.description);
-                          }
-                          if (tmpl.checklist && tmpl.checklist.length > 0) {
-                            setChecklist(tmpl.checklist);
-                          }
-                          triggerHaptic('light');
-                          toast.success(`Шаблон «${tmpl.title}» применён`);
-                        }}
-                        className="p-3 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] hover:bg-[#EAF2EC] dark:hover:bg-primary/20 border border-[#ECE6DE] dark:border-white/10 text-left transition flex flex-col justify-between gap-2 group cursor-pointer"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-bold text-xs text-stone-900 dark:text-white group-hover:text-[#4A7C59] dark:group-hover:text-green-400 transition-colors line-clamp-1">
-                            {tmpl.title}
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-gray-300 shrink-0">
-                            {tmpl.duration || 1} ч
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1 truncate max-w-[170px]">
-                            <Users size={12} className="shrink-0 text-[#4A7C59]" />
-                            <span className="truncate">
-                              {tmplMembers.length > 0 ? tmplMembers.map(m => m.name).join(', ') : 'Все члены семьи'}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400 group-hover:underline shrink-0">
-                            Применить →
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 2. Основная информация: Название и Описание */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-gray-400" htmlFor="eventTitle">
+          {/* Section 1: Event Name & Notes */}
+          <section className="bg-white dark:bg-[#202022] rounded-2xl p-3.5 border border-[#EAE5DB] dark:border-white/10 shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="event-title-input" className="text-[11px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                 Название события
               </label>
-              
-              <label className="inline-flex items-center gap-2.5 cursor-pointer select-none self-start sm:self-auto">
-                <span className="text-xs font-semibold text-stone-700 dark:text-gray-300">Сохранить как шаблон</span>
+              <label className="flex items-center gap-1.5 cursor-pointer text-[12px] text-stone-500 hover:text-stone-800 dark:text-gray-400 select-none">
                 <input 
-                  type="checkbox" 
-                  checked={isT} 
-                  onChange={() => setIsT(!isT)}
-                  className="w-4 h-4 rounded text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
+                  type="checkbox"
+                  checked={isT}
+                  onChange={e => setIsT(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#4A7C59] focus:ring-[#4A7C59] border-[#EAE5DB] bg-[#FAF8F5] dark:bg-[#2C2C2E] cursor-pointer"
                 />
+                <span>Сохранить как шаблон</span>
               </label>
             </div>
-
-            <div className="space-y-3">
+            <div className="space-y-2">
               <input 
-                id="eventTitle"
-                type="text" 
-                value={title} 
+                id="event-title-input"
+                type="text"
+                value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="Например: Семейная поездка за город и пикник"
-                className="w-full text-base sm:text-lg font-bold font-headline text-stone-900 dark:text-white bg-[#FAF8F5] dark:bg-[#252528] px-4 py-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition"
+                className="w-full px-3.5 py-2.5 bg-[#F5F2EB]/60 hover:bg-[#F5F2EB] focus:bg-white dark:bg-[#252528] dark:focus:bg-[#2C2C2E] text-[14px] text-[#2C2723] dark:text-white placeholder:text-stone-400 font-medium rounded-xl border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] transition-all outline-none"
               />
-
               <textarea 
-                rows={2}
-                value={desc} 
+                value={desc}
                 onChange={e => setDesc(e.target.value)}
+                rows={2}
                 placeholder="Дополнительные детали, место встречи, ссылки или заметки..."
-                className="w-full text-xs sm:text-sm text-stone-900 dark:text-white bg-[#FAF8F5] dark:bg-[#252528] px-4 py-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] resize-none leading-relaxed"
+                className="w-full px-3.5 py-2 bg-[#F5F2EB]/40 hover:bg-[#F5F2EB] focus:bg-white dark:bg-[#252528] dark:focus:bg-[#2C2C2E] text-[13px] text-[#2C2723] dark:text-white placeholder:text-stone-400 rounded-xl border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] transition-all resize-none outline-none leading-relaxed"
               />
             </div>
-          </div>
+          </section>
 
-          {/* 3. Время, Длительность и Напоминания в Telegram */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-gray-400">
+          {/* Section 2: Timing & Reminders */}
+          <section className="bg-white dark:bg-[#202022] rounded-2xl p-3.5 border border-[#EAE5DB] dark:border-white/10 shadow-xs">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                 Время и напоминания
-              </label>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300">
-                {dateFormatted}
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#ECE7DE] dark:bg-white/10 text-stone-700 dark:text-gray-300 border border-[#EAE5DB] dark:border-white/5">
+                {dateFormattedPill}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Дата */}
-              <div className="bg-[#FAF8F5] dark:bg-[#252528] p-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 flex flex-col justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Дата</span>
-                <input 
-                  type="date" 
-                  value={date} 
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full font-bold text-sm bg-transparent outline-none text-stone-900 dark:text-white mt-1 cursor-pointer"
-                />
-              </div>
-
-              {/* Время старта */}
-              <div className="bg-[#FAF8F5] dark:bg-[#252528] p-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 flex flex-col justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Время старта</span>
-                <input 
-                  type="time" 
-                  value={time} 
-                  onChange={e => setTime(e.target.value)}
-                  className="w-full font-bold text-sm bg-transparent outline-none text-stone-900 dark:text-white mt-1 cursor-pointer"
-                />
-              </div>
-
-              {/* Длительность */}
-              <div className="bg-[#FAF8F5] dark:bg-[#252528] p-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Длительность</span>
-                  <span className="text-[11px] text-stone-500 font-semibold">до {endTimeStr}</span>
+            {/* 3-Column Mobile Input Grid */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* Date Box */}
+              <div className="relative bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Дата</span>
+                <div className="flex justify-between gap-1 mt-1 items-end">
+                  <span className="text-[13px] font-bold text-[#2C2723] dark:text-white leading-none">
+                    {dateFormattedDot}
+                  </span>
+                  <CalendarIcon size={14} className="text-stone-400 shrink-0" />
                 </div>
-                <div className="flex items-center gap-1 mt-1">
-                  <input 
-                    type="number" 
-                    step="0.5" 
-                    min="0.5" 
-                    max="24"
-                    value={dur} 
+                {/* Invisible date input for standard picker */}
+                <input 
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+              </div>
+
+              {/* Start Time Box */}
+              <div className="relative bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Начало</span>
+                <div className="flex justify-between gap-1 mt-1 items-end">
+                  <span className="text-[13px] font-bold text-[#2C2723] dark:text-white leading-none">
+                    {time}
+                  </span>
+                  <Clock size={14} className="text-stone-400 shrink-0" />
+                </div>
+                {/* Invisible time input for standard picker */}
+                <input 
+                  type="time"
+                  value={time}
+                  onChange={e => setTime(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+              </div>
+
+              {/* Duration Box */}
+              <div className="bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Длина</span>
+                <div className="flex items-center justify-between gap-1 mt-1">
+                  <select
+                    value={dur}
                     onChange={e => setDur(e.target.value)}
-                    className="w-16 font-bold text-sm bg-transparent outline-none text-stone-900 dark:text-white"
-                  />
-                  <span className="text-xs text-stone-500 font-medium">часа</span>
+                    className="bg-transparent text-[13px] font-bold text-[#2C2723] dark:text-white leading-none outline-none cursor-pointer p-0 -ml-0.5 border-none"
+                  >
+                    <option value="0.5" className="text-black">30 м</option>
+                    <option value="1" className="text-black">1 ч</option>
+                    <option value="1.5" className="text-black">1.5 ч</option>
+                    <option value="2" className="text-black">2 ч</option>
+                    <option value="2.5" className="text-black">2.5 ч</option>
+                    <option value="3" className="text-black">3 ч</option>
+                    <option value="4" className="text-black">4 ч</option>
+                    <option value="6" className="text-black">6 ч</option>
+                    <option value="8" className="text-black">8 ч</option>
+                  </select>
+                  <span className="text-[10px] text-stone-400 font-medium whitespace-nowrap leading-none">
+                    до {endTimeStr}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Напоминания в Telegram */}
-            <div className="pt-3 border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-stone-700 dark:text-gray-300">
-                <Bell size={16} className="text-[#C58D33]" />
-                <span className="text-xs font-bold uppercase tracking-wider">Напоминание в Telegram:</span>
+            {/* Telegram Notification Selector */}
+            <div className="pt-2 border-t border-[#EAE5DB]/60 dark:border-white/10">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Bell size={14} className="text-[#4A7C59]" />
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-stone-400 dark:text-gray-400">
+                  Напоминание в Telegram:
+                </span>
               </div>
-
-              <div className="flex flex-wrap gap-1.5 text-xs font-bold">
+              <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-0.5">
                 {REMINDER_OPTIONS.map(opt => {
                   const isActive = opt.value === 0 ? reminders.length === 0 : reminders.includes(opt.value);
                   return (
@@ -536,10 +509,10 @@ export const EventModal: React.FC<EventModalProps> = ({
                       key={opt.value}
                       type="button"
                       onClick={() => toggleReminder(opt.value)}
-                      className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-                        isActive 
-                          ? 'bg-[#4A7C59] text-white shadow-xs' 
-                          : 'bg-[#FAF8F5] dark:bg-[#252528] text-stone-600 dark:text-gray-400 hover:bg-stone-200'
+                      className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#4A7C59] text-white shadow-2xs'
+                          : 'bg-[#F5F2EB]/70 dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-[#EAE5DB]'
                       }`}
                     >
                       {opt.label}
@@ -548,259 +521,227 @@ export const EventModal: React.FC<EventModalProps> = ({
                 })}
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* 4. Участники и Чек-лист */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+          {/* Section 3: Split Row / Grid for Participants & Checklist */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             
-            {/* Участники события */}
-            <div className="md:col-span-5 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-xs flex flex-col justify-between space-y-4">
+            {/* Participants Section */}
+            <section className="bg-white dark:bg-[#202022] rounded-2xl p-3.5 border border-[#EAE5DB] dark:border-white/10 shadow-xs flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-gray-400">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Участники события
-                  </label>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300">
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EAF2EC] dark:bg-[#4A7C59]/20 text-[#4A7C59] dark:text-green-300 border border-[#CBD7CB]">
                     {mIds.length} выбрано
                   </span>
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {members.map(m => {
                     const isSelected = mIds.includes(m.id);
                     const initial = m.name ? m.name.charAt(0).toUpperCase() : 'У';
 
                     return (
-                      <div 
+                      <div
                         key={m.id}
                         onClick={() => toggleMember(m.id)}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                          isSelected 
-                            ? 'bg-[#FAF8F5] dark:bg-[#252528] border-[#4A7C59] shadow-xs' 
-                            : 'bg-white dark:bg-[#1C1C1E] border-[#ECE6DE] dark:border-white/5 opacity-60 hover:opacity-100'
+                        className={`flex items-center justify-between p-2 rounded-xl border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-[#4A7C59]/60 bg-[#EAF2EC]/40 dark:bg-[#4A7C59]/20'
+                            : 'border-[#EAE5DB] dark:border-white/5 bg-[#F5F2EB]/30 dark:bg-white/5 opacity-75'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
                           <div 
-                            className="w-8 h-8 rounded-full text-white font-bold text-xs flex items-center justify-center shadow-xs"
+                            className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-[13px] shadow-2xs"
                             style={{ backgroundColor: m.color || '#4A7C59' }}
                           >
                             {initial}
                           </div>
                           <div>
-                            <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">{m.name}</h4>
-                            <span className="text-[10px] text-stone-500 dark:text-gray-400 font-medium">
-                              {isSelected ? 'Уведомление в боте активно' : 'Не участвует'}
-                            </span>
+                            <h3 className="text-[13px] font-bold text-[#2C2723] dark:text-white leading-tight">
+                              {m.name}
+                            </h3>
+                            <p className="text-[10px] text-stone-500 dark:text-gray-400 font-medium">
+                              {isSelected ? 'Уведомление активно' : 'Не участвует'}
+                            </p>
                           </div>
                         </div>
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[#4A7C59] ${isSelected ? 'opacity-100' : 'opacity-0'}`}>
-                          <CheckCircle2 size={18} />
+
+                        {/* Selection Checkmark */}
+                        <div 
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                            isSelected 
+                              ? 'border-[#4A7C59] bg-[#4A7C59] text-white' 
+                              : 'border-[#E4DFD5] dark:border-white/20 bg-white dark:bg-[#252528]'
+                          }`}
+                        >
+                          {isSelected && <Check size={13} strokeWidth={3} />}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
+            </section>
 
-              <div className="pt-2 flex items-center gap-2 text-xs text-stone-500 dark:text-gray-400 bg-[#FAF8F5] dark:bg-white/5 p-2.5 rounded-xl">
-                <Send size={14} className="text-[#4A7C59]" />
-                <span>Оба участника получат персональное оповещение</span>
-              </div>
-            </div>
-
-            {/* Чек-лист к событию */}
-            <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-gray-400">
-                    Чек-лист и подготовка
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300">
+            {/* Checklist Section */}
+            <section className="bg-white dark:bg-[#202022] rounded-2xl p-3.5 border border-[#EAE5DB] dark:border-white/10 shadow-xs">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
+                  Чек-лист и подготовка
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-stone-400">
                     {completedCount} из {checklist.length} готово
                   </span>
-                  <div className="w-16 h-1.5 bg-stone-200 dark:bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#4A7C59] rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+                  <div className="w-10 h-1.5 bg-[#F5F2EB] dark:bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[#4A7C59] rounded-full transition-all" 
+                      style={{ width: `${progressPercent}%` }}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Добавление нового пункта */}
-              <div className="flex items-center gap-2">
+              {/* Quick Add Input */}
+              <div className="flex items-center gap-1.5 mb-2.5">
                 <input 
-                  type="text" 
-                  value={newChecklistItem} 
+                  type="text"
+                  value={newChecklistItem}
                   onChange={e => setNewChecklistItem(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addChecklistItem()}
                   placeholder="Что нужно подготовить?"
-                  className="flex-1 text-xs bg-[#FAF8F5] dark:bg-[#252528] px-3.5 py-2.5 rounded-xl border border-[#ECE6DE] dark:border-white/10 text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition"
+                  className="flex-1 px-3 py-1.5 text-[12px] bg-[#F5F2EB]/60 dark:bg-[#252528] rounded-xl border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] focus:bg-white dark:focus:bg-[#2C2C2E] text-[#2C2723] dark:text-white placeholder:text-stone-400 outline-none transition-all"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => addChecklistItem()}
-                  className="w-9 h-9 rounded-xl bg-[#4A7C59] hover:bg-emerald-700 text-white flex items-center justify-center font-bold text-lg shrink-0 transition-transform active:scale-95 shadow-xs cursor-pointer"
+                  aria-label="Добавить задачу"
+                  className="w-7 h-7 bg-[#4A7C59] text-white rounded-lg flex items-center justify-center hover:bg-[#3C6548] active:scale-95 transition-all shadow-2xs cursor-pointer"
                 >
-                  <Plus size={18} />
+                  <Plus size={16} strokeWidth={2.5} />
                 </button>
               </div>
 
-              {/* Быстрые подсказки */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[11px] text-stone-400 font-bold">Быстро:</span>
-                <button type="button" onClick={() => addChecklistItem('Взять билеты')} className="text-[11px] bg-[#FAF8F5] dark:bg-white/5 hover:bg-stone-200 text-stone-600 dark:text-gray-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Взять билеты</button>
-                <button type="button" onClick={() => addChecklistItem('Купить фрукты и воду')} className="text-[11px] bg-[#FAF8F5] dark:bg-white/5 hover:bg-stone-200 text-stone-600 dark:text-gray-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Купить фрукты</button>
-                <button type="button" onClick={() => addChecklistItem('Собрать термос')} className="text-[11px] bg-[#FAF8F5] dark:bg-white/5 hover:bg-stone-200 text-stone-600 dark:text-gray-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Собрать термос</button>
+              {/* Quick Suggestion Tags */}
+              <div className="flex items-center gap-1 text-[10px] text-stone-400 mb-2.5 flex-wrap">
+                <span className="font-semibold text-stone-600 dark:text-gray-300">Быстро:</span>
+                <button 
+                  type="button" 
+                  onClick={() => addChecklistItem('Взять билеты')} 
+                  className="px-1.5 py-0.5 rounded-md bg-[#F5F2EB] dark:bg-white/10 hover:bg-[#EAE5DB] text-stone-700 dark:text-gray-200 transition-colors cursor-pointer"
+                >
+                  Взять билеты
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => addChecklistItem('Купить фрукты')} 
+                  className="px-1.5 py-0.5 rounded-md bg-[#F5F2EB] dark:bg-white/10 hover:bg-[#EAE5DB] text-stone-700 dark:text-gray-200 transition-colors cursor-pointer"
+                >
+                  Купить фрукты
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => addChecklistItem('Собрать термос')} 
+                  className="px-1.5 py-0.5 rounded-md bg-[#F5F2EB] dark:bg-white/10 hover:bg-[#EAE5DB] text-stone-700 dark:text-gray-200 transition-colors cursor-pointer"
+                >
+                  Собрать термос
+                </button>
               </div>
 
-              {/* Список пунктов */}
-              <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pt-1">
+              {/* Items List */}
+              <div className="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar">
                 {checklist.map(item => (
-                  <div 
+                  <div
                     key={item.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] hover:bg-stone-100 dark:hover:bg-white/5 transition group"
+                    className="flex items-center justify-between p-2 rounded-xl bg-[#F5F2EB]/40 dark:bg-white/5"
                   >
-                    <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                    <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
                       <input 
                         type="checkbox"
                         checked={item.completed}
                         onChange={() => setChecklist(checklist.map(i => i.id === item.id ? { ...i, completed: !i.completed } : i))}
-                        className="w-4 h-4 rounded text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
+                        className="w-3.5 h-3.5 rounded text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
                       />
-                      <span className={`text-xs font-medium truncate ${item.completed ? 'line-through text-stone-400 dark:text-gray-500' : 'text-stone-900 dark:text-white'}`}>
+                      <span className={`text-[12px] truncate ${item.completed ? 'line-through text-stone-400' : 'text-[#2C2723] dark:text-white'}`}>
                         {item.text}
                       </span>
                     </label>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))}
-                      className="text-stone-400 hover:text-red-500 transition-colors p-1"
+                      className="text-stone-400 hover:text-red-500 p-0.5 transition"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 ))}
                 {checklist.length === 0 && (
-                  <div className="text-center py-4 text-stone-400 text-xs font-semibold">
+                  <p className="text-center py-2 text-[11px] text-stone-400 italic">
                     Чек-лист пуст. Добавьте пункты выше.
-                  </div>
+                  </p>
                 )}
               </div>
-            </div>
-
-          </div>
-
-          {/* 5. Предпросмотр оповещения в Telegram */}
-          <div className="rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE6DE] dark:border-white/10 p-4 flex flex-col gap-3 shadow-xs">
-            <div 
-              onClick={() => setShowTelegramPreview(!showTelegramPreview)}
-              className="flex items-center justify-between cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#2275B8] flex items-center justify-center text-white">
-                  <Send size={12} />
-                </div>
-                <span className="text-xs font-bold text-stone-900 dark:text-white">
-                  Предпросмотр оповещения в Telegram-чате
-                </span>
-              </div>
-              <span className="text-[11px] font-semibold text-[#4A7C59] flex items-center gap-0.5">
-                <span>{showTelegramPreview ? 'Свернуть' : 'Развернуть'}</span>
-                {showTelegramPreview ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </span>
-            </div>
-
-            {showTelegramPreview && (
-              <div className="bg-[#FAF8F5] dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 max-w-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#4A7C59]" />
-                    <span className="text-xs font-bold text-[#4A7C59]">Уютный Дом Бот</span>
-                    <span className="text-[10px] text-stone-400">сегодня</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400">ID #841</span>
-                </div>
-                <div className="text-xs text-stone-800 dark:text-gray-200 leading-relaxed space-y-1">
-                  <p className="font-bold">🏡 Новое семейное событие</p>
-                  <p className="font-semibold text-stone-900 dark:text-white">«{title || 'Название события'}»</p>
-                  <p className="text-[11px] text-stone-500 dark:text-gray-400">
-                    🗓 <b>{dateFormatted}</b> • 🕒 <b>{time} – {endTimeStr}</b><br />
-                    👥 <b>Участники:</b> {members.filter(m => mIds.includes(m.id)).map(m => m.name).join(', ') || 'Все'}<br />
-                    {desc && <i>📝 {desc}</i>}
-                  </p>
-                </div>
-              </div>
-            )}
+            </section>
           </div>
 
         </div>
 
-        {/* Футер модального окна */}
-        <div className="px-6 sm:px-8 py-4 bg-white dark:bg-[#1C1C1E] border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        {/* Footer Actions */}
+        <footer className="p-3.5 bg-white dark:bg-[#202022] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2.5">
           <div>
             {event && onDelete && (
-              <div className="flex items-center gap-2">
-                {!isConfirmingDelete ? (
-                  <button 
-                    type="button" 
-                    onClick={() => setIsConfirmingDelete(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#D95C48] hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-2 rounded-xl transition cursor-pointer"
+              !isConfirmingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(true)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onDelete(event.id)}
+                    className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-[11px] font-bold cursor-pointer"
                   >
-                    <Trash2 size={14} />
-                    <span>Удалить событие</span>
+                    Удалить?
                   </button>
-                ) : (
-                  <div className="flex items-center gap-2 animate-in fade-in">
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        onDelete(event.id);
-                        onClose();
-                      }}
-                      className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#D95C48] hover:bg-red-700 px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer"
-                    >
-                      <Trash2 size={14} />
-                      <span>Подтвердить удаление</span>
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setIsConfirmingDelete(false)}
-                      className="text-xs font-medium text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 px-2 py-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5 transition cursor-pointer"
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    className="px-2 py-1.5 rounded-lg text-stone-400 text-[11px] cursor-pointer"
+                  >
+                    Нет
+                  </button>
+                </div>
+              )
             )}
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2">
             <button 
-              type="button" 
+              type="button"
               onClick={onClose}
-              className="py-2.5 px-5 rounded-xl bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-gray-200 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl font-bold text-[13px] text-stone-500 hover:text-stone-800 hover:bg-[#F5F2EB] active:bg-[#EAE5DB] transition-colors uppercase tracking-wider cursor-pointer"
             >
               Отмена
             </button>
-
             <button 
-              type="button" 
+              type="button"
               onClick={handleSave}
-              className={`py-2.5 px-6 rounded-xl font-bold text-xs uppercase tracking-wider text-white shadow-md transition flex items-center justify-center gap-2 cursor-pointer ${
-                conflict 
-                  ? 'bg-[#C58D33] hover:bg-amber-700' 
-                  : 'bg-[#4A7C59] hover:bg-emerald-700'
-              }`}
+              className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-[#4A7C59] hover:bg-[#3C6548] text-white shadow-2xs flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
             >
-              <Check size={16} strokeWidth={3} />
-              <span>{conflict ? 'Создать несмотря на пересечение' : event ? 'Сохранить изменения' : 'Создать событие'}</span>
+              <Check size={16} strokeWidth={2.8} />
+              <span>{event ? 'Сохранить' : 'Создать событие'}</span>
             </button>
           </div>
-        </div>
-
-      </div>
+        </footer>
+      </main>
     </div>,
     document.body
   );

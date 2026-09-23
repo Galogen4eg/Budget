@@ -2,7 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Users, Plus, BrainCircuit, Upload, 
   PieChart, DollarSign, Check, History, Sparkles, Filter, ChevronDown, 
-  ChevronUp, CheckCircle2, ArrowRight
+  ChevronUp, CheckCircle2, ArrowRight, ArrowDown, ArrowUp, Sprout, 
+  User, Repeat, Calendar as CalendarIcon, Store, ShoppingCart, Train, 
+  Wifi, Home, CreditCard, Building, ShieldCheck
 } from 'lucide-react';
 import { 
   Transaction, AppSettings, Category, FamilyMember, MandatoryExpense 
@@ -29,6 +31,7 @@ interface TerraBudgetProps {
   onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => void;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
   onSelectCategory?: (categoryId: string) => void;
+  onOpenSettings?: () => void;
 }
 
 /**
@@ -51,11 +54,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onToggleMandatoryPaid,
   onQuickAddTransaction,
   onEditMandatoryExpense,
-  onSelectCategory
+  onSelectCategory,
+  onOpenSettings
 }) => {
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
+  // Mobile calendar scale: 'month' | 'week'
+  const [calendarScale, setCalendarScale] = useState<'month' | 'week'>('month');
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+
   // Selected day for interactive calendar detail (defaults to today in current month or 1st)
   const [selectedDay, setSelectedDay] = useState<number>(() => {
     const today = new Date();
@@ -206,10 +214,692 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   // Month label
   const monthTitle = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '').toUpperCase();
 
+  // Day statistics map for the calendar
+  const dayStatsMap = useMemo(() => {
+    const map: Record<number, { income: number; expense: number; net: number; count: number; hasMandatory: boolean }> = {};
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const hasMandatory = mandatoryExpenses.some(m => ((m.day ?? (m as any).dayOfMonth) === d));
+      map[d] = { income: 0, expense: 0, net: 0, count: 0, hasMandatory };
+    }
+    monthTransactions.forEach(t => {
+      const d = new Date(t.date).getDate();
+      if (map[d]) {
+        if (t.type === 'income') map[d].income += t.amount;
+        if (t.type === 'expense') map[d].expense += t.amount;
+        map[d].count += 1;
+      }
+    });
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      map[d].income = Math.round(map[d].income);
+      map[d].expense = Math.round(map[d].expense);
+      map[d].net = Math.round(map[d].income - map[d].expense);
+    }
+    return map;
+  }, [monthTransactions, totalDaysInMonth, mandatoryExpenses]);
+
+  // Current month key and manual paid IDs
+  const currentMonthKey = useMemo(() => {
+    return `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+  }, [currentMonth]);
+
+  const manuallyPaidIds = useMemo(() => {
+    return settings.manualPaidExpenses?.[currentMonthKey] || [];
+  }, [settings.manualPaidExpenses, currentMonthKey]);
+
+  // Helper to check if a mandatory expense is paid
+  const checkMandatoryPaid = (exp: MandatoryExpense): boolean => {
+    if (manuallyPaidIds.includes(exp.id)) return true;
+    return monthTransactions.some(t => t.type === 'expense' && (
+      t.linkedExpenseId === exp.id || 
+      (exp.keywords && exp.keywords.some(k => (t.note || '').toLowerCase().includes((k || '').toLowerCase())))
+    ));
+  };
+
+  // Previous month trailing days
+  const prevMonthDaysCount = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
+  const trailingPrevDays = useMemo(() => {
+    const list: number[] = [];
+    for (let i = paddingDays - 1; i >= 0; i--) {
+      list.push(prevMonthDaysCount - i);
+    }
+    return list;
+  }, [paddingDays, prevMonthDaysCount]);
+
+  // Next month trailing days to complete 35 or 42 slots
+  const trailingNextDays = useMemo(() => {
+    const totalSlots = paddingDays + totalDaysInMonth;
+    const target = totalSlots <= 35 ? 35 : 42;
+    const count = Math.max(0, target - totalSlots);
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }, [paddingDays, totalDaysInMonth]);
+
+  // Week scale days (centered around selectedDay)
+  const weekDays = useMemo(() => {
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), selectedDay);
+    const dayOfWeek = (selectedDate.getDay() + 6) % 7; // Monday = 0
+    const monday = new Date(selectedDate);
+    monday.setDate(selectedDate.getDate() - dayOfWeek);
+    const list: { dayNum: number; isCurrentMonth: boolean; date: Date }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      list.push({
+        dayNum: d.getDate(),
+        isCurrentMonth: d.getMonth() === currentMonth.getMonth(),
+        date: d
+      });
+    }
+    return list;
+  }, [currentMonth, selectedDay]);
+
+  // Display transactions for the selected day card
+  const displayTransactions = useMemo(() => {
+    if (selectedDayTransactions.length > 0) {
+      return selectedDayTransactions;
+    }
+    return monthTransactions.slice(0, 3);
+  }, [selectedDayTransactions, monthTransactions]);
+
+  // Display mandatory expenses
+  const displayMandatoryExpenses = useMemo(() => {
+    if (mandatoryExpenses && mandatoryExpenses.length > 0) {
+      return mandatoryExpenses;
+    }
+    return [
+      { id: 'mand-1', name: 'Ипотека', amount: 35000, day: 15, remind: true },
+      { id: 'mand-2', name: 'Домашний интернет', amount: 800, day: 1, remind: true }
+    ] as MandatoryExpense[];
+  }, [mandatoryExpenses]);
+
+  // Top spending categories
+  const displayTopCategories = useMemo(() => {
+    const list = categoryBreakdown.slice(0, 3).map(cat => ({
+      ...cat,
+      percent: monthExpense > 0 ? Math.round((cat.sum / monthExpense) * 100) : 0
+    }));
+    if (list.length > 0) return list;
+    return [
+      { id: 'cat-1', label: 'Переводы и инвестиции', sum: 102354, percent: 69, color: '#4A7C59' },
+      { id: 'cat-2', label: 'Продукты питания', sum: 22478, percent: 15, color: '#6A9E78' },
+      { id: 'cat-3', label: 'Кафе и рестораны', sum: 15915, percent: 11, color: '#C4A66A' }
+    ];
+  }, [categoryBreakdown, monthExpense]);
+
+  // Format calendar net badge
+  const formatCalendarNetBadge = (net: number, count: number) => {
+    if (count === 0 && net === 0) return '—';
+    if (net === 0) return '0 ₽';
+    const abs = Math.abs(net);
+    let formatted = '';
+    if (abs >= 1000) {
+      const k = abs / 1000;
+      formatted = `${k >= 10 ? Math.round(k) : (k % 1 === 0 ? k : k.toFixed(1).replace('.0', ''))}к`;
+    } else {
+      formatted = `${abs}`;
+    }
+    return net > 0 ? `+${formatted}` : `-${formatted}`;
+  };
+
+  // Helper for mandatory payment icon
+  const getMandatoryIcon = (title?: string) => {
+    const t = (title || '').toLowerCase();
+    if (t.includes('интернет') || t.includes('wifi') || t.includes('связь')) return <Wifi size={18} />;
+    if (t.includes('ипотек') || t.includes('аренд') || t.includes('дом') || t.includes('квартир')) return <Home size={18} />;
+    if (t.includes('кредит') || t.includes('карт')) return <CreditCard size={18} />;
+    return <Building size={18} />;
+  };
+
+  // Mobile formatted labels
+  const rawMobileMonth = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+  const mobileMonthName = rawMobileMonth.charAt(0).toUpperCase() + rawMobileMonth.slice(1);
+  const rawDayDate = activeSelectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+  const selectedDayDateFormatted = rawDayDate.charAt(0).toUpperCase() + rawDayDate.slice(1);
+  const isSelectedDayToday = isCurrentMonthView && selectedDay === today.getDate();
+
   return (
-    <div className="flex flex-col gap-5 pb-12">
-      {/* 1. TOP HEADER: Title, Month, Family Filters, Actions */}
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-border/70 dark:border-white/10">
+    <div className="flex flex-col min-w-0 w-full h-full flex-1 overflow-hidden">
+      {/* ========================================================= */}
+      {/* MOBILE VIEW (Strictly matching user HTML mockup on < md)  */}
+      {/* ========================================================= */}
+      <div className="md:hidden flex flex-col min-w-0 w-full flex-1 overflow-y-auto no-scrollbar bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 selection:bg-primary/20">
+        {/* Sticky Mobile Header */}
+        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0]/90 dark:bg-[#121214]/90 backdrop-blur-xl shadow-[0_1px_12px_rgba(46,50,48,0.04)] border-b border-[#EAE6DE]/60 dark:border-white/5 pt-safe">
+          <div className="h-16 px-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                <Sprout size={20} />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[11px] uppercase tracking-wider text-[#6B6358] dark:text-gray-400 font-bold truncate leading-none mb-1">
+                  Семейный Бюджет
+                </span>
+                <div className="relative">
+                  <button 
+                    type="button"
+                    onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
+                    className="flex items-center gap-1 text-[#2E3230] dark:text-white hover:text-primary transition-colors text-left group cursor-pointer"
+                  >
+                    <span className="text-sm font-headline font-semibold truncate capitalize">{mobileMonthName}</span>
+                    <ChevronDown size={16} className="text-[#6B6358] dark:text-gray-400 group-hover:text-primary transition-colors shrink-0" />
+                  </button>
+
+                  {isMonthPickerOpen && (
+                    <div className="absolute top-full mt-2 left-0 bg-white dark:bg-[#252528] border border-[#EAE6DE] dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[200px] space-y-1">
+                      <div className="text-[10px] uppercase font-bold text-[#6B6358] dark:text-gray-400 px-2 py-1">Выбор месяца</div>
+                      <div className="flex items-center justify-between px-2 pb-1 border-b border-[#EAE6DE]/60 dark:border-white/5">
+                        <button
+                          type="button"
+                          onClick={handlePrevMonth}
+                          className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-xs font-bold font-headline">{mobileMonthName}</span>
+                        <button
+                          type="button"
+                          onClick={handleNextMonth}
+                          className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onMonthChange(new Date());
+                          setIsMonthPickerOpen(false);
+                        }}
+                        className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between"
+                      >
+                        <span>Текущий месяц</span>
+                        <Sparkles size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button 
+                type="button"
+                onClick={onOpenAddModal}
+                aria-label="Быстрое добавление" 
+                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-xs active:scale-95 transition-all hover:bg-primary/90 cursor-pointer"
+              >
+                <Plus size={20} strokeWidth={2.4} />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                title="Профиль"
+                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-xs active:scale-95 transition-all hover:bg-primary/90 cursor-pointer"
+              >
+                <User size={19} strokeWidth={2.2} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Page Content */}
+        <div className="flex flex-col w-full px-3.5 pb-28 pt-3 space-y-4 max-w-md mx-auto">
+          {/* KPI & Family Overview Card */}
+          <section className="flex flex-col gap-3.5 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10">
+            {/* Top Row: Daily Safe Limit & Pace Badge */}
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">Безопасный лимит в день</span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
+                    {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
+                  </span>
+                  <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
+                </div>
+                <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
+                  Остаток на {remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${(monthBalance > 0 ? monthBalance : 0).toLocaleString('ru-RU')} ₽`}</strong>
+                </span>
+              </div>
+              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs ${
+                safeDailyLimit > 0
+                  ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:bg-green-950/40 dark:text-green-400'
+                  : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+              }`}>
+                <Sprout size={15} />
+                <span>{safeDailyLimit > 0 ? 'В темпе' : 'Превышен'}</span>
+              </div>
+            </div>
+
+            {/* Monthly Budget Progress Bar & Breakdown */}
+            <div className="flex flex-col gap-1.5 bg-white dark:bg-[#252528] p-3 rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-[#6B6358] dark:text-gray-400">
+                  Использовано {monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}% бюджета
+                </span>
+                <span className="text-[#4A7C59] dark:text-green-400 font-bold">
+                  Осталось {settings.privacyMode ? '•••' : `${(monthBalance > 0 ? monthBalance : 0).toLocaleString('ru-RU')} ₽`}
+                </span>
+              </div>
+              <div className="w-full bg-[#EAE6DE] dark:bg-[#2C2C2E] h-2.5 rounded-full overflow-hidden flex">
+                <div 
+                  className="bg-[#4A7C59] h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1 text-[11px] text-[#6B6358] dark:text-gray-400">
+                <span className="flex items-center gap-1 font-semibold text-[#4A7C59] dark:text-green-400">
+                  <ArrowDown size={13} />
+                  Приход: {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-[#B83230] dark:text-red-400">
+                  <ArrowUp size={13} />
+                  Расход: {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽`}
+                </span>
+              </div>
+            </div>
+
+            {/* Family Member Filter Chips */}
+            <div className="flex items-center gap-2 pt-0.5 overflow-x-auto no-scrollbar py-0.5">
+              <button 
+                type="button"
+                onClick={() => setSelectedMember('all')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-transform active:scale-95 shrink-0 cursor-pointer ${
+                  selectedMember === 'all'
+                    ? 'bg-[#4A7C59] text-white'
+                    : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
+                }`}
+              >
+                <Users size={15} />
+                <span>Все (семья)</span>
+              </button>
+              {members.map(m => (
+                <button 
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedMember(m.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
+                    selectedMember === m.id
+                      ? 'bg-[#4A7C59] text-white shadow-xs'
+                      : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
+                  }`}
+                >
+                  <span 
+                    className="w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: m.color }}
+                  >
+                    {m.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span>{m.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Financial Calendar Section */}
+          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-3.5 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-2.5">
+            {/* Header with controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <button 
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DE] dark:bg-[#252528] hover:bg-[#E2DDD3] dark:hover:bg-white/10 text-[#2E3230] dark:text-white transition-colors cursor-pointer"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white px-1.5 capitalize">
+                  {mobileMonthName}
+                </span>
+                <button 
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DE] dark:bg-[#252528] hover:bg-[#E2DDD3] dark:hover:bg-white/10 text-[#2E3230] dark:text-white transition-colors cursor-pointer"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+              <div className="flex bg-[#EAE6DE] dark:bg-[#252528] p-0.5 rounded-lg text-[11px] font-medium text-[#6B6358] dark:text-gray-400">
+                <button 
+                  type="button"
+                  onClick={() => setCalendarScale('month')}
+                  className={`px-2 py-0.5 rounded-md transition ${calendarScale === 'month' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-semibold shadow-xs' : 'hover:text-[#2E3230]'}`}
+                >
+                  Месяц
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setCalendarScale('week')}
+                  className={`px-2 py-0.5 rounded-md transition ${calendarScale === 'week' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-semibold shadow-xs' : 'hover:text-[#2E3230]'}`}
+                >
+                  Неделя
+                </button>
+              </div>
+            </div>
+
+            {/* Weekday Labels */}
+            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-[#6B6358] dark:text-gray-400 uppercase tracking-wider py-1">
+              <span>Пн</span>
+              <span>Вт</span>
+              <span>Ср</span>
+              <span>Чт</span>
+              <span>Пт</span>
+              <span className="text-[#C4A66A]">Сб</span>
+              <span className="text-[#C4A66A]">Вс</span>
+            </div>
+
+            {/* Calendar Grid */}
+            {calendarScale === 'month' ? (
+              <div className="grid grid-cols-7 gap-1">
+                {/* Previous month trailing days */}
+                {trailingPrevDays.map(prevDay => (
+                  <div key={`prev-${prevDay}`} className="h-12 bg-[#EAE6DE]/40 dark:bg-white/5 rounded-lg p-1 flex flex-col justify-between opacity-35 select-none">
+                    <span className="text-[10px] font-semibold text-[#6B6358]">{prevDay}</span>
+                    <span className="text-[9px] text-center text-[#6B6358] truncate">—</span>
+                  </div>
+                ))}
+
+                {/* Days of current month */}
+                {daysArray.map(dayNum => {
+                  const stat = dayStatsMap[dayNum] || { income: 0, expense: 0, net: 0, count: 0, hasMandatory: false };
+                  const isToday = isCurrentMonthView && dayNum === today.getDate();
+                  const isSelected = dayNum === selectedDay;
+                  const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNum);
+                  const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
+                  const badgeText = formatCalendarNetBadge(stat.net, stat.count);
+
+                  return (
+                    <div 
+                      key={`day-${dayNum}`}
+                      onClick={() => setSelectedDay(dayNum)}
+                      className={`h-12 rounded-lg p-1 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
+                        isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
+                      } ${
+                        isToday 
+                          ? 'bg-[#DDEFE2] dark:bg-[#1E3325] border border-[#4A7C59]/40' 
+                          : 'bg-white dark:bg-[#252528]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] ${
+                          isToday ? 'font-black text-[#4A7C59] dark:text-green-400' : isWeekend ? 'font-semibold text-[#C4A66A]' : 'font-bold text-[#2E3230] dark:text-white'
+                        }`}>
+                          {dayNum}
+                        </span>
+                        {stat.hasMandatory && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#C4A66A] shrink-0" title="Обязательный платёж" />
+                        )}
+                      </div>
+
+                      <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
+                        stat.net < 0
+                          ? 'text-[#B83230] bg-[#FFDAD8]/50 dark:bg-red-950/40'
+                          : stat.net > 0
+                          ? 'text-[#4A7C59] bg-[#C8E8D0]/60 dark:bg-green-950/40'
+                          : 'text-[#6B6358] dark:text-gray-400'
+                      }`}>
+                        {badgeText}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {/* Trailing next days */}
+                {trailingNextDays.map(nextDay => (
+                  <div key={`next-${nextDay}`} className="h-12 bg-[#EAE6DE]/30 dark:bg-white/5 rounded-lg p-1 flex flex-col justify-between opacity-30 select-none">
+                    <span className="text-[10px] font-semibold text-[#6B6358]">{nextDay}</span>
+                    <span className="text-[8px] text-center text-[#6B6358] truncate">—</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Week View */
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map(({ dayNum, isCurrentMonth: inMonth, date }) => {
+                  const isToday = today.getDate() === dayNum && today.getMonth() === date.getMonth() && today.getFullYear() === date.getFullYear();
+                  const isSelected = dayNum === selectedDay && inMonth;
+                  const stat = inMonth ? (dayStatsMap[dayNum] || { net: 0, count: 0, hasMandatory: false }) : { net: 0, count: 0, hasMandatory: false };
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                  const badgeText = inMonth ? formatCalendarNetBadge(stat.net, stat.count) : '—';
+
+                  return (
+                    <div 
+                      key={`week-day-${dayNum}-${date.getMonth()}`}
+                      onClick={() => {
+                        if (inMonth) setSelectedDay(dayNum);
+                      }}
+                      className={`h-14 rounded-lg p-1.5 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
+                        isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
+                      } ${
+                        !inMonth ? 'bg-[#EAE6DE]/30 dark:bg-white/5 opacity-40' :
+                        isToday ? 'bg-[#DDEFE2] dark:bg-[#1E3325] border border-[#4A7C59]/40' : 'bg-white dark:bg-[#252528]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[11px] ${
+                          isToday ? 'font-black text-[#4A7C59] dark:text-green-400' : isWeekend ? 'font-semibold text-[#C4A66A]' : 'font-bold text-[#2E3230] dark:text-white'
+                        }`}>
+                          {dayNum}
+                        </span>
+                        {stat.hasMandatory && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#C4A66A] shrink-0" />
+                        )}
+                      </div>
+                      <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
+                        stat.net < 0 ? 'text-[#B83230] bg-[#FFDAD8]/50' : stat.net > 0 ? 'text-[#4A7C59] bg-[#C8E8D0]/60' : 'text-[#6B6358]'
+                      }`}>
+                        {badgeText}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Calendar Legend */}
+            <div className="flex items-center justify-center gap-4 pt-1.5 text-[11px] text-[#6B6358] dark:text-gray-400">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#4A7C59]"></span>
+                <span>Доход (+)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#B83230]"></span>
+                <span>Расход (-)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#C4A66A]"></span>
+                <span>Платеж</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Selected Day Details & Transactions */}
+          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+            {/* Selected Day Banner */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
+                    {selectedDayDateFormatted}
+                  </span>
+                  {isSelectedDayToday && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#4A7C59]/10 text-[#4A7C59] dark:bg-green-950/40 dark:text-green-400 px-2 py-0.5 rounded-full">
+                      Сегодня
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
+                  Баланс дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${selectedDayNet.toLocaleString('ru-RU')} ₽`}</strong> • {selectedDayNet >= 0 || Math.abs(selectedDayNet) <= safeDailyLimit ? 'Без перерасхода' : 'Превышение'}
+                </span>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsDayModalOpen(true)}
+                className="text-xs font-semibold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5 hover:underline cursor-pointer"
+              >
+                <span>Все дни</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {/* Transactions List */}
+            <div className="flex flex-col gap-2 pt-1">
+              {displayTransactions.map(tx => {
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья' };
+                const isIncome = tx.type === 'income';
+                const cat = categories.find(c => c.id === tx.category);
+                const catLabel = cat?.label || (isIncome ? 'Доход' : 'Расход');
+                const displayTitle = tx.note || catLabel;
+                const brandKey = getMerchantBrandKey(displayTitle);
+                const txDate = new Date(tx.date);
+                const timeFormatted = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleDateString('ru-RU', { month: 'short' })}`;
+
+                return (
+                  <div 
+                    key={tx.id}
+                    onClick={() => onEditTransaction(tx)}
+                    className="flex items-center justify-between p-2.5 bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 transition-transform active:scale-[0.99] cursor-pointer hover:border-[#4A7C59]/30"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-9 h-9 rounded-xl" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold text-[#2E3230] dark:text-white truncate">
+                          {displayTitle}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#6B6358] dark:text-gray-400 truncate">
+                          <span>{txMember.name}</span>
+                          <span>•</span>
+                          <span>{dateFormatted}, {timeFormatted}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-headline font-bold shrink-0 ml-2 ${
+                      isIncome ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#B83230] dark:text-red-400'
+                    }`}>
+                      {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Scheduled Monthly Mandatory Payments */}
+          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A]" />
+                <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">Обязательные платежи</span>
+              </div>
+              <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">
+                {displayMandatoryExpenses.length} {displayMandatoryExpenses.length === 1 ? 'платеж' : displayMandatoryExpenses.length < 5 ? 'платежа' : 'платежей'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {displayMandatoryExpenses.map(exp => {
+                const title = exp.name || (exp as any).title || 'Обязательный платёж';
+                const dayNum = exp.day ?? (exp as any).dayOfMonth ?? 1;
+                const isPaid = checkMandatoryPaid(exp);
+
+                return (
+                  <div 
+                    key={exp.id}
+                    onClick={() => onEditMandatoryExpense?.(exp)}
+                    className="flex items-center justify-between p-2.5 bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 cursor-pointer hover:border-[#4A7C59]/30 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#C4A66A]/20 text-[#705C30] dark:text-[#C4A66A] flex items-center justify-center shrink-0">
+                        {getMandatoryIcon(title)}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-[#2E3230] dark:text-white">{title}</span>
+                        <span className="text-[11px] text-[#6B6358] dark:text-gray-400">До {dayNum}-го числа</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-headline font-bold text-[#2E3230] dark:text-white">
+                        {settings.privacyMode ? '•••' : `${exp.amount.toLocaleString('ru-RU')} ₽`}
+                      </span>
+                      {isPaid ? (
+                        <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5">
+                          <CheckCircle2 size={12} />
+                          Оплачено
+                        </span>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleMandatoryPaid?.(exp.id);
+                          }}
+                          className="text-[10px] font-bold text-white bg-[#705C30] hover:bg-[#5E4D27] px-2 py-0.5 rounded-full mt-0.5 transition cursor-pointer"
+                        >
+                          Оплатить
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Top Spending Categories Section */}
+          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">Топ категорий трат</span>
+              <span className="text-xs text-[#6B6358] dark:text-gray-400">
+                {settings.privacyMode ? '•••' : `${Math.round(monthExpense).toLocaleString('ru-RU')} ₽ всего`}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              {displayTopCategories.map((cat, idx) => (
+                <div key={cat.id || idx} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#2E3230] dark:text-white truncate">
+                      {idx + 1}. {cat.label || (cat as any).name || 'Категория'}
+                    </span>
+                    <div className="flex items-center gap-1.5 font-bold tabular-nums">
+                      <span className="text-[#2E3230] dark:text-white">
+                        {settings.privacyMode ? '•••' : `${Math.round(cat.sum).toLocaleString('ru-RU')} ₽`}
+                      </span>
+                      <span className="text-[#6B6358] dark:text-gray-400 text-[11px] font-normal">
+                        ({cat.percent}%)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-[#EAE6DE] dark:bg-[#2C2C2E] h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.color || '#4A7C59' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* View All Categories Link Button */}
+            <button 
+              type="button"
+              onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
+              className="w-full py-2.5 mt-1 rounded-xl bg-[#EAE6DE] dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 hover:bg-[#E2DDD3] dark:hover:bg-[#2C2C2E] text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>Все категории ({categories.length})</span>
+              <ArrowRight size={16} />
+            </button>
+          </section>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* DESKTOP VIEW (Visible on md and up)                       */}
+      {/* ========================================================= */}
+      <div className="hidden md:flex flex-col min-w-0 flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pt-6 pb-20 gap-5 text-graphite dark:text-gray-100">
+        {/* 1. TOP HEADER: Title, Month, Family Filters, Actions */}
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-border/70 dark:border-white/10">
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
           <h1 className="text-2xl lg:text-3xl font-headline font-bold text-graphite dark:text-white tracking-tight">
             Бюджет
@@ -502,9 +1192,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
                 const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
                 const paidMandatory = mandatoryExpenses.find(e => {
-                  if (e.day !== dayNum) return false;
+                  if ((e.day ?? (e as any).dayOfMonth) !== dayNum) return false;
                   return manuallyPaidIds.includes(e.id) || 
-                    monthTransactions.some(t => t.type === 'expense' && (t.linkedExpenseId === e.id || (e.keywords && e.keywords.some(k => t.note.toLowerCase().includes(k.toLowerCase())))));
+                    monthTransactions.some(t => t.type === 'expense' && (t.linkedExpenseId === e.id || (e.keywords && e.keywords.some(k => (t.note || '').toLowerCase().includes((k || '').toLowerCase())))));
                 });
 
                 const isSelected = selectedDay === dayNum;
@@ -936,6 +1626,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Modals */}

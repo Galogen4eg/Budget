@@ -23,7 +23,7 @@ interface FamilyPlansProps {
 const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram, onDeleteEvent }) => {
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'day' | 'list'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'list'>('month');
   const [listTab, setListTab] = useState<'upcoming' | 'past'>('upcoming');
   const [isDesktop, setIsDesktop] = useState(false);
   
@@ -153,8 +153,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
 
   const filteredListEvents = useMemo(() => {
     const now = new Date();
+    const curYear = currentDate.getFullYear();
+    const curMonth = currentDate.getMonth();
     
     return events.filter(e => {
+        // Учитываем в рамках текущего выбранного месяца
+        const [y, m] = (e.date || '').split('-').map(Number);
+        if (y !== curYear || (m - 1) !== curMonth) {
+            return false;
+        }
+
         const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
         if (listTab === 'upcoming') {
             return eDate >= now;
@@ -166,7 +174,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         const db = new Date(`${b.date}T${b.time || '00:00'}`);
         return listTab === 'upcoming' ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
     });
-  }, [events, listTab]);
+  }, [events, listTab, currentDate]);
 
   const groupedListEvents = useMemo(() => {
     return filteredListEvents.reduce((groups, event) => {

@@ -14,6 +14,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, updateItem, deleteItem } from '../utils/db';
 import { useData } from '../contexts/DataContext';
+import { LoyaltyCardMobileModal } from './LoyaltyCardMobileModal';
 
 interface WalletProps {
   cards: LoyaltyCard[];
@@ -427,9 +428,9 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     <div className="space-y-6 w-full text-stone-800 dark:text-stone-100 font-sans pb-12">
       
       {/* 1. Header & Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1.5">
+          <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
             {onClose ? (
               <button 
                 type="button"
@@ -446,12 +447,12 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <span className="text-stone-800 dark:text-white font-bold">Wallet</span>
           </nav>
 
-          <div className="flex items-baseline gap-3">
-            <h1 className="font-display text-3xl lg:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-white">
+          <div className="flex items-baseline gap-2.5">
+            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-white">
               Мои карты
             </h1>
-            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 hidden sm:inline-block">
-              Скидочные и накопительные карты семьи
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400">
+              {cards.length}
             </span>
           </div>
         </div>
@@ -459,7 +460,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
         <button 
           type="button"
           onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#4a7c59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-bold tracking-wide shadow-md shadow-[#4a7c59]/20 active:scale-98 transition cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#4a7c59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-bold tracking-wide shadow-sm active:scale-98 transition cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Добавить карту</span>
@@ -467,23 +468,23 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       </div>
 
       {/* 2. Filter Bar & View Toggle */}
-      <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-4 sm:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-4">
-        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
-          {/* Category Badges Horizontal Ribbon with Scroll Buttons */}
+          {/* Category Badges Horizontal Ribbon */}
           <div className="relative flex items-center min-w-0 flex-1">
             <button 
               type="button"
               onClick={() => scrollCategories('left')}
-              className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs flex items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer mr-1.5 z-10"
+              className="hidden sm:flex w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer mr-1 z-10"
               title="Прокрутить влево"
             >
-              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+              <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
 
             <div 
               ref={categoryScrollRef}
-              className="flex items-center gap-2 overflow-x-auto py-1 scroll-smooth no-scrollbar flex-1 min-w-0"
+              className="flex items-center gap-1.5 overflow-x-auto py-0.5 scroll-smooth no-scrollbar flex-1 min-w-0 -mx-1 px-1"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {CATEGORIES.map(cat => {
@@ -494,14 +495,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                       isActive
                         ? 'bg-[#4a7c59] text-white shadow-xs'
                         : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-700'
                     }`}
                   >
                     <span>{cat.name}</span>
-                    <span className={`text-[11px] ${isActive ? 'opacity-90' : 'text-stone-400'}`}>
+                    <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-stone-400'}`}>
                       ({count})
                     </span>
                   </button>
@@ -512,59 +513,59 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <button 
               type="button"
               onClick={() => scrollCategories('right')}
-              className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs flex items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer ml-1.5 z-10"
+              className="hidden sm:flex w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer ml-1 z-10"
               title="Прокрутить вправо"
             >
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           </div>
 
           {/* Search Input & Grid/List switcher */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative flex-1 md:w-60">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative flex-1 md:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Фильтр по названию..."
-                className="w-full h-10 pl-9 pr-3.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-medium text-stone-800 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
+                placeholder="Фильтр карт..."
+                className="w-full h-9 pl-8 pr-7 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-medium text-stone-800 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
               />
               {searchQuery && (
                 <button 
                   type="button" 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
               )}
             </div>
 
-            <div className="flex items-center bg-stone-100 dark:bg-stone-800 rounded-xl p-1 gap-1">
+            <div className="flex items-center bg-stone-100 dark:bg-stone-800 rounded-xl p-0.5 gap-0.5">
               <button 
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'grid' 
                     ? 'bg-white dark:bg-[#2C2C2E] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
                 }`}
                 title="Сетка"
               >
-                <Grid className="w-4 h-4" />
+                <Grid className="w-3.5 h-3.5" />
               </button>
               <button 
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'list' 
                     ? 'bg-white dark:bg-[#2C2C2E] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
                 }`}
                 title="Список"
               >
-                <List className="w-4 h-4" />
+                <List className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -594,13 +595,14 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
           </button>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6">
           {filteredCards.map((card) => {
             const gradient = getCardGradient(card.color);
             return (
               <div 
                 key={card.id}
-                className={`group relative rounded-3xl p-6 bg-gradient-to-br ${gradient} text-white shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between min-h-[250px] overflow-hidden`}
+                onClick={() => setActiveBarcodeCard(card)}
+                className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br ${gradient} text-white shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between min-h-[175px] sm:min-h-[240px] overflow-hidden cursor-pointer active:scale-[0.985]`}
               >
                 {/* Ambient watermark curves */}
                 <div className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-white/5 pointer-events-none" />
@@ -608,76 +610,97 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
                 <div>
                   {/* Top Row: Store Icon, Name & Badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shadow-xs shrink-0">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-xs shrink-0">
                         {getCardIcon(card.icon)}
                       </div>
-                      <div>
-                        <h3 className="font-display font-extrabold text-xl tracking-tight text-white leading-tight">
+                      <div className="min-w-0">
+                        <h3 className="font-display font-extrabold text-base sm:text-xl tracking-tight text-white leading-tight truncate">
                           {card.name}
                         </h3>
-                        <p className="text-xs text-white/80 font-medium mt-0.5">
+                        <p className="text-[11px] sm:text-xs text-white/80 font-medium truncate mt-0.5">
                           {card.subtitle || 'Карта лояльности'}
                         </p>
                       </div>
                     </div>
 
                     {card.discount && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-bold text-white tracking-wide shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-[11px] font-bold text-white tracking-wide shrink-0">
                         <Star className="w-3 h-3 text-amber-300 fill-amber-300" />
                         <span>{card.discount}</span>
                       </span>
                     )}
                   </div>
+                </div>
 
-                  {/* Balance / Note Badge */}
-                  {card.balance && (
-                    <div className="mt-4 flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-xl bg-black/20 text-xs font-semibold tracking-wide text-white/95 backdrop-blur-xs">
-                        {card.balance}
+                {/* Middle Card Number & Balance */}
+                <div className="mt-3.5 sm:mt-5 mb-3 sm:mb-4 flex items-end justify-between gap-2">
+                  <div>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-white/70 block mb-0.5">
+                      Номер карты
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm sm:text-lg font-extrabold tracking-wider text-white select-all">
+                        {formatCardNumberDotted(card.number)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(card.number);
+                        }}
+                        title="Скопировать номер"
+                        className="p-1 rounded-lg hover:bg-white/20 text-white/75 hover:text-white transition cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
                     </div>
+                  </div>
+
+                  {card.balance && (
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-lg bg-black/25 text-[10px] sm:text-xs font-semibold tracking-wide text-white/95 backdrop-blur-xs">
+                      {card.balance}
+                    </span>
                   )}
                 </div>
 
-                {/* Middle Card Number */}
-                <div className="mt-5 mb-4">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-white/70 block mb-0.5">
-                    Номер карты
-                  </span>
-                  <div className="font-mono text-lg font-extrabold tracking-wider text-white select-all">
-                    {formatCardNumberDotted(card.number)}
-                  </div>
-                </div>
-
                 {/* Footer Action Bar */}
-                <div className="pt-3.5 flex items-center justify-between bg-black/15 -mx-6 -mb-6 px-6 py-3.5 backdrop-blur-sm">
+                <div className="pt-2.5 sm:pt-3.5 flex items-center justify-between bg-black/20 -mx-4 -mb-4 px-4 py-2.5 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-3 backdrop-blur-sm">
                   <button 
                     type="button"
-                    onClick={() => setActiveBarcodeCard(card)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-stone-900 font-display font-bold text-xs hover:bg-white/90 transition-all shadow-xs cursor-pointer active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveBarcodeCard(card);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white text-stone-900 font-display font-bold text-xs hover:bg-white/90 transition-all shadow-xs cursor-pointer active:scale-95"
                   >
-                    <QrCode className="w-4 h-4 text-[#4a7c59]" />
+                    <QrCode className="w-3.5 h-3.5 text-[#4a7c59]" />
                     <span>Показать код</span>
                   </button>
 
-                  <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-0.5 sm:gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
                     <button 
                       type="button"
-                      onClick={() => handleOpenEditModal(card)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditModal(card);
+                      }}
                       title="Редактировать"
-                      className="w-8 h-8 rounded-xl hover:bg-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors cursor-pointer"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors cursor-pointer"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setCardToDelete(card)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCardToDelete(card);
+                      }}
                       title="Удалить карту"
-                      className="w-8 h-8 rounded-xl hover:bg-white/20 flex items-center justify-center text-white/90 hover:text-rose-200 transition-colors cursor-pointer"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-white/20 flex items-center justify-center text-white/90 hover:text-rose-200 transition-colors cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -687,65 +710,73 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
         </div>
       ) : (
         /* List Mode View */
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {filteredCards.map((card) => {
             const gradient = getCardGradient(card.color);
             return (
               <div 
                 key={card.id}
-                className="bg-white dark:bg-[#1C1C1E] p-4 sm:p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#4a7c59]/40 transition"
+                onClick={() => setActiveBarcodeCard(card)}
+                className="bg-white dark:bg-[#1C1C1E] p-3 sm:p-4 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between gap-3 hover:border-[#4a7c59]/40 active:scale-[0.99] transition cursor-pointer"
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
                     {getCardIcon(card.icon)}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-display font-bold text-base text-stone-900 dark:text-white">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white truncate">
                         {card.name}
                       </h3>
                       {card.discount && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-green-400 text-[10px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 text-[10px] font-bold shrink-0">
                           {card.discount}
                         </span>
                       )}
                     </div>
-                    <p className="font-mono text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    <p className="font-mono text-xs text-stone-500 dark:text-stone-400 mt-0.5 truncate">
                       {formatCardNumberSpaced(card.number)}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100 dark:border-white/5">
+                <div className="flex items-center gap-2 shrink-0">
                   {card.balance && (
-                    <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+                    <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 hidden sm:inline-block">
                       {card.balance}
                     </span>
                   )}
-                  <div className="flex items-center gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => setActiveBarcodeCard(card)}
-                      className="px-3.5 py-1.5 rounded-xl bg-[#edf4ef] dark:bg-[#243628] hover:bg-[#4a7c59] hover:text-white text-[#4a7c59] dark:text-green-400 font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>Код</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleOpenEditModal(card)}
-                      className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-600 transition cursor-pointer"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setCardToDelete(card)}
-                      className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-stone-400 hover:text-rose-500 transition cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveBarcodeCard(card);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-[#edf4ef] dark:bg-[#243628] hover:bg-[#4a7c59] hover:text-white text-[#4a7c59] dark:text-emerald-400 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Код</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEditModal(card);
+                    }}
+                    className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-600 transition cursor-pointer"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCardToDelete(card);
+                    }}
+                    className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-stone-400 hover:text-rose-500 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -853,175 +884,24 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
       </div>
 
-      {/* 5. Barcode View Modal (Terra Design System Spec) */}
+      {/* 5. Barcode View Modal (Terra Mobile Loyalty Card Spec matching Mockup 2) */}
       {activeBarcodeCard && (
-        <div 
-          id="cardModalOverlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setActiveBarcodeCard(null);
-              setIsMaxBrightness(false);
-            }
+        <LoyaltyCardMobileModal
+          card={activeBarcodeCard}
+          onClose={() => {
+            setActiveBarcodeCard(null);
+            setIsMaxBrightness(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-stone-900/60 dark:bg-black/70 backdrop-blur-md transition-opacity duration-300 overflow-y-auto"
-        >
-          <div 
-            id="cardModalBox"
-            className={`relative w-full max-w-[460px] my-auto bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col border border-[#ECE5DB] dark:border-white/10 transform transition-all duration-300 scale-100 ${
-              isMaxBrightness ? 'ring-4 ring-[#C8E8D0] dark:ring-[#4a7c59]/60' : ''
-            }`}
-          >
-            {/* Modal Header Card Banner */}
-            <div className={`relative bg-gradient-to-br ${getCardGradient(activeBarcodeCard.color)} text-white px-7 py-7 overflow-hidden`}>
-              <div className="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-white/5 pointer-events-none" />
-              <div className="absolute right-14 -top-8 w-28 h-28 rounded-full bg-white/5 pointer-events-none" />
-              
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-inner">
-                    {getCardIcon(activeBarcodeCard.icon)}
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-sans uppercase tracking-widest text-[#C8E8D0] opacity-90 block font-bold">
-                      {activeBarcodeCard.category ? (CATEGORIES.find(c => c.id === activeBarcodeCard.category)?.name || 'Супермаркет') : 'Супермаркет'}
-                    </span>
-                    <h2 className="text-2xl font-serif font-bold tracking-tight text-white leading-none mt-1">
-                      {activeBarcodeCard.name}
-                    </h2>
-                  </div>
-                </div>
-
-                <button 
-                  type="button"
-                  id="closeModalCross"
-                  onClick={() => {
-                    setActiveBarcodeCard(null);
-                    setIsMaxBrightness(false);
-                  }}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
-                  title="Закрыть окно"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body / Barcode Screen */}
-            <div className="relative bg-white dark:bg-[#1C1C1E] px-7 pt-8 pb-6 flex flex-col items-center">
-              
-              {/* Top Controls: Format & Max Brightness */}
-              <div className="w-full flex items-center justify-between mb-4 px-1">
-                <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400">
-                  <ScanLine className="w-4 h-4 text-[#4A7C59] dark:text-emerald-400" />
-                  <span className="text-[12px] font-sans font-medium uppercase tracking-wider">
-                    {activeBarcodeCard.barcodeFormat === 'qr' ? 'QR-код' : activeBarcodeCard.barcodeFormat === 'ean13' ? 'Штрихкод EAN-13' : 'Штрихкод Code 128'}
-                  </span>
-                </div>
-
-                <button 
-                  type="button"
-                  id="brightnessToggle"
-                  onClick={() => setIsMaxBrightness(!isMaxBrightness)}
-                  className={`flex items-center gap-1.5 text-[12px] font-sans font-semibold transition-colors cursor-pointer ${
-                    isMaxBrightness ? 'text-amber-500 font-bold' : 'text-[#4A7C59] dark:text-emerald-400 hover:opacity-80'
-                  }`}
-                >
-                  <Sun className="w-4 h-4" />
-                  <span id="brightnessText">{isMaxBrightness ? 'Яркость: 100%' : 'Макс. яркость'}</span>
-                </button>
-              </div>
-
-              {/* Barcode Display Container */}
-              <div 
-                id="barcodeWrapper"
-                className={`w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col items-center justify-center transition-all duration-300 ${
-                  isMaxBrightness ? 'ring-4 ring-[#C8E8D0] shadow-2xl' : ''
-                }`}
-              >
-                <div className="w-full max-w-[340px] flex justify-center py-2 overflow-hidden">
-                  <BarcodeSvgRenderer 
-                    code={activeBarcodeCard.number} 
-                    format={activeBarcodeCard.barcodeFormat || 'code128'} 
-                    height={86}
-                  />
-                </div>
-
-                <div 
-                  onClick={() => copyToClipboard(activeBarcodeCard.number)}
-                  className="mt-3 tracking-[0.28em] font-mono text-xl sm:text-2xl font-bold text-[#2E3230] select-all cursor-pointer hover:opacity-80 transition"
-                  title="Нажмите, чтобы скопировать"
-                >
-                  {formatCardNumberSpaced(activeBarcodeCard.number)}
-                </div>
-              </div>
-
-              {/* Cashier prompt indicator */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-stone-500 dark:text-stone-400 font-sans text-xs tracking-wider uppercase font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
-                <span>Покажите кассиру</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
-              </div>
-
-              {/* Active Promotion & Balance Widget */}
-              <div className="mt-6 w-full p-3.5 rounded-xl bg-[#F0ECE4] dark:bg-[#2C2C2E] flex items-center gap-3 border border-[#ECE5DB] dark:border-white/5">
-                <div className="w-8 h-8 rounded-full bg-[#705C30]/15 text-[#705C30] dark:text-[#E5A642] flex items-center justify-center shrink-0 font-bold text-xs">
-                  %
-                </div>
-                <div className="text-xs font-sans flex-1 min-w-0">
-                  <span className="font-semibold text-[#2E3230] dark:text-white block truncate">
-                    {activeBarcodeCard.discount || 'Скидка по карте применяется автоматически'}
-                  </span>
-                  <span className="text-stone-500 dark:text-stone-400 block truncate">
-                    {activeBarcodeCard.balance ? `Баланс: ${activeBarcodeCard.balance}` : (activeBarcodeCard.subtitle || 'Действует во всех магазинах сети')}
-                  </span>
-                </div>
-                {copiedNotification && (
-                  <span className="text-[11px] font-bold text-[#4A7C59] dark:text-emerald-400 shrink-0 animate-in fade-in">
-                    Скопировано!
-                  </span>
-                )}
-              </div>
-
-            </div>
-
-            {/* Modal Bottom Action Bar */}
-            <div className="mt-auto bg-[#F5F1EA] dark:bg-[#18181A] px-7 py-4 border-t border-[#ECE5DB] dark:border-white/5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button 
-                  type="button"
-                  id="editCardBtn"
-                  onClick={() => handleOpenEditModal(activeBarcodeCard)}
-                  className="h-11 px-4 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 hover:bg-[#D5CDC2] dark:hover:bg-stone-700 text-[#2E3230] dark:text-white font-sans font-semibold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
-                >
-                  <Edit2 className="w-4 h-4 text-stone-600 dark:text-stone-300" />
-                  <span>Редактировать</span>
-                </button>
-                <button 
-                  type="button"
-                  id="deleteCardBtn"
-                  onClick={() => setCardToDelete(activeBarcodeCard)}
-                  className="w-11 h-11 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-stone-600 dark:text-stone-300 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer"
-                  title="Удалить карту"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              <button 
-                type="button"
-                id="closeModalBtn"
-                onClick={() => {
-                  setActiveBarcodeCard(null);
-                  setIsMaxBrightness(false);
-                }}
-                className="h-11 px-6 rounded-xl bg-[#2E3230] hover:bg-black dark:bg-stone-100 dark:hover:bg-white text-white dark:text-stone-900 font-sans font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-              >
-                <span>Закрыть</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
+          onEdit={(card) => {
+            setActiveBarcodeCard(null);
+            handleOpenEditModal(card);
+          }}
+          onDelete={(card) => {
+            setActiveBarcodeCard(null);
+            setCardToDelete(card);
+          }}
+          currentUserInitial="Я"
+        />
       )}
 
       {/* 6. Add / Edit Card Modal (Terra Design Prototype 3) */}

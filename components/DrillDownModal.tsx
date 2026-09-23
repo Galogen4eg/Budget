@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
+import { auth } from '../firebase';
+import DrillDownMobile from './DrillDownMobile';
 
 interface DrillDownModalProps {
   categoryId?: string;
@@ -511,6 +513,114 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   const monthLabel = currentMonth 
     ? currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
     : 'Текущий месяц';
+
+  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const currentMonthFormatted = useMemo(() => {
+    const d = currentMonth || new Date();
+    const raw = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [currentMonth]);
+
+  const prevMonthShort = useMemo(() => {
+    const d = currentMonth ? new Date(currentMonth) : new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
+  }, [currentMonth]);
+
+  const categoryLimit = useMemo(() => {
+    if (categoryId && settings.categoryBudgets?.[categoryId]) {
+      return settings.categoryBudgets[categoryId];
+    }
+    if (parentCategory?.id && settings.categoryBudgets?.[parentCategory.id]) {
+      return settings.categoryBudgets[parentCategory.id];
+    }
+    return null;
+  }, [categoryId, parentCategory, settings.categoryBudgets]);
+
+  const groupedTransactionsByDay = useMemo(() => {
+    const groups: { [dateStr: string]: { label: string; dateObj: Date; dayTotal: number; txs: Transaction[] } } = {};
+    
+    filteredTransactions.forEach(t => {
+      const d = new Date(t.date);
+      const dateKey = t.date.split('T')[0];
+      if (!groups[dateKey]) {
+        const weekday = d.toLocaleString('ru-RU', { weekday: 'short' });
+        const day = d.getDate();
+        const month = d.toLocaleString('ru-RU', { month: 'long' });
+        const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+        groups[dateKey] = {
+          label: `${capWeekday}, ${day} ${month}`,
+          dateObj: d,
+          dayTotal: 0,
+          txs: []
+        };
+      }
+      groups[dateKey].txs.push(t);
+      if (t.type === 'expense') {
+        groups[dateKey].dayTotal -= t.amount;
+      } else {
+        groups[dateKey].dayTotal += t.amount;
+      }
+    });
+
+    return Object.values(groups).sort((a, b) => {
+      return sortOrder === 'newest' 
+        ? b.dateObj.getTime() - a.dateObj.getTime()
+        : a.dateObj.getTime() - b.dateObj.getTime();
+    });
+  }, [filteredTransactions, sortOrder]);
+
+  const categoryTitle = parentCategory?.label || initialCategory?.label || merchantName || 'Категория';
+  const categoryIcon = getIconById(parentCategory?.icon || initialCategory?.icon || 'tag', 20);
+
+  const currentMember = useMemo(() => {
+    return members.find(m => m.userId === auth.currentUser?.uid) || members[0] || null;
+  }, [members]);
+
+  if (isMobile) {
+    return createPortal(
+      <DrillDownMobile
+        categoryTitle={categoryTitle}
+        categoryIcon={categoryIcon}
+        currentMonthFormatted={currentMonthFormatted}
+        prevMonthShort={prevMonthShort}
+        totalExpense={totalExpense}
+        totalIncome={totalIncome}
+        netBalance={netBalance}
+        expenseCount={expenseCount}
+        incomeCount={incomeCount}
+        trendPercent={trendPercent}
+        categoryLimit={categoryLimit}
+        avgDaily={aggregatedChartData.avgDaily}
+        memberBreakdown={memberBreakdown}
+        groupedTransactionsByDay={groupedTransactionsByDay}
+        familyTransactionsCount={familyTransactions.length}
+        filteredTransactionsCount={filteredTransactions.length}
+        typeFilter={typeFilter}
+        setTypeFilter={setTypeFilter}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        onClose={onClose}
+        onEditTransaction={onEditTransaction}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        chartGranularity={chartGranularity}
+        setChartGranularity={setChartGranularity}
+        chartData={aggregatedChartData.list}
+        currentMember={currentMember}
+      />,
+      document.body
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-2 sm:p-4 md:p-6 select-none">

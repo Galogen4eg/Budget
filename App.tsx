@@ -808,7 +808,7 @@ export default function App() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`flex-1 flex flex-col min-w-0 bg-[#F8F6F2] dark:bg-[#121214] overflow-hidden relative ${activeTab === 'overview' ? '' : 'overflow-y-auto no-scrollbar p-4 md:p-8 pt-16 md:pt-8 pb-32 md:pb-8'}`}
+        className={`flex-1 flex flex-col min-w-0 bg-[#F8F6F2] dark:bg-[#121214] overflow-hidden relative ${(activeTab === 'overview' || activeTab === 'budget' || activeTab === 'services') ? '' : 'overflow-y-auto no-scrollbar p-4 md:p-8 pt-16 md:pt-8 pb-32 md:pb-8'}`}
       >
         {/* Offline Alert Banner */}
         {!isOnline && (
@@ -839,7 +839,7 @@ export default function App() {
           </div>
         )}
 
-        <div className={`w-full flex-1 flex flex-col ${activeTab === 'overview' ? 'h-full' : 'gap-4 h-auto'}`}>
+        <div className={`w-full flex-1 flex flex-col ${(activeTab === 'overview' || activeTab === 'budget' || activeTab === 'services') ? 'h-full' : 'gap-4 h-auto'}`}>
             <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
                 <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full w-full flex-1 flex flex-col overflow-hidden">
@@ -854,12 +854,14 @@ export default function App() {
                             setSelectedMandatoryExpense(expense);
                             setIsMandatoryModalOpen(true);
                         }}
+                        currentMonth={currentMonth}
+                        onMonthChange={setCurrentMonth}
                     />
                 </motion.div>
             )}
             
             {activeTab === 'budget' && (
-                <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar">
+                <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full w-full flex-1 flex flex-col overflow-hidden">
                     <TerraBudget
                         transactions={transactions}
                         categories={categories}
@@ -870,6 +872,7 @@ export default function App() {
                         onMonthChange={setCurrentMonth}
                         onEditTransaction={handleEditTransaction}
                         onOpenAddModal={() => setIsAddModalOpen(true)}
+                        onOpenSettings={() => setIsSettingsOpen(true)}
                         onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
                         onImportClick={() => document.getElementById('import-input')?.click()}
                         onToggleMandatoryPaid={handleToggleMandatoryPaid}
@@ -896,14 +899,22 @@ export default function App() {
             
             {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={handleSendEventToTelegram} onDeleteEvent={handleDeleteEvent} /></motion.div>}
             {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
-            {activeTab === 'services' && <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ServicesHub initialService={targetService} onClearService={() => setTargetService(null)} /></motion.div>}
+            {activeTab === 'services' && (
+              <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar p-3.5 sm:p-5 md:p-8 pt-3 sm:pt-4 md:pt-8 pb-28 md:pb-8">
+                <ServicesHub 
+                  initialService={targetService} 
+                  onClearService={() => setTargetService(null)} 
+                  onNavigateHome={() => setActiveTab('overview')}
+                />
+              </motion.div>
+            )}
             </AnimatePresence>
         </div>
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-         {TAB_CONFIG.filter(t => t.id !== 'services').map(tab => {
+         {TAB_CONFIG.map(tab => {
              const isActive = activeTab === tab.id;
              return (
                 <button 

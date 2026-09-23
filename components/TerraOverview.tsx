@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
   Calendar, Search, Plus, Sparkles, Users, User, Eye, EyeOff, 
-  ShoppingBag, History, PieChart, Check, ChevronRight, ArrowRight,
+  ShoppingBag, History, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
   HelpCircle, ShieldAlert, ChevronDown, ShieldCheck, ShoppingCart, FileText,
   Star, Smartphone, Utensils, Store, Tag
 } from 'lucide-react';
@@ -27,6 +27,8 @@ interface TerraOverviewProps {
   onNavigateTab: (tabId: string) => void;
   onDrillDown: (categoryId: string) => void;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
+  currentMonth?: Date;
+  onMonthChange?: (date: Date) => void;
 }
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
@@ -36,7 +38,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onEditTransaction,
   onNavigateTab,
   onDrillDown,
-  onEditMandatoryExpense
+  onEditMandatoryExpense,
+  currentMonth,
+  onMonthChange
 }) => {
   const { 
     transactions, 
@@ -61,16 +65,63 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const [newShoppingTitle, setNewShoppingTitle] = useState('');
   const [isAddingShopping, setIsAddingShopping] = useState(false);
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
-  const now = new Date();
-  const currentDay = now.getDate();
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Synchronized or internal month state
+  const [internalMonth, setInternalMonth] = useState<Date>(() => new Date());
+  const activeMonth = currentMonth || internalMonth;
+  const handleMonthChange = (d: Date) => {
+    if (onMonthChange) {
+      onMonthChange(d);
+    } else {
+      setInternalMonth(d);
+    }
+  };
+  const handleStepMonth = (step: number) => {
+    const next = new Date(activeMonth);
+    next.setMonth(next.getMonth() + step);
+    handleMonthChange(next);
+  };
+
+  const realToday = new Date();
+  const now = realToday;
+  const isCurrentCalendarMonth = 
+    activeMonth.getMonth() === realToday.getMonth() && 
+    activeMonth.getFullYear() === realToday.getFullYear();
+  
+  const currentDay = isCurrentCalendarMonth 
+    ? realToday.getDate() 
+    : (activeMonth < realToday ? new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate() : 0);
+  
+  const currentMonthKey = `${activeMonth.getFullYear()}-${String(activeMonth.getMonth() + 1).padStart(2, '0')}`;
   
   // Russian Month Label (e.g. "Май 2025")
   const currentMonthName = useMemo(() => {
-    const raw = now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+    const raw = activeMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
     return raw.charAt(0).toUpperCase() + raw.slice(1);
-  }, [now]);
+  }, [activeMonth]);
+
+  // Russian Month Prepositional (e.g. "мае", "сентябре")
+  const currentMonthNamePrepositional = useMemo(() => {
+    const prepositionalMonths = [
+      'январе', 'феврале', 'марте', 'апреле', 'мае', 'июне',
+      'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'
+    ];
+    return prepositionalMonths[activeMonth.getMonth()] || activeMonth.toLocaleString('ru-RU', { month: 'long' });
+  }, [activeMonth]);
+
+  // Options list for month picker dropdown
+  const monthOptions = useMemo(() => {
+    const list: { key: string; label: string; date: Date }[] = [];
+    const base = new Date();
+    for (let offset = -5; offset <= 1; offset++) {
+      const d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+      const label = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      list.push({ key, label, date: d });
+    }
+    return list.reverse();
+  }, []);
 
   // Current Member Identification
   const currentMember = useMemo(() => {
@@ -88,23 +139,29 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   let nextSalaryDate: Date | null = null;
   for (const day of sortedDates) {
     if (day > currentDay) {
-      nextSalaryDate = new Date(now.getFullYear(), now.getMonth(), day);
+      nextSalaryDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day);
       break;
     }
   }
   if (!nextSalaryDate) {
-    nextSalaryDate = new Date(now.getFullYear(), now.getMonth() + 1, sortedDates[0]);
+    nextSalaryDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, sortedDates[0]);
   }
-  const diffTime = Math.abs(nextSalaryDate.getTime() - now.getTime());
-  const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  const diffTime = Math.abs(nextSalaryDate.getTime() - realToday.getTime());
+  const daysRemaining = isCurrentCalendarMonth ? Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))) : 0;
 
   // Transactions this month
   const currentMonthTransactions = useMemo(() => {
     return filteredTransactions.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return d.getMonth() === activeMonth.getMonth() && d.getFullYear() === activeMonth.getFullYear();
     });
-  }, [filteredTransactions, now]);
+  }, [filteredTransactions, activeMonth]);
+
+  const displayMonthSpent = useMemo(() => {
+    return currentMonthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
 
   // Mandatory Expenses Calculation
   const myMemberId = currentMember.id;
@@ -250,12 +307,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Today's spending
   const todayTransactions = useMemo(() => {
-    const todayStr = now.toDateString();
+    const todayStr = realToday.toDateString();
     return filteredTransactions.filter(t => {
       const d = new Date(t.date);
       return d.toDateString() === todayStr && t.type === 'expense';
     });
-  }, [filteredTransactions, now]);
+  }, [filteredTransactions, realToday]);
 
   const spentToday = useMemo(() => {
     return todayTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -267,7 +324,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Month-over-month trend comparison
   const lastMonthComparison = useMemo(() => {
-    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1);
     const prevMonthExpenses = filteredTransactions.filter(t => {
       const d = new Date(t.date);
       return t.type === 'expense' && 
@@ -276,19 +333,19 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }).reduce((sum, t) => sum + t.amount, 0);
 
     if (prevMonthExpenses <= 0) return { text: '+8.4%', isPositive: true };
-    const diff = ((currentMonthSpent - prevMonthExpenses) / prevMonthExpenses) * 100;
+    const diff = ((displayMonthSpent - prevMonthExpenses) / prevMonthExpenses) * 100;
     const isPositive = diff <= 0; // Less spending is positive for savings
     const sign = diff >= 0 ? '+' : '';
     return {
       text: `${sign}${diff.toFixed(1)}%`,
       isPositive
     };
-  }, [filteredTransactions, currentMonthSpent, now]);
+  }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = activeMonth.getFullYear();
+    const month = activeMonth.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     if (chartScale === 'day') {
@@ -312,13 +369,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           if (amt > max) max = amt;
           if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
         }
+        const fullDateStr = new Date(year, month, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         points.push({
           label: `${d}`,
-          fullLabel: `${d} ${now.toLocaleString('ru-RU', { month: 'short' })}`,
+          fullLabel: fullDateStr,
           amount: d <= currentDay ? amt : 0,
           limit: dailyLimit,
           isHigh: dailyLimit > 0 && d <= currentDay ? amt > dailyLimit : false,
-          isCurrent: d === currentDay
+          isCurrent: isCurrentCalendarMonth && d === currentDay
         });
       }
 
@@ -338,10 +396,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
 
     if (chartScale === 'week') {
-      // Find Monday of the current week
-      const currentDayOfWeek = now.getDay(); // 0 is Sun, 1 is Mon...
+      // Find Monday of the reference week
+      const refDate = isCurrentCalendarMonth ? realToday : new Date(year, month, 15);
+      const currentDayOfWeek = refDate.getDay(); // 0 is Sun, 1 is Mon...
       const distanceToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - distanceToMonday);
+      const monday = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate() - distanceToMonday);
 
       const dayNamesShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
       const weekDays = dayNamesShort.map((dayName, idx) => {
@@ -352,8 +411,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           dateString: d.toDateString(),
           dayNumber: d.getDate(),
           monthShort: d.toLocaleString('ru-RU', { month: 'short' }),
-          isCurrent: d.toDateString() === now.toDateString(),
-          isPassedOrToday: d.getTime() <= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime()
+          isCurrent: d.toDateString() === realToday.toDateString(),
+          isPassedOrToday: d.getTime() <= new Date(realToday.getFullYear(), realToday.getMonth(), realToday.getDate(), 23, 59, 59).getTime()
         };
       });
 
@@ -380,9 +439,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
         }
 
+        const fullDateStr = w.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         return {
           label: `${w.dayName} ${w.dayNumber}`,
-          fullLabel: `${w.dayName}, ${w.dayNumber} ${w.monthShort}`,
+          fullLabel: `${w.dayName}, ${fullDateStr}`,
           amount: w.isPassedOrToday ? amt : 0,
           limit: dailyLimit,
           isHigh: dailyLimit > 0 && w.isPassedOrToday ? amt > dailyLimit : false,
@@ -401,7 +461,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         max,
         limit: dailyLimit,
         limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: `Расходы по дням текущей недели (${weekStartLabel} – ${weekEndLabel})`,
+        subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
         complianceText: `Дневной лимит соблюдён в ${complianceRate}% дней недели`
       };
@@ -424,7 +484,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const monthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 0);
     let sum = 0;
     let max = 0;
-    const currentM = now.getMonth();
+    const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
     let compliantMonths = 0;
 
     const points = monthNames.map((mName, idx) => {
@@ -441,24 +501,25 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         amount: isPassedOrCurrent ? amt : 0,
         limit: monthlyLimit,
         isHigh: monthlyLimit > 0 && isPassedOrCurrent ? amt > monthlyLimit : false,
-        isCurrent: idx === currentM
+        isCurrent: activeMonth.getFullYear() === realToday.getFullYear() && idx === realToday.getMonth()
       };
     });
 
-    const avg = (currentM + 1) > 0 ? Math.round(sum / (currentM + 1)) : 0;
-    const complianceRate = (currentM + 1) > 0 ? Math.round((compliantMonths / (currentM + 1)) * 100) : 100;
+    const passedMonthsCount = currentM >= 0 ? currentM + 1 : 0;
+    const avg = passedMonthsCount > 0 ? Math.round(sum / passedMonthsCount) : 0;
+    const complianceRate = passedMonthsCount > 0 ? Math.round((compliantMonths / passedMonthsCount) * 100) : 100;
 
     return {
       points,
       avg,
       max,
       limit: monthlyLimit,
-      limitLabel: monthlyLimit > 0 ? `Лимит ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
+      limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
       complianceText: `Месячный бюджет выдержан в ${complianceRate}% месяцев`
     };
-  }, [now, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget, realToday, isCurrentCalendarMonth]);
 
   // Category Breakdown (Top 4 Categories in Terra palette)
   const categoryBreakdown = useMemo(() => {
@@ -537,25 +598,27 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
     try {
       setIsAddingShopping(true);
-      const newItems = createShoppingItemsFromQuickText(raw, currentMember.id || 'user');
-      if (newItems.length === 0) return;
+      const parsedItems = createShoppingItemsFromQuickText(raw, currentMember.id || 'user');
+      if (parsedItems.length === 0) return;
+
+      const itemsWithIds: ShoppingItem[] = parsedItems.map(item => ({
+        ...item,
+        id: item.id || (Date.now().toString() + Math.random().toString(36).substring(2, 6))
+      }));
+
+      // Optimistically update list so the UI responds immediately
+      setShoppingItems(prev => [...itemsWithIds, ...prev]);
+      setNewShoppingTitle('');
 
       if (familyId) {
-        if (newItems.length === 1) {
-          const saved = await addItem(familyId, 'shopping', newItems[0]);
-          setShoppingItems(prev => [saved, ...prev]);
+        if (itemsWithIds.length === 1) {
+          await addItem(familyId, 'shopping', itemsWithIds[0]);
         } else {
-          const savedBatch = await addItemsBatch(familyId, 'shopping', newItems);
-          setShoppingItems(prev => [...savedBatch, ...prev]);
+          await addItemsBatch(familyId, 'shopping', itemsWithIds);
         }
-      } else {
-        const localItems: ShoppingItem[] = newItems.map(item => ({
-          ...item,
-          id: String(Date.now()) + Math.random().toString(36).substring(2, 6)
-        }));
-        setShoppingItems(prev => [...localItems, ...prev]);
       }
-      setNewShoppingTitle('');
+    } catch (err) {
+      console.error('Failed to add shopping item inline:', err);
     } finally {
       setIsAddingShopping(false);
     }
@@ -576,8 +639,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
     return list.slice(0, 4);
   }, [filteredTransactions, searchQuery, categories]);
-
-  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
   // Color scheme based on merchant / category for history
   const getTransactionBadge = (tx: Transaction, idx: number) => {
@@ -621,7 +682,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {
         id: 'demo-tx-1',
         type: 'expense' as const,
-        amount: 1260.88,
+        amount: 1260,
         category: 'groceries',
         note: 'Магнит',
         date: new Date(now.getFullYear(), now.getMonth(), 12).toISOString(),
@@ -674,6 +735,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       ];
       return categoryBreakdown.items.slice(0, 4).map((item, idx) => ({
         ...item,
+        amount: Math.round(item.amount),
         ...palette[idx % palette.length]
       }));
     }
@@ -684,14 +746,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     if (dynamicsData && dynamicsData.points && dynamicsData.points.length >= 4) {
       return dynamicsData.points;
     }
+    const monthLong = activeMonth.toLocaleString('ru-RU', { month: 'long' });
     return [
-      { label: '10 мая', amount: 1200, fullDate: '10 мая' },
-      { label: '12 мая', amount: 1850, fullDate: '12 мая' },
-      { label: '14 мая', amount: 2300, fullDate: '14 мая' },
-      { label: '16 мая', amount: 3150, fullDate: '16 мая', isPeak: true },
-      { label: '18 мая', amount: 950, fullDate: '18 мая' },
+      { label: '1', amount: 0, fullLabel: `1 ${monthLong}` },
+      { label: '10', amount: 0, fullLabel: `10 ${monthLong}` },
+      { label: '20', amount: 0, fullLabel: `20 ${monthLong}` },
+      { label: '28', amount: 0, fullLabel: `28 ${monthLong}` },
     ];
-  }, [dynamicsData]);
+  }, [dynamicsData, activeMonth]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-28 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
@@ -716,21 +778,84 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <button
               type="button"
               onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-              className="px-4 py-2 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-graphite dark:text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-[#E2DDD3] active:scale-95 transition"
+              className="px-4 py-2 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-graphite dark:text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-[#E2DDD3] active:scale-95 transition cursor-pointer"
             >
               <span>{currentMonthName}</span>
               <ChevronDown size={14} className="text-graphite-muted dark:text-gray-400" />
             </button>
             {isMonthPickerOpen && (
-              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-[#2C2C2E] border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[160px] text-center space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setIsMonthPickerOpen(false)}
-                  className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary-light text-primary hover:bg-primary hover:text-white transition"
-                >
-                  {currentMonthName} (текущий)
-                </button>
-              </div>
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsMonthPickerOpen(false)} 
+                />
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-2.5 z-50 min-w-[210px] space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <button
+                      type="button"
+                      onClick={() => handleStepMonth(-1)}
+                      className="p-1.5 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-graphite dark:text-gray-200 transition active:scale-95 cursor-pointer"
+                      title="Предыдущий месяц"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-xs font-bold font-headline text-graphite dark:text-white capitalize">
+                      {currentMonthName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleStepMonth(1)}
+                      className="p-1.5 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-graphite dark:text-gray-200 transition active:scale-95 cursor-pointer"
+                      title="Следующий месяц"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+
+                  {/* List of recent months to quickly select */}
+                  <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar border-t border-b border-surface-border/60 dark:border-white/5 py-1">
+                    {monthOptions.map((item) => {
+                      const isSelected = item.date.getMonth() === activeMonth.getMonth() && item.date.getFullYear() === activeMonth.getFullYear();
+                      const isCurrent = item.date.getMonth() === realToday.getMonth() && item.date.getFullYear() === realToday.getFullYear();
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => {
+                            handleMonthChange(item.date);
+                            setIsMonthPickerOpen(false);
+                          }}
+                          className={`w-full text-xs font-semibold py-1.5 px-2.5 rounded-xl transition flex items-center justify-between text-left cursor-pointer ${
+                            isSelected 
+                              ? 'bg-primary text-white font-bold' 
+                              : 'text-graphite dark:text-gray-300 hover:bg-[#F5F1EA] dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <span className="capitalize">{item.label}</span>
+                          {isCurrent && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary font-bold'}`}>
+                              тек.
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Jump to current month button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleMonthChange(new Date());
+                      setIsMonthPickerOpen(false);
+                    }}
+                    className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition flex items-center justify-between cursor-pointer"
+                  >
+                    <span>Текущий месяц</span>
+                    <Sparkles size={13} />
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
@@ -795,7 +920,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Доступно до конца {now.toLocaleString('ru-RU', { month: 'short' })} • к прошлому месяцу рост
+                Доступно до конца {activeMonth.toLocaleString('ru-RU', { month: 'short' })} • к прошлому месяцу рост
               </p>
             </div>
 
@@ -803,13 +928,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div className="flex justify-between items-center text-xs">
                 <span className="text-graphite-muted dark:text-gray-400">Израсходовано от лимита</span>
                 <span className="font-bold text-graphite dark:text-white font-headline">
-                  {settings.privacyMode ? '•••' : `${formatAmount(currentMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`}
+                  {settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`}
                 </span>
               </div>
               <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-[#4A7C59] transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((currentMonthSpent / (totalMonthlyLimit || 1)) * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.round((displayMonthSpent / (totalMonthlyLimit || 1)) * 100))}%` }}
                 />
               </div>
             </div>
@@ -876,15 +1001,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     dataKey="label" 
                     axisLine={false} 
                     tickLine={false} 
+                    minTickGap={16}
                     tick={{ fontSize: 10, fill: '#8E8E93' }} 
                   />
                   <Tooltip 
-                    content={({ active, payload, label }) => {
+                    cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
+                    content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const val = payload[0].value;
+                        const dataPoint = payload[0].payload;
+                        const fullDate = dataPoint?.fullLabel || dataPoint?.fullDate || (dataPoint?.label ? `${dataPoint.label} ${activeMonth.toLocaleString('ru-RU', { month: 'long' })}` : '');
                         return (
-                          <div className="bg-[#1C1C1E] text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/10 pointer-events-none">
-                            {label}: {typeof val === 'number' ? Math.round(val).toLocaleString('ru-RU') : val} ₽
+                          <div className="bg-[#1C1C1E] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="text-gray-300">{fullDate}:</span>
+                            <span className="text-[#4ADE80] font-headline">{typeof val === 'number' ? Math.round(val).toLocaleString('ru-RU') : val} ₽</span>
                           </div>
                         );
                       }
@@ -898,21 +1028,23 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     strokeWidth={2.6} 
                     fill="url(#mobileWaveGradient)" 
                     dot={(props: any) => {
-                      if (props.payload?.isPeak || props.index === 3) {
+                      const isPeak = dynamicsData.max > 0 && props.payload?.amount === dynamicsData.max;
+                      if (isPeak) {
                         return (
-                          <g key={`peak-dot-${props.index}`}>
-                            <circle cx={props.cx} cy={props.cy} r={5} fill="#4A7C59" stroke="#FFFFFF" strokeWidth={2} />
-                            <g transform={`translate(${props.cx - 45}, ${props.cy - 28})`}>
-                              <rect width="90" height="20" rx="10" fill="#1C1C1E" />
-                              <text x="45" y="14" fill="#FFFFFF" fontSize="9.5" fontWeight="bold" textAnchor="middle">
-                                16 мая: 2 140 ₽
-                              </text>
-                            </g>
-                          </g>
+                          <circle 
+                            key={`peak-dot-${props.index}`} 
+                            cx={props.cx} 
+                            cy={props.cy} 
+                            r={4.5} 
+                            fill="#4A7C59" 
+                            stroke="#FFFFFF" 
+                            strokeWidth={2} 
+                          />
                         );
                       }
                       return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={0} />;
                     }}
+                    activeDot={{ r: 5, fill: '#4A7C59', stroke: '#FFFFFF', strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -933,7 +1065,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   Категории расходов
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-                  Всего в мае: {formatAmount(currentMonthSpent || 3138.88)} ₽
+                  Всего в {currentMonthNamePrepositional}: {formatAmount(displayMonthSpent || 0)} ₽
                 </p>
               </div>
               <button
@@ -1143,10 +1275,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </button>
           </div>
 
-          {/* Month Pill */}
-          <div className="hidden sm:flex items-center text-xs font-semibold text-graphite dark:text-gray-200 bg-surface-subtle dark:bg-[#2C2C2E] px-3.5 py-2 rounded-xl border border-surface-border dark:border-white/5 gap-2 select-none">
+          {/* Month Pill / Stepper */}
+          <div className="hidden sm:flex items-center text-xs font-semibold text-graphite dark:text-gray-200 bg-surface-subtle dark:bg-[#2C2C2E] px-2 py-1 rounded-xl border border-surface-border dark:border-white/5 gap-1.5 select-none">
+            <button
+              type="button"
+              onClick={() => handleStepMonth(-1)}
+              className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white transition cursor-pointer"
+              title="Предыдущий месяц"
+            >
+              <ChevronLeft size={14} />
+            </button>
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            {currentMonthName}
+            <span className="capitalize px-0.5">{currentMonthName}</span>
+            <button
+              type="button"
+              onClick={() => handleStepMonth(1)}
+              className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white transition cursor-pointer"
+              title="Следующий месяц"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
 
           {/* Search / Filter */}

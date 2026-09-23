@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, ChevronLeft, Wallet } from 'lucide-react';
+import { CreditCard, ChevronLeft, Wallet, MoreHorizontal } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 
 import DebtSnowball from './DebtSnowball';
@@ -11,9 +11,14 @@ type ServiceType = 'menu' | 'debts' | 'wallet';
 interface ServicesHubProps {
   initialService?: string | null;
   onClearService?: () => void;
+  onNavigateHome?: () => void;
 }
 
-const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearService }) => {
+const ServicesHub: React.FC<ServicesHubProps> = ({ 
+  initialService, 
+  onClearService, 
+  onNavigateHome 
+}) => {
   const [activeService, setActiveService] = useState<ServiceType>('menu');
   const { 
     settings, 
@@ -34,11 +39,14 @@ const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearServic
       id: 'debts', 
       label: 'Долги', 
       desc: 'Управление выплатами, кредитами и стратегией', 
-      icon: <CreditCard className="w-6 h-6" />, 
-      color: '#4a7c59',
-      bgColor: 'bg-[#edf4ef] dark:bg-[#243628]',
-      iconColor: 'text-[#4a7c59] dark:text-[#839f85]',
-      borderColor: 'border-[#d1dbd1] dark:border-green-800/40',
+      hasAttention: debts && debts.length > 0,
+      icon: (
+        <svg className="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect height="14" rx="3" strokeLinecap="round" strokeLinejoin="round" width="20" x="2" y="5" />
+          <line strokeLinecap="round" x1="2" x2="22" y1="10" y2="10" />
+          <line strokeLinecap="round" x1="6" x2="9" y1="15" y2="15" />
+        </svg>
+      ),
       component: (
         <DebtSnowball 
           debts={debts} 
@@ -53,81 +61,123 @@ const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearServic
       id: 'wallet', 
       label: 'Wallet', 
       desc: 'Карты лояльности и скидки', 
-      icon: <Wallet className="w-6 h-6" />, 
-      color: '#3B6E4C',
-      bgColor: 'bg-[#EDF5F0] dark:bg-[#1E3024]',
-      iconColor: 'text-[#3B6E4C] dark:text-[#6EE7B7]',
-      borderColor: 'border-[#D4E8DC] dark:border-[#2C4A35]',
+      hasAttention: false,
+      icon: (
+        <svg className="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9z" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M16 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0z" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 9.5h18" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
       component: (
         <WalletApp 
           cards={loyaltyCards} 
           setCards={setLoyaltyCards} 
+          onClose={() => setActiveService('menu')}
         />
       )
     },
   ];
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="w-full max-w-2xl mx-auto space-y-4">
       <AnimatePresence mode="wait">
         {activeService === 'menu' ? (
           <motion.div 
             key="menu"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="space-y-6"
+            className="flex flex-col space-y-4"
           >
-            {/* Header / Intro */}
-            <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 border border-surface-border dark:border-white/5 shadow-sm flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-display font-bold text-graphite dark:text-white">
-                  Финансовые сервисы
-                </h2>
-                <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                  Специализированные инструменты управления задолженностями, ликвидностью и картами
-                </p>
-              </div>
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary dark:text-green-400 text-xs font-bold border border-primary/20">
-                <span>{SERVICES.length} сервиса</span>
-              </div>
-            </div>
+            {/* BEGIN: TopBarNavigation */}
+            <nav aria-label="Верхняя навигация" className="flex items-center justify-between py-1">
+              <button
+                type="button"
+                onClick={() => onNavigateHome && onNavigateHome()}
+                className="inline-flex items-center text-[15px] font-medium text-[#3B7A57] dark:text-emerald-400 hover:text-[#2E6145] transition-colors py-1 group cursor-pointer"
+              >
+                <svg className="w-4 h-4 mr-1 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Главная</span>
+              </button>
 
-            {/* Service Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <button 
+                type="button"
+                aria-label="Дополнительные опции" 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 hover:bg-stone-200/50 dark:hover:bg-white/10 transition-colors"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+            </nav>
+            {/* END: TopBarNavigation */}
+
+            {/* BEGIN: SectionHeaderCard */}
+            <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h1 className="text-[22px] font-bold tracking-tight text-stone-900 dark:text-white leading-tight">
+                  Финансовые сервисы
+                </h1>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
+                  {SERVICES.length} сервиса
+                </span>
+              </div>
+              <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
+                Специализированные инструменты управления задолженностями, ликвидностью и картами
+              </p>
+            </div>
+            {/* END: SectionHeaderCard */}
+
+            {/* BEGIN: ServicesList */}
+            <div className="flex flex-col space-y-3.5" data-purpose="service-cards-stack">
               {SERVICES.map(app => (
-                <button
+                <article
                   key={app.id}
-                  type="button"
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className="group bg-white dark:bg-[#1C1C1E] p-6 rounded-3xl border border-surface-border dark:border-white/5 hover:border-primary/40 dark:hover:border-primary/40 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between text-left relative overflow-hidden active:scale-[0.99] cursor-pointer"
+                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_3px_10px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/40 hover:shadow-[0_4px_16px_rgba(59,122,87,0.08)] active:scale-[0.985] cursor-pointer"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-5">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${app.bgColor} ${app.iconColor} border ${app.borderColor} shadow-xs group-hover:scale-105 transition-transform duration-200`}>
-                        {app.icon}
-                      </div>
-                      <span className="text-xs font-bold text-graphite-muted dark:text-gray-500 group-hover:text-primary dark:group-hover:text-green-400 transition-colors flex items-center gap-1">
-                        Открыть →
-                      </span>
+                  {/* Card Top Bar: Icon and Direct Action */}
+                  <div className="flex items-start justify-between mb-4">
+                    {/* Icon with Sage/Mint Rounded Container */}
+                    <div className="w-12 h-12 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-xs">
+                      {app.icon}
                     </div>
 
-                    <h3 className="font-display font-bold text-graphite dark:text-white text-lg group-hover:text-primary dark:group-hover:text-green-400 transition-colors">
-                      {app.label}
-                    </h3>
-                    <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1.5 leading-relaxed">
+                    {/* "Открыть →" Link */}
+                    <div className="inline-flex items-center text-[13px] font-medium text-stone-700 dark:text-stone-300 hover:text-[#3B7A57] dark:hover:text-emerald-400 transition-colors py-1 group">
+                      <span>Открыть</span>
+                      <span className="ml-1 text-sm font-semibold transition-transform group-hover:translate-x-0.5">→</span>
+                    </div>
+                  </div>
+
+                  {/* Title and Description with Attention Indicator */}
+                  <div className="mb-5 relative">
+                    <div className="flex items-center space-x-2">
+                      <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight">
+                        {app.label}
+                      </h2>
+                      {app.hasAttention && (
+                        <span className="w-2 h-2 rounded-full bg-[#E15241] animate-pulse" title="Требуется внимание" />
+                      )}
+                    </div>
+                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-snug">
                       {app.desc}
                     </p>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
-                    <span>Перейти в модуль</span>
-                    <span className="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 group-hover:bg-primary transition-colors" />
+                  {/* Card Footer Action Separator */}
+                  <div className="pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-stone-600 dark:text-stone-400 hover:text-[#3B7A57] dark:hover:text-emerald-400 transition-colors">
+                      Перейти в модуль
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600" />
                   </div>
-                </button>
+                </article>
               ))}
             </div>
+            {/* END: ServicesList */}
           </motion.div>
         ) : (
           <motion.div 
@@ -138,16 +188,16 @@ const ServicesHub: React.FC<ServicesHubProps> = ({ initialService, onClearServic
             transition={{ duration: 0.2 }}
           >
             {activeService !== 'debts' && (
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-4">
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
-                  className="px-3.5 py-2 bg-white dark:bg-[#1C1C1E] hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] rounded-2xl shadow-sm border border-surface-border dark:border-white/5 text-graphite dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  className="px-3.5 py-1.5 bg-white dark:bg-[#1C1C1E] hover:bg-stone-50 dark:hover:bg-[#2C2C2E] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Ко всем сервисам</span>
                 </button>
-                <h2 className="text-lg font-display font-bold text-graphite dark:text-white">
+                <h2 className="text-base font-bold text-stone-800 dark:text-white">
                   {SERVICES.find(a => a.id === activeService)?.label}
                 </h2>
               </div>

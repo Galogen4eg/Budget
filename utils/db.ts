@@ -327,12 +327,15 @@ export const addItem = async (familyId: string, collectionName: string, item: an
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();
   const cleanItem = JSON.parse(JSON.stringify(item));
-  await setDoc(doc(db, 'families', familyId, collectionName, id), { ...cleanItem, id });
+  const savedItem = { ...cleanItem, id };
+  await setDoc(doc(db, 'families', familyId, collectionName, id), savedItem);
+  return savedItem;
 };
 
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
-  if (!familyId || items.length === 0) return;
+  if (!familyId || items.length === 0) return [];
   const chunkSize = 400;
+  const savedItems: any[] = [];
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     const batch = writeBatch(db);
@@ -340,10 +343,13 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
       const id = item.id || generateUniqueId();
       const docRef = doc(db, 'families', familyId, collectionName, id);
       const cleanItem = JSON.parse(JSON.stringify(item));
-      batch.set(docRef, { ...cleanItem, id });
+      const saved = { ...cleanItem, id };
+      savedItems.push(saved);
+      batch.set(docRef, saved);
     });
     await batch.commit();
   }
+  return savedItems;
 };
 
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {

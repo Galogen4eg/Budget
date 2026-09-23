@@ -4,7 +4,7 @@ import {
   Mic, Loader2, CheckSquare, Square,
   Edit3, Dumbbell, Sparkle, Car, Film, Coffee,
   RefreshCw, Plane, Home, ShoppingBag, Heart,
-  CheckCircle2, Sparkles
+  CheckCircle2, Sparkles, History, Clock, Send
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 
@@ -17,6 +17,11 @@ interface FamilyPlansDesktopProps {
   setCurrentDate: (d: Date) => void;
   selectedDate: Date;
   setSelectedDate: (d: Date) => void;
+  
+  viewMode: 'month' | 'week' | 'day' | 'list';
+  setViewMode: (m: 'month' | 'week' | 'day' | 'list') => void;
+  listTab: 'upcoming' | 'past';
+  setListTab: (t: 'upcoming' | 'past') => void;
   
   calendarData: any[];
   selectedDayEvents: FamilyEvent[];
@@ -38,11 +43,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   settings,
   currentDate, setCurrentDate,
   selectedDate, setSelectedDate,
+  viewMode, setViewMode,
+  listTab, setListTab,
   calendarData, selectedDayEvents,
   onOpenEvent, onSendToTelegram, onUpdateEvent,
   isListening, isProcessingVoice, startListening
 }) => {
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'schedule'>('month');
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
 
   const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
@@ -60,6 +66,97 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     newDate.setMonth(currentDate.getMonth() + dir);
     setCurrentDate(newDate);
   };
+
+  // Week calculation helpers
+  const getMondayDate = (d: Date): Date => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    date.setDate(diff);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  const currentWeekDays = useMemo(() => {
+    const monday = getMondayDate(selectedDate);
+    return Array.from({ length: 7 }, (_, i) => {
+      const dayDate = new Date(monday);
+      dayDate.setDate(monday.getDate() + i);
+      return dayDate;
+    });
+  }, [selectedDate]);
+
+  const weekPeriodTitle = useMemo(() => {
+    if (currentWeekDays.length === 0) return '';
+    const start = currentWeekDays[0];
+    const end = currentWeekDays[6];
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    const startMonth = start.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
+    const endMonth = end.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
+    const year = end.getFullYear();
+
+    if (start.getMonth() === end.getMonth()) {
+      return `${startDay} — ${endDay} ${endMonth} ${year}`;
+    }
+    return `${startDay} ${startMonth} — ${endDay} ${endMonth} ${year}`;
+  }, [currentWeekDays]);
+
+  const changeWeek = (increment: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + increment * 7);
+    setSelectedDate(newDate);
+    if (newDate.getMonth() !== currentDate.getMonth() || newDate.getFullYear() !== currentDate.getFullYear()) {
+      setCurrentDate(new Date(newDate.getFullYear(), newDate.getMonth(), 1));
+    }
+  };
+
+  const resetToCurrentWeek = () => {
+    const now = new Date();
+    setSelectedDate(now);
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  };
+
+  const isSelectedWeekCurrent = useMemo(() => {
+    const todayMonday = getMondayDate(new Date());
+    const selMonday = getMondayDate(selectedDate);
+    return getLocalDateString(todayMonday) === getLocalDateString(selMonday);
+  }, [selectedDate]);
+
+  // Schedule filtered events within current selected month
+  const currentMonthEvents = useMemo(() => {
+    const targetYear = currentDate.getFullYear();
+    const targetMonth = currentDate.getMonth();
+
+    return events.filter(e => {
+      const [y, m] = (e.date || '').split('-').map(Number);
+      return y === targetYear && (m - 1) === targetMonth && (filterMemberId === 'all' || e.memberIds?.includes(filterMemberId));
+    });
+  }, [events, currentDate, filterMemberId]);
+
+  const scheduleUpcomingEvents = useMemo(() => {
+    const now = new Date();
+    return currentMonthEvents.filter(e => {
+      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
+      return eDate >= now;
+    }).sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return da - db;
+    });
+  }, [currentMonthEvents]);
+
+  const schedulePastEvents = useMemo(() => {
+    const now = new Date();
+    return currentMonthEvents.filter(e => {
+      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
+      return eDate < now;
+    }).sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return db - da;
+    });
+  }, [currentMonthEvents]);
 
   const isEventDimmed = (event: FamilyEvent) => {
     if (filterMemberId === 'all') return false;
@@ -217,30 +314,41 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         {/* Верхняя панель: Месяц, бейдж дней, фильтры и контролы */}
         <header className="flex flex-wrap items-center justify-between gap-4 mb-5 shrink-0">
           
-          {/* Название месяца + счетчик дней */}
+          {/* Название месяца / недели + счетчик */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl lg:text-3xl font-bold font-serif capitalize tracking-tight text-stone-900 dark:text-white">
-                {monthName}
+                {viewMode === 'week' ? weekPeriodTitle : monthName}
               </h1>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#EBE5DB] dark:bg-white/10 text-stone-600 dark:text-stone-300">
-                {daysInCurrentMonth} дней
+                {viewMode === 'week' 
+                  ? (isSelectedWeekCurrent ? 'Текущая неделя' : 'Неделя')
+                  : `${daysInCurrentMonth} дней`}
               </span>
+              {viewMode === 'week' && !isSelectedWeekCurrent && (
+                <button
+                  type="button"
+                  onClick={resetToCurrentWeek}
+                  className="text-xs font-bold text-[#2D5A46] dark:text-emerald-400 hover:underline cursor-pointer"
+                >
+                  К текущей неделе
+                </button>
+              )}
             </div>
 
-            {/* Быстрое переключение месяцев */}
+            {/* Быстрое переключение месяцев / недель */}
             <div className="flex items-center gap-0.5 ml-1">
               <button 
-                onClick={() => changeDate(-1)} 
+                onClick={() => viewMode === 'week' ? changeWeek(-1) : changeDate(-1)} 
                 className="p-1 rounded-lg hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
-                title="Предыдущий месяц"
+                title={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
               </button>
               <button 
-                onClick={() => changeDate(1)} 
+                onClick={() => viewMode === 'week' ? changeWeek(1) : changeDate(1)} 
                 className="p-1 rounded-lg hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
-                title="Следующий месяц"
+                title={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
               </button>
@@ -297,7 +405,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
             <div className="flex items-center bg-[#EBE5DB] dark:bg-white/10 p-0.5 rounded-full text-xs font-medium ml-1">
               <button 
-                onClick={() => setViewMode('month')}
+                onClick={() => {
+                  setViewMode('month');
+                  const now = new Date();
+                  setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                  setSelectedDate(now);
+                }}
                 className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
                   viewMode === 'month' 
                     ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
@@ -307,7 +420,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 Месяц
               </button>
               <button 
-                onClick={() => setViewMode('week')}
+                onClick={() => {
+                  setViewMode('week');
+                  resetToCurrentWeek();
+                }}
                 className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
                   viewMode === 'week' 
                     ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
@@ -317,9 +433,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 Неделя
               </button>
               <button 
-                onClick={() => setViewMode('schedule')}
+                onClick={() => {
+                  setViewMode('list');
+                  setListTab('upcoming');
+                }}
                 className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                  viewMode === 'schedule' 
+                  viewMode === 'list' 
                     ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
                     : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
                 }`}
@@ -474,8 +593,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
                       {/* Текст месяца для граничных дней */}
                       {!d.current && (
-                        <span className="text-[10px] text-stone-400 text-center block mt-auto">
-                          {d.month === currentDate.getMonth() - 1 ? 'Август' : 'Октябрь'}
+                        <span className="text-[10px] text-stone-400 text-center block mt-auto capitalize">
+                          {new Date(d.year, d.month, 1).toLocaleString('ru-RU', { month: 'long' })}
                         </span>
                       )}
                     </div>
@@ -487,26 +606,69 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
           {viewMode === 'week' && (
             <div className="grid grid-cols-7 flex-1 gap-3 overflow-y-auto no-scrollbar">
-              {Array.from({ length: 7 }).map((_, i) => {
-                const now = new Date(selectedDate);
-                const firstDayOfWeek = now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1);
-                const dayDate = new Date(now.setDate(firstDayOfWeek + i));
+              {currentWeekDays.map((dayDate, i) => {
                 const dateStr = getLocalDateString(dayDate);
-                const dayEvents = events.filter(e => e.date === dateStr);
+                const dayEvents = events.filter(e => e.date === dateStr && (filterMemberId === 'all' || e.memberIds?.includes(filterMemberId)));
+                const isToday = getLocalDateString(new Date()) === dateStr;
+                const isSelected = getLocalDateString(selectedDate) === dateStr;
+                const isWeekend = i >= 5;
 
                 return (
-                  <div key={i} className="bg-[#F6F3EE] dark:bg-[#252528] rounded-2xl p-4 border border-[#ECE5DB] flex flex-col">
-                    <div className="text-center mb-3">
-                      <span className="text-xs font-semibold text-stone-400 block">{WEEK_DAYS[i]}</span>
-                      <span className="text-lg font-bold text-stone-900 dark:text-white">{dayDate.getDate()}</span>
+                  <div 
+                    key={dateStr}
+                    onClick={() => setSelectedDate(dayDate)} 
+                    className={`rounded-2xl p-3.5 border transition flex flex-col cursor-pointer ${
+                      isSelected 
+                        ? 'border-2 border-[#2D5A46] bg-white dark:bg-[#1E1E20] shadow-sm'
+                        : isToday
+                        ? 'bg-[#E8F2EC]/40 dark:bg-[#2D5A46]/20 border-[#2D5A46]/40'
+                        : 'bg-[#F6F3EE] dark:bg-[#252528] border-[#ECE5DB] dark:border-white/5 hover:border-stone-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-200/60 dark:border-white/10 mb-3">
+                      <span className={`text-xs font-bold uppercase tracking-wider ${
+                        isWeekend ? 'text-[#D97763]' : 'text-stone-400 dark:text-stone-400'
+                      }`}>
+                        {WEEK_DAYS[i]}
+                      </span>
+                      <span className={`text-base font-extrabold px-2 py-0.5 rounded-full leading-none ${
+                        isToday ? 'bg-[#2D5A46] text-white' : isSelected ? 'text-[#2D5A46]' : 'text-stone-900 dark:text-white'
+                      }`}>
+                        {dayDate.getDate()}
+                      </span>
                     </div>
-                    <div className="space-y-2 flex-1 overflow-y-auto">
-                      {dayEvents.map(evt => (
-                        <div key={evt.id} onClick={() => onOpenEvent(evt)} className="p-2.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] text-xs space-y-1 cursor-pointer">
-                          <span className="font-bold text-[#3A7E64] text-[10px]">{evt.time}</span>
-                          <p className="font-bold text-stone-900 dark:text-white leading-tight">{evt.title}</p>
+
+                    <div className="space-y-2 flex-1 overflow-y-auto no-scrollbar">
+                      {dayEvents.map(evt => {
+                        const badgeStyle = getEventBadgeStyle(evt);
+                        return (
+                          <div 
+                            key={evt.id} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDate(dayDate);
+                              onOpenEvent(evt);
+                            }} 
+                            className={`p-2.5 rounded-xl border-l-2 text-xs space-y-1 transition cursor-pointer hover:shadow-2xs ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}
+                            style={{ borderLeftColor: badgeStyle.borderColor }}
+                          >
+                            <span className="font-bold text-[10px] block opacity-90">{evt.time || 'Весь день'}</span>
+                            <p className="font-bold leading-tight line-clamp-2">{evt.title}</p>
+                          </div>
+                        );
+                      })}
+                      {dayEvents.length === 0 && (
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDate(dayDate);
+                            onOpenEvent(null, { date: dateStr });
+                          }}
+                          className="text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[#2D5A46] transition py-3 text-center opacity-70 hover:opacity-100 italic"
+                        >
+                          + Добавить
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 );
@@ -514,29 +676,145 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </div>
           )}
 
-          {viewMode === 'schedule' && (
-            <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
-              {events.map(evt => (
-                <div 
-                  key={evt.id}
-                  onClick={() => {
-                    setSelectedDate(new Date(evt.date));
-                    onOpenEvent(evt);
-                  }}
-                  className="p-4 bg-[#F6F3EE] dark:bg-[#252528] rounded-2xl border border-[#ECE5DB] hover:border-[#2D5A46] transition flex items-center justify-between cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#1C1C1E] flex flex-col items-center justify-center border border-[#ECE5DB]">
-                      <span className="text-[10px] font-bold text-stone-400 uppercase">{new Date(evt.date).toLocaleDateString('ru-RU', { weekday: 'short' })}</span>
-                      <span className="text-xs font-bold text-stone-900 dark:text-white">{new Date(evt.date).getDate()}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-[#3A7E64]">{evt.time}</span>
-                      <h4 className="text-sm font-bold text-stone-900 dark:text-white">{evt.title}</h4>
-                    </div>
-                  </div>
+          {viewMode === 'list' && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-4">
+              {/* Переключатель: Будущие / Прошедшие в рамках текущего месяца */}
+              <div className="flex items-center justify-between shrink-0 pb-2 border-b border-stone-200/60 dark:border-white/10">
+                <div className="inline-flex bg-[#EBE5DB] dark:bg-white/10 p-1 rounded-2xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setListTab('upcoming')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
+                      listTab === 'upcoming'
+                        ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <Sparkles size={14} />
+                    <span>Будущие</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      listTab === 'upcoming' ? 'bg-[#2D5A46]/15 text-[#2D5A46] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
+                    }`}>
+                      {scheduleUpcomingEvents.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setListTab('past')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
+                      listTab === 'past'
+                        ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <History size={14} />
+                    <span>Прошедшие</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      listTab === 'past' ? 'bg-[#2D5A46]/15 text-[#2D5A46] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
+                    }`}>
+                      {schedulePastEvents.length}
+                    </span>
+                  </button>
                 </div>
-              ))}
+
+                <div className="text-xs font-semibold text-stone-500">
+                  {listTab === 'upcoming' ? 'Предстоящие события' : 'Прошедшие события'} за {monthName}
+                </div>
+              </div>
+
+              {/* Список событий */}
+              <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">
+                {(listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).length > 0 ? (
+                  (listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).map(evt => {
+                    const assignedMembers = members.filter(m => evt.memberIds?.includes(m.id));
+                    const memberName = assignedMembers.length > 0 ? assignedMembers.map(m => m.name).join(', ') : 'Вся семья';
+                    const isGala = memberName.toLowerCase().includes('гал');
+                    const isGena = memberName.toLowerCase().includes('ген');
+                    const badgeBg = isGala ? 'bg-[#FDF0EC] text-[#9E3E28]' : isGena ? 'bg-[#FEF6E8] text-[#8C5E1A]' : 'bg-[#E8F2EC] text-[#244E38]';
+                    const dateObj = new Date(evt.date);
+                    const formattedDate = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
+
+                    return (
+                      <div 
+                        key={evt.id}
+                        onClick={() => {
+                          setSelectedDate(new Date(evt.date));
+                          onOpenEvent(evt);
+                        }}
+                        className="p-4 bg-[#F6F3EE] dark:bg-[#252528] rounded-2xl border border-[#ECE5DB] dark:border-white/5 hover:border-[#2D5A46] transition flex items-center justify-between cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#1C1C1E] flex flex-col items-center justify-center border border-[#ECE5DB] dark:border-white/10 shrink-0 shadow-2xs">
+                            <span className="text-[10px] font-bold text-stone-400 uppercase leading-none">
+                              {dateObj.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                            </span>
+                            <span className="text-base font-extrabold text-stone-900 dark:text-white mt-0.5 leading-none">
+                              {dateObj.getDate()}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-extrabold text-[#2D5A46] dark:text-emerald-400 flex items-center gap-1">
+                                <Clock size={12} />
+                                {evt.time || 'Весь день'}
+                              </span>
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeBg}`}>
+                                {memberName}
+                              </span>
+                              <span className="text-xs text-stone-400">
+                                {formattedDate}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">
+                              {evt.title}
+                            </h4>
+                            {evt.description && (
+                              <p className="text-xs text-stone-500 truncate mt-0.5">
+                                {evt.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSendToTelegram(evt);
+                            }}
+                            className="p-2 rounded-xl bg-white dark:bg-[#1C1C1E] text-stone-400 hover:text-[#2D5A46] border border-[#ECE5DB] dark:border-white/10 transition cursor-pointer"
+                            title="Отправить в Telegram"
+                          >
+                            <Send size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-16 text-center bg-[#F6F3EE]/50 dark:bg-white/5 rounded-3xl p-8 border border-dashed border-[#ECE5DB] dark:border-white/10">
+                    <CheckCircle2 size={40} className="mx-auto text-stone-400 mb-2 opacity-60" />
+                    <p className="text-sm font-bold text-stone-700 dark:text-stone-300">
+                      {listTab === 'upcoming' 
+                        ? `В ${monthName} нет запланированных событий` 
+                        : `В ${monthName} нет прошедших событий`}
+                    </p>
+                    {listTab === 'upcoming' && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenEvent(null, { date: getLocalDateString(new Date()) })}
+                        className="mt-4 px-4 py-2 rounded-xl bg-[#2D5A46] hover:bg-[#234636] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition"
+                      >
+                        <Plus size={15} />
+                        <span>Создать событие</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

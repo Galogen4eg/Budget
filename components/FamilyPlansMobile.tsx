@@ -988,7 +988,12 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           <div className="grid grid-cols-3 bg-[#F5F1EA] dark:bg-[#252528] p-1 rounded-xl gap-1">
             <button
               type="button"
-              onClick={() => setViewMode('month')}
+              onClick={() => {
+                setViewMode('month');
+                const now = new Date();
+                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                setSelectedDate(now);
+              }}
               className={`py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer ${
                 viewMode === 'month'
                   ? 'bg-white dark:bg-[#1E1E20] text-[#4A7C59] dark:text-green-300 shadow-sm'
@@ -1015,7 +1020,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('list')}
+              onClick={() => {
+                setViewMode('list');
+                setListTab('upcoming');
+              }}
               className={`py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-white dark:bg-[#1E1E20] text-[#4A7C59] dark:text-green-300 shadow-sm'

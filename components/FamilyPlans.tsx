@@ -115,7 +115,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     
     const prevDays = Array.from({ length: offset }, (_, i) => ({
       day: daysInPrevMonth - offset + i + 1,
-      month: month - 1,
+      month: month === 0 ? 11 : month - 1,
       year: month === 0 ? year - 1 : year,
       current: false
     }));
@@ -131,7 +131,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
     const nextDaysCount = totalSlots - prevDays.length - currentDays.length;
     const nextDays = Array.from({ length: nextDaysCount }, (_, i) => ({
       day: i + 1,
-      month: month + 1,
+      month: month === 11 ? 0 : month + 1,
       year: month === 11 ? year + 1 : year,
       current: false
     }));
@@ -235,6 +235,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       setCurrentDate,
       selectedDate,
       setSelectedDate,
+      viewMode,
+      setViewMode,
+      listTab,
+      setListTab,
       calendarData,
       selectedDayEvents,
       onOpenEvent: (event: FamilyEvent | null | undefined, prefill?: any) => setActiveEvent({ event: event || null, prefill }),
@@ -254,10 +258,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
         ) : (
             <FamilyPlansMobile 
                 {...commonProps}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                listTab={listTab}
-                setListTab={setListTab}
                 groupedListEvents={groupedListEvents}
             />
         )}

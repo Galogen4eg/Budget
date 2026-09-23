@@ -80,7 +80,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className={`w-full ${activeService === 'menu' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto space-y-4 transition-all duration-200`}>
       <AnimatePresence mode="wait">
         {activeService === 'menu' ? (
           <motion.div 

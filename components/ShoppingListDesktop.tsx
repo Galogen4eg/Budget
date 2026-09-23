@@ -1216,30 +1216,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               </div>
             </div>
 
-            {/* Family Sync Banner Card & Telegram Action */}
-            <div className="relative overflow-hidden p-5 rounded-2xl bg-[#F0E8DB] dark:bg-stone-800 text-[#1E1A13] dark:text-stone-100 flex flex-col gap-3.5 border border-[#ECE5DB] dark:border-white/5 shadow-xs">
-              <div className="flex items-start gap-3.5">
-                <div className="p-2.5 rounded-xl bg-white/80 dark:bg-stone-700 text-[#0088CC] dark:text-[#38B9FF] shrink-0">
-                  <Send size={20} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="font-serif font-bold text-sm">Синхронный поход & Telegram</span>
-                  <p className="text-xs text-[#5E5548] dark:text-stone-300 leading-relaxed">
-                    Отправьте актуальный список в семейный Telegram-чат или отмечайте купленное прямо у полки в реальном времени.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleTelegramSend}
-                disabled={isSendingTelegram}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0088CC] hover:bg-[#0077B5] text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
-              >
-                {isSendingTelegram ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                <span>Отправить список в Telegram</span>
-              </button>
-            </div>
-
             {/* Category Stats Box */}
             <div className="p-5 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/5 shadow-xs space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-[#74796E] block">

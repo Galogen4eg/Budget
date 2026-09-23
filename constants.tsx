@@ -365,8 +365,66 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
 ];
 
 export const DEMO_DEBTS: Debt[] = [
-  { id: 'd1', name: 'Ипотека', totalAmount: 5000000, currentBalance: 4200000, color: '#FF3B30' },
-  { id: 'd2', name: 'Кредитка', totalAmount: 100000, currentBalance: 15000, color: '#FF9500' }
+  { 
+    id: 'd1', 
+    name: 'Ипотека', 
+    totalAmount: 5100000, 
+    currentBalance: 4215000, 
+    monthlyPayment: 27741.9, 
+    dueDate: '2026-09-25', 
+    finalClosingDate: '2038-08-12', 
+    color: '#4a7c59', 
+    paidThisMonth: false,
+    notifyBefore: 3,
+    notifyIfOverdue: true,
+    channels: ['site'],
+    strategy: 'manual' 
+  },
+  { 
+    id: 'd2', 
+    name: 'Кредитная карта', 
+    totalAmount: 150000, 
+    currentBalance: 22500, 
+    monthlyPayment: 10640, 
+    dueDate: '2026-10-15', 
+    finalClosingDate: '2026-10-15', 
+    color: '#c4a66a', 
+    paidThisMonth: false,
+    notifyBefore: 3,
+    notifyIfOverdue: true,
+    channels: ['site'],
+    strategy: 'manual' 
+  },
+  { 
+    id: 'd3', 
+    name: 'Рассрочка на технику', 
+    totalAmount: 63840, 
+    currentBalance: 31920, 
+    monthlyPayment: 10640, 
+    dueDate: '2026-10-15', 
+    finalClosingDate: '2026-12-15', 
+    color: '#4a7c59', 
+    paidThisMonth: false,
+    notifyBefore: 3,
+    notifyIfOverdue: true,
+    channels: ['site'],
+    strategy: 'manual' 
+  },
+  { 
+    id: 'd4', 
+    name: 'Автокредит', 
+    totalAmount: 800000, 
+    currentBalance: 255600, 
+    monthlyPayment: 14200, 
+    dueDate: '2026-09-28', 
+    finalClosingDate: '2027-03-20', 
+    color: '#4a7c59', 
+    paidThisMonth: false,
+    notifyBefore: 3,
+    notifyIfOverdue: true,
+    channels: ['site'],
+    strategy: 'manual' 
+  }
 ];
 
 export const DEMO_PROJECTS: Project[] = [

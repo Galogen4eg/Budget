@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PieChart, Plus, X, ChevronDown, ChevronRight, Edit3, Check, DollarSign 
 } from 'lucide-react';
@@ -93,15 +94,33 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all overflow-y-auto"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white dark:bg-[#1C1C1E] w-full max-w-2xl rounded-2xl border border-surface-border dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto"
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all overflow-y-auto"
+        onClick={onClose}
       >
-        {/* Modal Header */}
+        <motion.div 
+          initial={{ y: 20, opacity: 0, scale: 0.98 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 20, opacity: 0, scale: 0.98 }}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.6 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 100 || info.velocity.y > 300) {
+              onClose();
+            }
+          }}
+          className="bg-white dark:bg-[#1C1C1E] w-full max-w-2xl rounded-2xl border border-surface-border dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto pb-[env(safe-area-inset-bottom,0px)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Mobile Drag Indicator Handle */}
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
+
+          {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-surface-border/80 dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold shadow-xs">
@@ -384,8 +403,9 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
   );
 };
 

@@ -80,12 +80,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     return transactions.filter(t => t.memberId === selectedMember);
   }, [transactions, selectedMember]);
 
-  // Current month transactions
+  // Current month transactions - sorted chronologically descending (from current/newest to past)
   const monthTransactions = useMemo(() => {
-    return memberFilteredTransactions.filter(t => {
-      const d = new Date(t.date);
-      return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-    });
+    return memberFilteredTransactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [memberFilteredTransactions, currentMonth]);
 
   // Income, Expense, Balance calculations
@@ -533,7 +535,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <div 
                     key={dayNum}
                     onClick={() => setSelectedDay(dayNum)}
-                    className={`h-16 p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${
+                    className={`h-14 sm:h-16 p-1 sm:p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${
                       isSelected 
                         ? 'border-2 border-primary bg-primary-light/50 dark:bg-primary/20 ring-2 ring-primary/20 shadow-md z-10' 
                         : isCurrentToday 
@@ -541,27 +543,27 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           : 'border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-xs ${isSelected ? 'font-black text-primary-dark dark:text-green-400' : 'font-bold text-graphite dark:text-white'}`}>
+                    <div className="flex justify-between items-start min-w-0">
+                      <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
+                        <span className={`text-[10px] sm:text-xs ${isSelected ? 'font-black text-primary-dark dark:text-green-400' : 'font-bold text-graphite dark:text-white'}`}>
                           {dayNum}
                         </span>
                         {isCurrentToday && (
-                          <span className="text-[7px] uppercase font-bold text-primary bg-white dark:bg-[#1C1C1E] px-1 rounded border border-primary/20">
+                          <span className="text-[6px] sm:text-[7px] uppercase font-bold text-primary bg-white dark:bg-[#1C1C1E] px-0.5 sm:px-1 rounded border border-primary/20 hidden min-[360px]:inline">
                             Сегодня
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 shrink-0">
                         {paidMandatory && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#C4A66A]" title={`Оплаченный обязательный платеж: ${paidMandatory.name}`} />
+                          <span className="w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full bg-[#C4A66A]" title={`Оплаченный обязательный платеж: ${paidMandatory.name}`} />
                         )}
                         {dayIncome > 0 && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary" title="Доход" />
+                          <span className="w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full bg-primary" title="Доход" />
                         )}
                         {dayExpense > 0 && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#D95C48]" title="Траты" />
+                          <span className="w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full bg-[#D95C48]" title="Траты" />
                         )}
                       </div>
                     </div>

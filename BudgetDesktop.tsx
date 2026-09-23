@@ -33,14 +33,14 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
     return sortedDates.map(date => {
       const dayTxs = groups[date];
       dayTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const dayIncome = dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const dayExpense = dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      const dayIncome = Math.round(dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
+      const dayExpense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
       return {
         date,
         transactions: dayTxs,
         dayIncome,
         dayExpense,
-        net: dayIncome - dayExpense
+        net: Math.round(dayIncome - dayExpense)
       };
     });
   }, [transactions]);
@@ -66,7 +66,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                  ? 'text-[#4A7C59] bg-[#EAF2EC] dark:bg-[#4A7C59]/15 dark:text-green-400' 
                                  : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5'
                          }`}>
-                             {privacyMode ? '•••' : `${isPositiveDay ? '+' : ''}${group.net.toLocaleString('ru-RU')}`}
+                             {privacyMode ? '•••' : `${isPositiveDay ? '+' : ''}${Math.round(group.net).toLocaleString('ru-RU')}`}
                          </span>
                      </div>
 
@@ -134,7 +134,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                                  ? 'text-[#4A7C59] dark:text-green-400' 
                                                  : 'text-graphite dark:text-white'
                                          }`}>
-                                             {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')}`}
+                                             {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${Math.round(tx.amount).toLocaleString('ru-RU')}`}
                                          </span>
                                      </div>
                                  </div>

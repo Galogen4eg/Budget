@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, ArrowUpRight, ArrowDownRight, Tag, Clock } from 'lucide-react';
 import { Transaction, Category, FamilyMember } from '../types';
 import BrandIcon from './BrandIcon';
@@ -51,15 +52,33 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
   const isToday = new Date().toDateString() === date.toDateString();
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all overflow-y-auto"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white dark:bg-[#1C1C1E] w-full max-w-2xl rounded-2xl border border-surface-border dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto"
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all overflow-y-auto"
+        onClick={onClose}
       >
-        {/* Header */}
+        <motion.div 
+          initial={{ y: 20, opacity: 0, scale: 0.98 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 20, opacity: 0, scale: 0.98 }}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.6 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 100 || info.velocity.y > 300) {
+              onClose();
+            }
+          }}
+          className="bg-white dark:bg-[#1C1C1E] w-full max-w-2xl rounded-2xl border border-surface-border dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto pb-[env(safe-area-inset-bottom,0px)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Mobile Drag Indicator Handle */}
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
+
+          {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-surface-border/80 dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary text-white flex flex-col items-center justify-center font-headline font-bold shadow-xs leading-none shrink-0">
@@ -225,8 +244,9 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
             Закрыть
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
   );
 };
 

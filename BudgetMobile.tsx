@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, FamilyMember, Category } from '../types';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { triggerHaptic } from '../utils/haptics';
 
 interface BudgetMobileProps {
   transactions: Transaction[];
@@ -27,6 +28,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
   transactions, categories, members, onEdit, privacyMode, onCategoryChange 
 }) => {
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
+  const [visibleCount, setVisibleCount] = useState(15);
 
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
@@ -43,14 +45,14 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
       const dayTxs = groups[date];
       dayTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      const dayIncome = dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const dayExpense = dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      const dayIncome = Math.round(dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
+      const dayExpense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
       return {
         date,
         transactions: dayTxs,
         dayIncome,
         dayExpense,
-        net: dayIncome - dayExpense
+        net: Math.round(dayIncome - dayExpense)
       };
     });
   }, [transactions]);
@@ -59,9 +61,13 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
       setCollapsedDays(prev => ({ ...prev, [dateKey]: !prev[dateKey] }));
   };
 
+  const visibleGroups = useMemo(() => {
+    return groupedTransactions.slice(0, visibleCount);
+  }, [groupedTransactions, visibleCount]);
+
   return (
     <div className="space-y-4">
-      {groupedTransactions.map((group) => {
+      {visibleGroups.map((group) => {
           const isCollapsed = collapsedDays[group.date];
           const isPositiveDay = group.net > 0;
 
@@ -82,7 +88,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                           }`}>
                               {privacyMode 
                                   ? '•••' 
-                                  : `${isPositiveDay ? '+' : ''}${group.net.toLocaleString('ru-RU')}`
+                                  : `${isPositiveDay ? '+' : ''}${Math.round(group.net).toLocaleString('ru-RU')}`
                               }
                           </span>
                           {isCollapsed ? <ChevronDown size={14} className="text-gray-400"/> : <ChevronUp size={14} className="text-gray-400"/>}
@@ -154,7 +160,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                                     ? 'text-[#4A7C59] dark:text-green-400' 
                                                     : 'text-graphite dark:text-white'
                                             }`}>
-                                              {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')}`}
+                                              {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${Math.round(tx.amount).toLocaleString('ru-RU')}`}
                                             </span>
                                           </div>
                                       </motion.div>
@@ -166,6 +172,20 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
               </motion.div>
           );
       })}
+
+      {groupedTransactions.length > visibleCount && (
+        <button 
+          type="button"
+          onClick={() => {
+            setVisibleCount(prev => prev + 15);
+            triggerHaptic('light');
+          }}
+          className="w-full py-3.5 px-4 text-xs font-bold text-primary dark:text-green-400 bg-white dark:bg-[#1C1C1E] hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-surface-border dark:border-white/10 rounded-2xl shadow-xs transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+        >
+          <Layers size={15} />
+          <span>Загрузить ещё (показано {visibleCount} из {groupedTransactions.length} дней)</span>
+        </button>
+      )}
     </div>
   );
 };

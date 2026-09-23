@@ -10,7 +10,7 @@ import {
   Footprints, Smile, HeartHandshake, FileText, ShieldCheck, Landmark, SmartphoneCharging, Armchair, Watch,
   Sun, Umbrella, Wine, GlassWater, ShoppingCart, Map, Flag, Star, Bell, Mail, Video, Mic, Speaker,
   Laptop, Printer, HardDrive, Cloud, Droplets, Flame, Key, Lock, Anchor, CheckCircle2, AlertTriangle, HelpCircle,
-  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv
+  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv, GripVertical, Folder, CornerDownRight, Move
 } from 'lucide-react';
 import { Category, LearnedRule, AppSettings, Transaction } from '../types';
 import { toast } from 'sonner';
@@ -99,8 +99,13 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const [catName, setCatName] = useState('');
   const [catColor, setCatColor] = useState('bg-blue-500');
   const [catIcon, setCatIcon] = useState('ShoppingBag');
+  const [catParentId, setCatParentId] = useState<string | null>(null);
   const [catKeywords, setCatKeywords] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Drag & Drop State for PC moving
+  const [draggedCatId, setDraggedCatId] = useState<string | null>(null);
+  const [dragOverParentId, setDragOverParentId] = useState<string | null>(null);
 
   // Rule Form State
   // We now store a list of IDs being edited to support grouping
@@ -227,16 +232,30 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       setCatName(category.label);
       setCatColor(category.color);
       setCatIcon(category.icon);
+      setCatParentId(category.parentId || null);
       setCatKeywords('');
     } else {
       setEditingCategory(null);
       setCatName('');
       setCatColor('bg-blue-500');
       setCatIcon('ShoppingBag');
+      setCatParentId(null);
       setCatKeywords('');
     }
     setConfirmDeleteId(null);
     setView('category_form');
+  };
+
+  const handleMoveSubcategory = (subCatId: string, targetParentId: string | undefined) => {
+    if (subCatId === targetParentId) return;
+    const updated = categories.map(c => {
+      if (c.id === subCatId) {
+        return { ...c, parentId: targetParentId };
+      }
+      return c;
+    });
+    onUpdateCategories(updated);
+    toast.success('Подкатегория перемещена');
   };
 
   const handleSaveCategory = () => {
@@ -245,7 +264,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
     if (editingCategory) {
       onUpdateCategories(categories.map(c => c.id === editingCategory.id ? {
-        ...c, label: catName, color: catColor, icon: catIcon
+        ...c, label: catName, color: catColor, icon: catIcon, parentId: catParentId || undefined
       } : c));
     } else {
       currentCatId = Date.now().toString();
@@ -254,6 +273,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           label: catName, 
           icon: catIcon, 
           color: catColor, 
+          parentId: catParentId || undefined,
           isCustom: true 
       };
       onUpdateCategories([...categories, newCategory]);
@@ -570,6 +590,24 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   </div>
 
                   <div className="space-y-2">
+                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Родительская категория (если подкатегория)</label>
+                    <select 
+                      value={catParentId || ''} 
+                      onChange={(e) => setCatParentId(e.target.value || null)}
+                      className={`w-full px-5 py-4 rounded-[1.5rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-sm font-bold`}
+                    >
+                      <option value="">— Основная категория (без родителя) —</option>
+                      {categories
+                        .filter(c => !c.parentId && c.id !== editingCategory?.id)
+                        .map(parentCat => (
+                          <option key={parentCat.id} value={parentCat.id}>
+                            📁 {parentCat.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
                     <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Выберите иконку</label>
                     <div className={`p-4 rounded-[2rem] border ${theme.border} ${theme.card} max-h-60 overflow-y-auto custom-scrollbar`}>
                       <div className="grid grid-cols-6 gap-3">
@@ -660,7 +698,7 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         )}
 
         {view === 'manage_categories' && (
-           <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 pb-20">
+           <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 pb-20">
               
               <div className={`flex items-center px-4 py-3 rounded-[20px] shadow-sm border ${theme.border} ${theme.card}`}>
                 <Search size={18} className="text-gray-400 mr-3" />
@@ -679,67 +717,228 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  <button 
-                    onClick={() => openCategoryForm()}
-                    className={`w-full aspect-auto min-h-[100px] rounded-[24px] border-2 border-dashed ${theme.border} flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-blue-500 hover:border-blue-500/50 transition-all`}
-                  >
-                    <Plus size={24} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Новая</span>
-                  </button>
-
-                  {filteredManageCategories.map(cat => (
-                    <div key={cat.id} className="relative group">
-                      <button 
-                        onClick={() => openCategoryForm(cat)}
-                        className={`w-full h-full ${theme.card} p-4 rounded-[24px] border ${theme.border} flex flex-col items-center gap-2 relative shadow-sm hover:border-blue-500/50 transition-colors active:scale-95 min-h-[100px] justify-center`}
-                      >
-                        <div 
-                            className={`w-12 h-12 rounded-[18px] flex items-center justify-center text-white shadow-lg ${getColorClass(cat.color)}`}
-                            style={getColorStyle(cat.color)}
-                        >
-                          <IconRenderer name={cat.icon} size={24} />
-                        </div>
-                        <span className={`text-xs font-bold ${theme.text} truncate w-full text-center px-1`}>{cat.label}</span>
-                      </button>
-                      
-                      {confirmDeleteId === cat.id ? (
-                          <div className="absolute inset-0 bg-red-500 rounded-[24px] z-20 flex flex-col items-center justify-center text-white p-2">
-                              <span className="text-[9px] font-black uppercase mb-1">Удалить?</span>
-                              <div className="flex gap-2">
-                                  <button onClick={() => setConfirmDeleteId(null)} className="p-1 bg-white/20 rounded-full"><X size={14}/></button>
-                                  <button onClick={() => executeDeleteCategory(cat.id)} className="p-1 bg-white text-red-500 rounded-full"><Trash2 size={14}/></button>
-                              </div>
-                          </div>
-                      ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(cat.id); }} 
-                            className="absolute -top-1 -right-1 bg-red-500 text-white p-1.5 rounded-full shadow-lg z-10 active:scale-90 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X size={14} />
-                          </button>
-                      )}
-                    </div>
-                  ))}
+              {/* Category management instructions for PC & Mobile */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 text-xs text-blue-600 dark:text-blue-400 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Move size={16} className="shrink-0" />
+                  <span><strong>Управление родителями:</strong> на ПК используйте перетаскивание (Drag & Drop), а на смартфоне выбирайте родительскую категорию прямо из выпадающего меню.</span>
+                </div>
+                <button 
+                  onClick={() => openCategoryForm()}
+                  className="px-3 py-1.5 bg-blue-500 text-white rounded-xl font-bold text-[11px] hover:bg-blue-600 transition shrink-0"
+                >
+                  + Создать
+                </button>
               </div>
-              
-              {!categorySearchQuery && !showAll && sortedCategories.length > 6 && (
-                  <button 
-                    onClick={() => setShowAll(true)}
-                    className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
-                  >
-                      Показать еще {sortedCategories.length - 6} <ChevronDown size={14} />
-                  </button>
-              )}
-              
-              {!categorySearchQuery && showAll && (
-                  <button 
-                    onClick={() => setShowAll(false)}
-                    className={`w-full py-4 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
-                  >
-                      Свернуть <ChevronUp size={14} />
-                  </button>
-              )}
+
+              {/* Grouped Parent Categories with nested Subcategories */}
+              <div className="space-y-4">
+                {(() => {
+                  const parentCats = sortedCategories.filter(c => !c.parentId);
+                  const parentOptions = parentCats.map(p => ({ id: p.id, label: p.label }));
+
+                  // If user is searching, render matching flat list
+                  if (categorySearchQuery.trim()) {
+                    return (
+                      <div className="grid grid-cols-2 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {filteredManageCategories.map(cat => (
+                          <div key={cat.id} className="relative group">
+                            <button 
+                              onClick={() => openCategoryForm(cat)}
+                              className={`w-full h-full ${theme.card} p-4 rounded-[24px] border ${theme.border} flex flex-col items-center gap-2 relative shadow-sm hover:border-blue-500/50 transition-colors active:scale-95 min-h-[100px] justify-center`}
+                            >
+                              <div 
+                                  className={`w-12 h-12 rounded-[18px] flex items-center justify-center text-white shadow-lg ${getColorClass(cat.color)}`}
+                                  style={getColorStyle(cat.color)}
+                              >
+                                <IconRenderer name={cat.icon} size={24} />
+                              </div>
+                              <span className={`text-xs font-bold ${theme.text} truncate w-full text-center px-1`}>{cat.label}</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {parentCats.map(parentCat => {
+                        const subCats = sortedCategories.filter(c => c.parentId === parentCat.id);
+                        const isOver = dragOverParentId === parentCat.id;
+
+                        return (
+                          <div 
+                            key={parentCat.id}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              if (dragOverParentId !== parentCat.id) setDragOverParentId(parentCat.id);
+                            }}
+                            onDragLeave={() => setDragOverParentId(null)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const droppedId = e.dataTransfer.getData('text/plain') || draggedCatId;
+                              if (droppedId) {
+                                handleMoveSubcategory(droppedId, parentCat.id);
+                              }
+                              setDragOverParentId(null);
+                              setDraggedCatId(null);
+                            }}
+                            className={`p-4 rounded-[24px] border transition-all ${
+                              isOver 
+                                ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50 scale-[1.01]' 
+                                : `${theme.card} ${theme.border}`
+                            }`}
+                          >
+                            {/* Parent Header */}
+                            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5 mb-3">
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className={`w-10 h-10 rounded-[14px] flex items-center justify-center text-white shadow-sm ${getColorClass(parentCat.color)}`}
+                                  style={getColorStyle(parentCat.color)}
+                                >
+                                  <IconRenderer name={parentCat.icon} size={20} />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className={`text-sm font-black ${theme.text}`}>{parentCat.label}</h4>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 uppercase tracking-wide">
+                                      Родитель
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-gray-400 font-medium">
+                                    Подкатегорий: {subCats.length}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => openCategoryForm(parentCat)}
+                                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition"
+                                  title="Редактировать родительскую категорию"
+                                >
+                                  <Edit3 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(parentCat.id)}
+                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition"
+                                  title="Удалить"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Subcategories list / Drop zone */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {subCats.map(subCat => (
+                                <div 
+                                  key={subCat.id}
+                                  draggable={true}
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData('text/plain', subCat.id);
+                                    setDraggedCatId(subCat.id);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedCatId(null);
+                                    setDragOverParentId(null);
+                                  }}
+                                  className={`p-3 rounded-2xl border ${theme.border} bg-gray-50/70 dark:bg-black/20 flex items-center justify-between gap-2 group hover:border-blue-500/40 transition cursor-grab active:cursor-grabbing ${
+                                    draggedCatId === subCat.id ? 'opacity-40 scale-95' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <GripVertical size={16} className="text-gray-400 shrink-0 group-hover:text-blue-500 transition" />
+                                    <div 
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 ${getColorClass(subCat.color)}`}
+                                      style={getColorStyle(subCat.color)}
+                                    >
+                                      <IconRenderer name={subCat.icon} size={14} />
+                                    </div>
+                                    <span className={`text-xs font-bold ${theme.text} truncate`}>{subCat.label}</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <select
+                                      value={subCat.parentId || ''}
+                                      onChange={(e) => handleMoveSubcategory(subCat.id, e.target.value || undefined)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-[10px] font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-lg px-1.5 py-1 text-gray-600 dark:text-gray-300 outline-none max-w-[100px] truncate"
+                                      title="Переместить в другую родительскую категорию"
+                                    >
+                                      {parentOptions.map(p => (
+                                        <option key={p.id} value={p.id}>{p.label}</option>
+                                      ))}
+                                      <option value="">(Без родителя)</option>
+                                    </select>
+
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); openCategoryForm(subCat); }} 
+                                      className="p-1 text-gray-400 hover:text-blue-500 rounded"
+                                    >
+                                      <Edit3 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {subCats.length === 0 && (
+                                <div className="col-span-full py-3 text-center border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl text-[11px] text-gray-400 font-semibold">
+                                  Перетащите подкатегорию сюда или создайте новую
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Standalone / Unassigned categories drop zone */}
+                      {(() => {
+                        const standaloneCats = sortedCategories.filter(c => c.parentId && !parentCats.some(p => p.id === c.parentId));
+                        if (standaloneCats.length === 0) return null;
+
+                        return (
+                          <div className={`p-4 rounded-[24px] border ${theme.border} ${theme.card}`}>
+                            <h4 className={`text-xs font-black uppercase text-gray-400 tracking-wider mb-3`}>
+                              Категории без основного родителя
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {standaloneCats.map(subCat => (
+                                <div 
+                                  key={subCat.id}
+                                  draggable={true}
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData('text/plain', subCat.id);
+                                    setDraggedCatId(subCat.id);
+                                  }}
+                                  className={`p-3 rounded-2xl border ${theme.border} bg-gray-50/70 dark:bg-black/20 flex items-center justify-between gap-2`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <GripVertical size={16} className="text-gray-400" />
+                                    <span className={`text-xs font-bold ${theme.text} truncate`}>{subCat.label}</span>
+                                  </div>
+                                  <select
+                                    value={subCat.parentId || ''}
+                                    onChange={(e) => handleMoveSubcategory(subCat.id, e.target.value || undefined)}
+                                    className="text-[10px] font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-lg px-1.5 py-1 text-gray-600 dark:text-gray-300 outline-none"
+                                  >
+                                    <option value="">Назначить родителя...</option>
+                                    {parentCats.map(p => (
+                                      <option key={p.id} value={p.id}>{p.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  );
+                })()}
+              </div>
            </div>
         )}
 

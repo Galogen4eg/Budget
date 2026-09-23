@@ -180,11 +180,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         result = result.filter(tx => tx.type === typeFilter);
     }
 
+    // Sort transactions chronologically descending (from current/newest to past)
+    const sortedResult = [...result].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     // 5. Text Search
-    if (!searchQuery.trim()) return result;
+    if (!searchQuery.trim()) return sortedResult;
     
     const query = searchQuery.toLowerCase();
-    return result.filter(tx => {
+    return sortedResult.filter(tx => {
         const category = categories.find(c => c.id === tx.category)?.label || '';
         return (tx.note || '').toLowerCase().includes(query) || 
                (tx.rawNote || '').toLowerCase().includes(query) ||
@@ -539,19 +542,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                     <div className="text-center py-12 text-gray-400 font-bold text-sm">Ничего не найдено</div>
                   ) : (
                     <BudgetMobile 
-                        transactions={visibleTransactions}
+                        transactions={searchedTransactions}
                         categories={categories}
                         members={members}
                         onEdit={(tx) => onEditTransaction && onEditTransaction(tx)}
                         privacyMode={settings.privacyMode}
                         onCategoryChange={setTransactions ? handleCategoryChange : undefined}
                     />
-                  )}
-                  
-                  {searchedTransactions.length > 15 && !showAll && !selectedCategoryId && !selectedDate && !searchQuery && typeFilter === 'all' && periodFilter === 'context' && (
-                    <button onClick={() => setShowAll(true)} className="w-full mt-4 py-4 text-xs font-black text-gray-400 uppercase tracking-widest bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 hover:text-blue-500 transition-colors">
-                        Показать все
-                    </button>
                   )}
               </div>
           </div>

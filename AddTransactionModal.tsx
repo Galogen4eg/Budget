@@ -9,6 +9,7 @@ import { Transaction, AppSettings, FamilyMember, Category, LearnedRule } from '.
 import { auth } from '../firebase';
 import { getIconById, MemberMarker } from '../constants';
 import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
+import { triggerHaptic } from '../utils/haptics';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -251,9 +252,20 @@ export default function AddTransactionModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.18, ease: 'easeOut' }}
-        className="relative w-full max-w-3xl h-[88vh] sm:h-[620px] max-h-[92vh] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-surface-border dark:border-white/10 z-10"
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.6 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 || info.velocity.y > 300) {
+            onClose();
+          }
+        }}
+        className="relative w-full max-w-3xl h-[88vh] sm:h-[620px] max-h-[92vh] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator Handle */}
+        <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
+
         <AnimatePresence initial={false} mode="popLayout">
           {currentView === 'main' && (
             <motion.div 
@@ -325,38 +337,72 @@ export default function AddTransactionModal({
                   </div>
 
                   {/* Sum Card */}
-                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-5 py-3 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex items-center justify-between gap-3 min-h-[58px]">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5">
-                        {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
-                      </span>
-                      <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={amount}
-                          onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-                          placeholder="0"
-                          style={{ width: `${Math.max(inputWidth, 80)}px` }}
-                          className="bg-transparent font-headline text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0"
-                          autoFocus={!initialTransaction}
-                        />
-                        <span ref={spanRef} className="absolute invisible whitespace-pre text-2xl sm:text-3xl font-headline font-bold">
-                          {amount || '0'}
+                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-5 py-3 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-2 min-h-[58px]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5">
+                          {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
                         </span>
-                        <span className={`font-headline font-extrabold text-xl sm:text-2xl ${
-                          type === 'expense' ? 'text-[#D95C48]' : 'text-primary dark:text-green-400'
-                        }`}>
-                          {settings.currency || '₽'}
+                        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+                          <input 
+                            type="text" 
+                            inputMode="decimal"
+                            value={amount}
+                            onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            placeholder="0"
+                            style={{ width: `${Math.max(inputWidth, 80)}px` }}
+                            className="bg-transparent font-headline text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0"
+                            autoFocus={!initialTransaction}
+                          />
+                          <span ref={spanRef} className="absolute invisible whitespace-pre text-2xl sm:text-3xl font-headline font-bold">
+                            {amount || '0'}
+                          </span>
+                          <span className={`font-headline font-extrabold text-xl sm:text-2xl ${
+                            type === 'expense' ? 'text-[#D95C48]' : 'text-primary dark:text-green-400'
+                          }`}>
+                            {settings.currency || '₽'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        <span className="text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                          <span>В лимите дня</span>
                         </span>
                       </div>
                     </div>
 
-                    <div className="shrink-0">
-                      <span className="text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                        <span>В лимите дня</span>
-                      </span>
+                    {/* Quick Sum Modifier Chips for Mobile */}
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-white/5 overflow-x-auto no-scrollbar">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase shrink-0">Быстро:</span>
+                      {[100, 500, 1000, 5000].map(addVal => (
+                        <button
+                          key={addVal}
+                          type="button"
+                          onClick={() => {
+                            const currentNum = parseFloat(amount.replace(/\s/g, '').replace(',', '.')) || 0;
+                            setAmount(String(currentNum + addVal));
+                            triggerHaptic('light');
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-extrabold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-graphite dark:text-white rounded-lg transition active:scale-95 shrink-0 cursor-pointer"
+                        >
+                          +{addVal >= 1000 ? `${addVal / 1000}k` : addVal}
+                        </button>
+                      ))}
+                      {amount && amount !== '0' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAmount('');
+                            triggerHaptic('light');
+                          }}
+                          className="px-2 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition shrink-0 cursor-pointer"
+                        >
+                          Сброс
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
@@ -115,6 +116,67 @@ export default function App() {
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   
+  // Offline / Network Status
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [showOnlineRestored, setShowOnlineRestored] = useState(false);
+
+  // Mobile Pull-To-Refresh State
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineRestored(true);
+      triggerHaptic('success');
+      setTimeout(() => setShowOnlineRestored(false), 3000);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      triggerHaptic('error');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (mainRef.current && mainRef.current.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY;
+    } else {
+      touchStartY.current = 0;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current > 0 && mainRef.current && mainRef.current.scrollTop === 0) {
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - touchStartY.current;
+      if (diff > 0) {
+        setPullY(Math.min(diff * 0.4, 80));
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullY > 55 && !isRefreshing) {
+      setIsRefreshing(true);
+      triggerHaptic('medium');
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullY(0);
+        toast.success("Данные успешно обновлены");
+      }, 700);
+    } else {
+      setPullY(0);
+    }
+    touchStartY.current = 0;
+  };
+
   const mainRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top when tab changes
@@ -738,7 +800,42 @@ export default function App() {
       {/* END: LeftSidebar */}
 
       {/* Main Content Area */}
-      <main ref={mainRef} className={`flex-1 flex flex-col min-w-0 bg-[#F8F6F2] dark:bg-[#121214] overflow-hidden ${activeTab === 'overview' ? '' : 'overflow-y-auto no-scrollbar p-4 md:p-8 pt-16 md:pt-8 pb-32 md:pb-8'}`}>
+      <main 
+        ref={mainRef} 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`flex-1 flex flex-col min-w-0 bg-[#F8F6F2] dark:bg-[#121214] overflow-hidden relative ${activeTab === 'overview' ? '' : 'overflow-y-auto no-scrollbar p-4 md:p-8 pt-16 md:pt-8 pb-32 md:pb-8'}`}
+      >
+        {/* Offline Alert Banner */}
+        {!isOnline && (
+          <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
+            <WifiOff size={15} className="animate-pulse" />
+            <span>Офлайн-режим. Изменения сохраняются локально на вашем устройстве</span>
+          </div>
+        )}
+
+        {/* Network Restored Banner */}
+        {showOnlineRestored && isOnline && (
+          <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
+            <Wifi size={15} />
+            <span>Соединение восстановлено. Данные синхронизируются...</span>
+          </div>
+        )}
+
+        {/* Pull-To-Refresh Mobile Indicator */}
+        {(pullY > 0 || isRefreshing) && (
+          <div 
+            style={{ height: isRefreshing ? 50 : pullY }} 
+            className="flex items-center justify-center overflow-hidden transition-all duration-150 shrink-0 bg-transparent text-primary dark:text-green-400"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold bg-white dark:bg-[#1C1C1E] px-3 py-1.5 rounded-full shadow-sm border border-surface-border dark:border-white/10">
+              <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} style={{ transform: `rotate(${pullY * 3}deg)` }} />
+              <span>{isRefreshing ? "Обновление..." : pullY > 55 ? "Отпустите для обновления" : "Потяните для обновления"}</span>
+            </div>
+          </div>
+        )}
+
         <div className={`w-full flex-1 flex flex-col ${activeTab === 'overview' ? 'h-full' : 'gap-4 h-auto'}`}>
             <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
@@ -802,7 +899,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-[#FAF8F5]/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-1.5 flex justify-around items-center z-40">
+      <nav className="md:hidden fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 bg-[#FAF8F5]/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-1.5 flex justify-around items-center z-40">
          {TAB_CONFIG.map(tab => {
              const isActive = activeTab === tab.id;
              return (

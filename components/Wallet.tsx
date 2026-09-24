@@ -308,6 +308,29 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     }
   }, []);
 
+  // Counts for each category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: cards.length };
+    CATEGORIES.forEach(cat => {
+      if (cat.id !== 'all') {
+        counts[cat.id] = cards.filter(c => (c.category || 'other') === cat.id).length;
+      }
+    });
+    return counts;
+  }, [cards]);
+
+  // Visible categories (hide empty categories except 'all')
+  const visibleCategories = useMemo(() => {
+    return CATEGORIES.filter(cat => cat.id === 'all' || (categoryCounts[cat.id] || 0) > 0);
+  }, [categoryCounts]);
+
+  // If selected category has become empty, fallback to 'all'
+  useEffect(() => {
+    if (selectedCategory !== 'all' && (categoryCounts[selectedCategory] || 0) === 0) {
+      setSelectedCategory('all');
+    }
+  }, [selectedCategory, categoryCounts]);
+
   // Filtered Cards
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
@@ -323,17 +346,6 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     });
   }, [cards, searchQuery, selectedCategory]);
 
-  // Counts for each category
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: cards.length };
-    CATEGORIES.forEach(cat => {
-      if (cat.id !== 'all') {
-        counts[cat.id] = cards.filter(c => (c.category || 'other') === cat.id).length;
-      }
-    });
-    return counts;
-  }, [cards]);
-
   // Open Edit/Add Modal
   const handleOpenAddModal = () => {
     setEditingCard({
@@ -345,8 +357,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       category: 'groceries',
       barcodeFormat: 'code128',
       subtitle: '',
-      discount: 'Активна',
-      balance: 'Активна'
+      discount: '',
+      balance: ''
     });
     setFormName('');
     setFormCategory('groceries');
@@ -355,8 +367,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     setFormIcon('ShoppingBag');
     setFormFormat('code128');
     setFormSubtitle('');
-    setFormDiscount('Активна');
-    setFormBalance('Активна');
+    setFormDiscount('');
+    setFormBalance('');
   };
 
   const handleOpenEditModal = (card: LoyaltyCard) => {
@@ -368,8 +380,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
     setFormIcon(card.icon || 'ShoppingBag');
     setFormFormat((card.barcodeFormat as any) || 'code128');
     setFormSubtitle(card.subtitle || '');
-    setFormDiscount(card.discount || '');
-    setFormBalance(card.balance || '');
+    setFormDiscount(card.discount && card.discount.toLowerCase() !== 'активна' ? card.discount : '');
+    setFormBalance(card.balance && card.balance.toLowerCase() !== 'активна' ? card.balance : '');
     if (activeBarcodeCard?.id === card.id) {
       setActiveBarcodeCard(null);
     }
@@ -390,8 +402,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       category: formCategory,
       barcodeFormat: formFormat,
       subtitle: formSubtitle.trim() || 'Карта лояльности',
-      discount: formDiscount.trim() || 'Активна',
-      balance: formBalance.trim() || 'Активна'
+      discount: formDiscount.trim(),
+      balance: formBalance.trim()
     };
 
     if (editingCard?.id) {
@@ -430,7 +442,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       {/* 1. Header & Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
+          <nav className="hidden sm:flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
             {onClose ? (
               <button 
                 type="button"
@@ -487,7 +499,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               className="flex items-center gap-1.5 overflow-x-auto py-0.5 scroll-smooth no-scrollbar flex-1 min-w-0 -mx-1 px-1"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {CATEGORIES.map(cat => {
+              {visibleCategories.map(cat => {
                 const count = categoryCounts[cat.id] || 0;
                 const isActive = selectedCategory === cat.id;
                 return (
@@ -625,7 +637,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                       </div>
                     </div>
 
-                    {card.discount && (
+                    {card.discount && card.discount.toLowerCase() !== 'активна' && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-[11px] font-bold text-white tracking-wide shrink-0">
                         <Star className="w-3 h-3 text-amber-300 fill-amber-300" />
                         <span>{card.discount}</span>
@@ -658,7 +670,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                     </div>
                   </div>
 
-                  {card.balance && (
+                  {card.balance && card.balance.toLowerCase() !== 'активна' && (
                     <span className="px-2 sm:px-2.5 py-0.5 rounded-lg bg-black/25 text-[10px] sm:text-xs font-semibold tracking-wide text-white/95 backdrop-blur-xs">
                       {card.balance}
                     </span>
@@ -728,7 +740,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                       <h3 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white truncate">
                         {card.name}
                       </h3>
-                      {card.discount && (
+                      {card.discount && card.discount.toLowerCase() !== 'активна' && (
                         <span className="px-1.5 py-0.5 rounded-md bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 text-[10px] font-bold shrink-0">
                           {card.discount}
                         </span>
@@ -741,7 +753,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {card.balance && (
+                  {card.balance && card.balance.toLowerCase() !== 'активна' && (
                     <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 hidden sm:inline-block">
                       {card.balance}
                     </span>

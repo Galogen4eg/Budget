@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Lock, ShieldCheck, Receipt, PiggyBank, Box, Coins, 
-  Info, Clock, Calendar, Check, ArrowRight, Edit3, CheckCircle2, RotateCcw
+  Info, Clock, Calendar, Check, ArrowRight, Edit3, CheckCircle2, RotateCcw,
+  CreditCard, Home, Link2
 } from 'lucide-react';
 import { MandatoryExpense } from '../types';
 
@@ -399,6 +400,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                 {rawBillsList.map((item) => {
                   const isChecked = selectedBillIds.has(item.expense.id);
                   const isPaid = item.isPaid;
+                  const isDebt = item.expense.expenseType === 'debt' || Boolean(item.expense.linkedDebtId);
 
                   if (isPaid) {
                     return (
@@ -430,6 +432,17 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                                   </button>
                                 )}
                               </h4>
+                              
+                              {/* Type Badge: Кредит/Долг vs Обычный счёт */}
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                isDebt 
+                                  ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300/80 dark:border-amber-900/50' 
+                                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10'
+                              }`}>
+                                {isDebt ? <CreditCard size={11} /> : <Home size={11} />}
+                                <span>{isDebt ? 'Кредит / Долг' : 'Бытовой счёт'}</span>
+                              </span>
+
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40">
                                 Оплачено
                               </span>
@@ -475,7 +488,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                           className="w-4 h-4 rounded text-primary focus:ring-primary border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 cursor-pointer"
                         />
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
                               <span>{item.expense.name}</span>
                               {onEditExpense && (
@@ -494,6 +507,16 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                                 </button>
                               )}
                             </h4>
+
+                            {/* Type Badge: Кредит/Долг vs Обычный счёт */}
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                              isDebt 
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900/40' 
+                                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10'
+                            }`}>
+                              {isDebt ? <CreditCard size={11} /> : <Home size={11} />}
+                              <span>{isDebt ? 'Кредит / Долг' : 'Бытовой счёт'}</span>
+                            </span>
                             
                             {/* Status Badge */}
                             {item.isOverdue ? (

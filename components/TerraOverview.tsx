@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
-  Calendar, Search, Plus, Sparkles, Users, User, Eye, EyeOff, 
+  Calendar, Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
   ShoppingBag, History, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
   HelpCircle, ShieldAlert, ChevronDown, ShieldCheck, ShoppingCart, FileText,
-  Star, Smartphone, Utensils, Store, Tag
+  Star, Smartphone, Utensils, Store, Tag, Gift, Activity, Car, CreditCard
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, 
@@ -16,8 +16,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { addItem, addItemsBatch, updateItem } from '../utils/db';
 import { parseSingleQuickShoppingText, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
 import ReserveDetailsModal from './ReserveDetailsModal';
+import CategoriesModal from './CategoriesModal';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
+import { getIconById } from '../constants';
+import { fixPrepositions } from '../utils/typography';
 
 interface TerraOverviewProps {
   onOpenAddModal: () => void;
@@ -29,6 +32,7 @@ interface TerraOverviewProps {
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
   currentMonth?: Date;
   onMonthChange?: (date: Date) => void;
+  onOpenAddEventModal?: () => void;
 }
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
@@ -40,7 +44,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onDrillDown,
   onEditMandatoryExpense,
   currentMonth,
-  onMonthChange
+  onMonthChange,
+  onOpenAddEventModal
 }) => {
   const { 
     transactions, 
@@ -53,6 +58,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     categories, 
     shoppingItems, 
     setShoppingItems, 
+    events,
     budgetMode, 
     setBudgetMode, 
     savingsRate 
@@ -60,11 +66,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   
   const { user: firebaseUser, familyId } = useAuth();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [chartScale, setChartScale] = useState<'day' | 'week' | 'month'>('day');
   const [newShoppingTitle, setNewShoppingTitle] = useState('');
   const [isAddingShopping, setIsAddingShopping] = useState(false);
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [selectedCatModalId, setSelectedCatModalId] = useState<string | null>(null);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
   // Synchronized or internal month state
@@ -541,34 +548,37 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     ];
 
     const sorted = Object.entries(grouped)
+      .filter(([_, amount]) => amount > 0)
       .map(([catId, amount]) => {
         const cat = categories.find(c => c.id === catId);
         const percent = total > 0 ? Math.round((amount / total) * 100) : 0;
+        const color = cat?.color || '#4A7C59';
         return {
           id: catId,
           name: cat?.label || 'Другое',
           amount,
-          percent
+          percent,
+          color,
+          icon: cat?.icon
         };
       })
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 4);
+      .sort((a, b) => b.amount - a.amount);
 
-    // Fallback if less than 4 categories
+    // Fallback if no expenses recorded yet
     const fallbackList = [
-      { id: 'supermarkets', name: 'Супермаркеты', amount: 0, percent: 0 },
-      { id: 'cafe', name: 'Кафе и пицца', amount: 0, percent: 0 },
-      { id: 'telecom', name: 'Мобильная связь', amount: 0, percent: 0 },
-      { id: 'subs', name: 'Подписки', amount: 0, percent: 0 }
+      { id: 'food', name: 'Продукты', amount: 0, percent: 0, color: '#4A7C59', icon: 'ShoppingBasket' },
+      { id: 'restaurants', name: 'Кафе и рестораны', amount: 0, percent: 0, color: '#E07A5F', icon: 'Utensils' },
+      { id: 'auto', name: 'Транспорт', amount: 0, percent: 0, color: '#457B9D', icon: 'Bus' },
+      { id: 'shopping', name: 'Шоппинг', amount: 0, percent: 0, color: '#D4A373', icon: 'ShoppingBag' }
     ];
 
     const finalItems = sorted.length > 0 ? sorted : fallbackList;
 
     return {
       total,
-      items: finalItems.map((item, idx) => ({
+      items: finalItems.map((item) => ({
         ...item,
-        style: paletteColors[idx % paletteColors.length]
+        style: { color: item.color, barBg: item.color }
       }))
     };
   }, [currentMonthTransactions, categories]);
@@ -624,21 +634,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
   };
 
-  // Recent Transactions (top 4, filtered by search if present)
+  // Recent Transactions (top 4)
   const recentTransactions = useMemo(() => {
-    let list = [...filteredTransactions]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(t => 
-        (t.note || '').toLowerCase().includes(q) ||
-        (t.rawNote || '').toLowerCase().includes(q) ||
-        (categories.find(c => c.id === t.category)?.label || '').toLowerCase().includes(q)
-      );
-    }
-    return list.slice(0, 4);
-  }, [filteredTransactions, searchQuery, categories]);
+    return [...filteredTransactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 4);
+  }, [filteredTransactions]);
 
   // Color scheme based on merchant / category for history
   const getTransactionBadge = (tx: Transaction, idx: number) => {
@@ -665,7 +666,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const displayShoppingItems = useMemo(() => {
     if (activeShoppingItems.length > 0) {
-      return activeShoppingItems.slice(0, 3);
+      return activeShoppingItems;
     }
     return [
       { id: 'demo-shop-1', title: 'Тёшка к чаю', amount: 1, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
@@ -719,28 +720,31 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [filteredTransactions, now, currentMember.id]);
 
   const mobileCategories = useMemo(() => {
+    if (categoryBreakdown.items.length > 0 && categoryBreakdown.total > 0) {
+      return categoryBreakdown.items.map((item) => {
+        const cat = categories.find(c => c.id === item.id);
+        const color = cat?.color || item.color || '#4A7C59';
+        const iconName = cat?.icon || item.icon || 'ShoppingBasket';
+        return {
+          ...item,
+          amount: Math.round(item.amount),
+          barColor: color,
+          bg: `${color}1A`,
+          color: color,
+          icon: getIconById(iconName, 13)
+        };
+      });
+    }
+
     const defaultCats = [
-      { id: 'supermarkets', name: 'Супермаркеты', percent: 40, amount: 1260, barColor: '#D95C48', bg: '#FDE8E8', color: '#D95C48', icon: <Store size={13} /> },
-      { id: 'cafe', name: 'Кафе и пицца', percent: 36, amount: 1131, barColor: '#C4A66A', bg: '#FEF3C7', color: '#D97706', icon: <Utensils size={13} /> },
-      { id: 'telecom', name: 'Мобильная связь', percent: 14, amount: 448, barColor: '#4A7C59', bg: '#D1FAE5', color: '#059669', icon: <Smartphone size={13} /> },
-      { id: 'subscriptions', name: 'Подписки', percent: 10, amount: 299, barColor: '#6B7280', bg: '#F3F4F6', color: '#4B5563', icon: <Tag size={13} /> }
+      { id: 'food', name: 'Продукты', percent: 40, amount: 1260, barColor: '#4A7C59', bg: '#4A7C591A', color: '#4A7C59', icon: getIconById('ShoppingBasket', 13) },
+      { id: 'restaurants', name: 'Кафе и пицца', percent: 36, amount: 1131, barColor: '#E07A5F', bg: '#E07A5F1A', color: '#E07A5F', icon: getIconById('Utensils', 13) },
+      { id: 'telecom', name: 'Мобильная связь', percent: 14, amount: 448, barColor: '#457B9D', bg: '#457B9D1A', color: '#457B9D', icon: getIconById('Smartphone', 13) },
+      { id: 'subscriptions', name: 'Подписки', percent: 10, amount: 299, barColor: '#9A5A88', bg: '#9A5A881A', color: '#9A5A88', icon: getIconById('Tag', 13) }
     ];
 
-    if (categoryBreakdown.items.length >= 2 && categoryBreakdown.total > 0) {
-      const palette = [
-        { barColor: '#D95C48', bg: '#FDE8E8', color: '#D95C48', icon: <Store size={13} /> },
-        { barColor: '#C4A66A', bg: '#FEF3C7', color: '#D97706', icon: <Utensils size={13} /> },
-        { barColor: '#4A7C59', bg: '#D1FAE5', color: '#059669', icon: <Smartphone size={13} /> },
-        { barColor: '#6B7280', bg: '#F3F4F6', color: '#4B5563', icon: <Tag size={13} /> }
-      ];
-      return categoryBreakdown.items.slice(0, 4).map((item, idx) => ({
-        ...item,
-        amount: Math.round(item.amount),
-        ...palette[idx % palette.length]
-      }));
-    }
     return defaultCats;
-  }, [categoryBreakdown]);
+  }, [categoryBreakdown, categories]);
 
   const mobileChartData = useMemo(() => {
     if (dynamicsData && dynamicsData.points && dynamicsData.points.length >= 4) {
@@ -755,22 +759,44 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     ];
   }, [dynamicsData, activeMonth]);
 
+  // Future / upcoming events for the rest of current week
+  const upcomingWeekEvents = useMemo(() => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
+    const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() + daysUntilSunday);
+    const sundayStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+
+    return (events || [])
+      .filter(e => {
+        if (!e.date) return false;
+        return e.date >= todayStr && e.date <= sundayStr;
+      })
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || '').localeCompare(b.time || '');
+      });
+  }, [events]);
+
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-28 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-12 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
       <div className="md:hidden flex flex-col min-w-0 w-full">
         {/* Top Header Bar */}
         <header className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-[#F4F1EA]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
-          {/* Left: Circle Avatar Button */}
+          {/* Left: Circle Settings Button */}
           <button
             type="button"
             onClick={onOpenSettings}
-            title={`Профиль: ${currentMember.name}`}
-            className="w-10 h-10 rounded-full bg-[#4A7C59] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+            title="Настройки"
+            className="w-10 h-10 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
           >
-            <User size={19} strokeWidth={2.4} />
+            <Settings size={19} strokeWidth={2.2} />
           </button>
 
           {/* Center: Month Dropdown Pill */}
@@ -901,7 +927,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </div>
 
         {/* Mobile Dashboard Cards Stream */}
-        <div className="px-4 space-y-4 pb-24">
+        <div className="px-4 space-y-4 pb-2">
           {/* 1. Hero Balance Card */}
           <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
@@ -1027,23 +1053,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     stroke="#4A7C59" 
                     strokeWidth={2.6} 
                     fill="url(#mobileWaveGradient)" 
-                    dot={(props: any) => {
-                      const isPeak = dynamicsData.max > 0 && props.payload?.amount === dynamicsData.max;
-                      if (isPeak) {
-                        return (
-                          <circle 
-                            key={`peak-dot-${props.index}`} 
-                            cx={props.cx} 
-                            cy={props.cy} 
-                            r={4.5} 
-                            fill="#4A7C59" 
-                            stroke="#FFFFFF" 
-                            strokeWidth={2} 
-                          />
-                        );
-                      }
-                      return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={0} />;
-                    }}
+                    dot={false}
                     activeDot={{ r: 5, fill: '#4A7C59', stroke: '#FFFFFF', strokeWidth: 2 }}
                   />
                 </AreaChart>
@@ -1070,29 +1080,39 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => onNavigateTab('budget')}
-                className="flex items-center gap-0.5 text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition"
+                onClick={() => {
+                  setSelectedCatModalId(null);
+                  setIsCatModalOpen(true);
+                }}
+                className="flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 hover:opacity-80 transition cursor-pointer"
               >
-                <span>Детали</span>
+                <span>Все категории</span>
                 <ChevronRight size={14} />
               </button>
             </div>
 
             <div className="space-y-3">
               {mobileCategories.map((cat, idx) => (
-                <div key={cat.id || idx} className="space-y-1.5">
+                <div 
+                  key={cat.id || idx} 
+                  onClick={() => {
+                    setSelectedCatModalId(cat.id || null);
+                    setIsCatModalOpen(true);
+                  }}
+                  className="space-y-1.5 p-1.5 -mx-1.5 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
+                >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span 
                         className="w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0"
                         style={{ backgroundColor: cat.bg, color: cat.color }}
                       >
                         {cat.icon}
                       </span>
-                      <span className="text-xs font-medium text-graphite dark:text-white">{cat.name}</span>
-                      <span className="text-xs text-graphite-muted dark:text-gray-400">{cat.percent}%</span>
+                      <span className="text-xs font-medium text-graphite dark:text-white truncate">{cat.name}</span>
+                      <span className="text-xs text-graphite-muted dark:text-gray-400 shrink-0">{cat.percent}%</span>
                     </div>
-                    <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums">
+                    <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums shrink-0 ml-2">
                       {formatAmount(cat.amount)} ₽
                     </span>
                   </div>
@@ -1173,7 +1193,90 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </form>
           </section>
 
-          {/* 5. История операций Card */}
+          {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
+          {upcomingWeekEvents.length > 0 && (
+            <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="text-[#4A7C59]" />
+                  <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
+                    События на этой неделе
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {onOpenAddEventModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenAddEventModal}
+                      title="Запланировать событие"
+                      className="w-7 h-7 rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
+                    >
+                      <Plus size={15} strokeWidth={2.4} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab('plans')}
+                    className="flex items-center gap-0.5 text-xs font-medium text-[#4A7C59] dark:text-emerald-400 hover:underline transition cursor-pointer"
+                  >
+                    <span>Все</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {upcomingWeekEvents.map(ev => {
+                  const evDate = new Date(ev.date);
+                  const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+                  const dayLabel = dayOfWeekNames[evDate.getDay()];
+                  const dayNum = evDate.getDate();
+
+                  const primaryMemberId = ev.memberIds && ev.memberIds[0];
+                  const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
+
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={() => onNavigateTab('plans')}
+                      className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-graphite-muted dark:text-gray-400 uppercase leading-none">
+                            {dayLabel}
+                          </span>
+                          <span className="text-xs font-bold text-[#2E3230] dark:text-white leading-none mt-0.5">
+                            {dayNum}
+                          </span>
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-graphite dark:text-white truncate">
+                            {ev.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                            <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: memberMeta?.color || '#4A7C59' }}
+                              />
+                              <span>{memberMeta?.name || 'Вся семья'}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <ChevronRight size={16} className="text-graphite-muted dark:text-gray-400 shrink-0" />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* 6. История операций Card */}
           <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1296,41 +1399,19 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <ChevronRight size={14} />
             </button>
           </div>
-
-          {/* Search / Filter */}
-          <div className="hidden md:flex items-center relative ml-1">
-            <Search size={16} className="text-graphite-muted dark:text-gray-400 absolute left-3 pointer-events-none" />
-            <input 
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск операций..."
-              className="text-xs bg-surface-subtle dark:bg-[#2C2C2E] hover:bg-white dark:hover:bg-[#3A3A3C] focus:bg-white dark:focus:bg-[#3A3A3C] border border-surface-border dark:border-white/5 rounded-xl pl-9 pr-3 py-1.5 w-40 lg:w-56 text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-gray-400 focus:outline-none focus:border-primary transition"
-            />
-          </div>
         </div>
 
-        {/* Right: Action Buttons Group & Avatar */}
+        {/* Right: Action Buttons Group */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           {/* New Transaction Button */}
           <button 
             type="button"
             onClick={onOpenAddModal}
-            className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-primary/25 transition"
+            className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-primary/25 transition cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.5} />
             <span className="hidden xs:inline tracking-wider">+ ЗАПИСЬ</span>
             <span className="xs:hidden">ЗАПИСЬ</span>
-          </button>
-
-          {/* AI Assistant */}
-          <button 
-            type="button"
-            onClick={onOpenAIChat}
-            title="Умные рекомендации AI"
-            className="p-2 rounded-xl bg-white dark:bg-[#2C2C2E] hover:bg-surface-subtle dark:hover:bg-[#3A3A3C] border border-surface-border dark:border-white/5 text-primary dark:text-green-400 transition shadow-xs active:scale-95"
-          >
-            <Sparkles size={16} />
           </button>
 
           {/* Privacy Eye Toggle */}
@@ -1338,19 +1419,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             type="button"
             onClick={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })}
             title={settings.privacyMode ? "Показать суммы" : "Скрыть суммы"}
-            className="p-2 rounded-xl bg-white dark:bg-[#2C2C2E] hover:bg-surface-subtle dark:hover:bg-[#3A3A3C] border border-surface-border dark:border-white/5 text-graphite-muted dark:text-gray-300 hover:text-graphite transition shadow-xs active:scale-95"
+            className="p-2 rounded-xl bg-white dark:bg-[#2C2C2E] hover:bg-surface-subtle dark:hover:bg-[#3A3A3C] border border-surface-border dark:border-white/5 text-graphite-muted dark:text-gray-300 hover:text-graphite transition shadow-xs active:scale-95 cursor-pointer"
           >
             {settings.privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
-
-          {/* User Avatar */}
-          <div 
-            onClick={onOpenSettings}
-            title={`Профиль: ${currentMember.name}`}
-            className="w-8 h-8 rounded-xl bg-primary-light text-primary border border-[#D5E5D9] dark:border-white/10 flex items-center justify-center font-bold text-xs font-headline cursor-pointer ml-1 hover:scale-105 transition select-none"
-          >
-            {memberInitial}
-          </div>
         </div>
       </header>
 
@@ -1742,7 +1814,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       {formatAmount(cat.amount)} ₽
                     </p>
                     <div className="w-full bg-[#EAE5DC] dark:bg-black/40 h-1.5 rounded-full mt-2.5 overflow-hidden">
-                      <div className={`h-full rounded-full ${cat.style.barBg}`} style={{ width: `${cat.percent}%` }}></div>
+                      <div 
+                        className="h-full rounded-full transition-all duration-300" 
+                        style={{ width: `${cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -1840,6 +1915,96 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 )}
               </form>
             </div>
+
+            {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
+            {upcomingWeekEvents.length > 0 && (
+              <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+                <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-primary-light dark:bg-primary/20 text-primary">
+                      <Calendar size={16} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold font-headline text-graphite dark:text-white uppercase tracking-wide">
+                        СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ
+                      </h3>
+                      <span className="w-5 h-5 rounded-full bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 text-[11px] font-bold flex items-center justify-center border border-[#D5E5D9] dark:border-transparent">
+                        {upcomingWeekEvents.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {onOpenAddEventModal && (
+                      <button
+                        type="button"
+                        onClick={onOpenAddEventModal}
+                        title="Запланировать событие"
+                        className="w-7 h-7 rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
+                      >
+                        <Plus size={14} strokeWidth={2.4} />
+                      </button>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={() => onNavigateTab('plans')}
+                      className="text-xs text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold cursor-pointer"
+                    >
+                      Все
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  {upcomingWeekEvents.slice(0, 3).map(ev => {
+                    const evDate = new Date(ev.date);
+                    const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+                    const dayLabel = dayOfWeekNames[evDate.getDay()];
+                    const dayNum = evDate.getDate();
+
+                    const primaryMemberId = ev.memberIds && ev.memberIds[0];
+                    const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
+
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => onNavigateTab('plans')}
+                        className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-[#EAE5DC] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
+                            <span className="text-[9px] font-bold text-graphite-muted dark:text-gray-400 uppercase leading-none">
+                              {dayLabel}
+                            </span>
+                            <span className="text-xs font-bold text-[#2E3230] dark:text-white leading-none mt-0.5">
+                              {dayNum}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-graphite dark:text-white group-hover:text-primary transition truncate">
+                              {ev.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                              <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: memberMeta?.color || '#4A7C59' }}
+                                />
+                                <span>{memberMeta?.name || 'Вся семья'}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <ChevronRight size={14} className="text-graphite-muted dark:text-gray-400 group-hover:text-primary transition shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Виджет «История операций» (выровнен по нижнему краю с «Категориями расходов») */}
             <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm flex-1 flex flex-col justify-between">
@@ -1955,6 +2120,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           onEditExpense={onEditMandatoryExpense}
           privacyMode={settings.privacyMode}
           currency="₽"
+        />
+      )}
+
+      {/* Expense Categories Breakdown Modal */}
+      {isCatModalOpen && (
+        <CategoriesModal
+          isOpen={isCatModalOpen}
+          onClose={() => {
+            setIsCatModalOpen(false);
+            setSelectedCatModalId(null);
+          }}
+          categories={categories}
+          transactions={transactions}
+          currentMonth={activeMonth}
+          settings={settings}
+          initialCategoryId={selectedCatModalId}
+          onSelectCategory={(catId) => {
+            setIsCatModalOpen(false);
+            onDrillDown(catId);
+          }}
         />
       )}
     </div>

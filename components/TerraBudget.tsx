@@ -13,6 +13,7 @@ import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
+import TerraMobileHeader from './TerraMobileHeader';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -362,87 +363,68 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* MOBILE VIEW (Strictly matching user HTML mockup on < md)  */}
       {/* ========================================================= */}
       <div className="md:hidden flex flex-col min-w-0 w-full flex-1 overflow-y-auto no-scrollbar bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 selection:bg-primary/20">
-        {/* Sticky Mobile Header */}
-        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0]/90 dark:bg-[#121214]/90 backdrop-blur-xl shadow-[0_1px_12px_rgba(46,50,48,0.04)] border-b border-[#EAE6DE]/60 dark:border-white/5 pt-safe">
-          <div className="h-16 px-4 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                <Sprout size={20} />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[11px] uppercase tracking-wider text-[#6B6358] dark:text-gray-400 font-bold truncate leading-none mb-1">
-                  Семейный Бюджет
-                </span>
-                <div className="relative">
-                  <button 
-                    type="button"
-                    onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-                    className="flex items-center gap-1 text-[#2E3230] dark:text-white hover:text-primary transition-colors text-left group cursor-pointer"
-                  >
-                    <span className="text-sm font-headline font-semibold truncate capitalize">{mobileMonthName}</span>
-                    <ChevronDown size={16} className="text-[#6B6358] dark:text-gray-400 group-hover:text-primary transition-colors shrink-0" />
-                  </button>
-
-                  {isMonthPickerOpen && (
-                    <div className="absolute top-full mt-2 left-0 bg-white dark:bg-[#252528] border border-[#EAE6DE] dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[200px] space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-[#6B6358] dark:text-gray-400 px-2 py-1">Выбор месяца</div>
-                      <div className="flex items-center justify-between px-2 pb-1 border-b border-[#EAE6DE]/60 dark:border-white/5">
-                        <button
-                          type="button"
-                          onClick={handlePrevMonth}
-                          className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                        <span className="text-xs font-bold font-headline">{mobileMonthName}</span>
-                        <button
-                          type="button"
-                          onClick={handleNextMonth}
-                          className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onMonthChange(new Date());
-                          setIsMonthPickerOpen(false);
-                        }}
-                        className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between"
-                      >
-                        <span>Текущий месяц</span>
-                        <Sparkles size={13} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
+        {/* Unified Mobile Header */}
+        <TerraMobileHeader
+          title="Бюджет"
+          onAdd={onOpenAddModal}
+          addTitle="Добавить операцию"
+          onOpenSettings={onOpenSettings}
+          rightExtra={
+            <div className="relative">
               <button 
                 type="button"
-                onClick={onOpenAddModal}
-                aria-label="Быстрое добавление" 
-                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-xs active:scale-95 transition-all hover:bg-primary/90 cursor-pointer"
+                onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
+                className="px-3 py-1.5 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-xs font-bold text-[#2E3230] dark:text-white hover:text-primary transition-colors flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
               >
-                <Plus size={20} strokeWidth={2.4} />
+                <span className="capitalize">{mobileMonthName}</span>
+                <ChevronDown size={14} className="text-[#6B6358] dark:text-gray-400 shrink-0" />
               </button>
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                title="Профиль"
-                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-xs active:scale-95 transition-all hover:bg-primary/90 cursor-pointer"
-              >
-                <User size={19} strokeWidth={2.2} />
-              </button>
+
+              {isMonthPickerOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsMonthPickerOpen(false)} 
+                  />
+                  <div className="absolute top-full mt-2 right-0 bg-white dark:bg-[#252528] border border-[#EAE6DE] dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[200px] space-y-1">
+                    <div className="text-[10px] uppercase font-bold text-[#6B6358] dark:text-gray-400 px-2 py-1">Выбор месяца</div>
+                    <div className="flex items-center justify-between px-2 pb-1 border-b border-[#EAE6DE]/60 dark:border-white/5">
+                      <button
+                        type="button"
+                        onClick={handlePrevMonth}
+                        className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span className="text-xs font-bold font-headline capitalize">{mobileMonthName}</span>
+                      <button
+                        type="button"
+                        onClick={handleNextMonth}
+                        className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onMonthChange(new Date());
+                        setIsMonthPickerOpen(false);
+                      }}
+                      className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between cursor-pointer"
+                    >
+                      <span>Текущий месяц</span>
+                      <Sparkles size={13} />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        </header>
+          }
+        />
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-28 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-16 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
           <section className="flex flex-col gap-3.5 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10">
             {/* Top Row: Daily Safe Limit & Pace Badge */}
@@ -1519,6 +1501,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 mandatoryExpenses.map(expense => {
                   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
                   const isPaid = (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id);
+                  const isDebt = expense.expenseType === 'debt' || Boolean(expense.linkedDebtId);
 
                   return (
                     <div 
@@ -1527,18 +1510,30 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       className="flex items-center justify-between p-2.5 rounded-xl border border-surface-border dark:border-white/5 hover:border-primary/40 bg-[#FAF9F6] dark:bg-[#252528] transition cursor-pointer group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 text-graphite-muted dark:text-gray-400 font-bold text-xs flex items-center justify-center shrink-0">
+                        <div className={`w-8 h-8 rounded-lg border font-bold text-xs flex items-center justify-center shrink-0 ${
+                          isDebt 
+                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400' 
+                            : 'bg-white dark:bg-[#1C1C1E] border-surface-border dark:border-white/10 text-graphite-muted dark:text-gray-400'
+                        }`}>
                           {expense.day}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-graphite dark:text-white">
-                              {expense.name}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-graphite dark:text-white flex items-center gap-1">
+                              {isDebt ? <CreditCard size={11} className="text-amber-600 dark:text-amber-400" /> : <Home size={11} className="text-stone-400" />}
+                              <span>{expense.name}</span>
                             </span>
                             <span className={`text-[9px] font-bold px-1 rounded ${
                               isPaid ? 'text-emerald-800 bg-emerald-50 dark:bg-green-950/40 dark:text-green-400' : 'text-[#D95C48] bg-red-50 dark:bg-red-950/40'
                             }`}>
                               {isPaid ? 'Оплачено ✓' : `до ${expense.day} числа`}
+                            </span>
+                            <span className={`text-[9px] font-semibold px-1 rounded border ${
+                              isDebt 
+                                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200/60 dark:border-amber-900/40' 
+                                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-white/5'
+                            }`}>
+                              {isDebt ? 'Кредит' : 'Бытовой'}
                             </span>
                           </div>
                           <span className="text-[10px] text-graphite-muted dark:text-gray-400">

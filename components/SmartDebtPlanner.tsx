@@ -685,11 +685,11 @@ const SmartDebtPlanner: React.FC<Props> = ({ transactions, debts, settings }) =>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase ml-2">Остаток долга</label>
-                                    <input type="number" value={newDebt.currentBalance || ''} onChange={e => setNewDebt({...newDebt, currentBalance: Number(e.target.value), totalAmount: newDebt.totalAmount || Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0" />
+                                    <input type="number" step="0.01" value={newDebt.currentBalance || ''} onChange={e => setNewDebt({...newDebt, currentBalance: Number(e.target.value), totalAmount: newDebt.totalAmount || Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0.00" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase ml-2">Всего (для справки)</label>
-                                    <input type="number" value={newDebt.totalAmount || ''} onChange={e => setNewDebt({...newDebt, totalAmount: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0" />
+                                    <input type="number" step="0.01" value={newDebt.totalAmount || ''} onChange={e => setNewDebt({...newDebt, totalAmount: Number(e.target.value)})} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0.00" />
                                 </div>
                             </div>
 
@@ -698,7 +698,7 @@ const SmartDebtPlanner: React.FC<Props> = ({ transactions, debts, settings }) =>
                                 <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/20 space-y-4">
                                     <div>
                                         <label className="text-[10px] font-black text-indigo-500 uppercase ml-2">Ежемесячный платеж</label>
-                                        <input type="number" value={newDebt.monthlyPayment || ''} onChange={e => setNewDebt({...newDebt, monthlyPayment: Number(e.target.value)})} className="w-full bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0" />
+                                        <input type="number" step="0.01" value={newDebt.monthlyPayment || ''} onChange={e => setNewDebt({...newDebt, monthlyPayment: Number(e.target.value)})} className="w-full bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-sm outline-none" placeholder="0.00" />
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black text-indigo-500 uppercase ml-2">День платежа (1-31)</label>

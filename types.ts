@@ -14,6 +14,7 @@ export interface Transaction {
   rawNote?: string;
   projectId?: string; // Link to a project
   linkedExpenseId?: string; // Explicit link to a mandatory expense
+  linkedDebtId?: string; // Explicit link to a debt item
 }
 
 export interface LearnedRule {
@@ -132,6 +133,7 @@ export interface Debt {
   notifyBefore?: number;
   notifyIfOverdue?: boolean;
   channels?: string[];
+  linkedExpenseId?: string | null;
 }
 
 export interface ProjectExpense {
@@ -188,6 +190,8 @@ export interface LoyaltyCard {
   subtitle?: string;
 }
 
+export type MandatoryExpenseType = 'regular' | 'debt';
+
 export interface MandatoryExpense {
   id: string;
   name: string;
@@ -196,6 +200,8 @@ export interface MandatoryExpense {
   remind: boolean;
   keywords?: string[];
   memberId?: string | null;
+  expenseType?: MandatoryExpenseType;
+  linkedDebtId?: string | null;
 }
 
 export interface WidgetConfig {

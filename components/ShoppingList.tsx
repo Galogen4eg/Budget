@@ -11,6 +11,8 @@ export interface ShoppingListProps {
   onCompletePurchase?: () => void;
   onMoveToPantry: (item: ShoppingItem) => Promise<void>;
   onSendToTelegram: (items: ShoppingItem[]) => Promise<boolean>;
+  onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 export const ShoppingList: React.FC<ShoppingListProps> = (props) => {

@@ -340,8 +340,36 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
 ];
 
 export const DEMO_MANDATORY_EXPENSES: MandatoryExpense[] = [
-  { id: 'me1', name: 'Ипотека', amount: 35000, day: 15, remind: true, keywords: ['ипотека', 'domclick'] },
-  { id: 'me2', name: 'Интернет', amount: 800, day: 1, remind: false, keywords: ['ростелеком', 'дом.ру', 'мтс'] },
+  { 
+    id: 'me1', 
+    name: 'Ипотека', 
+    amount: 27742, 
+    day: 25, 
+    remind: true, 
+    keywords: ['ипотека', 'domclick', 'сбер'], 
+    expenseType: 'debt', 
+    linkedDebtId: 'd1' 
+  },
+  { 
+    id: 'me2', 
+    name: 'Интернет и ТВ', 
+    amount: 800, 
+    day: 1, 
+    remind: false, 
+    keywords: ['ростелеком', 'дом.ру', 'мтс'], 
+    expenseType: 'regular', 
+    linkedDebtId: null 
+  },
+  { 
+    id: 'me3', 
+    name: 'ЖКХ и квартплата', 
+    amount: 6500, 
+    day: 20, 
+    remind: true, 
+    keywords: ['жкх', 'квартплата', 'еирц'], 
+    expenseType: 'regular', 
+    linkedDebtId: null 
+  },
 ];
 
 export const DEMO_SHOPPING_ITEMS: ShoppingItem[] = [
@@ -378,7 +406,8 @@ export const DEMO_DEBTS: Debt[] = [
     notifyBefore: 3,
     notifyIfOverdue: true,
     channels: ['site'],
-    strategy: 'manual' 
+    strategy: 'manual',
+    linkedExpenseId: 'me1'
   },
   { 
     id: 'd2', 

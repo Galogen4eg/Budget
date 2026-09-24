@@ -337,13 +337,13 @@ export default function AddTransactionModal({
                   </div>
 
                   {/* Sum Card */}
-                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-5 py-3 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-2 min-h-[58px]">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5">
+                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-4 sm:px-5 py-3 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-2 min-h-[58px]">
+                    <div className="flex items-center justify-between gap-2 sm:gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5 truncate">
                           {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
                         </span>
-                        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+                        <div className="flex items-baseline gap-1.5 min-w-0 max-w-full overflow-hidden">
                           <input 
                             type="text" 
                             inputMode="decimal"
@@ -351,14 +351,35 @@ export default function AddTransactionModal({
                             onChange={(e) => setAmount(formatAmountInput(e.target.value))}
                             onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                             placeholder="0"
-                            style={{ width: `${Math.max(inputWidth, 80)}px` }}
-                            className="bg-transparent font-headline text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0"
+                            style={{ 
+                              width: `${Math.max(inputWidth, 60)}px`,
+                              maxWidth: 'calc(100% - 28px)'
+                            }}
+                            className={`bg-transparent font-headline font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0 transition-all ${
+                              amount.length > 9 
+                                ? 'text-lg sm:text-xl' 
+                                : amount.length > 6 
+                                ? 'text-xl sm:text-2xl' 
+                                : 'text-2xl sm:text-3xl'
+                            }`}
                             autoFocus={!initialTransaction}
                           />
-                          <span ref={spanRef} className="absolute invisible whitespace-pre text-2xl sm:text-3xl font-headline font-bold">
+                          <span ref={spanRef} className={`absolute invisible whitespace-pre font-headline font-bold ${
+                            amount.length > 9 
+                              ? 'text-lg sm:text-xl' 
+                              : amount.length > 6 
+                              ? 'text-xl sm:text-2xl' 
+                              : 'text-2xl sm:text-3xl'
+                          }`}>
                             {amount || '0'}
                           </span>
-                          <span className={`font-headline font-extrabold text-xl sm:text-2xl ${
+                          <span className={`font-headline font-extrabold shrink-0 ${
+                            amount.length > 9 
+                              ? 'text-base sm:text-lg' 
+                              : amount.length > 6 
+                              ? 'text-lg sm:text-xl' 
+                              : 'text-xl sm:text-2xl'
+                          } ${
                             type === 'expense' ? 'text-[#D95C48]' : 'text-primary dark:text-green-400'
                           }`}>
                             {settings.currency || '₽'}
@@ -367,7 +388,7 @@ export default function AddTransactionModal({
                       </div>
 
                       <div className="shrink-0">
-                        <span className="text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+                        <span className="text-[11px] sm:text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap">
                           <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                           <span>В лимите дня</span>
                         </span>

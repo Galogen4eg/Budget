@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, Wallet, MoreHorizontal } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import TerraMobileHeader from './TerraMobileHeader';
 
 import DebtSnowball from './DebtSnowball';
 import WalletApp from './Wallet';
@@ -12,14 +13,16 @@ interface ServicesHubProps {
   initialService?: string | null;
   onClearService?: () => void;
   onNavigateHome?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const ServicesHub: React.FC<ServicesHubProps> = ({ 
   initialService, 
   onClearService, 
-  onNavigateHome 
+  onNavigateHome,
+  onOpenSettings
 }) => {
-  const [activeService, setActiveService] = useState<ServiceType>('menu');
+  const [activeService, setActiveService] = useState<ServiceType>(() => (initialService as ServiceType) || 'menu');
   const { 
     settings, 
     debts, setDebts,
@@ -28,9 +31,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   } = useData();
 
   useEffect(() => {
-    if (initialService) {
+    if (initialService && initialService !== activeService) {
       setActiveService(initialService as ServiceType);
-      if (onClearService) onClearService();
+    }
+    if (initialService && onClearService) {
+      onClearService();
     }
   }, [initialService, onClearService]);
   
@@ -80,55 +85,34 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   ];
 
   return (
-    <div className={`w-full ${activeService === 'menu' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto space-y-4 transition-all duration-200`}>
-      <AnimatePresence mode="wait">
+    <div className="flex-1 flex flex-col min-w-0 w-full h-full overflow-hidden">
+      {/* Mobile Top Header */}
+      <div className="md:hidden shrink-0">
+        <TerraMobileHeader 
+          title="Сервисы" 
+          onOpenSettings={onOpenSettings} 
+        />
+      </div>
+
+      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-5xl mx-auto p-4 md:p-8 pt-3 md:pt-6 pb-16 md:pb-8 space-y-4">
         {activeService === 'menu' ? (
-          <motion.div 
-            key="menu"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col space-y-4"
-          >
-            {/* BEGIN: TopBarNavigation */}
-            <nav aria-label="Верхняя навигация" className="flex items-center justify-between py-1">
-              <button
-                type="button"
-                onClick={() => onNavigateHome && onNavigateHome()}
-                className="inline-flex items-center text-[15px] font-medium text-[#3B7A57] dark:text-emerald-400 hover:text-[#2E6145] transition-colors py-1 group cursor-pointer"
-              >
-                <svg className="w-4 h-4 mr-1 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                  <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span>Главная</span>
-              </button>
-
-              <button 
-                type="button"
-                aria-label="Дополнительные опции" 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 hover:bg-stone-200/50 dark:hover:bg-white/10 transition-colors"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-            </nav>
-            {/* END: TopBarNavigation */}
-
-            {/* BEGIN: SectionHeaderCard */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h1 className="text-[22px] font-bold tracking-tight text-stone-900 dark:text-white leading-tight">
-                  Финансовые сервисы
-                </h1>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
-                  {SERVICES.length} сервиса
-                </span>
+          <div className="flex flex-col space-y-4">
+            {/* Desktop-only SectionHeaderCard */}
+            <div className="hidden md:flex flex-col space-y-4">
+              <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h1 className="text-[22px] font-bold tracking-tight text-stone-900 dark:text-white leading-tight">
+                    Финансовые сервисы
+                  </h1>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
+                    {SERVICES.length} сервиса
+                  </span>
+                </div>
+                <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
+                  Специализированные инструменты управления задолженностями, ликвидностью и картами
+                </p>
               </div>
-              <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
-                Специализированные инструменты управления задолженностями, ликвидностью и картами
-              </p>
             </div>
-            {/* END: SectionHeaderCard */}
 
             {/* BEGIN: ServicesList */}
             <div className="flex flex-col space-y-3.5" data-purpose="service-cards-stack">
@@ -178,17 +162,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
               ))}
             </div>
             {/* END: ServicesList */}
-          </motion.div>
+          </div>
         ) : (
-          <motion.div 
-            key="service"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
+          <div className="flex flex-col space-y-4">
             {activeService !== 'debts' && (
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-2">
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
@@ -203,9 +181,9 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
               </div>
             )}
             {SERVICES.find(a => a.id === activeService)?.component}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 };

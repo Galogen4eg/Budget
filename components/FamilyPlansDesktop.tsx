@@ -4,9 +4,12 @@ import {
   Mic, Loader2, CheckSquare, Square,
   Edit3, Dumbbell, Sparkle, Car, Film, Coffee,
   RefreshCw, Plane, Home, ShoppingBag, Heart,
-  CheckCircle2, Sparkles, History, Clock, Send
+  CheckCircle2, Sparkles, History, Clock, Send,
+  AlertTriangle
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
+import { findEventConflicts } from '../utils/eventConflicts';
+import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansDesktopProps {
   events: FamilyEvent[];
@@ -50,6 +53,23 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   isListening, isProcessingVoice, startListening
 }) => {
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
+  const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
+  const [selectedConflictPair, setSelectedConflictPair] = useState<{ eventA: FamilyEvent; eventB: FamilyEvent } | null>(null);
+
+  const { conflictingEventIds, conflictPairs } = useMemo(() => {
+    return findEventConflicts(events);
+  }, [events]);
+
+  const hasCurrentMonthConflicts = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    return events.some(evt => {
+      if (!evt.date || !conflictingEventIds.has(evt.id)) return false;
+      const [y, m] = evt.date.split('-').map(Number);
+      return y === year && (m - 1) === month;
+    });
+  }, [events, currentDate, conflictingEventIds]);
 
   const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
   const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -160,6 +180,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
   const isEventDimmed = (event: FamilyEvent) => {
     if (filterMemberId === 'all') return false;
+    if (filterMemberId === 'conflicts') {
+      return !conflictingEventIds.has(event.id);
+    }
     return !event.memberIds.includes(filterMemberId);
   };
 
@@ -232,77 +255,83 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     };
   };
 
-  // Color theme generator for event chips
+  // Color theme generator for event chips based on participant member color
   const getEventBadgeStyle = (evt: FamilyEvent) => {
-    const assignedMember = members.find(m => evt.memberIds?.includes(m.id));
-    const titleLower = evt.title.toLowerCase();
+    const assignedMembers = members.filter(m => evt.memberIds?.includes(m.id));
 
-    // Member specific or fallback to theme colors
-    if (assignedMember?.name?.toLowerCase().includes('галя') || titleLower.includes('стоматолог') || titleLower.includes('ozon') || titleLower.includes('выезд')) {
+    if (assignedMembers.length === 1) {
+      const m = assignedMembers[0];
+      const mName = m.name.toLowerCase();
+      const mColor = m.color || (
+        mName.includes('гал') ? '#D97763' :
+        mName.includes('ген') ? '#E5A642' :
+        mName.includes('пап') ? '#2563EB' :
+        mName.includes('мам') ? '#DB2777' : '#3A7E64'
+      );
+
+      if (mColor === '#D97763' || mName.includes('гал')) {
+        return {
+          badgeBg: 'bg-[#FDF0EC] dark:bg-rose-950/30',
+          badgeText: 'text-[#9E3E28] dark:text-rose-300',
+          borderColor: '#D97763',
+          dotColor: '#D97763',
+          memberName: m.name
+        };
+      }
+      if (mColor === '#E5A642' || mName.includes('ген')) {
+        return {
+          badgeBg: 'bg-[#FEF6E8] dark:bg-amber-950/30',
+          badgeText: 'text-[#8C5E1A] dark:text-amber-300',
+          borderColor: '#E5A642',
+          dotColor: '#E5A642',
+          memberName: m.name
+        };
+      }
+      if (mColor === '#2563EB' || mName.includes('пап')) {
+        return {
+          badgeBg: 'bg-blue-50 dark:bg-blue-950/30',
+          badgeText: 'text-blue-800 dark:text-blue-300',
+          borderColor: '#2563EB',
+          dotColor: '#2563EB',
+          memberName: m.name
+        };
+      }
+      if (mColor === '#DB2777' || mName.includes('мам')) {
+        return {
+          badgeBg: 'bg-pink-50 dark:bg-pink-950/30',
+          badgeText: 'text-pink-800 dark:text-pink-300',
+          borderColor: '#DB2777',
+          dotColor: '#DB2777',
+          memberName: m.name
+        };
+      }
       return {
-        badgeBg: 'bg-[#FDF0EC] dark:bg-rose-950/30',
-        badgeText: 'text-[#9E3E28] dark:text-rose-300',
-        borderColor: '#D97763',
-        dotColor: '#D97763'
+        badgeBg: 'bg-emerald-50 dark:bg-emerald-950/30',
+        badgeText: 'text-emerald-900 dark:text-emerald-300',
+        borderColor: mColor,
+        dotColor: mColor,
+        memberName: m.name
       };
     }
-    if (assignedMember?.name?.toLowerCase().includes('гена') || titleLower.includes('то ') || titleLower.includes('пробежка') || titleLower.includes('фильтр') || titleLower.includes('родител')) {
-      return {
-        badgeBg: 'bg-[#FEF6E8] dark:bg-amber-950/30',
-        badgeText: 'text-[#8C5E1A] dark:text-amber-300',
-        borderColor: '#E5A642',
-        dotColor: '#E5A642'
-      };
-    }
-    // General / Family / Default Green
+
+    const memberName = assignedMembers.length > 1 
+      ? assignedMembers.map(m => m.name).join(', ') 
+      : 'Вся семья';
+
     return {
       badgeBg: 'bg-[#E8F2EC] dark:bg-emerald-950/30',
       badgeText: 'text-[#244E38] dark:text-emerald-300',
       borderColor: '#3A7E64',
-      dotColor: '#3A7E64'
+      dotColor: '#3A7E64',
+      memberName
     };
   };
 
   const getDayHeaderBadge = (dayEvents: FamilyEvent[], isWeekend: boolean) => {
-    if (dayEvents.length === 0) {
-      if (isWeekend) {
-        return <span className="text-[11px] text-stone-400 dark:text-stone-500 font-normal">Выходной</span>;
-      }
-      return null;
+    if (dayEvents.length === 0 && isWeekend) {
+      return <span className="text-[11px] text-stone-400 dark:text-stone-500 font-normal">Выходной</span>;
     }
-
-    // Check unique members
-    const memberIds = Array.from(new Set(dayEvents.flatMap(e => e.memberIds || [])));
-    if (memberIds.length === 1) {
-      const member = members.find(m => m.id === memberIds[0]);
-      if (member) {
-        const color = member.name.toLowerCase().includes('галя') ? '#D97763' : member.name.toLowerCase().includes('гена') ? '#E5A642' : '#3A7E64';
-        return <span className="text-[11px] font-medium" style={{ color }}>{member.name}</span>;
-      }
-    }
-
-    if (dayEvents.some(e => e.memberIds?.length > 1 || !e.memberIds?.length)) {
-      return <span className="text-[11px] font-medium text-[#3A7E64]">Семья</span>;
-    }
-
-    if (memberIds.length > 1) {
-      return (
-        <div className="flex items-center gap-1">
-          {memberIds.slice(0, 3).map((id, idx) => {
-            const m = members.find(mem => mem.id === id);
-            return (
-              <span 
-                key={idx} 
-                className="w-1.5 h-1.5 rounded-full" 
-                style={{ backgroundColor: m?.color || (idx === 0 ? '#D97763' : '#3A7E64') }} 
-              />
-            );
-          })}
-        </div>
-      );
-    }
-
-    return <span className="text-[11px] font-medium text-stone-500">Общее</span>;
+    return null;
   };
 
   return (
@@ -370,12 +399,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               Все ({events.length})
             </button>
 
-            {/* Фильтры по участникам с цветными маркерами */}
+            {/* Фильтры по участникам (только если есть события) */}
             {members.map(m => {
+              const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
+              if (count === 0) return null;
+
               const isSelected = filterMemberId === m.id;
-              const isGala = m.name.toLowerCase().includes('гал');
-              const isGena = m.name.toLowerCase().includes('ген');
-              const dotColor = isGala ? '#D97763' : isGena ? '#E5A642' : m.color || '#3A7E64';
 
               return (
                 <button 
@@ -387,8 +416,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
                   <span>{m.name}</span>
+                  <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold">({count})</span>
                 </button>
               );
             })}
@@ -398,7 +427,6 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               onClick={() => setFilterMemberId('all')} 
               className="px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400 transition cursor-pointer"
             >
-              <span className="w-2 h-2 rounded-full bg-[#3A7E64] shrink-0" />
               <span>Общие</span>
             </button>
 
@@ -509,32 +537,20 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       }}
                       className={`p-2.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[96px] ${
                         d.current 
-                          ? isSelected
-                            ? 'border-2 border-[#2D5A46] bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
+                          ? isToday
+                            ? 'border-2 border-[#2D5A46] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
+                            : isSelected
+                            ? 'border-2 border-[#2D5A46]/80 bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
                             : 'bg-[#F6F3EE] dark:bg-[#252528] border border-[#ECE5DB]/80 dark:border-white/5 hover:border-[#D5CDC2]'
                           : 'bg-stone-50/40 dark:bg-black/20 border border-transparent opacity-30'
                       }`}
                     >
-                      {/* Верхняя строка ячейки: Число / Сегодня и Метка участника */}
+                      {/* Верхняя строка ячейки: Число */}
                       <div className="flex justify-between items-center shrink-0 mb-1">
                         {d.current ? (
-                          isToday ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="bg-[#2D5A46] text-white font-bold text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                {d.day} <span className="font-normal text-[10px]">сегодня</span>
-                              </span>
-                              {dayEvents.length > 0 && (
-                                <div className="flex items-center gap-0.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D97763]" />
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#3A7E64]" />
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className={`text-xs font-semibold ${isSelected ? 'text-[#2D5A46] font-bold' : 'text-stone-700 dark:text-stone-300'}`}>
-                              {d.day}
-                            </span>
-                          )
+                          <span className={`text-xs ${isToday ? 'text-[#2D5A46] dark:text-emerald-400 font-extrabold text-sm' : isSelected ? 'text-[#2D5A46] font-bold' : 'text-stone-700 dark:text-stone-300 font-semibold'}`}>
+                            {d.day}
+                          </span>
                         ) : (
                           <span className="text-xs font-medium text-stone-400">
                             {d.day}
@@ -561,7 +577,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               className={`text-[11px] font-medium py-1 px-2 rounded-lg truncate transition-all flex items-center gap-1.5 border-l-2 ${
                                 badgeStyle.badgeBg
                               } ${badgeStyle.badgeText} ${
-                                dimmed ? 'opacity-40' : 'hover:opacity-90 shadow-2xs'
+                                dimmed ? 'opacity-30 scale-98' : 'hover:opacity-90 shadow-2xs'
                               }`}
                               style={{ borderLeftColor: badgeStyle.borderColor }}
                             >
@@ -641,6 +657,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     <div className="space-y-2 flex-1 overflow-y-auto no-scrollbar">
                       {dayEvents.map(evt => {
                         const badgeStyle = getEventBadgeStyle(evt);
+
                         return (
                           <div 
                             key={evt.id} 
@@ -727,11 +744,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">
                 {(listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).length > 0 ? (
                   (listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).map(evt => {
-                    const assignedMembers = members.filter(m => evt.memberIds?.includes(m.id));
-                    const memberName = assignedMembers.length > 0 ? assignedMembers.map(m => m.name).join(', ') : 'Вся семья';
-                    const isGala = memberName.toLowerCase().includes('гал');
-                    const isGena = memberName.toLowerCase().includes('ген');
-                    const badgeBg = isGala ? 'bg-[#FDF0EC] text-[#9E3E28]' : isGena ? 'bg-[#FEF6E8] text-[#8C5E1A]' : 'bg-[#E8F2EC] text-[#244E38]';
+                    const badgeStyle = getEventBadgeStyle(evt);
                     const dateObj = new Date(evt.date);
                     const formattedDate = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
 
@@ -755,13 +768,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                           </div>
 
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="text-xs font-extrabold text-[#2D5A46] dark:text-emerald-400 flex items-center gap-1">
                                 <Clock size={12} />
                                 {evt.time || 'Весь день'}
                               </span>
-                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeBg}`}>
-                                {memberName}
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
+                                {badgeStyle.memberName}
                               </span>
                               <span className="text-xs text-stone-400">
                                 {formattedDate}
@@ -827,7 +840,6 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         <div className="space-y-3 shrink-0">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#3A7E64]" />
               ИНСПЕКТОР ДНЯ
             </span>
             <span className="text-stone-500 font-medium capitalize">
@@ -854,32 +866,64 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             ПЛАНЫ НА СЕГОДНЯ
           </span>
 
+          {/* Сообщение в инспекторе о пересечениях в текущем месяце */}
+          {hasCurrentMonthConflicts && (
+            <button
+              type="button"
+              onClick={() => {
+                if (conflictPairs.length > 0) {
+                  setSelectedConflictPair(conflictPairs[0]);
+                  setIsConflictResolverOpen(true);
+                }
+              }}
+              className="w-full text-left p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2.5 text-amber-900 dark:text-amber-200 text-xs font-bold shadow-2xs hover:bg-amber-100/80 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>В текущем месяце есть пересечения событий по времени</span>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-amber-600" />
+            </button>
+          )}
+
           {selectedDayEvents.length > 0 ? (
             <div className="space-y-3">
               {selectedDayEvents.map((evt) => {
-                const assignedMembers = members.filter(m => evt.memberIds?.includes(m.id));
-                const memberName = assignedMembers.length > 0 ? assignedMembers.map(m => m.name).join(', ') : 'Вся семья';
-                const isGala = memberName.toLowerCase().includes('гал');
-                const isGena = memberName.toLowerCase().includes('ген');
-
-                const dotColor = isGala ? '#D97763' : isGena ? '#E5A642' : '#3A7E64';
-                const badgeBg = isGala ? 'bg-[#FDF0EC] text-[#9E3E28]' : isGena ? 'bg-[#FEF6E8] text-[#8C5E1A]' : 'bg-[#E8F2EC] text-[#244E38]';
+                const badgeStyle = getEventBadgeStyle(evt);
+                const isConflict = conflictingEventIds.has(evt.id);
 
                 return (
                   <div 
                     key={evt.id}
                     className="p-4 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/10 shadow-xs space-y-2 relative group"
                   >
-                    {/* Верхняя строка карточки: Время + Бейдж участника + Карандаш */}
+                    {/* Верхняя строка карточки: Время + Бейдж участника + Сообщение о пересечении + Карандаш */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
                           {evt.time || 'Весь день'} {evt.duration ? `– ${parseInt(evt.time || '12') + evt.duration}:00` : ''}
                         </span>
-                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeBg}`}>
-                          {memberName}
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
+                          {badgeStyle.memberName}
                         </span>
+                        {isConflict && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const pair = conflictPairs.find(p => p.eventA.id === evt.id || p.eventB.id === evt.id);
+                              if (pair) {
+                                setSelectedConflictPair(pair);
+                                setIsConflictResolverOpen(true);
+                              }
+                            }}
+                            className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                            title="Открыть разрешение конфликта"
+                          >
+                            <AlertTriangle size={11} className="text-amber-600" />
+                            <span>Пересечение</span>
+                          </button>
+                        )}
                       </div>
 
                       <button 
@@ -922,75 +966,68 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           </button>
         </div>
 
-        {/* Секция: ПРЕДСТОЯЩИЕ НА НЕДЕЛЕ */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-              ПРЕДСТОЯЩИЕ НА НЕДЕЛЕ
-            </span>
-            <span className="text-xs font-bold text-stone-500">
-              Все ({upcomingEvents.length})
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {upcomingEvents.map(evt => {
-              const dateObj = new Date(evt.date);
-              const dayStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
-              const assignedMember = members.find(m => evt.memberIds?.includes(m.id));
-              const meta = getEventCategoryMeta(evt.title, assignedMember);
-
-              return (
-                <div 
-                  key={evt.id}
-                  onClick={() => {
-                    setSelectedDate(dateObj);
-                    onOpenEvent(evt);
-                  }}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1C1E] hover:border-stone-400 dark:hover:border-white/20 border border-[#ECE5DB] dark:border-white/10 transition flex items-center justify-between cursor-pointer shadow-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl ${meta.bg} ${meta.text} flex items-center justify-center shrink-0`}>
-                      {meta.icon}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate max-w-[160px]">
-                        {evt.title}
-                      </h4>
-                      <span className="text-[11px] text-stone-400 font-medium">
-                        {dayStr} • {assignedMember?.name || 'Семья'} ({meta.categoryName})
-                      </span>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-bold text-stone-600 dark:text-stone-300 shrink-0">
-                    {evt.time || '10:00'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Нижний блок: Семейная синхронизация */}
-        <div className="mt-auto pt-3">
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/10 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#E8F2EC] text-[#3A7E64] flex items-center justify-center shrink-0">
-                <RefreshCw size={14} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-stone-900 dark:text-white">Семейная синхронизация</h4>
-                <p className="text-[10px] text-stone-400">
-                  Google Calendar & Telegram подключены
-                </p>
-              </div>
+        {/* Секция: ПРЕДСТОЯЩИЕ НА НЕДЕЛЕ (только не в режиме месяца) */}
+        {viewMode !== 'month' && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                ПРЕДСТОЯЩИЕ НА НЕДЕЛЕ
+              </span>
+              <span className="text-xs font-bold text-stone-500">
+                Все ({upcomingEvents.length})
+              </span>
             </div>
-            <span className="w-2 h-2 rounded-full bg-[#3A7E64] shrink-0" />
+
+            <div className="space-y-2">
+              {upcomingEvents.map(evt => {
+                const dateObj = new Date(evt.date);
+                const dayStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+                const assignedMember = members.find(m => evt.memberIds?.includes(m.id));
+                const meta = getEventCategoryMeta(evt.title, assignedMember);
+
+                return (
+                  <div 
+                    key={evt.id}
+                    onClick={() => {
+                      setSelectedDate(dateObj);
+                      onOpenEvent(evt);
+                    }}
+                    className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1C1E] hover:border-stone-400 dark:hover:border-white/20 border border-[#ECE5DB] dark:border-white/10 transition flex items-center justify-between cursor-pointer shadow-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl ${meta.bg} ${meta.text} flex items-center justify-center shrink-0`}>
+                        {meta.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate max-w-[160px]">
+                          {evt.title}
+                        </h4>
+                        <span className="text-[11px] text-stone-400 font-medium">
+                          {dayStr} • {assignedMember?.name || 'Семья'} ({meta.categoryName})
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="text-xs font-bold text-stone-600 dark:text-stone-300 shrink-0">
+                      {evt.time || '10:00'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
       </aside>
+
+      <ConflictResolverModal
+        isOpen={isConflictResolverOpen}
+        onClose={() => setIsConflictResolverOpen(false)}
+        conflictPair={selectedConflictPair}
+        members={members}
+        onUpdateEvent={onUpdateEvent}
+        onOpenEvent={onOpenEvent}
+      />
 
     </div>
   );

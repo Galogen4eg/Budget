@@ -18,9 +18,20 @@ interface FamilyPlansProps {
   members: FamilyMember[];
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   onDeleteEvent?: (id: string) => void;
+  onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
-const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, members, onSendToTelegram, onDeleteEvent }) => {
+const FamilyPlans: React.FC<FamilyPlansProps> = ({ 
+  events, 
+  setEvents, 
+  settings, 
+  members, 
+  onSendToTelegram, 
+  onDeleteEvent,
+  onOpenSettings,
+  onOpenNotifications
+}) => {
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'list'>('month');
@@ -246,7 +257,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({ events, setEvents, settings, 
       isProcessingVoice,
       startListening,
       onSendToTelegram,
-      onUpdateEvent: handleUpdateEvent
+      onUpdateEvent: handleUpdateEvent,
+      onOpenSettings,
+      onOpenNotifications
   };
 
   return (

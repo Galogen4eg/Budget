@@ -28,6 +28,7 @@ import ServicesHub from './components/ServicesHub';
 import TerraOverview from './components/TerraOverview';
 import TerraBudget from './components/TerraBudget';
 import AddTransactionModal from './components/AddTransactionModal';
+import EventModal from './components/EventModal';
 import { MemberMarker } from './constants';
 
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
@@ -69,9 +70,9 @@ const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
 ];
 
 const pageVariants = {
-  initial: { opacity: 0, y: 10, scale: 0.98 },
-  in: { opacity: 1, y: 0, scale: 1 },
-  out: { opacity: 0, y: -10, scale: 0.98 }
+  initial: { opacity: 0 },
+  in: { opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } },
+  out: { opacity: 0, transition: { duration: 0.08, ease: 'easeIn' } }
 };
 
 export default function App() {
@@ -98,6 +99,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
@@ -556,6 +558,25 @@ export default function App() {
       }
   };
 
+  const handleSaveEvent = async (e: FamilyEvent) => {
+      setEvents(prev => {
+          const updated = [...prev];
+          const existingIndex = updated.findIndex(ev => ev.id === e.id);
+          if (existingIndex > -1) updated[existingIndex] = e;
+          else updated.push(e);
+          return updated;
+      });
+      setIsAddEventModalOpen(false);
+
+      if (familyId) {
+          const exists = events.some(ev => ev.id === e.id);
+          if (exists) await updateItem(familyId, 'events', e.id, e);
+          else await addItem(familyId, 'events', e);
+      }
+      if (settings.autoSendEventsToTelegram) handleSendEventToTelegram(e);
+      toast.success('Событие сохранено');
+  };
+
   const handleDeleteTransactionsByPeriod = async (startDate: string, endDate: string) => {
       if (!startDate || !endDate) return;
       const start = new Date(startDate);
@@ -690,7 +711,6 @@ export default function App() {
              <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
            </div>
            <div className="flex gap-2">
-               <button onClick={() => setIsAIChatOpen(true)} className="p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-primary"><Bot size={18} /></button>
                <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
                <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
            </div>
@@ -771,14 +791,6 @@ export default function App() {
             <div className={`flex items-center ${isSidebarExpanded ? 'justify-around w-full' : 'flex-col gap-1 w-full'}`}>
               <button 
                 type="button"
-                onClick={() => setIsAIChatOpen(true)} 
-                title="AI Помощник" 
-                className="p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
-              >
-                <Bot size={18} />
-              </button>
-              <button 
-                type="button"
                 onClick={() => setShowNotifications(true)} 
                 title="Уведомления" 
                 className="relative p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
@@ -808,7 +820,7 @@ export default function App() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`flex-1 flex flex-col min-w-0 bg-[#F8F6F2] dark:bg-[#121214] overflow-hidden relative ${(activeTab === 'overview' || activeTab === 'budget' || activeTab === 'services') ? '' : 'overflow-y-auto no-scrollbar p-4 md:p-8 pt-16 md:pt-8 pb-32 md:pb-8'}`}
+        className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-hidden relative"
       >
         {/* Offline Alert Banner */}
         {!isOnline && (
@@ -839,76 +851,94 @@ export default function App() {
           </div>
         )}
 
-        <div className={`w-full flex-1 flex flex-col ${(activeTab === 'overview' || activeTab === 'budget' || activeTab === 'services') ? 'h-full' : 'gap-4 h-auto'}`}>
-            <AnimatePresence mode="wait">
-            {activeTab === 'overview' && (
-                <motion.div key="overview" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full w-full flex-1 flex flex-col overflow-hidden">
-                    <TerraOverview 
-                        onOpenAddModal={() => setIsAddModalOpen(true)}
-                        onOpenAIChat={() => setIsAIChatOpen(true)}
-                        onOpenSettings={() => setIsSettingsOpen(true)}
-                        onEditTransaction={handleEditTransaction}
-                        onNavigateTab={(tabId) => setActiveTab(tabId)}
-                        onDrillDown={(catId) => setDrillDownState({ categoryId: catId })}
-                        onEditMandatoryExpense={(expense) => {
-                            setSelectedMandatoryExpense(expense);
-                            setIsMandatoryModalOpen(true);
-                        }}
-                        currentMonth={currentMonth}
-                        onMonthChange={setCurrentMonth}
-                    />
-                </motion.div>
-            )}
-            
-            {activeTab === 'budget' && (
-                <motion.div key="budget" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full w-full flex-1 flex flex-col overflow-hidden">
-                    <TerraBudget
-                        transactions={transactions}
-                        categories={categories}
-                        members={members}
-                        mandatoryExpenses={settings.mandatoryExpenses || []}
-                        settings={settings}
-                        currentMonth={currentMonth}
-                        onMonthChange={setCurrentMonth}
-                        onEditTransaction={handleEditTransaction}
-                        onOpenAddModal={() => setIsAddModalOpen(true)}
-                        onOpenSettings={() => setIsSettingsOpen(true)}
-                        onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
-                        onImportClick={() => document.getElementById('import-input')?.click()}
-                        onToggleMandatoryPaid={handleToggleMandatoryPaid}
-                        onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
-                        onEditMandatoryExpense={(expense) => {
-                            setSelectedMandatoryExpense(expense);
-                            setIsMandatoryModalOpen(true);
-                        }}
-                        onQuickAddTransaction={(title, amount, date, memberId) => {
-                            const dateStr = date.toISOString().split('T')[0];
-                            handleTransactionSubmit({
-                                amount,
-                                type: 'expense',
-                                category: 'other',
-                                memberId,
-                                note: title,
-                                date: dateStr
-                            });
-                            toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
-                        }}
-                    />
-                </motion.div>
-            )}
-            
-            {activeTab === 'plans' && <motion.div key="plans" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><FamilyPlans events={events} setEvents={setEvents} settings={settings} members={members} onSendToTelegram={handleSendEventToTelegram} onDeleteEvent={handleDeleteEvent} /></motion.div>}
-            {activeTab === 'shopping' && <motion.div key="shopping" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar"><ShoppingList items={shoppingItems} setItems={setShoppingItems} settings={settings} members={members} onMoveToPantry={handleMoveToPantry} onSendToTelegram={handleSendShoppingToTelegram} /></motion.div>}
-            {activeTab === 'services' && (
-              <motion.div key="services" initial="initial" animate="in" exit="out" variants={pageVariants} className="h-full overflow-y-auto no-scrollbar p-3.5 sm:p-5 md:p-8 pt-3 sm:pt-4 md:pt-8 pb-28 md:pb-8">
-                <ServicesHub 
-                  initialService={targetService} 
-                  onClearService={() => setTargetService(null)} 
-                  onNavigateHome={() => setActiveTab('overview')}
+        <div className="w-full flex-1 flex flex-col h-full overflow-hidden">
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
+                <TerraOverview 
+                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenAIChat={() => setIsAIChatOpen(true)}
+                    onOpenSettings={() => setIsSettingsOpen(true)}
+                    onEditTransaction={handleEditTransaction}
+                    onNavigateTab={(tabId) => setActiveTab(tabId)}
+                    onDrillDown={(catId) => setDrillDownState({ categoryId: catId })}
+                    onEditMandatoryExpense={(expense) => {
+                        setSelectedMandatoryExpense(expense);
+                        setIsMandatoryModalOpen(true);
+                    }}
+                    currentMonth={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    onOpenAddEventModal={() => setIsAddEventModalOpen(true)}
                 />
-              </motion.div>
-            )}
-            </AnimatePresence>
+            </div>
+            
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
+                <TerraBudget
+                    transactions={transactions}
+                    categories={categories}
+                    members={members}
+                    mandatoryExpenses={settings.mandatoryExpenses || []}
+                    settings={settings}
+                    currentMonth={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    onEditTransaction={handleEditTransaction}
+                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenSettings={() => setIsSettingsOpen(true)}
+                    onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
+                    onImportClick={() => document.getElementById('import-input')?.click()}
+                    onToggleMandatoryPaid={handleToggleMandatoryPaid}
+                    onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
+                    onEditMandatoryExpense={(expense) => {
+                        setSelectedMandatoryExpense(expense);
+                        setIsMandatoryModalOpen(true);
+                    }}
+                    onQuickAddTransaction={(title, amount, date, memberId) => {
+                        const dateStr = date.toISOString().split('T')[0];
+                        handleTransactionSubmit({
+                            amount,
+                            type: 'expense',
+                            category: 'other',
+                            memberId,
+                            note: title,
+                            date: dateStr
+                        });
+                        toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                    }}
+                />
+            </div>
+            
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
+              <FamilyPlans 
+                events={events} 
+                setEvents={setEvents} 
+                settings={settings} 
+                members={members} 
+                onSendToTelegram={handleSendEventToTelegram} 
+                onDeleteEvent={handleDeleteEvent}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenNotifications={() => setShowNotifications(true)}
+              />
+            </div>
+
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
+              <ShoppingList 
+                items={shoppingItems} 
+                setItems={setShoppingItems} 
+                settings={settings} 
+                members={members} 
+                onMoveToPantry={handleMoveToPantry} 
+                onSendToTelegram={handleSendShoppingToTelegram}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenNotifications={() => setShowNotifications(true)}
+              />
+            </div>
+
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
+              <ServicesHub 
+                initialService={targetService} 
+                onClearService={() => setTargetService(null)} 
+                onNavigateHome={() => setActiveTab('overview')}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+            </div>
         </div>
       </main>
 
@@ -921,6 +951,9 @@ export default function App() {
                   key={tab.id} 
                   onClick={() => {
                     triggerHaptic('light');
+                    if (tab.id === 'services') {
+                      setTargetService('menu');
+                    }
                     setActiveTab(tab.id);
                   }} 
                   className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all ${
@@ -1083,6 +1116,19 @@ export default function App() {
             
             {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
+            {isAddEventModalOpen && (
+                <EventModal 
+                    key="add-event-modal"
+                    event={null}
+                    members={members}
+                    settings={settings}
+                    templates={events.filter(e => e.isTemplate)}
+                    allEvents={events}
+                    onClose={() => setIsAddEventModalOpen(false)}
+                    onSave={handleSaveEvent}
+                    onSendToTelegram={handleSendEventToTelegram}
+                />
+            )}
         </AnimatePresence>
 
         {/* Hidden input for importing statements */}

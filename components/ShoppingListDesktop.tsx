@@ -810,7 +810,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 </span>
               </div>
               <p className="text-sm text-[#4A4E4A] dark:text-stone-400 font-medium">
-                Синхронизировано онлайн с корзинами {members.map(m => m.name).join(' и ')}
+                Общий список покупок в реальном времени
               </p>
             </div>
 
@@ -857,10 +857,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <button 
                 onClick={handleTelegramSend}
                 disabled={isSendingTelegram}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2AABEE]/15 hover:bg-[#2AABEE]/25 dark:bg-[#2AABEE]/25 dark:hover:bg-[#2AABEE]/35 text-[#0088CC] dark:text-[#38B9FF] text-sm font-semibold transition shadow-xs cursor-pointer border border-[#2AABEE]/30 active:scale-95"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#edf4ef] hover:bg-[#d8edd9] dark:bg-[#243628] hover:dark:bg-[#2e4733] text-[#4a7c59] dark:text-emerald-400 text-sm font-semibold transition shadow-xs cursor-pointer border border-[#d1dbd1] dark:border-emerald-800/40 active:scale-95"
                 title="Отправить актуальный список покупок в семейный Telegram чат"
               >
-                {isSendingTelegram ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                {isSendingTelegram ? <Loader2 size={18} className="animate-spin text-[#4a7c59] dark:text-emerald-400" /> : <Send size={18} className="text-[#4a7c59] dark:text-emerald-400" />}
                 <span>В Telegram</span>
               </button>
 
@@ -893,42 +893,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               >
                 <Mic size={14} />
               </button>
-            </div>
-
-            {/* Family Member Filter & View Toggles */}
-            <div className="flex items-center gap-3 self-end md:self-auto flex-wrap">
-              <div className="flex items-center gap-1 bg-[#E4E0D8] dark:bg-stone-800 px-2 py-1 rounded-xl text-xs">
-                <button 
-                  onClick={() => setFilterMemberId('all')}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
-                    filterMemberId === 'all' 
-                      ? 'bg-white dark:bg-[#2C2C2E] text-[#2E3230] dark:text-white font-bold shadow-2xs' 
-                      : 'text-[#4A4E4A] dark:text-stone-400 hover:text-[#2E3230] font-medium'
-                  }`}
-                >
-                  Все
-                </button>
-
-                {members.map(m => {
-                  const isSelected = filterMemberId === m.id;
-                  const isGala = m.name.toLowerCase().includes('гал');
-                  const dotClass = isGala ? 'bg-[#D97763]' : 'bg-[#E5A642]';
-                  return (
-                    <button 
-                      key={m.id}
-                      onClick={() => setFilterMemberId(isSelected ? 'all' : m.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer ${
-                        isSelected 
-                          ? 'bg-white dark:bg-[#2C2C2E] text-[#2E3230] dark:text-white font-bold shadow-2xs' 
-                          : 'text-[#4A4E4A] dark:text-stone-400 hover:text-[#2E3230] font-medium'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-                      <span>{m.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </header>
@@ -1016,18 +980,18 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   {/* Department Item Rows */}
                   <div className="flex flex-col gap-2">
                     {deptItems.map((item) => {
-                      const assignedMember = members.find(m => m.id === item.memberId);
-                      const isGala = assignedMember?.name.toLowerCase().includes('гал');
-                      const avatarBg = isGala ? 'bg-[#F0E8DB] text-[#5E5548]' : 'bg-[#F8E0A8] text-[#221A05]';
-
                       return (
                         <div 
                           key={item.id}
-                          className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xs hover:shadow-md border border-[#ECE5DB] dark:border-white/5 transition-all"
+                          onClick={() => openEditModal(item)}
+                          className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xs hover:shadow-md border border-[#ECE5DB] dark:border-white/5 transition-all cursor-pointer hover:border-[#C8E8D0]"
                         >
                           <div className="flex items-center gap-3.5 min-w-0">
                             {/* Custom checkmark */}
-                            <label className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0">
+                            <label 
+                              onClick={(e) => e.stopPropagation()}
+                              className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0"
+                            >
                               <input 
                                 type="checkbox"
                                 checked={item.completed}
@@ -1039,10 +1003,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               </span>
                             </label>
 
-                            <div 
-                              className="flex flex-col min-w-0 cursor-pointer"
-                              onClick={() => openEditModal(item)}
-                            >
+                            <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold text-sm text-[#2E3230] dark:text-white truncate">
                                   {item.title}
@@ -1053,23 +1014,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                   </span>
                                 )}
                               </div>
-
-                              <div className="flex items-center gap-2 text-xs text-[#4A4E4A] dark:text-stone-400 mt-0.5">
-                                <span className="flex items-center gap-1 text-[11px]">
-                                  <span className={`w-4 h-4 rounded-full ${avatarBg} text-[9px] flex items-center justify-center font-bold`}>
-                                    {assignedMember?.name.slice(0, 2) || 'Сем'}
-                                  </span>
-                                  <span>{assignedMember?.name || 'Вся семья'}</span>
-                                </span>
-                              </div>
                             </div>
                           </div>
 
                           {/* Stepper & Actions */}
-                          <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center bg-[#F5F1EA] dark:bg-stone-800 rounded-xl px-1.5 py-1">
                               <button 
-                                onClick={() => handleUpdateAmount(item, -1)}
+                                onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
                                 className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
                               >
                                 -
@@ -1078,7 +1030,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                 {item.amount || '1'} {item.unit || 'шт'}
                               </span>
                               <button 
-                                onClick={() => handleUpdateAmount(item, 1)}
+                                onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
                                 className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
                               >
                                 +
@@ -1412,46 +1364,12 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 </div>
               </div>
 
-              {/* Assignee & Urgent Priority */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
-                    Кто покупает
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button 
-                      onClick={() => setItemMemberId('all')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                        itemMemberId === 'all' 
-                          ? 'bg-white dark:bg-stone-700 border border-[#4A7C59] text-[#2E3230] dark:text-white shadow-xs' 
-                          : 'bg-[#F5F1EA] dark:bg-stone-800 text-[#74796E] hover:bg-[#E4E0D8]'
-                      }`}
-                    >
-                      Кто первый в магазине
-                    </button>
-                    {members.map(m => {
-                      const isSelected = itemMemberId === m.id;
-                      const isGala = m.name.toLowerCase().includes('гал');
-                      return (
-                        <button 
-                          key={m.id}
-                          onClick={() => setItemMemberId(m.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
-                            isSelected 
-                              ? 'bg-white dark:bg-stone-700 border border-[#4A7C59] text-[#2E3230] dark:text-white shadow-xs' 
-                              : 'bg-[#F5F1EA] dark:bg-stone-800 text-[#74796E] hover:bg-[#E4E0D8]'
-                          }`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${isGala ? 'bg-[#D97763]' : 'bg-[#E5A642]'}`} />
-                          <span>{m.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Urgent switch */}
-                <label className="flex items-center gap-2.5 cursor-pointer self-start sm:self-end mb-1">
+              {/* Urgent Priority Switch */}
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                  Приоритет
+                </span>
+                <label className="flex items-center gap-2.5 cursor-pointer">
                   <input 
                     type="checkbox"
                     checked={isUrgent}

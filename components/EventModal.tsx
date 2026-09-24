@@ -67,6 +67,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [sent, setSent] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
+  const [conflictToConfirm, setConflictToConfirm] = useState<{ eventData: FamilyEvent; conflictingEvent: FamilyEvent } | null>(null);
 
   // End time calculation
   const endTimeStr = useMemo(() => {
@@ -238,8 +239,24 @@ export const EventModal: React.FC<EventModalProps> = ({
       userId: auth.currentUser?.uid
     };
 
+    if (conflict) {
+      setConflictToConfirm({
+        eventData: newEventData,
+        conflictingEvent: conflict
+      });
+      return;
+    }
+
     onSave(newEventData);
     onClose();
+  };
+
+  const handleConfirmConflictSave = () => {
+    if (conflictToConfirm) {
+      onSave(conflictToConfirm.eventData);
+      setConflictToConfirm(null);
+      onClose();
+    }
   };
 
   const completedCount = checklist.filter(i => i.completed).length;
@@ -741,6 +758,56 @@ export const EventModal: React.FC<EventModalProps> = ({
             </button>
           </div>
         </footer>
+
+        {/* Conflict Detection Confirmation Dialog */}
+        {conflictToConfirm && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm bg-white dark:bg-[#1E1E20] rounded-2xl p-5 shadow-2xl border border-amber-200 dark:border-amber-800/60 space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-800">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900 dark:text-white leading-tight">
+                    Пересечение по времени
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                    Событие совпадает по времени с уже запланированным:
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#FAF7F2] dark:bg-white/5 p-3 rounded-xl border border-[#EAE5DB] dark:border-white/10 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between font-semibold text-stone-800 dark:text-stone-200">
+                  <span className="truncate pr-2">«{conflictToConfirm.conflictingEvent.title}»</span>
+                  <span className="shrink-0 text-amber-600 dark:text-amber-400 font-mono">
+                    {conflictToConfirm.conflictingEvent.time || '12:00'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-stone-400 dark:text-stone-500">
+                  Ваше событие: <span className="font-medium text-stone-700 dark:text-stone-300 font-mono">{time} – {endTimeStr}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConflictToConfirm(null)}
+                  className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-white/10 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition cursor-pointer"
+                >
+                  Изменить время
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmConflictSave}
+                  className="px-3 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                >
+                  Пересекать
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>,
     document.body

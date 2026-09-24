@@ -246,6 +246,16 @@ export default function App() {
       document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
+  const handleAddCategory = async (newCategory: Category) => {
+    setCategories(prev => {
+      if (prev.some(c => c.id === newCategory.id)) return prev;
+      return [...prev, newCategory];
+    });
+    if (familyId) {
+      await addItem(familyId, 'categories', newCategory);
+    }
+  };
+
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
     if (selectedTx) {
       // Edit
@@ -1032,7 +1042,11 @@ export default function App() {
                 onConfirm={async (finalItems) => { 
                   try {
                     const itemsToImport = finalItems || importPreview;
-                    if (!itemsToImport || itemsToImport.length === 0) return;
+                    if (!itemsToImport || itemsToImport.length === 0) {
+                      setImportPreview(null);
+                      toast.info("Импорт отменен (нет операций)");
+                      return;
+                    }
 
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
@@ -1053,6 +1067,7 @@ export default function App() {
                     }
                   } catch (err: any) {
                     console.error("Import error:", err);
+                    setImportPreview(null);
                     toast.error("Ошибка сохранения: " + (err.message || String(err)));
                   }
                 }} 
@@ -1066,7 +1081,7 @@ export default function App() {
                 onUpdateAll={(items) => setImportPreview(items)} 
                 onLearnRule={handleLearnRule} 
                 learnedRules={learnedRules}
-                onAddCategory={() => {}} 
+                onAddCategory={handleAddCategory} 
                 members={members} 
               />
             )}

@@ -257,8 +257,33 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
     if (rule.keyword && lowNote.includes(rule.keyword.toLowerCase())) return rule.cleanName;
   }
 
-  // SBP Recognition logic
-  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer') || lowNote.includes('client')) {
+  // SBP & Transfer Recognition logic
+  if (lowNote.includes('сбп') || lowNote.includes('sbp') || lowNote.includes('перевод') || lowNote.includes('transfer') || lowNote.includes('client') || lowNote.includes('c2c')) {
+      // Check if self-transfer first
+      const isSelf = lowNote.includes('себе') || 
+                     lowNote.includes('между своими') || 
+                     lowNote.includes('свой счет') || 
+                     lowNote.includes('своими счетами') || 
+                     lowNote.includes('me2me') || 
+                     lowNote.includes('на свой');
+
+      if (isSelf) {
+          let bankSuffix = '';
+          if (lowNote.includes('т-банк') || lowNote.includes('тинькофф') || lowNote.includes('тбанк')) bankSuffix = ' (Т-Банк)';
+          else if (lowNote.includes('альфа')) bankSuffix = ' (Альфа)';
+          else if (lowNote.includes('сбер')) bankSuffix = ' (Сбер)';
+          else if (lowNote.includes('втб')) bankSuffix = ' (ВТБ)';
+          return `Перевод себе${bankSuffix}`;
+      }
+
+      // Check for person recipient name (e.g., Иван И., Екатерине В., Алексей С.)
+      const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./) || name.match(/получатель\s*:\s*([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ]\.?)?)/i);
+      if (nameMatch) {
+          const personName = nameMatch[2] ? `${nameMatch[1]} ${nameMatch[2]}.` : nameMatch[1];
+          return `Перевод: ${personName}`;
+      }
+
+      // Extract phone number if present
       const phoneRegex = /(?:\b(?:7|8|\+7)[\s\-(]*)?\(?9\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}\b/g;
       const allMatches = Array.from(name.matchAll(phoneRegex));
       let bestPhone = '';
@@ -276,9 +301,7 @@ export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] =
 
       if (bestPhone) {
           const formattedPhone = `+7 ${bestPhone.slice(0, 3)} ${bestPhone.slice(3, 6)}-${bestPhone.slice(6, 8)}-${bestPhone.slice(8)}`;
-          const nameMatch = name.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./);
-          const person = nameMatch ? ` (${nameMatch[1]} ${nameMatch[2]}.)` : '';
-          return `Перевод по СБП ${formattedPhone}${person}`;
+          return `Перевод по СБП (${formattedPhone})`;
       }
       
       if (lowNote.includes('сбп') || lowNote.includes('sbp')) {
@@ -434,3 +457,93 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
   }
   return 'other';
 };
+
+export interface TransferDetails {
+  isTransfer: boolean;
+  isSelf: boolean;
+  recipientName?: string;
+  bankName?: string;
+  badgeLabel: string;
+  badgeType: 'self' | 'person' | 'generic';
+}
+
+export const getTransferDetails = (note: string, rawNote?: string, categoryId?: string): TransferDetails => {
+  const noteStr = (note || '').trim();
+  const rawStr = (rawNote || '').trim();
+  const combined = `${noteStr} ${rawStr}`.toLowerCase();
+
+  const isTransferCategory = categoryId === 'transfer';
+  const isTransferText = combined.includes('перевод') || 
+                         combined.includes('сбп') || 
+                         combined.includes('sbp') || 
+                         combined.includes('transfer') || 
+                         combined.includes('c2c') || 
+                         noteStr.startsWith('Перевод');
+
+  if (!isTransferCategory && !isTransferText) {
+    return {
+      isTransfer: false,
+      isSelf: false,
+      badgeLabel: '',
+      badgeType: 'generic'
+    };
+  }
+
+  // Check for self transfer
+  const isSelf = combined.includes('себе') || 
+                 combined.includes('между своими') || 
+                 combined.includes('свой счет') || 
+                 combined.includes('своими счетами') || 
+                 combined.includes('me2me') || 
+                 combined.includes('на свой');
+
+  if (isSelf) {
+    let bankName = '';
+    if (combined.includes('т-банк') || combined.includes('тинькофф') || combined.includes('тбанк')) bankName = 'Т-Банк';
+    else if (combined.includes('альфа')) bankName = 'Альфа';
+    else if (combined.includes('сбер')) bankName = 'Сбер';
+    else if (combined.includes('втб')) bankName = 'ВТБ';
+    else if (combined.includes('райф')) bankName = 'Райффайзен';
+
+    return {
+      isTransfer: true,
+      isSelf: true,
+      bankName,
+      badgeLabel: bankName ? `Себе (${bankName})` : 'Себе',
+      badgeType: 'self'
+    };
+  }
+
+  // Extract recipient / person name
+  let recipientName = '';
+
+  // Case A: "Перевод: Иван И."
+  const prefixMatch = noteStr.match(/Перевод[:\s]+([А-ЯЁа-яёA-Za-z\s\.]+)/i);
+  if (prefixMatch && prefixMatch[1]) {
+    const candidate = prefixMatch[1].trim();
+    if (!candidate.toLowerCase().includes('средств') && 
+        !candidate.toLowerCase().includes('сбп') && 
+        !candidate.toLowerCase().includes('по сбп') &&
+        candidate.length > 1) {
+      recipientName = candidate;
+    }
+  }
+
+  // Case B: Regex for name in note/rawNote (e.g. "Иван И." or "получатель: Екатерина В.")
+  if (!recipientName) {
+    const nameMatch = `${noteStr} ${rawStr}`.match(/([А-ЯЁ][а-яё]+)\s([А-ЯЁ])\./) ||
+                      `${noteStr} ${rawStr}`.match(/получатель\s*:\s*([А-ЯЁа-яё]+(?:\s+[А-ЯЁ]\.?)?)/i);
+    if (nameMatch) {
+      recipientName = nameMatch[2] ? `${nameMatch[1]} ${nameMatch[2]}.` : nameMatch[1];
+    }
+  }
+
+  return {
+    isTransfer: true,
+    isSelf: false,
+    recipientName: recipientName || undefined,
+    badgeLabel: recipientName ? `Знакомому: ${recipientName}` : 'Знакомому',
+    badgeType: 'person'
+  };
+};
+

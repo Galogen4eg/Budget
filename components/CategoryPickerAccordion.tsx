@@ -21,9 +21,16 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   maxHeightClass = "max-h-72",
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAddingSubcat, setIsAddingSubcat] = useState(false);
-  const [newSubcatName, setNewSubcatName] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [createType, setCreateType] = useState<'category' | 'subcategory'>('subcategory');
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#4A7C59');
   const [selectedParentId, setSelectedParentId] = useState<string>('');
+
+  const PRESET_COLORS = [
+    '#4A7C59', '#3D6B4C', '#D95C48', '#C4A66A', '#2D5540',
+    '#2563EB', '#7C3AED', '#DB2777', '#EA580C', '#475569'
+  ];
 
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>(() => {
     // Auto-expand parent of selected category
@@ -76,37 +83,51 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     setExpandedParents(prev => ({ ...prev, [parentId]: !prev[parentId] }));
   };
 
-  const handleStartAddSubcat = (initialName: string = '', defaultParentId?: string) => {
-    setNewSubcatName(initialName);
+  const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
+    setCreateType(type);
+    setNewCatName(initialName);
     setSelectedParentId(defaultParentId || parentCategories[0]?.id || 'shopping');
-    setIsAddingSubcat(true);
+    setIsAddingCategory(true);
   };
 
-  const handleSaveSubcategory = () => {
-    if (!newSubcatName.trim()) return;
-    const parentCat = parentCategories.find(p => p.id === selectedParentId) || parentCategories[0];
-    const newCategory: Category = {
-      id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-      label: newSubcatName.trim(),
-      parentId: parentCat ? parentCat.id : undefined,
-      icon: parentCat ? parentCat.icon : 'Tag',
-      color: parentCat ? parentCat.color : '#4A7C59',
-      isCustom: true,
-    };
+  const handleSaveCategory = () => {
+    if (!newCatName.trim()) return;
+
+    let newCategory: Category;
+    if (createType === 'category') {
+      const newId = `cat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
+      newCategory = {
+        id: newId,
+        label: newCatName.trim(),
+        color: newCatColor,
+        icon: 'Folder',
+        isCustom: true,
+      };
+    } else {
+      const parentCat = parentCategories.find(p => p.id === selectedParentId) || parentCategories[0];
+      newCategory = {
+        id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+        label: newCatName.trim(),
+        parentId: parentCat ? parentCat.id : undefined,
+        icon: parentCat ? parentCat.icon : 'Tag',
+        color: parentCat ? parentCat.color : '#4A7C59',
+        isCustom: true,
+      };
+    }
 
     if (onAddCategory) {
       onAddCategory(newCategory);
     }
     onSelectCategory(newCategory.id);
-    setIsAddingSubcat(false);
-    setNewSubcatName('');
+    setIsAddingCategory(false);
+    setNewCatName('');
     setSearchQuery('');
   };
 
   return (
     <div className="flex flex-col space-y-2.5 bg-white dark:bg-[#252528] rounded-2xl p-3 border border-[#ECE6DE] dark:border-white/10 shadow-sm">
-      {/* Search Bar & Add Button */}
-      <div className="flex items-center gap-2">
+      {/* Search Bar & Add Buttons */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
@@ -127,30 +148,63 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           )}
         </div>
 
-        {!isAddingSubcat && (
-          <button
-            type="button"
-            onClick={() => handleStartAddSubcat(searchQuery)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white text-[#2E5A39] dark:text-green-300 text-xs font-bold transition shrink-0 cursor-pointer"
-            title="Создать новую подкатегорию"
-          >
-            <FolderPlus size={14} />
-            <span className="hidden sm:inline">Подкатегория</span>
-          </button>
+        {!isAddingCategory && (
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleStartAddCategory('category', searchQuery)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white text-[#2E5A39] dark:text-green-300 text-xs font-bold transition cursor-pointer"
+              title="Создать новую категорию"
+            >
+              <Plus size={14} />
+              <span className="hidden sm:inline">Категория</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStartAddCategory('subcategory', searchQuery)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-200 text-xs font-bold transition cursor-pointer"
+              title="Создать новую подкатегорию"
+            >
+              <FolderPlus size={14} />
+              <span className="hidden sm:inline">Подкатегория</span>
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Inline Subcategory Creation Form */}
-      {isAddingSubcat && (
+      {/* Inline Category / Subcategory Creation Form */}
+      {isAddingCategory && (
         <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] p-3 rounded-xl border border-[#4A7C59]/40 space-y-2.5 animate-in fade-in duration-150">
           <div className="flex items-center justify-between text-xs font-bold text-stone-900 dark:text-white">
-            <span className="flex items-center gap-1.5">
-              <FolderPlus size={14} className="text-[#4A7C59]" />
-              Создание новой подкатегории
-            </span>
+            <div className="flex items-center gap-1.5 bg-white dark:bg-[#252528] p-1 rounded-xl border border-[#ECE6DE] dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setCreateType('category')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  createType === 'category'
+                    ? 'bg-[#4A7C59] text-white shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900 dark:text-gray-400'
+                }`}
+              >
+                Главная категория
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateType('subcategory')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  createType === 'subcategory'
+                    ? 'bg-[#4A7C59] text-white shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900 dark:text-gray-400'
+                }`}
+              >
+                Подкатегория
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => setIsAddingSubcat(false)}
+              onClick={() => setIsAddingCategory(false)}
               className="text-stone-400 hover:text-stone-600"
             >
               <X size={14} />
@@ -160,44 +214,66 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           <div className="space-y-2">
             <div>
               <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">
-                Название подкатегории:
+                {createType === 'category' ? 'Название новой категории:' : 'Название подкатегории:'}
               </label>
               <input
                 type="text"
-                value={newSubcatName}
-                onChange={(e) => setNewSubcatName(e.target.value)}
-                placeholder="Например: Доставка пиццы"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder={createType === 'category' ? 'Например: Здоровье' : 'Например: Аптека'}
                 className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
+                autoFocus
               />
             </div>
 
-            <div>
-              <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">
-                Родительская категория:
-              </label>
-              <select
-                value={selectedParentId}
-                onChange={(e) => setSelectedParentId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
-              >
-                {parentCategories.map(p => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </div>
+            {createType === 'subcategory' ? (
+              <div>
+                <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">
+                  Родительская категория:
+                </label>
+                <select
+                  value={selectedParentId}
+                  onChange={(e) => setSelectedParentId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
+                >
+                  {parentCategories.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">
+                  Цвет категории:
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {PRESET_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewCatColor(c)}
+                      className={`w-5 h-5 rounded-full transition transform ${
+                        newCatColor === c ? 'scale-125 ring-2 ring-stone-800 dark:ring-white' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setIsAddingSubcat(false)}
+                onClick={() => setIsAddingCategory(false)}
                 className="px-2.5 py-1 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
               >
                 Отмена
               </button>
               <button
                 type="button"
-                onClick={handleSaveSubcategory}
-                disabled={!newSubcatName.trim()}
+                onClick={handleSaveCategory}
+                disabled={!newCatName.trim()}
                 className="px-3 py-1 rounded-lg bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold transition disabled:opacity-50"
               >
                 Сохранить

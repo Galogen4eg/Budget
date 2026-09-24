@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Transaction, FamilyMember, Category } from '../types';
 import BrandIcon from './BrandIcon';
-import { getMerchantBrandKey } from '../utils/categorizer';
+import { getMerchantBrandKey, getTransferDetails } from '../utils/categorizer';
 
 interface BudgetDesktopProps {
   transactions: Transaction[];
@@ -77,6 +77,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                              const member = members.find(m => m.id === tx.memberId);
                              const displayTitle = tx.note || category?.label || 'Операция';
                              const brandKey = getMerchantBrandKey(displayTitle);
+                             const transferDetails = getTransferDetails(tx.note, tx.rawNote, tx.category);
 
                              return (
                                  <div 
@@ -89,10 +90,19 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                              <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="md" />
                                          </div>
                                          <div className="flex flex-col min-w-0">
-                                             <div className="flex items-center gap-2">
+                                             <div className="flex items-center gap-2 flex-wrap">
                                                  <span className="font-bold text-sm md:text-base text-graphite dark:text-white truncate">
                                                      {displayTitle}
                                                  </span>
+                                                 {transferDetails.isTransfer && (
+                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 ${
+                                                         transferDetails.badgeType === 'self'
+                                                             ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                                             : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                                     }`}>
+                                                         {transferDetails.badgeLabel}
+                                                     </span>
+                                                 )}
                                              </div>
                                              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-graphite-muted dark:text-gray-400 flex-wrap">
                                                  {onCategoryChange ? (

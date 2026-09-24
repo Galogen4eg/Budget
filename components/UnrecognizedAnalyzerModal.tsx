@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Check, X, Sparkles, ChevronRight, ChevronLeft, ArrowRight, 
   CheckCheck, Wand2, ShieldCheck, Tag, Info, List, Grid, Edit3, HelpCircle, Search, ChevronDown
@@ -77,6 +77,20 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     });
     return map;
   }, [unrecognizedItems, learnedRules, categories]);
+
+  // Keep index within bounds when items are categorized/removed
+  useEffect(() => {
+    if (currentIndex >= unrecognizedItems.length && unrecognizedItems.length > 0) {
+      setCurrentIndex(unrecognizedItems.length - 1);
+    }
+  }, [unrecognizedItems.length, currentIndex]);
+
+  // Automatically close analyzer when all unrecognized items are resolved
+  useEffect(() => {
+    if (isOpen && unrecognizedItems.length === 0) {
+      onClose();
+    }
+  }, [isOpen, unrecognizedItems.length, onClose]);
 
   if (!isOpen || unrecognizedItems.length === 0) return null;
 

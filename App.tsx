@@ -84,7 +84,7 @@ export default function App() {
     setPantry,
     events, setEvents,
     goals, setGoals,
-    members,
+    members, setMembers,
     categories, setCategories,
     settings, updateSettings, 
     setLearnedRules, learnedRules,
@@ -1001,7 +1001,21 @@ export default function App() {
                 savingsRate={savingsRate} 
                 setSavingsRate={setSavingsRate} 
                 members={members} 
-                onUpdateMembers={async (m) => { if (familyId) await updateItemsBatch(familyId, 'members', m); }} 
+                onUpdateMembers={async (m) => { 
+                  setMembers(m);
+                  try {
+                    localStorage.setItem('local_members', JSON.stringify(m));
+                  } catch (storageErr) {
+                    console.warn('Failed to save members to localStorage:', storageErr);
+                  }
+                  if (familyId) {
+                    try {
+                      await updateItemsBatch(familyId, 'members', m);
+                    } catch (cloudErr) {
+                      console.error('Failed to sync members to cloud:', cloudErr);
+                    }
+                  }
+                }} 
                 categories={categories} 
                 onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} 
                 onDeleteCategory={async id => { if (familyId) await deleteItem(familyId, 'categories', id); }} 

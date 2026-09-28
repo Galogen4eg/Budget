@@ -15,6 +15,26 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/api/telegram': {
+            target: 'https://api.telegram.org',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/telegram/, ''),
+            secure: false
+          }
+        }
+      },
+      preview: {
+        port: 3000,
+        host: '0.0.0.0',
+        proxy: {
+          '/api/telegram': {
+            target: 'https://api.telegram.org',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/telegram/, ''),
+            secure: false
+          }
+        }
       },
       build: {
         outDir: 'dist',

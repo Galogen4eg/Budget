@@ -253,6 +253,7 @@ export interface AppSettings {
 
   telegramBotToken?: string;
   telegramChatId?: string;
+  telegramApiUrl?: string;
   telegramState?: {
     lastShoppingMessageId: number;
     lastShoppingDate: string;

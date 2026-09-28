@@ -30,6 +30,8 @@ import TerraBudget from './components/TerraBudget';
 import AddTransactionModal from './components/AddTransactionModal';
 import EventModal from './components/EventModal';
 import { MemberMarker } from './constants';
+import { sendTelegramMessage as dispatchTelegramMessage } from './utils/telegram';
+import { enqueueTelegramMessage, initTelegramQueueSync } from './utils/telegramQueue';
 
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
@@ -246,6 +248,16 @@ export default function App() {
       document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
+  // Synchronize offline Telegram message queue when internet connection restores
+  useEffect(() => {
+    const unsubscribeSync = initTelegramQueueSync((result) => {
+      if (result.processedCount > 0) {
+        toast.success(`Офлайн-очередь Telegram: отправлено сообщений (${result.processedCount})`);
+      }
+    });
+    return () => unsubscribeSync();
+  }, []);
+
   const handleAddCategory = async (newCategory: Category) => {
     setCategories(prev => {
       if (prev.some(c => c.id === newCategory.id)) return prev;
@@ -378,82 +390,42 @@ export default function App() {
       if (familyId) await deleteItem(familyId, 'shopping', item.id);
   };
 
-  // Robust Telegram Sender with Retries
-  const sendTelegramMessage = async (text: string, messageIdToEdit?: number) => {
-      if (!settings.telegramBotToken || !settings.telegramChatId) {
-          toast.error("Telegram не настроен. Проверьте настройки.");
-          return { success: false };
+  // Robust Telegram Sender with Offline Queueing support
+  const sendTelegramMessage = async (
+    text: string, 
+    messageIdToEdit?: number, 
+    tag?: 'shopping' | 'event' | 'transaction'
+  ) => {
+    const config = {
+      botToken: settings.telegramBotToken,
+      chatId: settings.telegramChatId,
+      apiUrl: settings.telegramApiUrl,
+    };
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (isOffline) {
+      if (config.botToken && config.chatId) {
+        await enqueueTelegramMessage({ config, text, messageIdToEdit, tag, parseMode: 'Markdown' });
+        toast.info('Нет сети. Сообщение добавлено в очередь и будет отправлено при подключении.');
       }
+      return { success: false, code: 'NETWORK_BLOCKED' as const, error: 'Офлайн: сохранено в очередь' };
+    }
 
-      const token = settings.telegramBotToken;
-      const chatId = settings.telegramChatId;
-      const maxAttempts = 3;
+    const result = await dispatchTelegramMessage({
+      config,
+      text,
+      messageIdToEdit,
+      parseMode: 'Markdown',
+    });
 
-      // Wrap sending logic in a loop for retries
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-              // 1. Try Editing Existing Message (if ID provided)
-              if (messageIdToEdit) {
-                  try {
-                      const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ chat_id: chatId, message_id: messageIdToEdit, text, parse_mode: 'Markdown' })
-                      });
-                      const data = await res.json();
-                      if (data.ok) return { success: true, messageId: messageIdToEdit };
-                  } catch (e) {
-                      console.warn(`Telegram Edit Failed (Attempt ${attempt}):`, e);
-                      // Don't retry just for edit failure, proceed to send new
-                  }
-              }
-
-              // 2. Try Sending New Message (Standard JSON)
-              try {
-                  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-                  });
-                  const data = await res.json();
-                  if (data.ok) return { success: true, messageId: data.result.message_id };
-                  else throw new Error(data.description || "API Error");
-              } catch (e) {
-                  console.warn(`Telegram JSON Send Failed (Attempt ${attempt}):`, e);
-                  
-                  // 3. Fallback: No-CORS Simple Request (Only if standard failed)
-                  // Note: We cannot verify success here, so if this "succeeds" (no network error), we break loop.
-                  // Only try this if network is working but CORS is blocking (browsers).
-                  try {
-                      const params = new URLSearchParams();
-                      params.append('chat_id', chatId);
-                      params.append('text', text);
-                      params.append('parse_mode', 'Markdown');
-                      
-                      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                          method: 'POST',
-                          mode: 'no-cors',
-                          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                          body: params
-                      });
-                      
-                      // Assume success since request was sent without network error
-                      return { success: true, messageId: null }; 
-                  } catch (fallbackErr) {
-                      throw fallbackErr; // Throw to trigger outer loop retry logic
-                  }
-              }
-
-          } catch (e) {
-              console.error(`Telegram Send Failed (Attempt ${attempt}/${maxAttempts}):`, e);
-              // Wait 2 seconds before retrying if not the last attempt
-              if (attempt < maxAttempts) {
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-              }
-          }
+    if (!result.success && (result.code === 'NETWORK_TIMEOUT' || result.code === 'NETWORK_BLOCKED')) {
+      if (config.botToken && config.chatId) {
+        await enqueueTelegramMessage({ config, text, messageIdToEdit, tag, parseMode: 'Markdown' });
+        toast.info('Сбой сети. Сообщение добавлено в очередь и будет отправлено при появлении связи.');
       }
+    }
 
-      return { success: false };
+    return result;
   };
 
   const handleSendShoppingToTelegram = async (items: ShoppingItem[]) => {
@@ -475,14 +447,12 @@ export default function App() {
       const lastState = settings.telegramState;
       const messageIdToEdit = (lastState && lastState.lastShoppingDate === todayStr) ? lastState.lastShoppingMessageId : undefined;
 
-      const result = await sendTelegramMessage(text, messageIdToEdit);
+      const result = await sendTelegramMessage(text, messageIdToEdit, 'shopping');
       
       toast.dismiss(loadingToast);
       
       if (result.success) {
-          toast.success("Список отправлен!");
-          // Save state only if we got a valid ID back (Standard fetch)
-          // If we used no-cors fallback, messageId is null, so next time we send a new one.
+          toast.success("Список отправлен в Telegram!");
           if (result.messageId) {
               await updateSettings({
                   ...settings,
@@ -494,7 +464,7 @@ export default function App() {
           }
           return true;
       } else {
-          toast.error("Не удалось отправить. Проверьте интернет и настройки бота.");
+          toast.error(result.error || "Не удалось отправить список в Telegram.");
           return false;
       }
   };
@@ -556,14 +526,14 @@ export default function App() {
       text = text.replace(/\n{3,}/g, '\n\n').trim();
 
       const loadingToast = toast.loading('Отправка события...');
-      const result = await sendTelegramMessage(text);
+      const result = await sendTelegramMessage(text, undefined, 'event');
       toast.dismiss(loadingToast);
 
       if (result.success) {
-          toast.success("Событие отправлено!");
+          toast.success("Событие отправлено в Telegram!");
           return true;
       } else {
-          toast.error("Ошибка отправки события");
+          toast.error(result.error || "Не удалось отправить событие в Telegram.");
           return false;
       }
   };

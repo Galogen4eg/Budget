@@ -24,26 +24,22 @@ export default async function handler(req, res) {
       return res.status(200).send('OK');
     }
 
-    // Запрос к проверенной модели gemini-1.5-flash
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
     
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: userText }] }]
-      })
-    });
+    // Пытаемся сделать запрос с 1 повтором в случае перегрузки
+    let geminiData = await callGemini(geminiUrl, userText);
 
-    const geminiData = await geminiRes.json();
+    if (geminiData.error && geminiData.error.message.includes('high demand')) {
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Пауза 1.5 секунды
+      geminiData = await callGemini(geminiUrl, userText);
+    }
 
-    // Если Google вернул ошибку, бот пришлет ее текст прямо в чат
     if (geminiData.error) {
-      await sendTelegram(chatId, `Ошибка Gemini API: ${geminiData.error.message}`);
+      await sendTelegram(chatId, `Ошибка Gemini: ${geminiData.error.message}`);
       return res.status(200).send('OK');
     }
 
-    const botReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ от модели.';
+    const botReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ.';
     await sendTelegram(chatId, botReply);
 
     return res.status(200).send('OK');
@@ -51,6 +47,17 @@ export default async function handler(req, res) {
     console.error('Ошибка в webhook:', error);
     return res.status(200).send('OK');
   }
+}
+
+async function callGemini(url, text) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text }] }]
+    })
+  });
+  return await res.json();
 }
 
 async function sendTelegram(chatId, text) {

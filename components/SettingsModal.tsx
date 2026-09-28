@@ -23,7 +23,7 @@ import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
 import { toast } from 'sonner';
-import { testTelegramBotConnection } from '../utils/telegram';
+import { testTelegramBotConnection, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
 import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
 
 interface SettingsModalProps {
@@ -1122,9 +1122,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input 
                   type="password" 
                   value={settings.telegramBotToken || ''} 
-                  onChange={e => handleChange('telegramBotToken', e.target.value)} 
+                  onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
                   className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
-                  placeholder="609800:ABC..." 
+                  placeholder="712345678:AAHk..." 
                 />
               </div>
               <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-2">
@@ -1132,7 +1132,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input 
                   type="text" 
                   value={settings.telegramChatId || ''} 
-                  onChange={e => handleChange('telegramChatId', e.target.value)} 
+                  onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
                   className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
                   placeholder="-1001928374650" 
                 />
@@ -1144,7 +1144,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Шлюз / Прокси API (Telegram Gateway URL)</label>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Если прямое подключение блокируется (ERR_CONNECTION_TIMED_OUT), укажите зеркало или Cloudflare Worker.
+                    Оставьте пустым для официального Telegram API или укажите прокси/Cloudflare Worker, если прямое подключение заблокировано.
                   </p>
                 </div>
                 <button
@@ -1172,7 +1172,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={settings.telegramApiUrl || ''} 
                 onChange={e => handleChange('telegramApiUrl', e.target.value)} 
                 className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
-                placeholder="По умолчанию: авто-прокси сервера (/api/telegram) или https://api.telegram.org" 
+                placeholder="По умолчанию: https://api.telegram.org (официальный API)" 
               />
 
               {telegramTestResult && (

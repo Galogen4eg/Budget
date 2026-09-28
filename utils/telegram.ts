@@ -56,26 +56,52 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 8000;
 const TEST_CONNECTION_TIMEOUT_MS = 6000;
 
 /**
+ * Очищает токен бота от случайного префикса "bot", пробелов и кавычек.
+ * Позволяет избежать ошибки 404 (Not Found) от Telegram API, когда URL
+ * превращается в https://api.telegram.org/botbot12345...
+ */
+export const cleanTelegramBotToken = (rawToken?: string): string => {
+  if (!rawToken) return '';
+  return rawToken
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .replace(/^bot/i, '')
+    .trim();
+};
+
+/**
+ * Очищает ID чата от лишних пробелов и кавычек.
+ */
+export const cleanTelegramChatId = (rawChatId?: string): string => {
+  if (!rawChatId) return '';
+  return rawChatId
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim();
+};
+
+/**
  * Определяет актуальный базовый URL для запросов к Telegram Bot API.
  * Приоритет:
  * 1. Явно заданный пользователем в настройках прокси/шлюз (apiUrl)
- * 2. Если приложение запущено в веб-браузере без пользовательского URL — относительный путь /api/telegram (Vite proxy)
- * 3. Официальный https://api.telegram.org
+ *    Если задан относительный путь /api/telegram, но запущен не на localhost — переключаем на прямой API
+ * 2. По умолчанию: официальный https://api.telegram.org (нативно поддерживает CORS из браузера)
  */
 export const resolveTelegramApiBaseUrl = (configuredUrl?: string): string => {
   const trimmedUrl = configuredUrl?.trim();
   if (trimmedUrl && trimmedUrl.length > 0) {
+    if (trimmedUrl.startsWith('/')) {
+      const isDev = typeof window !== 'undefined' && 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      if (isDev) {
+        return `${window.location.origin}${trimmedUrl.replace(/\/+$/, '')}`;
+      }
+      return DEFAULT_OFFICIAL_API_BASE;
+    }
     return trimmedUrl.replace(/\/+$/, '');
   }
 
-  const isBrowser = typeof window !== 'undefined' && typeof window.location !== 'undefined';
-  const isWebProtocol = isBrowser && (window.location.protocol === 'http:' || window.location.protocol === 'https:');
-  const isCapacitor = isBrowser && (window.location.protocol === 'capacitor:' || window.location.protocol === 'file:');
-
-  if (isWebProtocol && !isCapacitor) {
-    return `${window.location.origin}/api/telegram`;
-  }
-
+  // По умолчанию Telegram Bot API напрямую через HTTPS (нативно поддерживает CORS из браузера)
   return DEFAULT_OFFICIAL_API_BASE;
 };
 
@@ -88,7 +114,7 @@ export const buildTelegramApiUrl = (
   methodName: string
 ): string => {
   const cleanBase = baseUrl.replace(/\/+$/, '');
-  const cleanToken = botToken.trim();
+  const cleanToken = cleanTelegramBotToken(botToken);
   return `${cleanBase}/bot${cleanToken}/${methodName}`;
 };
 
@@ -128,7 +154,7 @@ const classifyNetworkError = (error: unknown): { code: TelegramErrorCode; messag
   if (errorString.includes('failed to fetch') || errorString.includes('networkerror') || errorString.includes('connection_timed_out')) {
     return {
       code: 'NETWORK_BLOCKED',
-      message: 'Ошибка сети при обращении к Telegram API (ERR_CONNECTION_TIMED_OUT). Сервис заблокирован у вашего провайдера. Укажите прокси-шлюз в настройках.',
+      message: 'Ошибка сети при обращении к Telegram API. Провайдер может блокировать прямое подключение. Укажите шлюз/прокси в настройках Telegram.',
     };
   }
 
@@ -162,6 +188,13 @@ const executeTelegramPost = async (
       return { ok: true, data: json.result };
     }
 
+    if (response.status === 404) {
+      return {
+        ok: false,
+        errorDescription: 'Ошибка 404 (Not Found): Telegram не нашел бота с таким токеном. Проверьте правильность токена в Настройках -> Telegram (без префикса "bot").',
+      };
+    }
+
     return {
       ok: false,
       errorDescription: json?.description || `HTTP ${response.status}: ${response.statusText}`,
@@ -181,7 +214,7 @@ const executeTelegramPost = async (
 export const testTelegramBotConnection = async (
   config: TelegramConfig
 ): Promise<TelegramConnectionTestResult> => {
-  const token = config.botToken?.trim();
+  const token = cleanTelegramBotToken(config.botToken);
   if (!token) {
     return { ok: false, message: 'Токен бота не заполнен' };
   }
@@ -206,6 +239,13 @@ export const testTelegramBotConnection = async (
       };
     }
 
+    if (response.status === 404) {
+      return {
+        ok: false,
+        message: 'Ошибка 404 (Not Found): Бот с таким токеном не найден. Проверьте токен в @BotFather (без слова "bot" в начале).',
+      };
+    }
+
     return {
       ok: false,
       message: json?.description || `Ошибка проверки бота (HTTP ${response.status})`,
@@ -224,8 +264,8 @@ export const sendTelegramMessage = async (
   options: SendTelegramMessageOptions
 ): Promise<TelegramResult> => {
   const { config, text, messageIdToEdit, parseMode = 'Markdown' } = options;
-  const token = config.botToken?.trim();
-  const chatId = config.chatId?.trim();
+  const token = cleanTelegramBotToken(config.botToken);
+  const chatId = cleanTelegramChatId(config.chatId);
 
   if (!token || !chatId) {
     return {

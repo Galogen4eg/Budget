@@ -68,54 +68,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    let unsubscribe: () => void;
-    const safetyTimer = setTimeout(() => { if (loading) setLoading(false); }, 7000);
+    let unsubscribe: (() => void) | undefined;
+    let isMounted = true;
 
-    const initAuth = async () => {
-       try { await getRedirectResult(auth); } catch (e) { console.error("Redirect auth error:", e); }
+    // Guaranteed safety fallback: never hang more than 3 seconds on loading screen
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 3000);
 
-       unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    // Run getRedirectResult in background without blocking onAuthStateChanged
+    getRedirectResult(auth).catch((e) => {
+      console.warn("Background redirect auth check:", e);
+    });
+
+    try {
+      unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (!isMounted) return;
+
         if (currentUser) {
           setUser(currentUser);
           
-          // Проверка отложенного вступления в семью (после логина Google)
+          // Check for pending family join
           const pendingFid = localStorage.getItem('pending_join_family');
           if (pendingFid) {
-              try {
-                  await joinFamily(currentUser, pendingFid);
-                  toast.success('Вы успешно вошли и присоединились к семье!');
-              } catch (e: any) {
-                  console.error("Failed to join pending family:", e);
-                  toast.error(`Не удалось присоединиться: ${e.message}`);
-              } finally {
-                  localStorage.removeItem('pending_join_family');
-              }
+            try {
+              await joinFamily(currentUser, pendingFid);
+              toast.success('Вы успешно вошли и присоединились к семье!');
+            } catch (e: any) {
+              console.error("Failed to join pending family:", e);
+              toast.error(`Не удалось присоединиться: ${e.message}`);
+            } finally {
+              localStorage.removeItem('pending_join_family');
+            }
           }
 
           const cachedFid = localStorage.getItem('cached_familyId');
           try {
-            const fid = await getOrInitUserFamily(currentUser);
-            if (fid) {
-                setFamilyId(fid);
-                localStorage.setItem('cached_familyId', fid);
-                setIsOfflineMode(false);
+            // Guard family initialization with 2.5s timeout
+            const familyInitPromise = getOrInitUserFamily(currentUser);
+            const timeoutPromise = new Promise<string>((_, reject) => 
+              setTimeout(() => reject(new Error('Family init timeout')), 2500)
+            );
+
+            const fid = await Promise.race([familyInitPromise, timeoutPromise]);
+            if (fid && isMounted) {
+              setFamilyId(fid);
+              localStorage.setItem('cached_familyId', fid);
+              setIsOfflineMode(false);
             }
           } catch (e) {
-            if (cachedFid) setFamilyId(cachedFid);
-            setIsOfflineMode(true);
+            console.warn("Using fallback family ID due to network/auth delay:", e);
+            if (isMounted) {
+              const fallbackFid = cachedFid || currentUser.uid;
+              setFamilyId(fallbackFid);
+              setIsOfflineMode(true);
+            }
           }
         } else {
-          setUser(null);
-          setFamilyId(null);
-          localStorage.removeItem('cached_familyId');
+          if (isMounted) {
+            setUser(null);
+            setFamilyId(null);
+            localStorage.removeItem('cached_familyId');
+          }
         }
-        clearTimeout(safetyTimer);
-        setLoading(false);
-      });
-    };
 
-    initAuth();
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
+      });
+    } catch (err) {
+      console.error("Failed to attach auth listener:", err);
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
+
     return () => {
+      isMounted = false;
       clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };

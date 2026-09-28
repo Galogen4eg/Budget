@@ -78,7 +78,13 @@ const pageVariants = {
 };
 
 export default function App() {
-  const { user, familyId, loading: isAuthLoading, logout } = useAuth();
+  const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
+  const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
@@ -672,7 +678,24 @@ export default function App() {
     return (shoppingItems || []).filter(i => !i.completed).length;
   }, [shoppingItems]);
 
-  if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#EBEFF5] dark:bg-black"><Loader2 className="animate-spin text-blue-500" size={32}/></div>;
+  if (isAuthLoading) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-[#EBEFF5] dark:bg-black gap-4 px-4 text-center select-none">
+        <Loader2 className="animate-spin text-[#4A7C59] dark:text-emerald-500" size={36}/>
+        {showSlowLoadFallback && (
+          <div className="flex flex-col items-center gap-2 max-w-xs animate-in fade-in duration-300">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация аккаунта занимает чуть дольше обычного...</p>
+            <button 
+              onClick={() => enterDemoMode()} 
+              className="mt-2 px-4 py-2 bg-[#4A7C59] hover:bg-[#3B6547] text-white text-xs font-semibold rounded-xl shadow-sm transition-all active:scale-95"
+            >
+              Открыть в автономном режиме
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
   if (!user) return <LoginScreen />;
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => setPinMode(null)} onForgot={() => logout()} /></Suspense>;
 

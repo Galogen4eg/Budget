@@ -38,17 +38,6 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         outDir: 'dist',
-        rollupOptions: {
-          output: {
-            manualChunks: {
-              'vendor-react': ['react', 'react-dom'],
-              'vendor-ui': ['framer-motion', 'lucide-react'],
-              'vendor-charts': ['recharts'],
-              'vendor-xlsx': ['xlsx'],
-              'vendor-firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
-            },
-          },
-        },
       },
       plugins: [
         react()

@@ -64,13 +64,21 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   const checkScrollOverflow = useCallback(() => {
     const el = subcatScrollRef.current;
     if (!el) {
-      setScrollOverflow({ hasOverflow: false, canScrollLeft: false, canScrollRight: false });
+      setScrollOverflow(prev => (prev.hasOverflow || prev.canScrollLeft || prev.canScrollRight)
+        ? { hasOverflow: false, canScrollLeft: false, canScrollRight: false }
+        : prev
+      );
       return;
     }
     const hasOverflow = el.scrollWidth > el.clientWidth + 4;
     const canScrollLeft = hasOverflow && el.scrollLeft > 4;
     const canScrollRight = hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 4;
-    setScrollOverflow({ hasOverflow, canScrollLeft, canScrollRight });
+    setScrollOverflow(prev => {
+      if (prev.hasOverflow === hasOverflow && prev.canScrollLeft === canScrollLeft && prev.canScrollRight === canScrollRight) {
+        return prev;
+      }
+      return { hasOverflow, canScrollLeft, canScrollRight };
+    });
   }, []);
 
   const scrollSubcategories = (direction: 'left' | 'right') => {

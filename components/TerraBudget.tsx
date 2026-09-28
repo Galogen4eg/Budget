@@ -750,7 +750,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {displayTitle}
                         </span>
                         <div className="flex items-center gap-1.5 text-[11px] text-[#6B6358] dark:text-gray-400 truncate">
-                          <span>{txMember.name}</span>
+                          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
+                            {txMember.color && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color }} />}
+                            <span>{txMember.name}</span>
+                          </span>
                           <span>•</span>
                           <span>{dateFormatted}, {timeFormatted}</span>
                         </div>

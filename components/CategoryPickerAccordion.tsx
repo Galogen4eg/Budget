@@ -80,7 +80,12 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
 
   const toggleExpand = (parentId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setExpandedParents(prev => ({ ...prev, [parentId]: !prev[parentId] }));
+    setExpandedParents(prev => {
+      const currentIsExpanded = prev[parentId] !== undefined
+        ? prev[parentId]
+        : (childrenByParent.get(parentId) || []).some(c => c.id === selectedCategoryId);
+      return { ...prev, [parentId]: !currentIsExpanded };
+    });
   };
 
   const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
@@ -88,6 +93,10 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     setNewCatName(initialName);
     setSelectedParentId(defaultParentId || parentCategories[0]?.id || 'shopping');
     setIsAddingCategory(true);
+  };
+
+  const handleStartAddSubcat = (initialName: string = '', defaultParentId?: string) => {
+    handleStartAddCategory('subcategory', initialName, defaultParentId);
   };
 
   const handleSaveCategory = () => {
@@ -360,7 +369,9 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           const children = childrenByParent.get(parentCat.id) || [];
           const hasChildren = children.length > 0;
           const isParentSelected = selectedCategoryId === parentCat.id;
-          const isExpanded = expandedParents[parentCat.id] || children.some(c => c.id === selectedCategoryId);
+          const isExpanded = expandedParents[parentCat.id] !== undefined
+            ? expandedParents[parentCat.id]
+            : children.some(c => c.id === selectedCategoryId);
 
           return (
             <div key={parentCat.id} className="rounded-xl border border-[#F0EAE1] dark:border-white/5 overflow-hidden">

@@ -1320,8 +1320,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         <h4 className="text-xs font-bold text-graphite dark:text-white truncate">
                           {displayTitle}
                         </h4>
-                        <p className="text-[11px] text-graphite-muted dark:text-gray-400 truncate mt-0.5">
-                          {dateFormatted} • {txMember.name} • {catLabel}
+                        <p className="text-[11px] text-graphite-muted dark:text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
+                          <span>{dateFormatted}</span>
+                          <span>•</span>
+                          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
+                            {txMember.color && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color }} />}
+                            <span>{txMember.name}</span>
+                          </span>
+                          <span>•</span>
+                          <span>{catLabel}</span>
                         </p>
                       </div>
                     </div>
@@ -2068,9 +2075,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             <p className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1.5 mt-0.5 truncate">
                               <span>{dateFormatted}</span>
                               <span className="w-1 h-1 rounded-full bg-[#B8B0A2]"></span>
-                              <span className="flex items-center gap-1 text-[#465149] dark:text-gray-300">
-                                <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`}></span> 
-                                {txMember.name}
+                              <span className="flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color || '#4A7C59' }} />
+                                <span>{txMember.name}</span>
                               </span>
                             </p>
                           </div>

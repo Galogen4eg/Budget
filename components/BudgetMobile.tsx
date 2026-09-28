@@ -157,7 +157,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                                       )}
                                                       {category?.label && member && <span className="opacity-40">•</span>}
                                                       {member && (
-                                                          <div className="flex items-center gap-1">
+                                                          <div className="flex items-center gap-1 font-medium" style={{ color: member.color }}>
                                                               <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: member.color }}/>
                                                               <span className="truncate max-w-[80px]">{member.name}</span>
                                                           </div>

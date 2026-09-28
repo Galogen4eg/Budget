@@ -124,7 +124,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                                                  )}
                                                  {category?.label && member && <span className="opacity-40">•</span>}
                                                  {member && (
-                                                     <div className="flex items-center gap-1.5">
+                                                     <div className="flex items-center gap-1.5 font-medium" style={{ color: member.color }}>
                                                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: member.color }}/>
                                                          <span>{member.name}</span>
                                                      </div>

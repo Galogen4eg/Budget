@@ -73,12 +73,14 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (initialCategoryId) {
-        setExpandedCatIds({ [initialCategoryId]: true });
+        const cat = categories.find(c => c.id === initialCategoryId);
+        const parentId = cat?.parentId || initialCategoryId;
+        setExpandedCatIds({ [parentId]: true, [initialCategoryId]: true });
       } else {
         setExpandedCatIds({});
       }
     }
-  }, [isOpen, initialCategoryId]);
+  }, [isOpen, initialCategoryId, categories]);
 
   const { currentExpenses, prevExpenses } = useMemo(() => {
     const expenseList = transactions.filter(t => t.type === 'expense');

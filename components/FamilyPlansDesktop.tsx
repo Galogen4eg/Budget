@@ -261,56 +261,14 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
     if (assignedMembers.length === 1) {
       const m = assignedMembers[0];
-      const mName = m.name.toLowerCase();
-      const mColor = m.color || (
-        mName.includes('гал') ? '#D97763' :
-        mName.includes('ген') ? '#E5A642' :
-        mName.includes('пап') ? '#2563EB' :
-        mName.includes('мам') ? '#DB2777' : '#3A7E64'
-      );
-
-      if (mColor === '#D97763' || mName.includes('гал')) {
-        return {
-          badgeBg: 'bg-[#FDF0EC] dark:bg-rose-950/30',
-          badgeText: 'text-[#9E3E28] dark:text-rose-300',
-          borderColor: '#D97763',
-          dotColor: '#D97763',
-          memberName: m.name
-        };
-      }
-      if (mColor === '#E5A642' || mName.includes('ген')) {
-        return {
-          badgeBg: 'bg-[#FEF6E8] dark:bg-amber-950/30',
-          badgeText: 'text-[#8C5E1A] dark:text-amber-300',
-          borderColor: '#E5A642',
-          dotColor: '#E5A642',
-          memberName: m.name
-        };
-      }
-      if (mColor === '#2563EB' || mName.includes('пап')) {
-        return {
-          badgeBg: 'bg-blue-50 dark:bg-blue-950/30',
-          badgeText: 'text-blue-800 dark:text-blue-300',
-          borderColor: '#2563EB',
-          dotColor: '#2563EB',
-          memberName: m.name
-        };
-      }
-      if (mColor === '#DB2777' || mName.includes('мам')) {
-        return {
-          badgeBg: 'bg-pink-50 dark:bg-pink-950/30',
-          badgeText: 'text-pink-800 dark:text-pink-300',
-          borderColor: '#DB2777',
-          dotColor: '#DB2777',
-          memberName: m.name
-        };
-      }
+      const mColor = m.color || '#4A7C59';
       return {
-        badgeBg: 'bg-emerald-50 dark:bg-emerald-950/30',
-        badgeText: 'text-emerald-900 dark:text-emerald-300',
+        badgeBg: 'bg-white/80 dark:bg-white/10',
+        badgeText: 'text-stone-800 dark:text-stone-100',
         borderColor: mColor,
         dotColor: mColor,
-        memberName: m.name
+        memberName: m.name,
+        color: mColor
       };
     }
 
@@ -323,7 +281,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       badgeText: 'text-[#244E38] dark:text-emerald-300',
       borderColor: '#3A7E64',
       dotColor: '#3A7E64',
-      memberName
+      memberName,
+      color: '#3A7E64'
     };
   };
 
@@ -416,6 +375,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400'
                   }`}
                 >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.color || '#4A7C59' }} />
                   <span>{m.name}</span>
                   <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold">({count})</span>
                 </button>
@@ -581,6 +541,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               }`}
                               style={{ borderLeftColor: badgeStyle.borderColor }}
                             >
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
                               <span className="font-bold text-[10px] shrink-0 opacity-80">{evt.time || 'Весь день'}</span>
                               <span className="truncate">{evt.title}</span>
                             </div>
@@ -773,8 +734,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                                 <Clock size={12} />
                                 {evt.time || 'Весь день'}
                               </span>
-                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
-                                {badgeStyle.memberName}
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
+                                <span>{badgeStyle.memberName}</span>
                               </span>
                               <span className="text-xs text-stone-400">
                                 {formattedDate}

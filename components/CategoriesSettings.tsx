@@ -1,21 +1,78 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Plus, BrainCircuit, Zap, ShoppingBag, Car, HeartPulse, Utensils, 
-  Home, Briefcase, GraduationCap, Filter, X, ChevronLeft, Palette, 
+  Home, Briefcase, GraduationCap, Filter, X, ChevronRight, Palette, 
   Coffee, Save, Layers, Sparkles, Gamepad2, Camera, Music, Plane, 
-  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3, RefreshCw, ChevronDown, ChevronUp, AlertCircle,
-  Bus, Train, Ship, ShoppingBasket, Shirt, Baby, Dog, Cat, Flower2, Hammer, Wrench, BookOpen,
-  Palmtree, Wifi, Scissors, Bath, Bed, Sofa, Bike, Drumstick, Pill, Stethoscope, Dumbbell, Ticket, Monitor,
-  Footprints, Smile, HeartHandshake, FileText, ShieldCheck, Landmark, SmartphoneCharging, Armchair, Watch,
-  Sun, Umbrella, Wine, GlassWater, ShoppingCart, Map, Flag, Star, Bell, Mail, Video, Mic, Speaker,
-  Laptop, Printer, HardDrive, Cloud, Droplets, Flame, Key, Lock, Anchor, CheckCircle2, AlertTriangle, HelpCircle,
-  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv, GripVertical, Folder, CornerDownRight, Move
+  Gift, Smartphone, CreditCard, Settings2, Search, Trash2, Edit3, RefreshCw, 
+  ChevronDown, ChevronUp, AlertCircle, Bus, Train, Ship, ShoppingBasket, 
+  Shirt, Baby, Dog, Cat, Flower2, Hammer, Wrench, BookOpen,
+  Palmtree, Wifi, Scissors, Bath, Bed, Sofa, Bike, Drumstick, Pill, 
+  Stethoscope, Dumbbell, Ticket, Monitor, Footprints, Smile, HeartHandshake, 
+  FileText, ShieldCheck, Landmark, SmartphoneCharging, Armchair, Watch,
+  Sun, Umbrella, Wine, GlassWater, ShoppingCart, Map, Flag, Star, Bell, 
+  Mail, Video, Mic, Speaker, Laptop, Printer, HardDrive, Cloud, Droplets, 
+  Flame, Key, Lock, Anchor, CheckCircle2, AlertTriangle, HelpCircle,
+  Beer, Cigarette, Clapperboard, Ghost, Crown, Gem, Tv, GripVertical, 
+  Folder, CornerDownRight, Move, Check, ArrowRight
 } from 'lucide-react';
 import { Category, LearnedRule, AppSettings, Transaction } from '../types';
 import { toast } from 'sonner';
 
-interface CategoriesSettingsProps {
+/** Константы ограничений и настроек */
+export const MIN_CATEGORY_NAME_LENGTH = 2;
+export const MAX_CATEGORY_NAME_LENGTH = 50;
+export const DEFAULT_CATEGORY_COLOR = '#4A7C59';
+export const DEFAULT_CATEGORY_ICON = 'ShoppingBasket';
+
+/** Фирменная палитра Terra Hub */
+export const TERRA_CATEGORY_COLORS: readonly string[] = [
+  '#4A7C59', // Forest Green (Primary)
+  '#2D5A27', // Dark Pine
+  '#10B981', // Emerald
+  '#007AFF', // Azure Blue
+  '#06B6D4', // Cyan
+  '#5856D6', // Indigo
+  '#AF52DE', // Purple
+  '#FF2D55', // Crimson
+  '#E07A5F', // Terracotta
+  '#FF9500', // Orange
+  '#F59E0B', // Amber
+  '#6B7280', // Slate Graphite
+];
+
+/** Категоризированный каталог иконок */
+export const ICON_GROUPS = [
+  {
+    title: 'Еда и покупки',
+    icons: ['ShoppingBasket', 'ShoppingCart', 'ShoppingBag', 'Utensils', 'Coffee', 'Wine', 'Beer', 'GlassWater', 'Drumstick']
+  },
+  {
+    title: 'Транспорт и поездки',
+    icons: ['Car', 'Bus', 'Train', 'Plane', 'Ship', 'Bike', 'Map', 'Flag']
+  },
+  {
+    title: 'Дом и комфорт',
+    icons: ['Home', 'Bed', 'Bath', 'Sofa', 'Armchair', 'Wifi', 'Zap', 'Droplets', 'Flame', 'Key', 'Lock']
+  },
+  {
+    title: 'Здоровье и спорт',
+    icons: ['HeartPulse', 'Pill', 'Stethoscope', 'Dumbbell', 'Footprints', 'Smile', 'HeartHandshake']
+  },
+  {
+    title: 'Работа и финансы',
+    icons: ['Briefcase', 'Landmark', 'CreditCard', 'FileText', 'ShieldCheck', 'GraduationCap', 'BookOpen']
+  },
+  {
+    title: 'Досуг и отдых',
+    icons: ['Gamepad2', 'Music', 'Ticket', 'Tv', 'Camera', 'Video', 'Palmtree', 'Sun', 'Gift', 'Star']
+  },
+  {
+    title: 'Гаджеты и утилиты',
+    icons: ['Smartphone', 'Laptop', 'Monitor', 'Printer', 'Cloud', 'Settings2', 'Hammer', 'Wrench']
+  }
+] as const;
+
+export interface CategoriesSettingsProps {
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
   onDeleteCategory?: (id: string) => void;
@@ -26,231 +83,263 @@ interface CategoriesSettingsProps {
   onUpdateTransactions?: (transactions: Transaction[]) => void;
 }
 
-const AVAILABLE_ICONS = [
-  'ShoppingBag', 'ShoppingCart', 'ShoppingBasket', 'Utensils', 'Coffee', 'Beer', 'Wine', 'GlassWater', 'Cigarette',
-  'Car', 'Bus', 'Train', 'Plane', 'Ship', 'Bike', 'Map', 'Flag',
-  'Home', 'Bed', 'Bath', 'Sofa', 'Armchair', 'Wifi', 'Zap', 'Droplets', 'Flame', 'Key', 'Lock',
-  'Briefcase', 'Building', 'Landmark', 'FileText', 'ShieldCheck', 'Mail', 'Phone',
-  'HeartPulse', 'Pill', 'Stethoscope', 'Dumbbell', 'Footprints', 'Smile', 'Ghost',
-  'Gamepad2', 'Music', 'Clapperboard', 'Ticket', 'Tv', 'Camera', 'Video', 'Mic', 'Speaker',
-  'BookOpen', 'GraduationCap', 'Palette', 'Crown', 'Gem', 'Star',
-  'Shirt', 'Scissors', 'Watch', 'Sun', 'Umbrella',
-  'Baby', 'Dog', 'Cat', 'Flower2', 'Palmtree',
-  'Gift', 'CreditCard', 'PiggyBank', 'Anchor', 'Bell',
-  'Smartphone', 'Laptop', 'Monitor', 'Printer', 'HardDrive', 'Cloud', 'SmartphoneCharging',
-  'Hammer', 'Wrench', 'Settings2', 'HelpCircle', 'AlertTriangle', 'CheckCircle2'
-];
+export interface ValidationResult {
+  readonly isValid: boolean;
+  readonly error?: string;
+}
 
-const PRESET_COLORS = [
-  // Vibrant
-  'bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-yellow-500', 
-  'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-600', 'bg-cyan-500',
-  // Dark/Neutral
-  'bg-zinc-800', 'bg-slate-600', 'bg-stone-500', 'bg-neutral-400',
-  // Pastel/Light (Good for dark mode contrast)
-  'bg-teal-400', 'bg-lime-500', 'bg-emerald-500', 'bg-sky-400', 'bg-violet-400', 'bg-rose-400', 'bg-amber-400'
-];
+export interface CategoryStats {
+  readonly transactionCount: number;
+  readonly totalExpense: number;
+}
 
-// Helper to convert hex/tailwind colors from app to the specific tailwind classes used in the design
-const getColorStyle = (colorStr: string) => {
-    if (colorStr.startsWith('#')) return { backgroundColor: colorStr };
-    return {}; // It's a tailwind class, applied via className
-};
+/**
+ * Валидация наименования категории.
+ * Чистая функция без побочных эффектов.
+ */
+export function validateCategoryName(rawName: string, existingCategories: readonly Category[], editingId?: string | null): ValidationResult {
+  const name = rawName.trim();
+  if (name.length < MIN_CATEGORY_NAME_LENGTH) {
+    return { isValid: false, error: `Название должно содержать минимум ${MIN_CATEGORY_NAME_LENGTH} символа` };
+  }
+  if (name.length > MAX_CATEGORY_NAME_LENGTH) {
+    return { isValid: false, error: `Название не должно превышать ${MAX_CATEGORY_NAME_LENGTH} символов` };
+  }
+  const isDuplicate = existingCategories.some(
+    c => c.id !== editingId && c.label.toLowerCase() === name.toLowerCase()
+  );
+  if (isDuplicate) {
+    return { isValid: false, error: 'Категория с таким названием уже существует' };
+  }
+  return { isValid: true };
+}
 
-const getColorClass = (colorStr: string) => {
-    if (colorStr.startsWith('#')) return ''; // Using style prop
-    return colorStr;
-};
+/**
+ * Расчет финансовой статистики категории.
+ * Чистая функция без побочных эффектов.
+ */
+export function calculateCategoryStats(
+  categoryId: string, 
+  categories: readonly Category[], 
+  transactions: readonly Transaction[] = []
+): CategoryStats {
+  const subCategoryIds = new Set(
+    categories.filter(c => c.parentId === categoryId).map(c => c.id)
+  );
+  subCategoryIds.add(categoryId);
 
-const IconRenderer = ({ name, size = 18, className = "" }: { name: string, size?: number, className?: string }) => {
-    const icons: any = {
-      ShoppingBag, ShoppingCart, ShoppingBasket, Utensils, Coffee, Beer, Wine, GlassWater, Cigarette,
-      Car, Bus, Train, Plane, Ship, Bike, Map, Flag,
-      Home, Bed, Bath, Sofa, Armchair, Wifi, Zap, Droplets, Flame, Key, Lock,
-      Briefcase, Landmark, FileText, ShieldCheck, Mail,
-      HeartPulse, Pill, Stethoscope, Dumbbell, Footprints, Smile, Ghost,
-      Gamepad2, Music, Clapperboard, Ticket, Tv, Camera, Video, Mic, Speaker,
-      BookOpen, GraduationCap, Palette, Crown, Gem, Star,
-      Shirt, Scissors, Watch, Sun, Umbrella,
-      Baby, Dog, Cat, Flower2, Palmtree,
-      Gift, CreditCard, Anchor, Bell,
-      Smartphone, Laptop, Monitor, Printer, HardDrive, Cloud, SmartphoneCharging,
-      Hammer, Wrench, Settings2, HelpCircle, AlertTriangle, CheckCircle2
-    };
-    const IconComponent = icons[name] || Settings2;
-    return <IconComponent size={size} className={className} />;
-};
+  let transactionCount = 0;
+  let totalExpense = 0;
 
-const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({ 
-    categories, onUpdateCategories, onDeleteCategory, learnedRules, onUpdateRules, settings,
-    transactions, onUpdateTransactions
+  for (const tx of transactions) {
+    if (subCategoryIds.has(tx.category)) {
+      transactionCount++;
+      if (tx.type === 'expense') {
+        totalExpense += Math.abs(tx.amount);
+      }
+    }
+  }
+
+  return { transactionCount, totalExpense };
+}
+
+/**
+ * Компонент безопасного рендеринга иконки по имени
+ */
+export const IconRenderer: React.FC<{ name: string; size?: number; className?: string }> = ({ 
+  name, 
+  size = 18, 
+  className = "" 
 }) => {
-  const isDarkMode = settings.theme === 'dark';
-  const [view, setView] = useState<'main' | 'category_form' | 'manage_categories' | 'edit_rule'>('main');
+  const iconMap: Record<string, any> = {
+    ShoppingBag, ShoppingCart, ShoppingBasket, Utensils, Coffee, Beer, Wine, GlassWater, Cigarette,
+    Car, Bus, Train, Plane, Ship, Bike, Map, Flag,
+    Home, Bed, Bath, Sofa, Armchair, Wifi, Zap, Droplets, Flame, Key, Lock,
+    Briefcase, Landmark, FileText, ShieldCheck, Mail,
+    HeartPulse, Pill, Stethoscope, Dumbbell, Footprints, Smile, Ghost,
+    Gamepad2, Music, Clapperboard, Ticket, Tv, Camera, Video, Mic, Speaker,
+    BookOpen, GraduationCap, Palette, Crown, Gem, Star,
+    Shirt, Scissors, Watch, Sun, Umbrella,
+    Baby, Dog, Cat, Flower2, Palmtree,
+    Gift, CreditCard, Anchor, Bell,
+    Smartphone, Laptop, Monitor, Printer, HardDrive, Cloud, SmartphoneCharging,
+    Hammer, Wrench, Settings2, HelpCircle, AlertTriangle, CheckCircle2, Drumstick
+  };
+  const Component = iconMap[name] || Settings2;
+  return <Component size={size} className={className} />;
+};
+
+/**
+ * Главный компонент настроек категорий для ПК и мобильных устройств
+ */
+const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
+  categories,
+  onUpdateCategories,
+  onDeleteCategory,
+  learnedRules,
+  onUpdateRules,
+  settings,
+  transactions = [],
+  onUpdateTransactions
+}) => {
+  // Навигация и фильтрация
+  const [activeTab, setActiveTab] = useState<'categories' | 'rules'>('categories');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categorySearchQuery, setCategorySearchQuery] = useState(''); // New state for category search
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  
-  // Collapse state for manage categories
-  const [showAll, setShowAll] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() => {
+    const firstParent = categories.find(c => !c.parentId);
+    return firstParent ? firstParent.id : (categories[0]?.id || null);
+  });
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [expandedParentIds, setExpandedParentIds] = useState<Record<string, boolean>>(() => {
+    // По умолчанию раскрываем всех родителей для удобного обзора на ПК
+    const initial: Record<string, boolean> = {};
+    categories.filter(c => !c.parentId).forEach(p => { initial[p.id] = true; });
+    return initial;
+  });
 
-  // Category Form State
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [catName, setCatName] = useState('');
-  const [catColor, setCatColor] = useState('bg-blue-500');
-  const [catIcon, setCatIcon] = useState('ShoppingBag');
-  const [catParentId, setCatParentId] = useState<string | null>(null);
-  const [catKeywords, setCatKeywords] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  // Drag & Drop State for PC moving
+  // Состояние Drag & Drop для перемещения подкатегорий
   const [draggedCatId, setDraggedCatId] = useState<string | null>(null);
   const [dragOverParentId, setDragOverParentId] = useState<string | null>(null);
 
-  // Rule Form State
-  // We now store a list of IDs being edited to support grouping
-  const [editingRuleIds, setEditingRuleIds] = useState<string[]>([]);
-  const [ruleKeyword, setRuleKeyword] = useState('');
-  const [ruleCategoryId, setRuleCategoryId] = useState<string | null>(null);
+  // Форма категории (правая панель инспектора)
+  const [formDataName, setFormDataName] = useState('');
+  const [formDataParentId, setFormDataParentId] = useState<string | null>(null);
+  const [formDataIcon, setFormDataIcon] = useState(DEFAULT_CATEGORY_ICON);
+  const [formDataColor, setFormDataColor] = useState(DEFAULT_CATEGORY_COLOR);
+  const [newKeywordInput, setNewKeywordInput] = useState('');
 
-  // Calculate usage frequency from transactions
-  const categoryUsage = useMemo(() => {
-      const counts: Record<string, number> = {};
-      if (transactions) {
-          transactions.forEach(t => {
-              counts[t.category] = (counts[t.category] || 0) + 1;
-          });
-      }
-      return counts;
-  }, [transactions]);
+  // Диалог подтверждения удаления
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
-  const sortedCategories = useMemo(() => {
-      return [...categories].sort((a, b) => {
-          // Sort by usage count descending
-          const countA = categoryUsage[a.id] || 0;
-          const countB = categoryUsage[b.id] || 0;
-          if (countB !== countA) return countB - countA;
-          
-          // Then alphabetically
-          return a.label.localeCompare(b.label);
-      });
-  }, [categories, categoryUsage]);
+  // Синхронизация формы при смене выбранной категории
+  const selectedCategory = useMemo(() => {
+    if (isCreatingNew) return null;
+    return categories.find(c => c.id === selectedCategoryId) || null;
+  }, [categories, selectedCategoryId, isCreatingNew]);
 
-  // Determine which categories to show based on "Show All" toggle for Main view
-  const visibleCategories = useMemo(() => {
-      if (showAll) return sortedCategories;
-      // Show first 6 items (popular ones) + "All" button creates a nice 7-col grid on desktop
-      return sortedCategories.slice(0, 6);
-  }, [sortedCategories, showAll]);
-
-  // Determine categories for Manage view (with search)
-  const filteredManageCategories = useMemo(() => {
-      let list = sortedCategories;
-      // Filter by search query if present
-      if (categorySearchQuery.trim()) {
-          return list.filter(c => c.label.toLowerCase().includes(categorySearchQuery.toLowerCase()));
-      }
-      return showAll ? list : list.slice(0, 6);
-  }, [sortedCategories, categorySearchQuery, showAll]);
-
-  // Group rules logic
-  const groupedRules = useMemo(() => {
-      // First filter by search/category
-      const filtered = learnedRules.filter(r => {
-        const matchesSearch = r.keyword.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategoryId ? r.categoryId === selectedCategoryId : true;
-        return matchesSearch && matchesCategory;
-      });
-
-      // Then group by CategoryID + CleanName
-      const groups: Record<string, { 
-          ids: string[], 
-          categoryId: string, 
-          cleanName: string, 
-          keywords: string[] 
-      }> = {};
-
-      filtered.forEach(rule => {
-          // Key for grouping: Same Category AND Same Output Name
-          const key = `${rule.categoryId}_${rule.cleanName.toLowerCase()}`;
-          
-          if (!groups[key]) {
-              groups[key] = {
-                  ids: [rule.id],
-                  categoryId: rule.categoryId,
-                  cleanName: rule.cleanName,
-                  keywords: [rule.keyword]
-              };
-          } else {
-              groups[key].ids.push(rule.id);
-              groups[key].keywords.push(rule.keyword);
-          }
-      });
-
-      return Object.values(groups).sort((a, b) => a.cleanName.localeCompare(b.cleanName));
-  }, [learnedRules, searchQuery, selectedCategoryId]);
-
-  const theme = {
-    bg: 'bg-transparent', 
-    card: isDarkMode ? 'bg-[#2C2C2E]' : 'bg-white',
-    text: isDarkMode ? 'text-white' : 'text-[#1C1C1E]',
-    subtext: isDarkMode ? 'text-gray-400' : 'text-gray-500',
-    border: isDarkMode ? 'border-white/10' : 'border-gray-100',
-    header: isDarkMode ? 'bg-[#1C1C1E]/90' : 'bg-white/90',
-    input: isDarkMode ? 'bg-[#1C1C1E]' : 'bg-white',
-    inputBg: isDarkMode ? 'bg-black/20' : 'bg-gray-50',
-  };
-
-  const applyRulesToTransactions = (rulesToApply: LearnedRule[]) => {
-      if (!transactions || !onUpdateTransactions) return;
-      
-      let count = 0;
-      const updatedTransactions = transactions.map(tx => {
-          const rawNote = (tx.rawNote || tx.note || '').toLowerCase();
-          const matchedRule = rulesToApply.find(r => rawNote.includes(r.keyword.toLowerCase()));
-          
-          if (matchedRule && tx.category !== matchedRule.categoryId) {
-              count++;
-              return { 
-                  ...tx, 
-                  category: matchedRule.categoryId,
-                  note: matchedRule.cleanName || tx.note
-              };
-          }
-          return tx;
-      });
-
-      if (count > 0) {
-          onUpdateTransactions(updatedTransactions);
-          toast.success(`Обновлено операций: ${count}`);
-      }
-  };
-
-  const openCategoryForm = (category: Category | null = null) => {
+  // Заполнение полей формы при выборе категории
+  const populateFormWithCategory = useCallback((category: Category | null) => {
     if (category) {
-      setEditingCategory(category);
-      setCatName(category.label);
-      setCatColor(category.color);
-      setCatIcon(category.icon);
-      setCatParentId(category.parentId || null);
-      setCatKeywords('');
+      setFormDataName(category.label);
+      setFormDataParentId(category.parentId || null);
+      setFormDataIcon(category.icon || DEFAULT_CATEGORY_ICON);
+      setFormDataColor(category.color || DEFAULT_CATEGORY_COLOR);
     } else {
-      setEditingCategory(null);
-      setCatName('');
-      setCatColor('bg-blue-500');
-      setCatIcon('ShoppingBag');
-      setCatParentId(null);
-      setCatKeywords('');
+      setFormDataName('');
+      setFormDataParentId(null);
+      setFormDataIcon(DEFAULT_CATEGORY_ICON);
+      setFormDataColor(DEFAULT_CATEGORY_COLOR);
     }
-    setConfirmDeleteId(null);
-    setView('category_form');
+    setNewKeywordInput('');
+  }, []);
+
+  // Переключение выбранной категории
+  const handleSelectCategory = (catId: string) => {
+    setIsCreatingNew(false);
+    setSelectedCategoryId(catId);
+    const cat = categories.find(c => c.id === catId) || null;
+    populateFormWithCategory(cat);
   };
 
-  const handleMoveSubcategory = (subCatId: string, targetParentId: string | undefined) => {
-    if (subCatId === targetParentId) return;
+  // Режим добавления новой категории
+  const handleStartCreateNew = (presetParentId?: string) => {
+    setIsCreatingNew(true);
+    setSelectedCategoryId(null);
+    setFormDataName('');
+    setFormDataParentId(presetParentId || null);
+    setFormDataIcon(presetParentId ? 'ShoppingBag' : DEFAULT_CATEGORY_ICON);
+    setFormDataColor(presetParentId ? (categories.find(c => c.id === presetParentId)?.color || DEFAULT_CATEGORY_COLOR) : DEFAULT_CATEGORY_COLOR);
+    setNewKeywordInput('');
+  };
+
+  // Раскрытие/сворачивание дерева
+  const toggleParentExpand = (parentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedParentIds(prev => ({ ...prev, [parentId]: !prev[parentId] }));
+  };
+
+  // Правила, привязанные к выбранной категории
+  const currentCategoryRules = useMemo(() => {
+    if (!selectedCategory) return [];
+    return learnedRules.filter(r => r.categoryId === selectedCategory.id);
+  }, [learnedRules, selectedCategory]);
+
+  // Добавление ключевого слова к текущей категории
+  const handleAddKeywordToCategory = () => {
+    if (!selectedCategory || !newKeywordInput.trim()) return;
+    const cleanWord = newKeywordInput.trim().toLowerCase();
+    
+    // Проверка на дубликат
+    const exists = currentCategoryRules.some(r => r.keyword.toLowerCase() === cleanWord);
+    if (exists) {
+      toast.info('Это ключевое слово уже добавлено для данной категории');
+      return;
+    }
+
+    const newRule: LearnedRule = {
+      id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      keyword: cleanWord,
+      cleanName: selectedCategory.label,
+      categoryId: selectedCategory.id
+    };
+
+    onUpdateRules([newRule, ...learnedRules]);
+    setNewKeywordInput('');
+    toast.success(`Правило для «${cleanWord}» сохранено`);
+  };
+
+  // Удаление правила
+  const handleDeleteRule = (ruleId: string) => {
+    onUpdateRules(learnedRules.filter(r => r.id !== ruleId));
+    toast.success('Правило удалено');
+  };
+
+  // Сохранение изменений категории
+  const handleSaveCategory = () => {
+    const validation = validateCategoryName(formDataName, categories, selectedCategory?.id);
+    if (!validation.isValid) {
+      toast.error(validation.error || 'Ошибка валидации');
+      return;
+    }
+
+    if (isCreatingNew) {
+      const newId = `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const created: Category = {
+        id: newId,
+        label: formDataName.trim(),
+        icon: formDataIcon,
+        color: formDataColor,
+        parentId: formDataParentId || undefined,
+        isCustom: true
+      };
+      onUpdateCategories([...categories, created]);
+      setIsCreatingNew(false);
+      setSelectedCategoryId(newId);
+      toast.success('Категория успешно создана');
+    } else if (selectedCategory) {
+      const updated = categories.map(c => {
+        if (c.id === selectedCategory.id) {
+          return {
+            ...c,
+            label: formDataName.trim(),
+            icon: formDataIcon,
+            color: formDataColor,
+            parentId: formDataParentId || undefined
+          };
+        }
+        return c;
+      });
+      onUpdateCategories(updated);
+      toast.success('Изменения сохранены');
+    }
+  };
+
+  // Перемещение подкатегории к новому родителю
+  const handleMoveSubcategory = (subCatId: string, newParentId: string | undefined) => {
+    if (subCatId === newParentId) return;
     const updated = categories.map(c => {
       if (c.id === subCatId) {
-        return { ...c, parentId: targetParentId };
+        return { ...c, parentId: newParentId };
       }
       return c;
     });
@@ -258,754 +347,736 @@ const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     toast.success('Подкатегория перемещена');
   };
 
-  const handleSaveCategory = () => {
-    if (!catName.trim()) return;
-    let currentCatId = editingCategory?.id;
+  // Подтверждение и удаление категории
+  const executeDeleteCategory = () => {
+    if (!categoryToDelete) return;
+    const targetId = categoryToDelete.id;
 
-    if (editingCategory) {
-      onUpdateCategories(categories.map(c => c.id === editingCategory.id ? {
-        ...c, label: catName, color: catColor, icon: catIcon, parentId: catParentId || undefined
-      } : c));
+    // Переводим дочерние подкатегории в основные
+    const updatedCategories = categories
+      .filter(c => c.id !== targetId)
+      .map(c => c.parentId === targetId ? { ...c, parentId: undefined } : c);
+
+    if (onDeleteCategory) {
+      onDeleteCategory(targetId);
     } else {
-      currentCatId = Date.now().toString();
-      const newCategory: Category = { 
-          id: currentCatId, 
-          label: catName, 
-          icon: catIcon, 
-          color: catColor, 
-          parentId: catParentId || undefined,
-          isCustom: true 
-      };
-      onUpdateCategories([...categories, newCategory]);
+      onUpdateCategories(updatedCategories);
     }
 
-    if (catKeywords.trim() && currentCatId) {
-      const keywords = catKeywords.split(';').map(k => k.trim()).filter(k => k.length > 0);
-      const newRulesList: LearnedRule[] = keywords.map((word, index) => ({
-        id: (Date.now() + 100 + index).toString(),
-        keyword: word,
-        cleanName: catName,
-        categoryId: currentCatId!
-      }));
-      
-      const updatedRules = [...newRulesList, ...learnedRules];
-      onUpdateRules(updatedRules);
-      applyRulesToTransactions(updatedRules);
-    }
-    setView('main');
+    // Удаляем также связанные правила
+    onUpdateRules(learnedRules.filter(r => r.categoryId !== targetId));
+
+    setCategoryToDelete(null);
+    const remainingFirst = updatedCategories.find(c => !c.parentId);
+    setSelectedCategoryId(remainingFirst?.id || null);
+    setIsCreatingNew(false);
+    toast.success('Категория удалена');
   };
 
-  const executeDeleteCategory = (id: string) => {
-      if (onDeleteCategory) {
-          onDeleteCategory(id);
-      } else {
-          const updated = categories.filter(c => c.id !== id);
-          onUpdateCategories(updated);
+  // Ретроспективное применение правил к истории операций
+  const handleApplyRulesToTransactions = (rulesToApply: LearnedRule[]) => {
+    if (!transactions || !onUpdateTransactions || rulesToApply.length === 0) {
+      toast.info('Нет операций или правил для применения');
+      return;
+    }
+
+    let updatedCount = 0;
+    const updatedTransactions = transactions.map(tx => {
+      const textToMatch = `${tx.note || ''} ${tx.rawNote || ''}`.toLowerCase();
+      const matched = rulesToApply.find(r => textToMatch.includes(r.keyword.toLowerCase()));
+      if (matched && tx.category !== matched.categoryId) {
+        updatedCount++;
+        return {
+          ...tx,
+          category: matched.categoryId,
+          note: matched.cleanName || tx.note
+        };
       }
-      setConfirmDeleteId(null);
-      if (view === 'category_form') setView('manage_categories');
-  };
+      return tx;
+    });
 
-  const openEditRule = (group: { ids: string[], keywords: string[], categoryId: string, cleanName: string } | null = null) => {
-    if (group) {
-      setEditingRuleIds(group.ids);
-      setRuleKeyword(group.keywords.join('; '));
-      setRuleCategoryId(group.categoryId);
+    if (updatedCount > 0) {
+      onUpdateTransactions(updatedTransactions);
+      toast.success(`Обновлено операций в истории: ${updatedCount}`);
     } else {
-      setEditingRuleIds([]);
-      setRuleKeyword('');
-      setRuleCategoryId(sortedCategories[0]?.id || null);
+      toast.info('Подходящих операций для перепривязки не найдено');
     }
-    setView('edit_rule');
   };
 
-  const handleApplyRulesToAll = () => {
-      if (!transactions || !onUpdateTransactions || learnedRules.length === 0) return;
-      
-      if (!confirm("Это обновит категории всех прошлых операций на основе текущих правил. Продолжить?")) return;
-      
-      applyRulesToTransactions(learnedRules);
-  };
+  // Родительские категории и фильтрация поиска
+  const parentCategories = useMemo(() => {
+    return categories.filter(c => !c.parentId);
+  }, [categories]);
 
-  const handleApplyRuleToHistory = () => {
-      if (!transactions || !onUpdateTransactions || !ruleKeyword.trim() || !ruleCategoryId) return;
+  const filteredTree = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return parentCategories;
 
-      const keywords = ruleKeyword.split(';').map(k => k.trim().toLowerCase()).filter(k => k);
-      const targetCat = categories.find(c => c.id === ruleCategoryId);
-      if (!targetCat || keywords.length === 0) return;
+    return parentCategories.filter(parent => {
+      const parentMatches = parent.label.toLowerCase().includes(query);
+      const subMatches = categories.some(
+        c => c.parentId === parent.id && c.label.toLowerCase().includes(query)
+      );
+      return parentMatches || subMatches;
+    });
+  }, [parentCategories, categories, searchQuery]);
 
-      let count = 0;
-      const updatedTransactions = transactions.map(tx => {
-          const raw = (tx.rawNote || tx.note || '').toLowerCase();
-          const match = keywords.some(k => raw.includes(k));
-          
-          if (match && tx.category !== ruleCategoryId) {
-              count++;
-              return { ...tx, category: ruleCategoryId, note: targetCat.label };
-          }
-          return tx;
-      });
+  // Статистика выбранной категории
+  const selectedStats = useMemo(() => {
+    if (!selectedCategory) return { transactionCount: 0, totalExpense: 0 };
+    return calculateCategoryStats(selectedCategory.id, categories, transactions);
+  }, [selectedCategory, categories, transactions]);
 
-      if (count > 0) {
-          onUpdateTransactions(updatedTransactions);
-          toast.success(`Обновлено операций: ${count}`);
-      } else {
-          toast.info('Подходящих операций для обновления не найдено');
-      }
-  };
-
-  const handleSaveRule = () => {
-    if (!ruleKeyword.trim() || !ruleCategoryId) return;
-    const selectedCat = categories.find(c => c.id === ruleCategoryId);
-    if (!selectedCat) return;
-    
-    // Split input into keywords
-    const keywords = ruleKeyword.split(';').map(k => k.trim()).filter(k => k.length > 0);
-    
-    // 1. Remove old rules being edited
-    const rulesWithoutEdited = learnedRules.filter(r => !editingRuleIds.includes(r.id));
-    
-    // 2. Create new rules
-    const newEntries: LearnedRule[] = keywords.map((word, index) => ({
-      id: (Date.now() + index).toString(), 
-      keyword: word, 
-      categoryId: ruleCategoryId, 
-      cleanName: selectedCat.label
-    }));
-
-    const finalRules = [...newEntries, ...rulesWithoutEdited];
-    onUpdateRules(finalRules);
-    applyRulesToTransactions(finalRules);
-    setView('main');
-  };
-
-  const handleDeleteRuleGroup = (e: React.MouseEvent, ids: string[]) => {
-    e.stopPropagation();
-    onUpdateRules(learnedRules.filter(r => !ids.includes(r.id)));
-  };
+  // Подкатегории выбранного родителя
+  const selectedSubcategories = useMemo(() => {
+    if (!selectedCategory || selectedCategory.parentId) return [];
+    return categories.filter(c => c.parentId === selectedCategory.id);
+  }, [selectedCategory, categories]);
 
   return (
-    <div className={`h-full flex flex-col ${theme.bg}`}>
-      
-      {/* Header */}
-      {view !== 'main' && (
-        <div className="flex items-center gap-3 mb-4 px-4 pt-4 shrink-0">
-            <button 
-                onClick={() => setView(view === 'category_form' && editingCategory ? 'manage_categories' : 'main')} 
-                className={`p-2.5 rounded-full ${isDarkMode ? 'bg-[#3A3A3C] text-white' : 'bg-gray-100 text-black'}`}
+    <div className="h-full flex flex-col bg-[#FAF6F0] dark:bg-[#18191C] text-[#2E3230] dark:text-gray-100 select-none">
+      {/* Верхний тулбар на ПК */}
+      <header className="px-6 py-4 bg-white/90 dark:bg-[#202225]/90 border-b border-[#C4C8BC]/40 dark:border-white/10 backdrop-blur-md shrink-0 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center font-bold">
+            <Layers size={20} />
+          </div>
+          <div>
+            <h2 className="text-base font-bold font-headline leading-tight">Категории и правила ИИ</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {parentCategories.length} основных категорий, {categories.filter(c => c.parentId).length} подкатегорий, {learnedRules.length} правил
+            </p>
+          </div>
+        </div>
+
+        {/* Переключатель вкладок и глобальные действия */}
+        <div className="flex items-center gap-2">
+          <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveTab('categories')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'categories'
+                  ? 'bg-white dark:bg-[#2C2E33] text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+              }`}
             >
-                <ChevronLeft size={20} />
+              Дерево категорий
             </button>
-            <h2 className={`text-lg font-black ${theme.text}`}>
-                {view === 'category_form' ? (editingCategory ? 'Изменить' : 'Новая категория') : 
-                 view === 'manage_categories' ? 'Управление' : 'Правило'}
-            </h2>
+            <button
+              type="button"
+              onClick={() => setActiveTab('rules')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'rules'
+                  ? 'bg-white dark:bg-[#2C2E33] text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+              }`}
+            >
+              <BrainCircuit size={14} className="text-[#4A7C59] dark:text-emerald-400" />
+              Все правила ({learnedRules.length})
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleStartCreateNew()}
+            className="px-3.5 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D694A] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 active:scale-95"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            <span>Новая категория</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Основная рабочая область ПК: Двухколоночный Master-Detail Split Pane */}
+      {activeTab === 'categories' && (
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+          
+          {/* Левая колонка: Дерево категорий и поиск */}
+          <section className="w-full md:w-[380px] lg:w-[420px] border-r border-[#C4C8BC]/30 dark:border-white/10 flex flex-col bg-white/50 dark:bg-[#1E2023]/60 shrink-0">
+            {/* Поисковая строка */}
+            <div className="p-3 border-b border-[#C4C8BC]/20 dark:border-white/10">
+              <div className="relative flex items-center">
+                <Search size={16} className="absolute left-3 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск категорий или подкатегорий..."
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-gray-100/80 dark:bg-white/5 border border-transparent focus:border-[#4A7C59] dark:focus:border-emerald-500 text-xs text-gray-900 dark:text-white placeholder-gray-400 outline-none transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Список категорий с иерархией */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+              {filteredTree.map(parentCat => {
+                const subCats = categories.filter(c => c.parentId === parentCat.id);
+                const isSelected = selectedCategoryId === parentCat.id && !isCreatingNew;
+                const isExpanded = !!expandedParentIds[parentCat.id];
+                const isDragOver = dragOverParentId === parentCat.id;
+                const parentStats = calculateCategoryStats(parentCat.id, categories, transactions);
+
+                return (
+                  <div
+                    key={parentCat.id}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverParentId !== parentCat.id) setDragOverParentId(parentCat.id);
+                    }}
+                    onDragLeave={() => setDragOverParentId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const droppedSubId = e.dataTransfer.getData('text/plain') || draggedCatId;
+                      if (droppedSubId) handleMoveSubcategory(droppedSubId, parentCat.id);
+                      setDragOverParentId(null);
+                      setDraggedCatId(null);
+                    }}
+                    className={`rounded-2xl border transition-all ${
+                      isDragOver
+                        ? 'border-[#4A7C59] ring-2 ring-[#4A7C59]/30 bg-[#4A7C59]/5'
+                        : isSelected
+                          ? 'border-[#4A7C59] bg-[#4A7C59]/5 shadow-xs'
+                          : 'border-gray-200/80 dark:border-white/5 bg-white dark:bg-[#202225] hover:border-gray-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    {/* Заголовок родительской категории */}
+                    <div
+                      onClick={() => handleSelectCategory(parentCat.id)}
+                      className="p-3 flex items-center justify-between gap-2 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleParentExpand(parentCat.id, e)}
+                          className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
+                        >
+                          {subCats.length > 0 && (
+                            isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                          )}
+                        </button>
+
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs"
+                          style={{ backgroundColor: parentCat.color || DEFAULT_CATEGORY_COLOR }}
+                        >
+                          <IconRenderer name={parentCat.icon} size={16} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                              {parentCat.label}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                            <span>{subCats.length} подкат.</span>
+                            {parentStats.transactionCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{parentStats.transactionCount} опер.</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Быстрое добавление подкатегории */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartCreateNew(parentCat.id);
+                        }}
+                        title="Добавить подкатегорию в эту категорию"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:text-[#4A7C59] hover:bg-[#4A7C59]/10 transition"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+
+                    {/* Дочерние подкатегории */}
+                    {isExpanded && subCats.length > 0 && (
+                      <div className="px-3 pb-2.5 space-y-1 border-t border-gray-100 dark:border-white/5 pt-2">
+                        {subCats.map(subCat => {
+                          const isSubSelected = selectedCategoryId === subCat.id && !isCreatingNew;
+                          return (
+                            <div
+                              key={subCat.id}
+                              draggable={true}
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', subCat.id);
+                                setDraggedCatId(subCat.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedCatId(null);
+                                setDragOverParentId(null);
+                              }}
+                              onClick={() => handleSelectCategory(subCat.id)}
+                              className={`flex items-center justify-between gap-2 p-2 rounded-xl text-xs transition cursor-pointer group ${
+                                isSubSelected
+                                  ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400 font-bold'
+                                  : 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                              } ${draggedCatId === subCat.id ? 'opacity-40' : ''}`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <GripVertical size={12} className="text-gray-300 dark:text-gray-600 group-hover:text-gray-400 shrink-0 cursor-grab" />
+                                <div
+                                  className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0"
+                                  style={{ backgroundColor: subCat.color || parentCat.color }}
+                                >
+                                  <IconRenderer name={subCat.icon} size={12} />
+                                </div>
+                                <span className="truncate">{subCat.label}</span>
+                              </div>
+
+                              <span className="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition">
+                                Перетащить
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {filteredTree.length === 0 && (
+                <div className="text-center py-10 text-gray-400 text-xs">
+                  Ничего не найдено по запросу «{searchQuery}»
+                </div>
+              )}
+            </div>
+
+            {/* Подвал левой колонки */}
+            <div className="p-3 border-t border-[#C4C8BC]/20 dark:border-white/10 bg-gray-50/80 dark:bg-[#1C1D20]/80 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+              <span>Подсказка: перетаскивайте подкатегории между родителями</span>
+            </div>
+          </section>
+
+          {/* Правая колонка: Инспектор выбранной категории и правила */}
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+            
+            {/* Верхняя плашка режима */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#C4C8BC]/30 dark:border-white/10">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm"
+                  style={{ backgroundColor: formDataColor }}
+                >
+                  <IconRenderer name={formDataIcon} size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-headline text-gray-900 dark:text-white">
+                    {isCreatingNew ? 'Создание новой категории' : (formDataName || 'Без названия')}
+                  </h3>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-0.5">
+                    <span>
+                      {formDataParentId 
+                        ? `Подкатегория в «${categories.find(c => c.id === formDataParentId)?.label || 'Родитель'}»`
+                        : 'Основная родительская категория'}
+                    </span>
+                    {!isCreatingNew && selectedStats.transactionCount > 0 && (
+                      <>
+                        <span>•</span>
+                        <span>{selectedStats.transactionCount} операций ({selectedStats.totalExpense.toLocaleString('ru-RU')} ₽)</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Кнопки действий сохранения */}
+              <div className="flex items-center gap-2">
+                {!isCreatingNew && selectedCategory && (
+                  <button
+                    type="button"
+                    onClick={() => setCategoryToDelete(selectedCategory)}
+                    className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition"
+                    title="Удалить категорию"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveCategory}
+                  className="px-4 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3D694A] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 active:scale-95"
+                >
+                  <Save size={15} />
+                  <span>{isCreatingNew ? 'Создать категорию' : 'Сохранить изменения'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Сетка настроек категории */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Поле 1: Название и привязка к родителю */}
+              <div className="bg-white dark:bg-[#202225] p-5 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-4 shadow-xs">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Основные параметры
+                </h4>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Название категории
+                  </label>
+                  <input
+                    type="text"
+                    value={formDataName}
+                    onChange={(e) => setFormDataName(e.target.value)}
+                    placeholder="Например: Продукты, Кофейни, Такси..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm font-semibold text-gray-900 dark:text-white focus:border-[#4A7C59] outline-none transition"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Родительская категория
+                  </label>
+                  <select
+                    value={formDataParentId || ''}
+                    onChange={(e) => setFormDataParentId(e.target.value || null)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm font-semibold text-gray-900 dark:text-white focus:border-[#4A7C59] outline-none transition cursor-pointer"
+                  >
+                    <option value="">— Основная категория (без родителя) —</option>
+                    {parentCategories
+                      .filter(p => p.id !== selectedCategory?.id)
+                      .map(parent => (
+                        <option key={parent.id} value={parent.id}>
+                          📁 {parent.label}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 leading-tight">
+                    Подкатегории группируются внутри родителя и суммируются в аналитике бюджета.
+                  </p>
+                </div>
+              </div>
+
+              {/* Поле 2: Палитра цветов */}
+              <div className="bg-white dark:bg-[#202225] p-5 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-4 shadow-xs">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Фирменный цвет
+                </h4>
+
+                <div className="flex flex-wrap gap-2.5">
+                  {TERRA_CATEGORY_COLORS.map(color => {
+                    const isSelected = formDataColor.toLowerCase() === color.toLowerCase();
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setFormDataColor(color)}
+                        className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center relative ${
+                          isSelected ? 'scale-110 ring-2 ring-offset-2 ring-[#4A7C59] dark:ring-offset-[#202225] shadow-xs' : 'hover:scale-105 opacity-85 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      >
+                        {isSelected && <Check size={16} className="text-white drop-shadow-xs" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Выбор иконки по группам */}
+            <div className="bg-white dark:bg-[#202225] p-5 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Иконка категории
+                </h4>
+                <span className="text-xs text-gray-400">Выбрано: {formDataIcon}</span>
+              </div>
+
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                {ICON_GROUPS.map(group => (
+                  <div key={group.title} className="space-y-1.5">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      {group.title}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {group.icons.map(iconName => {
+                        const isIconActive = formDataIcon === iconName;
+                        return (
+                          <button
+                            key={iconName}
+                            type="button"
+                            onClick={() => setFormDataIcon(iconName)}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
+                              isIconActive
+                                ? 'bg-[#4A7C59] text-white shadow-xs'
+                                : 'bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'
+                            }`}
+                            title={iconName}
+                          >
+                            <IconRenderer name={iconName} size={18} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Блок правил ИИ и авто-распознавания для текущей категории */}
+            {!isCreatingNew && selectedCategory && (
+              <div className="bg-white dark:bg-[#202225] p-5 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                      <Zap size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                        Правила авто-распознавания для «{selectedCategory.label}»
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Операции с этими ключевыми словами автоматически относятся к этой категории
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Кнопка применить к прошлым операциям */}
+                  {currentCategoryRules.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleApplyRulesToTransactions(currentCategoryRules)}
+                      className="px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition"
+                    >
+                      <RefreshCw size={13} />
+                      <span>Применить к истории</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Поле добавления нового ключевого слова */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newKeywordInput}
+                    onChange={(e) => setNewKeywordInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddKeywordToCategory();
+                      }
+                    }}
+                    placeholder="Введите название магазина или тег (напр. пятерочка, вкусвилл, uber) и нажмите Enter..."
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-medium text-gray-900 dark:text-white outline-none focus:border-[#4A7C59]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddKeywordToCategory}
+                    className="px-3.5 py-2 bg-[#4A7C59] text-white text-xs font-bold rounded-xl hover:bg-[#3D694A] transition"
+                  >
+                    Добавить
+                  </button>
+                </div>
+
+                {/* Список активных тегов-правил */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {currentCategoryRules.map(rule => (
+                    <span
+                      key={rule.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gray-100 dark:bg-white/10 text-xs font-medium text-gray-800 dark:text-gray-200 border border-gray-200/60 dark:border-white/5"
+                    >
+                      <span>{rule.keyword}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRule(rule.id)}
+                        className="text-gray-400 hover:text-red-500 transition"
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+
+                  {currentCategoryRules.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">
+                      Пока нет правил для этой категории. Добавьте ключевые слова выше.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Вложенные подкатегории выбранного родителя */}
+            {!isCreatingNew && selectedCategory && !selectedCategory.parentId && (
+              <div className="bg-white dark:bg-[#202225] p-5 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    Подкатегории ({selectedSubcategories.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => handleStartCreateNew(selectedCategory.id)}
+                    className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={14} /> Добавить подкатегорию
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {selectedSubcategories.map(sub => (
+                    <div
+                      key={sub.id}
+                      onClick={() => handleSelectCategory(sub.id)}
+                      className="p-2.5 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50/70 dark:bg-black/20 flex items-center justify-between gap-2 hover:border-[#4A7C59]/50 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 text-xs"
+                          style={{ backgroundColor: sub.color || selectedCategory.color }}
+                        >
+                          <IconRenderer name={sub.icon} size={12} />
+                        </div>
+                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
+                          {sub.label}
+                        </span>
+                      </div>
+                      <ChevronRight size={14} className="text-gray-400 shrink-0" />
+                    </div>
+                  ))}
+
+                  {selectedSubcategories.length === 0 && (
+                    <div className="col-span-full py-4 text-center text-xs text-gray-400 italic">
+                      У этой категории пока нет подкатегорий. Нажмите «Добавить подкатегорию» для создания.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
         </div>
       )}
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-6">
-        
-        {view === 'main' && (
-          <div className="space-y-8">
-            {/* Categories Grid */}
-            <section>
-              <div className="flex justify-between items-center mb-4 px-1">
-                <h2 className={`text-[11px] font-black uppercase tracking-[0.15em] ${theme.subtext}`}>Категории</h2>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => openCategoryForm()} className="text-blue-500 text-[10px] font-black flex items-center gap-1 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                    <Plus size={12} strokeWidth={3} /> Создать
-                  </button>
-                  <button onClick={() => setView('manage_categories')} className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1.5 rounded-lg ${theme.subtext} hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors`}>
-                      Изм.
-                  </button>
-                </div>
-              </div>
-              
-              {/* Responsive Grid */}
-              <div className="grid grid-cols-3 min-[400px]:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3">
-                {/* 'All' Filter Button */}
-                <button 
-                  onClick={() => setSelectedCategoryId(null)}
-                  className={`aspect-square rounded-[24px] border-2 transition-all flex flex-col items-center justify-center gap-1.5 ${
-                    selectedCategoryId === null 
-                        ? 'bg-blue-500 border-blue-500 text-white shadow-xl shadow-blue-500/20' 
-                        : `${theme.card} ${theme.border} ${theme.text} opacity-60 hover:opacity-100`
-                  }`}
-                >
-                  <Filter size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-wider">Все</span>
-                </button>
-
-                {visibleCategories.map(cat => (
-                  <button 
-                    key={cat.id}
-                    onClick={() => setSelectedCategoryId(cat.id)}
-                    className={`aspect-square rounded-[24px] border-2 transition-all flex flex-col items-center justify-center gap-1.5 p-1 ${
-                      selectedCategoryId === cat.id 
-                        ? `border-transparent text-white shadow-xl scale-105 z-10` 
-                        : `${theme.card} ${theme.border} ${theme.text} opacity-80 hover:opacity-100 hover:scale-[1.02]`
-                    }`}
-                    style={selectedCategoryId === cat.id ? getColorStyle(cat.color) : {}}
-                  >
-                    <div className={selectedCategoryId === cat.id ? getColorClass(cat.color) : ''}>
-                         <span style={{ color: selectedCategoryId !== cat.id && cat.color.startsWith('#') ? cat.color : undefined }} className={selectedCategoryId !== cat.id && !cat.color.startsWith('#') ? cat.color.replace('bg-', 'text-') : ''}>
-                            <IconRenderer name={cat.icon} size={22} />
-                         </span>
-                    </div>
-                    <span className="text-[9px] font-bold uppercase tracking-wide truncate w-full text-center px-0.5">{cat.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Show All Toggle for Main View */}
-              {!showAll && sortedCategories.length > 6 && (
-                  <button 
-                    onClick={() => setShowAll(true)}
-                    className={`w-full mt-3 py-3 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
-                  >
-                      Показать еще {sortedCategories.length - 6} <ChevronDown size={14} />
-                  </button>
-              )}
-              
-              {showAll && (
-                  <button 
-                    onClick={() => setShowAll(false)}
-                    className={`w-full mt-3 py-3 rounded-[24px] bg-gray-50 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#48484A] transition-colors`}
-                  >
-                      Свернуть <ChevronUp size={14} />
-                  </button>
-              )}
-            </section>
-
-            {/* Rules Section */}
-            <section className="pb-10">
-              <div className="flex justify-between items-center mb-4 px-1">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg"><BrainCircuit size={16} className="text-purple-500" /></div>
-                  <h2 className={`text-[11px] font-black uppercase tracking-[0.15em] ${theme.subtext}`}>Правила ИИ</h2>
-                </div>
-                <div className="flex gap-2">
-                    {transactions && onUpdateTransactions && (
-                        <button 
-                            onClick={handleApplyRulesToAll}
-                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all uppercase tracking-wider bg-gray-100 dark:bg-[#3A3A3C] text-gray-500 dark:text-gray-300 hover:text-blue-500`}
-                            title="Применить правила ко всем старым операциям"
-                        >
-                            <RefreshCw size={12} /> Обновить операции
-                        </button>
-                    )}
-                    <button 
-                    onClick={() => openEditRule()}
-                    className="bg-[#1C1C1E] dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg active:scale-95 transition-all uppercase tracking-wider"
-                    >
-                    <Plus size={12} strokeWidth={3} /> Добавить
-                    </button>
-                </div>
-              </div>
-
-              <div className={`flex items-center px-4 py-3 rounded-[20px] mb-4 shadow-sm border ${theme.border} ${theme.card}`}>
-                <Search size={18} className="text-gray-400 mr-3" />
-                <input 
-                  type="text" 
-                  placeholder="Поиск по фразам..."
-                  className={`bg-transparent outline-none w-full text-sm font-bold ${theme.text} placeholder:font-medium`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-3">
-                {groupedRules.length > 0 ? groupedRules.map((group) => {
-                  const catConfig = categories.find(c => c.id === group.categoryId);
-                  return (
-                    <button 
-                      key={group.ids[0]} 
-                      onClick={() => openEditRule(group)}
-                      className={`w-full text-left ${theme.card} p-4 rounded-[24px] border ${theme.border} flex items-center justify-center group shadow-sm hover:border-blue-200 dark:hover:border-blue-800 transition-colors`}
-                    >
-                      <div className="flex items-center gap-4 overflow-hidden w-full">
-                        <div 
-                          className={`w-1.5 h-10 rounded-full shrink-0`} 
-                          style={getColorStyle(catConfig?.color || '#ccc')}
-                        >
-                            <div className={`w-full h-full ${getColorClass(catConfig?.color || 'bg-gray-400')}`} />
-                        </div>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className={`text-sm font-bold ${theme.text} truncate`}>{group.keywords.join('; ')}</span>
-                            <Zap size={12} className="text-orange-400 fill-orange-400 shrink-0" />
-                          </div>
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate flex items-center gap-1">
-                             <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: catConfig?.color }}></span>
-                             {catConfig?.label || '???'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 pl-2 shrink-0">
-                           <div 
-                             onClick={(e) => handleDeleteRuleGroup(e, group.ids)}
-                             className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-full"
-                           >
-                             <Trash2 size={16} />
-                           </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                }) : (
-                  <div className="text-center py-12 opacity-30">
-                    <Search size={48} className="mx-auto mb-4" />
-                    <p className="text-sm font-bold">Правил не найдено</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {view === 'category_form' && (
-           <div className="space-y-6 max-w-md mx-auto animate-in fade-in slide-in-from-right-4">
-              <div className="flex flex-col items-center gap-4">
-                {/* Large Preview */}
-                <div 
-                    className={`w-32 h-32 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl transition-all ${getColorClass(catColor)}`}
-                    style={getColorStyle(catColor)}
-                >
-                  <IconRenderer name={catIcon} size={64} />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest opacity-60">Предпросмотр</span>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Название</label>
-                    <input 
-                      type="text" 
-                      value={catName} 
-                      onChange={(e) => setCatName(e.target.value)} 
-                      placeholder="Напр: Супермаркеты" 
-                      className={`w-full px-5 py-4 rounded-[1.5rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-lg font-bold`} 
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Родительская категория (если подкатегория)</label>
-                    <select 
-                      value={catParentId || ''} 
-                      onChange={(e) => setCatParentId(e.target.value || null)}
-                      className={`w-full px-5 py-4 rounded-[1.5rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-sm font-bold`}
-                    >
-                      <option value="">— Основная категория (без родителя) —</option>
-                      {categories
-                        .filter(c => !c.parentId && c.id !== editingCategory?.id)
-                        .map(parentCat => (
-                          <option key={parentCat.id} value={parentCat.id}>
-                            📁 {parentCat.label}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Выберите иконку</label>
-                    <div className={`p-4 rounded-[2rem] border ${theme.border} ${theme.card} max-h-60 overflow-y-auto custom-scrollbar`}>
-                      <div className="grid grid-cols-6 gap-3">
-                        {AVAILABLE_ICONS.map(icon => (
-                          <button 
-                            key={icon}
-                            onClick={() => setCatIcon(icon)}
-                            className={`w-full aspect-square rounded-xl flex items-center justify-center transition-all ${
-                              catIcon === icon 
-                              ? 'bg-blue-500 text-white shadow-lg scale-110 ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-[#1C1C1E]' 
-                              : `hover:bg-gray-100 dark:hover:bg-white/10 ${theme.text} opacity-60`
-                            }`}
-                          >
-                            <IconRenderer name={icon} size={20} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Цвет подложки</label>
-                    <div className={`flex flex-wrap gap-3 justify-center ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'} p-4 rounded-[2rem]`}>
-                      {PRESET_COLORS.map(c => (
-                        <button 
-                            key={c} 
-                            onClick={() => setCatColor(c)} 
-                            className={`w-10 h-10 rounded-full transition-all flex items-center justify-center ${catColor === c ? 'scale-110 shadow-lg ring-4 ring-offset-2 ring-blue-500 dark:ring-offset-[#2C2C2E]' : 'opacity-80 hover:opacity-100'}`} 
-                            style={getColorStyle(c)} 
-                        >
-                            <div className={`w-full h-full rounded-full ${getColorClass(c)}`} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 p-5 rounded-[2rem] border-2 border-blue-500/20 bg-blue-500/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles size={16} className="text-blue-500" />
-                    <label className={`text-[10px] font-black uppercase text-blue-500`}>
-                      {editingCategory ? 'Добавить новые правила' : 'Сразу добавить правила'}
-                    </label>
-                  </div>
-                  <textarea 
-                    rows={3}
-                    value={catKeywords}
-                    onChange={(e) => setCatKeywords(e.target.value)}
-                    placeholder="Пятерочка; Магнит; Ашан..."
-                    className={`w-full px-4 py-3 rounded-2xl outline-none border focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-sm font-medium resize-none`}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button onClick={handleSaveCategory} className="w-full bg-blue-500 text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
-                  <Save size={18} /> {editingCategory ? 'СОХРАНИТЬ' : 'СОЗДАТЬ'}
-                </button>
-                {editingCategory && (
-                    <div className="mt-3">
-                        {confirmDeleteId === editingCategory.id ? (
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={() => setConfirmDeleteId(null)}
-                                    className="flex-1 py-4 text-gray-500 font-bold text-xs uppercase bg-gray-100 dark:bg-white/10 rounded-[2rem]"
-                                >
-                                    Отмена
-                                </button>
-                                <button 
-                                    onClick={() => executeDeleteCategory(editingCategory.id)}
-                                    className="flex-1 py-4 text-white font-bold text-xs uppercase bg-red-500 rounded-[2rem]"
-                                >
-                                    Удалить
-                                </button>
-                            </div>
-                        ) : (
-                            <button 
-                                onClick={() => setConfirmDeleteId(editingCategory.id)} 
-                                className="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest bg-red-50 dark:bg-red-900/10 rounded-[2rem] active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/20"
-                            >
-                                <Trash2 size={18} /> Удалить категорию
-                            </button>
-                        )}
-                    </div>
-                )}
-              </div>
-           </div>
-        )}
-
-        {view === 'manage_categories' && (
-           <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 pb-20">
-              
-              <div className={`flex items-center px-4 py-3 rounded-[20px] shadow-sm border ${theme.border} ${theme.card}`}>
-                <Search size={18} className="text-gray-400 mr-3" />
-                <input 
-                  type="text" 
-                  placeholder="Поиск категории..."
-                  className={`bg-transparent outline-none w-full text-sm font-bold ${theme.text} placeholder:font-medium`}
-                  value={categorySearchQuery}
-                  onChange={(e) => setCategorySearchQuery(e.target.value)}
-                  autoFocus
-                />
-                {categorySearchQuery && (
-                    <button onClick={() => setCategorySearchQuery('')} className="text-gray-400 hover:text-red-500">
-                        <X size={16} />
-                    </button>
-                )}
-              </div>
-
-              {/* Category management instructions for PC & Mobile */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 text-xs text-blue-600 dark:text-blue-400 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Move size={16} className="shrink-0" />
-                  <span><strong>Управление родителями:</strong> на ПК используйте перетаскивание (Drag & Drop), а на смартфоне выбирайте родительскую категорию прямо из выпадающего меню.</span>
-                </div>
-                <button 
-                  onClick={() => openCategoryForm()}
-                  className="px-3 py-1.5 bg-blue-500 text-white rounded-xl font-bold text-[11px] hover:bg-blue-600 transition shrink-0"
-                >
-                  + Создать
-                </button>
-              </div>
-
-              {/* Grouped Parent Categories with nested Subcategories */}
-              <div className="space-y-4">
-                {(() => {
-                  const parentCats = sortedCategories.filter(c => !c.parentId);
-                  const parentOptions = parentCats.map(p => ({ id: p.id, label: p.label }));
-
-                  // If user is searching, render matching flat list
-                  if (categorySearchQuery.trim()) {
-                    return (
-                      <div className="grid grid-cols-2 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {filteredManageCategories.map(cat => (
-                          <div key={cat.id} className="relative group">
-                            <button 
-                              onClick={() => openCategoryForm(cat)}
-                              className={`w-full h-full ${theme.card} p-4 rounded-[24px] border ${theme.border} flex flex-col items-center gap-2 relative shadow-sm hover:border-blue-500/50 transition-colors active:scale-95 min-h-[100px] justify-center`}
-                            >
-                              <div 
-                                  className={`w-12 h-12 rounded-[18px] flex items-center justify-center text-white shadow-lg ${getColorClass(cat.color)}`}
-                                  style={getColorStyle(cat.color)}
-                              >
-                                <IconRenderer name={cat.icon} size={24} />
-                              </div>
-                              <span className={`text-xs font-bold ${theme.text} truncate w-full text-center px-1`}>{cat.label}</span>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <>
-                      {parentCats.map(parentCat => {
-                        const subCats = sortedCategories.filter(c => c.parentId === parentCat.id);
-                        const isOver = dragOverParentId === parentCat.id;
-
-                        return (
-                          <div 
-                            key={parentCat.id}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = 'move';
-                              if (dragOverParentId !== parentCat.id) setDragOverParentId(parentCat.id);
-                            }}
-                            onDragLeave={() => setDragOverParentId(null)}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const droppedId = e.dataTransfer.getData('text/plain') || draggedCatId;
-                              if (droppedId) {
-                                handleMoveSubcategory(droppedId, parentCat.id);
-                              }
-                              setDragOverParentId(null);
-                              setDraggedCatId(null);
-                            }}
-                            className={`p-4 rounded-[24px] border transition-all ${
-                              isOver 
-                                ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50 scale-[1.01]' 
-                                : `${theme.card} ${theme.border}`
-                            }`}
-                          >
-                            {/* Parent Header */}
-                            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5 mb-3">
-                              <div className="flex items-center gap-3">
-                                <div 
-                                  className={`w-10 h-10 rounded-[14px] flex items-center justify-center text-white shadow-sm ${getColorClass(parentCat.color)}`}
-                                  style={getColorStyle(parentCat.color)}
-                                >
-                                  <IconRenderer name={parentCat.icon} size={20} />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className={`text-sm font-black ${theme.text}`}>{parentCat.label}</h4>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 uppercase tracking-wide">
-                                      Родитель
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-gray-400 font-medium">
-                                    Подкатегорий: {subCats.length}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => openCategoryForm(parentCat)}
-                                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition"
-                                  title="Редактировать родительскую категорию"
-                                >
-                                  <Edit3 size={16} />
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteId(parentCat.id)}
-                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition"
-                                  title="Удалить"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Subcategories list / Drop zone */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                              {subCats.map(subCat => (
-                                <div 
-                                  key={subCat.id}
-                                  draggable={true}
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', subCat.id);
-                                    setDraggedCatId(subCat.id);
-                                  }}
-                                  onDragEnd={() => {
-                                    setDraggedCatId(null);
-                                    setDragOverParentId(null);
-                                  }}
-                                  className={`p-3 rounded-2xl border ${theme.border} bg-gray-50/70 dark:bg-black/20 flex items-center justify-between gap-2 group hover:border-blue-500/40 transition cursor-grab active:cursor-grabbing ${
-                                    draggedCatId === subCat.id ? 'opacity-40 scale-95' : ''
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <GripVertical size={16} className="text-gray-400 shrink-0 group-hover:text-blue-500 transition" />
-                                    <div 
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 ${getColorClass(subCat.color)}`}
-                                      style={getColorStyle(subCat.color)}
-                                    >
-                                      <IconRenderer name={subCat.icon} size={14} />
-                                    </div>
-                                    <span className={`text-xs font-bold ${theme.text} truncate`}>{subCat.label}</span>
-                                  </div>
-
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <select
-                                      value={subCat.parentId || ''}
-                                      onChange={(e) => handleMoveSubcategory(subCat.id, e.target.value || undefined)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="text-[10px] font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-lg px-1.5 py-1 text-gray-600 dark:text-gray-300 outline-none max-w-[100px] truncate"
-                                      title="Переместить в другую родительскую категорию"
-                                    >
-                                      {parentOptions.map(p => (
-                                        <option key={p.id} value={p.id}>{p.label}</option>
-                                      ))}
-                                      <option value="">(Без родителя)</option>
-                                    </select>
-
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); openCategoryForm(subCat); }} 
-                                      className="p-1 text-gray-400 hover:text-blue-500 rounded"
-                                    >
-                                      <Edit3 size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {subCats.length === 0 && (
-                                <div className="col-span-full py-3 text-center border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl text-[11px] text-gray-400 font-semibold">
-                                  Перетащите подкатегорию сюда или создайте новую
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Standalone / Unassigned categories drop zone */}
-                      {(() => {
-                        const standaloneCats = sortedCategories.filter(c => c.parentId && !parentCats.some(p => p.id === c.parentId));
-                        if (standaloneCats.length === 0) return null;
-
-                        return (
-                          <div className={`p-4 rounded-[24px] border ${theme.border} ${theme.card}`}>
-                            <h4 className={`text-xs font-black uppercase text-gray-400 tracking-wider mb-3`}>
-                              Категории без основного родителя
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                              {standaloneCats.map(subCat => (
-                                <div 
-                                  key={subCat.id}
-                                  draggable={true}
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', subCat.id);
-                                    setDraggedCatId(subCat.id);
-                                  }}
-                                  className={`p-3 rounded-2xl border ${theme.border} bg-gray-50/70 dark:bg-black/20 flex items-center justify-between gap-2`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <GripVertical size={16} className="text-gray-400" />
-                                    <span className={`text-xs font-bold ${theme.text} truncate`}>{subCat.label}</span>
-                                  </div>
-                                  <select
-                                    value={subCat.parentId || ''}
-                                    onChange={(e) => handleMoveSubcategory(subCat.id, e.target.value || undefined)}
-                                    className="text-[10px] font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-lg px-1.5 py-1 text-gray-600 dark:text-gray-300 outline-none"
-                                  >
-                                    <option value="">Назначить родителя...</option>
-                                    {parentCats.map(p => (
-                                      <option key={p.id} value={p.id}>{p.label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  );
-                })()}
-              </div>
-           </div>
-        )}
-
-        {view === 'edit_rule' && (
-          <div className="max-w-md md:max-w-4xl mx-auto animate-in fade-in slide-in-from-right-4">
-            <div className="flex flex-col items-center gap-4 text-center mb-8">
-              <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner">
-                {editingRuleIds.length > 0 ? <Zap size={40} fill="currentColor" /> : <Layers size={40} />}
-              </div>
-              <h3 className={`text-xl font-bold ${theme.text}`}>
-                {editingRuleIds.length > 0 ? 'Редактировать группу' : 'Массовый ввод правил'}
+      {/* Вкладка «Все правила ИИ» */}
+      {activeTab === 'rules' && (
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-[#C4C8BC]/30 dark:border-white/10">
+            <div>
+              <h3 className="text-lg font-bold font-headline text-gray-900 dark:text-white">
+                Массовое управление правилами распознавания
               </h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <div className="space-y-2 h-full">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Ключевые слова (через ";")</label>
-                    <textarea 
-                    rows={4}
-                    value={ruleKeyword}
-                    onChange={(e) => setRuleKeyword(e.target.value)}
-                    placeholder="Напр: Яндекс; Uber; Такси"
-                    className={`w-full h-full min-h-[280px] px-5 py-4 rounded-[2rem] outline-none border-2 focus:border-blue-500 transition-all ${theme.border} ${theme.card} ${theme.text} text-lg font-medium resize-none`}
-                    />
-                </div>
-                <div className="space-y-3 flex flex-col h-full">
-                    <label className={`text-[10px] font-black uppercase ml-2 ${theme.subtext}`}>Целевая категория</label>
-                    <div className="grid grid-cols-2 gap-2 h-[280px] overflow-y-auto pr-2 custom-scrollbar content-start">
-                    {sortedCategories.map(cat => (
-                        <button 
-                        key={cat.id}
-                        onClick={() => setRuleCategoryId(cat.id)}
-                        className={`p-3 rounded-2xl border-2 transition-all flex items-center gap-2 text-left h-[60px] ${
-                            ruleCategoryId === cat.id 
-                            ? `border-blue-500 bg-blue-50 dark:bg-blue-900/20` 
-                            : `${theme.card} ${theme.border} opacity-70 hover:opacity-100`
-                        }`}
-                        >
-                        <div 
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 ${getColorClass(cat.color)}`}
-                            style={getColorStyle(cat.color)}
-                        >
-                            <IconRenderer name={cat.icon} size={14} />
-                        </div>
-                        <span className={`text-[11px] font-bold truncate ${theme.text}`}>{cat.label}</span>
-                        </button>
-                    ))}
-                    </div>
-                </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Автоматическое назначение категорий для входящих чеков, SMS и выписок
+              </p>
             </div>
 
-            <div className="pt-8 space-y-3 md:max-w-md md:mx-auto">
-              <button onClick={handleSaveRule} className="w-full bg-blue-500 text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                <Save size={18} /> {editingRuleIds.length > 0 ? 'Обновить группу' : 'Применить правила'}
+            <button
+              type="button"
+              onClick={() => handleApplyRulesToTransactions(learnedRules)}
+              className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D694A] text-white text-xs font-bold flex items-center gap-2 transition shadow-xs"
+            >
+              <RefreshCw size={14} />
+              <span>Применить все правила ко всей истории операций</span>
+            </button>
+          </div>
+
+          {/* Список всех правил, сгруппированных по категориям */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {categories.map(cat => {
+              const rules = learnedRules.filter(r => r.categoryId === cat.id);
+              if (rules.length === 0) return null;
+
+              return (
+                <div
+                  key={cat.id}
+                  className="bg-white dark:bg-[#202225] p-4 rounded-2xl border border-gray-200/80 dark:border-white/5 space-y-3 shadow-xs"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: cat.color }}
+                      >
+                        <IconRenderer name={cat.icon} size={14} />
+                      </div>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white">
+                        {cat.label}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-gray-400">
+                      {rules.length} правил
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {rules.map(rule => (
+                      <span
+                        key={rule.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-gray-100 dark:bg-white/5 text-[11px] font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        <span>{rule.keyword}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRule(rule.id)}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Диалог подтверждения удаления категории */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#202225] rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-200 dark:border-white/10 space-y-4">
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-950/40">
+                <AlertTriangle size={24} />
+              </div>
+              <h4 className="text-base font-bold text-gray-900 dark:text-white">
+                Удалить категорию?
+              </h4>
+            </div>
+
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              Вы уверены, что хотите удалить категорию «<strong>{categoryToDelete.label}</strong>»?
+              Все связанные подкатегории станут основными категориями.
+            </p>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-white/10 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 transition"
+              >
+                Отмена
               </button>
-              {transactions && onUpdateTransactions && (
-                  <button 
-                    onClick={handleApplyRuleToHistory} 
-                    className="w-full bg-gray-100 dark:bg-[#3A3A3C] text-gray-600 dark:text-gray-300 py-4 rounded-[2rem] font-bold text-xs uppercase tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-[#48484A]"
-                  >
-                    <RefreshCw size={16} /> Применить к старым операциям
-                  </button>
-              )}
+              <button
+                type="button"
+                onClick={executeDeleteCategory}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition"
+              >
+                Удалить
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

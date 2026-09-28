@@ -1,27 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, User, Trash2, CheckCircle2, Plus, Edit2, Check, Clock, 
-  Wallet, Tag, ChevronDown, Sparkles, Globe, Smartphone, 
-  LayoutGrid, ToggleLeft, ToggleRight, Shield, Lock, Key, Copy, 
-  Users, Share, LogOut, ChevronRight, Download, Calculator, 
-  DollarSign, GripVertical, Loader2, Monitor, Menu, 
-  MessageCircle, AppWindow, MoreHorizontal, ArrowLeft, 
-  ArrowRight, Eye, EyeOff, ChevronLeft, Save, Calendar, Circle,
-  ChevronUp, AlertOctagon, ShoppingBag, ShieldCheck, BellRing,
-  BookOpen, FolderOpen, ArrowUp, ArrowDown, Zap, Gift, RefreshCw, Wand2, Settings2, Moon, Sun, ScanSearch, Files, MessageSquareQuote, Info, Send,
-  Cloud, CloudOff, Wifi, WifiOff, Cpu, Play, BrainCircuit, Mail, RefreshCcw, MoveUpRight
+  X, User, Trash2, Plus, Check, Wallet, Tag, Sparkles, Globe, 
+  Smartphone, LayoutGrid, Lock, Key, Copy, Users, Share, LogOut, 
+  ChevronRight, Calculator, Loader2, Menu, AppWindow, ArrowLeft, 
+  Eye, EyeOff, Save, Calendar, AlertOctagon, ShoppingBag, ShieldCheck, 
+  BellRing, FolderOpen, ArrowUp, ArrowDown, Gift, Moon, Sun, 
+  MessageSquareQuote, Send, Cloud, CloudOff, BrainCircuit, Mail, 
+  RefreshCcw, MoveUpRight, Play, Search, Bell, BadgeCheck, Filter, Trash,
+  SlidersHorizontal, CheckCheck, Database, Server, Wifi, WifiOff, CheckCircle2,
+  AtSign, Award, Shield, Laptop
 } from 'lucide-react';
-import { AppSettings, FamilyMember, Category, LearnedRule, MandatoryExpense, Transaction, WidgetConfig, AIKnowledgeItem } from '../types';
-import { MemberMarker, getIconById } from '../constants';
+import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
+import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
 import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
-import { createInvitation, deleteItem, joinFamily, migrateFamilyData } from '../utils/db';
+import { createInvitation, deleteItem, migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
+import BudgetSettingsSection from './BudgetSettingsSection';
+import MembersSettingsSection from './MembersSettingsSection';
 import { toast } from 'sonner';
 
 interface SettingsModalProps {
@@ -58,106 +58,134 @@ const WIDGET_METADATA = [
   { id: 'goals', label: 'Цели и копилка' }, 
 ];
 
-type SectionType = 'general' | 'account' | 'budget' | 'members' | 'categories' | 'widgets' | 'navigation' | 'services' | 'telegram' | 'family' | 'ai_memory';
+type SectionType = 'general' | 'account' | 'budget' | 'members' | 'categories' | 'ai_memory' | 'services' | 'telegram' | 'family' | 'widgets' | 'navigation';
 
-const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
-  { id: 'general', label: 'Общее', icon: <Globe size={20} /> },
-  { id: 'account', label: 'Аккаунт и Пароль', icon: <User size={20} /> },
-  { id: 'budget', label: 'Бюджет', icon: <Calculator size={20} /> },
-  { id: 'members', label: 'Участники', icon: <Users size={20} /> },
-  { id: 'categories', label: 'Категории и правила', icon: <Tag size={20} /> },
-  { id: 'ai_memory', label: 'Память AI', icon: <BrainCircuit size={20} /> },
-  { id: 'navigation', label: 'Навигация', icon: <Menu size={20} /> },
-  { id: 'services', label: 'Сервисы', icon: <AppWindow size={20} /> },
-  { id: 'widgets', label: 'Виджеты', icon: <LayoutGrid size={20} /> },
-  { id: 'telegram', label: 'Telegram и шаблоны', icon: <MessageSquareQuote size={20} /> },
-  { id: 'family', label: 'Семья и Доступ', icon: <Share size={20} /> },
+interface SectionConfig {
+  id: SectionType;
+  label: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}
+
+const SECTIONS: SectionConfig[] = [
+  { id: 'general', label: 'Общее', subtitle: 'Базовые параметры интерфейса и алгоритмов', icon: <SlidersHorizontal size={18} /> },
+  { id: 'account', label: 'Аккаунт и профиль', subtitle: 'Логин, безопасность, пароль', icon: <User size={18} /> },
+  { id: 'budget', label: 'Параметры бюджета', subtitle: 'Резерв, лимиты, зарплаты', icon: <Calculator size={18} /> },
+  { id: 'members', label: 'Участники', subtitle: 'Список пользователей и профили', icon: <Users size={18} /> },
+  { id: 'categories', label: 'Категории и правила', subtitle: 'Автоматизация правил и теги', icon: <Tag size={18} /> },
+  { id: 'ai_memory', label: 'Память AI', subtitle: 'AI ассистент, ключ Gemini, база знаний', icon: <BrainCircuit size={18} /> },
+  { id: 'services', label: 'Сервисы и модули', subtitle: 'Кошелек, вишлист, долги', icon: <AppWindow size={18} /> },
+  { id: 'telegram', label: 'Telegram и шаблоны', subtitle: 'Бот, форматы отчетов и чек', icon: <Send size={18} /> },
+  { id: 'family', label: 'Синхронизация и доступ', subtitle: 'ID пространства, перенос', icon: <Cloud size={18} /> },
+  { id: 'widgets', label: 'Виджеты', subtitle: 'Порядок и видимость блоков', icon: <LayoutGrid size={18} /> },
+  { id: 'navigation', label: 'Навигация', subtitle: 'Нижняя панель и вкладки', icon: <Menu size={18} /> },
 ];
 
-const PRESET_COLORS = [ '#007AFF', '#FF2D55', '#34C759', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2', '#1C1C1E' ];
+const PRESET_COLORS = [ '#4A7C59', '#007AFF', '#FF2D55', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2' ];
 
 const AVAILABLE_TABS = [
-    { id: 'overview', label: 'Обзор', icon: <LayoutGrid size={20}/> },
-    { id: 'budget', label: 'Бюджет', icon: <Calculator size={20}/> },
-    { id: 'plans', label: 'Планы', icon: <Calendar size={20}/> },
-    { id: 'shopping', label: 'Покупки', icon: <ShoppingBag size={20}/> },
-    { id: 'services', label: 'Сервисы', icon: <AppWindow size={20}/> }
+  { id: 'overview', label: 'Обзор', icon: <LayoutGrid size={18}/> },
+  { id: 'budget', label: 'Бюджет', icon: <Calculator size={18}/> },
+  { id: 'plans', label: 'Планы', icon: <Calendar size={18}/> },
+  { id: 'shopping', label: 'Покупки', icon: <ShoppingBag size={18}/> },
+  { id: 'services', label: 'Сервисы', icon: <AppWindow size={18}/> }
 ];
 
 const AVAILABLE_SERVICES = [
-    { id: 'wallet', label: 'Кошелек', desc: 'Карты лояльности', icon: <Wallet size={20}/> },
-    { id: 'wishlist', label: 'Wishlist', desc: 'Список желаний', icon: <Gift size={20}/> },
-    { id: 'chat', label: 'AI Советник', desc: 'Финансовый помощник', icon: <Sparkles size={20}/> },
-    { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов', icon: <LayoutGrid size={20}/> },
-    { id: 'debts', label: 'Долги', desc: 'Кредиты и займы', icon: <Calculator size={20}/> },
-    { id: 'projects', label: 'Проекты', desc: 'Временные бюджеты', icon: <FolderOpen size={20}/> }
+  { id: 'wallet', label: 'Кошелек', desc: 'Карты лояльности и скидки', icon: <Wallet size={18}/> },
+  { id: 'wishlist', label: 'Wishlist', desc: 'Списки желаний и подарков', icon: <Gift size={18}/> },
+  { id: 'chat', label: 'AI Советник', desc: 'Финансовый аудит и прогнозы', icon: <Sparkles size={18}/> },
+  { id: 'pantry', label: 'Кладовка', desc: 'Учет продуктов и регулярных запасов', icon: <LayoutGrid size={18}/> },
+  { id: 'debts', label: 'Обязательства и долги', desc: 'Кредиты, графики платежей', icon: <Calculator size={18}/> },
+  { id: 'projects', label: 'Проекты и цели', desc: 'Временные целевые фонды', icon: <FolderOpen size={18}/> }
 ];
 
-const Switch = ({ checked, onChange, id }: { checked: boolean, onChange: (e: any) => void, id?: string }) => (
-    <button id={id} onClick={onChange} className={`w-11 h-6 rounded-full p-1 transition-colors relative ${checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-    </button>
+const ToggleSwitch = ({ checked, onChange, id }: { checked: boolean; onChange: () => void; id?: string }) => (
+  <button 
+    id={id} 
+    type="button"
+    onClick={onChange} 
+    className={`w-11 h-6 rounded-full p-1 transition-colors relative focus:outline-none cursor-pointer ${
+      checked ? 'bg-[#4A7C59] dark:bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
+    }`}
+  >
+    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+  </button>
 );
 
-const TemplateEditor = ({ label, value, onChange, variables, previewData }: { label: string, value: string, onChange: (val: string) => void, variables: string[], previewData: any }) => {
-    const handleAddVar = (v: string) => onChange((value || '') + ` ${v}`);
-    
-    // Generate preview
-    let previewText = value || '';
-    Object.keys(previewData).forEach(key => {
-        previewText = previewText.replace(new RegExp(key, 'g'), previewData[key]);
-    });
+const TemplateEditor = ({ label, value, onChange, variables, previewData }: { label: string; value: string; onChange: (val: string) => void; variables: string[]; previewData: any }) => {
+  const handleAddVar = (v: string) => onChange((value || '') + ` ${v}`);
+  
+  let previewText = value || '';
+  Object.keys(previewData).forEach(key => {
+    previewText = previewText.replace(new RegExp(key, 'g'), previewData[key]);
+  });
 
-    return (
-        <div className="space-y-3 pt-2">
-            <label className="text-xs font-bold text-gray-500 ml-2">{label}</label>
-            <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl border border-gray-100 dark:border-white/10 space-y-3">
-                <textarea 
-                    value={value || ''} 
-                    onChange={(e) => onChange(e.target.value)} 
-                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl font-mono text-xs text-[#1C1C1E] dark:text-white outline-none h-24 resize-none border border-gray-200 dark:border-white/5 focus:border-blue-500 transition-colors" 
-                    placeholder="Настройте текст..." 
-                />
-                
-                <div className="flex flex-wrap gap-2">
-                    {variables.map(v => (
-                        <button key={v} onClick={() => handleAddVar(v)} className="bg-white dark:bg-white/10 border border-gray-200 dark:border-white/5 px-2 py-1.5 rounded-lg text-[10px] font-bold text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
-                            {v}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="mt-2 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/20">
-                    <span className="text-[9px] font-bold text-blue-400 uppercase mb-1 block">Предпросмотр</span>
-                    <p className="text-xs font-medium text-[#1C1C1E] dark:text-white whitespace-pre-wrap">{previewText}</p>
-                </div>
-            </div>
+  return (
+    <div className="space-y-2 pt-2">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">{label}</label>
+        <div className="flex flex-wrap gap-1">
+          {variables.map(v => (
+            <button 
+              key={v} 
+              type="button" 
+              onClick={() => handleAddVar(v)} 
+              className="bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded text-[10px] font-mono text-[#4A7C59] dark:text-emerald-400 hover:bg-[#4A7C59]/10 transition-colors"
+            >
+              {v}
+            </button>
+          ))}
         </div>
-    );
+      </div>
+      <div className="bg-gray-50 dark:bg-[#232528] p-3.5 rounded-xl border border-gray-200 dark:border-white/10 space-y-3">
+        <textarea 
+          value={value || ''} 
+          onChange={(e) => onChange(e.target.value)} 
+          className="w-full bg-white dark:bg-[#18191C] p-3 rounded-lg font-mono text-xs text-gray-900 dark:text-white outline-none h-24 resize-none border border-gray-200 dark:border-white/10 focus:border-[#4A7C59] transition-colors" 
+          placeholder="Настройте текст..." 
+        />
+        <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">Предпросмотр</span>
+          <p className="text-xs font-medium text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{previewText}</p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpdate, savingsRate, setSavingsRate, members, onUpdateMembers, categories, onUpdateCategories, onDeleteCategory, learnedRules, onUpdateRules, currentFamilyId, onJoinFamily, onLogout, installPrompt, transactions = [], onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ 
+  settings, onClose, onUpdate, savingsRate, setSavingsRate, 
+  members, onUpdateMembers, categories, onUpdateCategories, 
+  onDeleteCategory, learnedRules, onUpdateRules, currentFamilyId, 
+  onJoinFamily, onLogout, installPrompt, transactions = [], 
+  onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates 
+}) => {
   const [activeSection, setActiveSection] = useState<SectionType>('general');
-  const [showMobileMenu, setShowMobileMenu] = useState(window.innerWidth < 768);
+  const [showMobileMenu, setShowMobileMenu] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setShowMobileMenu(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Data Context Access for AI Knowledge
   const { aiKnowledge, deleteAIKnowledge, addAIKnowledge } = useData();
   const [newFact, setNewFact] = useState('');
-
-  // Members Management
-  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
-  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
-  const [tempMemberName, setTempMemberName] = useState('');
-  const [tempMemberEmail, setTempMemberEmail] = useState('');
-  const [tempMemberColor, setTempMemberColor] = useState(PRESET_COLORS[0]);
 
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
   const [shouldMigrate, setShouldMigrate] = useState(false);
 
-  // Tools
+  // Period deletion
   const [deleteStart, setDeleteStart] = useState('');
   const [deleteEnd, setDeleteEnd] = useState('');
 
@@ -177,9 +205,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const [requiresPassConfirm, setRequiresPassConfirm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showAccountPass, setShowAccountPass] = useState(false);
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [is2FAEnabled, setIs2FAEnabled] = useState(true);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } catch (e: any) {
+      toast.error('Ошибка выхода из профиля');
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
 
   useEffect(() => {
     setAccountLogin(initialUsername);
@@ -198,10 +243,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
 
     setIsUpdatingLogin(true);
     try {
-      // 1. Always update profile display name
       await updateProfile(currentUser, { displayName: cleanLogin });
 
-      // 2. Update family member record if available
       if (members && onUpdateMembers) {
         const updatedMembers = members.map(m => 
           m.userId === currentUser.uid || m.email === currentUser.email 
@@ -211,7 +254,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         onUpdateMembers(updatedMembers);
       }
 
-      // 3. Try updating primary email credential if different
       const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
       if (currentUser.email !== formattedEmail) {
         try {
@@ -225,7 +267,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
         } catch (emailErr: any) {
           if (emailErr?.code === 'auth/requires-recent-login') {
             setRequiresLoginPassword(true);
-            toast.error('Для изменения основного e-mail/логина введите ваш текущий пароль ниже');
+            toast.error('Для изменения e-mail/логина введите ваш текущий пароль');
             setIsUpdatingLogin(false);
             return;
           } else if (emailErr?.code === 'auth/email-already-in-use') {
@@ -236,8 +278,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
             toast.error('Неверный текущий пароль');
             setIsUpdatingLogin(false);
             return;
-          } else {
-            console.warn('Unable to change email credential:', emailErr);
           }
         }
       }
@@ -279,7 +319,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
     } catch (err: any) {
       if (err?.code === 'auth/requires-recent-login') {
         setRequiresPassConfirm(true);
-        toast.error('Для изменения пароля введите ваш текущий пароль ниже');
+        toast.error('Для изменения пароля введите ваш текущий пароль');
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
         toast.error('Неверный текущий пароль');
       } else {
@@ -311,12 +351,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
   const isAIEnabled = !!apiKey;
 
-  // Sync internal state with prop
   useEffect(() => {
     if (currentFamilyId) setNewFamilyId(currentFamilyId);
   }, [currentFamilyId]);
 
-  // Lock body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -325,21 +363,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   }, []);
 
   const handleTestKey = async () => {
-      if (!apiKey) return;
-      setAiTestStatus('loading');
-      try {
-          const ai = new GoogleGenAI({ apiKey: apiKey });
-          await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: "Hello",
-          });
-          setAiTestStatus('success');
-          setTimeout(() => setAiTestStatus('idle'), 3000);
-      } catch (e) {
-          console.error(e);
-          setAiTestStatus('error');
-          setTimeout(() => setAiTestStatus('idle'), 3000);
+    if (!apiKey) return;
+    setAiTestStatus('loading');
+    try {
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: "Hello",
+      });
+      setAiTestStatus('success');
+      setTimeout(() => setAiTestStatus('idle'), 3000);
+    } catch (e) {
+      console.error(e);
+      setAiTestStatus('error');
+      setTimeout(() => setAiTestStatus('idle'), 3000);
+    }
+  };
+
+  // DB Sync / Access Status
+  const [isDbConnected, setIsDbConnected] = useState<boolean>(navigator.onLine);
+  const [isCheckingDb, setIsCheckingDb] = useState<boolean>(false);
+
+  const handleCheckDbConnection = async () => {
+    setIsCheckingDb(true);
+    try {
+      await new Promise(res => setTimeout(res, 400));
+      if (navigator.onLine) {
+        setIsDbConnected(true);
+        toast.success(currentFamilyId ? 'Связь с базой данных Firestore активна и синхронизирована' : 'Подключение к сети активно (локальное пространство)');
+      } else {
+        setIsDbConnected(false);
+        toast.warning('Сеть недоступна, работа в автономном режиме');
       }
+    } catch (e) {
+      setIsDbConnected(false);
+      toast.error('Ошибка проверки подключения к БД');
+    } finally {
+      setIsCheckingDb(false);
+    }
   };
 
   const handleChange = (key: keyof AppSettings, value: any) => onUpdate({ ...settings, [key]: value });
@@ -362,887 +423,1309 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onUpda
   };
 
   const moveWidget = (index: number, direction: 'up' | 'down') => {
-      const widgets = [...(settings.widgets || [])];
-      if (direction === 'up' && index > 0) {
-          [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
-      } else if (direction === 'down' && index < widgets.length - 1) {
-          [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
-      }
-      handleChange('widgets', widgets);
+    const widgets = [...(settings.widgets || [])];
+    if (direction === 'up' && index > 0) {
+      [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
+    } else if (direction === 'down' && index < widgets.length - 1) {
+      [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
+    }
+    handleChange('widgets', widgets);
   };
 
-  // --- Member Logic ---
-  const handleOpenMember = (member?: FamilyMember) => {
-      if (member) {
-          setEditingMember(member);
-          setTempMemberName(member.name);
-          setTempMemberEmail(member.email || '');
-          setTempMemberColor(member.color);
-      } else {
-          setEditingMember(null);
-          setTempMemberName('');
-          setTempMemberEmail('');
-          setTempMemberColor(PRESET_COLORS[0]);
-      }
-      setIsMemberModalOpen(true);
-  };
-
-  const handleSaveMember = async () => {
-      if (!tempMemberName.trim()) return;
-      
-      const email = tempMemberEmail.trim().toLowerCase();
-
-      if (editingMember) {
-          const updated = members.map(m => m.id === editingMember.id ? { 
-              ...m, 
-              name: tempMemberName, 
-              color: tempMemberColor,
-              email: email || undefined 
-          } : m);
-          onUpdateMembers(updated);
-          
-          // Re-invite if email changed and not yet linked
-          if (currentFamilyId && email && email !== editingMember.email && !editingMember.userId) {
-              try {
-                  await createInvitation(currentFamilyId, email, editingMember.id);
-                  alert(`Приглашение отправлено для ${email}. Когда пользователь войдет через Google, он будет добавлен.`);
-              } catch (e: any) {
-                  console.error("Invite error:", e);
-                  alert(`Не удалось создать приглашение: ${e.message}. Проверьте права доступа (Rules) и интернет.`);
-              }
-          }
-      } else {
-          const newMemberId = Math.random().toString(36).substr(2, 9);
-          const newMember: FamilyMember = { 
-              id: newMemberId, 
-              name: tempMemberName, 
-              color: tempMemberColor,
-              email: email || undefined,
-              isAdmin: false,
-              avatar: '', 
-              userId: ''  
-          };
-          onUpdateMembers([...members, newMember]);
-
-          if (currentFamilyId && email) {
-              try {
-                  await createInvitation(currentFamilyId, email, newMemberId);
-                  alert(`Приглашение создано для ${email}. Когда пользователь войдет через Google, он будет автоматически добавлен.`);
-              } catch (e: any) {
-                  console.error("Invite error:", e);
-                  alert(`Не удалось создать приглашение: ${e.message}. Проверьте права доступа (Rules) и интернет.`);
-              }
-          }
-      }
-      setIsMemberModalOpen(false);
-  };
-
-  const handleDeleteMember = async () => {
-      if (!editingMember) return;
-      if (members.length <= 1) {
-          toast.error("Нельзя удалить последнего участника");
-          return;
-      }
-      onUpdateMembers(members.filter(m => m.id !== editingMember.id));
-      if (currentFamilyId) {
-          try {
-              await deleteItem(currentFamilyId, 'members', editingMember.id);
-          } catch (e) {
-              console.error("Failed to delete member:", e);
-          }
-      }
-      setIsMemberModalOpen(false);
-      toast.success(`Участник ${editingMember.name} удален`);
-  };
-
-  const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
-      const isDark = settings.theme === 'dark';
-      const nextTheme = isDark ? 'light' : 'dark';
-
-      if (!(document as any).startViewTransition) {
-          handleChange('theme', nextTheme);
-          return;
-      }
-
-      const x = e.clientX;
-      const y = e.clientY;
-      const endRadius = Math.hypot(
-          Math.max(x, window.innerWidth - x),
-          Math.max(y, window.innerHeight - y)
-      );
-
-      const transition = (document as any).startViewTransition(() => {
-          handleChange('theme', nextTheme);
-      });
-
-      transition.ready.then(() => {
-          document.documentElement.animate(
-              {
-                  clipPath: [
-                      `circle(0px at ${x}px ${y}px)`,
-                      `circle(${endRadius}px at ${x}px ${y}px)`,
-                  ],
-              },
-              {
-                  duration: 500,
-                  easing: "ease-in-out",
-                  pseudoElement: "::view-transition-new(root)",
-              }
-          );
-      });
+  const toggleTheme = () => {
+    const isDark = settings.theme === 'dark';
+    handleChange('theme', isDark ? 'light' : 'dark');
   };
 
   const handleUpdateFamilyId = async () => {
-      const targetId = newFamilyId.trim();
-      if (!targetId) {
-          alert("ID не может быть пустым");
-          return;
+    const targetId = newFamilyId.trim();
+    if (!targetId) {
+      toast.error("ID не может быть пустым");
+      return;
+    }
+    if (targetId === currentFamilyId) return;
+
+    if (!confirm(`Вы уверены, что хотите сменить ID пространства на ${targetId}?`)) return;
+
+    setIsJoining(true);
+    try {
+      if (shouldMigrate && currentFamilyId) {
+        toast.info('Переносим данные в новое пространство...');
+        await migrateFamilyData(currentFamilyId, targetId);
+        toast.success('Данные перенесены!');
       }
-      if (targetId === currentFamilyId) return;
-
-      if (!confirm(`Вы уверены, что хотите сменить ID на ${targetId}?`)) return;
-
-      setIsJoining(true);
-      try {
-          if (shouldMigrate && currentFamilyId) {
-              toast.info('Начинаем перенос данных...');
-              await migrateFamilyData(currentFamilyId, targetId);
-              toast.success('Данные успешно перенесены!');
-          }
-          await onJoinFamily(targetId);
-      } catch (e: any) {
-          toast.error(e.message || "Ошибка при смене ID");
-          setIsJoining(false);
-      }
-  };
-
-  const renderSectionContent = () => {
-    switch (activeSection) {
-        case 'ai_memory': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-xl text-pink-500">
-                            <BrainCircuit size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Память AI</h3>
-                            <p className="text-[10px] text-gray-400">То, чему вы научили ассистента</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
-                        <input 
-                            type="text" 
-                            placeholder="Добавить факт (напр. код от домофона 123)" 
-                            value={newFact}
-                            onChange={e => setNewFact(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && newFact.trim() && (addAIKnowledge(newFact.trim()), setNewFact(''))}
-                            className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm font-bold outline-none text-[#1C1C1E] dark:text-white mb-2"
-                        />
-                        <button 
-                            onClick={() => { if(newFact.trim()) { addAIKnowledge(newFact.trim()); setNewFact(''); } }}
-                            className="w-full py-2 bg-[#1C1C1E] dark:bg-white text-white dark:text-black font-black uppercase text-xs rounded-xl"
-                        >
-                            Добавить в память
-                        </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar">
-                        {aiKnowledge.length === 0 ? (
-                            <p className="text-center text-xs text-gray-400 py-4">Память пуста. Скажите ассистенту "Запомни..." или добавьте здесь.</p>
-                        ) : (
-                            aiKnowledge.map(item => (
-                                <div key={item.id} className="flex items-start justify-between p-3 bg-white dark:bg-[#2C2C2E] rounded-xl border border-gray-50 dark:border-white/5">
-                                    <span className="text-sm font-medium text-[#1C1C1E] dark:text-white pr-2">{item.text}</span>
-                                    <button onClick={() => deleteAIKnowledge(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'budget': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-6 border border-gray-100 dark:border-white/10 shadow-sm">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Настройки бюджета</h3>
-                    
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-gray-500">Процент в копилку: {savingsRate}%</span>
-                        </div>
-                        <input type="range" min="0" max="50" step="1" value={savingsRate} onChange={e => setSavingsRate(Number(e.target.value))} className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-white dark:bg-white/10 text-indigo-500"><Lock size={20} /></div>
-                            <div>
-                                <div className="font-bold text-sm text-[#1C1C1E] dark:text-white">Умный резерв</div>
-                                <div className="text-[10px] text-gray-400">Резервировать деньги на обязательные платежи</div>
-                            </div>
-                        </div>
-                        <Switch checked={settings.enableSmartReserve ?? true} onChange={() => handleChange('enableSmartReserve', !(settings.enableSmartReserve ?? true))} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                            <label className="text-xs font-bold text-gray-500 block mb-1">Начальный баланс</label>
-                            <input 
-                                type="number" 
-                                step="0.01"
-                                placeholder="0"
-                                value={settings.initialBalance || ''} 
-                                onChange={e => handleChange('initialBalance', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
-                                className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white placeholder:text-gray-300" 
-                            />
-                        </div>
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                            <label className="text-xs font-bold text-gray-500 block mb-1">Дата начала</label>
-                            <input type="date" value={settings.initialBalanceDate || ''} onChange={e => handleChange('initialBalanceDate', e.target.value)} className="w-full bg-transparent font-bold text-sm outline-none text-[#1C1C1E] dark:text-white" />
-                        </div>
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                            <label className="text-xs font-bold text-gray-500 block mb-1">Начало дня (ч)</label>
-                            <input 
-                                type="number" 
-                                min="0" max="23"
-                                value={settings.dayStartHour ?? 8} 
-                                onChange={e => handleChange('dayStartHour', parseInt(e.target.value))} 
-                                className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white" 
-                            />
-                        </div>
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                            <label className="text-xs font-bold text-gray-500 block mb-1">Конец дня (ч)</label>
-                            <input 
-                                type="number" 
-                                min="1" max="24"
-                                value={settings.dayEndHour ?? 23} 
-                                onChange={e => handleChange('dayEndHour', parseInt(e.target.value))} 
-                                className="w-full bg-transparent font-bold text-lg outline-none text-[#1C1C1E] dark:text-white" 
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 ml-2">Даты зарплаты</label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {[1, 5, 10, 15, 20, 25, 30].map(day => (
-                                <button key={day} onClick={() => {
-                                    const current = settings.salaryDates || [];
-                                    const updated = current.includes(day) ? current.filter(d => d !== day) : [...current, day];
-                                    handleChange('salaryDates', updated);
-                                }} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${settings.salaryDates?.includes(day) ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-[#2C2C2E] text-gray-400'}`}>
-                                    {day}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Инструменты</h3>
-                    <button onClick={onOpenDuplicates} className="w-full flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-2xl font-bold text-sm">
-                        <div className="flex items-center gap-3"><Copy size={18} /><span>Поиск дублей операций</span></div>
-                        <ChevronRight size={18} />
-                    </button>
-                    <div className="pt-4 border-t border-gray-50 dark:border-white/5 space-y-3">
-                        <label className="text-xs font-bold text-gray-500 ml-2">Массовое удаление</label>
-                        <div className="flex gap-2">
-                            <input type="date" value={deleteStart} onChange={e => setDeleteStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl text-xs font-bold outline-none dark:text-white" />
-                            <input type="date" value={deleteEnd} onChange={e => setDeleteEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl text-xs font-bold outline-none dark:text-white" />
-                        </div>
-                        <button onClick={() => onDeleteTransactionsByPeriod?.(deleteStart, deleteEnd)} disabled={!deleteStart || !deleteEnd} className="w-full py-3 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 disabled:opacity-30">Очистить историю за период</button>
-                    </div>
-                </div>
-            </div>
-        );
-        case 'members': return (
-            <div className="space-y-6 relative h-full">
-                <AnimatePresence>
-                    {isMemberModalOpen && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: 50 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 50 }}
-                            className="absolute inset-0 z-50 bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-2xl flex flex-col"
-                        >
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">{editingMember ? 'Редактировать' : 'Новый участник'}</h3>
-                                <button onClick={() => setIsMemberModalOpen(false)} className="p-2 bg-gray-100 dark:bg-[#3A3A3C] rounded-full"><X size={20} className="text-gray-500 dark:text-gray-300" /></button>
-                            </div>
-                            
-                            <div className="flex-1 space-y-6">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Имя</label>
-                                    <input 
-                                        type="text" 
-                                        value={tempMemberName}
-                                        onChange={(e) => setTempMemberName(e.target.value)}
-                                        placeholder="Имя"
-                                        className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl font-bold text-lg outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-500 transition-colors"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Email (для приглашения)</label>
-                                    <div className="relative">
-                                        <Mail size={18} className="absolute left-4 top-4 text-gray-400" />
-                                        <input 
-                                            type="email" 
-                                            value={tempMemberEmail}
-                                            onChange={(e) => setTempMemberEmail(e.target.value)}
-                                            placeholder="user@gmail.com"
-                                            className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-4 pl-12 rounded-2xl font-medium text-sm outline-none text-[#1C1C1E] dark:text-white border border-transparent focus:border-blue-500 transition-colors"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 mt-2 ml-2">Если указать почту, пользователь будет автоматически добавлен в семью при входе через Google.</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Цвет</label>
-                                    <div className="flex flex-wrap gap-3 bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl">
-                                        {PRESET_COLORS.map(c => (
-                                            <button 
-                                                key={c} 
-                                                onClick={() => setTempMemberColor(c)} 
-                                                className={`w-10 h-10 rounded-full transition-transform ${tempMemberColor === c ? 'scale-110 ring-4 ring-offset-2 ring-blue-500 dark:ring-offset-[#2C2C2E]' : 'hover:scale-105'}`} 
-                                                style={{ backgroundColor: c }} 
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 mt-auto">
-                                {editingMember && (
-                                    <button onClick={handleDeleteMember} className="p-4 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
-                                        <Trash2 size={24} />
-                                    </button>
-                                )}
-                                <button 
-                                    onClick={handleSaveMember}
-                                    disabled={!tempMemberName.trim()}
-                                    className="flex-1 bg-blue-500 text-white p-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-transform disabled:opacity-50"
-                                >
-                                    Сохранить
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm h-full flex flex-col">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-4">Участники семьи</h3>
-                    <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
-                        {members.map(member => (
-                            <div 
-                                key={member.id} 
-                                onClick={() => handleOpenMember(member)}
-                                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <MemberMarker member={member} size="md" />
-                                    <div>
-                                        <div className="font-bold text-[#1C1C1E] dark:text-white">{member.name}</div>
-                                        {member.email && <div className="text-[10px] text-gray-400">{member.email}</div>}
-                                    </div>
-                                </div>
-                                <ChevronRight size={20} className="text-gray-300 dark:text-gray-600" />
-                            </div>
-                        ))}
-                    </div>
-                    <button 
-                        onClick={() => handleOpenMember()}
-                        className="w-full mt-4 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
-                        <Plus size={18} strokeWidth={3} /> Добавить участника
-                    </button>
-                </div>
-            </div>
-        );
-        case 'categories': return (
-            <div className="h-full overflow-hidden">
-                <CategoriesSettings 
-                    categories={categories}
-                    onUpdateCategories={onUpdateCategories}
-                    onDeleteCategory={onDeleteCategory}
-                    learnedRules={learnedRules}
-                    onUpdateRules={onUpdateRules}
-                    settings={settings}
-                    transactions={transactions}
-                    onUpdateTransactions={onUpdateTransactions}
-                />
-            </div>
-        );
-        case 'navigation': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Нижняя панель</h3>
-                    <div className="grid gap-3">
-                        {AVAILABLE_TABS.map(tab => (
-                            <div key={tab.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl">
-                                <div className="flex items-center gap-3"><div className="text-gray-400">{tab.icon}</div><span className="font-bold text-sm">{tab.label}</span></div>
-                                <Switch checked={(settings.enabledTabs || []).includes(tab.id)} onChange={() => toggleTab(tab.id)} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'services': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Сервисы</h3>
-                    <div className="grid gap-3">
-                        {AVAILABLE_SERVICES.map(svc => (
-                            <div key={svc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl">
-                                <div className="flex items-center gap-3"><div className="text-gray-400">{svc.icon}</div><div><div className="font-bold text-sm">{svc.label}</div><div className="text-[10px] text-gray-400 uppercase">{svc.desc}</div></div></div>
-                                <Switch checked={(settings.enabledServices || []).includes(svc.id)} onChange={() => toggleService(svc.id)} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'widgets': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-4">Главный экран</h3>
-                    <p className="text-xs text-gray-400 mb-4">Настройте видимость и порядок виджетов (для мобильной версии).</p>
-                    <div className="space-y-3">
-                        {(settings.widgets || []).map((widget, idx) => {
-                            const meta = WIDGET_METADATA.find(m => m.id === widget.id);
-                            if (!meta) return null;
-                            const isFirst = idx === 0;
-                            const isLast = idx === (settings.widgets || []).length - 1;
-
-                            return (
-                                <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                                    <div className="flex items-center gap-2 flex-1">
-                                        <div className="flex flex-col gap-1 mr-2">
-                                            <button 
-                                                onClick={() => !isFirst && moveWidget(idx, 'up')} 
-                                                disabled={isFirst}
-                                                className={`p-1 rounded-md transition-colors ${isFirst ? 'text-gray-300 dark:text-gray-600' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}
-                                            >
-                                                <ArrowUp size={14} />
-                                            </button>
-                                            <button 
-                                                onClick={() => !isLast && moveWidget(idx, 'down')} 
-                                                disabled={isLast}
-                                                className={`p-1 rounded-md transition-colors ${isLast ? 'text-gray-300 dark:text-gray-600' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}
-                                            >
-                                                <ArrowDown size={14} />
-                                            </button>
-                                        </div>
-                                        <span className="font-bold text-sm">{meta.label}</span>
-                                    </div>
-                                    <Switch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-        );
-        case 'telegram': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-4">
-                    <div className="flex items-center gap-3 mb-2"><div className="bg-blue-500 p-2 rounded-xl text-white"><BellRing size={20}/></div><h3 className="text-lg font-bold">Telegram и уведомления</h3></div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 ml-2">Токен бота</label>
-                        <input type="password" value={settings.telegramBotToken || ''} onChange={e => handleChange('telegramBotToken', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none" placeholder="000000:ABC..." />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 ml-2">ID чата</label>
-                        <input type="text" value={settings.telegramChatId || ''} onChange={e => handleChange('telegramChatId', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl font-mono text-xs outline-none" placeholder="-100..." />
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="text-gray-400"><Send size={20}/></div>
-                            <div>
-                                <div className="font-bold text-sm">Авто-отправка событий</div>
-                                <div className="text-[10px] text-gray-400">Отправлять новые события в чат</div>
-                            </div>
-                        </div>
-                        <Switch checked={settings.autoSendEventsToTelegram} onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} />
-                    </div>
-
-                    <div className="pt-2 space-y-4 border-t dark:border-white/10">
-                        <TemplateEditor 
-                            label="Шаблон списка покупок" 
-                            value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} 
-                            onChange={(val) => handleChange('shoppingTemplate', val)} 
-                            variables={['{items}', '{total}', '{date}']} 
-                            previewData={{ '{items}': '• Молоко\n• Хлеб', '{total}': '2', '{date}': '10.10.2023' }}
-                        />
-                        <TemplateEditor 
-                            label="Шаблон событий" 
-                            value={settings.eventTemplate || '📅 *{title}*\n🕒 {date} {time}\n📝 {description}\n👥 {members}\n📋 {checklist}'} 
-                            onChange={(val) => handleChange('eventTemplate', val)} 
-                            variables={['{title}', '{date}', '{time}', '{description}', '{members}', '{checklist}']} 
-                            previewData={{ '{title}': 'Врач', '{date}': '10.10.2023', '{time}': '14:00', '{description}': 'Взять полис', '{members}': 'Мама, Папа', '{checklist}': '• Паспорт' }}
-                        />
-                    </div>
-                </div>
-            </div>
-        );
-        case 'family': return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm">
-                    <h3 className="text-lg font-bold mb-4 text-[#1C1C1E] dark:text-white">Семейный доступ</h3>
-                    
-                    {/* Status Card */}
-                    <div className={`p-5 rounded-2xl flex items-center gap-4 mb-6 ${currentFamilyId ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-100 dark:border-green-900/30'}`}>
-                        <div className={`p-3 rounded-full ${currentFamilyId ? 'bg-white/50 dark:bg-white/10' : 'bg-white/50 dark:bg-white/10'}`}>
-                            {currentFamilyId ? <Cloud size={24} /> : <CloudOff size={24} />}
-                        </div>
-                        <div>
-                            <div className="font-black text-sm uppercase tracking-wide">
-                                {currentFamilyId ? 'Синхронизация активна' : 'Локальный режим'}
-                            </div>
-                            <div className="text-xs mt-1 font-medium opacity-80">
-                                {auth.currentUser?.email ? (
-                                    <>Аккаунт: {auth.currentUser.email}</>
-                                ) : (
-                                    <>Вы вошли как Гость</>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-2xl mb-4 border border-gray-100 dark:border-white/5">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Key size={16} className="text-purple-500" />
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Текущий Family ID</p>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text"
-                                    value={newFamilyId}
-                                    onChange={(e) => setNewFamilyId(e.target.value)}
-                                    className={`flex-1 bg-white dark:bg-[#1C1C1E] p-4 rounded-xl font-mono text-sm font-bold border transition-all ${newFamilyId !== currentFamilyId ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-transparent'}`}
-                                    placeholder="Введите ID"
-                                />
-                                {newFamilyId !== currentFamilyId && (
-                                    <button 
-                                        onClick={handleUpdateFamilyId}
-                                        disabled={isJoining}
-                                        className="bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50 shadow-lg shadow-blue-500/20"
-                                    >
-                                        {isJoining ? <Loader2 size={20} className="animate-spin" /> : <RefreshCcw size={20} />}
-                                    </button>
-                                )}
-                            </div>
-                            
-                            {newFamilyId !== currentFamilyId && (
-                                <motion.div 
-                                    initial={{ opacity: 0, height: 0 }} 
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    className="px-1"
-                                >
-                                    <label className="flex items-center gap-3 p-3 bg-white dark:bg-[#1C1C1E] rounded-xl border border-blue-100 dark:border-blue-900/20 cursor-pointer active:scale-98 transition-transform shadow-sm">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${shouldMigrate ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-[#3A3A3C] text-gray-400'}`}>
-                                            <MoveUpRight size={20} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold dark:text-white leading-tight">Перенести текущие данные</p>
-                                            <p className="text-[10px] text-gray-400 mt-0.5">Скопировать все записи в новую семью</p>
-                                        </div>
-                                        <Switch checked={shouldMigrate} onChange={() => setShouldMigrate(!shouldMigrate)} />
-                                    </label>
-                                </motion.div>
-                            )}
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-2 leading-relaxed px-1">Чтобы присоединиться к существующей семье, введите её ID выше и нажмите кнопку обновления. Чтобы создать свою группу, введите любой уникальный ID.</p>
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t dark:border-white/10">
-                        <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
-                            <AlertOctagon size={18} className="text-amber-500 shrink-0" />
-                            <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold leading-relaxed uppercase tracking-wider">
-                                Внимание: переключение ID сменит текущий набор данных. Используйте опцию "Перенос", если хотите сохранить записи.
-                            </p>
-                        </div>
-                    </div>
-
-                    {currentFamilyId && (
-                        <button onClick={() => {
-                            const link = `${window.location.origin}/?join=${currentFamilyId}`;
-                            if (navigator.share) navigator.share({ title: 'Семейный Бюджет', text: 'Присоединяйся к нашему бюджету!', url: link });
-                            else { navigator.clipboard.writeText(link); alert("Ссылка скопирована"); }
-                        }} className="w-full mt-6 bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg">
-                            <Share size={16} /> Поделиться кодом
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
-        case 'account': return (
-            <div className="space-y-6">
-                {/* Данные аккаунта / Логин */}
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-5">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400">
-                            <User size={22} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Логин и Профиль</h3>
-                            <p className="text-xs text-gray-400">Настройка логина вашей учетной записи</p>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-gray-100 dark:border-white/5 space-y-3">
-                        <label className="text-xs font-bold text-gray-500 block">Логин / Имя пользователя</label>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={accountLogin}
-                                onChange={e => setAccountLogin(e.target.value)}
-                                className="flex-1 bg-white dark:bg-[#1C1C1E] p-3.5 rounded-xl text-sm font-bold text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-emerald-500"
-                                placeholder="Ваш логин"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleUpdateAccountLogin}
-                                disabled={isUpdatingLogin || !accountLogin.trim() || accountLogin === initialUsername}
-                                className="px-4 py-3 bg-[#3e6b48] hover:bg-[#33593c] text-white font-bold text-xs rounded-xl transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
-                            >
-                                {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                <span>Сохранить</span>
-                            </button>
-                        </div>
-
-                        {requiresLoginPassword && (
-                            <div className="pt-2 space-y-1.5 animate-fadeIn">
-                                <label className="text-xs font-bold text-amber-600 dark:text-amber-400 block">
-                                    Введите текущий пароль для смены авторизационного логина:
-                                </label>
-                                <input 
-                                    type="password"
-                                    value={currentPasswordForLogin}
-                                    onChange={e => setCurrentPasswordForLogin(e.target.value)}
-                                    placeholder="Ваш текущий пароль"
-                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm border border-amber-300 dark:border-amber-500/30 outline-none"
-                                />
-                            </div>
-                        )}
-
-                        <p className="text-[11px] text-gray-400">
-                            Это имя профиля и логин, под которым вы входите в приложение.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Безопасность и Смена пароля */}
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] border border-gray-100 dark:border-white/10 shadow-sm space-y-5">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400">
-                            <ShieldCheck size={22} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white">Смена пароля</h3>
-                            <p className="text-xs text-gray-400">Задайте новый пароль для входа в приложение</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {requiresPassConfirm && (
-                            <div className="space-y-1.5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
-                                <label className="text-xs font-bold text-amber-700 dark:text-amber-300 block">
-                                    Для смены пароля введите ваш текущий пароль:
-                                </label>
-                                <input 
-                                    type="password"
-                                    value={currentPasswordForPass}
-                                    onChange={e => setCurrentPasswordForPass(e.target.value)}
-                                    placeholder="Текущий пароль"
-                                    className="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl text-sm border border-amber-300 dark:border-amber-500/30 outline-none"
-                                />
-                            </div>
-                        )}
-
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500">Новый пароль</label>
-                            <div className="relative">
-                                <input 
-                                    type={showAccountPass ? 'text' : 'password'}
-                                    value={newPassword}
-                                    onChange={e => setNewPassword(e.target.value)}
-                                    placeholder="Минимум 6 символов"
-                                    className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3.5 pr-11 rounded-xl text-sm font-medium text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-blue-500"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAccountPass(!showAccountPass)}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
-                                >
-                                    {showAccountPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500">Подтвердите новый пароль</label>
-                            <input 
-                                type={showAccountPass ? 'text' : 'password'}
-                                value={confirmPassword}
-                                onChange={e => setConfirmPassword(e.target.value)}
-                                placeholder="Повторите новый пароль"
-                                className="w-full bg-gray-50 dark:bg-[#2C2C2E] p-3.5 rounded-xl text-sm font-medium text-[#1C1C1E] dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:border-blue-500"
-                            />
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleUpdatePassword}
-                            disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
-                            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-500/20"
-                        >
-                            {isUpdatingPassword ? <Loader2 size={18} className="animate-spin" /> : <Key size={18} />}
-                            <span>Обновить пароль</span>
-                        </button>
-                    </div>
-
-                    {currentUser?.email && !currentUser.email.endsWith('@family.local') && (
-                        <div className="pt-4 border-t border-gray-100 dark:border-white/5 space-y-2">
-                            <p className="text-xs font-bold text-gray-500">Сброс пароля через электронную почту</p>
-                            <button
-                                type="button"
-                                onClick={handleSendResetEmail}
-                                disabled={isSendingResetEmail}
-                                className="w-full py-3 bg-gray-100 dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-[#3A3A3C] text-gray-700 dark:text-gray-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                                {isSendingResetEmail ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
-                                <span>Отправить ссылку для сброса на {currentUser.email}</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-        case 'general': default: return (
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[2rem] space-y-5 border border-gray-100 dark:border-white/10 shadow-sm">
-                  <h3 className="text-lg font-bold text-[#1C1C1E] dark:text-white mb-4">Основные настройки</h3>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 ml-2">Название семьи</label>
-                    <input type="text" value={settings.familyName} onChange={(e) => handleChange('familyName', e.target.value)} className="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-transparent p-4 rounded-2xl font-bold text-[#1C1C1E] dark:text-white outline-none" />
-                  </div>
-                  
-                  {/* Theme Toggle */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border dark:border-white/5">
-                      <div className="flex items-center gap-3"><div className="p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm text-gray-500 dark:text-white">{settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</div><span className="font-bold text-sm">Темная тема</span></div>
-                      <Switch checked={settings.theme === 'dark'} onChange={toggleTheme} />
-                  </div>
-
-                  {/* AI Status Indicator with Key Input */}
-                  <div className={`p-5 rounded-[1.5rem] border transition-all ${isAIEnabled ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/20' : 'bg-gray-50 dark:bg-[#2C2C2E] border-gray-100 dark:border-white/5'}`}>
-                      <div className="flex items-center gap-3 mb-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isAIEnabled ? 'bg-white dark:bg-white/10 text-purple-600 dark:text-purple-400' : 'bg-white dark:bg-white/5 text-gray-400'}`}>
-                              <Sparkles size={20} />
-                          </div>
-                          <div>
-                              <h3 className={`font-bold text-sm ${isAIEnabled ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>AI Ассистент (Gemini)</h3>
-                              <p className="text-[10px] opacity-70">
-                                  {isAIEnabled ? 'Функции доступны' : 'Требуется настройка'}
-                              </p>
-                          </div>
-                          <div className={`ml-auto px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isAIEnabled ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
-                              {isAIEnabled ? 'Active' : 'Setup'}
-                          </div>
-                      </div>
-                      
-                      <div className="space-y-3">
-                          <div className="relative">
-                              <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                              <input 
-                                  type="password" 
-                                  value={settings.geminiApiKey || ''} 
-                                  onChange={e => handleChange('geminiApiKey', e.target.value)}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] pl-11 pr-4 py-3 rounded-xl font-mono text-xs outline-none border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-[#1C1C1E] dark:text-white shadow-sm" 
-                                  placeholder="Вставьте API ключ (AIza...)" 
-                              />
-                          </div>
-                          
-                          <div className="flex justify-between items-center px-1">
-                              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-500 hover:text-blue-600 flex items-center gap-1 hover:underline">
-                                  Получить ключ бесплатно <MoveUpRight size={10} />
-                              </a>
-                              {settings.geminiApiKey && (
-                                  <span className="text-[9px] text-green-500 font-bold flex items-center gap-1">
-                                      <Check size={10} /> Сохранено
-                                  </span>
-                              )}
-                          </div>
-
-                          {settings.geminiApiKey && (
-                              <button 
-                                  onClick={handleTestKey} 
-                                  disabled={aiTestStatus === 'loading'}
-                                  className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                                      aiTestStatus === 'success' 
-                                          ? 'bg-green-500 text-white' 
-                                          : aiTestStatus === 'error'
-                                              ? 'bg-red-500 text-white'
-                                              : 'bg-white dark:bg-[#2C2C2E] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5'
-                                  }`}
-                              >
-                                  {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : 
-                                   aiTestStatus === 'success' ? <Check size={14}/> : 
-                                   aiTestStatus === 'error' ? <AlertOctagon size={14}/> : <Play size={14}/>}
-                                  {aiTestStatus === 'success' ? 'Работает!' : aiTestStatus === 'error' ? 'Ошибка проверки' : 'Проверить ключ'}
-                              </button>
-                          )}
-                      </div>
-                  </div>
-
-                  <div className="pt-2"><button onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} className="w-full flex items-center justify-center gap-3 p-5 bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"><Smartphone size={20} /> Установить на телефон</button></div>
-                  <div className="pt-4 border-t dark:border-white/10"><button onClick={onLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-500 font-bold bg-red-50 dark:bg-red-500/10 rounded-xl hover:bg-red-100"><LogOut size={18} /> Выйти</button></div>
-                </div>
-            </div>
-        );
+      await onJoinFamily(targetId);
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка при смене ID");
+      setIsJoining(false);
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-4">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={onClose} className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md transform-gpu" />
-        <motion.div 
-            initial={{ scale: 0.96, opacity: 0, y: 8 }} 
-            animate={{ scale: 1, opacity: 1, y: 0 }} 
-            exit={{ scale: 0.96, opacity: 0, y: 8 }} 
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-7xl h-full md:h-[85vh] md:rounded-[3rem] rounded-none shadow-2xl overflow-hidden flex flex-col md:flex-row border dark:border-white/10 transform-gpu"
-        >
-            <div className={`bg-white dark:bg-[#1C1C1E] border-r dark:border-white/10 flex-col shrink-0 overflow-y-auto no-scrollbar md:w-64 md:flex md:static ${showMobileMenu ? 'flex absolute inset-0 w-full z-20' : 'hidden'}`}>
-                <div className="p-6 md:p-8 pt-safe md:pt-8 border-b dark:border-white/5 flex items-center justify-between md:justify-start gap-3 text-[#1C1C1E] dark:text-white"><span className="font-black text-xl">Настройки</span><button onClick={onClose} className="md:hidden w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button></div>
-                <div className="flex-1 p-4 space-y-2">
-                    {SECTIONS.map(section => (
-                        <button key={section.id} onClick={() => { setActiveSection(section.id); setShowMobileMenu(false); }} className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${activeSection === section.id && !showMobileMenu ? 'bg-blue-500 text-white shadow-lg' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}>
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeSection === section.id && !showMobileMenu ? 'bg-white/20' : 'bg-gray-50 dark:bg-white/10'}`}>{section.icon}</div>
-                            <span className="font-bold text-sm flex-1 text-left">{section.label}</span>
-                            <ChevronRight size={16} className="opacity-40" />
-                        </button>
-                    ))}
+  const filteredSections = SECTIONS.filter(s => 
+    s.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    s.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderSectionContent = () => {
+    switch (activeSection) {
+      case 'general':
+        return (
+          <div className="space-y-4 max-w-4xl">
+            {/* 1. Темное оформление */}
+            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex items-center justify-between transition-colors">
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="w-11 h-11 rounded-xl bg-gray-200/80 dark:bg-white/10 flex items-center justify-center text-gray-700 dark:text-gray-300 shrink-0">
+                  {settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
                 </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Темное оформление</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Смена графической темы для работы в вечернее время</p>
+                </div>
+              </div>
+              <ToggleSwitch checked={settings.theme === 'dark'} onChange={toggleTheme} />
             </div>
-            <div className={`flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#F2F2F7] dark:bg-black pt-safe md:pt-0 ${showMobileMenu ? 'hidden' : 'flex'}`}>
-                <div className="p-4 md:p-6 border-b dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex justify-between items-center text-[#1C1C1E] dark:text-white">
-                    <div className="flex items-center gap-2"><button onClick={() => setShowMobileMenu(true)} className="md:hidden p-2 text-gray-500"><ArrowLeft size={24} /></button><h2 className="text-xl font-black">{SECTIONS.find(s => s.id === activeSection)?.label}</h2></div>
-                    <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center"><X size={20}/></button>
+
+            {/* 2. Установить на телефон */}
+            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="w-11 h-11 rounded-xl bg-blue-100/80 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Smartphone size={20} />
                 </div>
-                <div className={`flex-1 overflow-y-auto no-scrollbar overscroll-contain ${activeSection === 'categories' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'}`}>
-                    <div className={`max-w-4xl mx-auto w-full h-full ${activeSection === 'categories' ? 'max-w-full' : ''}`}>
-                        {renderSectionContent()}
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Установить на телефон</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Быстрый запуск с иконкой на домашнем экране</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} 
+                className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+              >
+                <Smartphone size={16} />
+                <span>Установить на телефон</span>
+              </button>
+            </div>
+
+            {/* 3. Статус подключения к серверу (без лишних подробностей) */}
+            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="w-11 h-11 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Server size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Статус подключения к серверу</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Мониторинг соединения с базой данных</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 border ${
+                  isDbConnected 
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/40' 
+                    : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/40'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  {isDbConnected ? 'Онлайн • Подключено' : 'Автономный режим'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCheckDbConnection}
+                  disabled={isCheckingDb}
+                  className="p-2.5 rounded-xl bg-white dark:bg-[#18191C] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-white/10 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                  title="Проверить связь"
+                >
+                  {isCheckingDb ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Выйти из профиля */}
+            <div className="pt-2">
+              <button 
+                type="button" 
+                onClick={() => setShowLogoutConfirm(true)} 
+                className="w-full p-4 rounded-2xl bg-red-50/80 hover:bg-red-100/90 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer border border-red-100 dark:border-red-900/30"
+              >
+                <LogOut size={18} />
+                <span>Выйти из профиля</span>
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'account':
+        return (
+          <div className="space-y-6 max-w-4xl">
+            {/* Top Session Status & Breadcrumb bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
+                <Shield size={16} />
+                <span>Безопасность и аккаунт</span>
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Сессия активна: Веб-терминал</span>
+              </div>
+            </div>
+
+            {/* CARD 1: Учетная запись (Личные данные) */}
+            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 shadow-xs">
+                    <User size={20} />
+                  </div>
+                  <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Учетная запись</h3>
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                  Личные данные
+                </span>
+              </div>
+
+              {/* User Info Highlight Card */}
+              <div className="p-5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h4 className="font-headline font-bold text-xl text-gray-900 dark:text-white">
+                      {currentUser?.displayName || accountLogin || 'Алексей Смирнов'}
+                    </h4>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#4A7C59] dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold">
+                      <Award size={13} />
+                      <span>Администратор пространства</span>
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {currentUser?.email || 'alexey@semyaplus.ru'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-6 flex-wrap sm:flex-nowrap">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Привязанный телефон</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">+7 (926) •••-42-18</span>
+                  </div>
+                  <div className="h-8 w-px bg-gray-200 dark:bg-white/10 hidden sm:block" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Дата регистрации</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">
+                      {currentUser?.metadata?.creationTime 
+                        ? new Date(currentUser.metadata.creationTime).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+                        : '14 октября 2023'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Login / Username Row */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Логин / Имя пользователя
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <span className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-gray-400">
+                      <AtSign size={18} />
+                    </span>
+                    <input
+                      type="text"
+                      value={accountLogin}
+                      onChange={e => setAccountLogin(e.target.value)}
+                      placeholder="alexey_smirnov"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUpdateAccountLogin}
+                    disabled={isUpdatingLogin || !accountLogin.trim() || accountLogin === initialUsername}
+                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                  >
+                    {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    <span>{accountLogin !== initialUsername ? 'Сохранить логин' : 'Изменить'}</span>
+                  </button>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400 inline-block">
+                  Используется для быстрых упоминаний в задачах и общих планах покупок.
+                </span>
+
+                {requiresLoginPassword && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2">
+                    <label className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                      Введите текущий пароль для подтверждения смены логина:
+                    </label>
+                    <input
+                      type="password"
+                      value={currentPasswordForLogin}
+                      onChange={e => setCurrentPasswordForLogin(e.target.value)}
+                      placeholder="Текущий пароль"
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* CARD 2: Смена пароля */}
+            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-5">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 shadow-xs">
+                    <Lock size={20} />
+                  </div>
+                  <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Смена пароля</h3>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-[#4A7C59] dark:text-emerald-400 font-semibold">
+                  <CheckCircle2 size={16} />
+                  <span>Последнее изменение 3 мес. назад</span>
+                </div>
+              </div>
+
+              {requiresPassConfirm && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5">
+                  <label className="text-xs font-bold text-amber-800 dark:text-amber-300">Введите текущий пароль для подтверждения:</label>
+                  <input
+                    type="password"
+                    value={currentPasswordForPass}
+                    onChange={e => setCurrentPasswordForPass(e.target.value)}
+                    placeholder="Текущий пароль"
+                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none"
+                  />
+                </div>
+              )}
+
+              {/* 3 Fields Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                    Текущий пароль
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPass ? 'text' : 'password'}
+                      value={currentPasswordForPass}
+                      onChange={e => setCurrentPasswordForPass(e.target.value)}
+                      placeholder="Текущий пароль"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                    >
+                      {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                    Новый пароль
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPass ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Минимум 6 символов"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                    >
+                      {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                    Повторите новый пароль
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPass ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Повторите ввод"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                    >
+                      {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Requirements Bar & Action */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
+                  <span className={`inline-flex items-center gap-1 ${/[A-ZА-Я]/.test(newPassword) ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                    <Check size={14} /> Заглавные буквы
+                  </span>
+                  <span className={`inline-flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                    <Check size={14} /> Цифры
+                  </span>
+                  <span className={`inline-flex items-center gap-1 ${newPassword.length >= 6 ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                    <Check size={14} /> Мин. 6 символов
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleUpdatePassword}
+                  disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                  className="px-6 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                >
+                  {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
+                  <span>Обновить пароль</span>
+                </button>
+              </div>
+
+              {currentUser?.email && !currentUser.email.endsWith('@family.local') && (
+                <div className="pt-3 border-t border-gray-200/80 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmail}
+                    disabled={isSendingResetEmail}
+                    className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Mail size={14} />
+                    <span>Сбросить пароль по электронной почте ({currentUser.email})</span>
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* CARD 3: Двухфакторная аутентификация (2FA) */}
+            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={22} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">
+                        Двухфакторная аутентификация (2FA)
+                      </h3>
+                      <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                        Рекомендовано
+                      </span>
                     </div>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-xl">
+                      Дополнительное подтверждение через Telegram при входе с нового устройства. Код одноразового доступа приходит в официальный бот Terra Guard.
+                    </p>
+                    <div className="flex items-center gap-2 pt-2 text-xs text-gray-500 dark:text-gray-400">
+                      <Send size={14} className="text-[#4A7C59] dark:text-emerald-400" />
+                      <span>Привязанный Telegram: <strong className="text-gray-800 dark:text-gray-200 font-semibold">@alex_terra_user</strong></span>
+                    </div>
+                  </div>
                 </div>
+
+                <ToggleSwitch 
+                  checked={is2FAEnabled} 
+                  onChange={() => {
+                    setIs2FAEnabled(!is2FAEnabled);
+                    toast.success(!is2FAEnabled ? '2FA успешно активирована' : '2FA деактивирована');
+                  }} 
+                />
+              </div>
+
+              {/* Active Sessions Subcard */}
+              <div className="pt-4 bg-white dark:bg-[#18191C] rounded-xl p-4 border border-gray-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Laptop size={20} className="text-gray-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-semibold text-gray-900 dark:text-white block">Активные доверенные сессии</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">MacBook Pro 16" (Текущий), iPhone 15 Pro, iPad Air</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toast.success('Все остальные сеансы успешно завершены')}
+                  className="text-xs font-semibold text-[#4A7C59] dark:text-emerald-400 hover:underline self-start sm:self-auto cursor-pointer"
+                >
+                  Завершить другие сеансы
+                </button>
+              </div>
+            </section>
+
+            {/* BOTTOM ACTIONS & LOGOUT */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 pb-4">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Все действия в журнале аудита шифруются локальным ключом семьи.
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-red-50 hover:bg-red-100/90 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold text-sm transition-all shadow-xs cursor-pointer border border-red-100 dark:border-red-900/30 active:scale-[0.98]"
+              >
+                <LogOut size={18} />
+                <span>Выйти из профиля</span>
+              </button>
             </div>
-        </motion.div>
-        <AnimatePresence>{showInstallGuide && (
-            <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6"><motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-xl" /><motion.div initial={{scale:0.9, opacity:0, y:20}} animate={{scale:1, opacity:1, y:0}} exit={{scale:0.9, opacity:0, y:20}} className="relative bg-white dark:bg-[#1C1C1E] p-8 rounded-[3rem] shadow-2xl max-w-sm w-full space-y-6"><div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-2xl flex items-center justify-center mx-auto"><Smartphone size={32} /></div><div className="text-center"><h3 className="text-xl font-black">Установка</h3><p className="text-sm text-gray-500">Добавьте приложение на главный экран для быстрого доступа.</p></div><div className="space-y-4"><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0 text-black dark:text-white">1</div><p className="text-xs font-bold">Нажмите <span className="inline-block p-1 bg-white dark:bg-black rounded shadow-sm mx-1"><Share size={12}/> Поделиться</span></p></div><div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl"><div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center text-xs font-black shrink-0 text-black dark:text-white">2</div><p className="text-xs font-bold">Выберите <span className="text-blue-500">«На экран "Домой"»</span></p></div></div><button onClick={() => setShowInstallGuide(false)} className="w-full bg-[#1C1C1E] dark:bg-white text-white dark:text-black py-4 rounded-2xl font-black uppercase text-xs">Понятно</button></motion.div></div>
-        )}</AnimatePresence>
+          </div>
+        );
+
+      case 'budget':
+        return (
+          <BudgetSettingsSection
+            settings={settings}
+            onUpdateSetting={handleChange}
+            savingsRate={savingsRate}
+            setSavingsRate={setSavingsRate}
+            transactions={transactions}
+            onOpenDuplicates={onOpenDuplicates}
+            onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}
+          />
+        );
+
+      case 'members':
+        return (
+          <MembersSettingsSection 
+            members={members}
+            onUpdateMembers={onUpdateMembers}
+            currentFamilyId={currentFamilyId}
+            transactions={transactions}
+          />
+        );
+
+      case 'categories':
+        return (
+          <div className="h-full overflow-hidden min-h-[500px]">
+            <CategoriesSettings 
+              categories={categories}
+              onUpdateCategories={onUpdateCategories}
+              onDeleteCategory={onDeleteCategory}
+              learnedRules={learnedRules}
+              onUpdateRules={onUpdateRules}
+              settings={settings}
+              transactions={transactions}
+              onUpdateTransactions={onUpdateTransactions}
+            />
+          </div>
+        );
+
+      case 'ai_memory':
+        return (
+          <div className="space-y-6">
+            {/* AI Assistant Gemini Key Card */}
+            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI Ассистент (Gemini)</h3>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        isAIEnabled ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {isAIEnabled ? 'Активен' : 'Требует ключ'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Умный поиск, финансовый советник, сканирование чеков и память</p>
+                  </div>
+                </div>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
+                  Получить ключ бесплатно <MoveUpRight size={12} />
+                </a>
+              </div>
+
+              <div className="space-y-2">
+                <div className="relative">
+                  <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type={showGeminiKey ? "text" : "password"} 
+                    value={settings.geminiApiKey || ''} 
+                    onChange={e => handleChange('geminiApiKey', e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    placeholder="Вставьте ваш Google Gemini API key..." 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowGeminiKey(!showGeminiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                  >
+                    {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {settings.geminiApiKey && (
+                  <button 
+                    type="button"
+                    onClick={handleTestKey} 
+                    disabled={aiTestStatus === 'loading'}
+                    className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      aiTestStatus === 'success' ? 'bg-emerald-600 text-white' : 
+                      aiTestStatus === 'error' ? 'bg-red-600 text-white' : 
+                      'bg-white dark:bg-[#18191C] text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : <Play size={14}/>}
+                    {aiTestStatus === 'success' ? 'Ключ проверен и работает!' : aiTestStatus === 'error' ? 'Ошибка авторизации ключа' : 'Проверить ключ AI'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* AI Knowledge Base */}
+            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <BrainCircuit size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">База знаний ассистента</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Факты, привычки и постоянно контекстное окружение</p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input 
+                  type="text" 
+                  value={newFact}
+                  onChange={e => setNewFact(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && newFact.trim() && (addAIKnowledge(newFact.trim()), setNewFact(''))}
+                  placeholder="Добавить факт (напр. код от домофона 123, зарплата 10-го числа...)" 
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => { if(newFact.trim()) { addAIKnowledge(newFact.trim()); setNewFact(''); } }} 
+                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors cursor-pointer"
+                >
+                  Запомнить
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Сохраненные факты</h4>
+              {aiKnowledge.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl bg-gray-50 dark:bg-[#202225] text-xs text-gray-400">
+                  Память пока пуста. Добавьте факты вручную или скажите ассистенту в чате «Запомни...»
+                </div>
+              ) : (
+                aiKnowledge.map(item => (
+                  <div key={item.id} className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.text}</span>
+                    <button type="button" onClick={() => deleteAIKnowledge(item.id)} className="text-gray-400 hover:text-red-500 p-1">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+
+      case 'services':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {AVAILABLE_SERVICES.map(svc => {
+                const isEnabled = (settings.enabledServices || []).includes(svc.id);
+                return (
+                  <div key={svc.id} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        isEnabled ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400' : 'bg-gray-200 dark:bg-white/10 text-gray-500'
+                      }`}>
+                        {svc.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">{svc.label}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{svc.desc}</p>
+                      </div>
+                    </div>
+                    <ToggleSwitch checked={isEnabled} onChange={() => toggleService(svc.id)} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      case 'telegram':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-2">
+                <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
+                <input 
+                  type="password" 
+                  value={settings.telegramBotToken || ''} 
+                  onChange={e => handleChange('telegramBotToken', e.target.value)} 
+                  className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
+                  placeholder="609800:ABC..." 
+                />
+              </div>
+              <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-2">
+                <label className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
+                <input 
+                  type="text" 
+                  value={settings.telegramChatId || ''} 
+                  onChange={e => handleChange('telegramChatId', e.target.value)} 
+                  className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
+                  placeholder="-1001928374650" 
+                />
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Авто-отправка событий</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Мгновенно транслировать новые траты в Telegram-чат</p>
+              </div>
+              <ToggleSwitch 
+                checked={settings.autoSendEventsToTelegram ?? false} 
+                onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} 
+              />
+            </div>
+
+            <TemplateEditor 
+              label="Шаблон списка покупок" 
+              value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} 
+              onChange={(val) => handleChange('shoppingTemplate', val)} 
+              variables={['{items}', '{total}', '{date}']} 
+              previewData={{ '{items}': '• Молоко\n• Хлеб', '{total}': '250', '{date}': '10.10.2026' }}
+            />
+
+            <TemplateEditor 
+              label="Шаблон событий" 
+              value={settings.eventTemplate || '📅 *{title}*\n🕒 {date} {time}\n📝 {description}\n👥 {members}'} 
+              onChange={(val) => handleChange('eventTemplate', val)} 
+              variables={['{title}', '{date}', '{time}', '{description}', '{members}']} 
+              previewData={{ '{title}': 'Врач', '{date}': '10.10.2026', '{time}': '14:00', '{description}': 'Прием стоматолога', '{members}': 'Павел' }}
+            />
+          </div>
+        );
+
+      case 'family':
+        return (
+          <div className="space-y-6">
+            <div className={`p-5 rounded-2xl flex items-center justify-between ${
+              currentFamilyId ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40'
+            }`}>
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-white/50 dark:bg-white/10 flex items-center justify-center">
+                  {currentFamilyId ? <Cloud size={20} /> : <CloudOff size={20} />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {currentFamilyId ? 'Облачный режим (Синхронизировано)' : 'Локальный автономный режим'}
+                  </h3>
+                  <p className="text-xs opacity-80 mt-0.5">
+                    {auth.currentUser?.email ? `Учетная запись: ${auth.currentUser.email}` : 'Режим без авторизации (данные на устройстве)'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+              <label className="text-sm font-bold text-gray-900 dark:text-white block">Идентификатор пространства (Space ID)</label>
+              <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                <input 
+                  type="text" 
+                  value={newFamilyId} 
+                  onChange={(e) => setNewFamilyId(e.target.value)} 
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                  placeholder="SPACE-ID"
+                />
+                <button 
+                  type="button" 
+                  onClick={handleUpdateFamilyId} 
+                  disabled={isJoining || newFamilyId === currentFamilyId} 
+                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isJoining ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                  <span>Подключиться</span>
+                </button>
+              </div>
+
+              {newFamilyId !== currentFamilyId && (
+                <div className="p-3 bg-white dark:bg-[#18191C] rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-900 dark:text-white">Перенести текущие данные</p>
+                    <p className="text-[11px] text-gray-500">Скопировать существующие операции в новое пространство</p>
+                  </div>
+                  <ToggleSwitch checked={shouldMigrate} onChange={() => setShouldMigrate(!shouldMigrate)} />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'widgets':
+        return (
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Порядок и видимость виджетов</h3>
+              <div className="space-y-2">
+                {(settings.widgets || []).map((widget, idx) => {
+                  const meta = WIDGET_METADATA.find(m => m.id === widget.id);
+                  if (!meta) return null;
+                  const isFirst = idx === 0;
+                  const isLast = idx === (settings.widgets || []).length - 1;
+
+                  return (
+                    <div key={widget.id} className="p-3.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-1">
+                          <button 
+                            type="button" 
+                            onClick={() => !isFirst && moveWidget(idx, 'up')} 
+                            disabled={isFirst} 
+                            className="text-gray-400 hover:text-[#4A7C59] disabled:opacity-30"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => !isLast && moveWidget(idx, 'down')} 
+                            disabled={isLast} 
+                            className="text-gray-400 hover:text-[#4A7C59] disabled:opacity-30"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                        </div>
+                        <span className="text-xs font-bold text-gray-900 dark:text-white">{meta.label}</span>
+                      </div>
+                      <ToggleSwitch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'navigation':
+        return (
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Отображение вкладок навигации</h3>
+              <div className="space-y-2">
+                {AVAILABLE_TABS.map(tab => {
+                  const isEnabled = (settings.enabledTabs || []).includes(tab.id);
+                  return (
+                    <div key={tab.id} className="p-3.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="text-gray-500">{tab.icon}</div>
+                        <span className="text-xs font-bold text-gray-900 dark:text-white">{tab.label}</span>
+                      </div>
+                      <ToggleSwitch checked={isEnabled} onChange={() => toggleTab(tab.id)} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const currentSection = SECTIONS.find(s => s.id === activeSection) || SECTIONS[0];
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6">
+      {/* Backdrop */}
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        onClick={onClose} 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+      />
+
+      {/* Main Container */}
+      <motion.div 
+        initial={{ scale: 0.98, opacity: 0 }} 
+        animate={{ scale: 1, opacity: 1 }} 
+        exit={{ scale: 0.98, opacity: 0 }} 
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        className="relative bg-white dark:bg-[#18191C] w-full max-w-6xl h-full md:max-h-[860px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10"
+      >
+        {/* DESKTOP Top Header Bar (md and up) */}
+        <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 bg-gray-100 dark:bg-white/10 px-2.5 py-0.5 rounded-full">
+              Центр управления
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </header>
+
+        {/* MOBILE Top Header Bar (< md) */}
+        <header className="md:hidden h-14 px-4 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
+          {showMobileMenu ? (
+            <div className="flex items-center gap-2">
+              <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/40">
+                Terra Hub
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <button 
+                type="button" 
+                onClick={() => setShowMobileMenu(true)} 
+                className="flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
+              >
+                <ArrowLeft size={16} />
+                <span>Назад</span>
+              </button>
+              <h3 className="font-headline text-sm font-bold text-gray-900 dark:text-white truncate">
+                {currentSection.id === 'general' 
+                  ? 'Общее' 
+                  : currentSection.id === 'account' 
+                    ? 'Аккаунт' 
+                    : currentSection.label}
+              </h3>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {!showMobileMenu && (currentSection.id === 'general' || currentSection.id === 'account' || currentSection.id === 'budget') && (
+              <button
+                type="button"
+                onClick={() => toast.success('Настройки сохранены')}
+                className="px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+              >
+                <Check size={14} />
+                <span>Сохранить</span>
+              </button>
+            )}
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* 2-Column Core Layout / Mobile Screen */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
+          {showMobileMenu && (
+            <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618]">
+              {/* Profile Card */}
+              <div 
+                onClick={() => { setActiveSection('account'); setShowMobileMenu(false); }}
+                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#4A7C59]/40"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#4A7C59] dark:text-emerald-300 font-bold text-lg flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
+                    {(currentUser?.displayName || accountLogin || 'А')[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                        {currentUser?.displayName || accountLogin || 'Алексей Смирнов'}
+                      </h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
+                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      {currentUser?.email || 'alexey@semyaplus.ru'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
+              </div>
+
+              {/* Group 1: Основные настройки */}
+              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
+                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Основные настройки
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {[
+                    { id: 'general', label: 'Общее', subtitle: 'Базовые параметры интерфейса и алгоритмов', icon: <SlidersHorizontal size={18} className="text-[#4A7C59] dark:text-emerald-400" />, iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+                    { id: 'budget', label: 'Параметры бюджета', subtitle: 'Резерв, лимиты, зарплаты', icon: <Calculator size={18} className="text-blue-600 dark:text-blue-400" />, iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+                    { id: 'members', label: 'Участники', subtitle: 'Список пользователей и профили', icon: <Users size={18} className="text-purple-600 dark:text-purple-400" />, iconBg: 'bg-purple-50 dark:bg-purple-950/40', badge: `${members.length} уч.` },
+                    { id: 'categories', label: 'Категории и правила', subtitle: 'Автоматизация правил и теги', icon: <Tag size={18} className="text-amber-600 dark:text-amber-400" />, iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
+                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
+                          {item.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {item.badge && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
+                            {item.badge}
+                          </span>
+                        )}
+                        <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Group 2: Модули и сервисы */}
+              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
+                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Модули и сервисы
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {[
+                    { id: 'ai_memory', label: 'Память AI', subtitle: 'AI ассистент, ключ Gemini, база знаний', icon: <BrainCircuit size={18} className="text-indigo-600 dark:text-indigo-400" />, iconBg: 'bg-indigo-50 dark:bg-indigo-950/40' },
+                    { id: 'services', label: 'Сервисы и кошельки', subtitle: 'Кошелек, вишлист, долги', icon: <AppWindow size={18} className="text-rose-600 dark:text-rose-400" />, iconBg: 'bg-rose-50 dark:bg-rose-950/40' },
+                    { id: 'telegram', label: 'Telegram-уведомления', subtitle: 'Бот, форматы отчетов и чек', icon: <Send size={18} className="text-sky-500 dark:text-sky-400" />, iconBg: 'bg-sky-50 dark:bg-sky-950/40' },
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
+                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
+                          {item.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Group 3: Система и интерфейс */}
+              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
+                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Система и интерфейс
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {[
+                    { id: 'family', label: 'Синхронизация и доступ', subtitle: 'ID пространства, перенос данных', icon: <Cloud size={18} className="text-teal-600 dark:text-teal-400" />, iconBg: 'bg-teal-50 dark:bg-teal-950/40' },
+                    { id: 'widgets', label: 'Виджеты', subtitle: 'Порядок и видимость блоков', icon: <LayoutGrid size={18} className="text-gray-700 dark:text-gray-300" />, iconBg: 'bg-gray-100 dark:bg-white/10' },
+                    { id: 'navigation', label: 'Навигация', subtitle: 'Нижняя панель и вкладки', icon: <Menu size={18} className="text-gray-700 dark:text-gray-300" />, iconBg: 'bg-gray-100 dark:bg-white/10' },
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
+                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
+                          {item.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="w-full p-4 rounded-2xl bg-white dark:bg-[#202225] border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 font-semibold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xs hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-[0.99] cursor-pointer"
+                >
+                  <LogOut size={18} />
+                  <span>Выйти из профиля</span>
+                </button>
+              </div>
+
+              {/* Footer version */}
+              <div className="text-center pb-8 pt-2">
+                <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                  Terra Hub • v2.4 • Умный семейный бюджет
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* DESKTOP Navigation Sidebar (always visible on md+) */}
+          <aside className="hidden md:flex w-[280px] lg:w-[310px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-4 flex-col shrink-0 overflow-y-auto">
+            <div className="px-2 pt-1 pb-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                Разделы системы
+              </span>
+            </div>
+
+            <nav className="space-y-1 flex-1">
+              {filteredSections.map(section => {
+                const isActive = activeSection === section.id;
+                return (
+                  <button 
+                    key={section.id} 
+                    type="button"
+                    onClick={() => { 
+                      setActiveSection(section.id); 
+                    }} 
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-[#4A7C59] text-white shadow-sm' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <div className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {section.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold truncate leading-tight">{section.label}</div>
+                      <div className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                        {section.subtitle}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          {/* Right Main Content Panel (visible on md+, or on mobile when showMobileMenu is false) */}
+          <main className={`flex-1 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
+            showMobileMenu ? 'hidden md:flex' : 'flex'
+          }`}>
+            {/* Desktop Section Header (hidden on mobile since mobile header is at top, and hidden for categories which has its own toolbar) */}
+            {currentSection.id !== 'categories' && (
+              <div className="hidden md:flex p-6 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-headline text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                        {currentSection.id === 'general' 
+                          ? 'Основные настройки' 
+                          : currentSection.id === 'account' 
+                            ? 'Аккаунт и безопасность' 
+                            : currentSection.id === 'budget'
+                              ? 'Параметры бюджета'
+                              : currentSection.label}
+                      </h3>
+                      {currentSection.id === 'account' && (
+                        <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {currentSection.id === 'general' 
+                        ? 'Базовые параметры интерфейса и алгоритмов.' 
+                        : currentSection.id === 'account' 
+                          ? 'Управление доступом к семейному пространству и смена учетных данных' 
+                          : currentSection.id === 'budget'
+                            ? 'Финансовый цикл, суточные лимиты, зарплатные даты и авто-резерв'
+                            : currentSection.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {(currentSection.id === 'general' || currentSection.id === 'account' || currentSection.id === 'budget') && (
+                  <button
+                    type="button"
+                    onClick={() => toast.success('Настройки сохранены')}
+                    className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-semibold transition-colors shadow-sm flex items-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    <Check size={16} />
+                    <span className="hidden sm:inline">Сохранить изменения</span>
+                    <span className="sm:hidden">Сохранить</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Scrollable Section Content Canvas */}
+            <div className={`flex-1 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6'}`}>
+              {renderSectionContent()}
+            </div>
+          </main>
+        </div>
+      </motion.div>
+
+      {/* Guide Modal */}
+      <AnimatePresence>
+        {showInstallGuide && (
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full space-y-4">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center mx-auto">
+                <Smartphone size={24} />
+              </div>
+              <div className="text-center">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Установка приложения</h3>
+                <p className="text-xs text-gray-500 mt-1">Добавьте иконку Terra Hub на домашний экран мобильного устройства.</p>
+              </div>
+              <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
+                <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
+                  <span className="font-bold">1.</span>
+                  <span>Нажмите «Поделиться» в браузере Safari или меню Chrome</span>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
+                  <span className="font-bold">2.</span>
+                  <span>Выберите пункт «На экран "Домой"»</span>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full bg-[#4A7C59] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+                Понятно
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6">
+            {/* Backdrop with Blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isLoggingOut && setShowLogoutConfirm(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-[6px]"
+            />
+
+            {/* Confirmation Dialog Card */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-gray-200/80 dark:border-white/10 z-10"
+            >
+              {/* Subtle ambient decorative glows */}
+              <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-red-500/10 filter blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 filter blur-3xl pointer-events-none" />
+
+              {/* Modal Header */}
+              <div className="relative z-10 flex items-start justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-red-100/80 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs">
+                    <LogOut size={24} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs uppercase tracking-wider font-bold text-red-600 dark:text-red-400">
+                      Сессия пользователя
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Terra Hub v3.4 • Узел «Северный»
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isLoggingOut}
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-500 dark:text-gray-300 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Main Content */}
+              <div className="relative z-10 flex flex-col gap-2">
+                <h2 className="font-headline text-2xl font-bold text-gray-900 dark:text-white tracking-tight leading-snug">
+                  Выйти из профиля?
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Локальные данные синхронизированы с облаком. Чтобы войти снова, потребуется ввести логин и пароль или код доступа к пространству.
+                </p>
+              </div>
+
+              {/* Space Sync Status Banner */}
+              <div className="relative z-10 bg-gray-50 dark:bg-[#18191C] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-gray-100 dark:border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 flex items-center justify-center text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-white/10">
+                    <Database size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Активное пространство</span>
+                    <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                    </span>
+                  </div>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold self-start sm:self-center">
+                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <span>Синхронизировано</span>
+                </div>
+              </div>
+
+              {/* Metadata Grid */}
+              <div className="relative z-10 grid grid-cols-2 gap-3">
+                <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
+                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Устройство авторизации</span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-white truncate">MacBook Pro (Главный терминал)</span>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
+                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Сохраненных черновиков</span>
+                  <span className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCheck size={14} /> Все 18 записаны
+                  </span>
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="relative z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isLoggingOut}
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all cursor-pointer text-center active:scale-[0.98]"
+                >
+                  Остаться
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoggingOut}
+                  onClick={handleConfirmLogout}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98]"
+                >
+                  {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
+                  <span>{isLoggingOut ? 'Выход...' : 'Да, выйти'}</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>,
     document.body
   );

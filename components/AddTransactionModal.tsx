@@ -10,6 +10,7 @@ import { auth } from '../firebase';
 import { getIconById, MemberMarker } from '../constants';
 import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
 import { triggerHaptic } from '../utils/haptics';
+import { sendTelegramMessage } from '../utils/telegram';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -201,23 +202,21 @@ export default function AddTransactionModal({
 
     // Optional Telegram notification
     if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
-      try {
-        const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
-        const formattedAmount = finalAmount.toLocaleString('ru-RU');
-        const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
-        
-        fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: settings.telegramChatId,
-            text: telegramText,
-            parse_mode: 'Markdown'
-          })
-        }).catch(err => console.error("Telegram notification failed:", err));
-      } catch (err) {
-        console.error("Failed to dispatch telegram notification:", err);
-      }
+      const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
+      const formattedAmount = finalAmount.toLocaleString('ru-RU');
+      const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
+      
+      sendTelegramMessage({
+        config: {
+          botToken: settings.telegramBotToken,
+          chatId: settings.telegramChatId,
+          apiUrl: settings.telegramApiUrl,
+        },
+        text: telegramText,
+        parseMode: 'Markdown',
+      }).catch(err => {
+        console.error("Telegram notification failed:", err);
+      });
     }
 
     await onSubmit(txData);

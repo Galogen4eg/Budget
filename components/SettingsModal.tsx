@@ -23,6 +23,8 @@ import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
 import { toast } from 'sonner';
+import { testTelegramBotConnection } from '../utils/telegram';
+import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -214,6 +216,70 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleTestTelegramConnection = async () => {
+    if (!settings.telegramBotToken?.trim()) {
+      toast.error('Введите токен бота Telegram');
+      return;
+    }
+    setIsTestingTelegram(true);
+    setTelegramTestResult(null);
+    try {
+      const res = await testTelegramBotConnection({
+        botToken: settings.telegramBotToken,
+        apiUrl: settings.telegramApiUrl,
+      });
+      setTelegramTestResult(res);
+      if (res.ok) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка проверки связи';
+      setTelegramTestResult({ ok: false, message: errorMsg });
+      toast.error(errorMsg);
+    } finally {
+      setIsTestingTelegram(false);
+    }
+  };
+
+  const [queuedMessagesCount, setQueuedMessagesCount] = useState(0);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+
+  const refreshQueueCount = async () => {
+    try {
+      const messages = await getQueuedTelegramMessages();
+      setQueuedMessagesCount(messages.length);
+    } catch {
+      setQueuedMessagesCount(0);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'telegram') {
+      refreshQueueCount();
+    }
+  }, [activeSection]);
+
+  const handleFlushTelegramQueue = async () => {
+    setIsProcessingQueue(true);
+    try {
+      const result = await processTelegramQueue();
+      await refreshQueueCount();
+      if (result.processedCount > 0) {
+        toast.success(`Успешно отправлено из очереди: ${result.processedCount}`);
+      } else if (result.failedCount > 0) {
+        toast.error(`Не удалось отправить ${result.failedCount} сообщений (проверьте связь)`);
+      } else {
+        toast.info('Очередь сообщений пуста');
+      }
+    } finally {
+      setIsProcessingQueue(false);
+    }
+  };
 
   const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
@@ -1076,6 +1142,89 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
               </div>
             </div>
+
+            <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Шлюз / Прокси API (Telegram Gateway URL)</label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Если прямое подключение блокируется (ERR_CONNECTION_TIMED_OUT), укажите зеркало или Cloudflare Worker.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestTelegramConnection}
+                  disabled={isTestingTelegram || !settings.telegramBotToken}
+                  className="px-4 py-2 bg-[#4A7C59] hover:bg-[#3D6649] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shrink-0 self-start sm:self-auto cursor-pointer"
+                >
+                  {isTestingTelegram ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Проверка...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      <span>Проверить связь</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <input 
+                type="text" 
+                value={settings.telegramApiUrl || ''} 
+                onChange={e => handleChange('telegramApiUrl', e.target.value)} 
+                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
+                placeholder="По умолчанию: авто-прокси сервера (/api/telegram) или https://api.telegram.org" 
+              />
+
+              {telegramTestResult && (
+                <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                  telegramTestResult.ok 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200' 
+                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+                }`}>
+                  {telegramTestResult.ok ? (
+                    <Check size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <WifiOff size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  )}
+                  <span className="leading-relaxed">{telegramTestResult.message}</span>
+                </div>
+              )}
+            </div>
+
+            {queuedMessagesCount > 0 && (
+              <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                    Офлайн-очередь: {queuedMessagesCount} неотправленных сообщений
+                  </h3>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Сохранены локально в IndexedDB и будут отправлены автоматически при появлении стабильной сети.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFlushTelegramQueue}
+                  disabled={isProcessingQueue}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  {isProcessingQueue ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Отправка...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw size={14} />
+                      <span>Отправить ({queuedMessagesCount})</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
               <div>

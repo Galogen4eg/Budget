@@ -60,7 +60,8 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
     'dayEndHour', 
     'salaryDates', // Personal salary dates
     'telegramBotToken', // Personal bot settings
-    'telegramChatId'
+    'telegramChatId',
+    'telegramApiUrl'
 ];
 
 // Subscribe to both Shared Settings (Family) and User Settings (Member)

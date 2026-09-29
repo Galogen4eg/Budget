@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
   Calendar, Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
@@ -21,6 +21,10 @@ import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
+import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
+import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
+import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
+import { OverviewRecentTransactions } from './overview/OverviewRecentTransactions';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
@@ -83,18 +87,19 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   // Synchronized or internal month state
   const [internalMonth, setInternalMonth] = useState<Date>(() => new Date());
   const activeMonth = currentMonth || internalMonth;
-  const handleMonthChange = (d: Date) => {
+  const handleMonthChange = useCallback((d: Date) => {
     if (onMonthChange) {
       onMonthChange(d);
     } else {
       setInternalMonth(d);
     }
-  };
-  const handleStepMonth = (step: number) => {
+  }, [onMonthChange]);
+
+  const handleStepMonth = useCallback((step: number) => {
     const next = new Date(activeMonth);
     next.setMonth(next.getMonth() + step);
     handleMonthChange(next);
-  };
+  }, [activeMonth, handleMonthChange]);
 
   const realToday = new Date();
   const now = realToday;
@@ -254,7 +259,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return undefined;
   }, [relevantMandatoryExpenses, currentMonthTransactions, settings.manualPaidExpenses, currentMonthKey, now]);
 
-  const handleToggleMandatoryPaid = async (expenseId: string, isPaid: boolean) => {
+  const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
     let updated: string[];
     if (isPaid) {
@@ -263,7 +268,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       updated = existing.filter(id => id !== expenseId);
     }
 
-    // If canceling payment, also unlink any transaction in current month linked to this expense
     if (!isPaid) {
       setTransactions(prev => prev.map(t => {
         const d = new Date(t.date);
@@ -282,9 +286,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         [currentMonthKey]: updated
       }
     });
-  };
+  }, [settings, currentMonthKey, setTransactions, updateSettings]);
 
-  const handlePayMandatoryExpenses = async (expenseIds: string[]) => {
+  const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
     const updated = Array.from(new Set([...existing, ...expenseIds]));
     await updateSettings({
@@ -294,7 +298,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         [currentMonthKey]: updated
       }
     });
-  };
+  }, [settings, currentMonthKey, updateSettings]);
 
   // Salary incomes this month for auto-savings
   const currentMonthSalary = useMemo(() => {
@@ -904,7 +908,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition flex items-center justify-between cursor-pointer"
                   >
                     <span>Текущий месяц</span>
-                    <Sparkles size={13} />
                   </button>
                 </div>
               </>
@@ -934,30 +937,30 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </header>
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
-        <div className="flex justify-center my-3 px-4">
-          <div className="bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-full flex items-center gap-1 shadow-inner">
+        <div className="px-4 my-3 w-full">
+          <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-2xl grid grid-cols-2 gap-1 shadow-inner">
             <button
               type="button"
               onClick={() => setBudgetMode('family')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
                   ? 'bg-[#4A7C59] text-white shadow-xs'
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
+                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
               }`}
             >
-              <Users size={14} />
+              <Users size={15} />
               <span>Семейный</span>
             </button>
             <button
               type="button"
               onClick={() => setBudgetMode('personal')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'personal'
                   ? 'bg-[#4A7C59] text-white shadow-xs'
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
+                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
               }`}
             >
-              <User size={14} />
+              <User size={15} />
               <span>Личный</span>
             </button>
           </div>
@@ -982,7 +985,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Доступно до конца {activeMonth.toLocaleString('ru-RU', { month: 'short' })} • к прошлому месяцу рост
+                Доступно до конца {activeMonth.toLocaleString('ru-RU', { month: 'short' })}, к прошлому месяцу рост
               </p>
             </div>
 
@@ -1010,7 +1013,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   Динамика расходов
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-                  {currentMonthName} • {budgetMode === 'family' ? 'семейные траты' : 'личные траты'}
+                  {currentMonthName}, {budgetMode === 'family' ? 'семейные траты' : 'личные траты'}
                 </p>
               </div>
 
@@ -1330,7 +1333,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => onNavigateTab('budget')}
+                onClick={() => onDrillDown('all')}
                 className="flex items-center gap-0.5 text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition"
               >
                 <span>Все</span>
@@ -1365,12 +1368,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         </h4>
                         <p className="text-[11px] text-graphite-muted dark:text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
                           <span>{dateFormatted}</span>
-                          <span>•</span>
                           <span className="font-medium" style={{ color: txMember.color }}>
                             {txMember.name}
                           </span>
-                          <span>•</span>
-                          <span>{catLabel}</span>
+                          <span>({catLabel})</span>
                         </p>
                       </div>
                     </div>
@@ -1456,7 +1457,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             type="button"
             onClick={onOpenAIChat}
             title="AI Ассистент (Gemini)"
-            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#4A7C59] to-emerald-600 hover:from-[#3D6849] hover:to-emerald-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-emerald-900/10 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D6849] active:scale-[0.98] text-white text-xs font-bold shadow-sm transition cursor-pointer"
           >
             <Sparkles size={15} />
             <span className="hidden sm:inline">AI АССИСТЕНТ</span>
@@ -1869,7 +1870,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     title="Создать новую категорию или настроить"
                   >
                     <Plus size={13} />
-                    <span>+ Категория</span>
+                    <span>Категория</span>
                   </button>
                   <button
                     type="button"
@@ -2100,7 +2101,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
                 <button 
                   type="button"
-                  onClick={() => onNavigateTab('budget')}
+                  onClick={() => onDrillDown('all')}
                   className="text-xs text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold cursor-pointer"
                 >
                   Все
@@ -2156,7 +2157,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             </h4>
                             <p className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1.5 mt-0.5 truncate">
                               <span>{dateFormatted}</span>
-                              <span>•</span>
                               <span className="font-medium" style={{ color: txMember.color }}>
                                 {txMember.name}
                               </span>

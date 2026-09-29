@@ -24,11 +24,11 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onOpenSettings }) =>
         className="absolute inset-0 bg-[#242b26]/50 backdrop-blur-md" 
       />
       <motion.div 
-        initial={{ y: '100%', opacity: 0 }} 
-        animate={{ y: 0, opacity: 1 }} 
-        exit={{ y: '100%', opacity: 0 }} 
-        transition={{ type: "spring", damping: 26, stiffness: 220 }}
-        className="relative bg-[#faf8f5] dark:bg-[#18191C] w-full max-w-[1160px] md:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col h-[94vh] md:h-[880px] max-h-[96vh] border border-[#eae4d7] dark:border-white/10"
+        initial={{ scale: 0.96, opacity: 0 }} 
+        animate={{ scale: 1, opacity: 1 }} 
+        exit={{ scale: 0.96, opacity: 0 }} 
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="relative bg-white dark:bg-[#1C1F1E] w-full max-w-[860px] h-[92vh] md:h-[700px] md:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col border border-[#E8E1D5] dark:border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <AIChat onClose={onClose} onOpenSettings={onOpenSettings} />

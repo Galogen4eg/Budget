@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, X, Trash2, ShoppingBag, Utensils, Car, Star, QrCode, 
   Loader2, Camera, Edit2, Barcode, ScanLine, AlertCircle, 
-  Coffee, Tv, Zap, Briefcase, Gift, CreditCard, Sparkles, 
+  Coffee, Tv, Zap, Briefcase, Gift, CreditCard, Sparkles, Lightbulb, 
   Check, ChevronLeft, ChevronRight, Search, Grid, List, Copy, Sun, Moon, 
   ShieldCheck, Smartphone, Wifi, Tag, Store, HeartHandshake,
   CheckCircle2, AlertTriangle, Upload, Eye, ShoppingCart, 
@@ -199,7 +199,7 @@ const DEFAULT_SAMPLE_CARDS: LoyaltyCard[] = [
     color: '#277848',
     icon: 'ShoppingCart',
     category: 'groceries',
-    subtitle: 'Карта Выручайка • Семья',
+    subtitle: 'Карта Выручайка, Семья',
     discount: '5% кэшбэк',
     balance: '450 ₽ скидки',
     barcodeFormat: 'ean13'
@@ -455,7 +455,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             ) : (
               <span>Сервисы</span>
             )}
-            <span className="text-stone-300 dark:text-stone-600">•</span>
+            <span className="text-stone-300 dark:text-stone-600">/</span>
             <span className="text-stone-800 dark:text-white font-bold">Wallet</span>
           </nav>
 
@@ -887,7 +887,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
           </div>
 
           <div className="mt-5 p-3.5 rounded-2xl bg-[#edf4ef]/60 dark:bg-[#243628] border border-[#d1dbd1] dark:border-green-800/40 flex items-start gap-2.5 text-xs text-stone-600 dark:text-stone-300">
-            <Sparkles className="w-4 h-4 text-[#4a7c59] dark:text-green-400 shrink-0 mt-0.5" />
+            <Lightbulb className="w-4 h-4 text-[#4a7c59] dark:text-green-400 shrink-0 mt-0.5" />
             <span>
               <b>Совет Terra:</b> Нажмите «Показать код» на кассе, чтобы открыть штрихкод на максимальной контрастности.
             </span>

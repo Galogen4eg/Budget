@@ -7,7 +7,7 @@ import {
   ChevronRight, Calculator, Loader2, Menu, AppWindow, ArrowLeft, 
   Eye, EyeOff, Save, Calendar, AlertOctagon, ShoppingBag, ShieldCheck, 
   BellRing, FolderOpen, ArrowUp, ArrowDown, Gift, Moon, Sun, 
-  MessageSquareQuote, Send, Cloud, CloudOff, BrainCircuit, Mail, 
+  MessageSquareQuote, Send, Cloud, CloudOff, BrainCircuit, Mail, MessageSquare, 
   RefreshCcw, MoveUpRight, Play, Search, Bell, BadgeCheck, Filter, Trash,
   SlidersHorizontal, CheckCheck, Database, Server, Wifi, WifiOff, CheckCircle2,
   AtSign, Award, Shield, Laptop
@@ -26,6 +26,7 @@ import MembersSettingsSection from './MembersSettingsSection';
 import { toast } from 'sonner';
 import { testTelegramBotConnection, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
 import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
+import { startTelegramBotListener, stopTelegramBotListener, isBotPollingActive, BotLogEntry } from '../utils/telegramBotListener';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -61,7 +62,7 @@ const WIDGET_METADATA = [
   { id: 'goals', label: 'Цели и копилка' }, 
 ];
 
-type SectionType = 'general' | 'account' | 'budget' | 'members' | 'categories' | 'ai_memory' | 'services' | 'telegram' | 'family' | 'widgets' | 'navigation';
+type SectionType = 'account' | 'family' | 'budget' | 'categories' | 'integrations';
 
 interface SectionConfig {
   id: SectionType;
@@ -71,17 +72,11 @@ interface SectionConfig {
 }
 
 const SECTIONS: SectionConfig[] = [
-  { id: 'general', label: 'Общее', subtitle: 'Базовые параметры интерфейса и алгоритмов', icon: <SlidersHorizontal size={18} /> },
-  { id: 'account', label: 'Аккаунт и профиль', subtitle: 'Логин, безопасность, пароль', icon: <User size={18} /> },
-  { id: 'budget', label: 'Параметры бюджета', subtitle: 'Резерв, лимиты, зарплаты', icon: <Calculator size={18} /> },
-  { id: 'members', label: 'Участники', subtitle: 'Список пользователей и профили', icon: <Users size={18} /> },
-  { id: 'categories', label: 'Категории и правила', subtitle: 'Автоматизация правил и теги', icon: <Tag size={18} /> },
-  { id: 'ai_memory', label: 'Память AI', subtitle: 'AI ассистент, ключ Gemini, база знаний', icon: <BrainCircuit size={18} /> },
-  { id: 'services', label: 'Сервисы и модули', subtitle: 'Кошелек, вишлист, долги', icon: <AppWindow size={18} /> },
-  { id: 'telegram', label: 'Telegram и шаблоны', subtitle: 'Бот, форматы отчетов и чек', icon: <Send size={18} /> },
-  { id: 'family', label: 'Синхронизация и доступ', subtitle: 'ID пространства, перенос', icon: <Cloud size={18} /> },
-  { id: 'widgets', label: 'Виджеты', subtitle: 'Порядок и видимость блоков', icon: <LayoutGrid size={18} /> },
-  { id: 'navigation', label: 'Навигация', subtitle: 'Нижняя панель и вкладки', icon: <Menu size={18} /> },
+  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль, оформление и аккаунт', icon: <User size={18} /> },
+  { id: 'family', label: 'Семья и доступ', subtitle: 'Участники, ID пространства, синхронизация', icon: <Users size={18} /> },
+  { id: 'budget', label: 'Бюджет и зарплата', subtitle: 'Дни зарплаты, сбережения, резерв', icon: <Calculator size={18} /> },
+  { id: 'categories', label: 'Категории и правила', subtitle: 'Категории трат и авто-правила', icon: <Tag size={18} /> },
+  { id: 'integrations', label: 'Интеграции (Telegram и ИИ)', subtitle: 'Telegram бот, Chat ID, Gemini API', icon: <Send size={18} /> },
 ];
 
 const PRESET_COLORS = [ '#4A7C59', '#007AFF', '#FF2D55', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2' ];
@@ -91,6 +86,7 @@ const AVAILABLE_TABS = [
   { id: 'budget', label: 'Бюджет', icon: <Calculator size={18}/> },
   { id: 'plans', label: 'Планы', icon: <Calendar size={18}/> },
   { id: 'shopping', label: 'Покупки', icon: <ShoppingBag size={18}/> },
+  { id: 'chat', label: 'Чат', icon: <MessageSquare size={18}/> },
   { id: 'services', label: 'Сервисы', icon: <AppWindow size={18}/> }
 ];
 
@@ -160,7 +156,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onJoinFamily, onLogout, installPrompt, transactions = [], 
   onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates 
 }) => {
-  const [activeSection, setActiveSection] = useState<SectionType>('general');
+  const [activeSection, setActiveSection] = useState<SectionType>('account');
   const [showMobileMenu, setShowMobileMenu] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,6 +211,63 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Live Telegram Bot polling states
+  const { setTransactions, setShoppingItems, shoppingItems } = useData();
+  const [isBotActive, setIsBotActive] = useState(() => isBotPollingActive());
+  const [botLogs, setBotLogs] = useState<BotLogEntry[]>([]);
+
+  const handleToggleBot = () => {
+    if (isBotActive) {
+      stopTelegramBotListener();
+      setIsBotActive(false);
+      setBotLogs(prev => [
+        ...prev,
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'info',
+          text: 'Слушатель Telegram бота остановлен.'
+        }
+      ]);
+      toast.info('Слушатель Telegram бота остановлен');
+    } else {
+      if (!settings.telegramBotToken?.trim()) {
+        toast.error('Введите токен бота Telegram в настройках интеграции');
+        return;
+      }
+      setIsBotActive(true);
+      startTelegramBotListener(
+        settings.telegramBotToken,
+        (entry) => {
+          setBotLogs(prev => [...prev.slice(-39), entry]); // keep last 40 entries
+        },
+        async (newTx) => {
+          const txWithId = { ...newTx, id: 'tx_' + Date.now() };
+          if (onUpdateTransactions) {
+            onUpdateTransactions([txWithId, ...transactions]);
+          } else {
+            setTransactions(prev => [txWithId, ...prev]);
+          }
+        },
+        async (title, amount = 1, unit = 'шт', category = 'other') => {
+          const newItem = {
+            id: 'shop_' + Date.now(),
+            title,
+            amount: String(amount),
+            unit,
+            category,
+            completed: false,
+            createdAt: new Date().toISOString()
+          };
+          setShoppingItems(prev => [newItem, ...prev]);
+        },
+        () => shoppingItems,
+        categories,
+        members
+      );
+      toast.success('Слушатель Telegram бота запущен!');
+    }
+  };
 
   const handleTestTelegramConnection = async () => {
     if (!settings.telegramBotToken?.trim()) {
@@ -526,92 +579,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const renderSectionContent = () => {
     switch (activeSection) {
-      case 'general':
-        return (
-          <div className="space-y-4 max-w-4xl">
-            {/* 1. Темное оформление */}
-            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex items-center justify-between transition-colors">
-              <div className="flex items-center gap-3.5 sm:gap-4">
-                <div className="w-11 h-11 rounded-xl bg-gray-200/80 dark:bg-white/10 flex items-center justify-center text-gray-700 dark:text-gray-300 shrink-0">
-                  {settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Темное оформление</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Смена графической темы для работы в вечернее время</p>
-                </div>
-              </div>
-              <ToggleSwitch checked={settings.theme === 'dark'} onChange={toggleTheme} />
-            </div>
-
-            {/* 2. Установить на телефон */}
-            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
-              <div className="flex items-center gap-3.5 sm:gap-4">
-                <div className="w-11 h-11 rounded-xl bg-blue-100/80 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <Smartphone size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Установить на телефон</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Быстрый запуск с иконкой на домашнем экране</p>
-                </div>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => installPrompt ? installPrompt.prompt() : setShowInstallGuide(true)} 
-                className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
-              >
-                <Smartphone size={16} />
-                <span>Установить на телефон</span>
-              </button>
-            </div>
-
-            {/* 3. Статус подключения к серверу (без лишних подробностей) */}
-            <div className="p-5 md:p-6 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
-              <div className="flex items-center gap-3.5 sm:gap-4">
-                <div className="w-11 h-11 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Server size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Статус подключения к серверу</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Мониторинг соединения с базой данных</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 shrink-0">
-                <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center border ${
-                  isDbConnected 
-                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/40' 
-                    : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/40'
-                }`}>
-                  {isDbConnected ? 'Онлайн • Подключено' : 'Автономный режим'}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCheckDbConnection}
-                  disabled={isCheckingDb}
-                  className="p-2.5 rounded-xl bg-white dark:bg-[#18191C] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-white/10 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
-                  title="Проверить связь"
-                >
-                  {isCheckingDb ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
-                </button>
-              </div>
-            </div>
-
-            {/* 4. Выйти из профиля */}
-            <div className="pt-2">
-              <button 
-                type="button" 
-                onClick={() => setShowLogoutConfirm(true)} 
-                className="w-full p-4 rounded-2xl bg-red-50/80 hover:bg-red-100/90 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors cursor-pointer border border-red-100 dark:border-red-900/30"
-              >
-                <LogOut size={18} />
-                <span>Выйти из профиля</span>
-              </button>
-            </div>
-          </div>
-        );
-
       case 'account':
         return (
-          <div className="space-y-6 max-w-4xl">
+          <div className="space-y-6 w-full max-w-full">
             {/* Top Session Status & Breadcrumb bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
@@ -928,6 +898,81 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         );
 
+      case 'family':
+        return (
+          <div className="space-y-6 w-full max-w-full">
+            {/* Members Settings */}
+            <MembersSettingsSection 
+              members={members}
+              onUpdateMembers={onUpdateMembers}
+              currentFamilyId={currentFamilyId}
+              transactions={transactions}
+            />
+
+            {/* Family Space ID & Sync */}
+            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center">
+                    <Cloud size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">ID семейного пространства</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация общей базы данных между устройствами</p>
+                  </div>
+                </div>
+
+                {currentFamilyId && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentFamilyId);
+                      toast.success('ID пространства скопирован');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#4A7C59] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy size={14} />
+                    <span>Скопировать ID</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input 
+                    type="text" 
+                    value={newFamilyId}
+                    onChange={e => setNewFamilyId(e.target.value)}
+                    placeholder="Введитe ID семейного пространства..."
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleUpdateFamilyId}
+                    disabled={isJoining || newFamilyId.trim() === currentFamilyId}
+                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm"
+                  >
+                    {isJoining ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
+                    <span>Подключиться</span>
+                  </button>
+                </div>
+
+                {currentFamilyId && (
+                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer pt-1">
+                    <input 
+                      type="checkbox"
+                      checked={shouldMigrate}
+                      onChange={e => setShouldMigrate(e.target.checked)}
+                      className="rounded border-gray-300 text-[#4A7C59] focus:ring-[#4A7C59]"
+                    />
+                    <span>Перенести существующие записи из текущего пространства в новое</span>
+                  </label>
+                )}
+              </div>
+            </section>
+          </div>
+        );
+
       case 'budget':
         return (
           <BudgetSettingsSection
@@ -938,16 +983,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             transactions={transactions}
             onOpenDuplicates={onOpenDuplicates}
             onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}
-          />
-        );
-
-      case 'members':
-        return (
-          <MembersSettingsSection 
-            members={members}
-            onUpdateMembers={onUpdateMembers}
-            currentFamilyId={currentFamilyId}
-            transactions={transactions}
           />
         );
 
@@ -967,30 +1002,137 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         );
 
-      case 'ai_memory':
+      case 'integrations':
         return (
-          <div className="space-y-6">
-            {/* AI Assistant Gemini Key Card */}
-            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+          <div className="space-y-6 w-full max-w-full">
+            {/* Telegram Bot Settings */}
+            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Send size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Telegram Бот оверлея</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Автоматическая отправка уведомлений в семейный чат</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestTelegramConnection}
+                  disabled={isTestingTelegram || !settings.telegramBotToken}
+                  className="px-4 py-2 bg-[#4A7C59] hover:bg-[#3D6649] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs"
+                >
+                  {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  <span>Проверить связь</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
+                  <input 
+                    type="password" 
+                    value={settings.telegramBotToken || ''} 
+                    onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    placeholder="712345678:AAHk..." 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
+                  <input 
+                    type="text" 
+                    value={settings.telegramChatId || ''} 
+                    onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    placeholder="-1001928374650" 
+                  />
+                </div>
+              </div>
+
+              {telegramTestResult && (
+                <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                  telegramTestResult.ok 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-800 dark:text-emerald-200' 
+                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 text-red-800 dark:text-red-200'
+                }`}>
+                  <span className="font-semibold">{telegramTestResult.message}</span>
+                </div>
+              )}
+
+              {/* Live Telegram Bot Listener Panel */}
+              <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center animate-pulse">
+                      <Play size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">Двусторонний бот-слушатель (Long Polling)</h4>
+                      <p className="text-[10px] text-blue-700 dark:text-blue-400">Позволяет добавлять траты и продукты через сообщения боту</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleBot}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-3xs cursor-pointer ${
+                      isBotActive 
+                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                        : 'bg-[#4A7C59] hover:bg-[#3D6649] text-white'
+                    }`}
+                  >
+                    {isBotActive ? 'Остановить' : 'Запустить слушатель'}
+                  </button>
+                </div>
+
+                {/* Console Log Terminal */}
+                {isBotActive && (
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      Логи работы Telegram-бота (Терминал):
+                    </span>
+                    <div className="p-3 bg-black text-xs font-mono text-emerald-400 rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-white/5 no-scrollbar">
+                      {botLogs.length === 0 ? (
+                        <div className="text-stone-500 text-[11px] animate-pulse">Ожидание входящих сообщений от Telegram API...</div>
+                      ) : (
+                        botLogs.map((log, lIdx) => (
+                          <div key={lIdx} className="leading-relaxed flex items-start gap-1.5">
+                            <span className="text-stone-500 font-semibold shrink-0">[{log.timestamp}]</span>
+                            <span className={
+                              log.type === 'error' ? 'text-red-400 font-semibold' :
+                              log.type === 'success' ? 'text-emerald-300 font-bold' :
+                              log.type === 'incoming' ? 'text-sky-300 font-medium' :
+                              'text-emerald-500'
+                            }>
+                              {log.text}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Gemini API Key */}
+            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <Sparkles size={20} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI Ассистент (Gemini)</h3>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        isAIEnabled ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {isAIEnabled ? 'Активен' : 'Требует ключ'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Умный поиск, финансовый советник, сканирование чеков и память</p>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Персональный ключ для голосового чата и распознавания чеков</p>
                   </div>
                 </div>
+
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
-                  Получить ключ бесплатно <MoveUpRight size={12} />
+                  Получить ключ <MoveUpRight size={12} />
                 </a>
               </div>
 
@@ -1007,38 +1149,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowGeminiKey(!showGeminiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                   >
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {settings.geminiApiKey && (
-                  <button 
-                    type="button"
-                    onClick={handleTestKey} 
-                    disabled={aiTestStatus === 'loading'}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      aiTestStatus === 'success' ? 'bg-emerald-600 text-white' : 
-                      aiTestStatus === 'error' ? 'bg-red-600 text-white' : 
-                      'bg-white dark:bg-[#18191C] text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
-                    }`}
-                  >
-                    {aiTestStatus === 'loading' ? <Loader2 size={14} className="animate-spin"/> : <Play size={14}/>}
-                    {aiTestStatus === 'success' ? 'Ключ проверен и работает!' : aiTestStatus === 'error' ? 'Ошибка авторизации ключа' : 'Проверить ключ AI'}
-                  </button>
-                )}
               </div>
-            </div>
+            </section>
 
             {/* AI Knowledge Base */}
-            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
+            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                   <BrainCircuit size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">База знаний ассистента</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Факты, привычки и постоянно контекстное окружение</p>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">База знаний ассистента Terra</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Факты и постоянно контекстное окружение</p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -1047,323 +1174,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={newFact}
                   onChange={e => setNewFact(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && newFact.trim() && (addAIKnowledge(newFact.trim()), setNewFact(''))}
-                  placeholder="Добавить факт (напр. код от домофона 123, зарплата 10-го числа...)" 
+                  placeholder="Добавить факт (напр. код домофона 123, аванс 25-го числа...)" 
                   className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
                 />
                 <button 
                   type="button" 
                   onClick={() => { if(newFact.trim()) { addAIKnowledge(newFact.trim()); setNewFact(''); } }} 
-                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors cursor-pointer shrink-0"
                 >
                   Запомнить
                 </button>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Сохраненные факты</h4>
-              {aiKnowledge.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl bg-gray-50 dark:bg-[#202225] text-xs text-gray-400">
-                  Память пока пуста. Добавьте факты вручную или скажите ассистенту в чате «Запомни...»
-                </div>
-              ) : (
-                aiKnowledge.map(item => (
-                  <div key={item.id} className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.text}</span>
-                    <button type="button" onClick={() => deleteAIKnowledge(item.id)} className="text-gray-400 hover:text-red-500 p-1">
-                      <Trash2 size={16} />
-                    </button>
+              <div className="space-y-2 pt-2">
+                {aiKnowledge.length === 0 ? (
+                  <div className="p-6 text-center rounded-xl bg-white dark:bg-[#18191C] text-xs text-gray-400">
+                    Память пока пуста. Добавьте факты вручную или скажите ассистенту в чате «Запомни...»
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        );
-
-      case 'services':
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {AVAILABLE_SERVICES.map(svc => {
-                const isEnabled = (settings.enabledServices || []).includes(svc.id);
-                return (
-                  <div key={svc.id} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-3.5">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        isEnabled ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400' : 'bg-gray-200 dark:bg-white/10 text-gray-500'
-                      }`}>
-                        {svc.icon}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">{svc.label}</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{svc.desc}</p>
-                      </div>
+                ) : (
+                  aiKnowledge.map(item => (
+                    <div key={item.id} className="p-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{item.text}</span>
+                      <button type="button" onClick={() => deleteAIKnowledge(item.id)} className="text-gray-400 hover:text-red-500 p-1 cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
                     </div>
-                    <ToggleSwitch checked={isEnabled} onChange={() => toggleService(svc.id)} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'telegram':
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-2">
-                <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
-                <input 
-                  type="password" 
-                  value={settings.telegramBotToken || ''} 
-                  onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
-                  className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
-                  placeholder="712345678:AAHk..." 
-                />
+                  ))
+                )}
               </div>
-              <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-2">
-                <label className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
-                <input 
-                  type="text" 
-                  value={settings.telegramChatId || ''} 
-                  onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
-                  className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
-                  placeholder="-1001928374650" 
-                />
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Шлюз / Прокси API (Telegram Gateway URL)</label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Оставьте пустым для официального Telegram API или укажите прокси/Cloudflare Worker, если прямое подключение заблокировано.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTestTelegramConnection}
-                  disabled={isTestingTelegram || !settings.telegramBotToken}
-                  className="px-4 py-2 bg-[#4A7C59] hover:bg-[#3D6649] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shrink-0 self-start sm:self-auto cursor-pointer"
-                >
-                  {isTestingTelegram ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Проверка...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send size={14} />
-                      <span>Проверить связь</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <input 
-                type="text" 
-                value={settings.telegramApiUrl || ''} 
-                onChange={e => handleChange('telegramApiUrl', e.target.value)} 
-                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none" 
-                placeholder="По умолчанию: https://api.telegram.org (официальный API)" 
-              />
-
-              {telegramTestResult && (
-                <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
-                  telegramTestResult.ok 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200' 
-                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                }`}>
-                  {telegramTestResult.ok ? (
-                    <Check size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <WifiOff size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                  )}
-                  <span className="leading-relaxed">{telegramTestResult.message}</span>
-                </div>
-              )}
-            </div>
-
-            {queuedMessagesCount > 0 && (
-              <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                    Офлайн-очередь: {queuedMessagesCount} неотправленных сообщений
-                  </h3>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                    Сохранены локально в IndexedDB и будут отправлены автоматически при появлении стабильной сети.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFlushTelegramQueue}
-                  disabled={isProcessingQueue}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0 self-start sm:self-auto"
-                >
-                  {isProcessingQueue ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Отправка...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCcw size={14} />
-                      <span>Отправить ({queuedMessagesCount})</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            <div className="p-5 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Авто-отправка событий</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Мгновенно транслировать новые траты в Telegram-чат</p>
-              </div>
-              <ToggleSwitch 
-                checked={settings.autoSendEventsToTelegram ?? false} 
-                onChange={() => handleChange('autoSendEventsToTelegram', !settings.autoSendEventsToTelegram)} 
-              />
-            </div>
-
-            <TemplateEditor 
-              label="Шаблон списка покупок" 
-              value={settings.shoppingTemplate || '🛒 *Список покупок*\n\n{items}'} 
-              onChange={(val) => handleChange('shoppingTemplate', val)} 
-              variables={['{items}', '{total}', '{date}']} 
-              previewData={{ '{items}': '• Молоко\n• Хлеб', '{total}': '250', '{date}': '10.10.2026' }}
-            />
-
-            <TemplateEditor 
-              label="Шаблон событий" 
-              value={settings.eventTemplate || '📅 *{title}*\n🕒 {date} {time}\n📝 {description}\n👥 {members}'} 
-              onChange={(val) => handleChange('eventTemplate', val)} 
-              variables={['{title}', '{date}', '{time}', '{description}', '{members}']} 
-              previewData={{ '{title}': 'Врач', '{date}': '10.10.2026', '{time}': '14:00', '{description}': 'Прием стоматолога', '{members}': 'Павел' }}
-            />
-          </div>
-        );
-
-      case 'family':
-        return (
-          <div className="space-y-6">
-            <div className={`p-5 rounded-2xl flex items-center justify-between ${
-              currentFamilyId ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40'
-            }`}>
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-white/50 dark:bg-white/10 flex items-center justify-center">
-                  {currentFamilyId ? <Cloud size={20} /> : <CloudOff size={20} />}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider">
-                    {currentFamilyId ? 'Облачный режим (Синхронизировано)' : 'Локальный автономный режим'}
-                  </h3>
-                  <p className="text-xs opacity-80 mt-0.5">
-                    {auth.currentUser?.email ? `Учетная запись: ${auth.currentUser.email}` : 'Режим без авторизации (данные на устройстве)'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
-              <label className="text-sm font-bold text-gray-900 dark:text-white block">Идентификатор пространства (Space ID)</label>
-              <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                <input 
-                  type="text" 
-                  value={newFamilyId} 
-                  onChange={(e) => setNewFamilyId(e.target.value)} 
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                  placeholder="SPACE-ID"
-                />
-                <button 
-                  type="button" 
-                  onClick={handleUpdateFamilyId} 
-                  disabled={isJoining || newFamilyId === currentFamilyId} 
-                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isJoining ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
-                  <span>Подключиться</span>
-                </button>
-              </div>
-
-              {newFamilyId !== currentFamilyId && (
-                <div className="p-3 bg-white dark:bg-[#18191C] rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 dark:text-white">Перенести текущие данные</p>
-                    <p className="text-[11px] text-gray-500">Скопировать существующие операции в новое пространство</p>
-                  </div>
-                  <ToggleSwitch checked={shouldMigrate} onChange={() => setShouldMigrate(!shouldMigrate)} />
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case 'widgets':
-        return (
-          <div className="space-y-6">
-            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Порядок и видимость виджетов</h3>
-              <div className="space-y-2">
-                {(settings.widgets || []).map((widget, idx) => {
-                  const meta = WIDGET_METADATA.find(m => m.id === widget.id);
-                  if (!meta) return null;
-                  const isFirst = idx === 0;
-                  const isLast = idx === (settings.widgets || []).length - 1;
-
-                  return (
-                    <div key={widget.id} className="p-3.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col gap-1">
-                          <button 
-                            type="button" 
-                            onClick={() => !isFirst && moveWidget(idx, 'up')} 
-                            disabled={isFirst} 
-                            className="text-gray-400 hover:text-[#4A7C59] disabled:opacity-30"
-                          >
-                            <ArrowUp size={14} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={() => !isLast && moveWidget(idx, 'down')} 
-                            disabled={isLast} 
-                            className="text-gray-400 hover:text-[#4A7C59] disabled:opacity-30"
-                          >
-                            <ArrowDown size={14} />
-                          </button>
-                        </div>
-                        <span className="text-xs font-bold text-gray-900 dark:text-white">{meta.label}</span>
-                      </div>
-                      <ToggleSwitch checked={widget.isVisible} onChange={() => toggleWidgetVisibility(widget.id)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'navigation':
-        return (
-          <div className="space-y-6">
-            <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Отображение вкладок навигации</h3>
-              <div className="space-y-2">
-                {AVAILABLE_TABS.map(tab => {
-                  const isEnabled = (settings.enabledTabs || []).includes(tab.id);
-                  return (
-                    <div key={tab.id} className="p-3.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="text-gray-500">{tab.icon}</div>
-                        <span className="text-xs font-bold text-gray-900 dark:text-white">{tab.label}</span>
-                      </div>
-                      <ToggleSwitch checked={isEnabled} onChange={() => toggleTab(tab.id)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            </section>
           </div>
         );
 
@@ -1377,29 +1216,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6">
       {/* Backdrop */}
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }} 
+      <div 
         onClick={onClose} 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+        className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200" 
       />
 
       {/* Main Container */}
-      <motion.div 
-        initial={{ scale: 0.98, opacity: 0 }} 
-        animate={{ scale: 1, opacity: 1 }} 
-        exit={{ scale: 0.98, opacity: 0 }} 
-        transition={{ duration: 0.16, ease: 'easeOut' }}
-        className="relative bg-white dark:bg-[#18191C] w-full max-w-6xl h-full md:max-h-[860px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10"
+      <div 
+        className="modal-animate-enter relative bg-white dark:bg-[#18191C] w-full md:max-w-[98vw] lg:max-w-[98vw] xl:max-w-[98vw] 2xl:max-w-[98vw] h-full md:h-[96vh] md:max-h-[1100px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 bg-gray-100 dark:bg-white/10 px-2.5 py-0.5 rounded-full">
-              Центр управления
-            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1418,9 +1247,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {showMobileMenu ? (
             <div className="flex items-center gap-2">
               <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/40">
-                Terra Hub
-              </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 min-w-0">
@@ -1494,18 +1320,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <ChevronRight size={20} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
               </div>
 
-              {/* Group 1: Основные настройки */}
+              {/* Список настроек */}
               <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
                 <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Основные настройки
+                  Разделы настроек
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-white/5">
-                  {[
-                    { id: 'general', label: 'Общее', subtitle: 'Базовые параметры интерфейса и алгоритмов', icon: <SlidersHorizontal size={18} className="text-[#4A7C59] dark:text-emerald-400" />, iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
-                    { id: 'budget', label: 'Параметры бюджета', subtitle: 'Резерв, лимиты, зарплаты', icon: <Calculator size={18} className="text-blue-600 dark:text-blue-400" />, iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
-                    { id: 'members', label: 'Участники', subtitle: 'Список пользователей и профили', icon: <Users size={18} className="text-purple-600 dark:text-purple-400" />, iconBg: 'bg-purple-50 dark:bg-purple-950/40', badge: `${members.length} уч.` },
-                    { id: 'categories', label: 'Категории и правила', subtitle: 'Автоматизация правил и теги', icon: <Tag size={18} className="text-amber-600 dark:text-amber-400" />, iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
-                  ].map(item => (
+                  {SECTIONS.map(item => (
                     <button
                       key={item.id}
                       type="button"
@@ -1513,81 +1334,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
                           {item.icon}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        {item.badge && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
-                            {item.badge}
-                          </span>
-                        )}
-                        <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Group 2: Модули и сервисы */}
-              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
-                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Модули и сервисы
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-white/5">
-                  {[
-                    { id: 'ai_memory', label: 'Память AI', subtitle: 'AI ассистент, ключ Gemini, база знаний', icon: <BrainCircuit size={18} className="text-indigo-600 dark:text-indigo-400" />, iconBg: 'bg-indigo-50 dark:bg-indigo-950/40' },
-                    { id: 'services', label: 'Сервисы и кошельки', subtitle: 'Кошелек, вишлист, долги', icon: <AppWindow size={18} className="text-rose-600 dark:text-rose-400" />, iconBg: 'bg-rose-50 dark:bg-rose-950/40' },
-                    { id: 'telegram', label: 'Telegram-уведомления', subtitle: 'Бот, форматы отчетов и чек', icon: <Send size={18} className="text-sky-500 dark:text-sky-400" />, iconBg: 'bg-sky-50 dark:bg-sky-950/40' },
-                  ].map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
-                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
-                          {item.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={18} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Group 3: Система и интерфейс */}
-              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
-                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Система и интерфейс
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-white/5">
-                  {[
-                    { id: 'family', label: 'Синхронизация и доступ', subtitle: 'ID пространства, перенос данных', icon: <Cloud size={18} className="text-teal-600 dark:text-teal-400" />, iconBg: 'bg-teal-50 dark:bg-teal-950/40' },
-                    { id: 'widgets', label: 'Виджеты', subtitle: 'Порядок и видимость блоков', icon: <LayoutGrid size={18} className="text-gray-700 dark:text-gray-300" />, iconBg: 'bg-gray-100 dark:bg-white/10' },
-                    { id: 'navigation', label: 'Навигация', subtitle: 'Нижняя панель и вкладки', icon: <Menu size={18} className="text-gray-700 dark:text-gray-300" />, iconBg: 'bg-gray-100 dark:bg-white/10' },
-                  ].map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
-                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
-                          {item.icon}
-                        </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
                           <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
                         </div>
@@ -1613,14 +1363,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Footer version */}
               <div className="text-center pb-8 pt-2">
                 <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
-                  Terra Hub • v2.4 • Умный семейный бюджет
+                  Terra — Семейный бюджет v2.4
                 </p>
               </div>
             </div>
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[280px] lg:w-[310px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-4 flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex w-[260px] lg:w-[280px] xl:w-[300px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-4 flex-col shrink-0 overflow-y-auto">
             <div className="px-2 pt-1 pb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 Разделы системы
@@ -1715,7 +1465,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </main>
         </div>
-      </motion.div>
+      </div>
 
       {/* Guide Modal */}
       <AnimatePresence>
@@ -1784,7 +1534,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       Сессия пользователя
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Terra Hub v3.4 • Узел «Северный»
+                      Terra Hub v3.4, узел «Северный»
                     </span>
                   </div>
                 </div>

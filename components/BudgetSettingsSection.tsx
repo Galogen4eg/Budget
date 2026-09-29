@@ -288,7 +288,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             </div>
             <div className="space-y-0.5">
               <div className="text-sm font-semibold text-[#2e3230] dark:text-white leading-snug">
-                Умный резерв обязательных платежей
+                Авторезерв обязательных платежей
               </div>
               <p className="text-xs text-[#4a4e4a] dark:text-gray-400 leading-relaxed">
                 Блокирует сумму под регулярные счета, аренду и подписки перед расчетом свободного остатка
@@ -301,7 +301,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             className={`w-12 h-6 rounded-full p-1 transition-colors relative cursor-pointer shrink-0 ${
               smartReserve ? 'bg-[#4a7c59]' : 'bg-[#e4e0d8] dark:bg-gray-700'
             }`}
-            aria-label="Включить умный резерв"
+            aria-label="Включить авторезерв"
           >
             <div className={`w-4 h-4 bg-white rounded-full shadow-xs transition-transform ${
               smartReserve ? 'translate-x-6' : 'translate-x-0'

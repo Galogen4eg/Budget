@@ -1,64 +1,45 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, UserPlus, Mail, Check, X, 
   Trash2, Copy, AlertCircle, ChevronRight, Link as LinkIcon, 
-  Send, User, CheckCircle2, Palette, Sparkles, ChevronDown
+  Send, User, CheckCircle2, Palette, Sparkles, ChevronDown, RefreshCw, ShieldAlert,
+  ArrowRight
 } from 'lucide-react';
 import { FamilyMember, Transaction } from '../types';
-import { MemberMarker } from '../constants';
-import { createInvitation, deleteItem } from '../utils/db';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
+import { triggerHaptic } from '../utils/haptics';
+import { deleteItem, createInvitation } from '../utils/db';
 
-/** Константы ограничений и настроек по умолчанию */
 export const MIN_MEMBER_NAME_LENGTH = 2;
 export const MAX_MEMBER_NAME_LENGTH = 40;
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const GUEST_MODE_ID = 'guest';
 
 export const MEMBER_PRESET_COLORS: readonly string[] = [
-  '#4A7C59', '#007AFF', '#FF2D55', '#AF52DE', 
-  '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', 
-  '#8E8E93', '#BF5AF2', '#10B981', '#6366F1'
+  '#007AFF', '#FF2D55', '#10B981', '#FF9500', 
+  '#AF52DE', '#00C7BE', '#FF3B30', '#8E8E93'
 ];
 
-export interface ValidationResult {
-  readonly isValid: boolean;
-  readonly error?: string;
-}
-
-export interface MemberStats {
+interface MemberStats {
   readonly transactionCount: number;
   readonly totalExpense: number;
   readonly totalIncome: number;
 }
 
-/**
- * Валидация имени участника.
- * Чистая функция без побочных эффектов.
- */
-export function validateMemberName(rawName: string): ValidationResult {
+export function validateMemberName(rawName: string) {
   const name = rawName.trim();
   if (name.length < MIN_MEMBER_NAME_LENGTH) {
-    return { 
-      isValid: false, 
-      error: `Имя должно содержать минимум ${MIN_MEMBER_NAME_LENGTH} символа` 
-    };
+    return { isValid: false, error: `Имя должно быть не менее ${MIN_MEMBER_NAME_LENGTH} символов` };
   }
   if (name.length > MAX_MEMBER_NAME_LENGTH) {
-    return { 
-      isValid: false, 
-      error: `Имя не должно превышать ${MAX_MEMBER_NAME_LENGTH} символов` 
-    };
+    return { isValid: false, error: `Имя не должно превышать ${MAX_MEMBER_NAME_LENGTH} символов` };
   }
   return { isValid: true };
 }
 
-/**
- * Валидация e-mail участника (для облачной синхронизации и инвайтов).
- * Чистая функция без побочных эффектов.
- */
-export function validateMemberEmail(rawEmail: string): ValidationResult {
+export function validateMemberEmail(rawEmail: string) {
   const email = rawEmail.trim();
   if (!email) return { isValid: true };
   if (!EMAIL_REGEX.test(email)) {
@@ -67,39 +48,10 @@ export function validateMemberEmail(rawEmail: string): ValidationResult {
   return { isValid: true };
 }
 
-/**
- * Проверка допустимости удаления участника.
- * Чистая функция: защищает от удаления единственного участника.
- */
-export function canDeleteMember(
-  targetMemberId: string, 
-  members: readonly FamilyMember[]
-): { readonly canDelete: boolean; readonly reason?: string } {
-  if (members.length <= 1) {
-    return { 
-      canDelete: false, 
-      reason: 'Нельзя удалить единственного участника пространства' 
-    };
-  }
-  const exists = members.some(m => m.id === targetMemberId);
-  if (!exists) {
-    return { canDelete: false, reason: 'Участник не найден в списке' };
-  }
-  return { canDelete: true };
-}
-
-/**
- * Подсчет финансовой активности участника по списку операций.
- * Чистая функция без побочных эффектов.
- */
-export function calculateMemberStats(
-  memberId: string, 
-  transactions: readonly Transaction[]
-): MemberStats {
+export function calculateMemberStats(memberId: string, transactions: readonly Transaction[]): MemberStats {
   let count = 0;
   let totalExpense = 0;
   let totalIncome = 0;
-
   for (const tx of transactions) {
     if (tx.memberId === memberId) {
       count++;
@@ -110,13 +62,9 @@ export function calculateMemberStats(
       }
     }
   }
-
   return { transactionCount: count, totalExpense, totalIncome };
 }
 
-/**
- * Форматирование суммы в рублях.
- */
 export function formatCurrencyRub(amount: number): string {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
@@ -125,525 +73,92 @@ export function formatCurrencyRub(amount: number): string {
   }).format(amount);
 }
 
-/**
- * Генерация уникального идентификатора участника.
- */
-export function generateMemberId(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
-
-/**
- * Определение участника, с которым сопоставлена текущая сессия.
- * Чистая функция без побочных эффектов.
- */
-export function findMappedMember(
-  members: readonly FamilyMember[],
-  userId?: string | null,
-  userEmail?: string | null
-): FamilyMember | null {
-  if (!members || members.length === 0) return null;
-  if (userId) {
-    const byUserId = members.find(m => m.userId === userId);
-    if (byUserId) return byUserId;
-  }
-  if (userEmail) {
-    const byEmail = members.find(m => m.email?.toLowerCase() === userEmail.toLowerCase());
-    if (byEmail) return byEmail;
-  }
-  return null;
-}
-
-/**
- * Привязка профиля участника к текущему аккаунту/сессии.
- * Чистая функция: возвращает новый неизменяемый массив участников.
- */
-export function bindMemberToUser(
-  targetMemberId: string,
-  members: readonly FamilyMember[],
-  userId?: string | null
-): FamilyMember[] {
-  if (targetMemberId === GUEST_MODE_ID) {
-    return members.map(m => (m.userId === userId ? { ...m, userId: null } : m));
-  }
-  return members.map(m => {
-    if (m.id === targetMemberId) {
-      return { ...m, userId: userId || 'local-user' };
-    }
-    if (userId && m.userId === userId) {
-      return { ...m, userId: null };
-    }
-    return m;
-  });
-}
-
-/**
- * Компонент блока «Текущая сессия аккаунта».
- * Отображает статус сопоставления и селектор привязки профиля.
- */
-interface CurrentSessionBlockProps {
-  readonly currentUserEmail: string;
-  readonly mappedMember: FamilyMember | null;
-  readonly members: readonly FamilyMember[];
-  readonly onBindProfile: (memberId: string) => void;
-}
-
-export const CurrentSessionBlock: React.FC<CurrentSessionBlockProps> = ({
-  currentUserEmail,
-  mappedMember,
-  members,
-  onBindProfile,
-}) => {
-  return (
-    <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 sm:p-5 border border-stone-200 dark:border-white/10 shadow-sm space-y-4">
-      {/* Статус сессии и почта */}
-      <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-white/5">
-        <div className="flex items-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
-            Текущая сессия
-          </span>
-        </div>
-        <span className="text-xs font-medium text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-stone-200/50 dark:border-white/10 truncate max-w-[200px]">
-          {currentUserEmail}
-        </span>
-      </div>
-
-      {/* Описание привязки */}
-      <div className="space-y-1">
-        <p className="text-xs font-medium text-stone-500 dark:text-stone-400">
-          Вы авторизованы и сопоставлены с профилем:
-        </p>
-        <p className="text-base font-bold text-stone-900 dark:text-white flex items-center gap-2">
-          {mappedMember ? (
-            <>
-              <span 
-                className="w-3 h-3 rounded-full shrink-0 shadow-xs" 
-                style={{ backgroundColor: mappedMember.color }} 
-              />
-              <span>{mappedMember.name}</span>
-            </>
-          ) : (
-            <span className="text-stone-500">Гостевой режим без сопоставления</span>
-          )}
-        </p>
-        <p className="text-xs text-stone-500 dark:text-stone-400 leading-normal pt-1">
-          Все созданные вами операции и записи привязываются к этому маркеру
-        </p>
-      </div>
-
-      {/* Селектор связки */}
-      <div className="pt-1">
-        <label 
-          htmlFor="account-select" 
-          className="block text-xs font-bold text-stone-600 dark:text-stone-400 mb-1.5 uppercase tracking-wide"
-        >
-          Связать с:
-        </label>
-        <div className="relative">
-          <select 
-            id="account-select"
-            value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
-            onChange={(e) => onBindProfile(e.target.value)}
-            className="w-full appearance-none bg-stone-50 dark:bg-[#18191C] border border-stone-200 dark:border-white/10 text-stone-900 dark:text-white font-semibold text-sm rounded-xl py-3 pl-3.5 pr-10 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] cursor-pointer"
-          >
-            {members.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.name} {mappedMember?.id === m.id ? '(Текущий профиль)' : ''}
-              </option>
-            ))}
-            <option value={GUEST_MODE_ID}>Гостевой режим без сопоставления</option>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-stone-500 dark:text-stone-400">
-            <ChevronDown size={18} />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-/**
- * Карточка участника в мобильном стиле из макета.
- */
-interface MemberCardItemProps {
-  readonly member: FamilyMember;
-  readonly isMappedCurrent: boolean;
-  readonly stats: MemberStats;
-  readonly onEdit: () => void;
-  readonly onColorPick: (color: string) => void;
-}
-
-export const MemberCardItem: React.FC<MemberCardItemProps> = ({
-  member,
-  isMappedCurrent,
-  stats,
-  onEdit,
-  onColorPick,
-}) => {
-  const initial = member.name.trim().charAt(0).toUpperCase() || 'У';
-
-  return (
-    <article 
-      onClick={onEdit}
-      className={`bg-white dark:bg-[#202225] rounded-2xl p-4 border transition-all cursor-pointer shadow-sm relative group hover:border-[#4A7C59]/60 ${
-        isMappedCurrent 
-          ? 'border-2 border-[#4A7C59]/50 dark:border-[#4A7C59]/60 bg-emerald-50/20 dark:bg-emerald-950/10' 
-          : 'border-stone-200 dark:border-white/10'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3.5 min-w-0">
-          {/* Аватар с первой буквой имени, цветом и статусом */}
-          <div 
-            className="relative flex size-12 shrink-0 items-center justify-center rounded-full text-white font-bold text-lg shadow-sm"
-            style={{ backgroundColor: member.color }}
-          >
-            <span>{initial}</span>
-            {isMappedCurrent && (
-              <span 
-                className="absolute bottom-0 right-0 size-3 rounded-full bg-[#4A7C59] ring-2 ring-white dark:ring-[#202225]" 
-                title="Текущая сессия" 
-              />
-            )}
-          </div>
-
-          <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-base font-bold text-stone-900 dark:text-white leading-tight truncate">
-                {member.name}
-              </h4>
-              {isMappedCurrent && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A7C59] bg-[#4A7C59]/10 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-md">
-                  Ваш профиль
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
-              {member.email ? member.email : 'Локальный профиль'}
-            </p>
-
-            <div className="flex items-center gap-3 pt-1 text-[11px] text-stone-500 dark:text-stone-400">
-              <span>Операций: <strong className="text-stone-800 dark:text-stone-200">{stats.transactionCount}</strong></span>
-              {stats.totalExpense > 0 && (
-                <span>Расход: <strong className="text-stone-800 dark:text-stone-200">{formatCurrencyRub(stats.totalExpense)}</strong></span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Правая часть: быстрый свотч цвета и стрелка */}
-        <div className="flex items-center gap-2 shrink-0 pt-1">
-          <div 
-            className="size-5 rounded-full border-2 border-white dark:border-[#202225] shadow-xs shrink-0"
-            style={{ backgroundColor: member.color }}
-            title={`Цвет: ${member.color}`}
-          />
-          <ChevronRight size={18} className="text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-200 transition-colors" />
-        </div>
-      </div>
-    </article>
-  );
-};
-
-/**
- * Модальное окно / шторка приглашения участника.
- */
-interface InviteMemberModalProps {
-  readonly isOpen: boolean;
+export interface MembersSettingsSectionProps {
+  readonly members: FamilyMember[];
+  readonly onUpdateMembers: (members: FamilyMember[]) => void;
   readonly currentFamilyId: string | null;
-  readonly onClose: () => void;
-  readonly onSendEmailInvite: (email: string) => Promise<void>;
-  readonly onCreateLocalMember: (name: string, email: string, color: string) => void;
+  readonly transactions?: Transaction[];
 }
 
-export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
-  isOpen,
+export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
+  members,
+  onUpdateMembers,
   currentFamilyId,
-  onClose,
-  onSendEmailInvite,
-  onCreateLocalMember,
+  transactions = [],
 }) => {
-  const [tab, setTab] = useState<'link' | 'email' | 'new'>('new');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [selectedColor, setSelectedColor] = useState(MEMBER_PRESET_COLORS[0]);
-  const [isSending, setIsSending] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const currentUserEmail = user?.email || 'Локальный пользователь';
+  const currentUserId = user?.uid || null;
 
-  if (!isOpen) return null;
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(() => {
+    return members[0]?.id || null;
+  });
 
-  const inviteUrl = currentFamilyId 
-    ? `${window.location.origin}/?join=${currentFamilyId}` 
-    : '';
+  // State for invite modal inputs
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteColor, setInviteColor] = useState(MEMBER_PRESET_COLORS[0]);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
-  const handleCopyLink = () => {
-    if (!inviteUrl) return;
-    navigator.clipboard.writeText(inviteUrl);
-    toast.success('Ссылка-приглашение скопирована в буфер обмена');
-  };
-
-  const handleSendEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const validation = validateMemberEmail(email);
-    if (!validation.isValid || !email.trim()) {
-      setFormError(validation.error || 'Укажите e-mail адрес');
-      return;
-    }
-    setFormError(null);
-    setIsSending(true);
-    try {
-      await onSendEmailInvite(email.trim());
-      setEmail('');
-      onClose();
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleCreateNew = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nameVal = validateMemberName(name);
-    const emailVal = validateMemberEmail(email);
-    if (!nameVal.isValid) {
-      setFormError(nameVal.error || 'Неверное имя');
-      return;
-    }
-    if (!emailVal.isValid) {
-      setFormError(emailVal.error || 'Неверный e-mail');
-      return;
-    }
-    setFormError(null);
-    onCreateLocalMember(name.trim(), email.trim(), selectedColor);
-    setName('');
-    setEmail('');
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div 
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invite-modal-title"
-        className="w-full max-w-md bg-white dark:bg-[#1E2023] rounded-3xl p-5 sm:p-6 shadow-2xl border border-stone-200 dark:border-white/10 space-y-4"
-      >
-        <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#4A7C59] flex items-center justify-center">
-              <UserPlus size={18} />
-            </div>
-            <h3 id="invite-modal-title" className="text-base font-bold text-stone-900 dark:text-white">
-              Приглашение участника
-            </h3>
-          </div>
-          <button 
-            type="button" 
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-white transition-colors cursor-pointer"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Переключатель вкладок */}
-        <div className="grid grid-cols-3 gap-1 bg-stone-100 dark:bg-[#141517] p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => { setTab('new'); setFormError(null); }}
-            className={`py-2 text-xs font-bold rounded-lg transition-all ${
-              tab === 'new' 
-                ? 'bg-white dark:bg-[#202225] text-stone-900 dark:text-white shadow-xs' 
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
-            }`}
-          >
-            Добавить
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('email'); setFormError(null); }}
-            className={`py-2 text-xs font-bold rounded-lg transition-all ${
-              tab === 'email' 
-                ? 'bg-white dark:bg-[#202225] text-stone-900 dark:text-white shadow-xs' 
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
-            }`}
-          >
-            По e-mail
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('link'); setFormError(null); }}
-            className={`py-2 text-xs font-bold rounded-lg transition-all ${
-              tab === 'link' 
-                ? 'bg-white dark:bg-[#202225] text-stone-900 dark:text-white shadow-xs' 
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
-            }`}
-          >
-            Ссылка
-          </button>
-        </div>
-
-        {formError && (
-          <div className="p-3 bg-red-50 dark:bg-red-950/30 text-red-600 text-xs rounded-xl flex items-center gap-2">
-            <AlertCircle size={14} className="shrink-0" />
-            <span>{formError}</span>
-          </div>
-        )}
-
-        {/* Контент вкладок */}
-        {tab === 'new' && (
-          <form onSubmit={handleCreateNew} className="space-y-3.5 pt-1">
-            <div>
-              <label className="block text-xs font-bold text-stone-600 dark:text-stone-300 mb-1">
-                Имя участника <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Например: Мария"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border border-stone-200 dark:border-white/10 text-sm font-semibold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-stone-600 dark:text-stone-300 mb-1">
-                E-mail (необязательно)
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="maria@example.com"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border border-stone-200 dark:border-white/10 text-sm text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-stone-600 dark:text-stone-300 mb-2">
-                Цвет маркера
-              </label>
-              <div className="grid grid-cols-6 gap-2">
-                {MEMBER_PRESET_COLORS.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSelectedColor(c)}
-                    className={`h-8 rounded-lg flex items-center justify-center transition-transform ${
-                      selectedColor === c ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-105' : 'opacity-80 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  >
-                    {selectedColor === c && <Check size={14} className="text-white" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!name.trim()}
-              className="w-full mt-2 py-3 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-            >
-              Создать профиль
-            </button>
-          </form>
-        )}
-
-        {tab === 'email' && (
-          <form onSubmit={handleSendEmail} className="space-y-4 pt-1">
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Отправьте приглашение родственнику на его электронную почту для совместного ведения бюджета.
-            </p>
-            <div>
-              <label className="block text-xs font-bold text-stone-600 dark:text-stone-300 mb-1">
-                E-mail родственника
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="rodstvennik@mail.ru"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border border-stone-200 dark:border-white/10 text-sm text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isSending || !email.trim()}
-              className="w-full py-3 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Send size={15} />
-              <span>{isSending ? 'Отправка...' : 'Отправить приглашение'}</span>
-            </button>
-          </form>
-        )}
-
-        {tab === 'link' && (
-          <div className="space-y-3.5 pt-1">
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Поделитесь ссылкой в Telegram или WhatsApp. При переходе родственник автоматически подключится к пространству.
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={inviteUrl || 'Семейный ID не инициализирован'}
-                className="flex-1 px-3 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border border-stone-200 dark:border-white/10 text-xs font-mono text-stone-700 dark:text-stone-300 select-all"
-              />
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                disabled={!inviteUrl}
-                className="px-4 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-              >
-                <Copy size={14} />
-                <span>Копия</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/**
- * Шторка / модальное окно редактирования выбранного участника.
- */
-interface MemberEditSheetProps {
-  readonly member: FamilyMember | null;
-  readonly canDelete: boolean;
-  readonly deleteReason?: string;
-  readonly onClose: () => void;
-  readonly onSave: (name: string, email: string, color: string) => void;
-  readonly onDelete: (memberId: string) => void;
-}
-
-export const MemberEditSheet: React.FC<MemberEditSheetProps> = ({
-  member,
-  canDelete,
-  deleteReason,
-  onClose,
-  onSave,
-  onDelete,
-}) => {
-  const [name, setName] = useState(member?.name || '');
-  const [email, setEmail] = useState(member?.email || '');
-  const [color, setColor] = useState(member?.color || MEMBER_PRESET_COLORS[0]);
+  // States for selected editing member
+  const [editName, setName] = useState('');
+  const [editEmail, setEmail] = useState('');
+  const [editColor, setColor] = useState(MEMBER_PRESET_COLORS[0]);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [isSaveToastVisible, setIsSaveToastVisible] = useState(false);
+
+  // Load editing member fields
+  const selectedMember = useMemo(() => {
+    return members.find(m => m.id === editingMemberId) || null;
+  }, [members, editingMemberId]);
 
   useEffect(() => {
-    if (member) {
-      setName(member.name);
-      setEmail(member.email || '');
-      setColor(member.color || MEMBER_PRESET_COLORS[0]);
+    if (selectedMember) {
+      setName(selectedMember.name);
+      setEmail(selectedMember.email || '');
+      setColor(selectedMember.color || MEMBER_PRESET_COLORS[0]);
       setErrors({});
     }
-  }, [member]);
+  }, [selectedMember, editingMemberId]);
 
-  if (!member) return null;
+  // Find currently mapped member
+  const mappedMember = useMemo(() => {
+    if (!members || members.length === 0) return null;
+    if (currentUserId) {
+      const byUserId = members.find(m => m.userId === currentUserId);
+      if (byUserId) return byUserId;
+    }
+    if (user?.email) {
+      const byEmail = members.find(m => m.email?.toLowerCase() === user.email?.toLowerCase());
+      if (byEmail) return byEmail;
+    }
+    return null;
+  }, [members, currentUserId, user?.email]);
 
+  const handleBindProfile = useCallback((targetMemberId: string) => {
+    triggerHaptic();
+    if (targetMemberId === GUEST_MODE_ID) {
+      const updated = members.map(m => (m.userId === currentUserId ? { ...m, userId: null } : m));
+      onUpdateMembers(updated);
+      toast.success('Сессия переключена в гостевой режим');
+    } else {
+      const updated = members.map(m => {
+        if (m.id === targetMemberId) {
+          return { ...m, userId: currentUserId || 'local-user' };
+        }
+        if (currentUserId && m.userId === currentUserId) {
+          return { ...m, userId: null };
+        }
+        return m;
+      });
+      onUpdateMembers(updated);
+      const selected = members.find(m => m.id === targetMemberId);
+      toast.success(`Сессия успешно сопоставлена с профилем «${selected?.name || ''}»`);
+    }
+  }, [members, currentUserId, onUpdateMembers]);
+
+  // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {
     setName(val);
     const result = validateMemberName(val);
@@ -658,366 +173,759 @@ export const MemberEditSheet: React.FC<MemberEditSheetProps> = ({
 
   const handleColorChange = (newColor: string) => {
     setColor(newColor);
-    // Мгновенно сохраняем выбранный цвет
-    onSave(name, email, newColor);
+    triggerHaptic();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nameVal = validateMemberName(name);
-    const emailVal = validateMemberEmail(email);
+  // Save member modifications
+  const handleSaveMemberDetails = () => {
+    if (!editingMemberId) return;
+    const nameVal = validateMemberName(editName);
+    const emailVal = validateMemberEmail(editEmail);
 
     if (!nameVal.isValid || !emailVal.isValid) {
       setErrors({ name: nameVal.error, email: emailVal.error });
+      toast.error('Проверьте правильность заполнения полей');
       return;
     }
 
-    onSave(name.trim(), email.trim(), color);
-    onClose();
-  };
-
-  const previewInitial = name.trim().charAt(0).toUpperCase() || 'У';
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div 
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-member-title"
-        className="w-full max-w-md bg-white dark:bg-[#1E2023] rounded-3xl p-5 sm:p-6 shadow-2xl border border-stone-200 dark:border-white/10 space-y-4"
-      >
-        {/* Заголовок */}
-        <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-white/5">
-          <div className="flex items-center gap-3">
-            <div 
-              className="size-10 rounded-full flex items-center justify-center text-white font-bold text-base shadow-xs"
-              style={{ backgroundColor: color }}
-            >
-              {previewInitial}
-            </div>
-            <div>
-              <h3 id="edit-member-title" className="text-base font-bold text-stone-900 dark:text-white leading-tight">
-                Настройка профиля
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Имя, e-mail и персональный цвет
-              </p>
-            </div>
-          </div>
-          <button 
-            type="button" 
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-white transition-colors cursor-pointer"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Имя */}
-          <div>
-            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-              Имя участника <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Имя"
-              className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border text-sm font-semibold text-stone-900 dark:text-white focus:outline-none transition-colors ${
-                errors.name ? 'border-red-400' : 'border-stone-200 dark:border-white/10 focus:ring-2 focus:ring-[#4A7C59]'
-              }`}
-            />
-            {errors.name && (
-              <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle size={12} />
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          {/* E-mail */}
-          <div>
-            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-              E-mail для синхронизации
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => handleEmailChange(e.target.value)}
-              placeholder="user@example.com"
-              className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-[#18191C] border text-sm text-stone-900 dark:text-white focus:outline-none transition-colors ${
-                errors.email ? 'border-red-400' : 'border-stone-200 dark:border-white/10 focus:ring-2 focus:ring-[#4A7C59]'
-              }`}
-            />
-            {errors.email && (
-              <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle size={12} />
-                {errors.email}
-              </p>
-            )}
-          </div>
-
-          {/* Палитра цветов: мгновенный выбор и сохранение */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-                <Palette size={14} className="text-[#4A7C59]" />
-                <span>Персональный цвет маркера</span>
-              </label>
-              <span className="text-[11px] font-mono font-bold text-stone-500 uppercase">
-                {color}
-              </span>
-            </div>
-            <div className="grid grid-cols-6 gap-2">
-              {MEMBER_PRESET_COLORS.map(c => {
-                const isSelected = color.toLowerCase() === c.toLowerCase();
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => handleColorChange(c)}
-                    className={`h-9 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
-                      isSelected ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-105' : 'hover:scale-102 opacity-85 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: c }}
-                    title={`Выбрать цвет ${c}`}
-                  >
-                    {isSelected && <Check size={16} className="text-white drop-shadow-sm" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Действия */}
-          <div className="pt-2 border-t border-stone-100 dark:border-white/5 flex items-center gap-2">
-            <button
-              type="button"
-              disabled={!canDelete}
-              title={deleteReason || 'Удалить участника'}
-              onClick={() => onDelete(member.id)}
-              className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            >
-              <Trash2 size={16} />
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || !!errors.name || !!errors.email}
-              className="flex-1 py-3 px-4 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 size={16} />
-              <span>Сохранить изменения</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export interface MembersSettingsSectionProps {
-  readonly members: FamilyMember[];
-  readonly onUpdateMembers: (members: FamilyMember[]) => void;
-  readonly currentFamilyId: string | null;
-  readonly transactions?: Transaction[];
-}
-
-/**
- * Главный компонент настройки участников с мобильной адаптацией.
- */
-export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
-  members,
-  onUpdateMembers,
-  currentFamilyId,
-  transactions = [],
-}) => {
-  const { user } = useAuth();
-  const currentUserEmail = user?.email || 'Локальная сессия';
-  const currentUserId = user?.uid || null;
-
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-
-  // Определение участника, привязанного к текущей сессии
-  const mappedMember = useMemo(() => {
-    return findMappedMember(members, currentUserId, user?.email);
-  }, [members, currentUserId, user?.email]);
-
-  // Обработка связывания текущей сессии с участником
-  const handleBindProfile = useCallback((targetMemberId: string) => {
-    const updated = bindMemberToUser(targetMemberId, members, currentUserId);
-    onUpdateMembers(updated);
-    if (targetMemberId === GUEST_MODE_ID) {
-      toast.success('Сессия переключена в гостевой режим');
-    } else {
-      const selected = members.find(m => m.id === targetMemberId);
-      toast.success(`Сессия успешно привязана к профилю «${selected?.name || ''}»`);
-    }
-  }, [members, currentUserId, onUpdateMembers]);
-
-  // Быстрое создание участника
-  const handleCreateLocalMember = useCallback(async (newName: string, newEmail: string, newColor: string) => {
-    const newId = generateMemberId();
-    const newMember: FamilyMember = {
-      id: newId,
-      name: newName,
-      email: newEmail || undefined,
-      color: newColor,
-    };
-    onUpdateMembers([...members, newMember]);
-    toast.success(`Участник «${newName}» успешно добавлен`);
-
-    if (currentFamilyId && newEmail) {
-      try {
-        await createInvitation(currentFamilyId, newEmail, newId);
-        toast.success(`Инвайт отправлен на ${newEmail}`);
-      } catch (err: any) {
-        console.error('Invite error:', err);
-      }
-    }
-  }, [members, onUpdateMembers, currentFamilyId]);
-
-  // Отправка прямого инвайта по почте
-  const handleSendEmailInvite = useCallback(async (email: string) => {
-    if (!currentFamilyId) {
-      toast.error('Семейный контур не инициализирован');
-      return;
-    }
-    const tempId = generateMemberId();
-    await createInvitation(currentFamilyId, email, tempId);
-    toast.success(`Приглашение отправлено на ${email}`);
-  }, [currentFamilyId]);
-
-  // Сохранение изменений профиля участника
-  const handleSaveMemberDetails = useCallback((newName: string, newEmail: string, newColor: string) => {
-    if (!editingMemberId) return;
-    const cleanEmail = newEmail.trim().toLowerCase() || undefined;
+    triggerHaptic();
     const updated = members.map(m => m.id === editingMemberId ? {
       ...m,
-      name: newName.trim(),
-      email: cleanEmail,
-      color: newColor,
+      name: editName.trim(),
+      email: editEmail.trim().toLowerCase() || undefined,
+      color: editColor,
     } : m);
-    onUpdateMembers(updated);
-    toast.success('Профиль участника обновлен');
-  }, [editingMemberId, members, onUpdateMembers]);
 
-  // Удаление участника
-  const handleDeleteMember = useCallback(async (memberId: string) => {
-    const check = canDeleteMember(memberId, members);
-    if (!check.canDelete) {
-      toast.error(check.reason || 'Нельзя удалить участника');
+    onUpdateMembers(updated);
+    setIsSaveToastVisible(true);
+    toast.success('Профиль участника успешно обновлен!');
+
+    setTimeout(() => {
+      setIsSaveToastVisible(false);
+    }, 2500);
+  };
+
+  // Delete family member profile
+  const handleDeleteMember = async () => {
+    if (!editingMemberId) return;
+    if (members.length <= 1) {
+      toast.error('Невозможно удалить единственного участника пространства');
       return;
     }
-    const target = members.find(m => m.id === memberId);
-    const updated = members.filter(m => m.id !== memberId);
+
+    const target = members.find(m => m.id === editingMemberId);
+    if (!window.confirm(`Вы уверены, что хотите полностью удалить профиль «${target?.name}»? Все привязки будут аннулированы.`)) {
+      return;
+    }
+
+    triggerHaptic();
+    const updated = members.filter(m => m.id !== editingMemberId);
     onUpdateMembers(updated);
 
     if (currentFamilyId) {
       try {
-        await deleteItem(currentFamilyId, 'members', memberId);
+        await deleteItem(currentFamilyId, 'members', editingMemberId);
       } catch (err) {
-        console.error('Cloud delete failed:', err);
+        console.error('Cloud delete fail:', err);
       }
     }
 
-    setEditingMemberId(null);
-    toast.success(`Участник «${target?.name || ''}» удален`);
-  }, [members, onUpdateMembers, currentFamilyId]);
+    toast.success(`Профиль «${target?.name || ''}» удален`);
+    setEditingMemberId(updated[0]?.id || null);
+  };
 
-  const memberBeingEdited = useMemo(() => {
-    return members.find(m => m.id === editingMemberId) || null;
-  }, [members, editingMemberId]);
+  // Create new user/participant profile
+  const handleCreateNewMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nameVal = validateMemberName(inviteName);
+    const emailVal = validateMemberEmail(inviteEmail);
 
-  const deletePermission = useMemo(() => {
-    if (!editingMemberId) return { canDelete: false, reason: '' };
-    return canDeleteMember(editingMemberId, members);
-  }, [editingMemberId, members]);
+    if (!nameVal.isValid) {
+      toast.error(nameVal.error || 'Некорректное имя');
+      return;
+    }
+    if (!emailVal.isValid) {
+      toast.error(emailVal.error || 'Некорректный e-mail');
+      return;
+    }
+
+    triggerHaptic();
+    const newId = Math.random().toString(36).substring(2, 11);
+    const newMember: FamilyMember = {
+      id: newId,
+      name: inviteName.trim(),
+      email: inviteEmail.trim().toLowerCase() || undefined,
+      color: inviteColor,
+    };
+
+    onUpdateMembers([...members, newMember]);
+    toast.success(`Участник «${inviteName}» добавлен в семейный контур!`);
+
+    if (currentFamilyId && inviteEmail.trim()) {
+      setIsSendingInvite(true);
+      try {
+        await createInvitation(currentFamilyId, inviteEmail.trim(), newId);
+        toast.success(`Приглашение отправлено на адрес ${inviteEmail}`);
+      } catch (err) {
+        console.error('Invite error:', err);
+      } finally {
+        setIsSendingInvite(false);
+      }
+    }
+
+    setIsInviteModalOpen(false);
+    setInviteName('');
+    setInviteEmail('');
+    setEditingMemberId(newId);
+  };
 
   return (
-    <div className="w-full max-w-xl mx-auto space-y-6 pb-8">
-      {/* Верхний блок: Заголовок контекста и кнопка приглашения */}
-      <section className="space-y-3">
-        <div className="flex items-start justify-between gap-3 pt-1">
-          <div>
-            <h2 className="text-stone-900 dark:text-white font-headline font-bold text-2xl tracking-tight leading-tight">
-              Участники пространства
-            </h2>
-            <p className="text-stone-500 dark:text-stone-400 text-sm mt-1 leading-relaxed">
-              Управление профилями и сопоставление авторизованных аккаунтов
-            </p>
+    <div className="w-full max-w-full space-y-8 animate-fade-in">
+      
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* DESKTOP PC LAYOUT (lg and up) */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <div className="hidden lg:grid grid-cols-12 gap-8 items-start">
+        
+        {/* Left Column: Member List & current session mappings (lg:col-span-7) */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* Top session box */}
+          <div className="bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
+              <span className="text-xs font-bold tracking-wide uppercase text-gray-500 dark:text-gray-400">
+                Текущая активная сессия
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-xs font-mono text-gray-700 dark:text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                {currentUserEmail}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Статус сопоставления сессии</p>
+                <div className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                  Вы сопоставлены с профилем: {' '}
+                  <span className="font-bold text-[#4A7C59] dark:text-emerald-400">
+                    {mappedMember ? mappedMember.name : 'Гостевой режим'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">
+                  Все новые операции, создаваемые с этого устройства, автоматически связываются с выбранным профилем.
+                </p>
+              </div>
+
+              {/* Profile Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400" htmlFor="session-profile-link-desktop">
+                  Связать сессию с:
+                </label>
+                <div className="relative">
+                  <select 
+                    id="session-profile-link-desktop"
+                    value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
+                    onChange={(e) => handleBindProfile(e.target.value)}
+                    className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
+                  >
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {mappedMember?.id === m.id ? '(Текущий профиль)' : ''}
+                      </option>
+                    ))}
+                    <option value={GUEST_MODE_ID}>Гостевой режим без сопоставления</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Members List Box */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pt-2 px-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Список участников</h3>
+                <span className="text-xs bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-bold">
+                  {members.length}
+                </span>
+              </div>
+              <span className="text-xs text-gray-400 dark:text-gray-500">Нажмите на карточку для изменения</span>
+            </div>
+
+            {/* List map */}
+            <div className="space-y-3">
+              {members.map(m => {
+                const stats = calculateMemberStats(m.id, transactions);
+                const isSelected = editingMemberId === m.id;
+                const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
+
+                return (
+                  <motion.div
+                    key={m.id}
+                    onClick={() => {
+                      triggerHaptic();
+                      setEditingMemberId(m.id);
+                    }}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className={`rounded-2xl p-5 shadow-3xs cursor-pointer transition-all duration-200 flex items-center justify-between border ${
+                      isSelected 
+                        ? 'bg-white dark:bg-[#1E2023] border-2 border-[#4A7C59] dark:border-emerald-500 shadow-xs' 
+                        : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div 
+                        className="w-11 h-11 rounded-xl text-white font-bold text-lg flex items-center justify-center shadow-3xs shrink-0 transition-transform duration-200"
+                        style={{ backgroundColor: m.color || '#4A7C59' }}
+                      >
+                        {initials}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <span className="font-bold text-base text-gray-900 dark:text-white truncate">
+                            {m.name}
+                          </span>
+                          {mappedMember?.id === m.id && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-[#4A7C59] dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/20">
+                              Это вы
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3 flex-wrap">
+                          <span>{m.email || 'Локальный профиль'}</span>
+                          <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
+                          <span>Операций: {stats.transactionCount}</span>
+                          <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">
+                            Расход: {formatCurrencyRub(stats.totalExpense)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      <span 
+                        className="w-3.5 h-3.5 rounded-full inline-block ring-4 ring-gray-100 dark:ring-white/5 transition-all shadow-3xs"
+                        style={{ backgroundColor: m.color || '#4A7C59' }}
+                      />
+                      <ChevronRight size={16} className={`transition-transform duration-200 ${isSelected ? 'text-[#4A7C59] translate-x-1' : 'text-gray-400'}`} />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <button 
-          type="button"
-          onClick={() => setIsInviteModalOpen(true)}
-          className="w-full flex items-center justify-center gap-2 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-colors text-sm cursor-pointer active:scale-98"
-        >
-          <UserPlus size={18} />
-          <span>Пригласить участника</span>
-        </button>
-      </section>
+        {/* Right Column: Unified Shared Editor Drawer on PC (lg:col-span-5) */}
+        <div className="lg:col-span-5">
+          <AnimatePresence mode="wait">
+            {selectedMember ? (
+              <motion.div
+                key={editingMemberId}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="bg-white dark:bg-[#202225] border-2 border-[#4A7C59] dark:border-emerald-600/50 rounded-2xl p-6 shadow-sm space-y-5"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
+                      Панель параметров
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      (Редактируется: {selectedMember.name})
+                    </span>
+                  </div>
 
-      {/* Блок 1: Текущая сессия аккаунта */}
-      <CurrentSessionBlock
-        currentUserEmail={currentUserEmail}
-        mappedMember={mappedMember}
-        members={members}
-        onBindProfile={handleBindProfile}
-      />
+                  <AnimatePresence>
+                    {isSaveToastVisible && (
+                      <motion.span 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/30 px-2 py-0.5 rounded-full"
+                      >
+                        <Check size={11} strokeWidth={3} />
+                        <span>Изменения сохранены</span>
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-      {/* Блок 2: Список участников */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-base font-bold font-headline text-stone-900 dark:text-white">
-            Список участников ({members.length})
-          </h3>
-          <span className="text-xs text-stone-500 font-medium">
-            Нажмите для редактирования
-          </span>
+                <div className="space-y-4">
+                  {/* Name field */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider" htmlFor="member-name-input-desktop">
+                      Отображаемое имя
+                    </label>
+                    <input 
+                      type="text"
+                      id="member-name-input-desktop"
+                      value={editName}
+                      onChange={e => handleNameChange(e.target.value)}
+                      placeholder="Имя"
+                      className="w-full bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                    {errors.name && (
+                      <p className="text-[11px] text-red-500 flex items-center gap-1 pt-0.5">
+                        <AlertCircle size={12} />
+                        <span>{errors.name}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Email field */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider" htmlFor="member-email-input-desktop">
+                      Email для приглашения / входа
+                    </label>
+                    <input 
+                      type="email"
+                      id="member-email-input-desktop"
+                      value={editEmail}
+                      onChange={e => handleEmailChange(e.target.value)}
+                      placeholder="alexey@family-cloud.org"
+                      className="w-full bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    />
+                    {errors.email && (
+                      <p className="text-[11px] text-red-500 flex items-center gap-1 pt-0.5">
+                        <AlertCircle size={12} />
+                        <span>{errors.email}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Swatches palette */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Цветовой маркер профиля
+                    </label>
+                    <div className="grid grid-cols-4 gap-2.5 py-1">
+                      {MEMBER_PRESET_COLORS.map(c => {
+                        const isSelected = editColor.toLowerCase() === c.toLowerCase();
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleColorChange(c)}
+                            className={`h-9 rounded-xl transition-all cursor-pointer flex items-center justify-center relative ${
+                              isSelected 
+                                ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-102 border-2 border-white dark:border-[#202225]' 
+                                : 'opacity-85 hover:opacity-100 hover:scale-[1.02]'
+                            }`}
+                            style={{ backgroundColor: c }}
+                            title={`Цвет ${c}`}
+                          >
+                            {isSelected && <Check size={16} className="text-white drop-shadow-sm font-bold" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100 dark:border-white/5">
+                    <button
+                      type="button"
+                      onClick={handleDeleteMember}
+                      className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 px-1 cursor-pointer"
+                    >
+                      <Trash2 size={15} />
+                      <span>Удалить профиль</span>
+                    </button>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedMember) {
+                            setName(selectedMember.name);
+                            setEmail(selectedMember.email || '');
+                            setColor(selectedMember.color || MEMBER_PRESET_COLORS[0]);
+                            setErrors({});
+                          }
+                        }}
+                        className="px-3.5 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 bg-white dark:bg-transparent hover:bg-gray-50 text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Сбросить
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveMemberDetails}
+                        className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold transition-all shadow-3xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Check size={13} />
+                        <span>Сохранить участника</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="bg-gray-50/50 dark:bg-[#18191C]/50 border border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-8 text-center text-xs text-gray-400">
+                <Users size={24} className="mx-auto mb-2 text-gray-300" />
+                Выберите участника слева для редактирования его профиля.
+              </div>
+            )}
+          </AnimatePresence>
         </div>
+      </div>
 
-        <div className="space-y-3">
-          {members.map(m => {
-            const stats = calculateMemberStats(m.id, transactions);
-            const isMapped = mappedMember?.id === m.id;
-            return (
-              <MemberCardItem
-                key={m.id}
-                member={m}
-                isMappedCurrent={isMapped}
-                stats={stats}
-                onEdit={() => setEditingMemberId(m.id)}
-                onColorPick={(newColor) => {
-                  const updated = members.map(item => item.id === m.id ? { ...item, color: newColor } : item);
-                  onUpdateMembers(updated);
-                }}
-              />
-            );
-          })}
-        </div>
-      </section>
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* MOBILE INTERACTIVE LAYOUT (< lg) - MATCHES DESIGN FILE PERFECTLY */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <div className="block lg:hidden space-y-5">
+        
+        {/* On mobile Header Area */}
+        <section className="flex flex-col gap-3">
+          <button 
+            type="button"
+            onClick={() => setIsInviteModalOpen(true)}
+            className="w-full min-h-[48px] px-4 py-3 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+          >
+            <UserPlus size={18} />
+            <span>+ Пригласить участника</span>
+          </button>
+        </section>
 
-      {/* Модальное окно приглашения / добавления */}
-      <InviteMemberModal
-        isOpen={isInviteModalOpen}
-        currentFamilyId={currentFamilyId}
-        onClose={() => setIsInviteModalOpen(false)}
-        onSendEmailInvite={handleSendEmailInvite}
-        onCreateLocalMember={handleCreateLocalMember}
-      />
+        {/* Card: Текущая активная сессия */}
+        <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none flex flex-col gap-3.5 border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase">
+              Текущая активная сессия
+            </span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-[10px] font-semibold text-gray-700 dark:text-gray-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] dark:bg-emerald-400 inline-block"></span>
+              <span>{currentUserEmail.split('@')[0]}@local</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            Вы сопоставлены с профилем: <strong className="text-gray-900 dark:text-white font-bold">{mappedMember ? mappedMember.name : 'Гость'}</strong>. Все новые операции связываются с этим маркером.
+          </p>
+          
+          <div className="flex flex-col gap-1.5 pt-1">
+            <label className="text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase">
+              Связать текущую сессию с:
+            </label>
+            <div className="relative w-full">
+              <select 
+                value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
+                onChange={(e) => handleBindProfile(e.target.value)}
+                className="w-full min-h-[46px] appearance-none bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200/50 dark:border-white/5 text-xs sm:text-sm font-bold rounded-xl px-3.5 pr-10 focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors cursor-pointer"
+              >
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} {mappedMember?.id === m.id ? '(Вы)' : ''}
+                  </option>
+                ))}
+                <option value={GUEST_MODE_ID}>Гостевой режим без сопоставления</option>
+              </select>
+              <ChevronDown size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+        </section>
 
-      {/* Модальное окно / шторка редактирования выбранного участника */}
-      <MemberEditSheet
-        member={memberBeingEdited}
-        canDelete={deletePermission.canDelete}
-        deleteReason={deletePermission.reason}
-        onClose={() => setEditingMemberId(null)}
-        onSave={handleSaveMemberDetails}
-        onDelete={handleDeleteMember}
-      />
+        {/* Section: Список участников */}
+        <section className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                Список участников
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                {members.length}
+              </span>
+            </div>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">Нажмите карточку для изменения</span>
+          </div>
+
+          <div className="space-y-3">
+            {members.map(m => {
+              const stats = calculateMemberStats(m.id, transactions);
+              const isSelected = editingMemberId === m.id;
+              const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
+
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => {
+                    triggerHaptic();
+                    setEditingMemberId(m.id);
+                  }}
+                  className={`rounded-2xl p-4 shadow-3xs cursor-pointer transition-all border ${
+                    isSelected 
+                      ? 'bg-[#4A7C59]/5 dark:bg-emerald-950/20 border-2 border-[#4A7C59] dark:border-emerald-500' 
+                      : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 active:scale-[0.99]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div 
+                        className="w-11 h-11 rounded-xl text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-3xs"
+                        style={{ backgroundColor: m.color || '#4A7C59' }}
+                      >
+                        {initials}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-base font-bold text-gray-900 dark:text-white">
+                            {m.name}
+                          </span>
+                          {mappedMember?.id === m.id && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-[#4A7C59] dark:text-emerald-400 border border-emerald-100/30">
+                              Это вы
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                          {m.email || 'Локальный профиль'} • Трат: {stats.transactionCount} • {formatCurrencyRub(stats.totalExpense)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 pt-2.5 text-xs font-semibold">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full inline-block"
+                      style={{ backgroundColor: m.color || '#4A7C59' }}
+                    />
+                    <span className={isSelected ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-gray-400'}>
+                      {isSelected ? 'Редактирование' : 'Нажмите для изменения'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Card: Панель параметров участника (Mobile version of the drawer) */}
+        {selectedMember && (
+          <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none border border-gray-100 dark:border-white/5 flex flex-col gap-4">
+            <div className="flex flex-col">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">Панель параметров участника</h3>
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">
+                Редактируется: {selectedMember.name}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3.5">
+              {/* Displayed Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  Отображаемое имя
+                </label>
+                <input 
+                  type="text"
+                  value={editName}
+                  onChange={e => handleNameChange(e.target.value)}
+                  className="w-full min-h-[46px] px-3.5 bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200 dark:border-white/5 text-xs sm:text-sm font-semibold rounded-xl focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors"
+                />
+                {errors.name && (
+                  <p className="text-[11px] text-red-500 flex items-center gap-1 pt-0.5">
+                    <AlertCircle size={11} />
+                    <span>{errors.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Email Invitation */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  Email для приглашения
+                </label>
+                <input 
+                  type="email"
+                  value={editEmail}
+                  onChange={e => handleEmailChange(e.target.value)}
+                  className="w-full min-h-[46px] px-3.5 bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200 dark:border-white/5 text-xs sm:text-sm rounded-xl focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors"
+                />
+                {errors.email && (
+                  <p className="text-[11px] text-red-500 flex items-center gap-1 pt-0.5">
+                    <AlertCircle size={11} />
+                    <span>{errors.email}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Swatches color picker */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  Цветовой маркер
+                </label>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 py-1">
+                  {MEMBER_PRESET_COLORS.map(c => {
+                    const isSelected = editColor.toLowerCase() === c.toLowerCase();
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => handleColorChange(c)}
+                        className={`h-9 rounded-xl transition-all cursor-pointer flex items-center justify-center relative ${
+                          isSelected 
+                            ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-102 border-2 border-white dark:border-[#202225]' 
+                            : 'opacity-85 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      >
+                        {isSelected && <Check size={16} className="text-white drop-shadow-xs" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions list */}
+            <div className="flex flex-col gap-3 pt-2">
+              {/* Delete profile */}
+              <button 
+                type="button"
+                onClick={handleDeleteMember}
+                className="min-h-[44px] w-full inline-flex items-center justify-center gap-1.5 text-red-500 font-bold text-xs py-2 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
+              >
+                <Trash2 size={16} />
+                <span>Удалить профиль</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (selectedMember) {
+                      setName(selectedMember.name);
+                      setEmail(selectedMember.email || '');
+                      setColor(selectedMember.color || MEMBER_PRESET_COLORS[0]);
+                      setErrors({});
+                    }
+                  }}
+                  className="min-h-[44px] px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Отменить
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleSaveMemberDetails}
+                  className="min-h-[44px] px-4 py-2.5 bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-bold rounded-xl shadow-xs transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                >
+                  <Check size={14} />
+                  <span>Сохранить участника</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* MODULAR INVITE MEMBER DIALOG */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white dark:bg-[#1E2023] rounded-3xl p-6 shadow-2xl border border-gray-200 dark:border-white/10 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#4A7C59] flex items-center justify-center">
+                    <UserPlus size={18} />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white font-headline">
+                    Добавление в команду семьи
+                  </h3>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNewMember} className="space-y-4 pt-1">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                    Имя участника <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Например: Мария"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                    E-mail для синхронизации (необязательно)
+                  </label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="maria@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                    Цвет маркера участника
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {MEMBER_PRESET_COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setInviteColor(c)}
+                        className={`h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                          inviteColor === c 
+                            ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-102 border-2 border-white dark:border-[#202225]' 
+                            : 'opacity-85 hover:opacity-100 hover:scale-101'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      >
+                        {inviteColor === c && <Check size={15} className="text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingInvite || !inviteName.trim()}
+                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSendingInvite ? 'Приглашение...' : 'Создать участника'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -601,10 +601,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           )}
         </div>
 
-        {/* 3. Smart AI Quick Add Box */}
+        {/* Quick Add Box */}
         <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-2 pl-3.5 shadow-xs flex flex-col gap-1.5">
           <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-2">
-            <Sparkles size={18} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
+            <Plus size={18} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
             <input 
               ref={quickInputRef}
               type="text"

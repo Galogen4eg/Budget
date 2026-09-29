@@ -122,7 +122,7 @@ export const LoginScreen: React.FC = () => {
             </h1>
             <p className="text-xs font-semibold tracking-wide text-[#6b776d] mt-1.5 flex items-center gap-1.5">
               <span>Семейный бюджет</span>
-              <span>•</span>
+              <span>—</span>
               <span>{mode === 'login' ? 'Авторизация' : 'Регистрация'}</span>
             </p>
           </header>
@@ -239,7 +239,7 @@ export const LoginScreen: React.FC = () => {
           </form>
 
           {/* Локальный демо-режим */}
-          <footer className="mt-5 pt-4 border-t border-[#ece7df] flex flex-col items-center text-center space-y-3">
+          <footer className="mt-5 pt-4 border-t border-[#ece7df] flex flex-col items-center text-center">
             <button
               type="button"
               onClick={enterDemoMode}
@@ -248,17 +248,8 @@ export const LoginScreen: React.FC = () => {
               <UserPlus size={14} className="text-[#78857a]" />
               <span>Локальный демо-режим</span>
             </button>
-            <p className="text-[11px] leading-relaxed text-[#7c887e] max-w-[290px]">
-              Ваши данные в безопасности и сохраняются в защищенной базе данных
-            </p>
           </footer>
         </motion.div>
-
-        {/* Индикатор защиты */}
-        <div className="text-center mt-5 text-xs text-[#707e73] flex items-center justify-center gap-2">
-          <ShieldCheck size={16} className="text-[#3e6b48]" />
-          <span>Защищено сквозным шифрованием семейных баз данных</span>
-        </div>
       </main>
 
       {/* Модальное окно восстановления пароля */}

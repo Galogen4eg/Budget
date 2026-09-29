@@ -242,19 +242,6 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                     </button>
                   )}
                 </div>
-
-                <button 
-                  type="button"
-                  onClick={() => setShowFilterOptions(!showFilterOptions)}
-                  aria-label="Фильтры"
-                  className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl transition-all cursor-pointer ${
-                    showFilterOptions 
-                      ? 'bg-[#4A7C59] text-white shadow-2xs' 
-                      : 'bg-[#F0ECE4] dark:bg-[#1C1C1E] text-[#4A4E4A] dark:text-stone-300 active:scale-95'
-                  }`}
-                >
-                  <SlidersHorizontal size={19} />
-                </button>
               </div>
 
               {/* Operation Type Segmented Pills */}
@@ -497,10 +484,9 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                                     </p>
                                     {member && (
                                       <span 
-                                        className="px-1.5 py-0.2 rounded bg-white dark:bg-[#252528] text-[10px] font-bold shrink-0 flex items-center gap-1"
+                                        className="px-1.5 py-0.2 rounded bg-white dark:bg-[#252528] text-[10px] font-bold shrink-0"
                                         style={{ color: member.color || undefined }}
                                       >
-                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: member.color || '#4A7C59' }} />
                                         <span>{member.name}</span>
                                       </span>
                                     )}
@@ -514,9 +500,6 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                               <div className="text-right shrink-0 ml-2">
                                 <p className={`text-sm font-bold ${isExpense ? 'text-[#B83230] dark:text-rose-400' : 'text-[#4A7C59] dark:text-green-400'}`}>
                                   {isExpense ? '-' : '+'}{tx.amount.toLocaleString('ru-RU')} ₽
-                                </p>
-                                <p className="text-[11px] text-[#4A4E4A]/70 dark:text-stone-400">
-                                  {timeStr}
                                 </p>
                               </div>
                             </div>
@@ -743,7 +726,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               {/* Mini Note */}
               <div className="bg-[#EAE6DE] dark:bg-white/5 rounded-xl p-2.5 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-[#4A7C59] dark:text-green-400" />
+                  <Calendar size={16} className="text-[#4A7C59] dark:text-green-400" />
                   <span className="text-[#2E3230] dark:text-white">
                     Самый активный день: <strong>{peakInfo.label}</strong>
                   </span>

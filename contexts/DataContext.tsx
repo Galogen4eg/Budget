@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   ],
   isPinEnabled: false,
-  enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'services'],
+  enabledTabs: ['overview', 'budget', 'plans', 'shopping', 'chat', 'services'],
   enabledServices: ['wallet', 'debts'], 
   defaultBudgetMode: 'personal',
   autoSendEventsToTelegram: false,

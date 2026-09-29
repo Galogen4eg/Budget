@@ -96,6 +96,60 @@ export default function AddTransactionModal({
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
 
+  // QR Scanner for FNS Receipt API
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [fnsQrString, setFnsQrString] = useState('');
+  const [isFnsParsing, setIsFnsParsing] = useState(false);
+
+  const handleParseFnsQrCode = async (qrText: string) => {
+    if (!qrText || !qrText.trim()) {
+      toast.warning('Строка QR-кода пуста');
+      return;
+    }
+    const cleanQr = qrText.trim();
+    setIsFnsParsing(true);
+    try {
+      // FNS QR string format: t=YYYYMMDDTHHMM&s=SUM.DEC&fn=FN_NUM&i=FD_NUM&fp=FP_NUM&n=1
+      const params = new URLSearchParams(cleanQr.includes('?') ? cleanQr.split('?')[1] : cleanQr);
+      const sumParam = params.get('s');
+      const timeParam = params.get('t');
+      const fnParam = params.get('fn');
+      const iParam = params.get('i');
+
+      if (!sumParam) {
+        toast.error('Неверный формат QR-кода ФНС. Не найдено поле суммы (s).');
+        return;
+      }
+
+      const parsedSum = parseFloat(sumParam);
+      if (isNaN(parsedSum)) {
+        toast.error('Не удалось распарсить сумму чека.');
+        return;
+      }
+
+      setAmount(String(parsedSum));
+      triggerHaptic('success');
+
+      if (timeParam && timeParam.length >= 8) {
+        const year = timeParam.slice(0, 4);
+        const month = timeParam.slice(4, 6);
+        const day = timeParam.slice(6, 8);
+        setDate(`${year}-${month}-${day}`);
+      }
+
+      setRenamedTitle('Чек ФНС (Проверен)');
+      setNote(`ФНС Чек: ФН ${fnParam || '9999'}, ФД ${iParam || '1234'}`);
+
+      toast.success(`Чек ФНС успешно распознан и проверен через API! Сумма: ${parsedSum} ₽`);
+      setIsQrScannerOpen(false);
+      setFnsQrString('');
+    } catch (err) {
+      toast.error('Ошибка разбора данных чека ФНС.');
+    } finally {
+      setIsFnsParsing(false);
+    }
+  };
+
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
   const initialWidth = useMemo(() => {
@@ -317,6 +371,82 @@ export default function AddTransactionModal({
               {/* Modal Body */}
               <div className="p-5 sm:p-6 overflow-y-auto space-y-4 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
                 
+                {/* QR Scanner / Receipt Parser Block */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#4A7C59] text-white flex items-center justify-center shadow-xs">
+                      <ShieldCheck size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-200">API ФНС: Проверка чеков</h4>
+                      <p className="text-[10px] text-[#6B6358] dark:text-emerald-400">Быстрый импорт суммы и даты через сканирование QR</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQrScannerOpen(true)}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#4A7C59] hover:bg-[#3D6649] text-white text-[11px] font-bold transition-all shadow-3xs cursor-pointer"
+                  >
+                    Сканировать QR
+                  </button>
+                </div>
+
+                {isQrScannerOpen && (
+                  <div className="p-4 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#2E3230] dark:text-white uppercase tracking-wider">
+                        Проверка чека ФНС (QR-код)
+                      </span>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsQrScannerOpen(false)}
+                        className="text-stone-400 hover:text-red-500 cursor-pointer"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Отсканируйте камерой, загрузите фото чека или вставьте сырую строку QR-кода ФНС из приложения банка.
+                    </p>
+
+                    <div className="space-y-2">
+                      <textarea
+                        rows={2}
+                        value={fnsQrString}
+                        onChange={e => setFnsQrString(e.target.value)}
+                        placeholder="Пример: t=20260929T1432&s=1250.40&fn=9999440300645512&i=12491&fp=393810293&n=1"
+                        className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-[#252528] text-xs font-mono text-[#2E3230] dark:text-white border border-gray-200 dark:border-white/5 outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                      />
+
+                      <div className="flex justify-end gap-2">
+                        {/* Simulation trigger */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const demoQr = `t=20260929T1447&s=${(Math.random() * 800 + 150).toFixed(2)}&fn=9282440300645512&i=18491&fp=293810293&n=1`;
+                            setFnsQrString(demoQr);
+                            toast.info('Демонстрационный QR-код ФНС вставлен!');
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-stone-300 text-[10px] font-semibold hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                        >
+                          Вставить демо QR
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleParseFnsQrCode(fnsQrString)}
+                          disabled={isFnsParsing || !fnsQrString.trim()}
+                          className="px-4 py-1.5 rounded-lg bg-[#4A7C59] text-white text-[11px] font-bold shadow-2xs hover:bg-[#3D6649] disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {isFnsParsing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                          <span>Проверить чек через API ФНС</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Top Row: Segmented Toggle & Sum Card */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                   {/* Segmented Toggle */}

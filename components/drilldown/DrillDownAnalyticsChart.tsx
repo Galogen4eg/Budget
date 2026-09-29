@@ -337,28 +337,22 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
           {/* Clipped Trend Path & Bars */}
           <g clipPath="url(#chartPlotArea)">
             {renderedChartData.areaD && (
-              <motion.path 
-                key={`area-${chartGranularity}-${chartSeriesFilter}-${activeSubcategoryId || 'all'}`}
+              <path 
                 d={renderedChartData.areaD} 
                 fill="url(#areaGradient)"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.15 }}
+                className="transition-all duration-300"
               />
             )}
             
             {renderedChartData.lineD && (
-              <motion.path 
-                key={`line-${chartGranularity}-${chartSeriesFilter}-${activeSubcategoryId || 'all'}`}
+              <path 
                 d={renderedChartData.lineD} 
                 fill="none" 
                 stroke="#4A7C59" 
                 strokeWidth="2.5" 
                 strokeLinejoin="round" 
                 strokeLinecap="round" 
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+                className="transition-all duration-300"
               />
             )}
 

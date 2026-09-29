@@ -1049,12 +1049,12 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 <div className="p-5 rounded-2xl bg-[#F5F1EA]/70 dark:bg-[#242428] border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-[#E4E0D8] dark:border-white/10">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <PieChart className="w-4 h-4 text-amber-600" />
                       <h4 className="text-xs font-bold uppercase tracking-wider text-[#2E3230] dark:text-white">
                         Аналитические выводы и паттерны
                       </h4>
                     </div>
-                    <span className="text-[11px] text-[#4A7C59] font-bold">Smart Terra</span>
+                    <span className="text-[11px] text-[#4A7C59] font-bold">Аналитика</span>
                   </div>
 
                   <div className="space-y-2.5">

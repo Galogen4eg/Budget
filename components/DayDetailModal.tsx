@@ -147,7 +147,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
           <div className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Дневной безопасный темп: <b className="text-graphite dark:text-white">{Math.round(dailySafeLimit).toLocaleString('ru-RU')} ₽/дн</b></span>
+            <span>Дневной лимит: <b className="text-graphite dark:text-white">{Math.round(dailySafeLimit).toLocaleString('ru-RU')} ₽/дн</b></span>
           </div>
         </div>
 

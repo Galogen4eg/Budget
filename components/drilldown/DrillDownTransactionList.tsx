@@ -127,8 +127,6 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
                     const txCat = categories.find(c => c.id === tx.category);
                     const displayTitle = tx.note || tx.rawNote || txCat?.label || 'Операция';
                     const brandKey = getMerchantBrandKey(displayTitle);
-                    const txDate = new Date(tx.date);
-                    const timeStr = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
                     return (
                       <div 
@@ -169,9 +167,6 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
                             tx.type === 'income' ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#2E3230] dark:text-white'
                           }`}>
                             {tx.type === 'income' ? '+' : '-'}{settings.privacyMode ? '•••' : `${Math.round(tx.amount).toLocaleString('ru-RU')} ₽`}
-                          </span>
-                          <span className="block text-[10px] text-[#68726B] dark:text-stone-400 mt-0.5">
-                            {timeStr}
                           </span>
                         </div>
                       </div>

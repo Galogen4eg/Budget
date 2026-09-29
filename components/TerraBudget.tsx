@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   ChevronLeft, ChevronRight, Users, Plus, BrainCircuit, Upload, 
   PieChart, DollarSign, Check, History, Sparkles, Filter, ChevronDown, 
@@ -177,20 +177,20 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [monthTransactions, categories]);
 
   // Month navigation handlers
-  const handlePrevMonth = () => {
+  const handlePrevMonth = useCallback(() => {
     const next = new Date(currentMonth);
     next.setMonth(next.getMonth() - 1);
     onMonthChange(next);
-  };
+  }, [currentMonth, onMonthChange]);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     const next = new Date(currentMonth);
     next.setMonth(next.getMonth() + 1);
     onMonthChange(next);
-  };
+  }, [currentMonth, onMonthChange]);
 
   // Quick Add submit
-  const handleQuickAdd = () => {
+  const handleQuickAdd = useCallback(() => {
     const title = quickTitle.trim();
     const amount = parseFloat(quickAmount.replace(',', '.'));
     if (!title || isNaN(amount) || amount <= 0) return;
@@ -204,7 +204,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     setQuickAmount('');
     setQuickAddedSuccess(true);
     setTimeout(() => setQuickAddedSuccess(false), 2000);
-  };
+  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -416,7 +416,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between cursor-pointer"
                     >
                       <span>Текущий месяц</span>
-                      <Sparkles size={13} />
                     </button>
                   </div>
                 </>
@@ -482,25 +481,28 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
             {/* Family Member Filter Chips */}
-            <div className="flex items-center gap-2 pt-0.5 overflow-x-auto no-scrollbar py-0.5">
+            <div 
+              className="w-full grid gap-1.5 py-0.5" 
+              style={{ gridTemplateColumns: `repeat(${1 + members.length}, minmax(0, 1fr))` }}
+            >
               <button 
                 type="button"
                 onClick={() => setSelectedMember('all')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-transform active:scale-95 shrink-0 cursor-pointer ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer truncate ${
                   selectedMember === 'all'
                     ? 'bg-[#4A7C59] text-white'
                     : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
                 }`}
               >
-                <Users size={15} />
-                <span>Все (семья)</span>
+                <Users size={14} className="shrink-0" />
+                <span className="truncate">Все</span>
               </button>
               {members.map(m => (
                 <button 
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMember(m.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
+                  className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer truncate ${
                     selectedMember === m.id
                       ? 'bg-[#4A7C59] text-white shadow-xs'
                       : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
@@ -512,7 +514,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   >
                     {m.name.charAt(0).toUpperCase()}
                   </span>
-                  <span>{m.name}</span>
+                  <span className="truncate">{m.name}</span>
                 </button>
               ))}
             </div>
@@ -520,43 +522,29 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           {/* Financial Calendar Section */}
           <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-3.5 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-2.5">
-            {/* Header with controls */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <button 
-                  type="button"
-                  onClick={handlePrevMonth}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DE] dark:bg-[#252528] hover:bg-[#E2DDD3] dark:hover:bg-white/10 text-[#2E3230] dark:text-white transition-colors cursor-pointer"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white px-1.5 capitalize">
-                  {mobileMonthName}
-                </span>
-                <button 
-                  type="button"
-                  onClick={handleNextMonth}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DE] dark:bg-[#252528] hover:bg-[#E2DDD3] dark:hover:bg-white/10 text-[#2E3230] dark:text-white transition-colors cursor-pointer"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-              <div className="flex bg-[#EAE6DE] dark:bg-[#252528] p-0.5 rounded-lg text-[11px] font-medium text-[#6B6358] dark:text-gray-400">
-                <button 
-                  type="button"
-                  onClick={() => setCalendarScale('month')}
-                  className={`px-2 py-0.5 rounded-md transition ${calendarScale === 'month' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-semibold shadow-xs' : 'hover:text-[#2E3230]'}`}
-                >
-                  Месяц
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setCalendarScale('week')}
-                  className={`px-2 py-0.5 rounded-md transition ${calendarScale === 'week' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-semibold shadow-xs' : 'hover:text-[#2E3230]'}`}
-                >
-                  Неделя
-                </button>
-              </div>
+            {/* Header with full-width controls */}
+            <div className="w-full flex items-center justify-between p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#252528]">
+              <button 
+                type="button"
+                onClick={handlePrevMonth}
+                className="h-8 px-3 flex items-center justify-center gap-1 rounded-lg bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+                <span>Пред.</span>
+              </button>
+
+              <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white px-2 capitalize">
+                {mobileMonthName}
+              </span>
+
+              <button 
+                type="button"
+                onClick={handleNextMonth}
+                className="h-8 px-3 flex items-center justify-center gap-1 rounded-lg bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                <span>След.</span>
+                <ChevronRight size={16} />
+              </button>
             </div>
 
             {/* Weekday Labels */}
@@ -891,7 +879,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 title="Создать новую категорию или настроить"
               >
                 <Plus size={15} />
-                <span>+ Категория</span>
+                <span>Категория</span>
               </button>
             </div>
           </section>
@@ -1020,7 +1008,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
-                Дневной безопасный лимит
+                Дневной лимит
               </span>
             </div>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
@@ -1154,7 +1142,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     Календарь
                   </h3>
                   <p className="text-[11px] text-graphite-muted dark:text-gray-400">
-                    {monthTitle} • Клик по дню открывает детализацию и список операций
+                    {monthTitle} — клик по дню открывает детализацию и список операций
                   </p>
                 </div>
               </div>
@@ -1297,8 +1285,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     {activeSelectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </h4>
                   <p className="text-[11px] text-graphite-muted dark:text-gray-400">
-                    {selectedDayTransactions.length} {selectedDayTransactions.length === 1 ? 'операция' : 'операций'} • 
-                    {selectedDayNet > 0 ? ' Зачисление дохода' : selectedDayNet < 0 ? ' Расход средств' : ' Без трат'}
+                    {selectedDayTransactions.length} {selectedDayTransactions.length === 1 ? 'операция' : 'операций'}, 
+                    {selectedDayNet > 0 ? ' зачисление дохода' : selectedDayNet < 0 ? ' расход средств' : ' без трат'}
                   </p>
                 </div>
               </div>
@@ -1358,7 +1346,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                                 {member.name}
                               </span>
                             )}
-                            {category && <span>• {category.label}</span>}
+                            {category && <span>({category.label})</span>}
                           </div>
                         </div>
                       </div>
@@ -1444,7 +1432,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   title="Создать или настроить категории"
                 >
                   <Plus size={12} />
-                  <span>+ Категория</span>
+                  <span>Категория</span>
                 </button>
                 <button 
                   onClick={() => onSelectCategory?.('all')}
@@ -1517,7 +1505,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 title="Добавить новую категорию или настроить"
               >
                 <Plus size={14} />
-                <span>+ Категория</span>
+                <span>Категория</span>
               </button>
             </div>
           </div>
@@ -1659,7 +1647,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {displayTitle}
                         </div>
                         <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block leading-tight">
-                          {member?.name || 'Семья'} • {new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                          {member?.name || 'Семья'}, {new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
                         </span>
                       </div>
                     </div>

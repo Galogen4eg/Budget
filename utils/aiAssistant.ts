@@ -1,8 +1,8 @@
 /**
  * @file utils/aiAssistant.ts
- * Модуль интеллектуального AI-ассистента на базе Google Gemini.
- * Обеспечивает семантический разбор команд пользователя, вызов функций
- * (добавление покупок, событий, финансовых операций) и глубокий анализ трат.
+ * Модуль AI-ассистента на базе Google Gemini.
+ * Обеспечивает разбор команд пользователя, вызов функций
+ * (добавление покупок, событий, финансовых операций) и анализ трат.
  */
 
 import { Category, Transaction, ShoppingItem, FamilyEvent, FamilyMember } from '../types';
@@ -174,7 +174,7 @@ const buildSystemPrompt = (context: AssistantContext): string => {
     .map(t => `${t.date}: ${t.type === 'expense' ? '-' : '+'}${t.amount} ${context.currency} [${t.category}] "${t.note || ''}"`)
     .join('\n');
 
-  return `Ты — интеллектуальный семейный финансовый ассистент Terra.
+  return `Ты — семейный финансовый ассистент Terra.
 Сегодня: ${todayStr} (${todayDay}).
 Валюта: ${context.currency}.
 

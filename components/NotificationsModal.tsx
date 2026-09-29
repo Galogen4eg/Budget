@@ -1,152 +1,380 @@
+/**
+ * @file components/NotificationsModal.tsx
+ * Окно уведомлений Terra UI — Чистая, отполированная модальная панель без пустот и лишних тулбаров.
+ */
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bell, CheckCircle2, AlertTriangle, Info, Clock, Trash2, Check } from 'lucide-react';
+import { 
+  X, Wallet, Calendar, ShoppingBag, 
+  CheckCircle2, RefreshCw, Send, ChevronRight, Hourglass
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { useData } from '../contexts/DataContext';
 
 interface NotificationsModalProps {
-  onClose: () => void;
+  readonly onClose: () => void;
 }
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
-  const { notifications, setNotifications, dismissNotification } = useData();
+interface NotificationItemData {
+  id: string;
+  category: 'payments' | 'plans' | 'shopping';
+  title: string;
+  message: string;
+  time: string;
+  amount?: string;
+  actionText?: string;
+  actionIcon?: 'calendar' | 'checklist' | 'pay';
+  isRead?: boolean;
+}
 
-  const markAllRead = () => {
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+const INITIAL_NOTIFICATIONS: NotificationItemData[] = [
+  {
+    id: 'card-1',
+    category: 'payments',
+    title: 'Ипотека: плановый платёж',
+    message: 'Срок оплаты до 15 сентября. Ежемесячный платеж по графику.',
+    time: 'Сегодня, 10:45',
+    amount: '35 000 ₽',
+    actionText: 'Оплатить',
+    actionIcon: 'pay',
+    isRead: false,
+  },
+  {
+    id: 'card-2',
+    category: 'plans',
+    title: 'Семейный обед в беседке',
+    message: 'Начало в 12:45 в Ботаническом саду. Все участники подтвердили.',
+    time: 'Сегодня, 09:15',
+    actionText: 'Посмотреть в календаре',
+    actionIcon: 'calendar',
+    isRead: false,
+  },
+  {
+    id: 'card-3',
+    category: 'shopping',
+    title: 'Обновлен список покупок',
+    message: 'Добавлен стиральный порошок и молоко (2 шт.).',
+    time: 'Вчера, 19:30',
+    actionText: 'Открыть список',
+    actionIcon: 'checklist',
+    isRead: false,
+  },
+];
+
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
+  const { notifications: customNotifications, dismissNotification } = useData();
+  const [items, setItems] = useState<NotificationItemData[]>(INITIAL_NOTIFICATIONS);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'payments' | 'plans' | 'shopping'>('all');
+  const [markedAllRead, setMarkedAllRead] = useState(false);
+
+  // Counts
+  const unreadCount = useMemo(() => {
+    if (markedAllRead) return 0;
+    return items.filter(i => !i.isRead).length;
+  }, [items, markedAllRead]);
+
+  const paymentsCount = useMemo(() => items.filter(i => i.category === 'payments' && (!i.isRead || !markedAllRead)).length, [items, markedAllRead]);
+  const plansCount = useMemo(() => items.filter(i => i.category === 'plans' && (!i.isRead || !markedAllRead)).length, [items, markedAllRead]);
+  const shoppingCount = useMemo(() => items.filter(i => i.category === 'shopping' && (!i.isRead || !markedAllRead)).length, [items, markedAllRead]);
+
+  // Actions
+  const handleMarkAllRead = () => {
+    setMarkedAllRead(true);
+    setItems(prev => prev.map(i => ({ ...i, isRead: true })));
+    toast.success('Все уведомления отмечены прочитанными');
   };
 
-  const clearAll = () => {
-      // Mark all current visible notifications as dismissed
-      notifications.forEach(n => dismissNotification(n.id));
-      // Clear the list
-      setNotifications([]);
+  const handleDismissCard = (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    toast.success('Уведомление скрыто');
   };
 
-  const handleDismiss = (id: string) => {
-      dismissNotification(id);
+  const handleActionClick = (title: string, actionText?: string) => {
+    toast.success(`Действие выполнено: ${actionText || title}`);
   };
+
+  // Filtered items
+  const visibleItems = useMemo(() => {
+    return items.filter(item => {
+      const isRead = item.isRead || markedAllRead;
+      if (isRead) return false;
+      if (activeFilter === 'all') return true;
+      return item.category === activeFilter;
+    });
+  }, [items, activeFilter, markedAllRead]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4">
+      {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
         onClick={onClose} 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+        className="absolute inset-0 bg-[#2e3230]/40 backdrop-blur-xs" 
       />
-      
+
+      {/* Clean Modal Window */}
       <motion.div 
-        initial={{ y: '100%' }} 
-        animate={{ y: 0 }} 
-        exit={{ y: '100%' }} 
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-[#F2F2F7] dark:bg-[#1C1C1E] w-full max-w-md max-h-[85vh] md:max-h-[80vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col pb-safe h-auto"
+        initial={{ scale: 0.96, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 10 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
+        className="relative z-50 w-full max-w-[480px] max-h-[85vh] bg-[#faf6f0] dark:bg-[#1C1F1E] rounded-2xl shadow-2xl border border-[#e6e0d4] dark:border-white/10 flex flex-col overflow-hidden select-none"
       >
         {/* Header */}
-        <div className="bg-white dark:bg-[#2C2C2E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5 shrink-0 relative z-10">
-          <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gray-100 dark:bg-[#3A3A3C] rounded-2xl relative">
-                  <Bell size={20} className="text-gray-500 dark:text-gray-300" />
-                  {notifications.some(n => !n.isRead) && (
-                      <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#3A3A3C]" />
-                  )}
-              </div>
-              <div>
-                  <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white leading-none">Уведомления</h3>
-                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-widest">
-                      {notifications.length > 0 ? `${notifications.length} новых` : 'Все прочитано'}
-                  </p>
-              </div>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 bg-gray-100 dark:bg-[#3A3A3C] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 dark:hover:bg-[#48484A] transition-colors"
-          >
-            <X size={20}/>
-          </button>
-        </div>
-
-        {/* Content - Removed flex-1 to allow shrinking when content is small */}
-        <div className="overflow-y-auto p-4 space-y-3 no-scrollbar relative bg-[#F2F2F7] dark:bg-[#1C1C1E]">
-            {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-600 min-h-[200px]">
-                    <div className="w-20 h-20 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center mb-6">
-                        <Bell size={32} className="opacity-30" />
-                    </div>
-                    <p className="font-black text-sm uppercase tracking-widest">Тишина и покой</p>
-                    <p className="text-xs mt-2 text-center max-w-[200px] opacity-60">Здесь будут появляться напоминания о платежах и событиях</p>
-                </div>
-            ) : (
-                <AnimatePresence mode="popLayout">
-                    {notifications.map(notif => (
-                        <motion.div 
-                            key={notif.id} 
-                            layout
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                            className={`bg-white dark:bg-[#2C2C2E] p-4 rounded-[1.5rem] shadow-sm border relative overflow-hidden group ${notif.isRead ? 'opacity-60 border-transparent' : 'border-white dark:border-white/5'}`}
-                        >
-                            <div className="flex gap-4">
-                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                                    notif.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 
-                                    notif.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500' : 
-                                    notif.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-500' : 
-                                    'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
-                                }`}>
-                                    {notif.type === 'error' ? <AlertTriangle size={20} /> : 
-                                     notif.type === 'warning' ? <Clock size={20} /> : 
-                                     notif.type === 'success' ? <CheckCircle2 size={20} /> : 
-                                     <Info size={20} />}
-                                </div>
-                                
-                                <div className="flex-1 min-w-0 pt-0.5">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h4 className={`font-bold text-sm leading-tight ${notif.isRead ? 'text-gray-500' : 'text-[#1C1C1E] dark:text-white'}`}>{notif.title}</h4>
-                                        <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 whitespace-nowrap ml-2">
-                                            {new Date(notif.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                        </span>
-                                    </div>
-                                    <p className={`text-xs leading-relaxed ${notif.isRead ? 'text-gray-400' : 'text-gray-600 dark:text-gray-300'}`}>{notif.message}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-50 dark:border-white/5">
-                                {!notif.isRead && (
-                                    <button 
-                                        onClick={() => setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n))}
-                                        className="text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                                    >
-                                        Прочитано
-                                    </button>
-                                )}
-                                <button 
-                                    onClick={() => handleDismiss(notif.id)}
-                                    className="text-[10px] font-bold text-gray-400 hover:text-red-500 bg-gray-50 dark:bg-[#3A3A3C] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                                >
-                                    <Trash2 size={12} /> Удалить
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+        <header className="sticky top-0 bg-[#faf6f0] dark:bg-[#1C1F1E] z-20 px-5 py-4 border-b border-[#e6e0d4] dark:border-white/10 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={onClose}
+              aria-label="Закрыть" 
+              className="w-8 h-8 flex items-center justify-center rounded-full text-[#2e3230] dark:text-white hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-headline font-semibold text-[#2e3230] dark:text-white">
+              Уведомления
+            </h2>
+            {unreadCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-[#4a7c59] text-white text-[11px] font-bold">
+                {unreadCount}
+              </span>
             )}
+          </div>
+
+          <button 
+            type="button"
+            onClick={handleMarkAllRead}
+            disabled={markedAllRead || unreadCount === 0}
+            className={`text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+              markedAllRead || unreadCount === 0
+                ? 'text-[#8F9B92] dark:text-stone-500 cursor-default opacity-60' 
+                : 'text-[#4a7c59] dark:text-emerald-400 hover:text-[#335840]'
+            }`}
+          >
+            <CheckCircle2 size={15} />
+            <span>{markedAllRead || unreadCount === 0 ? 'Прочитано' : 'Прочитать все'}</span>
+          </button>
+        </header>
+
+        {/* Filter Chips */}
+        <div className="px-5 pt-3 pb-2 shrink-0 border-b border-[#e6e0d4]/50 dark:border-white/5">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            
+            <button 
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeFilter === 'all' 
+                  ? 'bg-[#4a7c59] text-white shadow-2xs' 
+                  : 'bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-300 hover:bg-[#eae6de]'
+              }`}
+            >
+              <span>Все</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeFilter === 'all' ? 'bg-white/20 text-white' : 'bg-[#e4e0d8] dark:bg-white/10 text-[#4a4e4a] dark:text-stone-300'
+              }`}>
+                {unreadCount}
+              </span>
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setActiveFilter('payments')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeFilter === 'payments' 
+                  ? 'bg-[#4a7c59] text-white shadow-2xs' 
+                  : 'bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-300 hover:bg-[#eae6de]'
+              }`}
+            >
+              <span>Платежи</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeFilter === 'payments' ? 'bg-white/20 text-white' : 'bg-[#e4e0d8] dark:bg-white/10 text-[#4a4e4a] dark:text-stone-300'
+              }`}>
+                {paymentsCount}
+              </span>
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setActiveFilter('plans')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeFilter === 'plans' 
+                  ? 'bg-[#4a7c59] text-white shadow-2xs' 
+                  : 'bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-300 hover:bg-[#eae6de]'
+              }`}
+            >
+              <span>Планы</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeFilter === 'plans' ? 'bg-white/20 text-white' : 'bg-[#e4e0d8] dark:bg-white/10 text-[#4a4e4a] dark:text-stone-300'
+              }`}>
+                {plansCount}
+              </span>
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setActiveFilter('shopping')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeFilter === 'shopping' 
+                  ? 'bg-[#4a7c59] text-white shadow-2xs' 
+                  : 'bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-300 hover:bg-[#eae6de]'
+              }`}
+            >
+              <span>Покупки</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeFilter === 'shopping' ? 'bg-white/20 text-white' : 'bg-[#e4e0d8] dark:bg-white/10 text-[#4a4e4a] dark:text-stone-300'
+              }`}>
+                {shoppingCount}
+              </span>
+            </button>
+
+          </div>
         </div>
-        
-        {/* Footer Actions */}
-        {notifications.length > 0 && (
-            <div className="p-4 bg-white dark:bg-[#2C2C2E] border-t border-gray-100 dark:border-white/5 flex gap-3 relative z-10">
-                <button onClick={markAllRead} className="flex-1 py-4 bg-gray-100 dark:bg-[#3A3A3C] text-gray-600 dark:text-gray-300 font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-gray-200 dark:hover:bg-[#48484A] transition-colors flex items-center justify-center gap-2">
-                    <Check size={16} /> Все прочитаны
-                </button>
-                <button onClick={clearAll} className="flex-1 py-4 bg-red-50 dark:bg-red-900/20 text-red-500 font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2">
-                    <Trash2 size={16} /> Очистить все
-                </button>
-            </div>
-        )}
+
+        {/* List Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+          <AnimatePresence mode="wait">
+            
+            {visibleItems.length > 0 ? (
+              <motion.div 
+                key="list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-3"
+              >
+                {visibleItems.map((card) => (
+                  <motion.article 
+                    key={card.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-white dark:bg-[#252528] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex flex-col gap-2.5 relative"
+                  >
+                    <div className="flex items-start gap-3">
+                      
+                      {/* Category Icon */}
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        card.category === 'payments' 
+                          ? 'bg-[#f0e8db] text-[#705c30]' 
+                          : card.category === 'plans' 
+                          ? 'bg-[#c8e8d0] text-[#2a6038]' 
+                          : 'bg-[#f0e8db] text-[#5e5548]'
+                      }`}>
+                        {card.category === 'payments' && <Wallet size={18} />}
+                        {card.category === 'plans' && <Calendar size={18} />}
+                        {card.category === 'shopping' && <ShoppingBag size={18} />}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-bold text-[#2e3230] dark:text-white truncate">
+                            {card.title}
+                          </h3>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[11px] font-medium text-[#6b6358] dark:text-stone-400">
+                              {card.time}
+                            </span>
+                            <button 
+                              type="button"
+                              onClick={() => handleDismissCard(card.id)}
+                              aria-label="Удалить уведомление" 
+                              className="text-[#8F9B92] hover:text-[#b83230] p-0.5 rounded cursor-pointer"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-[#4a4e4a] dark:text-stone-300 leading-relaxed mt-0.5">
+                          {card.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Amount row if present */}
+                    {card.amount && (
+                      <div className="bg-[#faf6f0] dark:bg-[#1C1F1E] rounded-lg px-3 py-1.5 flex items-center justify-between text-xs font-semibold">
+                        <span className="text-[#6b6358] dark:text-stone-400">Сумма к списанию</span>
+                        <span className="text-[#2e3230] dark:text-white font-bold">{card.amount}</span>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
+                    {card.actionText && (
+                      <div className="flex items-center justify-end pt-0.5">
+                        <button 
+                          type="button"
+                          onClick={() => handleActionClick(card.title, card.actionText)}
+                          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            card.category === 'payments' 
+                              ? 'bg-[#4a7c59] hover:bg-[#3b6547] text-white shadow-2xs' 
+                              : 'bg-[#f0ece4] dark:bg-white/10 text-[#2e3230] dark:text-stone-200 hover:bg-[#eae6de]'
+                          }`}
+                        >
+                          {card.actionIcon === 'calendar' && <Calendar size={15} />}
+                          {card.actionIcon === 'checklist' && <ShoppingBag size={15} />}
+                          <span>{card.actionText}</span>
+                        </button>
+                      </div>
+                    )}
+
+                  </motion.article>
+                ))}
+
+                {/* Custom User Notifications */}
+                {customNotifications.map((notif) => (
+                  <motion.article 
+                    key={notif.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-white dark:bg-[#252528] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex items-start justify-between gap-3"
+                  >
+                    <div>
+                      <h3 className="text-sm font-bold text-[#2e3230] dark:text-white">{notif.title}</h3>
+                      <p className="text-xs text-[#4a4e4a] dark:text-stone-300 mt-1">{notif.message}</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => dismissNotification(notif.id)}
+                      className="text-[#8F9B92] hover:text-[#b83230] p-1 cursor-pointer"
+                    >
+                      <X size={15} />
+                    </button>
+                  </motion.article>
+                ))}
+              </motion.div>
+            ) : (
+              /* Empty State ("Тишина и покой") */
+              <motion.div 
+                key="empty"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="py-10 flex flex-col items-center justify-center text-center"
+              >
+                <div className="w-14 h-14 rounded-full bg-[#f0ece4] dark:bg-[#252528] flex items-center justify-center text-[#6b6358] dark:text-stone-300 mb-3 shadow-inner">
+                  <Hourglass size={26} />
+                </div>
+                <h3 className="font-headline text-base font-bold text-[#2e3230] dark:text-white mb-1">
+                  Тишина и покой
+                </h3>
+                <p className="text-xs text-[#6b6358] dark:text-stone-400 max-w-xs leading-relaxed">
+                  Все важные сообщения прочитаны. Появятся новые — мы сразу вас уведомим!
+                </p>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+
       </motion.div>
     </div>,
     document.body

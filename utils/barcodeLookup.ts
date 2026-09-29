@@ -124,3 +124,70 @@ export const searchOnlineDatabase = async (code: string): Promise<ProductData | 
   }
   return null;
 };
+
+/**
+ * Searches the Open Food Facts API by product name query.
+ */
+export const searchProductsByName = async (query: string): Promise<ProductData[]> => {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const formattedQuery = encodeURIComponent(query.trim());
+    const response = await fetch(`https://ru.openfoodfacts.org/cgi/search.pl?search_terms=${formattedQuery}&search_simple=1&action=process&json=1&page_size=8`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return [];
+    const data = await response.json();
+
+    if (data && Array.isArray(data.products)) {
+      return data.products.map((p: any) => {
+        let category = 'other';
+        const cats = (p.categories_tags || []).join(' ').toLowerCase();
+        const pn = (p.product_name_ru || p.product_name || '').toLowerCase();
+        
+        if (cats.includes('beverage') || cats.includes('water') || cats.includes('juice') || pn.includes('вода') || pn.includes('напиток')) category = 'drinks';
+        else if (cats.includes('dairy') || cats.includes('milk') || cats.includes('cheese') || pn.includes('молоко') || pn.includes('сыр')) category = 'dairy';
+        else if (cats.includes('meat') || cats.includes('fish') || cats.includes('seafood')) category = 'meat';
+        else if (cats.includes('plant-based') || cats.includes('fruit') || cats.includes('vegetable')) category = 'produce';
+        else if (cats.includes('bread') || cats.includes('biscuit') || cats.includes('cake')) category = 'bakery';
+        else if (cats.includes('snack') || cats.includes('breakfast') || cats.includes('cereal') || cats.includes('chocolate')) category = 'grocery';
+        else if (cats.includes('cleaning') || cats.includes('hygiene')) category = 'household';
+
+        let amount = '1';
+        let unit: 'шт' | 'кг' | 'уп' | 'л' = 'шт';
+        if (p.product_quantity) {
+          amount = String(p.product_quantity);
+        }
+        if (p.quantity) {
+          const q = p.quantity.toLowerCase();
+          if (q.includes('ml') || q.includes('l') || q.includes('л')) unit = 'л';
+          else if (q.includes('kg') || q.includes('g') || q.includes('кг') || q.includes('г')) unit = 'кг';
+        }
+
+        // Normalize amount
+        if (unit === 'кг' && Number(amount) > 50) {
+          amount = (Number(amount) / 1000).toString();
+        }
+        if (unit === 'л' && Number(amount) > 50) {
+          amount = (Number(amount) / 1000).toString();
+        }
+
+        return {
+          title: p.product_name_ru || p.product_name || 'Товар',
+          amount: amount || '1',
+          unit,
+          category
+        };
+      }).filter((item: any) => item.title && item.title !== 'Товар');
+    }
+  } catch (e) {
+    console.warn("OpenFoodFacts name search failed:", e);
+  }
+  return [];
+};
+

@@ -386,7 +386,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
                     className="text-[11px] text-[#4A7C59] font-bold flex items-center gap-1 hover:underline mt-0.5 cursor-pointer"
                   >
-                    <Sparkles size={11} />
+                    <Calendar size={11} />
                     <span>Выбрать из шаблона</span>
                   </button>
                 )}

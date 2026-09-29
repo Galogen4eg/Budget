@@ -263,7 +263,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                 </span>
               </div>
               <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5 truncate">
-                Авто-определение категорий • Обучение правил для будущего импорта
+                Авто-определение категорий, обучение правил для будущего импорта
               </p>
             </div>
           </div>
@@ -402,7 +402,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       -{Math.round(activeItem.amount).toLocaleString('ru-RU')} ₽
                     </div>
                     <div className="text-[11px] font-semibold text-stone-400 dark:text-gray-400 mt-0.5">
-                      {activeItem.date} {activeItem.accountMask && `• ${activeItem.accountMask}`}
+                      {activeItem.date} {activeItem.accountMask && `(${activeItem.accountMask})`}
                     </div>
                   </div>
                 </div>

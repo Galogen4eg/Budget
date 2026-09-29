@@ -38,7 +38,7 @@ import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, addItemsBatch, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
-import { searchOnlineDatabase } from '../utils/barcodeLookup';
+import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
 import { mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
@@ -234,6 +234,32 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const recognitionRef = useRef<any>(null);
   const inlineRecognitionRef = useRef<any>(null);
   const [isInlineListening, setIsInlineListening] = useState(false);
+
+  // Open Food Facts online search states
+  const [offSearchResults, setOffSearchResults] = useState<any[]>([]);
+  const [isOffSearching, setIsOffSearching] = useState(false);
+
+  const handleOffSearch = async () => {
+    const query = itemName.trim();
+    if (!query || query.length < 2) {
+      toast.warning('Введите хотя бы 2 символа для поиска');
+      return;
+    }
+    setIsOffSearching(true);
+    try {
+      const results = await searchProductsByName(query);
+      setOffSearchResults(results);
+      if (results.length === 0) {
+        toast.info('Товары в базе Open Food Facts не найдены');
+      } else {
+        toast.success(`Найдено ${results.length} товаров в Open Food Facts`);
+      }
+    } catch (e) {
+      toast.error('Не удалось выполнить поиск в Open Food Facts');
+    } finally {
+      setIsOffSearching(false);
+    }
+  };
 
   // Quick Add Bar State
   const [quickInputText, setQuickInputText] = useState('');
@@ -900,7 +926,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <form onSubmit={handleQuickAddSubmit} className="flex flex-col gap-2.5 w-full min-w-0">
                 <div className="flex items-center justify-between gap-3 min-w-0">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300 flex items-center gap-1.5 shrink-0">
-                    <Sparkles size={14} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
+                    <Plus size={14} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
                     <span>Быстрое добавление</span>
                     <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[#EAE6DD] dark:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 rounded border border-[#D5CFBE] dark:border-stone-700">↵ Enter</kbd>
                   </label>
@@ -1200,14 +1226,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             <div className="px-6 py-5 bg-[#F5F1EA] dark:bg-stone-900 flex items-center justify-between border-b border-[#ECE5DB] dark:border-white/5">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#4A7C59] flex items-center justify-center text-white shadow-xs">
-                  <Sparkles size={18} />
+                  <ShoppingBag size={18} />
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-lg text-[#2E3230] dark:text-white">
                     {editingItem ? 'Редактировать товар' : 'Добавить в список покупок'}
                   </h3>
                   <p className="text-xs text-[#74796E]">
-                    Автоматическое определение отдела и умное суммирование
+                    Автоматическое определение отдела и расчёт количества
                   </p>
                 </div>
               </div>
@@ -1243,16 +1269,60 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     <span>{isInlineListening ? 'Слушаю...' : 'Сказать голосом'}</span>
                   </button>
                 </div>
-                <div className="relative">
+                <div className="relative flex gap-2">
                   <input 
                     type="text"
                     value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
+                    onChange={(e) => {
+                      setItemName(e.target.value);
+                      if (e.target.value.trim() === '') {
+                        setOffSearchResults([]);
+                      }
+                    }}
                     placeholder="Например: Сыр маасдам, Хлеб, Яблоки..."
-                    className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#252528] text-sm font-semibold text-[#2E3230] dark:text-white placeholder-[#74796E] border border-[#ECE5DB] dark:border-white/5 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[#252528] text-sm font-semibold text-[#2E3230] dark:text-white placeholder-[#74796E] border border-[#ECE5DB] dark:border-white/5 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
                     autoFocus
                   />
+                  <button
+                    type="button"
+                    onClick={handleOffSearch}
+                    disabled={isOffSearching || !itemName.trim()}
+                    className="px-4 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isOffSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                    <span>Open Food Facts</span>
+                  </button>
                 </div>
+
+                {/* Open Food Facts Results Chips */}
+                {offSearchResults.length > 0 && (
+                  <div className="mt-1 space-y-1.5 p-3 rounded-xl bg-[#F0ECE4] dark:bg-stone-800 border border-[#ECE5DB] dark:border-white/5">
+                    <span className="text-[10px] font-bold text-[#6B6358] dark:text-stone-400 uppercase tracking-wider block">
+                      Результаты Open Food Facts (нажмите для выбора):
+                    </span>
+                    <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto no-scrollbar">
+                      {offSearchResults.map((prod, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setItemName(prod.title);
+                            setItemCategory(prod.category);
+                            setItemAmount(parseFloat(prod.amount) || 1);
+                            setItemUnit(prod.unit);
+                            setOffSearchResults([]);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#252528] hover:border-[#4A7C59] border border-transparent text-xs font-semibold text-[#2E3230] dark:text-white text-left transition-all active:scale-95 shadow-3xs flex flex-col"
+                        >
+                          <span className="font-bold text-[11px] leading-tight line-clamp-1">{prod.title}</span>
+                          <span className="text-[9px] text-[#6B6358] dark:text-stone-400 mt-0.5">
+                            {prod.amount} {prod.unit} • {prod.category}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Smart Auto-Summing Alert Banner */}

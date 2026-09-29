@@ -661,7 +661,7 @@ const DebtSnowball: React.FC<Props> = ({
       {/* 4. Теплый органический баннер «Финансовая гармония» (в стиле Terra) */}
       <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f0ede6] dark:bg-[#202022] p-4 sm:p-5 border border-stone-200/80 dark:border-white/10 flex items-center gap-3.5 shadow-2xs">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#4a7c59] text-white flex items-center justify-center shrink-0 shadow-sm">
-          <Sparkles className="w-6 h-6" />
+          <ShieldCheck className="w-6 h-6" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-xs sm:text-sm font-display font-bold text-stone-900 dark:text-white">

@@ -97,13 +97,36 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтры и поиск
   const [filterTab, setFilterTab] = useState<'all' | 'unrecognized' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryDropdownSearch, setCategoryDropdownSearch] = useState('');
 
-  // Сортировка категорий по алфавиту
-  const sortedCategories = useMemo(() => {
-    return [...categories]
-      .filter(c => c.id !== 'other')
-      .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }));
+  // Иерархическое дерево категорий с подкатегориями
+  const parentCategoriesWithSubs = useMemo(() => {
+    const parents = categories.filter(c => !c.parentId && c.id !== 'other');
+    return parents.map(p => {
+      const subs = categories.filter(c => c.parentId === p.id);
+      return { parent: p, subcategories: subs };
+    }).sort((a, b) => a.parent.label.localeCompare(b.parent.label, 'ru', { sensitivity: 'base' }));
   }, [categories]);
+
+  const filteredCategoryTree = useMemo(() => {
+    const q = categoryDropdownSearch.trim().toLowerCase();
+    if (!q) return parentCategoriesWithSubs;
+
+    return parentCategoriesWithSubs
+      .map(({ parent, subcategories }) => {
+        const parentMatches = parent.label.toLowerCase().includes(q);
+        const matchedSubs = subcategories.filter(s => s.label.toLowerCase().includes(q));
+        if (parentMatches || matchedSubs.length > 0) {
+          return {
+            parent,
+            subcategories: parentMatches ? subcategories : matchedSubs,
+            isMatch: true
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as { parent: Category; subcategories: Category[]; isMatch: boolean }[];
+  }, [parentCategoriesWithSubs, categoryDropdownSearch]);
 
   // Модальное окно редактирования отдельной операции
   const [editingItem, setEditingItem] = useState<ImportItem | null>(null);
@@ -186,7 +209,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           const kwLower = rule.keyword.toLowerCase().trim();
           if (!kwLower) continue;
 
-          if (raw.includes(kwLower) || cleanRaw.includes(kwLower) || (cleanRaw.length >= 3 && kwLower.includes(cleanRaw))) {
+          if (kwLower.length >= 3 && (raw.includes(kwLower) || cleanRaw.includes(kwLower))) {
             matchedCount++;
             matchedIds.push(item.tempId);
             return {
@@ -476,7 +499,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   return (
     <div 
-      onClick={onCancel}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onCancel();
+        }
+      }}
       className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 transition-all duration-300 select-none cursor-pointer"
     >
       
@@ -505,33 +532,33 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             
             {/* Заголовок и иконка */}
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center shadow-sm shrink-0">
-                <FileText size={24} strokeWidth={2.2} />
+              <div className="w-11 h-11 rounded-2xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center shadow-sm shrink-0">
+                <FileText size={22} strokeWidth={2.2} />
               </div>
               <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 id="modal-headline" className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white tracking-tight font-headline">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 id="modal-headline" className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white tracking-tight font-headline">
                     Проверка выписки
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full bg-[#E5ECE9] dark:bg-primary/30 text-[#2A4C34] dark:text-green-300 text-xs font-bold">
                     {items.length} {items.length === 1 ? 'операция' : 'операций'}
                   </span>
+                  <span className="text-xs text-stone-400 dark:text-gray-400 font-medium">
+                    • {dateRangeString}
+                  </span>
                 </div>
-                <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5">
-                  Сбербанк • Т-Банк • {dateRangeString}
-                </p>
               </div>
             </div>
 
             {/* Сводка и селектор авторов */}
-            <div className="flex flex-wrap items-center gap-3 pr-8 lg:pr-0">
+            <div className="flex flex-wrap items-center gap-2.5 pr-8 lg:pr-0">
               
               {/* Селектор автора выписки */}
-              <div className="flex items-center bg-white dark:bg-[#252528] rounded-xl border border-[#EBE4DC] dark:border-white/10 p-1 shadow-sm">
-                <span className="text-[11px] font-bold text-stone-400 dark:text-gray-400 uppercase tracking-wider px-2.5 hidden sm:inline">
-                  Чья выписка:
+              <div className="flex items-center bg-white dark:bg-[#252528] rounded-xl border border-[#EBE4DC] dark:border-white/10 p-1.5 shadow-sm">
+                <span className="text-[11px] font-bold text-stone-400 dark:text-gray-400 uppercase tracking-wider px-2 hidden sm:inline">
+                  Автор:
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {members.map(m => {
                     const isSelected = globalMemberId === m.id;
                     const initial = m.name ? m.name.charAt(0).toUpperCase() : 'У';
@@ -541,40 +568,41 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         key={m.id}
                         type="button"
                         onClick={() => handleSetGlobalMember(m.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs transition-colors cursor-pointer ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                           isSelected 
                             ? 'bg-[#EAF2EC] dark:bg-primary/30 text-[#2A4C34] dark:text-green-300 font-bold border border-[#4A7C59]/30 shadow-xs' 
                             : 'font-semibold text-stone-600 dark:text-gray-400 hover:bg-stone-100 dark:hover:bg-white/5'
                         }`}
                       >
                         <span 
-                          className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                          className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
                             isSelected ? 'bg-[#4A7C59] text-white' : 'bg-[#E5ECE9] dark:bg-white/10 text-[#3B6447] dark:text-gray-300'
                           }`}
                           style={!isSelected && m.color ? { backgroundColor: `${m.color}20`, color: m.color } : {}}
                         >
                           {initial}
                         </span>
-                        <span>{m.name}</span>
-                        {isSelected && <Check size={12} strokeWidth={3} />}
+                        <span className="whitespace-nowrap">{m.name}</span>
+                        {isSelected && <Check size={12} strokeWidth={3} className="shrink-0" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Бейдж доходов */}
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
-                <span className="text-xs text-stone-400 dark:text-gray-400 font-bold uppercase tracking-wider">Доходы:</span>
-                <span className="text-sm font-bold text-[#2E7D32] dark:text-green-400 tabular-nums">+{totalIncome.toLocaleString('ru-RU')} ₽</span>
-              </div>
-
-              {/* Бейдж расходов */}
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-[#D95D39]" />
-                <span className="text-xs text-stone-400 dark:text-gray-400 font-bold uppercase tracking-wider">Расходы:</span>
-                <span className="text-sm font-bold text-[#D95D39] dark:text-red-400 tabular-nums">-{totalExpense.toLocaleString('ru-RU')} ₽</span>
+              {/* Объединенный бейдж доходов и расходов в одной строке */}
+              <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] dark:text-green-400">
+                  <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
+                  <span className="text-stone-400 dark:text-gray-400 font-semibold uppercase text-[10px]">Доходы:</span>
+                  <span className="tabular-nums font-bold">+{totalIncome.toLocaleString('ru-RU')} ₽</span>
+                </div>
+                <div className="h-3.5 w-px bg-stone-200 dark:bg-white/10" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#D95D39] dark:text-red-400">
+                  <span className="w-2 h-2 rounded-full bg-[#D95D39]" />
+                  <span className="text-stone-400 dark:text-gray-400 font-semibold uppercase text-[10px]">Расходы:</span>
+                  <span className="tabular-nums font-bold">-{totalExpense.toLocaleString('ru-RU')} ₽</span>
+                </div>
               </div>
 
             </div>
@@ -588,18 +616,23 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
               <RippleButton 
                 onClick={() => setFilterTab('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs whitespace-nowrap ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs whitespace-nowrap cursor-pointer ${
                   filterTab === 'all' 
                     ? 'bg-[#4A7C59] text-white' 
                     : 'bg-white dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
                 }`}
               >
-                <span>Все</span> <span className="ml-1 opacity-80 text-[11px]">{items.length}</span>
+                <span className="leading-none">Все</span>
+                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 min-w-[18px] text-[10px] font-extrabold rounded-full leading-none ${
+                  filterTab === 'all' ? 'bg-white/25 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-gray-300'
+                }`}>
+                  {items.length}
+                </span>
               </RippleButton>
 
               <RippleButton 
                 onClick={() => setFilterTab('unrecognized')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
                   filterTab === 'unrecognized'
                     ? 'bg-[#E09F3E] text-white shadow-xs'
                     : unassignedCount > 0 
@@ -607,9 +640,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       : 'bg-white dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
                 }`}
               >
-                {unassignedCount > 0 && <AlertCircle size={14} className="text-[#E09F3E]" strokeWidth={2.5} />}
-                <span>Без категории</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                {unassignedCount > 0 && <AlertCircle size={14} className={filterTab === 'unrecognized' ? 'text-white' : 'text-[#E09F3E]'} strokeWidth={2.5} />}
+                <span className="leading-none">Без категории</span>
+                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 min-w-[18px] text-[10px] font-extrabold rounded-full leading-none ${
                   filterTab === 'unrecognized' ? 'bg-white text-[#E09F3E]' : 'bg-[#E09F3E] text-white'
                 }`}>
                   {unassignedCount}
@@ -618,24 +651,30 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
               <RippleButton 
                 onClick={() => setFilterTab('income')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   filterTab === 'income' 
                     ? 'bg-[#4A7C59] text-white font-bold' 
                     : 'hover:bg-stone-200/70 text-stone-600 dark:text-gray-300'
                 }`}
               >
-                <span>Доходы</span> <span className="ml-1 text-stone-400">{items.filter(t => t.type === 'income').length}</span>
+                <span className="leading-none">Доходы</span>
+                <span className="inline-flex items-center justify-center text-[10px] opacity-75 leading-none">
+                  {items.filter(t => t.type === 'income').length}
+                </span>
               </RippleButton>
 
               <RippleButton 
                 onClick={() => setFilterTab('expense')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   filterTab === 'expense' 
                     ? 'bg-[#D95D39] text-white font-bold' 
                     : 'hover:bg-stone-200/70 text-stone-600 dark:text-gray-300'
                 }`}
               >
-                <span>Расходы</span> <span className="ml-1 text-stone-400">{items.filter(t => t.type === 'expense').length}</span>
+                <span className="leading-none">Расходы</span>
+                <span className="inline-flex items-center justify-center text-[10px] opacity-75 leading-none">
+                  {items.filter(t => t.type === 'expense').length}
+                </span>
               </RippleButton>
             </div>
 
@@ -728,10 +767,26 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="font-bold text-stone-900 dark:text-white text-sm">
-                          {item.note || category?.label || 'Банковская операция'}
-                        </span>
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        {/* Инлайн-редактирование чистого названия операции для истории */}
+                        <div 
+                          className="flex items-center gap-1.5 max-w-md w-full"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input 
+                            type="text"
+                            value={item.note || ''}
+                            onChange={(e) => {
+                              const newNote = e.target.value;
+                              const updated = items.map(i => i.tempId === item.tempId ? { ...i, note: newNote } : i);
+                              syncToParent(updated);
+                            }}
+                            placeholder={item.rawNote || category?.label || 'Название в истории...'}
+                            className="font-bold text-stone-900 dark:text-white text-sm bg-stone-100/60 dark:bg-white/5 hover:bg-white dark:hover:bg-[#252528] focus:bg-white dark:focus:bg-[#252528] px-2.5 py-1 rounded-lg border border-transparent hover:border-stone-300 dark:hover:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none transition w-full"
+                            title="Отредактируйте название для истории без проваливания в карточку"
+                          />
+                          <Edit3 size={13} className="text-stone-400 shrink-0 pointer-events-none -ml-6 z-10 opacity-70" />
+                        </div>
 
                         {isHighlighted ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold shadow-sm animate-bounce">
@@ -741,7 +796,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         ) : isUnrecognized ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF7EC] dark:bg-amber-950/60 text-[#B87008] dark:text-amber-300 text-[11px] font-bold border border-[#F3D5A5]/60">
                             <Lightbulb size={12} className="text-[#E09F3E]" />
-                            Не определено автоматически
+                            Не определено
                           </span>
                         ) : item.mcc ? (
                           <span className="px-2 py-0.5 rounded bg-stone-100 dark:bg-white/10 text-stone-500 dark:text-gray-400 text-[10px] font-semibold uppercase">
@@ -787,6 +842,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId);
+                          setCategoryDropdownSearch('');
                         }}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer ${
                           isUnrecognized 
@@ -803,29 +859,29 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         <div 
                           ref={dropdownRef}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl border border-stone-200 dark:border-white/10 p-2.5 z-50 space-y-2"
+                          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 p-3 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
                         >
                           {creatingCategoryFor === item.tempId ? (
-                            <div className="space-y-2 p-1">
+                            <div className="space-y-2.5 p-1">
                               <div className="flex items-center justify-between text-xs font-bold text-stone-900 dark:text-white">
-                                <div className="flex items-center gap-1 bg-stone-100 dark:bg-white/10 p-0.5 rounded-lg text-[10px]">
+                                <div className="flex items-center gap-1 bg-stone-100 dark:bg-white/10 p-1 rounded-xl text-xs">
                                   <button 
                                     type="button" 
                                     onClick={() => setCreateCatType('category')}
-                                    className={`px-2 py-0.5 rounded transition ${createCatType === 'category' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-bold shadow-xs' : 'text-stone-500'}`}
+                                    className={`px-3 py-1 rounded-lg transition font-bold ${createCatType === 'category' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'}`}
                                   >
                                     Категория
                                   </button>
                                   <button 
                                     type="button" 
                                     onClick={() => setCreateCatType('subcategory')}
-                                    className={`px-2 py-0.5 rounded transition ${createCatType === 'subcategory' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-bold shadow-xs' : 'text-stone-500'}`}
+                                    className={`px-3 py-1 rounded-lg transition font-bold ${createCatType === 'subcategory' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'}`}
                                   >
                                     Подкатегория
                                   </button>
                                 </div>
-                                <button type="button" onClick={() => setCreatingCategoryFor(null)} className="text-stone-400 hover:text-stone-800">
-                                  <X size={14} />
+                                <button type="button" onClick={() => setCreatingCategoryFor(null)} className="p-1 rounded-lg text-stone-400 hover:text-stone-800 dark:hover:text-stone-200">
+                                  <X size={16} />
                                 </button>
                               </div>
 
@@ -835,7 +891,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                                 value={newCatName}
                                 onChange={e => setNewCatName(e.target.value)}
                                 placeholder={createCatType === 'category' ? "Название категории..." : "Название подкатегории..."}
-                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:border-[#4A7C59]"
+                                className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none focus:border-[#4A7C59]"
                               />
 
                               {createCatType === 'subcategory' ? (
@@ -846,7 +902,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                                   <select
                                     value={selectedParentIdForNewCat}
                                     onChange={e => setSelectedParentIdForNewCat(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none"
+                                    className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none"
                                   >
                                     {categories.filter(c => !c.parentId && c.id !== 'other').map(p => (
                                       <option key={p.id} value={p.id}>{p.label}</option>
@@ -854,50 +910,101 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                                   </select>
                                 </div>
                               ) : (
-                                <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar">
-                                  {PRESET_COLORS.map(c => (
-                                    <button 
-                                      key={c}
-                                      type="button"
-                                      onClick={() => setNewCatColor(c)}
-                                      className={`w-5 h-5 rounded-full shrink-0 ${newCatColor === c ? 'ring-2 ring-[#4A7C59] ring-offset-1' : ''}`}
-                                      style={{ backgroundColor: c }}
-                                    />
-                                  ))}
+                                <div>
+                                  <label className="text-[10px] font-bold text-stone-400 uppercase block mb-1">
+                                    Цвет категории:
+                                  </label>
+                                  <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar">
+                                    {PRESET_COLORS.map(c => (
+                                      <button 
+                                        key={c}
+                                        type="button"
+                                        onClick={() => setNewCatColor(c)}
+                                        className={`w-6 h-6 rounded-full shrink-0 transition ${newCatColor === c ? 'ring-2 ring-[#4A7C59] ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                                        style={{ backgroundColor: c }}
+                                      />
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 
                               <button 
-                                type="button"
+                                type="button" 
                                 onClick={() => handleCreateCategory(item.tempId)}
-                                className="w-full py-1.5 bg-[#4A7C59] text-white text-xs font-bold rounded-lg uppercase tracking-wider cursor-pointer"
+                                className="w-full py-2 bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition cursor-pointer"
                               >
                                 Создать и применить
                               </button>
                             </div>
                           ) : (
                             <>
+                              {/* Поиск категории */}
+                              <div className="relative">
+                                <Search size={14} className="text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input 
+                                  type="text"
+                                  autoFocus
+                                  value={categoryDropdownSearch}
+                                  onChange={e => setCategoryDropdownSearch(e.target.value)}
+                                  placeholder="Поиск категории или подкатегории..."
+                                  className="w-full pl-8 pr-3 py-2 text-xs bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
+                                />
+                              </div>
+
                               <button 
-                                type="button"
+                                type="button" 
                                 onClick={() => setCreatingCategoryFor(item.tempId)}
-                                className="w-full py-1.5 px-2.5 rounded-xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-300 text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90"
+                                className="w-full py-2 px-3 rounded-xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-300 text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 cursor-pointer"
                               >
-                                <Plus size={14} />
-                                <span>Создать категорию</span>
+                                <Plus size={15} />
+                                <span>Создать новую категорию</span>
                               </button>
 
-                              <div className="max-h-52 overflow-y-auto no-scrollbar grid grid-cols-1 gap-1 pt-1">
-                                {sortedCategories.map(cat => (
-                                  <button 
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => handleSelectCategory(item.tempId, cat.id)}
-                                    className="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-stone-50 dark:hover:bg-white/5 transition"
-                                  >
-                                    <span style={{ color: cat.color }}>{getIconById(cat.icon, 14)}</span>
-                                    <span className="text-xs font-bold text-stone-900 dark:text-white truncate">{cat.label}</span>
-                                  </button>
-                                ))}
+                              {/* Иерархический список категорий и подкатегорий */}
+                              <div className="max-h-72 sm:max-h-80 overflow-y-auto no-scrollbar space-y-1 pt-1">
+                                {filteredCategoryTree.length === 0 ? (
+                                  <div className="text-center py-6 text-xs text-stone-400 italic">
+                                    Категория не найдена
+                                  </div>
+                                ) : (
+                                  filteredCategoryTree.map(({ parent, subcategories }) => (
+                                    <div key={parent.id} className="space-y-0.5">
+                                      {/* Родительская категория */}
+                                      <button 
+                                        type="button" 
+                                        onClick={() => handleSelectCategory(item.tempId, parent.id)}
+                                        className="w-full flex items-center justify-between p-2 rounded-xl text-left hover:bg-stone-100 dark:hover:bg-white/10 transition group cursor-pointer"
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <span style={{ color: parent.color }} className="shrink-0">{getIconById(parent.icon, 16)}</span>
+                                          <span className="text-xs font-bold text-stone-900 dark:text-white truncate">{parent.label}</span>
+                                        </div>
+                                        {subcategories.length > 0 && (
+                                          <span className="text-[10px] text-stone-400 dark:text-stone-500 font-semibold px-1.5 py-0.5 rounded bg-stone-100 dark:bg-white/5">
+                                            {subcategories.length} подкат.
+                                          </span>
+                                        )}
+                                      </button>
+
+                                      {/* Подкатегории */}
+                                      {subcategories.length > 0 && (
+                                        <div className="pl-4 space-y-0.5 border-l-2 border-stone-200 dark:border-white/10 ml-3">
+                                          {subcategories.map(sub => (
+                                            <button
+                                              key={sub.id}
+                                              type="button"
+                                              onClick={() => handleSelectCategory(item.tempId, sub.id)}
+                                              className="w-full flex items-center gap-2.5 p-1.5 rounded-lg text-left hover:bg-emerald-50 dark:hover:bg-primary/10 text-stone-700 dark:text-stone-300 transition cursor-pointer"
+                                            >
+                                              <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] shrink-0" />
+                                              <span className="text-xs font-semibold truncate">{sub.label}</span>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
                               </div>
                             </>
                           )}
@@ -906,7 +1013,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
 
                     {/* Селектор автора [Галя | Гена | Общее] */}
-                    <div className="flex items-center bg-stone-100 dark:bg-[#252528] rounded-lg p-0.5 text-xs">
+                    <div className="flex items-center bg-stone-100 dark:bg-[#252528] rounded-xl p-1 text-xs shrink-0">
                       {members.map(m => {
                         const isMemberActive = item.memberId === m.id;
                         return (
@@ -914,7 +1021,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                             key={m.id}
                             type="button"
                             onClick={(e) => handleItemMemberChange(item.tempId, m.id, e)}
-                            className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                            className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                               isMemberActive 
                                 ? 'bg-white dark:bg-[#1C1C1E] font-bold text-[#2A4C34] dark:text-green-400 shadow-xs' 
                                 : 'text-stone-500 dark:text-gray-400 font-semibold hover:text-stone-900 dark:hover:text-white'

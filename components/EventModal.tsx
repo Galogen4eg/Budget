@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, Trash2, Send, Sparkles, Check, Loader2, Plus, 
@@ -22,13 +22,43 @@ interface EventModalProps {
   allEvents?: FamilyEvent[];
 }
 
-const REMINDER_OPTIONS = [
-  { label: 'НЕТ', value: 0 },
-  { label: '15 МИН', value: 15 },
-  { label: '1 ЧАС', value: 60 },
-  { label: '2 ЧАСА', value: 120 },
-  { label: '1 ДЕНЬ', value: 1440 },
+export const REMINDER_PRESETS = [
+  { label: '15 мин', value: 15 },
+  { label: '30 мин', value: 30 },
+  { label: '1 час', value: 60 },
+  { label: '2 часа', value: 120 },
+  { label: '1 день', value: 1440 },
+  { label: '2 дня', value: 2880 },
 ];
+
+export const formatReminderLabel = (minutes: number): string => {
+  if (minutes <= 0) return 'В момент события';
+  if (minutes < 60) return `${minutes} мин`;
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+    if (days === 1) return '1 день';
+    if (days >= 2 && days <= 4) return `${days} дня`;
+    if (days === 7) return '1 неделя';
+    return `${days} дн.`;
+  }
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    if (hours === 1) return '1 час';
+    if (hours >= 2 && hours <= 4) return `${hours} часа`;
+    return `${hours} ч`;
+  }
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h} ч ${m} мин`;
+};
+
+export const calculateEndTime = (startTime: string, durationHours: number): string => {
+  const [h, m] = (startTime || '12:00').split(':').map(n => parseInt(n, 10) || 0);
+  const totalMinutes = h * 60 + m + Math.round(durationHours * 60);
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+};
 
 export const EventModal: React.FC<EventModalProps> = ({ 
   event, 
@@ -68,6 +98,33 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
   const [conflictToConfirm, setConflictToConfirm] = useState<{ eventData: FamilyEvent; conflictingEvent: FamilyEvent } | null>(null);
+
+  // Custom reminder state
+  const [isCustomReminderOpen, setIsCustomReminderOpen] = useState(false);
+  const [customReminderVal, setCustomReminderVal] = useState('30');
+  const [customReminderUnit, setCustomReminderUnit] = useState<'min' | 'hour' | 'day'>('min');
+
+  // Input refs for high-accuracy direct card triggers
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDateCardClick = () => {
+    try {
+      dateInputRef.current?.showPicker();
+    } catch {
+      dateInputRef.current?.focus();
+      dateInputRef.current?.click();
+    }
+  };
+
+  const handleTimeCardClick = () => {
+    try {
+      timeInputRef.current?.showPicker();
+    } catch {
+      timeInputRef.current?.focus();
+      timeInputRef.current?.click();
+    }
+  };
 
   // End time calculation
   const endTimeStr = useMemo(() => {
@@ -195,11 +252,35 @@ export const EventModal: React.FC<EventModalProps> = ({
       setReminders([]);
       return;
     }
-    if (reminders.includes(minutes)) {
-      setReminders(reminders.filter(r => r !== minutes));
-    } else {
-      setReminders([minutes]);
+    setReminders(prev => {
+      if (prev.includes(minutes)) {
+        return prev.filter(r => r !== minutes);
+      }
+      return [...prev, minutes].sort((a, b) => a - b);
+    });
+  };
+
+  const removeReminder = (minutes: number) => {
+    setReminders(prev => prev.filter(r => r !== minutes));
+  };
+
+  const handleAddCustomReminder = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const num = parseInt(customReminderVal, 10);
+    if (isNaN(num) || num <= 0) {
+      toast.error('Укажите корректное число');
+      return;
     }
+    const multiplier = customReminderUnit === 'day' ? 1440 : customReminderUnit === 'hour' ? 60 : 1;
+    const totalMinutes = num * multiplier;
+
+    if (!reminders.includes(totalMinutes)) {
+      setReminders(prev => [...prev, totalMinutes].sort((a, b) => a - b));
+      toast.success(`Добавлено: за ${formatReminderLabel(totalMinutes)}`);
+    } else {
+      toast.info('Такое напоминание уже есть в списке');
+    }
+    setIsCustomReminderOpen(false);
   };
 
   const toggleMember = (memberId: string) => {
@@ -446,97 +527,218 @@ export const EventModal: React.FC<EventModalProps> = ({
               </span>
             </div>
 
-            {/* 3-Column Mobile Input Grid */}
+            {/* 3-Column Mobile Input Grid with Full-Card Touch Target */}
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Date Box */}
-              <div className="relative bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Дата</span>
-                <div className="flex justify-between gap-1 mt-1 items-end">
-                  <span className="text-[13px] font-bold text-[#2C2723] dark:text-white leading-none">
+              <div 
+                onClick={handleDateCardClick}
+                className="relative bg-[#F5F2EB]/60 hover:bg-[#EAE4D6]/70 dark:bg-[#252528] dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[62px] cursor-pointer transition active:scale-[0.98] group shadow-2xs"
+                title="Нажмите в любое место, чтобы выбрать дату"
+              >
+                <div className="flex items-center justify-between pointer-events-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Дата</span>
+                  <CalendarIcon size={14} className="text-stone-400 group-hover:text-[#4A7C59] transition shrink-0" />
+                </div>
+                <div className="flex justify-between gap-1 mt-1 items-end pointer-events-none">
+                  <span className="text-[14px] font-bold text-[#2C2723] dark:text-white leading-none">
                     {dateFormattedDot}
                   </span>
-                  <CalendarIcon size={14} className="text-stone-400 shrink-0" />
                 </div>
-                {/* Invisible date input for standard picker */}
+                {/* Standard native date picker covering the whole card */}
                 <input 
+                  ref={dateInputRef}
                   type="date"
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                 />
               </div>
 
               {/* Start Time Box */}
-              <div className="relative bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Начало</span>
-                <div className="flex justify-between gap-1 mt-1 items-end">
-                  <span className="text-[13px] font-bold text-[#2C2723] dark:text-white leading-none">
+              <div 
+                onClick={handleTimeCardClick}
+                className="relative bg-[#F5F2EB]/60 hover:bg-[#EAE4D6]/70 dark:bg-[#252528] dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[62px] cursor-pointer transition active:scale-[0.98] group shadow-2xs"
+                title="Нажмите в любое место, чтобы выбрать время начала"
+              >
+                <div className="flex items-center justify-between pointer-events-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Начало</span>
+                  <Clock size={14} className="text-stone-400 group-hover:text-[#4A7C59] transition shrink-0" />
+                </div>
+                <div className="flex justify-between gap-1 mt-1 items-end pointer-events-none">
+                  <span className="text-[14px] font-bold text-[#2C2723] dark:text-white leading-none">
                     {time}
                   </span>
-                  <Clock size={14} className="text-stone-400 shrink-0" />
                 </div>
-                {/* Invisible time input for standard picker */}
+                {/* Standard native time picker covering the whole card */}
                 <input 
+                  ref={timeInputRef}
                   type="time"
                   value={time}
                   onChange={e => setTime(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                 />
               </div>
 
-              {/* Duration Box */}
-              <div className="bg-[#F5F2EB]/60 dark:bg-[#252528] p-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[58px]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Длина</span>
-                <div className="flex items-center justify-between gap-1 mt-1">
-                  <select
-                    value={dur}
-                    onChange={e => setDur(e.target.value)}
-                    className="bg-transparent text-[13px] font-bold text-[#2C2723] dark:text-white leading-none outline-none cursor-pointer p-0 -ml-0.5 border-none"
-                  >
-                    <option value="0.5" className="text-black">30 м</option>
-                    <option value="1" className="text-black">1 ч</option>
-                    <option value="1.5" className="text-black">1.5 ч</option>
-                    <option value="2" className="text-black">2 ч</option>
-                    <option value="2.5" className="text-black">2.5 ч</option>
-                    <option value="3" className="text-black">3 ч</option>
-                    <option value="4" className="text-black">4 ч</option>
-                    <option value="6" className="text-black">6 ч</option>
-                    <option value="8" className="text-black">8 ч</option>
-                  </select>
-                  <span className="text-[10px] text-stone-400 font-medium whitespace-nowrap leading-none">
-                    до {endTimeStr}
+              {/* Duration / End Time Box */}
+              <div 
+                className="relative bg-[#F5F2EB]/60 hover:bg-[#EAE4D6]/70 dark:bg-[#252528] dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between min-h-[62px] cursor-pointer transition active:scale-[0.98] group shadow-2xs"
+                title="Нажмите в любое место, чтобы выбрать длительность и время окончания"
+              >
+                <div className="flex items-center justify-between pointer-events-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-gray-400">Конец</span>
+                  <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400">{durationLabel}</span>
+                </div>
+                <div className="flex items-center justify-between gap-1 mt-1 pointer-events-none">
+                  <span className="text-[14px] font-bold text-[#2C2723] dark:text-white leading-none">
+                    {endTimeStr}
                   </span>
                 </div>
+                <select
+                  value={dur}
+                  onChange={e => setDur(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                >
+                  <option value="0.25">15 мин (до {calculateEndTime(time, 0.25)})</option>
+                  <option value="0.5">30 мин (до {calculateEndTime(time, 0.5)})</option>
+                  <option value="0.75">45 мин (до {calculateEndTime(time, 0.75)})</option>
+                  <option value="1">1 час (до {calculateEndTime(time, 1)})</option>
+                  <option value="1.5">1.5 часа (до {calculateEndTime(time, 1.5)})</option>
+                  <option value="2">2 часа (до {calculateEndTime(time, 2)})</option>
+                  <option value="2.5">2.5 часа (до {calculateEndTime(time, 2.5)})</option>
+                  <option value="3">3 часа (до {calculateEndTime(time, 3)})</option>
+                  <option value="4">4 часа (до {calculateEndTime(time, 4)})</option>
+                  <option value="5">5 часов (до {calculateEndTime(time, 5)})</option>
+                  <option value="6">6 часов (до {calculateEndTime(time, 6)})</option>
+                  <option value="8">8 часов (до {calculateEndTime(time, 8)})</option>
+                  <option value="12">12 часов (до {calculateEndTime(time, 12)})</option>
+                  <option value="24">Весь день (24 ч)</option>
+                </select>
               </div>
             </div>
 
-            {/* Telegram Notification Selector */}
-            <div className="pt-2 border-t border-[#EAE5DB]/60 dark:border-white/10">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Bell size={14} className="text-[#4A7C59]" />
-                <span className="text-[10px] font-extrabold uppercase tracking-wide text-stone-400 dark:text-gray-400">
-                  Напоминание в Telegram:
-                </span>
+            {/* Telegram Multiple Reminders Selector */}
+            <div className="pt-2.5 border-t border-[#EAE5DB]/60 dark:border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Bell size={14} className="text-[#4A7C59]" />
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-stone-400 dark:text-gray-400">
+                    Напоминания в Telegram:
+                  </span>
+                </div>
+                {reminders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setReminders([])}
+                    className="text-[10px] font-bold text-stone-400 hover:text-red-500 transition cursor-pointer"
+                  >
+                    Очистить все
+                  </button>
+                )}
               </div>
-              <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-0.5">
-                {REMINDER_OPTIONS.map(opt => {
-                  const isActive = opt.value === 0 ? reminders.length === 0 : reminders.includes(opt.value);
+
+              {/* Active Reminders Chips */}
+              {reminders.length > 0 ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {reminders.map(mins => (
+                    <span 
+                      key={`active-reminder-${mins}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#EAF2EC] dark:bg-[#4A7C59]/25 text-[#2A6038] dark:text-green-300 border border-[#CBD7CB]/80 dark:border-white/10 text-xs font-bold animate-in fade-in"
+                    >
+                      <Bell size={11} className="shrink-0" />
+                      <span>за {formatReminderLabel(mins)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeReminder(mins)}
+                        className="hover:bg-[#CBD7CB] dark:hover:bg-white/10 rounded p-0.5 ml-0.5 text-stone-500 dark:text-stone-300 cursor-pointer"
+                        title="Удалить это напоминание"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-stone-400 dark:text-stone-500 italic">
+                  Напоминания не заданы (уведомление придет только при сохранении события)
+                </p>
+              )}
+
+              {/* Preset Buttons Grid + Custom Adder Button */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                {REMINDER_PRESETS.map(opt => {
+                  const isActive = reminders.includes(opt.value);
                   return (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => toggleReminder(opt.value)}
-                      className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                      className={`py-1.5 px-2.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center whitespace-nowrap active:scale-95 ${
                         isActive
-                          ? 'bg-[#4A7C59] text-white shadow-2xs'
-                          : 'bg-[#F5F2EB]/70 dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-[#EAE5DB]'
+                          ? 'bg-[#4A7C59] text-white shadow-xs'
+                          : 'bg-[#F5F2EB]/80 dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-[#EAE5DB] dark:hover:bg-white/10 border border-[#EAE5DB]/60 dark:border-white/5'
                       }`}
                     >
-                      {opt.label}
+                      {isActive ? `✓ ${opt.label}` : `+ ${opt.label}`}
                     </button>
                   );
                 })}
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomReminderOpen(!isCustomReminderOpen)}
+                  className={`py-1.5 px-2.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
+                    isCustomReminderOpen
+                      ? 'bg-[#2C2723] text-white dark:bg-white dark:text-black'
+                      : 'bg-[#F5F2EB] dark:bg-[#252528] text-[#4A7C59] dark:text-emerald-400 border border-[#CBD7CB]/60 dark:border-white/10 hover:bg-[#EAE5DB]'
+                  }`}
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                  <span>Своё...</span>
+                </button>
               </div>
+
+              {/* Custom Reminder Inline Form */}
+              {isCustomReminderOpen && (
+                <form 
+                  onSubmit={handleAddCustomReminder}
+                  className="p-3 bg-[#F5F2EB]/90 dark:bg-[#252528] rounded-xl border border-[#CBD7CB] dark:border-white/10 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150"
+                >
+                  <span className="text-xs font-bold text-stone-600 dark:text-stone-300 shrink-0">За:</span>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={customReminderVal}
+                    onChange={e => setCustomReminderVal(e.target.value)}
+                    className="w-16 px-2.5 py-1.5 bg-white dark:bg-[#1E1E20] border border-[#EAE5DB] dark:border-white/10 rounded-lg text-xs font-bold text-[#2C2723] dark:text-white outline-none focus:ring-1 focus:ring-[#4A7C59]"
+                    placeholder="30"
+                    autoFocus
+                  />
+                  <select
+                    value={customReminderUnit}
+                    onChange={e => setCustomReminderUnit(e.target.value as any)}
+                    className="px-2.5 py-1.5 bg-white dark:bg-[#1E1E20] border border-[#EAE5DB] dark:border-white/10 rounded-lg text-xs font-bold text-[#2C2723] dark:text-white outline-none cursor-pointer"
+                  >
+                    <option value="min">минут</option>
+                    <option value="hour">часов</option>
+                    <option value="day">дней</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={!customReminderVal}
+                    className="px-3 py-1.5 bg-[#4A7C59] hover:bg-[#3D6849] text-white rounded-lg text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer shrink-0"
+                  >
+                    Добавить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomReminderOpen(false)}
+                    className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                </form>
+              )}
             </div>
           </section>
 

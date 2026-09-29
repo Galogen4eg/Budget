@@ -160,7 +160,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 <ArrowLeft size={22} />
               </button>
               <h1 className="text-base font-headline font-semibold text-[#2E3230] dark:text-white truncate text-center flex-1 px-2">
-                Категория: {categoryTitle}
+                {categoryTitle?.toLowerCase().includes('все операции') || categoryTitle?.toLowerCase().includes('все категории') || categoryTitle === 'Все' ? 'Список операций' : `Категория: ${categoryTitle}`}
               </h1>
               <div 
                 className="w-8 h-8 rounded-full bg-[#4A7C59] text-white flex items-center justify-center text-xs font-bold shadow-2xs shrink-0"

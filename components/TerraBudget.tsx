@@ -1590,19 +1590,24 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
 
-          {/* 3. Family Operations Feed (выровнен по нижнему краю с левой колонкой) */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex-1 flex flex-col justify-between">
+          {/* 3. Family Operations Feed (filtered by selected calendar day) */}
+          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex flex-col">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/70 dark:border-white/10 shrink-0">
-              <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
-                Операции участников семьи
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
+                  Операции участников
+                </h3>
+                <span className="text-[10px] font-semibold text-graphite-muted dark:text-gray-400">
+                  ({selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
+                </span>
+              </div>
               <span className="text-[11px] font-bold text-primary dark:text-green-400">
-                {monthTransactions.length} записей
+                {selectedDayTransactions.length > 0 ? `${selectedDayTransactions.length} на дату` : `${monthTransactions.length} за месяц`}
               </span>
             </div>
 
-            <div className="space-y-2 flex-1 flex flex-col justify-start">
-              {monthTransactions.slice(0, 5).map(tx => {
+            <div className="space-y-1.5 overflow-y-auto max-h-64 no-scrollbar">
+              {(selectedDayTransactions.length > 0 ? selectedDayTransactions : monthTransactions.slice(0, 6)).map(tx => {
                 const member = members.find(m => m.id === tx.memberId);
                 const category = categories.find(c => c.id === tx.category);
                 const displayTitle = tx.note || category?.label || 'Операция';
@@ -1621,10 +1626,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         {member ? member.name.charAt(0).toUpperCase() : 'С'}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">
+                        <div className="text-xs font-bold text-graphite dark:text-white truncate group-hover:text-primary transition leading-tight">
                           {displayTitle}
                         </div>
-                        <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block">
+                        <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block leading-tight">
                           {member?.name || 'Семья'} • {new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
                         </span>
                       </div>

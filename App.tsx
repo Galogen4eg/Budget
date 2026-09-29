@@ -28,20 +28,20 @@ import TerraOverview from './components/TerraOverview';
 import TerraBudget from './components/TerraBudget';
 import AddTransactionModal from './components/AddTransactionModal';
 import EventModal from './components/EventModal';
+import DrillDownModal from './components/DrillDownModal';
+import ImportModal from './components/ImportModal';
+import SettingsModal from './components/SettingsModal';
+import DuplicatesModal from './components/DuplicatesModal';
+import AIChatModal from './components/AIChatModal';
+import GoalModal from './components/GoalModal';
+import MandatoryExpenseModal from './components/MandatoryExpenseModal';
 import { MemberMarker } from './constants';
 import { sendTelegramMessage as dispatchTelegramMessage } from './utils/telegram';
 import { enqueueTelegramMessage, initTelegramQueueSync } from './utils/telegramQueue';
 
-const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
 const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
-const GoalModal = React.lazy(() => import('./components/GoalModal'));
-const MandatoryExpenseModal = React.lazy(() => import('./components/MandatoryExpenseModal'));
-const DrillDownModal = React.lazy(() => import('./components/DrillDownModal'));
-const ImportModal = React.lazy(() => import('./components/ImportModal'));
-const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'));
-const AIChatModal = React.lazy(() => import('./components/AIChatModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
 import { useTelegramSync } from './hooks/useTelegramSync';
@@ -579,6 +579,23 @@ export default function App() {
 
       const dateStr = new Date(event.date).toLocaleDateString('ru-RU');
 
+      const formatReminderMinutes = (m: number) => {
+        if (m < 60) return `${m} мин`;
+        if (m % 1440 === 0) {
+          const d = m / 1440;
+          return d === 1 ? '1 день' : d >= 2 && d <= 4 ? `${d} дня` : `${d} дн.`;
+        }
+        if (m % 60 === 0) {
+          const h = m / 60;
+          return h === 1 ? '1 час' : h >= 2 && h <= 4 ? `${h} часа` : `${h} ч`;
+        }
+        return `${Math.floor(m / 60)} ч ${m % 60} мин`;
+      };
+
+      const remindersStr = (event.reminders && event.reminders.length > 0)
+        ? event.reminders.map(r => `за ${formatReminderMinutes(r)}`).join(', ')
+        : '';
+
       // Comprehensive Data Map
       const dataMap: Record<string, string> = {
           '{title}': event.title,
@@ -588,14 +605,15 @@ export default function App() {
           '{desc}': event.description || '', // Legacy support
           '{description}': event.description || '', // Robust support
           '{members}': memberNames, 
-          '{checklist}': checklistStr 
+          '{checklist}': checklistStr,
+          '{reminders}': remindersStr
       };
 
       let text = template;
 
       // 1. Line Removal Logic for empty optional fields
       // Fields that, if empty, should cause their line to be removed
-      const optionalFields = ['{desc}', '{description}', '{members}', '{checklist}'];
+      const optionalFields = ['{desc}', '{description}', '{members}', '{checklist}', '{reminders}'];
 
       optionalFields.forEach(field => {
           const val = dataMap[field];

@@ -514,7 +514,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     return parentCategory || initialCategory;
   }, [activeSubcategoryId, categories, parentCategory, initialCategory]);
 
-  const title = merchantName || currentActiveCategory?.label || (isOtherOrTraining ? 'Прочее' : 'Карточка категории');
+  const title = isAllTransactions 
+    ? 'Все операции' 
+    : (merchantName || currentActiveCategory?.label || 'Реестр операций');
 
   // Lock body scroll
   useEffect(() => {
@@ -654,10 +656,10 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       
       {/* Main Modal Inspector Card with LOCKED CONSTANT HEIGHT to prevent size jumping */}
       <motion.div
-        initial={{ y: 20, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 20, opacity: 0, scale: 0.98 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+        initial={{ opacity: 0, scale: 0.99 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.99 }}
+        transition={{ duration: 0.12 }}
         className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-5xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[88vh] max-h-[820px] min-h-[580px] border border-[#E4E0D8]/60 dark:border-white/10"
       >
         {/* 1. Unified Top Modal Header */}
@@ -673,10 +675,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-400">
-                  Карточка категории
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F0E8DB] dark:bg-white/10 text-[#4A4538] dark:text-stone-300 tracking-wide">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EAF2EC] dark:bg-green-950/40 text-[#2A4C34] dark:text-green-300 tracking-wide uppercase">
                   {viewMode === 'inspector' ? 'Реестр операций' : 'Аналитика трат'}
                 </span>
               </div>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Check, X, Sparkles, ChevronRight, ChevronLeft, ArrowRight, 
   CheckCheck, Wand2, ShieldCheck, Tag, Info, List, Grid, Edit3, HelpCircle, Search, ChevronDown
@@ -48,6 +49,9 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   const [viewMode, setViewMode] = useState<'single' | 'list'>('single');
   const [saveRuleChecked, setSaveRuleChecked] = useState(true);
   const [manualPickerOpenForId, setManualPickerOpenForId] = useState<string | null>(null);
+  const [selectedCatOverrideMap, setSelectedCatOverrideMap] = useState<Record<string, string>>({});
+  const [customCleanNameMap, setCustomCleanNameMap] = useState<Record<string, string>>({});
+  const [customRuleKeywordMap, setCustomRuleKeywordMap] = useState<Record<string, string>>({});
 
   // Filter only unrecognized items (category is 'other' or missing)
   const unrecognizedItems = useMemo(() => {
@@ -85,13 +89,97 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     }
   }, [unrecognizedItems.length, currentIndex]);
 
+  const safeIndex = Math.min(currentIndex, Math.max(0, unrecognizedItems.length - 1));
+  const activeItem = unrecognizedItems[safeIndex] || unrecognizedItems[0];
+  const activeAnalysis = activeItem ? analyzedMap.get(activeItem.id) : null;
+  const effectiveCategoryId = (activeItem && selectedCatOverrideMap[activeItem.id]) || activeAnalysis?.suggestedCategoryId || 'other';
+  const activeCategory = categories.find(c => c.id === effectiveCategoryId);
+  const effectiveCleanName = (activeItem && customCleanNameMap[activeItem.id]) !== undefined 
+    ? customCleanNameMap[activeItem.id] 
+    : (activeAnalysis?.cleanName || activeItem?.note || '');
+  const effectiveRuleKeyword = (activeItem && customRuleKeywordMap[activeItem.id]) !== undefined
+    ? customRuleKeywordMap[activeItem.id]
+    : (activeAnalysis?.ruleKeyword || activeItem?.note || '');
+
+  const progressPercent = Math.round(((items.length - unrecognizedItems.length) / (items.length || 1)) * 100);
+
+  // Confirm single item
+  const handleConfirmSingle = (targetCatId?: string) => {
+    if (!activeItem) return;
+    const catIdToUse = targetCatId || effectiveCategoryId;
+
+    let ruleToLearn: LearnedRule | undefined = undefined;
+    const ruleKeywordToSave = effectiveRuleKeyword.trim();
+    if (saveRuleChecked && ruleKeywordToSave && catIdToUse !== 'other') {
+      ruleToLearn = {
+        id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        keyword: ruleKeywordToSave,
+        cleanName: effectiveCleanName || activeItem.note,
+        categoryId: catIdToUse
+      };
+    }
+
+    onApplyCategoryWithRule(activeItem.id, catIdToUse, ruleToLearn);
+    setManualPickerOpenForId(null);
+
+    if (safeIndex >= unrecognizedItems.length - 1) {
+      setCurrentIndex(0);
+    }
+  };
+
+  // Keyboard navigation (ArrowLeft / ArrowRight to navigate, Enter to confirm, Escape to close)
+  useEffect(() => {
+    if (!isOpen || unrecognizedItems.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+        if (e.key === 'Escape') {
+          target.blur();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentIndex(prev => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentIndex(prev => Math.min(unrecognizedItems.length - 1, prev + 1));
+      } else if (e.key === 'Enter') {
+        if (viewMode === 'single' && !manualPickerOpenForId) {
+          e.preventDefault();
+          handleConfirmSingle();
+        }
+      } else if (e.key === 'Escape') {
+        if (manualPickerOpenForId) {
+          setManualPickerOpenForId(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, unrecognizedItems.length, viewMode, manualPickerOpenForId, safeIndex, activeItem, activeAnalysis, saveRuleChecked]);
+
   if (!isOpen) return null;
 
   // Show Completion Screen when all unrecognized items are resolved
   if (unrecognizedItems.length === 0) {
-    return (
-      <div className="fixed inset-0 z-[60] bg-stone-950/50 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 transition-all">
+    return createPortal(
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+        className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 transition-all select-none"
+      >
         <div 
+          onClick={(e) => e.stopPropagation()}
           className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col p-6 sm:p-8 text-center items-center gap-5 animate-in fade-in zoom-in-95 duration-200"
           role="dialog"
         >
@@ -114,40 +202,10 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
             <ArrowRight size={16} />
           </RippleButton>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
-
-  const safeIndex = Math.min(currentIndex, unrecognizedItems.length - 1);
-  const activeItem = unrecognizedItems[safeIndex] || unrecognizedItems[0];
-  const activeAnalysis = activeItem ? analyzedMap.get(activeItem.id) : null;
-  const activeCategory = activeAnalysis ? categories.find(c => c.id === activeAnalysis.suggestedCategoryId) : null;
-
-  const progressPercent = Math.round(((items.length - unrecognizedItems.length) / (items.length || 1)) * 100);
-
-  // Confirm single item
-  const handleConfirmSingle = (targetCatId?: string) => {
-    if (!activeItem || !activeAnalysis) return;
-    const catIdToUse = targetCatId || activeAnalysis.suggestedCategoryId;
-    const cat = categories.find(c => c.id === catIdToUse);
-
-    let ruleToLearn: LearnedRule | undefined = undefined;
-    if (saveRuleChecked && activeAnalysis.ruleKeyword && catIdToUse !== 'other') {
-      ruleToLearn = {
-        id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        keyword: activeAnalysis.ruleKeyword,
-        cleanName: activeAnalysis.cleanName || activeItem.note,
-        categoryId: catIdToUse
-      };
-    }
-
-    onApplyCategoryWithRule(activeItem.id, catIdToUse, ruleToLearn);
-    setManualPickerOpenForId(null);
-
-    if (safeIndex >= unrecognizedItems.length - 1) {
-      setCurrentIndex(0);
-    }
-  };
 
   // Confirm all auto suggestions
   const handleConfirmAllSuggestions = () => {
@@ -174,10 +232,19 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] bg-stone-950/50 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 transition-all">
+  return createPortal(
+    <div 
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 md:p-6 transition-all select-none"
+    >
       <div 
-        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-3xl rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-4xl lg:max-w-5xl rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
       >
         {/* Modal Header */}
@@ -263,19 +330,26 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
 
               {/* Progress counter */}
               <div className="flex items-center justify-between text-xs font-bold text-stone-500 dark:text-gray-400">
-                <span>Разбор операции {safeIndex + 1} из {unrecognizedItems.length}</span>
+                <div className="flex items-center gap-2">
+                  <span>Разбор операции {safeIndex + 1} из {unrecognizedItems.length}</span>
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-stone-400 dark:text-stone-500 font-mono bg-stone-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-stone-200 dark:border-white/10">
+                    <kbd className="font-semibold">←</kbd> <kbd className="font-semibold">→</kbd> листание
+                  </span>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     disabled={safeIndex === 0}
                     onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition"
+                    title="Предыдущая операция (Стрелка влево ←)"
+                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition cursor-pointer"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
                     disabled={safeIndex >= unrecognizedItems.length - 1}
                     onClick={() => setCurrentIndex(prev => Math.min(unrecognizedItems.length - 1, prev + 1))}
-                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition"
+                    title="Следующая операция (Стрелка вправо →)"
+                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition cursor-pointer"
                   >
                     <ChevronRight size={16} />
                   </button>
@@ -309,20 +383,18 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                     <div className="text-base font-headline font-bold text-stone-900 dark:text-white break-words">
                       {activeItem.rawNote || activeItem.note}
                     </div>
-                    <div className="text-xs text-stone-600 dark:text-gray-300 bg-[#F5F0E6] dark:bg-white/5 p-2.5 rounded-xl border border-[#E5DEC3] dark:border-white/10 mt-2 flex items-center justify-between gap-2">
-                      <span>Очищенное название: <b className="text-stone-900 dark:text-white font-bold">{activeAnalysis.cleanName || activeItem.note}</b></span>
-                      {onEditItem && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditItem(activeItem);
-                          }}
-                          className="text-[#4A7C59] hover:text-[#3B6447] p-1 cursor-pointer"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                      )}
+                    <div className="text-xs text-stone-600 dark:text-gray-300 bg-[#F5F0E6] dark:bg-white/5 p-2.5 rounded-xl border border-[#E5DEC3] dark:border-white/10 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="shrink-0 font-semibold text-stone-600 dark:text-stone-300">Очищенное название для истории:</span>
+                      <input 
+                        type="text"
+                        value={effectiveCleanName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomCleanNameMap(prev => ({ ...prev, [activeItem.id]: val }));
+                        }}
+                        placeholder="Название операции в истории..."
+                        className="font-bold text-stone-900 dark:text-white bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-lg border border-stone-300 dark:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none text-xs w-full max-w-sm"
+                      />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -353,9 +425,11 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       Предложенная категория:
                     </span>
                   </div>
-                  <div className="text-xs font-bold font-mono text-[#4A7C59] dark:text-green-400 bg-white/80 dark:bg-black/30 px-2.5 py-1 rounded-lg border border-[#4A7C59]/20">
-                    🎯 Уверенность: {activeAnalysis.confidence}%
-                  </div>
+                  {activeAnalysis && (
+                    <div className="text-xs font-bold font-mono text-[#4A7C59] dark:text-green-400 bg-white/80 dark:bg-black/30 px-2.5 py-1 rounded-lg border border-[#4A7C59]/20">
+                      🎯 Уверенность: {activeAnalysis.confidence}%
+                    </div>
+                  )}
                 </div>
 
                 {/* Category Display Banner */}
@@ -373,55 +447,81 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       </h4>
                       <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
                         <Info size={13} className="text-[#4A7C59] shrink-0" />
-                        <span>{activeAnalysis.reason}</span>
+                        <span>{activeAnalysis?.reason || 'Выбрано вручную'}</span>
                       </p>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setManualPickerOpenForId(activeItem.id)}
+                    onClick={() => setManualPickerOpenForId(manualPickerOpenForId === activeItem.id ? null : activeItem.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4EFE7] dark:bg-white/10 hover:bg-[#EAE4DA] dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-bold transition cursor-pointer"
                   >
                     <Edit3 size={14} />
-                    <span>Изменить...</span>
+                    <span>{manualPickerOpenForId === activeItem.id ? 'Скрыть выбор' : 'Изменить категорию...'}</span>
                   </button>
                 </div>
 
                 {/* Manual Category Picker Accordion if open */}
                 {manualPickerOpenForId === activeItem.id && (
-                  <div className="bg-white dark:bg-[#252528] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 space-y-3 animate-in fade-in duration-150">
+                  <div className="bg-white dark:bg-[#252528] rounded-2xl p-4 sm:p-5 border border-[#ECE6DE] dark:border-white/10 space-y-3.5 animate-in fade-in duration-150 shadow-md">
                     <div className="text-xs font-bold text-stone-700 dark:text-gray-300 flex items-center justify-between">
-                      <span>Выберите категорию или подкатегорию:</span>
+                      <span className="text-sm font-headline">Выберите подходящую категорию или подкатегорию:</span>
                       <button 
                         type="button" 
                         onClick={() => setManualPickerOpenForId(null)}
-                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+                        className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/5 cursor-pointer"
                       >
-                        <X size={14} />
+                        <X size={16} />
                       </button>
                     </div>
                     <CategoryPickerAccordion
                       categories={categories}
-                      selectedCategoryId={activeCategory?.id}
-                      onSelectCategory={(catId) => handleConfirmSingle(catId)}
+                      selectedCategoryId={effectiveCategoryId}
+                      maxHeightClass="max-h-[460px]"
+                      onSelectCategory={(catId) => {
+                        setSelectedCatOverrideMap(prev => ({ ...prev, [activeItem.id]: catId }));
+                        setManualPickerOpenForId(null);
+                      }}
                       onAddCategory={onAddCategory}
                     />
                   </div>
                 )}
 
-                {/* Rule Learning Checkbox */}
-                <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 dark:text-gray-300 cursor-pointer select-none">
-                    <input 
-                      type="checkbox"
-                      checked={saveRuleChecked}
-                      onChange={e => setSaveRuleChecked(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
-                    />
-                    <ShieldCheck size={15} className="text-[#4A7C59]" />
-                    <span>Запомнить как правило для «{activeAnalysis.ruleKeyword}»</span>
-                  </label>
+                {/* Rule Learning Card with Editable Keyword */}
+                <div className="bg-white/90 dark:bg-black/20 rounded-2xl p-4 border border-[#4A7C59]/30 space-y-2.5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2.5 text-xs font-bold text-stone-800 dark:text-gray-200 cursor-pointer select-none">
+                      <input 
+                        type="checkbox"
+                        checked={saveRuleChecked}
+                        onChange={e => setSaveRuleChecked(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
+                      />
+                      <ShieldCheck size={16} className="text-[#4A7C59]" />
+                      <span>Запомнить как автоправило для будущих выписок</span>
+                    </label>
+                  </div>
+
+                  {saveRuleChecked && (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 pt-1 pl-6">
+                      <span className="text-xs font-semibold text-stone-500 dark:text-gray-400 shrink-0">
+                        Запоминаемое ключевое слово:
+                      </span>
+                      <div className="relative flex-1">
+                        <input 
+                          type="text"
+                          value={effectiveRuleKeyword}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomRuleKeywordMap(prev => ({ ...prev, [activeItem.id]: val }));
+                          }}
+                          placeholder="например: ВкусВилл, Яндекс, Магнит..."
+                          className="w-full font-bold font-mono text-xs text-stone-900 dark:text-white bg-stone-50 dark:bg-[#1C1C1E] px-3 py-1.5 rounded-xl border border-[#4A7C59]/50 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Confirm Button */}
@@ -431,7 +531,10 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                     className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-[#4A7C59] hover:bg-[#3B6447] text-white font-bold text-sm shadow-md transition cursor-pointer"
                   >
                     <Check size={18} strokeWidth={3} />
-                    <span>✅ Да, соотнесено верно (Сохранить)</span>
+                    <span>Подтвердить категорию «{activeCategory?.label || 'Сохранить'}»</span>
+                    <kbd className="hidden sm:inline-flex items-center text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.5 rounded ml-1">
+                      Enter ↵
+                    </kbd>
                   </RippleButton>
                 </div>
 
@@ -607,6 +710,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

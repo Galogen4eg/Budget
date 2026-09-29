@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf, Wallet, Sparkles } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -34,6 +34,7 @@ import DuplicatesModal from './components/DuplicatesModal';
 import AIChatModal from './components/AIChatModal';
 import GoalModal from './components/GoalModal';
 import MandatoryExpenseModal from './components/MandatoryExpenseModal';
+import FamilyChat from './components/FamilyChat';
 import { MemberMarker } from './constants';
 import { sendTelegramMessage as dispatchTelegramMessage } from './utils/telegram';
 import { enqueueTelegramMessage, initTelegramQueueSync } from './utils/telegramQueue';
@@ -59,6 +60,7 @@ const TAB_CONFIG = [
   { id: 'budget', label: 'Бюджет', icon: Wallet },
   { id: 'plans', label: 'Планы', icon: Calendar },
   { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
+  { id: 'chat', label: 'Чат', icon: MessageSquare },
   { id: 'services', label: 'Сервисы', icon: AppWindow },
 ];
 
@@ -1048,6 +1050,10 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
               />
+            </div>
+
+            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+              <FamilyChat />
             </div>
 
             <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>

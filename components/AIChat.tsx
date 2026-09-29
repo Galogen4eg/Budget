@@ -315,7 +315,19 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
 
       setMessages(prev => [...prev, botMessage]);
     } catch (err: any) {
-      const errorText = err instanceof Error ? err.message : 'Произошла ошибка связи с AI';
+      let errorText = err instanceof Error ? err.message : 'Произошла ошибка связи с AI';
+      
+      const lowerErr = errorText.toLowerCase();
+      if (
+        lowerErr.includes('quota') || 
+        lowerErr.includes('resource_exhausted') || 
+        lowerErr.includes('high demand') || 
+        lowerErr.includes('overloaded') ||
+        lowerErr.includes('429')
+      ) {
+        errorText = 'Сервис AI испытывает пиковую нагрузку или исчерпан текущий лимит запросов. Пожалуйста, подождите 10-15 секунд и отправьте вопрос снова.';
+      }
+
       setMessages(prev => [
         ...prev,
         {
@@ -372,10 +384,6 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
             }`}
             title={settings.telegramChatId ? `Chat ID: ${settings.telegramChatId}` : 'Нажмите, чтобы настроить Telegram'}
           >
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${settings.telegramChatId ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${settings.telegramChatId ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            </span>
             <span className="truncate max-w-[200px]">
               {settings.telegramChatId ? 'AI синхронизирован с Telegram' : 'Подключить Telegram-бота'}
             </span>

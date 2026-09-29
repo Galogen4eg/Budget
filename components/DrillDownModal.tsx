@@ -12,6 +12,9 @@ import { auth } from '../firebase';
 import DrillDownMobile from './DrillDownMobile';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import DrillDownTransactionList from './drilldown/DrillDownTransactionList';
+import DrillDownAnalyticsChart from './drilldown/DrillDownAnalyticsChart';
 
 interface DrillDownModalProps {
   categoryId?: string;
@@ -55,15 +58,6 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
   // Interactive Chart Series Filter: 'all' | 'expense' | 'income'
   const [chartSeriesFilter, setChartSeriesFilter] = useState<'all' | 'expense' | 'income'>('all');
-
-  // Hover state for SVG chart tooltip
-  const [hoveredBar, setHoveredBar] = useState<{
-    x: number;
-    y: number;
-    label: string;
-    expense: number;
-    income: number;
-  } | null>(null);
 
   // Ref for subcategories horizontal scroll ribbon and dynamic overflow state
   const subcatScrollRef = useRef<HTMLDivElement>(null);
@@ -125,6 +119,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     return null;
   });
 
+  // Active parent category filter when in "All categories" mode
+  const [activeAllCatId, setActiveAllCatId] = useState<string | null>(null);
+
   // Calculate family category IDs
   const familyCategoryIds = useMemo(() => {
     if (isAllTransactions) return [];
@@ -156,6 +153,20 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     });
   }, [transactions, selectedDate, currentMonth, merchantName, familyCategoryIds, isAllTransactions]);
 
+  // Top level categories for ribbon when viewing "All"
+  const topParentCategoriesStats = useMemo(() => {
+    if (!isAllTransactions) return [];
+    const parentCats = categories.filter(c => !c.parentId && c.id !== 'other');
+    return parentCats.map(cat => {
+      const childIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
+      const catFamily = [cat.id, ...childIds];
+      const spent = allFamilyTransactions
+        .filter(t => catFamily.includes(t.category) && t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      return { cat, spent: Math.round(spent), familyIds: catFamily };
+    }).filter(item => item.spent > 0).sort((a, b) => b.spent - a.spent);
+  }, [isAllTransactions, categories, allFamilyTransactions]);
+
   // Sorted subcategory statistics by amount descending (only subcategories with active spending in period)
   const sortedSubcategoriesStats = useMemo(() => {
     return subcategories
@@ -169,11 +180,17 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       .sort((a, b) => b.spent - a.spent);
   }, [subcategories, allFamilyTransactions]);
 
-  // Filtered transactions for the current view (respecting activeSubcategoryId if chosen)
+  // Filtered transactions for the current view (respecting activeAllCatId or activeSubcategoryId if chosen)
   const familyTransactions = useMemo(() => {
+    if (isAllTransactions) {
+      if (!activeAllCatId) return allFamilyTransactions;
+      const found = topParentCategoriesStats.find(p => p.cat.id === activeAllCatId);
+      const catIds = found ? found.familyIds : [activeAllCatId];
+      return allFamilyTransactions.filter(t => catIds.includes(t.category));
+    }
     if (!activeSubcategoryId) return allFamilyTransactions;
     return allFamilyTransactions.filter(t => t.category === activeSubcategoryId);
-  }, [allFamilyTransactions, activeSubcategoryId]);
+  }, [allFamilyTransactions, isAllTransactions, activeAllCatId, topParentCategoriesStats, activeSubcategoryId]);
 
   // Check scroll overflow on render, resize and subcategory list change
   useEffect(() => {
@@ -373,171 +390,23 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     return { list, peakItem, avgDaily, activeCount };
   }, [familyTransactions, currentMonth, totalExpense, chartGranularity, chartSeriesFilter]);
 
-  // Dynamic Scaled SVG Chart Data (calculates dynamic Y-axis max based on actual filtered data)
-  const renderedChartData = useMemo(() => {
-    const list = aggregatedChartData.list;
-    const itemCount = list.length || 1;
-
-    // Calculate maximum amount dynamically based on active filter
-    let rawMax = 0;
-    list.forEach(item => {
-      if (chartSeriesFilter === 'all') {
-        rawMax = Math.max(rawMax, item.expense, item.income);
-      } else if (chartSeriesFilter === 'expense') {
-        rawMax = Math.max(rawMax, item.expense);
-      } else if (chartSeriesFilter === 'income') {
-        rawMax = Math.max(rawMax, item.income);
-      }
-    });
-
-    if (rawMax === 0) rawMax = 1000;
-
-    // Smart dynamic Y-axis maximum scaling
-    let maxVal = 1000;
-    if (rawMax <= 500) {
-      maxVal = Math.ceil(rawMax / 100) * 100 || 200;
-    } else if (rawMax <= 2000) {
-      maxVal = Math.ceil(rawMax / 250) * 250;
-    } else if (rawMax <= 10000) {
-      maxVal = Math.ceil(rawMax / 1000) * 1000;
-    } else if (rawMax <= 50000) {
-      maxVal = Math.ceil(rawMax / 5000) * 5000;
-    } else {
-      maxVal = Math.ceil(rawMax / 10000) * 10000;
-    }
-
-    const leftX = 65;
-    const rightX = 920;
-    const widthX = rightX - leftX;
-
-    const topY = 32;
-    const bottomY = 160;
-    const heightY = bottomY - topY;
-
-    const trendPoints: { x: number; y: number; label: string; expense: number; income: number }[] = [];
-
-    const bars = list.map((item, idx) => {
-      const x = leftX + (idx / Math.max(1, itemCount - 1)) * widthX;
-
-      const showExpense = chartSeriesFilter === 'all' || chartSeriesFilter === 'expense';
-      const showIncome = chartSeriesFilter === 'all' || chartSeriesFilter === 'income';
-
-      const expenseH = showExpense ? (item.expense / maxVal) * heightY : 0;
-      const expenseY = bottomY - expenseH;
-
-      const incomeH = showIncome ? (item.income / maxVal) * heightY : 0;
-      const incomeY = bottomY - incomeH;
-
-      let mainVal = 0;
-      if (chartSeriesFilter === 'expense') mainVal = item.expense;
-      else if (chartSeriesFilter === 'income') mainVal = item.income;
-      else mainVal = item.expense > 0 ? item.expense : item.income;
-
-      const mainY = bottomY - (mainVal / maxVal) * heightY;
-
-      if (mainVal > 0) {
-        trendPoints.push({
-          x,
-          y: Math.max(topY, Math.min(bottomY, mainY)),
-          label: item.label,
-          expense: item.expense,
-          income: item.income
-        });
-      }
-
-      return {
-        id: item.id,
-        label: item.label,
-        dayNum: item.dayNum,
-        x,
-        expense: item.expense,
-        income: item.income,
-        expenseH,
-        expenseY,
-        incomeH,
-        incomeY,
-        showExpense: showExpense && item.expense > 0,
-        showIncome: showIncome && item.income > 0,
-        isPeak: item.id === aggregatedChartData.peakItem?.id && (item.expense > 0 || item.income > 0),
-        val: mainVal
-      };
-    });
-
-    const lineD = trendPoints.length > 0
-      ? trendPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-      : '';
-
-    const areaD = lineD ? `${lineD} L ${rightX} ${bottomY} L ${leftX} ${bottomY} Z` : '';
-
-    const peakPoint = trendPoints.find(p => p.label === aggregatedChartData.peakItem?.label) || trendPoints[0];
-
-    return {
-      maxVal,
-      midVal: Math.round(maxVal * 0.66),
-      lowVal: Math.round(maxVal * 0.33),
-      leftX,
-      rightX,
-      topY,
-      bottomY,
-      bars,
-      lineD,
-      areaD,
-      peakPoint,
-      trendPoints
-    };
-  }, [aggregatedChartData, chartSeriesFilter]);
-
-  // Group transactions by date for feed stream
-  const groupedTransactionsByDate = useMemo(() => {
-    const groups: { [dateKey: string]: { date: Date; dateTitle: string; totalSpent: number; totalIncome: number; txs: Transaction[] } } = {};
-
-    filteredTransactions.forEach(t => {
-      const d = new Date(t.date);
-      const dateKey = d.toDateString();
-
-      if (!groups[dateKey]) {
-        const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-        const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-        const dateTitle = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-
-        groups[dateKey] = {
-          date: d,
-          dateTitle,
-          totalSpent: 0,
-          totalIncome: 0,
-          txs: []
-        };
-      }
-
-      if (t.type === 'expense') groups[dateKey].totalSpent += t.amount;
-      if (t.type === 'income') groups[dateKey].totalIncome += t.amount;
-      groups[dateKey].txs.push(t);
-    });
-
-    return Object.values(groups).sort((a, b) => {
-      return sortOrder === 'newest' ? b.date.getTime() - a.date.getTime() : a.date.getTime() - b.date.getTime();
-    });
-  }, [filteredTransactions, sortOrder]);
-
   // Current Category Display info
   const currentActiveCategory = useMemo(() => {
+    if (isAllTransactions && activeAllCatId) {
+      return categories.find(c => c.id === activeAllCatId) || initialCategory;
+    }
     if (activeSubcategoryId) {
       return categories.find(c => c.id === activeSubcategoryId) || initialCategory;
     }
     return parentCategory || initialCategory;
-  }, [activeSubcategoryId, categories, parentCategory, initialCategory]);
+  }, [isAllTransactions, activeAllCatId, activeSubcategoryId, categories, parentCategory, initialCategory]);
 
   const title = isAllTransactions 
-    ? 'Все операции' 
+    ? (activeAllCatId ? (categories.find(c => c.id === activeAllCatId)?.label || 'Аналитика категории') : 'Аналитика категорий') 
     : (merchantName || currentActiveCategory?.label || 'Реестр операций');
 
-  // Lock body scroll
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  // Lock body scroll with scrollbar compensation to eliminate layout shift/flicker
+  useBodyScrollLock();
 
   const monthLabel = currentMonth 
     ? currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
@@ -664,16 +533,17 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
         onClick={onClose}
         className="absolute inset-0 bg-[#2E3230]/50 backdrop-blur-md" 
       />
       
       {/* Main Modal Inspector Card with LOCKED CONSTANT HEIGHT to prevent size jumping */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.99 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.99 }}
-        transition={{ duration: 0.12 }}
+        initial={{ opacity: 0, scale: 0.98, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.98, y: 6 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
         className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-5xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[88vh] max-h-[820px] min-h-[580px] border border-[#E4E0D8]/60 dark:border-white/10"
       >
         {/* 1. Unified Top Modal Header */}
@@ -752,8 +622,8 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
         </div>
 
-        {/* Subcategories Horizontal Ribbon with Smart Overflow Buttons */}
-        {sortedSubcategoriesStats.length > 0 && !isOtherOrTraining && (
+        {/* Categories or Subcategories Horizontal Ribbon with Smart Overflow Buttons */}
+        {((sortedSubcategoriesStats.length > 0 && !isOtherOrTraining) || (isAllTransactions && topParentCategoriesStats.length > 0)) && (
           <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] px-4 sm:px-6 py-2.5 border-b border-[#E4E0D8] dark:border-white/10 shrink-0 flex items-center gap-2">
             {scrollOverflow.hasOverflow && scrollOverflow.canScrollLeft && (
               <button
@@ -772,13 +642,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               <span className="text-[11px] font-bold text-[#68726B] dark:text-stone-400 uppercase tracking-wider shrink-0 mr-1">
-                Подкатегории:
+                {isAllTransactions ? 'Категории:' : 'Подкатегории:'}
               </span>
               <button
                 type="button"
-                onClick={() => setActiveSubcategoryId(null)}
+                onClick={() => isAllTransactions ? setActiveAllCatId(null) : setActiveSubcategoryId(null)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                  activeSubcategoryId === null
+                  (isAllTransactions ? activeAllCatId === null : activeSubcategoryId === null)
                     ? 'bg-[#4A7C59] text-white shadow-xs'
                     : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
                 }`}
@@ -787,28 +657,53 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 <span>Все</span>
               </button>
 
-              {/* Render Subcategories: all subcategories remain visible, active one is highlighted */}
-              {sortedSubcategoriesStats.map(({ sub, spent }) => {
-                const isActive = activeSubcategoryId === sub.id;
+              {/* Render items: either top categories or subcategories */}
+              {isAllTransactions ? (
+                topParentCategoriesStats.map(({ cat, spent }) => {
+                  const isActive = activeAllCatId === cat.id;
 
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => setActiveSubcategoryId(isActive ? null : sub.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                      isActive
-                        ? 'bg-[#4A7C59] text-white shadow-xs'
-                        : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
-                    }`}
-                  >
-                    <span>{sub.label}</span>
-                    <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
-                      ({spent.toLocaleString('ru-RU')} ₽)
-                    </span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveAllCatId(isActive ? null : cat.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? 'bg-[#4A7C59] text-white shadow-xs'
+                          : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                      <span>{cat.label}</span>
+                      <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
+                        ({spent.toLocaleString('ru-RU')} ₽)
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                sortedSubcategoriesStats.map(({ sub, spent }) => {
+                  const isActive = activeSubcategoryId === sub.id;
+
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveSubcategoryId(isActive ? null : sub.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? 'bg-[#4A7C59] text-white shadow-xs'
+                          : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
+                      }`}
+                    >
+                      <span>{sub.label}</span>
+                      <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
+                        ({spent.toLocaleString('ru-RU')} ₽)
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {scrollOverflow.hasOverflow && scrollOverflow.canScrollRight && (
@@ -1005,133 +900,16 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
               </aside>
 
               {/* RIGHT COLUMN: Streamlined Transaction Timeline Stream (7 cols) */}
-              <section className="lg:col-span-7 p-5 sm:p-6 flex flex-col justify-between bg-white dark:bg-[#1C1C1E] h-full min-h-0 overflow-hidden">
-                <div className="flex flex-col h-full min-h-0">
-                  
-                  {/* Stream Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-[#E4E0D8] dark:border-white/10 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-headline font-bold text-sm text-[#2E3230] dark:text-white">
-                        Лента транзакций
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-[#F5F1EA] dark:bg-stone-800 text-[11px] font-bold text-[#68726B] dark:text-stone-300">
-                        {filteredTransactions.length} записей
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-xs text-[#68726B] dark:text-stone-400">
-                      <span>Сортировка:</span>
-                      <button 
-                        type="button"
-                        onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-                        className="font-bold text-[#2E3230] dark:text-white hover:text-[#4A7C59] transition flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>{sortOrder === 'newest' ? 'Сначала новые' : 'Сначала старые'}</span>
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Scrollable Timeline Stream Feed inside fixed height */}
-                  <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 py-3 no-scrollbar">
-                    {groupedTransactionsByDate.length === 0 ? (
-                      <div className="py-12 text-center text-stone-400">
-                        <p className="text-xs font-semibold">Операций не найдено</p>
-                      </div>
-                    ) : (
-                      groupedTransactionsByDate.map((group, gIdx) => (
-                        <div key={gIdx} className="space-y-2">
-                          {/* Group Day Header */}
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${group.totalSpent > 0 ? 'bg-rose-500' : 'bg-[#4A7C59]'}`} />
-                              <span className="font-bold tracking-wider text-[#68726B] dark:text-stone-400 uppercase text-[11px]">
-                                {group.dateTitle}
-                              </span>
-                            </div>
-                            <span className="px-2 py-0.5 rounded-full bg-[#F5F1EA] dark:bg-stone-800 text-[#2E3230] dark:text-stone-300 font-bold text-[11px]">
-                              {group.totalSpent > 0 ? `-${group.totalSpent.toLocaleString('ru-RU')} ₽` : `+${group.totalIncome.toLocaleString('ru-RU')} ₽`}
-                            </span>
-                          </div>
-
-                          {/* Transaction Cards in Group */}
-                          <div className="space-y-2">
-                            {group.txs.map(tx => {
-                              const member = members.find(m => m.id === tx.memberId);
-                              const memberName = member ? member.name : 'Семья';
-                              const txCat = categories.find(c => c.id === tx.category);
-                              const displayTitle = tx.note || tx.rawNote || txCat?.label || 'Операция';
-                              const brandKey = getMerchantBrandKey(displayTitle);
-                              const txDate = new Date(tx.date);
-                              const timeStr = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-                              return (
-                                <div 
-                                  key={tx.id}
-                                  onClick={() => onEditTransaction(tx)}
-                                  className="p-3 rounded-2xl bg-[#F5F1EA]/60 dark:bg-[#242428] hover:bg-[#EAE6DE]/80 dark:hover:bg-[#2A2A2E] transition-all flex items-center justify-between group cursor-pointer border border-transparent hover:border-[#E4E0D8] dark:hover:border-white/10 shadow-2xs"
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="shrink-0">
-                                      <BrandIcon 
-                                        name={displayTitle}
-                                        brandKey={brandKey}
-                                        category={txCat}
-                                        size="md"
-                                        className="rounded-xl shadow-2xs"
-                                      />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-headline font-semibold text-sm text-[#2E3230] dark:text-white truncate">
-                                          {displayTitle}
-                                        </span>
-                                        <span 
-                                          className="text-[10px] px-1.5 py-0.5 rounded-md bg-white dark:bg-stone-800 font-bold shrink-0 flex items-center gap-1"
-                                          style={{ color: member?.color || undefined }}
-                                        >
-                                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: member?.color || '#4A7C59' }} />
-                                          <span>{memberName}</span>
-                                        </span>
-                                      </div>
-                                      <span className="block text-xs text-[#68726B] dark:text-stone-400 truncate mt-0.5">
-                                        {tx.rawNote || txCat?.label || 'Перевод / Расход'}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="text-right shrink-0 pl-3">
-                                    <span className={`font-headline font-bold text-sm ${
-                                      tx.type === 'income' ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#2E3230] dark:text-white'
-                                    }`}>
-                                      {tx.type === 'income' ? '+' : '-'}{settings.privacyMode ? '•••' : `${Math.round(tx.amount).toLocaleString('ru-RU')} ₽`}
-                                    </span>
-                                    <span className="block text-[10px] text-[#68726B] dark:text-stone-400 mt-0.5">
-                                      {timeStr}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Right Column Footer */}
-                  <div className="pt-3 border-t border-[#E4E0D8] dark:border-white/10 flex items-center justify-between text-xs text-[#68726B] dark:text-stone-400 shrink-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#4A7C59]" />
-                      Показано <strong className="text-[#2E3230] dark:text-white">{filteredTransactions.length}</strong> из <strong className="text-[#2E3230] dark:text-white">{familyTransactions.length}</strong> операций
-                    </span>
-                    <span className="text-[11px] opacity-75">
-                      Синхронизировано
-                    </span>
-                  </div>
-
-                </div>
-              </section>
+              <DrillDownTransactionList
+                transactions={filteredTransactions}
+                categories={categories}
+                members={members}
+                settings={settings}
+                sortOrder={sortOrder}
+                onToggleSortOrder={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                onEditTransaction={onEditTransaction}
+                allTransactionsCount={familyTransactions.length}
+              />
 
             </div>
           ) : (
@@ -1205,278 +983,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
               </div>
 
               {/* 2. Interactive SVG Chart Section (CLIPPED TO PREVENT LINES LEAKING OUTSIDE) */}
-              <div className="p-5 rounded-2xl bg-white dark:bg-[#242428] border border-[#E4E0D8]/60 dark:border-white/10 shadow-2xs overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <div>
-                    <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
-                      Динамика трат {chartGranularity === 'daily' ? 'по дням' : 'по неделям'} <span className="text-xs font-normal text-[#68726B]">({monthLabel})</span>
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4">
-                    {/* Interactive Legend with toggle filter */}
-                    <div className="flex items-center gap-2 text-xs font-semibold select-none">
-                      <button
-                        type="button"
-                        onClick={() => setChartSeriesFilter(prev => prev === 'expense' ? 'all' : 'expense')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                          chartSeriesFilter === 'expense'
-                            ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 ring-1 ring-rose-400 font-bold'
-                            : chartSeriesFilter === 'all'
-                              ? 'hover:bg-black/5 dark:hover:bg-white/5 text-[#2E3230] dark:text-stone-300'
-                              : 'opacity-40 hover:opacity-75 text-[#68726B]'
-                        }`}
-                        title="Нажмите, чтобы показать только списания"
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                        <span>Списания</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setChartSeriesFilter(prev => prev === 'income' ? 'all' : 'income')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                          chartSeriesFilter === 'income'
-                            ? 'bg-[#EAF2EC] dark:bg-green-950/60 text-[#4A7C59] dark:text-green-300 ring-1 ring-[#4A7C59] font-bold'
-                            : chartSeriesFilter === 'all'
-                              ? 'hover:bg-black/5 dark:hover:bg-white/5 text-[#2E3230] dark:text-stone-300'
-                              : 'opacity-40 hover:opacity-75 text-[#68726B]'
-                        }`}
-                        title="Нажмите, чтобы показать только пополнения"
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#4A7C59]" />
-                        <span>Пополнения</span>
-                      </button>
-
-                      {chartSeriesFilter !== 'all' && (
-                        <button
-                          type="button"
-                          onClick={() => setChartSeriesFilter('all')}
-                          className="text-[11px] text-[#68726B] underline hover:text-[#2E3230] cursor-pointer ml-1"
-                        >
-                          Сбросить
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Granularity Tabs */}
-                    <div className="flex items-center bg-[#F5F1EA] dark:bg-stone-800 p-0.5 rounded-lg border border-[#E4E0D8]/50 dark:border-white/10">
-                      <button 
-                        type="button"
-                        onClick={() => setChartGranularity('daily')}
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                          chartGranularity === 'daily' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-2xs' : 'text-[#68726B]'
-                        }`}
-                      >
-                        По дням
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setChartGranularity('weekly')}
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                          chartGranularity === 'weekly' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-2xs' : 'text-[#68726B]'
-                        }`}
-                      >
-                        По неделям
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Wide Clean SVG Chart with Clipping Mask */}
-                <div className="relative w-full h-[210px] rounded-xl">
-                  <svg className="w-full h-full overflow-hidden" viewBox="0 0 940 210" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#4A7C59" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#4A7C59" stopOpacity="0.0" />
-                      </linearGradient>
-
-                      <clipPath id="chartPlotArea">
-                        <rect x="60" y="20" width="865" height="150" />
-                      </clipPath>
-                    </defs>
-
-                    {/* Grid Lines & Dynamic Y-Axis Labels */}
-                    <line x1="60" y1="32" x2="920" y2="32" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-                    <text x="54" y="36" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.maxVal.toLocaleString('ru-RU')} ₽</text>
-
-                    <line x1="60" y1="75" x2="920" y2="75" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-                    <text x="54" y="79" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.midVal.toLocaleString('ru-RU')} ₽</text>
-
-                    <line x1="60" y1="118" x2="920" y2="118" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-                    <text x="54" y="122" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.lowVal.toLocaleString('ru-RU')} ₽</text>
-
-                    <line x1="60" y1="160" x2="920" y2="160" stroke="#68726B" strokeWidth="1" strokeOpacity="0.4" />
-                    <text x="54" y="164" fill="#68726B" fontSize="11" textAnchor="end">0</text>
-
-                    {/* Clipped Trend Path & Bars */}
-                    <g clipPath="url(#chartPlotArea)">
-                      {/* Area Fill with smooth entry */}
-                      {renderedChartData.areaD && (
-                        <motion.path 
-                          key={`area-${chartGranularity}-${chartSeriesFilter}-${activeSubcategoryId || 'all'}`}
-                          d={renderedChartData.areaD} 
-                          fill="url(#areaGradient)"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.6, delay: 0.15 }}
-                        />
-                      )}
-                      
-                      {/* Smooth animated Line Trend Path via strokeDashoffset (pathLength) */}
-                      {renderedChartData.lineD && (
-                        <motion.path 
-                          key={`line-${chartGranularity}-${chartSeriesFilter}-${activeSubcategoryId || 'all'}`}
-                          d={renderedChartData.lineD} 
-                          fill="none" 
-                          stroke="#4A7C59" 
-                          strokeWidth="2.5" 
-                          strokeLinejoin="round" 
-                          strokeLinecap="round" 
-                          initial={{ pathLength: 0, opacity: 0 }}
-                          animate={{ pathLength: 1, opacity: 1 }}
-                          transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-                        />
-                      )}
-
-                      {/* Bars */}
-                      {renderedChartData.bars.map((b, i) => (
-                        <g key={b.id || i}>
-                          {b.showExpense && (
-                            <rect 
-                              x={b.x - (chartGranularity === 'weekly' ? 12 : 5)} 
-                              y={b.expenseY} 
-                              width={chartGranularity === 'weekly' ? "24" : "10"} 
-                              height={Math.max(2, b.expenseH)} 
-                              rx="3" 
-                              fill="#E11D48" 
-                              fillOpacity={hoveredBar?.label === b.label ? 1 : 0.8} 
-                            />
-                          )}
-                          {b.showIncome && (
-                            <rect 
-                              x={b.x + (chartGranularity === 'weekly' ? (b.showExpense ? 14 : -12) : (b.showExpense ? 6 : -5))} 
-                              y={b.incomeY} 
-                              width={chartGranularity === 'weekly' ? "24" : "10"} 
-                              height={Math.max(2, b.incomeH)} 
-                              rx="3" 
-                              fill="#4A7C59" 
-                              fillOpacity={hoveredBar?.label === b.label ? 1 : 0.9} 
-                            />
-                          )}
-                        </g>
-                      ))}
-
-                      {/* Interactive Hover Highlight Line & Dot */}
-                      {hoveredBar && (
-                        <g pointerEvents="none">
-                          <line 
-                            x1={hoveredBar.x} 
-                            y1={renderedChartData.topY} 
-                            x2={hoveredBar.x} 
-                            y2={renderedChartData.bottomY} 
-                            stroke="#4A7C59" 
-                            strokeWidth="1.5" 
-                            strokeDasharray="3,3" 
-                          />
-                          <circle 
-                            cx={hoveredBar.x} 
-                            cy={hoveredBar.y} 
-                            r={5} 
-                            fill="#4A7C59" 
-                            stroke="#FFFFFF" 
-                            strokeWidth={2} 
-                          />
-                        </g>
-                      )}
-
-                      {/* Invisible Full-Height Overlay Columns for smooth Hover capture */}
-                      {renderedChartData.bars.map((b, i) => {
-                        const colW = Math.max(16, (renderedChartData.rightX - renderedChartData.leftX) / Math.max(1, renderedChartData.bars.length));
-                        return (
-                          <rect 
-                            key={`hover-col-${b.id || i}`}
-                            x={b.x - colW / 2}
-                            y={renderedChartData.topY}
-                            width={colW}
-                            height={renderedChartData.bottomY - renderedChartData.topY + 30}
-                            fill="transparent"
-                            className="cursor-pointer"
-                            onMouseEnter={() => setHoveredBar({
-                              x: b.x,
-                              y: b.showExpense && b.showIncome ? Math.min(b.expenseY, b.incomeY) : (b.showExpense ? b.expenseY : (b.showIncome ? b.incomeY : renderedChartData.bottomY)),
-                              label: b.label,
-                              expense: b.expense,
-                              income: b.income
-                            })}
-                            onMouseLeave={() => setHoveredBar(null)}
-                          />
-                        );
-                      })}
-                    </g>
-
-                    {/* Dynamic X-Axis Labels */}
-                    {renderedChartData.bars
-                      .filter((b, i, arr) => {
-                        if (chartGranularity === 'weekly') return true; // Show all weeks
-                        // In daily mode show subset of days so text doesn't overlap
-                        return i === 0 || i === 4 || i === 9 || i === 14 || i === 19 || i === 24 || i === arr.length - 1;
-                      })
-                      .map((b, i) => (
-                        <text 
-                          key={b.id || i} 
-                          x={b.x} 
-                          y="182" 
-                          fill={hoveredBar?.label === b.label ? "#4A7C59" : "#68726B"} 
-                          fontSize={chartGranularity === 'weekly' ? "10" : "11"} 
-                          fontWeight={hoveredBar?.label === b.label ? "700" : "400"} 
-                          textAnchor="middle"
-                        >
-                          {b.label}
-                        </text>
-                      ))}
-                  </svg>
-
-                  {/* HTML Floating Tooltip on Hover with Smart Adaptive Positioning */}
-                  {hoveredBar && (() => {
-                    const isTopClose = hoveredBar.y < 85; // When bar is in the upper half, flip below to prevent clipping
-                    const leftPercent = Math.max(14, Math.min(86, (hoveredBar.x / 940) * 100));
-                    const topPercent = (hoveredBar.y / 210) * 100;
-
-                    return (
-                      <div 
-                        className={`absolute pointer-events-none z-50 bg-[#1C1C1E] text-white px-3.5 py-2.5 rounded-xl shadow-2xl border border-white/20 text-xs flex flex-col gap-1 -translate-x-1/2 transition-all duration-75 ${
-                          isTopClose ? 'translate-y-3' : '-translate-y-full -translate-y-2'
-                        }`}
-                        style={{
-                          left: `${leftPercent}%`,
-                          top: `${topPercent}%`
-                        }}
-                      >
-                        <div className="font-bold text-gray-200 border-b border-white/10 pb-1 flex items-center justify-between gap-3">
-                          <span>{hoveredBar.label} {monthLabel}</span>
-                        </div>
-                        <div className="flex flex-col gap-0.5 pt-0.5 font-headline font-semibold whitespace-nowrap">
-                          {hoveredBar.expense > 0 && (
-                            <span className="text-rose-400">
-                              Расход: -{Math.round(hoveredBar.expense).toLocaleString('ru-RU')} ₽
-                            </span>
-                          )}
-                          {hoveredBar.income > 0 && (
-                            <span className="text-[#4ADE80]">
-                              Доход: +{Math.round(hoveredBar.income).toLocaleString('ru-RU')} ₽
-                            </span>
-                          )}
-                          {hoveredBar.expense === 0 && hoveredBar.income === 0 && (
-                            <span className="text-gray-400">Операций не было</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
+              <DrillDownAnalyticsChart
+                familyTransactions={familyTransactions}
+                currentMonth={currentMonth}
+                settings={settings}
+                activeSubcategoryId={activeSubcategoryId}
+                monthLabel={monthLabel}
+              />
 
               {/* 3. Bottom Analytics Split (2 Columns) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1584,8 +1097,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
               {/* Modal Footer in Analytics */}
               <div className="pt-4 border-t border-[#E4E0D8] dark:border-white/10 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs text-[#68726B] dark:text-stone-400">
-                  <span className="w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+                <div className="text-xs text-[#68726B] dark:text-stone-400">
                   Аналитика построена на основе <strong className="text-[#2E3230] dark:text-white">{familyTransactions.length}</strong> операций за период
                 </div>
 

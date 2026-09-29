@@ -419,12 +419,9 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
               <div className="bg-gradient-to-br from-[#F4FAF6] to-[#FAF8F5] dark:from-[#1E2B22] dark:to-[#1C1C1E] rounded-2xl p-5 border-2 border-[#4A7C59]/40 dark:border-green-500/30 shadow-md space-y-4">
                 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#4A7C59] animate-ping" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#3B6447] dark:text-green-400">
-                      Предложенная категория:
-                    </span>
-                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#3B6447] dark:text-green-400">
+                    Предложенная категория:
+                  </span>
                   {activeAnalysis && (
                     <div className="text-xs font-bold font-mono text-[#4A7C59] dark:text-green-400 bg-white/80 dark:bg-black/30 px-2.5 py-1 rounded-lg border border-[#4A7C59]/20">
                       🎯 Уверенность: {activeAnalysis.confidence}%

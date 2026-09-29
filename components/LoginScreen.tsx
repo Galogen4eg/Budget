@@ -115,10 +115,6 @@ export const LoginScreen: React.FC = () => {
               <div className="w-[68px] h-[68px] rounded-2xl bg-[#4A7C59] shadow-[0_10px_24px_-4px_rgba(74,124,89,0.28)] flex items-center justify-center text-white border border-[#52835d]/40 transition-transform duration-300 group-hover:scale-105">
                 <Globe className="w-8 h-8 text-white stroke-[2.2]" />
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#4A7C59] border-2 border-[#faf7f2]"></span>
-              </span>
             </div>
 
             <h1 className="text-2xl sm:text-[28px] font-black tracking-tight text-[#1c241f] leading-tight font-headline">
@@ -126,7 +122,7 @@ export const LoginScreen: React.FC = () => {
             </h1>
             <p className="text-xs font-semibold tracking-wide text-[#6b776d] mt-1.5 flex items-center gap-1.5">
               <span>Семейный бюджет</span>
-              <span className="w-1 h-1 rounded-full bg-[#9ba79e]"></span>
+              <span>•</span>
               <span>{mode === 'login' ? 'Авторизация' : 'Регистрация'}</span>
             </p>
           </header>

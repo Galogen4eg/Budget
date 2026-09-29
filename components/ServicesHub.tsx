@@ -136,16 +136,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                     </div>
                   </div>
 
-                  {/* Title and Description with Attention Indicator */}
+                  {/* Title and Description */}
                   <div className="mb-5 relative">
-                    <div className="flex items-center space-x-2">
-                      <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight">
-                        {app.label}
-                      </h2>
-                      {app.hasAttention && (
-                        <span className="w-2 h-2 rounded-full bg-[#E15241] animate-pulse" title="Требуется внимание" />
-                      )}
-                    </div>
+                    <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight">
+                      {app.label}
+                    </h2>
                     <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-snug">
                       {app.desc}
                     </p>
@@ -156,7 +151,6 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                     <span className="text-xs font-semibold text-stone-600 dark:text-stone-400 hover:text-[#3B7A57] dark:hover:text-emerald-400 transition-colors">
                       Перейти в модуль
                     </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600" />
                   </div>
                 </article>
               ))}

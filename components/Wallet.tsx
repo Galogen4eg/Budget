@@ -923,12 +923,9 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             
             {/* Modal Header */}
             <div className="px-6 pt-6 pb-3 flex items-center justify-between border-b border-stone-100 dark:border-white/5">
-              <div className="flex items-center gap-2.5">
-                <h2 className="font-display text-xl font-extrabold text-stone-900 dark:text-white tracking-tight">
-                  {editingCard.id ? 'Редактировать карту' : 'Новая карта'}
-                </h2>
-                <span className="w-2 h-2 rounded-full bg-[#4a7c59]" />
-              </div>
+              <h2 className="font-display text-xl font-extrabold text-stone-900 dark:text-white tracking-tight">
+                {editingCard.id ? 'Редактировать карту' : 'Новая карта'}
+              </h2>
 
               <button 
                 type="button"
@@ -1105,8 +1102,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                   <label className="text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400">
                     Предпросмотр кода
                   </label>
-                  <span className="text-[11px] text-[#4a7c59] dark:text-green-400 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] animate-pulse" />
+                  <span className="text-[11px] text-[#4a7c59] dark:text-green-400 font-bold">
                     Готов к сканированию
                   </span>
                 </div>

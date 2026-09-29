@@ -4,6 +4,8 @@ import { X, Calendar, ArrowUpRight, ArrowDownRight, Tag, Clock } from 'lucide-re
 import { Transaction, Category, FamilyMember } from '../types';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { formatMoney } from '../utils/formatters';
 
 interface DayDetailModalProps {
   isOpen: boolean;
@@ -34,6 +36,8 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
   dailySafeLimit,
   privacyMode
 }) => {
+  useBodyScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const dayTransactions = transactions.filter(t => {
@@ -93,8 +97,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                   {dayName}
                 </h3>
                 {isToday && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
                     Сегодня
                   </span>
                 )}
@@ -124,19 +127,19 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
               <span className={`text-lg font-bold font-headline tabular-nums ${
                 net >= 0 ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#E05252] dark:text-red-400'
               }`}>
-                {privacyMode ? '•••' : `${net > 0 ? '+' : ''}${net.toLocaleString('ru-RU')} ₽`}
+                {formatMoney(net, { privacy: privacyMode, showSign: true })}
               </span>
             </div>
 
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               {income > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30">
-                  +{income.toLocaleString('ru-RU')} ₽
+                  {formatMoney(income, { showSign: true })}
                 </span>
               )}
               {expense > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-300 text-[11px] font-bold border border-red-200 dark:border-red-800/30">
-                  -{expense.toLocaleString('ru-RU')} ₽
+                  -{formatMoney(expense)}
                 </span>
               )}
             </div>
@@ -214,7 +217,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                         <div className={`text-sm font-bold font-headline tabular-nums ${
                           tx.type === 'income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'
                         }`}>
-                          {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
+                          {formatMoney(tx.type === 'expense' ? -tx.amount : tx.amount, { privacy: privacyMode, showSign: true })}
                         </div>
                         <span className="text-[9px] text-graphite-muted dark:text-gray-500">
                           редактировать ↗

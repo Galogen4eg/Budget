@@ -146,8 +146,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
     <div className="flex flex-col w-full pb-6 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
       {/* Верхний статус-контекст */}
       <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f0ece4] dark:bg-[#202225] text-[#4a4e4a] dark:text-gray-300 text-xs font-semibold tracking-wide border border-transparent dark:border-white/5">
-          <span className="w-2 h-2 rounded-full bg-[#4a7c59] inline-block" />
+        <div className="flex items-center px-3 py-1.5 rounded-full bg-[#f0ece4] dark:bg-[#202225] text-[#4a4e4a] dark:text-gray-300 text-xs font-semibold tracking-wide border border-transparent dark:border-white/5">
           <span>Настройки системы • Финансовый контур</span>
         </div>
         <div className="px-2.5 py-1 rounded-full bg-[#f0e8db] dark:bg-emerald-950/40 text-[#705c30] dark:text-emerald-400 text-xs font-semibold">

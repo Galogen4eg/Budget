@@ -802,8 +802,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#2E3230] dark:text-white tracking-tight">
                   Список покупок
                 </h1>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-400 text-xs font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-400 text-xs font-semibold">
                   {totalItemsCount - completedCount} в списке · {completedCount} куплено
                 </span>
               </div>
@@ -840,12 +839,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 title="Записать список покупок голосом"
               >
                 {isVoiceListening ? (
-                  <span className="relative flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-500 items-center justify-center text-white">
-                      <Mic size={11} strokeWidth={3} />
-                    </span>
-                  </span>
+                  <Mic size={18} className="text-rose-500 animate-bounce" />
                 ) : (
                   <Mic size={18} className="text-[#2A6038] dark:text-emerald-400" />
                 )}
@@ -1425,17 +1419,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <h3 className="font-serif text-lg font-bold text-[#2E3230] dark:text-white">
                     Голосовая запись покупок
                   </h3>
-                  <div className="flex items-center gap-1.5 text-xs">
+                  <div className="text-xs">
                     {isVoiceListening ? (
-                      <>
-                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                        <span className="text-rose-600 dark:text-rose-400 font-semibold">Идёт запись... Говорите</span>
-                      </>
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">Идёт запись... Говорите</span>
                     ) : (
-                      <>
-                        <span className="w-2 h-2 rounded-full bg-[#74796E]" />
-                        <span className="text-[#74796E] dark:text-stone-400">Запись на паузе</span>
-                      </>
+                      <span className="text-[#74796E] dark:text-stone-400">Запись на паузе</span>
                     )}
                   </div>
                 </div>

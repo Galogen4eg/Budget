@@ -1,8 +1,9 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import AIChat from './AIChat';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 interface AIChatModalProps {
   onClose: () => void;
@@ -10,13 +11,8 @@ interface AIChatModalProps {
 }
 
 const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onOpenSettings }) => {
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  // Lock body scroll with scrollbar compensation when modal is open
+  useBodyScrollLock();
 
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4 lg:p-6">

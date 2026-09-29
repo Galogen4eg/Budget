@@ -340,7 +340,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`text-xs font-bold truncate ${expense.isPaid ? 'text-gray-400 line-through' : 'text-graphite dark:text-white'}`}>
-                        {expense.name}
+                        {expense.name || (expense as any).title || 'Обязательный платеж'}
                       </span>
 
                       {/* Бейдж типа: Долг / Бытовой */}

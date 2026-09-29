@@ -18,6 +18,7 @@ import { auth } from '../firebase';
 import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { createInvitation, deleteItem, migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
@@ -417,12 +418,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (currentFamilyId) setNewFamilyId(currentFamilyId);
   }, [currentFamilyId]);
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  useBodyScrollLock();
 
   const handleTestKey = async () => {
     if (!apiKey) return;
@@ -430,7 +426,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: apiKey });
       await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.8-flash",
         contents: "Hello",
       });
       setAiTestStatus('success');
@@ -580,12 +576,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
-                <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 border ${
+                <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center border ${
                   isDbConnected 
                     ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/40' 
                     : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/40'
                 }`}>
-                  <span className={`w-2 h-2 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                   {isDbConnected ? 'Онлайн • Подключено' : 'Автономный режим'}
                 </span>
                 <button
@@ -623,8 +618,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Shield size={16} />
                 <span>Безопасность и аккаунт</span>
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300">
                 <span>Сессия активна: Веб-терминал</span>
               </div>
             </div>

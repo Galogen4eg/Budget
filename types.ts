@@ -22,6 +22,7 @@ export interface LearnedRule {
   keyword: string;
   cleanName: string;
   categoryId: string;
+  pattern?: string;
 }
 
 export interface AIKnowledgeItem {
@@ -53,13 +54,14 @@ export interface ShoppingItem {
   id: string;
   title: string;
   amount?: string;
-  unit: 'шт' | 'кг' | 'уп' | 'л';
+  unit: 'шт' | 'кг' | 'уп' | 'л' | 'г' | 'бут' | string;
   estimatedPrice?: number;
-  completed: boolean;
+  completed?: boolean;
   memberId: string;
   userId?: string;
   priority: 'low' | 'medium' | 'high';
   category: string;
+  note?: string;
 }
 
 export interface WishlistItem {
@@ -123,7 +125,7 @@ export interface Debt {
   color: string;
   
   // Extended fields for Smart Debt
-  strategy?: 'fixed' | 'flexible'; // Type A or Type B
+  strategy?: 'fixed' | 'flexible' | 'manual'; // Type A or Type B
   paymentDay?: number; // For Fixed: Day of month (1-31)
   monthlyPayment?: number;
   dueDate?: string; // Next specific due date (computed or manual)
@@ -272,6 +274,7 @@ export interface AppSettings {
   
   initialBalance: number;
   initialBalanceDate?: string;
+  targetMonthlyBudget?: number;
   salaryDates: number[];
   mandatoryExpenses: MandatoryExpense[];
   enableSmartReserve?: boolean; // Toggle for deducting mandatory expenses from budget

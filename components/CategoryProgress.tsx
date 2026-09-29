@@ -5,6 +5,7 @@ import { getIconById } from '../constants';
 import { ChevronDown, ChevronUp, PieChart } from 'lucide-react';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import BrandIcon from './BrandIcon';
+import { formatMoney } from '../utils/formatters';
 
 interface CategoryProgressProps {
   transactions: Transaction[];
@@ -116,7 +117,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
               </div>
           </div>
           <span className="text-xs font-headline font-bold text-graphite-muted dark:text-gray-400">
-              {settings.privacyMode ? '•••' : `${totalExpense.toLocaleString('ru-RU')} ₽`}
+              {formatMoney(totalExpense, { privacy: settings.privacyMode })}
           </span>
       </div>
       
@@ -173,7 +174,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <div className="text-right">
                           <span className="text-xs md:text-sm font-headline font-bold text-graphite dark:text-white tabular-nums">
-                              {settings.privacyMode ? '•••' : `${item.totalValue.toLocaleString('ru-RU')} ₽`}
+                              {formatMoney(item.totalValue, { privacy: settings.privacyMode })}
                           </span>
                       </div>
                       {canExpand && (
@@ -228,7 +229,7 @@ const CategoryProgress: React.FC<CategoryProgressProps> = ({
                               </span>
                           </div>
                           <span className="text-xs font-headline font-bold text-graphite-muted dark:text-gray-400 tabular-nums shrink-0 ml-1">
-                              {settings.privacyMode ? '•••' : `${merchant.value.toLocaleString('ru-RU')} ₽`}
+                              {formatMoney(merchant.value, { privacy: settings.privacyMode })}
                           </span>
                         </div>
                     ))}

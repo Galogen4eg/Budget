@@ -296,11 +296,13 @@ const DebtSnowball: React.FC<Props> = ({
 
       const updatedExpenses = expenses.map(exp => {
         if (exp.id === targetId) {
+          const expTitle = updatedDebt.name || exp.name || (exp as any).title || 'Обязательный платеж';
           return {
             ...exp,
-            title: updatedDebt.name || exp.title,
+            name: expTitle,
+            title: expTitle,
             amount: updatedDebt.monthlyPayment !== undefined && updatedDebt.monthlyPayment > 0 ? updatedDebt.monthlyPayment : exp.amount,
-            day: (parsedDay && !isNaN(parsedDay)) ? parsedDay : exp.day,
+            day: (parsedDay && !isNaN(parsedDay)) ? parsedDay : (exp.day || 1),
             expenseType: 'debt' as const,
             linkedDebtId: debtId
           };
@@ -531,8 +533,7 @@ const DebtSnowball: React.FC<Props> = ({
           <span className="font-bold text-stone-900 dark:text-white">Долги</span>
         </div>
 
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] dark:bg-emerald-400 animate-pulse" />
+        <div className="flex items-center px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
           <span>Обновлено в {currentTimeSync}</span>
         </div>
       </div>

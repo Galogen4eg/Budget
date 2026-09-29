@@ -74,7 +74,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const ai = new GoogleGenAI({ apiKey });
       const todayStr = getLocalDateString(new Date());
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.8-flash",
         contents: `Today is ${todayStr}. Parse this event: "${text}". JSON ONLY: { "title": string, "date": "YYYY-MM-DD", "time": "HH:MM" }.`,
         config: { responseMimeType: "application/json" }
       });

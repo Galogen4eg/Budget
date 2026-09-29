@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { 
   ArrowLeft, Search, SlidersHorizontal, ArrowUpRight, ArrowDownLeft,
   Users, ArrowDown, ArrowUp, BarChart3, Calendar, ArrowRight,
@@ -146,7 +147,13 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   const memberInitial = (currentMember?.name || 'П').charAt(0).toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-[2000] bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 flex flex-col font-body select-none overflow-hidden">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className="fixed inset-0 z-[2000] bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 flex flex-col font-body select-none overflow-hidden"
+    >
       
       {/* ========================================================================= */}
       {/* 1. HEADER (Fixed top with blur and safe area)                            */}
@@ -524,8 +531,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
             {/* Footer Actions & Sync Info */}
             <div className="pt-3 pb-2 flex flex-col items-center space-y-3">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#4A4E4A] dark:text-stone-400">
-                <span className="w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+              <div className="text-[11px] text-[#4A4E4A] dark:text-stone-400 text-center">
                 <span>Показано {filteredTransactionsCount} из {familyTransactionsCount} операций · Синхронизировано минуту назад</span>
               </div>
 
@@ -865,7 +871,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
         )}
 
       </main>
-    </div>
+    </motion.div>
   );
 };
 

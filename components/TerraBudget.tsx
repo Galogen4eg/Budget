@@ -752,9 +752,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {displayTitle}
                         </span>
                         <div className="flex items-center gap-1.5 text-[11px] text-[#6B6358] dark:text-gray-400 truncate">
-                          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
-                            {txMember.color && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color }} />}
-                            <span>{txMember.name}</span>
+                          <span className="font-medium" style={{ color: txMember.color }}>
+                            {txMember.name}
                           </span>
                           <span>•</span>
                           <span>{dateFormatted}, {timeFormatted}</span>
@@ -844,7 +843,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
             <div className="flex flex-col gap-2.5">
               {displayTopCategories.map((cat, idx) => (
-                <div key={cat.id || idx} className="flex flex-col gap-1">
+                <div 
+                  key={cat.id || idx} 
+                  onClick={() => onSelectCategory?.(cat.id)}
+                  className="flex flex-col gap-1 p-1.5 -mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
+                  title={`Аналитика категории «${cat.label || (cat as any).name || ''}»`}
+                >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#2E3230] dark:text-white truncate">
                       {idx + 1}. {cat.label || (cat as any).name || 'Категория'}
@@ -868,23 +872,26 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               ))}
             </div>
 
-            {/* View All Categories Link Button */}
+            {/* View All Categories / Analytics & Manage Categories */}
             <div className="grid grid-cols-2 gap-2 mt-1">
               <button 
                 type="button"
-                onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
-                className="py-2.5 px-2 rounded-xl bg-[#EAE6DE] dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 hover:bg-[#E2DDD3] dark:hover:bg-[#2C2C2E] text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                onClick={() => onSelectCategory ? onSelectCategory('all') : undefined}
+                className="py-2.5 px-2 rounded-xl bg-[#EAE6DE] dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 hover:bg-[#E2DDD3] dark:hover:bg-[#2C2C2E] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                title="Открыть аналитику всех категорий"
               >
-                <span>Категории ({categories.length})</span>
+                <PieChart size={14} />
+                <span>Аналитика трат</span>
               </button>
 
               <button 
                 type="button"
-                onClick={() => onSelectCategory ? onSelectCategory('all') : undefined}
+                onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
                 className="py-2.5 px-2 rounded-xl bg-[#4A7C59] text-white hover:bg-[#3B6447] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                title="Создать новую категорию или настроить"
               >
-                <List size={15} />
-                <span>Все операции ({monthTransactions.length})</span>
+                <Plus size={15} />
+                <span>+ Категория</span>
               </button>
             </div>
           </section>
@@ -912,8 +919,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             >
               <ChevronLeft size={16} />
             </button>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-graphite dark:text-white font-headline px-1 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+            <div className="flex items-center text-xs font-bold text-graphite dark:text-white font-headline px-1 select-none">
               <span>{monthTitle}</span>
             </div>
             <button 
@@ -1012,8 +1018,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         {/* Card 1: Дневной безопасный лимит */}
         <div className="bg-gradient-to-br from-white via-white to-primary-light/40 dark:from-[#1C1C1E] dark:via-[#1C1C1E] dark:to-[#4A7C59]/15 border-2 border-primary/30 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
                 Дневной безопасный лимит
               </span>
@@ -1349,8 +1354,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-graphite-muted dark:text-gray-400">
                             {member && (
-                              <span className="inline-flex items-center gap-1 font-semibold" style={{ color: member.color }}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member.color }} />
+                              <span className="font-medium" style={{ color: member.color }}>
                                 {member.name}
                               </span>
                             )}
@@ -1432,13 +1436,26 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </div>
               </div>
 
-              <button 
-                onClick={() => setIsCatModalOpen(true)}
-                className="text-[10px] font-bold text-primary dark:text-green-400 hover:underline cursor-pointer flex items-center gap-1"
-                type="button"
-              >
-                Подробнее
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsCatModalOpen(true)}
+                  className="text-[11px] font-semibold text-graphite dark:text-stone-300 hover:text-primary dark:hover:text-green-400 transition cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-border/40 dark:bg-white/5 border border-surface-border/60 dark:border-white/10"
+                  type="button"
+                  title="Создать или настроить категории"
+                >
+                  <Plus size={12} />
+                  <span>+ Категория</span>
+                </button>
+                <button 
+                  onClick={() => onSelectCategory?.('all')}
+                  className="text-[11px] font-bold text-primary dark:text-green-400 hover:underline cursor-pointer flex items-center gap-0.5"
+                  type="button"
+                  title="Открыть аналитику всех категорий"
+                >
+                  <span>Аналитика</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
             </div>
 
             {/* Category Bars */}
@@ -1458,6 +1475,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       type="button"
                       onClick={() => onSelectCategory?.(cat.id)}
                       className="w-full text-left space-y-1.5 p-2 -mx-2 rounded-xl hover:bg-[#FAF8F5] dark:hover:bg-[#252528] transition cursor-pointer group"
+                      title={`Аналитика категории «${cat.label}»`}
                     >
                       <div className="flex justify-between text-xs">
                         <span className="font-bold text-graphite dark:text-white group-hover:text-primary dark:group-hover:text-green-400 transition-colors flex items-center gap-1.5">
@@ -1481,14 +1499,25 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               )}
             </div>
 
-            <div className="pt-2 mt-3 border-t border-surface-border/70 dark:border-white/10">
+            <div className="pt-2 mt-3 border-t border-surface-border/70 dark:border-white/10 grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => onSelectCategory?.('all')}
+                className="py-1.5 px-3 bg-[#FAF9F6] dark:bg-[#252528] hover:bg-primary-light/50 dark:hover:bg-white/5 border border-surface-border dark:border-white/5 rounded-xl text-xs font-bold text-primary dark:text-green-400 flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer group"
+                type="button"
+                title="Подробный отчет и динамика по всем категориям"
+              >
+                <PieChart size={14} />
+                <span>Аналитика трат</span>
+              </button>
+
               <button 
                 onClick={() => setIsCatModalOpen(true)}
-                className="w-full py-1.5 px-3 bg-[#FAF9F6] dark:bg-[#252528] hover:bg-primary-light/50 dark:hover:bg-white/5 border border-surface-border dark:border-white/5 rounded-xl text-xs font-bold text-primary dark:text-green-400 flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer group"
+                className="py-1.5 px-3 bg-[#4A7C59] hover:bg-[#3D684A] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer group"
                 type="button"
+                title="Добавить новую категорию или настроить"
               >
-                <span>Все категории и подкатегории ({categories.length})</span>
-                <span className="text-[10px] text-graphite-muted group-hover:text-primary transition">→</span>
+                <Plus size={14} />
+                <span>+ Категория</span>
               </button>
             </div>
           </div>

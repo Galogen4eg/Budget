@@ -254,8 +254,8 @@ export const queryGeminiAssistant = async (
     },
   };
 
-  // Пробуем модель gemini-3.8-flash, при необходимости fallback на gemini-2.5-flash
-  const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+  // Пробуем актуальную линейку моделей: gemini-3.8-flash, затем gemini-3.1-flash-lite, затем gemini-flash-latest
+  const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
   let lastError: Error | null = null;
 
   for (const model of modelsToTry) {
@@ -271,12 +271,32 @@ export const queryGeminiAssistant = async (
       const data = await response.json();
 
       if (data.error) {
-        // Если ошибка квоты или перегрузки, пробуем следующий вариант
-        if (data.error.message?.includes('high demand') || data.error.code === 429) {
-          lastError = new Error(`Сервис перегружен (${data.error.message})`);
+        const errCode = data.error.code;
+        const errMsg = data.error.message || '';
+        const errStatus = data.error.status || '';
+
+        // Проверяем ошибку квоты, перегрузки или временного лимита запросов
+        const isQuotaOrOverload = 
+          errCode === 429 || 
+          errCode === 503 ||
+          errStatus === 'RESOURCE_EXHAUSTED' ||
+          errMsg.includes('quota') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('resource_exhausted') ||
+          errMsg.includes('overloaded');
+
+        if (isQuotaOrOverload) {
+          lastError = new Error(`Сервис AI временно перегружен или исчерпан лимит запросов квоты. Пожалуйста, подождите 10-15 секунд.`);
           continue;
         }
-        throw new Error(data.error.message || 'Ошибка вызова Gemini API');
+
+        // Если модель недоступна или устарела, пробуем следующую
+        if (errMsg.includes('not found') || errMsg.includes('no longer available') || errMsg.includes('unsupported')) {
+          lastError = new Error(errMsg);
+          continue;
+        }
+
+        throw new Error(errMsg || 'Ошибка вызова Gemini API');
       }
 
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;

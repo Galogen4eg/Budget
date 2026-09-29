@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Search, X, ChevronDown, ChevronRight, Check, Plus, Tag, FolderPlus } from 'lucide-react';
+import { Search, X, ChevronDown, ChevronRight, Check, Plus, Tag, FolderPlus, Maximize2 } from 'lucide-react';
 import { Category } from '../types';
 import { getIconById } from '../constants';
+import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 
 interface CategoryPickerAccordionProps {
   categories: Category[];
@@ -26,6 +27,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#4A7C59');
   const [selectedParentId, setSelectedParentId] = useState<string>('');
+  const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
 
   const PRESET_COLORS = [
     '#4A7C59', '#3D6B4C', '#D95C48', '#C4A66A', '#2D5540',
@@ -177,6 +179,16 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
             >
               <FolderPlus size={14} />
               <span className="hidden sm:inline">Подкатегория</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDesktopModalOpen(true)}
+              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EBE4DC] dark:border-white/10 hover:bg-[#EAF2EC] text-[#4A7C59] dark:text-emerald-400 text-xs font-bold transition cursor-pointer"
+              title="Открыть рабочий каталог выбора категорий"
+            >
+              <Maximize2 size={13} />
+              <span>Каталог</span>
             </button>
           </div>
         )}
@@ -464,6 +476,20 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           );
         })}
       </div>
+
+      {isDesktopModalOpen && (
+        <DesktopCategoryPickerModal
+          isOpen={isDesktopModalOpen}
+          onClose={() => setIsDesktopModalOpen(false)}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={(catId) => {
+            onSelectCategory(catId);
+            setIsDesktopModalOpen(false);
+          }}
+          onAddCategory={onAddCategory}
+        />
+      )}
     </div>
   );
 };

@@ -188,7 +188,7 @@ export const processTelegramQueue = async (
             ...item,
             attempts: nextAttempts,
             lastAttemptAt: Date.now(),
-            lastError: result.error,
+            lastError: 'error' in result ? (result as any).error : 'Unknown error',
           });
         }
         failedCount += 1;

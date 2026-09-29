@@ -968,8 +968,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* 1. Hero Balance Card */}
           <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
-                <span className="w-2 h-2 rounded-full bg-[#4A7C59]" />
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
                 {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#D4EDDA] dark:bg-emerald-950/50 text-[#28A745] dark:text-emerald-400 text-xs font-bold">
@@ -1040,13 +1039,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Metrics Legend */}
             <div className="flex items-center gap-4 text-xs font-medium text-graphite dark:text-gray-300">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#4A7C59]" />
-                Средний: <span className="font-bold font-headline">{formatAmount(dynamicsData.avg || 1420)} ₽</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-graphite-muted dark:text-gray-400">Средний:</span>
+                <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg || 1420)} ₽</span>
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#7D5A44]" />
-                Пик: <span className="font-bold font-headline">{formatAmount(dynamicsData.max || 3150)} ₽</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-graphite-muted dark:text-gray-400">Пик:</span>
+                <span className="font-bold font-headline text-[#7D5A44] dark:text-amber-400">{formatAmount(dynamicsData.max || 3150)} ₽</span>
               </span>
             </div>
 
@@ -1117,28 +1116,37 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   Всего в {currentMonthNamePrepositional}: {formatAmount(displayMonthSpent || 0)} ₽
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCatModalId(null);
-                  setIsCatModalOpen(true);
-                }}
-                className="flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 hover:opacity-80 transition cursor-pointer"
-              >
-                <span>Все категории</span>
-                <ChevronRight size={14} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onDrillDown('all')}
+                  className="flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 hover:opacity-80 transition cursor-pointer px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5"
+                  title="Открыть аналитику всех категорий"
+                >
+                  <span>Все категории</span>
+                  <ChevronRight size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCatModalId(null);
+                    setIsCatModalOpen(true);
+                  }}
+                  title="Создать новую категорию или настроить"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white dark:hover:bg-green-600 transition cursor-pointer"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
               {mobileCategories.map((cat, idx) => (
                 <div 
                   key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
-                  onClick={() => {
-                    setSelectedCatModalId(cat.id || null);
-                    setIsCatModalOpen(true);
-                  }}
+                  onClick={() => onDrillDown(cat.id || 'all')}
                   className="space-y-1.5 p-1.5 -mx-1.5 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
+                  title={`Аналитика категории «${cat.name}»`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1296,12 +1304,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           </p>
                           <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
                             <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: memberMeta?.color || '#4A7C59' }}
-                              />
-                              <span>{memberMeta?.name || 'Вся семья'}</span>
+                            <span className="font-medium" style={{ color: memberMeta?.color }}>
+                              {memberMeta?.name || 'Вся семья'}
                             </span>
                           </div>
                         </div>
@@ -1362,9 +1366,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         <p className="text-[11px] text-graphite-muted dark:text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
                           <span>{dateFormatted}</span>
                           <span>•</span>
-                          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
-                            {txMember.color && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color }} />}
-                            <span>{txMember.name}</span>
+                          <span className="font-medium" style={{ color: txMember.color }}>
+                            {txMember.name}
                           </span>
                           <span>•</span>
                           <span>{catLabel}</span>
@@ -1434,8 +1437,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            <span className="capitalize px-0.5">{currentMonthName}</span>
+            <span className="capitalize px-1 font-semibold">{currentMonthName}</span>
             <button
               type="button"
               onClick={() => handleStepMonth(1)}
@@ -1499,8 +1501,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] border border-[#FDBA74] dark:border-[#EA580C]/40">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#C2410C] animate-pulse"></span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] border border-[#FDBA74] dark:border-[#EA580C]/40">
                       Внимание: Превышение лимита дня
                     </span>
                     <span className="text-xs font-mono font-bold text-[#9A3412] dark:text-[#FB923C]">
@@ -1537,9 +1538,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-primary font-bold text-[11px] uppercase tracking-wider">
+              <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
                 <span>ОБЩИЙ БАЛАНС</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
                 {budgetMode === 'family' ? 'Семейный' : 'Личный'}
@@ -1735,7 +1735,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <AreaChart 
                       data={dynamicsData.points} 
                       margin={{ top: 15, right: 10, left: -15, bottom: 0 }}
-                      onClick={(e) => {
+                      onClick={(e: any) => {
                         if (e && e.activePayload && e.activePayload.length > 0) {
                           const payloadData = e.activePayload[0].payload;
                           if (payloadData && payloadData.dateObj) {
@@ -1833,10 +1833,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
               {/* Footer summary */}
               <div className="pt-4 border-t border-[#F0ECE4] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
-                <span className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${dynamicsData.complianceRate >= 80 ? 'bg-primary' : 'bg-[#EA580C]'}`}></span>
-                  {dynamicsData.complianceText}
-                </span>
+                <span>{dynamicsData.complianceText}</span>
                 <button 
                   type="button"
                   onClick={() => onNavigateTab('budget')}
@@ -1858,9 +1855,32 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     КАТЕГОРИИ РАСХОДОВ
                   </h3>
                 </div>
-                <span className="text-xs text-graphite-muted dark:text-gray-400">
-                  Всего в этом месяце: <strong className="text-graphite dark:text-white font-bold font-mono whitespace-nowrap">{formatAmount(categoryBreakdown.total)} ₽</strong>
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-graphite-muted dark:text-gray-400">
+                    Всего в этом месяце: <strong className="text-graphite dark:text-white font-bold font-mono whitespace-nowrap">{formatAmount(categoryBreakdown.total)} ₽</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCatModalId(null);
+                      setIsCatModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/10 text-graphite dark:text-white hover:text-primary dark:hover:text-green-400 hover:border-primary transition cursor-pointer"
+                    title="Создать новую категорию или настроить"
+                  >
+                    <Plus size={13} />
+                    <span>+ Категория</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDrillDown('all')}
+                    className="text-xs text-primary dark:text-green-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                    title="Открыть аналитику всех категорий"
+                  >
+                    <span>Аналитика</span>
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-auto pt-4">
@@ -1972,7 +1992,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                 {liveParsedShopping && (
                   <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#4a7c59] dark:text-green-400 font-semibold px-1 animate-in fade-in">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] animate-pulse" />
                     <span>{liveParsedShopping.title}</span>
                     <span className="font-mono bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded text-[10px] text-stone-700 dark:text-stone-300">
                       {liveParsedShopping.amount} {liveParsedShopping.unit}
@@ -2053,12 +2072,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             </p>
                             <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
                               <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
-                              <span className="inline-flex items-center gap-1.5">
-                                <span
-                                  className="w-2 h-2 rounded-full shrink-0"
-                                  style={{ backgroundColor: memberMeta?.color || '#4A7C59' }}
-                                />
-                                <span>{memberMeta?.name || 'Вся семья'}</span>
+                              <span className="font-medium" style={{ color: memberMeta?.color }}>
+                                {memberMeta?.name || 'Вся семья'}
                               </span>
                             </div>
                           </div>
@@ -2141,10 +2156,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             </h4>
                             <p className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1.5 mt-0.5 truncate">
                               <span>{dateFormatted}</span>
-                              <span className="w-1 h-1 rounded-full bg-[#B8B0A2]"></span>
-                              <span className="flex items-center gap-1 font-semibold" style={{ color: txMember.color }}>
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: txMember.color || '#4A7C59' }} />
-                                <span>{txMember.name}</span>
+                              <span>•</span>
+                              <span className="font-medium" style={{ color: txMember.color }}>
+                                {txMember.name}
                               </span>
                             </p>
                           </div>

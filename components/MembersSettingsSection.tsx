@@ -197,11 +197,7 @@ export const CurrentSessionBlock: React.FC<CurrentSessionBlockProps> = ({
     <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 sm:p-5 border border-stone-200 dark:border-white/10 shadow-sm space-y-4">
       {/* Статус сессии и почта */}
       <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-white/5">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A7C59] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#4A7C59]" />
-          </span>
+        <div className="flex items-center">
           <span className="text-xs font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
             Текущая сессия
           </span>

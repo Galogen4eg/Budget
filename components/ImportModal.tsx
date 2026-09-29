@@ -1078,8 +1078,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         <footer className="px-6 sm:px-8 py-4 bg-[#FAF8F5] dark:bg-[#1C1C1E] border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           
           {/* Индикатор статуса */}
-          <div className="flex items-center gap-2.5 text-xs text-stone-600 dark:text-gray-300">
-            <div className={`w-2.5 h-2.5 rounded-full ${unassignedCount > 0 ? 'bg-[#E09F3E] animate-pulse' : 'bg-[#4A7C59]'}`} />
+          <div className="flex items-center text-xs text-stone-600 dark:text-gray-300">
             <div>
               Готово к импорту: <span className="font-bold text-stone-900 dark:text-white">{items.length - unassignedCount} из {items.length}</span> операций
               {unassignedCount > 0 && (

@@ -24,20 +24,26 @@ export interface ReserveDetailsModalProps {
   onClose: () => void;
   totalBalance?: number;
   reservedAmount?: number;
+  totalReserved?: number;
   savingsAmount?: number;
   manualReserved?: number;
+  manualReservedAmount?: number;
+  mandatoryAmount?: number;
   unpaidMandatoryTotal?: number;
   availableBalance?: number;
+  availableForSavings?: number;
   dailyBudget?: number;
   daysRemaining?: number;
   savingsRate?: number;
+  settings?: any;
   futureExpenses?: DetailedMandatoryExpense[];
-  onUpdateManualSavings?: (amount: number) => void;
+  onUpdateManualSavings?: (amount: number) => void | Promise<any>;
   onTogglePaid?: (expenseId: string, isPaid: boolean) => void;
   onPayExpenses?: (expenseIds: string[]) => void;
   onEditExpense?: (expense: MandatoryExpense) => void;
   privacyMode?: boolean;
   currency?: string;
+  [key: string]: any;
 }
 
 const DEFAULT_SAMPLE_BILLS: DetailedMandatoryExpense[] = [

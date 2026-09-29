@@ -417,7 +417,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             const ai = new GoogleGenAI({ apiKey });
             const prompt = `Распознай список покупок на русском языке: "${text}". Верни JSON массив объектов [{"title":"Молоко","amount":"1","unit":"л","category":"dairy"}]. Категории: dairy, bakery, produce, meat, grocery, drinks, sweets, frozen, household, beauty, pets, pharmacy, other.`;
             const resp = await ai.models.generateContent({
-              model: 'gemini-3-flash-preview',
+              model: 'gemini-3.8-flash',
               contents: prompt,
               config: { responseMimeType: 'application/json' }
             });
@@ -541,11 +541,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           >
             <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs border border-[#E4E0D8]/60 dark:border-white/10">
               {isListening ? (
-                <div className="relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A7C59] opacity-40" />
-                  <div className="w-16 h-16 rounded-full bg-[#4A7C59] text-white flex items-center justify-center relative z-10 shadow-lg">
-                    <Mic size={32} />
-                  </div>
+                <div className="w-16 h-16 rounded-full bg-[#4A7C59] text-white flex items-center justify-center shadow-lg">
+                  <Mic size={32} />
                 </div>
               ) : (
                 <BrainCircuit size={48} className="text-[#4A7C59] animate-pulse" />
@@ -565,8 +562,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         
         {/* Status Counters Strip */}
         <div className="flex items-center justify-between bg-white dark:bg-[#1E1E20] px-4 py-2.5 rounded-2xl border border-[#EAE5DB]/60 dark:border-white/5 shadow-2xs">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#4A7C59] dark:text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-[#4A7C59] dark:bg-emerald-400 animate-pulse" />
+          <div className="text-xs font-semibold text-[#4A7C59] dark:text-emerald-400">
             <span>{allActiveCount} в списке</span>
           </div>
           <div className="text-xs font-semibold text-[#68736A] dark:text-stone-400">
@@ -628,7 +624,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
           {liveParsedItems.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px] text-[#4A7C59] dark:text-emerald-400 font-semibold border-t border-[#EAE4D6]/60 dark:border-white/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
               {liveParsedItems.map((p, idx) => (
                 <span key={`live-preview-${p.title}-${idx}`} className="bg-[#D8F0DE] dark:bg-[#1C3B24] text-[#2A6038] dark:text-[#8ECF9E] px-2 py-0.5 rounded-md text-[10px]">
                   {p.title} ({p.amount} {p.unit})

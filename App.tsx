@@ -22,7 +22,6 @@ import CategoryProgress from './components/CategoryProgress';
 import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import GoalsSection from './components/GoalsSection';
 import LoginScreen from './components/LoginScreen';
-import FeedbackTool from './components/FeedbackTool';
 import ServicesHub from './components/ServicesHub';
 import TerraOverview from './components/TerraOverview';
 import TerraBudget from './components/TerraBudget';
@@ -772,7 +771,12 @@ export default function App() {
           case 'category_analysis':
               return (
                   <div className="lg:flex-1 lg:min-h-0 h-[320px] lg:h-auto">
-                      <CategoryAnalysisWidget transactions={filteredTransactions} categories={categories} settings={settings} onClick={() => setActiveTab('budget')} />
+                      <CategoryAnalysisWidget 
+                          transactions={filteredTransactions} 
+                          categories={categories} 
+                          settings={settings} 
+                          onClick={() => setDrillDownState({ categoryId: 'all' })} 
+                      />
                   </div>
               );
           default:
@@ -808,7 +812,6 @@ export default function App() {
   return (
     <div className="h-[100dvh] w-full bg-[#F8F6F2] dark:bg-[#121214] text-graphite dark:text-white flex overflow-hidden font-sans relative selection:bg-primary/20 selection:text-primary-dark">
       <Toaster position="top-center" richColors theme={settings.theme === 'dark' ? 'dark' : 'light'} />
-      <FeedbackTool />
 
       {/* Mobile Top Header (only on non-overview tabs, since overview has its own topbar) */}
       {activeTab !== 'overview' && (
@@ -842,9 +845,8 @@ export default function App() {
                 </div>
                 {isSidebarExpanded && (
                   <div className="flex flex-col">
-                    <span className="text-base font-headline font-black tracking-tight text-graphite dark:text-white flex items-center gap-1.5">
+                    <span className="text-base font-headline font-black tracking-tight text-graphite dark:text-white">
                       Terra
-                      <span className="w-2 h-2 rounded-full bg-primary"></span>
                     </span>
                     <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-medium">Семейный бюджет</span>
                   </div>
@@ -1163,7 +1165,7 @@ export default function App() {
               />
             )}
             {drillDownState && <DrillDownModal 
-                key={`drilldown-${drillDownState.categoryId || drillDownState.merchantName}`}
+                key="drilldown-modal"
                 categoryId={drillDownState.categoryId} 
                 merchantName={drillDownState.merchantName} 
                 onClose={() => setDrillDownState(null)} 

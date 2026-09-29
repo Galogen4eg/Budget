@@ -11,7 +11,8 @@ import { getIconById, MemberMarker } from '../constants';
 import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
 import { triggerHaptic } from '../utils/haptics';
 import { sendTelegramMessage } from '../utils/telegram';
-import { CategoryPickerAccordion } from './CategoryPickerAccordion';
+import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
+import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -48,7 +49,7 @@ export default function AddTransactionModal({
   onClose, onSubmit, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Navigation State
-  const [currentView, setCurrentView] = useState<'main' | 'categories' | 'assignee' | 'monthly_binding'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'assignee' | 'monthly_binding'>('main');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   
   // Form State
@@ -92,6 +93,8 @@ export default function AddTransactionModal({
   const [notifyTelegram, setNotifyTelegram] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
+  const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
 
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
@@ -289,12 +292,9 @@ export default function AddTransactionModal({
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                  <h2 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-[#2E3230] dark:text-white">
-                    {initialTransaction ? 'Редактирование операции' : 'Новая операция'}
-                  </h2>
-                </div>
+                <h2 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-[#2E3230] dark:text-white">
+                  {initialTransaction ? 'Редактирование операции' : 'Новая операция'}
+                </h2>
 
                 <button 
                   type="button"
@@ -399,8 +399,7 @@ export default function AddTransactionModal({
                       </div>
 
                       <div className="shrink-0">
-                        <span className="text-[11px] sm:text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="text-[11px] sm:text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl flex items-center shadow-xs whitespace-nowrap">
                           <span>В лимите дня</span>
                         </span>
                       </div>
@@ -579,7 +578,13 @@ export default function AddTransactionModal({
 
                     {/* Категория (Выбор) */}
                     <div 
-                      onClick={() => setCurrentView('categories')}
+                      onClick={() => {
+                        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+                          setIsDesktopCategoryPickerOpen(true);
+                        } else {
+                          setIsMobileCategoryPickerOpen(true);
+                        }
+                      }}
                       className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -756,34 +761,6 @@ export default function AddTransactionModal({
             </div>
           )}
 
-          {/* SUBVIEW: Categories Selection */}
-          {currentView === 'categories' && (
-            <motion.div 
-              key="categories"
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-              className="flex flex-col h-full bg-[#F8F6F2] dark:bg-[#121214]"
-            >
-              <SubHeader title="Выбор категории" onBack={() => { setCurrentView('main'); }} />
-
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">
-                <CategoryPickerAccordion
-                  categories={categories}
-                  selectedCategoryId={categoryId}
-                  onSelectCategory={(id) => {
-                    setCategoryId(id);
-                    setCurrentView('main');
-                    triggerHaptic('light');
-                  }}
-                  onAddCategory={onAddCategory}
-                  maxHeightClass="max-h-[calc(100vh-180px)]"
-                />
-              </div>
-            </motion.div>
-          )}
-
           {/* SUBVIEW: Assignee Selection */}
           {currentView === 'assignee' && (
             <motion.div 
@@ -889,6 +866,48 @@ export default function AddTransactionModal({
           )}
         </AnimatePresence>
       </motion.div>
+
+      {isDesktopCategoryPickerOpen && (
+        <DesktopCategoryPickerModal
+          isOpen={isDesktopCategoryPickerOpen}
+          onClose={() => setIsDesktopCategoryPickerOpen(false)}
+          categories={categories}
+          selectedCategoryId={categoryId}
+          onSelectCategory={(id) => {
+            setCategoryId(id);
+            const found = categories.find(c => c.id === id);
+            if (found && !renamedTitle) {
+              setRenamedTitle(found.label);
+            }
+            setIsDesktopCategoryPickerOpen(false);
+            setCurrentView('main');
+            triggerHaptic('light');
+          }}
+          onAddCategory={onAddCategory}
+          transactions={transactions}
+        />
+      )}
+
+      {isMobileCategoryPickerOpen && (
+        <MobileCategoryPickerModal
+          isOpen={isMobileCategoryPickerOpen}
+          onClose={() => setIsMobileCategoryPickerOpen(false)}
+          categories={categories}
+          selectedCategoryId={categoryId}
+          onSelectCategory={(id) => {
+            setCategoryId(id);
+            const found = categories.find(c => c.id === id);
+            if (found && !renamedTitle) {
+              setRenamedTitle(found.label);
+            }
+            setIsMobileCategoryPickerOpen(false);
+            setCurrentView('main');
+            triggerHaptic('light');
+          }}
+          onAddCategory={onAddCategory}
+          transactions={transactions}
+        />
+      )}
     </div>,
     document.body
   );

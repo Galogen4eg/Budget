@@ -19,6 +19,7 @@ import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
 import { recordPurchaseEvent } from '../utils/frequentPurchases';
 import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
+import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { getIconById } from '../constants';
@@ -51,9 +52,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 }) => {
   const { 
     transactions, 
+    setTransactions,
     filteredTransactions, 
     totalBalance, 
     currentMonthSpent, 
+    goals,
     settings, 
     updateSettings, 
     members, 
@@ -75,6 +78,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [selectedCatModalId, setSelectedCatModalId] = useState<string | null>(null);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [selectedDayDetailDate, setSelectedDayDetailDate] = useState<Date | null>(null);
 
   // Synchronized or internal month state
   const [internalMonth, setInternalMonth] = useState<Date>(() => new Date());
@@ -304,9 +308,16 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       .reduce((acc, t) => acc + t.amount, 0);
   }, [currentMonthTransactions, categories]);
 
+  // Savings accounts (копилка / накопительный счёт) total balance
+  const totalSavingsAccountAmount = useMemo(() => {
+    return (goals || []).reduce((acc, g) => acc + (g.currentAmount || 0), 0);
+  }, [goals]);
+
   // Reserve & Available Balance
   const savingsAmount = currentMonthSalary * (savingsRate / 100);
-  const manualReserved = settings.manualReservedAmount || 0;
+  const manualReserved = typeof settings.manualReservedAmount === 'number' 
+    ? settings.manualReservedAmount 
+    : totalSavingsAccountAmount;
   const reservedAmount = Math.round(savingsAmount + unpaidMandatoryTotal + manualReserved);
   const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
   const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
@@ -366,7 +377,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         }
       });
 
-      const points: { label: string; fullLabel: string; amount: number; limit: number; isHigh: boolean; isCurrent: boolean }[] = [];
+      const points: { label: string; fullLabel: string; dateObj: Date; amount: number; limit: number; isHigh: boolean; isCurrent: boolean }[] = [];
       let sum = 0;
       let max = 0;
       let compliantDays = 0;
@@ -382,6 +393,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         points.push({
           label: `${d}`,
           fullLabel: fullDateStr,
+          dateObj: new Date(year, month, d),
           amount: d <= currentDay ? amt : 0,
           limit: dailyLimit,
           isHigh: dailyLimit > 0 && d <= currentDay ? amt > dailyLimit : false,
@@ -452,6 +464,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         return {
           label: `${w.dayName} ${w.dayNumber}`,
           fullLabel: `${w.dayName}, ${fullDateStr}`,
+          dateObj: w.date,
           amount: w.isPassedOrToday ? amt : 0,
           limit: dailyLimit,
           isHigh: dailyLimit > 0 && w.isPassedOrToday ? amt > dailyLimit : false,
@@ -507,6 +520,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       return {
         label: mName,
         fullLabel: `${mName} ${year}`,
+        dateObj: new Date(year, idx, 1),
         amount: isPassedOrCurrent ? amt : 0,
         limit: monthlyLimit,
         isHigh: monthlyLimit > 0 && isPassedOrCurrent ? amt > monthlyLimit : false,
@@ -1055,6 +1069,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   />
                   <Tooltip 
                     cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
+                    wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
+                    isAnimationActive={false}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const val = payload[0].value;
@@ -1719,6 +1735,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <AreaChart 
                       data={dynamicsData.points} 
                       margin={{ top: 15, right: 10, left: -15, bottom: 0 }}
+                      onClick={(e) => {
+                        if (e && e.activePayload && e.activePayload.length > 0) {
+                          const payloadData = e.activePayload[0].payload;
+                          if (payloadData && payloadData.dateObj) {
+                            setSelectedDayDetailDate(new Date(payloadData.dateObj));
+                          }
+                        }
+                      }}
+                      className="cursor-pointer"
                     >
                       <defs>
                         <linearGradient id="terraGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1755,22 +1780,31 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         />
                       )}
                       <Tooltip 
+                        cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
+                        wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
+                        isAnimationActive={false}
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
+                            const val = payload[0].value;
                             const hasOverlimit = dynamicsData.limit > 0 && data.amount > dynamicsData.limit;
                             return (
-                              <div className="bg-graphite dark:bg-[#1E2923] text-white border border-[#37493F] px-3.5 py-2 rounded-xl shadow-lg flex flex-col gap-1">
+                              <div className="bg-[#1C1C1E] dark:bg-[#1C1C1E] text-white border border-white/15 px-3.5 py-2.5 rounded-xl shadow-2xl flex flex-col gap-1.5 pointer-events-none z-50">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full bg-[#8ECF9E]"></span>
+                                  <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0"></span>
                                   <span className="text-xs font-mono font-bold">
-                                    {data.fullLabel}: {formatAmount(data.amount)} ₽
+                                    {data.fullLabel || `${data.label} ${activeMonth.toLocaleString('ru-RU', { month: 'long' })}`}: {formatAmount(typeof val === 'number' ? val : data.amount)} ₽
                                   </span>
                                 </div>
-                                {hasOverlimit && (
-                                  <span className="text-[10px] text-[#FDBA74]">
-                                    (Превышение лимита: +{formatAmount(data.amount - dynamicsData.limit)} ₽)
-                                  </span>
+                                {dynamicsData.limit > 0 && (
+                                  <div className="text-[11px] text-gray-300 flex items-center justify-between gap-4 border-t border-white/10 pt-1">
+                                    <span>План лимита: {formatAmount(dynamicsData.limit)} ₽</span>
+                                    {hasOverlimit ? (
+                                      <span className="text-[#F87171] font-bold">+{formatAmount(data.amount - dynamicsData.limit)} ₽</span>
+                                    ) : (
+                                      <span className="text-[#4ADE80] font-semibold">В норме</span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             );
@@ -1784,22 +1818,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         stroke={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} 
                         strokeWidth={2.8} 
                         fill="url(#terraGradient)" 
-                        dot={(props: any) => {
-                          const { cx, cy, payload, index } = props;
-                          if (payload.isCurrent) {
-                            return (
-                              <g key={`dot-current-${index}`}>
-                                <circle cx={cx} cy={cy} r={9} fill={isOverDailyLimit && chartScale === 'day' ? '#EA580C' : '#4A7C59'} opacity={0.25} />
-                                <circle cx={cx} cy={cy} r={5.5} fill={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stroke="#FFFFFF" strokeWidth={2} />
-                              </g>
-                            );
-                          }
-                          if (payload.amount > 0 && (chartScale !== 'day' || index % 5 === 0)) {
-                            return (
-                              <circle key={`dot-${index}`} cx={cx} cy={cy} r={3.5} fill="#4A7C59" stroke="#FFFFFF" strokeWidth={1.5} />
-                            );
-                          }
-                          return null;
+                        dot={false}
+                        activeDot={{ 
+                          r: 6, 
+                          fill: isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59', 
+                          stroke: '#FFFFFF', 
+                          strokeWidth: 2 
                         }}
                       />
                     </AreaChart>
@@ -2048,8 +2072,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
             )}
 
-            {/* Виджет «История операций» (выровнен по нижнему краю с «Категориями расходов») */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm flex-1 flex flex-col justify-between">
+            {/* Виджет «История операций» (компактный список без пустых разрывов) */}
+            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm flex flex-col justify-start">
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-[#FAF1E3] dark:bg-[#3D2C1E] text-warm-amber">
@@ -2062,26 +2086,28 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <button 
                   type="button"
                   onClick={() => onNavigateTab('budget')}
-                  className="text-xs text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold"
+                  className="text-xs text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold cursor-pointer"
                 >
                   Все
                   <ChevronRight size={14} />
                 </button>
               </div>
 
-              <div className="space-y-3 mt-4 flex-1 flex flex-col justify-between">
+              <div className="space-y-2.5 mt-4 flex flex-col justify-start">
                 {recentTransactions.length === 0 ? (
                   <div className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
                     Нет операций за выбранный период
                   </div>
                 ) : (
                   recentTransactions.map((tx, idx) => {
-                    const badge = getTransactionBadge(tx, idx);
+                    const txCat = categories.find(c => c.id === tx.category);
                     const txDate = new Date(tx.date);
                     const dateFormatted = txDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
                     const isTxToday = txDate.toDateString() === now.toDateString();
                     const txMember = members.find(m => m.id === tx.memberId) || currentMember;
-                    const catLabel = categories.find(c => c.id === tx.category)?.label || 'Прочее';
+                    const catLabel = txCat?.label || 'Прочее';
+                    const displayTitle = tx.note || tx.rawNote || catLabel;
+                    const brandKey = getMerchantBrandKey(displayTitle);
                     const isExpense = tx.type === 'expense';
 
                     return (
@@ -2095,12 +2121,18 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-sm tracking-tighter flex-shrink-0 ${badge.bg}`}>
-                            {badge.initial}
+                          <div className="shrink-0">
+                            <BrandIcon 
+                              name={displayTitle} 
+                              brandKey={brandKey} 
+                              category={txCat} 
+                              size="md" 
+                              className="rounded-xl"
+                            />
                           </div>
                           <div className="min-w-0">
                             <h4 className="text-sm font-bold text-graphite dark:text-white group-hover:text-primary transition truncate flex items-center gap-1.5">
-                              {tx.note || tx.rawNote || 'Операция'}
+                              {displayTitle}
                               {isTxToday && (
                                 <span className="text-[9px] bg-[#C2410C] text-white px-1.5 py-0.2 rounded font-mono font-medium flex-shrink-0">
                                   СЕГОДНЯ
@@ -2182,6 +2214,25 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             setIsCatModalOpen(false);
             onDrillDown(catId);
           }}
+        />
+      )}
+
+      {/* Day Detail Interactive Modal from Chart Click */}
+      {selectedDayDetailDate && (
+        <DayDetailModal 
+          isOpen={!!selectedDayDetailDate}
+          onClose={() => setSelectedDayDetailDate(null)}
+          date={selectedDayDetailDate}
+          transactions={filteredTransactions}
+          categories={categories}
+          members={members}
+          onEditTransaction={onEditTransaction}
+          onAddTransactionForDay={() => {
+            setSelectedDayDetailDate(null);
+            onOpenAddModal();
+          }}
+          dailySafeLimit={dailyLimit}
+          privacyMode={settings.privacyMode}
         />
       )}
     </div>

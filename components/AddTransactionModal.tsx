@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, X, Calendar, FileText, Repeat, ChevronRight, Check, Trash2, 
-  Sparkles, Link as LinkIcon, Plus, Send, Search, RotateCcw
+  Sparkles, Link as LinkIcon, Plus, Send, Search, RotateCcw, ShieldCheck
 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, Category, LearnedRule } from '../types';
 import { auth } from '../firebase';
@@ -19,6 +19,7 @@ interface AddTransactionModalProps {
   settings: AppSettings;
   members: FamilyMember[];
   categories: Category[];
+  learnedRules?: LearnedRule[];
   initialTransaction?: Transaction | null;
   onLearnRule: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
@@ -44,7 +45,7 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
+  onClose, onSubmit, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'categories' | 'assignee' | 'monthly_binding'>('main');
@@ -62,6 +63,14 @@ export default function AddTransactionModal({
     return extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note);
   }); 
   const [renamedTitle, setRenamedTitle] = useState(() => initialTransaction ? initialTransaction.note : ''); 
+  
+  // Check if rule is already remembered in database
+  const existingLearnedRule = useMemo(() => {
+    if (!learnedRules || learnedRules.length === 0) return null;
+    const targetText = `${initialTransaction?.rawNote || ''} ${initialTransaction?.note || ''} ${note || ''} ${renamedTitle || ''}`.toLowerCase();
+    if (!targetText.trim()) return null;
+    return learnedRules.find(r => r.keyword && targetText.includes(r.keyword.toLowerCase()));
+  }, [learnedRules, initialTransaction, note, renamedTitle]); 
   
   // Selection State
   const [categoryId, setCategoryId] = useState(() => initialTransaction ? initialTransaction.category : (categories[0]?.id || 'other'));
@@ -453,6 +462,26 @@ export default function AddTransactionModal({
                         />
                       </div>
                     </div>
+
+                    {/* Visual Indicator: Already Learned Rule */}
+                    {existingLearnedRule && (
+                      <div className="bg-[#EAF2EC] dark:bg-green-950/30 border border-[#4A7C59]/40 rounded-2xl p-3 flex items-start gap-2.5 shadow-xs">
+                        <ShieldCheck size={18} className="text-[#4A7C59] dark:text-green-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-[#2A4C34] dark:text-green-300">
+                              Автоправило уже запомнено
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded bg-[#4A7C59] text-white text-[9px] font-bold font-mono">
+                              АКТИВНО
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#3D6849] dark:text-green-400/90 mt-0.5 leading-tight">
+                            Ключ: <b className="font-mono">«{existingLearnedRule.keyword}»</b> ➔ Категория: <b>{categories.find(c => c.id === existingLearnedRule.categoryId)?.label || 'Категория'}</b>
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Запомнить правило */}
                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center justify-between gap-3">

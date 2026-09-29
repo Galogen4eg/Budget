@@ -5,6 +5,8 @@ import {
   PlusCircle, Sparkles, Lightbulb, Repeat, PiggyBank, List, X
 } from 'lucide-react';
 import { Transaction, FamilyMember, Category } from '../types';
+import BrandIcon from './BrandIcon';
+import { getMerchantBrandKey } from '../utils/categorizer';
 
 interface DrillDownMobileProps {
   categoryTitle: string;
@@ -55,6 +57,7 @@ interface DrillDownMobileProps {
     income: number;
   }[];
   currentMember?: FamilyMember | null;
+  categories?: Category[];
 }
 
 export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
@@ -87,7 +90,8 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   chartGranularity,
   setChartGranularity,
   chartData,
-  currentMember
+  currentMember,
+  categories = []
 }) => {
   const [showFilterOptions, setShowFilterOptions] = useState(false);
 
@@ -459,7 +463,9 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                           const isExpense = tx.type === 'expense';
                           const timeStr = tx.date ? new Date(tx.date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '12:00';
                           const member = memberBreakdown.find(m => m.member?.id === tx.memberId)?.member;
-                          const memberInitial = (member?.name || 'П').charAt(0).toUpperCase();
+                          const txCat = categories.find(c => c.id === tx.category);
+                          const displayTitle = tx.note || tx.rawNote || txCat?.label || categoryTitle;
+                          const brandKey = getMerchantBrandKey(displayTitle);
 
                           return (
                             <div 
@@ -468,25 +474,32 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                               className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-xl p-3 shadow-2xs flex items-center justify-between border border-[#E4E0D8]/40 dark:border-white/5 active:scale-[0.99] transition cursor-pointer"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div 
-                                  className="w-10 h-10 rounded-xl text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-2xs"
-                                  style={{ backgroundColor: member?.color || '#4A7C59' }}
-                                >
-                                  {memberInitial}
+                                <div className="shrink-0">
+                                  <BrandIcon 
+                                    name={displayTitle}
+                                    brandKey={brandKey}
+                                    category={txCat}
+                                    size="md"
+                                    className="rounded-xl shadow-2xs"
+                                  />
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5">
                                     <p className="text-sm font-semibold text-[#2E3230] dark:text-white truncate">
-                                      {tx.note || tx.rawNote || categoryTitle}
+                                      {displayTitle}
                                     </p>
                                     {member && (
-                                      <span className="px-1.5 py-0.2 rounded bg-white dark:bg-[#252528] text-[10px] font-medium text-[#4A4E4A] dark:text-stone-300 shrink-0">
-                                        {member.name}
+                                      <span 
+                                        className="px-1.5 py-0.2 rounded bg-white dark:bg-[#252528] text-[10px] font-bold shrink-0 flex items-center gap-1"
+                                        style={{ color: member.color || undefined }}
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: member.color || '#4A7C59' }} />
+                                        <span>{member.name}</span>
                                       </span>
                                     )}
                                   </div>
                                   <p className="text-xs text-[#74796E] dark:text-stone-400 truncate">
-                                    {tx.rawNote && tx.rawNote !== tx.note ? tx.rawNote : categoryTitle}
+                                    {tx.rawNote && tx.rawNote !== tx.note ? tx.rawNote : (txCat?.label || categoryTitle)}
                                   </p>
                                 </div>
                               </div>
@@ -689,8 +702,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               {/* Visual Bar Chart */}
               <div className="w-full pt-4 pb-1">
                 <div className="relative h-40 flex items-end justify-between gap-1.5 px-1">
-                  {mobileBars.map((bar, idx) => {
-                    const isPeak = bar.id === peakInfo.label || idx === 4;
+                  {mobileBars.map((bar) => {
                     const expPercent = Math.min(100, Math.max(12, Math.round((bar.expense / chartMax) * 85)));
                     const incPercent = bar.income > 0 ? Math.min(100, Math.max(15, Math.round((bar.income / chartMax) * 85))) : 0;
                     const labelText = bar.dayNum ? String(bar.dayNum).padStart(2, '0') : bar.label.split(' ')[0];
@@ -700,26 +712,20 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                         key={bar.id}
                         className="flex-1 flex flex-col items-center gap-1 h-full justify-end group cursor-pointer relative"
                       >
-                        {isPeak && (
-                          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#4A7C59] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs whitespace-nowrap z-10 pointer-events-none">
-                            {bar.income > bar.expense ? `+${Math.round(bar.income / 1000)}к` : `-${Math.round(bar.expense / 1000)}к`}
-                          </div>
-                        )}
-
                         <div className="w-full flex items-end justify-center gap-0.5 h-full">
                           <div 
-                            className={`w-2.5 bg-[#B83230] rounded-t-sm transition-all ${isPeak ? 'shadow-2xs' : 'opacity-75 group-hover:opacity-100'}`}
+                            className="w-2.5 bg-[#B83230] rounded-t-sm transition-all opacity-85 group-hover:opacity-100"
                             style={{ height: `${expPercent}%` }}
                           />
                           {incPercent > 0 && (
                             <div 
-                              className="w-2.5 bg-[#4A7C59] rounded-t-sm shadow-2xs transition-all"
+                              className="w-2.5 bg-[#4A7C59] rounded-t-sm shadow-2xs transition-all opacity-85 group-hover:opacity-100"
                               style={{ height: `${incPercent}%` }}
                             />
                           )}
                         </div>
 
-                        <span className={`text-[10px] font-semibold ${isPeak ? 'text-[#4A7C59] dark:text-green-400 font-bold' : 'text-[#74796E] dark:text-stone-400'}`}>
+                        <span className="text-[10px] font-semibold text-[#74796E] dark:text-stone-400 group-hover:text-[#4A7C59]">
                           {labelText}
                         </span>
                       </div>

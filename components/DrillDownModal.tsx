@@ -10,6 +10,8 @@ import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '.
 import { getIconById } from '../constants';
 import { auth } from '../firebase';
 import DrillDownMobile from './DrillDownMobile';
+import BrandIcon from './BrandIcon';
+import { getMerchantBrandKey } from '../utils/categorizer';
 
 interface DrillDownModalProps {
   categoryId?: string;
@@ -53,6 +55,15 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
   // Interactive Chart Series Filter: 'all' | 'expense' | 'income'
   const [chartSeriesFilter, setChartSeriesFilter] = useState<'all' | 'expense' | 'income'>('all');
+
+  // Hover state for SVG chart tooltip
+  const [hoveredBar, setHoveredBar] = useState<{
+    x: number;
+    y: number;
+    label: string;
+    expense: number;
+    income: number;
+  } | null>(null);
 
   // Ref for subcategories horizontal scroll ribbon and dynamic overflow state
   const subcatScrollRef = useRef<HTMLDivElement>(null);
@@ -439,6 +450,8 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         label: item.label,
         dayNum: item.dayNum,
         x,
+        expense: item.expense,
+        income: item.income,
         expenseH,
         expenseY,
         incomeH,
@@ -638,6 +651,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         setChartGranularity={setChartGranularity}
         chartData={aggregatedChartData.list}
         currentMember={currentMember}
+        categories={categories}
       />,
       document.body
     );
@@ -1045,7 +1059,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                             {group.txs.map(tx => {
                               const member = members.find(m => m.id === tx.memberId);
                               const memberName = member ? member.name : 'Семья';
-                              const initial = memberName.charAt(0).toUpperCase();
+                              const txCat = categories.find(c => c.id === tx.category);
+                              const displayTitle = tx.note || tx.rawNote || txCat?.label || 'Операция';
+                              const brandKey = getMerchantBrandKey(displayTitle);
                               const txDate = new Date(tx.date);
                               const timeStr = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
@@ -1056,23 +1072,30 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                                   className="p-3 rounded-2xl bg-[#F5F1EA]/60 dark:bg-[#242428] hover:bg-[#EAE6DE]/80 dark:hover:bg-[#2A2A2E] transition-all flex items-center justify-between group cursor-pointer border border-transparent hover:border-[#E4E0D8] dark:hover:border-white/10 shadow-2xs"
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <div 
-                                      className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs"
-                                      style={{ backgroundColor: member?.color || '#4A7C59' }}
-                                    >
-                                      {initial}
+                                    <div className="shrink-0">
+                                      <BrandIcon 
+                                        name={displayTitle}
+                                        brandKey={brandKey}
+                                        category={txCat}
+                                        size="md"
+                                        className="rounded-xl shadow-2xs"
+                                      />
                                     </div>
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
                                         <span className="font-headline font-semibold text-sm text-[#2E3230] dark:text-white truncate">
-                                          {tx.note || tx.rawNote || 'Операция'}
+                                          {displayTitle}
                                         </span>
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white dark:bg-stone-800 text-[#68726B] dark:text-stone-300 font-bold shrink-0">
-                                          {memberName}
+                                        <span 
+                                          className="text-[10px] px-1.5 py-0.5 rounded-md bg-white dark:bg-stone-800 font-bold shrink-0 flex items-center gap-1"
+                                          style={{ color: member?.color || undefined }}
+                                        >
+                                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: member?.color || '#4A7C59' }} />
+                                          <span>{memberName}</span>
                                         </span>
                                       </div>
                                       <span className="block text-xs text-[#68726B] dark:text-stone-400 truncate mt-0.5">
-                                        {tx.rawNote || 'Перевод / Расход'}
+                                        {tx.rawNote || txCat?.label || 'Перевод / Расход'}
                                       </span>
                                     </div>
                                   </div>
@@ -1261,7 +1284,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 </div>
 
                 {/* Wide Clean SVG Chart with Clipping Mask */}
-                <div className="relative w-full h-[210px] overflow-hidden rounded-xl">
+                <div className="relative w-full h-[210px] rounded-xl">
                   <svg className="w-full h-full overflow-hidden" viewBox="0 0 940 210" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1317,7 +1340,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                         />
                       )}
 
-                      {/* Bars & Markers */}
+                      {/* Bars */}
                       {renderedChartData.bars.map((b, i) => (
                         <g key={b.id || i}>
                           {b.showExpense && (
@@ -1328,7 +1351,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                               height={Math.max(2, b.expenseH)} 
                               rx="3" 
                               fill="#E11D48" 
-                              fillOpacity={b.isPeak ? 1 : 0.8} 
+                              fillOpacity={hoveredBar?.label === b.label ? 1 : 0.8} 
                             />
                           )}
                           {b.showIncome && (
@@ -1339,36 +1362,59 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                               height={Math.max(2, b.incomeH)} 
                               rx="3" 
                               fill="#4A7C59" 
-                              fillOpacity={b.isPeak ? 1 : 0.9} 
-                            />
-                          )}
-                          {(b.showExpense || b.showIncome) && (
-                            <circle 
-                              cx={b.x} 
-                              cy={b.showExpense && b.showIncome ? Math.min(b.expenseY, b.incomeY) : (b.showExpense ? b.expenseY : b.incomeY)} 
-                              r={b.isPeak ? 5 : 3} 
-                              fill="#FFFFFF" 
-                              stroke={b.showExpense ? "#E11D48" : "#4A7C59"} 
-                              strokeWidth={b.isPeak ? 2.5 : 1.5} 
+                              fillOpacity={hoveredBar?.label === b.label ? 1 : 0.9} 
                             />
                           )}
                         </g>
                       ))}
-                    </g>
 
-                    {/* Peak Floating Badge */}
-                    {renderedChartData.peakPoint && (
-                      <g transform={`translate(${Math.max(80, Math.min(810, renderedChartData.peakPoint.x - 55))}, 4)`}>
-                        <rect x="0" y="0" width="115" height="20" rx="5" fill="#2E3230" />
-                        <text x="57" y="13" fill="#FAF6F0" fontSize="10" fontWeight="700" textAnchor="middle">
-                          Пик: {
-                            chartSeriesFilter === 'income'
-                              ? `+${renderedChartData.peakPoint.income.toLocaleString('ru-RU')} ₽`
-                              : `${renderedChartData.peakPoint.expense.toLocaleString('ru-RU')} ₽`
-                          }
-                        </text>
-                      </g>
-                    )}
+                      {/* Interactive Hover Highlight Line & Dot */}
+                      {hoveredBar && (
+                        <g pointerEvents="none">
+                          <line 
+                            x1={hoveredBar.x} 
+                            y1={renderedChartData.topY} 
+                            x2={hoveredBar.x} 
+                            y2={renderedChartData.bottomY} 
+                            stroke="#4A7C59" 
+                            strokeWidth="1.5" 
+                            strokeDasharray="3,3" 
+                          />
+                          <circle 
+                            cx={hoveredBar.x} 
+                            cy={hoveredBar.y} 
+                            r={5} 
+                            fill="#4A7C59" 
+                            stroke="#FFFFFF" 
+                            strokeWidth={2} 
+                          />
+                        </g>
+                      )}
+
+                      {/* Invisible Full-Height Overlay Columns for smooth Hover capture */}
+                      {renderedChartData.bars.map((b, i) => {
+                        const colW = Math.max(16, (renderedChartData.rightX - renderedChartData.leftX) / Math.max(1, renderedChartData.bars.length));
+                        return (
+                          <rect 
+                            key={`hover-col-${b.id || i}`}
+                            x={b.x - colW / 2}
+                            y={renderedChartData.topY}
+                            width={colW}
+                            height={renderedChartData.bottomY - renderedChartData.topY + 30}
+                            fill="transparent"
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredBar({
+                              x: b.x,
+                              y: b.showExpense && b.showIncome ? Math.min(b.expenseY, b.incomeY) : (b.showExpense ? b.expenseY : (b.showIncome ? b.incomeY : renderedChartData.bottomY)),
+                              label: b.label,
+                              expense: b.expense,
+                              income: b.income
+                            })}
+                            onMouseLeave={() => setHoveredBar(null)}
+                          />
+                        );
+                      })}
+                    </g>
 
                     {/* Dynamic X-Axis Labels */}
                     {renderedChartData.bars
@@ -1382,15 +1428,53 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                           key={b.id || i} 
                           x={b.x} 
                           y="182" 
-                          fill={b.isPeak ? "#2E3230" : "#68726B"} 
+                          fill={hoveredBar?.label === b.label ? "#4A7C59" : "#68726B"} 
                           fontSize={chartGranularity === 'weekly' ? "10" : "11"} 
-                          fontWeight={b.isPeak ? "700" : "400"} 
+                          fontWeight={hoveredBar?.label === b.label ? "700" : "400"} 
                           textAnchor="middle"
                         >
                           {b.label}
                         </text>
                       ))}
                   </svg>
+
+                  {/* HTML Floating Tooltip on Hover with Smart Adaptive Positioning */}
+                  {hoveredBar && (() => {
+                    const isTopClose = hoveredBar.y < 85; // When bar is in the upper half, flip below to prevent clipping
+                    const leftPercent = Math.max(14, Math.min(86, (hoveredBar.x / 940) * 100));
+                    const topPercent = (hoveredBar.y / 210) * 100;
+
+                    return (
+                      <div 
+                        className={`absolute pointer-events-none z-50 bg-[#1C1C1E] text-white px-3.5 py-2.5 rounded-xl shadow-2xl border border-white/20 text-xs flex flex-col gap-1 -translate-x-1/2 transition-all duration-75 ${
+                          isTopClose ? 'translate-y-3' : '-translate-y-full -translate-y-2'
+                        }`}
+                        style={{
+                          left: `${leftPercent}%`,
+                          top: `${topPercent}%`
+                        }}
+                      >
+                        <div className="font-bold text-gray-200 border-b border-white/10 pb-1 flex items-center justify-between gap-3">
+                          <span>{hoveredBar.label} {monthLabel}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 pt-0.5 font-headline font-semibold whitespace-nowrap">
+                          {hoveredBar.expense > 0 && (
+                            <span className="text-rose-400">
+                              Расход: -{Math.round(hoveredBar.expense).toLocaleString('ru-RU')} ₽
+                            </span>
+                          )}
+                          {hoveredBar.income > 0 && (
+                            <span className="text-[#4ADE80]">
+                              Доход: +{Math.round(hoveredBar.income).toLocaleString('ru-RU')} ₽
+                            </span>
+                          )}
+                          {hoveredBar.expense === 0 && hoveredBar.income === 0 && (
+                            <span className="text-gray-400">Операций не было</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

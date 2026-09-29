@@ -1091,14 +1091,27 @@ export default function App() {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} onAddCategory={handleAddCategory} transactions={transactions} onDelete={async (id) => { 
-                // Optimistic delete
-                setTransactions(prev => prev.filter(t => t.id !== id));
-                if (familyId) await deleteItem(familyId, 'transactions', id); 
-                setIsAddModalOpen(false); 
-                setSelectedTx(null);
-                toast.success('Операция удалена');
-            }} />}
+            {isAddModalOpen && <AddTransactionModal 
+                key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} 
+                onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
+                onSubmit={handleTransactionSubmit} 
+                settings={settings} 
+                members={members} 
+                categories={categories} 
+                learnedRules={learnedRules}
+                initialTransaction={selectedTx} 
+                onLearnRule={handleLearnRule} 
+                onAddCategory={handleAddCategory} 
+                transactions={transactions} 
+                onDelete={async (id) => { 
+                  // Optimistic delete
+                  setTransactions(prev => prev.filter(t => t.id !== id));
+                  if (familyId) await deleteItem(familyId, 'transactions', id); 
+                  setIsAddModalOpen(false); 
+                  setSelectedTx(null);
+                  toast.success('Операция удалена');
+                }} 
+            />}
             {isSettingsOpen && <SettingsModal 
                 key="settings-modal"
                 settings={settings} 

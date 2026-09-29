@@ -1113,8 +1113,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           }
         }}
         onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {
-          if (ruleToLearn) {
-            onLearnRule(ruleToLearn);
+          try {
+            if (ruleToLearn) {
+              onLearnRule(ruleToLearn);
+            }
+          } catch (e) {
+            console.warn("Failed to learn rule:", e);
           }
           let updated = items.map(i => {
             if (i.tempId === itemId) {
@@ -1144,8 +1148,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
           results.forEach(({ itemId, categoryId, ruleToLearn }) => {
             if (ruleToLearn && ruleToLearn.keyword) {
-              onLearnRule(ruleToLearn);
-              learnedBatchRules.push(ruleToLearn);
+              try {
+                onLearnRule(ruleToLearn);
+                learnedBatchRules.push(ruleToLearn);
+              } catch (e) {
+                console.warn("Failed to learn batch rule:", e);
+              }
             }
             updated = updated.map(i => {
               if (i.tempId === itemId) {

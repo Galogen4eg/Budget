@@ -6,9 +6,10 @@ import AIChat from './AIChat';
 
 interface AIChatModalProps {
   onClose: () => void;
+  onOpenSettings?: () => void;
 }
 
-const AIChatModal: React.FC<AIChatModalProps> = ({ onClose }) => {
+const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onOpenSettings }) => {
   // Lock body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -18,23 +19,23 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose }) => {
   }, []);
 
   return createPortal(
-    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4 lg:p-6">
       <motion.div 
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
         onClick={onClose} 
-        className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" 
+        className="absolute inset-0 bg-[#242b26]/50 backdrop-blur-md" 
       />
       <motion.div 
-        initial={{ y: '100%' }} 
-        animate={{ y: 0 }} 
-        exit={{ y: '100%' }} 
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col h-[90dvh] md:h-[800px] max-h-[100dvh]"
+        initial={{ y: '100%', opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }} 
+        exit={{ y: '100%', opacity: 0 }} 
+        transition={{ type: "spring", damping: 26, stiffness: 220 }}
+        className="relative bg-[#faf8f5] dark:bg-[#18191C] w-full max-w-[1160px] md:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col h-[94vh] md:h-[880px] max-h-[96vh] border border-[#eae4d7] dark:border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
-        <AIChat onClose={onClose} />
+        <AIChat onClose={onClose} onOpenSettings={onOpenSettings} />
       </motion.div>
     </div>,
     document.body

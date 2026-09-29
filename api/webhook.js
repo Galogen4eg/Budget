@@ -1,3 +1,98 @@
+/**
+ * @file api/webhook.js
+ * Обработчик входящих вебхуков от Telegram бота с интеграцией Google Gemini
+ * и синхронизацией данных с веб-приложением Terra.
+ */
+
+import fs from 'fs';
+import path from 'path';
+
+const QUEUE_FILE = path.join('/tmp', 'terra_telegram_queue.json');
+
+/**
+ * Записывает действие в очередь синхронизации с сайтом.
+ */
+function enqueueAction(action, payload, chatId) {
+  try {
+    let queue = [];
+    if (fs.existsSync(QUEUE_FILE)) {
+      queue = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf-8')) || [];
+    }
+    const newEntry = {
+      id: `tg_act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      action,
+      payload,
+      chatId: String(chatId),
+      createdAt: Date.now(),
+    };
+    queue.push(newEntry);
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue.slice(-100)), 'utf-8');
+    return newEntry;
+  } catch (err) {
+    console.error('Ошибка записи в очередь telegram-sync:', err);
+    return null;
+  }
+}
+
+/**
+ * Резервный парсер на регулярных выражениях, если AI временно недоступен.
+ */
+function fallbackRuleParser(text) {
+  const lower = text.toLowerCase().trim();
+
+  // 1. Список покупок ("купи муку 1 кг", "добавь в покупки молоко 2л")
+  if (lower.startsWith('купи ') || lower.includes('покуп') || lower.startsWith('добавь в список')) {
+    const rawItems = text
+      .replace(/^(купи|добавь в покупки|добавь в список покупок|добавь в список|список покупок:?)/i, '')
+      .trim();
+
+    const parts = rawItems.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+    const items = parts.map(part => {
+      // Ищем количество и единицу (например: "мука 1 кг" или "молоко 2 шт")
+      const match = part.match(/^(.*?)\s+(\d+(?:[.,]\d+)?)\s*(кг|г|л|мл|шт|уп|пач(?:ка|ки)?)?$/i);
+      if (match) {
+        let unit = match[3] || 'шт';
+        if (unit.startsWith('пач')) unit = 'уп';
+        return {
+          title: match[1].trim(),
+          amount: match[2].replace(',', '.'),
+          unit,
+        };
+      }
+      return { title: part, amount: '1', unit: 'шт' };
+    });
+
+    if (items.length > 0) {
+      return {
+        action: 'add_shopping',
+        items,
+        reply: `🛒 Добавлено в список покупок на сайте: ${items.map(i => `${i.title} (${i.amount} ${i.unit})`).join(', ')}`
+      };
+    }
+  }
+
+  // 2. Расход / доход ("трата 500 кофе", "расход 1200 такси", "доход 35000 зарплата")
+  const txMatch = lower.match(/^(трата|расход|потратил|купил|доход|зарплата)\s+(\d+(?:[.,]\d+)?)\s*(?:₽|руб(?:лей)?)?\s*(.*)$/i);
+  if (txMatch) {
+    const isIncome = ['доход', 'зарплата'].includes(txMatch[1]);
+    const amount = parseFloat(txMatch[2].replace(',', '.'));
+    const note = txMatch[3]?.trim() || (isIncome ? 'Доход' : 'Расход');
+
+    return {
+      action: 'add_transaction',
+      transaction: {
+        amount,
+        type: isIncome ? 'income' : 'expense',
+        note,
+        date: new Date().toISOString().split('T')[0],
+      },
+      reply: `✅ ${isIncome ? 'Доход' : 'Расход'} на ${amount} ₽ («${note}») записан на сайте!`
+    };
+  }
+
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(200).send('OK');
@@ -5,42 +100,95 @@ export default async function handler(req, res) {
 
   try {
     const { message } = req.body || {};
-
     if (!message || !message.text) {
       return res.status(200).send('OK');
     }
 
     const chatId = message.chat.id;
-    const userText = message.text;
+    const userText = message.text.trim();
 
+    // Команда /start
     if (userText === '/start') {
-      await sendTelegram(chatId, 'Привет! Бот на связи и готов отвечать на вопросы.');
+      const welcome = 
+        `👋 Привет! Я семейный AI-ассистент Terra.\n\n` +
+        `Я умею мгновенно изменять данные на вашем сайте:\n` +
+        `• 🛒 *«Добавь в список покупок муку 1 кг и сыр»* — добавит товары на сайт\n` +
+        `• 💸 *«Расход 450 кофе»* — запишет трату\n` +
+        `• 📅 *«Создай событие на завтра в 14:00 встреча»* — добавит в планы\n` +
+        `• 📊 *«Сколько потрачено в этом месяце?»* — проанализирует траты\n\n` +
+        `Ваш Chat ID: \`${chatId}\`\n(Укажите его в Настройках на сайте в разделе Telegram)`;
+      
+      await sendTelegram(chatId, welcome);
       return res.status(200).send('OK');
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      await sendTelegram(chatId, 'Ошибка: в настройках Vercel не задан GEMINI_API_KEY.');
-      return res.status(200).send('OK');
+    let handled = false;
+
+    // Пытаемся обработать через Gemini AI
+    if (apiKey) {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const systemPrompt = 
+          `Ты — семейный финансовый ассистент Terra для Telegram бота.
+Сегодня: ${todayStr}.
+Пользователь пишет команду. Ты должен вернуть ответ СТРОГО в формате JSON без разметки markdown:
+{
+  "action": "add_shopping" | "create_event" | "add_transaction" | "general_chat",
+  "reply": "Текст подтверждения пользователю на русском",
+  "shoppingItems": [ { "title": "Мука", "amount": "1", "unit": "кг" } ],
+  "event": { "title": "Встреча", "date": "YYYY-MM-DD", "time": "14:00" },
+  "transaction": { "amount": 500, "type": "expense", "note": "Кофе" }
+}`;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+        let geminiData = await callGemini(geminiUrl, userText, systemPrompt);
+
+        if (geminiData.error && typeof geminiData.error.message === 'string' && geminiData.error.message.includes('high demand')) {
+          await new Promise(r => setTimeout(r, 1500));
+          geminiData = await callGemini(geminiUrl, userText, systemPrompt);
+        }
+
+        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          let parsed;
+          try {
+            parsed = JSON.parse(rawText);
+          } catch {
+            const first = rawText.indexOf('{');
+            const last = rawText.lastIndexOf('}');
+            if (first !== -1 && last !== -1) {
+              parsed = JSON.parse(rawText.substring(first, last + 1));
+            }
+          }
+
+          if (parsed && parsed.action && parsed.action !== 'general_chat') {
+            enqueueAction(parsed.action, parsed, chatId);
+            await sendTelegram(chatId, `✅ ${parsed.reply || 'Действие синхронизировано с сайтом!'}`);
+            handled = true;
+          } else if (parsed && parsed.reply) {
+            await sendTelegram(chatId, parsed.reply);
+            handled = true;
+          }
+        }
+      } catch (aiErr) {
+        console.warn('Gemini parsing warning, falling back to rule parser:', aiErr.message);
+      }
     }
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-    
-    // Пытаемся сделать запрос с 1 повтором в случае перегрузки
-    let geminiData = await callGemini(geminiUrl, userText);
-
-    if (geminiData.error && typeof geminiData.error.message === 'string' && geminiData.error.message.includes('high demand')) {
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Пауза 1.5 секунды
-      geminiData = await callGemini(geminiUrl, userText);
+    // Если AI недоступен или не справился, используем надёжный резервный парсер
+    if (!handled) {
+      const fallback = fallbackRuleParser(userText);
+      if (fallback) {
+        enqueueAction(fallback.action, fallback, chatId);
+        await sendTelegram(chatId, fallback.reply);
+        handled = true;
+      }
     }
 
-    if (geminiData.error) {
-      await sendTelegram(chatId, `Ошибка Gemini: ${geminiData.error.message}`);
-      return res.status(200).send('OK');
+    if (!handled) {
+      await sendTelegram(chatId, `Я вас понял! Чтобы добавить что-то на сайт, напишите например: «Купи муку 1 кг» или «Расход 500 кофе».`);
     }
-
-    const botReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ.';
-    await sendTelegram(chatId, botReply);
 
     return res.status(200).send('OK');
   } catch (error) {
@@ -49,12 +197,14 @@ export default async function handler(req, res) {
   }
 }
 
-async function callGemini(url, text) {
+async function callGemini(url, userText, systemInstruction) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text }] }]
+      contents: [{ role: 'user', parts: [{ text: userText }] }],
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
     })
   });
   return await res.json();
@@ -63,11 +213,10 @@ async function callGemini(url, text) {
 async function sendTelegram(chatId, text) {
   const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim().replace(/^bot/i, '');
   if (!token) {
-    console.error('TELEGRAM_BOT_TOKEN не задан в переменных окружения');
+    console.error('TELEGRAM_BOT_TOKEN не задан');
     return;
   }
 
-  // Защита от превышения лимита Telegram в 4096 символов на одно сообщение
   const safeText = text && text.length > 4000 ? text.slice(0, 4000) + '...' : (text || 'Пустой ответ.');
 
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -75,7 +224,8 @@ async function sendTelegram(chatId, text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: safeText
+      text: safeText,
+      parse_mode: 'Markdown'
     })
   });
 }

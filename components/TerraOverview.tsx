@@ -15,6 +15,8 @@ import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, addItemsBatch, updateItem } from '../utils/db';
 import { parseSingleQuickShoppingText, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
+import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { recordPurchaseEvent } from '../utils/frequentPurchases';
 import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
 import BrandIcon from './BrandIcon';
@@ -594,11 +596,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [newShoppingTitle]);
 
   const handleToggleShopping = async (item: ShoppingItem) => {
-    const updated = { ...item, completed: !item.completed };
+    const nextCompleted = !item.completed;
+    const updated = { ...item, completed: nextCompleted };
     setShoppingItems(prev => prev.map(i => i.id === item.id ? updated : i));
     if (familyId) {
       await updateItem(familyId, 'shopping', item.id, updated);
     }
+    recordPurchaseEvent(
+      item.title,
+      nextCompleted ? 'completed' : 'restored',
+      { category: item.category, amount: item.amount, unit: item.unit, price: item.estimatedPrice }
+    );
   };
 
   const handleAddShoppingInline = async (e: React.FormEvent) => {
@@ -608,23 +616,27 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
     try {
       setIsAddingShopping(true);
-      const parsedItems = createShoppingItemsFromQuickText(raw, currentMember.id || 'user');
+      const targetMemberId = currentMember.id || 'user';
+      const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
-      const itemsWithIds: ShoppingItem[] = parsedItems.map(item => ({
-        ...item,
-        id: item.id || (Date.now().toString() + Math.random().toString(36).substring(2, 6))
-      }));
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb
+      } = mergeOrRestoreShoppingItems(shoppingItems, parsedItems, targetMemberId);
 
-      // Optimistically update list so the UI responds immediately
-      setShoppingItems(prev => [...itemsWithIds, ...prev]);
+      setShoppingItems(updatedList);
       setNewShoppingTitle('');
 
       if (familyId) {
-        if (itemsWithIds.length === 1) {
-          await addItem(familyId, 'shopping', itemsWithIds[0]);
-        } else {
-          await addItemsBatch(familyId, 'shopping', itemsWithIds);
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
+        }
+        if (itemsToAddInDb.length === 1) {
+          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
+        } else if (itemsToAddInDb.length > 1) {
+          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
         }
       }
     } catch (err) {
@@ -885,15 +897,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             )}
           </div>
 
-          {/* Right: Circle Plus Button */}
-          <button
-            type="button"
-            onClick={onOpenAddModal}
-            title="Добавить операцию"
-            className="w-10 h-10 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
-          >
-            <Plus size={22} strokeWidth={2.4} />
-          </button>
+          {/* Right: AI Assistant & Circle Plus Button */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenAIChat}
+              title="AI Ассистент (Gemini)"
+              aria-label="AI Ассистент"
+              className="w-10 h-10 rounded-full bg-emerald-100/80 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+            >
+              <Sparkles size={19} />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenAddModal}
+              title="Добавить операцию"
+              className="w-10 h-10 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+            >
+              <Plus size={22} strokeWidth={2.4} />
+            </button>
+          </div>
         </header>
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
@@ -1094,7 +1117,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <div className="space-y-3">
               {mobileCategories.map((cat, idx) => (
                 <div 
-                  key={cat.id || idx} 
+                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
                   onClick={() => {
                     setSelectedCatModalId(cat.id || null);
                     setIsCatModalOpen(true);
@@ -1150,9 +1173,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-2">
-              {displayShoppingItems.map(item => (
+              {displayShoppingItems.map((item, idx) => (
                 <div 
-                  key={item.id}
+                  key={item.id ? `mob-shop-${item.id}` : `mob-shop-idx-${idx}`}
                   className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-xl p-3 flex items-center justify-between hover:bg-[#EAE6DD]/60 transition"
                 >
                   <div className="flex items-center gap-3">
@@ -1226,7 +1249,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               <div className="space-y-2">
-                {upcomingWeekEvents.map(ev => {
+                {upcomingWeekEvents.map((ev, idx) => {
                   const evDate = new Date(ev.date);
                   const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
                   const dayLabel = dayOfWeekNames[evDate.getDay()];
@@ -1237,7 +1260,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                   return (
                     <div
-                      key={ev.id}
+                      key={ev.id ? `mob-ev-${ev.id}` : `mob-ev-idx-${idx}`}
                       onClick={() => onNavigateTab('plans')}
                       className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer"
                     >
@@ -1296,7 +1319,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-2">
-              {recentMobileTransactions.map(tx => {
+              {recentMobileTransactions.map((tx, idx) => {
                 const isExpense = tx.type === 'expense';
                 const txMember = members.find(m => m.id === tx.memberId) || { name: 'Гена' };
                 const cat = categories.find(c => c.id === tx.category);
@@ -1308,7 +1331,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                 return (
                   <div
-                    key={tx.id}
+                    key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
                     onClick={() => onEditTransaction(tx as any)}
                     className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between hover:bg-[#EAE6DD]/70 transition cursor-pointer"
                   >
@@ -1410,6 +1433,18 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Right: Action Buttons Group */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* AI Assistant Button */}
+          <button 
+            type="button"
+            onClick={onOpenAIChat}
+            title="AI Ассистент (Gemini)"
+            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#4A7C59] to-emerald-600 hover:from-[#3D6849] hover:to-emerald-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-emerald-900/10 transition cursor-pointer"
+          >
+            <Sparkles size={15} />
+            <span className="hidden sm:inline">AI АССИСТЕНТ</span>
+            <span className="sm:hidden">AI</span>
+          </button>
+
           {/* New Transaction Button */}
           <button 
             type="button"
@@ -1805,9 +1840,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-auto pt-4">
-                {categoryBreakdown.items.map(cat => (
+                {categoryBreakdown.items.map((cat, idx) => (
                   <div 
-                    key={cat.id} 
+                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`} 
                     onClick={() => onDrillDown(cat.id)}
                     className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex flex-col justify-between hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
                   >
@@ -1867,9 +1902,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     Все покупки сделаны! 🎉
                   </li>
                 ) : (
-                  activeShoppingItems.slice(0, 4).map(item => (
+                  activeShoppingItems.slice(0, 4).map((item, idx) => (
                     <li 
-                      key={item.id} 
+                      key={item.id ? `desk-shop-${item.id}` : `desk-shop-idx-${idx}`} 
                       onClick={() => handleToggleShopping(item)}
                       className="py-3 flex items-center justify-between group cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-1 rounded-xl"
                     >
@@ -1963,7 +1998,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
 
                 <div className="space-y-2 mt-4">
-                  {upcomingWeekEvents.slice(0, 3).map(ev => {
+                  {upcomingWeekEvents.slice(0, 3).map((ev, idx) => {
                     const evDate = new Date(ev.date);
                     const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
                     const dayLabel = dayOfWeekNames[evDate.getDay()];
@@ -1974,7 +2009,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                     return (
                       <div
-                        key={ev.id}
+                        key={ev.id ? `desk-ev-${ev.id}` : `desk-ev-idx-${idx}`}
                         onClick={() => onNavigateTab('plans')}
                         className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
                       >
@@ -2051,7 +2086,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                     return (
                       <div 
-                        key={tx.id}
+                        key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
                         onClick={() => onEditTransaction(tx)}
                         className={`flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer ${
                           isTxToday && isExpense && isOverDailyLimit && idx === 0

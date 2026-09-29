@@ -192,10 +192,11 @@ export const parseQuickShoppingInput = (input: string): ParsedQuickShoppingItem[
 export const createShoppingItemsFromQuickText = (
   text: string, 
   memberId: string = 'user'
-): Omit<ShoppingItem, 'id'>[] => {
+): ShoppingItem[] => {
   const parsedItems = parseQuickShoppingInput(text);
   
-  return parsedItems.map(item => ({
+  return parsedItems.map((item, idx) => ({
+    id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
     title: item.title,
     amount: item.amount,
     unit: item.unit,

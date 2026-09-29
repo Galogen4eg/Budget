@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf, Wallet } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf, Wallet, Sparkles } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -44,7 +44,9 @@ const DuplicatesModal = React.lazy(() => import('./components/DuplicatesModal'))
 const AIChatModal = React.lazy(() => import('./components/AIChatModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
+import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, 
   addItemsBatch, updateItemsBatch, deleteItemsBatch, joinFamily 
@@ -134,6 +136,15 @@ export default function App() {
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
+
+  // Двусторонняя синхронизация с Telegram-ботом в реальном времени
+  useTelegramSync({
+    settings,
+    familyId,
+    setShoppingItems,
+    setTransactions,
+    setEvents,
+  });
 
   useEffect(() => {
     const handleOnline = () => {
@@ -279,6 +290,18 @@ export default function App() {
       // Edit
       const updatedTx = { ...txData, id: selectedTx.id };
       
+      // Check if savings transfer changed
+      const wasSavings = isSavingsTransfer(selectedTx);
+      const isSavingsNow = isSavingsTransfer(updatedTx);
+      if (wasSavings !== isSavingsNow || (isSavingsNow && selectedTx.amount !== updatedTx.amount)) {
+        const delta = isSavingsNow ? (wasSavings ? updatedTx.amount - selectedTx.amount : updatedTx.amount) : -selectedTx.amount;
+        if (delta !== 0) {
+          const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, Math.abs(delta), delta > 0);
+          setGoals(updatedGoals);
+          if (familyId) await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
+        }
+      }
+
       // Update Local State Immediately
       setTransactions(prev => prev.map(t => t.id === selectedTx.id ? updatedTx : t));
       
@@ -291,6 +314,21 @@ export default function App() {
       const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
       const newTx = { ...txData, id };
       
+      // If it's a transfer to savings account, automatically credit the savings goal!
+      if (isSavingsTransfer(newTx)) {
+        const isAddition = newTx.type === 'expense';
+        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, newTx.amount, isAddition);
+        setGoals(updatedGoals);
+        if (familyId) {
+          if (goals.some(g => g.id === affectedGoal.id)) {
+            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
+          } else {
+            await addItem(familyId, 'goals', affectedGoal);
+          }
+        }
+        toast.success(`Переведено на накопительный счет: +${newTx.amount.toLocaleString('ru-RU')} ₽`);
+      }
+
       // Update Local State Immediately
       setTransactions(prev => [newTx, ...prev]);
       
@@ -300,49 +338,77 @@ export default function App() {
   };
 
   const handleLearnRule = async (rule: LearnedRule) => {
+    try {
       // Optimistic update for UI
       setLearnedRules(prev => [...prev, rule]);
       
       // Save to Firestore if online
       if (familyId) {
+        try {
           await addItem(familyId, 'rules', rule);
+        } catch (e) {
+          console.warn("Could not save rule to Firestore:", e);
+        }
       }
 
       // Automatically apply the new rule to existing transactions
       const keyword = rule.keyword.toLowerCase();
       let count = 0;
+      let totalSavingsDelta = 0;
       
       const updatedTransactions = transactions.map(tx => {
-          // Skip if already in the target category (unless we want to enforce renaming)
-          if (tx.category === rule.categoryId && (!rule.cleanName || tx.note === rule.cleanName)) {
-              return tx;
-          }
-
-          const raw = (tx.rawNote || tx.note || '').toLowerCase();
-          
-          if (raw.includes(keyword)) {
-              count++;
-              return { 
-                  ...tx, 
-                  category: rule.categoryId,
-                  note: rule.cleanName || tx.note // Update clean name if available
-              };
-          }
+        // Skip if already in the target category (unless we want to enforce renaming)
+        if (tx.category === rule.categoryId && (!rule.cleanName || tx.note === rule.cleanName)) {
           return tx;
+        }
+
+        const raw = (tx.rawNote || tx.note || '').toLowerCase();
+        
+        if (raw.includes(keyword)) {
+          count++;
+          if (rule.categoryId === 'savings' || isSavingsTransfer({ category: rule.categoryId, note: rule.cleanName, rawNote: raw })) {
+            totalSavingsDelta += tx.amount;
+          }
+          return { 
+            ...tx, 
+            category: rule.categoryId,
+            note: rule.cleanName || tx.note // Update clean name if available
+          };
+        }
+        return tx;
       });
 
-      if (count > 0) {
-          setTransactions(updatedTransactions);
-          if (familyId) {
-              const changed = updatedTransactions.filter((tx, i) => tx !== transactions[i]);
-              if (changed.length > 0) {
-                  await updateItemsBatch(familyId, 'transactions', changed);
-              }
+      if (totalSavingsDelta > 0) {
+        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalSavingsDelta, true);
+        setGoals(updatedGoals);
+        if (familyId) {
+          if (goals.some(g => g.id === affectedGoal.id)) {
+            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
+          } else {
+            await addItem(familyId, 'goals', affectedGoal);
           }
-          toast.success(`Правило сохранено. Обновлено операций: ${count}`);
-      } else {
-          toast.success("Правило сохранено");
+        }
       }
+
+      if (count > 0) {
+        setTransactions(updatedTransactions);
+        if (familyId) {
+          try {
+            const changed = updatedTransactions.filter((tx, i) => tx !== transactions[i]);
+            if (changed.length > 0) {
+              await updateItemsBatch(familyId, 'transactions', changed);
+            }
+          } catch (e) {
+            console.warn("Could not sync updated transactions:", e);
+          }
+        }
+        toast.success(`Правило сохранено. Обновлено операций: ${count}${totalSavingsDelta > 0 ? ` (в копилку: +${totalSavingsDelta.toLocaleString('ru-RU')} ₽)` : ''}`);
+      } else {
+        toast.success("Правило сохранено");
+      }
+    } catch (err) {
+      console.error("Error in handleLearnRule:", err);
+    }
   };
 
   const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
@@ -434,8 +500,9 @@ export default function App() {
     return result;
   };
 
-  const handleSendShoppingToTelegram = async (items: ShoppingItem[]) => {
-      const activeItems = items.filter(i => !i.completed);
+  const handleSendShoppingToTelegram = async (itemsListToUse?: ShoppingItem[]) => {
+      const sourceItems = itemsListToUse && itemsListToUse.length > 0 ? itemsListToUse : shoppingItems;
+      const activeItems = sourceItems.filter(i => !i.completed);
       const dateStr = new Date().toLocaleDateString('ru-RU');
       let text = settings.shoppingTemplate || `🛒 *Список покупок* ({date})\n\n{items}`;
       
@@ -448,25 +515,46 @@ export default function App() {
 
       const loadingToast = toast.loading('Отправка в Telegram...');
       
-      // Check if we can edit previous message
+      // Check if we can edit previous message for today
       const todayStr = new Date().toDateString();
-      const lastState = settings.telegramState;
-      const messageIdToEdit = (lastState && lastState.lastShoppingDate === todayStr) ? lastState.lastShoppingMessageId : undefined;
+      let messageIdToEdit = settings.telegramState?.lastShoppingDate === todayStr 
+        ? settings.telegramState.lastShoppingMessageId 
+        : undefined;
+
+      if (!messageIdToEdit && typeof localStorage !== 'undefined') {
+        try {
+          const cached = JSON.parse(localStorage.getItem('terra_tg_shopping_state') || '{}');
+          if (cached.lastShoppingDate === todayStr && cached.lastShoppingMessageId) {
+            messageIdToEdit = cached.lastShoppingMessageId;
+          }
+        } catch {}
+      }
 
       const result = await sendTelegramMessage(text, messageIdToEdit, 'shopping');
       
       toast.dismiss(loadingToast);
       
       if (result.success) {
-          toast.success("Список отправлен в Telegram!");
-          if (result.messageId) {
-              await updateSettings({
-                  ...settings,
-                  telegramState: {
-                      lastShoppingMessageId: result.messageId,
-                      lastShoppingDate: todayStr
-                  }
-              });
+          const finalMessageId = result.messageId || messageIdToEdit;
+          if (messageIdToEdit && finalMessageId === messageIdToEdit) {
+            toast.success("Список покупок в Telegram обновлен!");
+          } else {
+            toast.success("Список покупок отправлен в Telegram!");
+          }
+
+          if (finalMessageId) {
+            const newState = {
+              lastShoppingMessageId: finalMessageId,
+              lastShoppingDate: todayStr
+            };
+            try {
+              localStorage.setItem('terra_tg_shopping_state', JSON.stringify(newState));
+            } catch {}
+
+            await updateSettings({
+              ...settings,
+              telegramState: newState
+            });
           }
           return true;
       } else {
@@ -794,6 +882,14 @@ export default function App() {
             <div className={`flex items-center ${isSidebarExpanded ? 'justify-around w-full' : 'flex-col gap-1 w-full'}`}>
               <button 
                 type="button"
+                onClick={() => setIsAIChatOpen(true)} 
+                title="AI Ассистент (Gemini)" 
+                className="p-2 rounded-xl text-[#4A7C59] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
+              >
+                <Sparkles size={18} />
+              </button>
+              <button 
+                type="button"
                 onClick={() => setShowNotifications(true)} 
                 title="Уведомления" 
                 className="relative p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
@@ -977,7 +1073,7 @@ export default function App() {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-            {isAddModalOpen && <AddTransactionModal key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} transactions={transactions} onDelete={async (id) => { 
+            {isAddModalOpen && <AddTransactionModal key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} onSubmit={handleTransactionSubmit} settings={settings} members={members} categories={categories} initialTransaction={selectedTx} onLearnRule={handleLearnRule} onAddCategory={handleAddCategory} transactions={transactions} onDelete={async (id) => { 
                 // Optimistic delete
                 setTransactions(prev => prev.filter(t => t.id !== id));
                 if (familyId) await deleteItem(familyId, 'transactions', id); 
@@ -1025,7 +1121,16 @@ export default function App() {
                 onDeleteTransactionsByPeriod={handleDeleteTransactionsByPeriod} 
                 onOpenDuplicates={() => { setIsSettingsOpen(false); setIsDuplicatesOpen(true); }} 
             />}
-            {isAIChatOpen && <AIChatModal key="ai-chat-modal" onClose={() => setIsAIChatOpen(false)} />}
+            {isAIChatOpen && (
+              <AIChatModal 
+                key="ai-chat-modal" 
+                onClose={() => setIsAIChatOpen(false)} 
+                onOpenSettings={() => {
+                  setIsAIChatOpen(false);
+                  setIsSettingsOpen(true);
+                }}
+              />
+            )}
             {drillDownState && <DrillDownModal 
                 key={`drilldown-${drillDownState.categoryId || drillDownState.merchantName}`}
                 categoryId={drillDownState.categoryId} 
@@ -1066,7 +1171,28 @@ export default function App() {
                     // Immediately close preview modal & update local transactions
                     setImportPreview(null); 
                     setTransactions(prev => [...prepared, ...prev]);
-                    toast.success(`Импортировано ${prepared.length} операций`); 
+
+                    // Check for savings transfers in imported items
+                    const savingsTransfers = prepared.filter(t => isSavingsTransfer(t));
+                    let totalImportedSavings = 0;
+                    savingsTransfers.forEach(t => {
+                      totalImportedSavings += (t.type === 'expense' ? t.amount : -t.amount);
+                    });
+
+                    if (totalImportedSavings > 0) {
+                      const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalImportedSavings, true);
+                      setGoals(updatedGoals);
+                      if (familyId) {
+                        if (goals.some(g => g.id === affectedGoal.id)) {
+                          await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
+                        } else {
+                          await addItem(familyId, 'goals', affectedGoal);
+                        }
+                      }
+                      toast.success(`Импортировано ${prepared.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
+                    } else {
+                      toast.success(`Импортировано ${prepared.length} операций`); 
+                    }
 
                     // Sync to Firestore if in family mode
                     if (familyId) {

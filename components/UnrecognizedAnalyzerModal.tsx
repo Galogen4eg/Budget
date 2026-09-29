@@ -85,14 +85,38 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     }
   }, [unrecognizedItems.length, currentIndex]);
 
-  // Automatically close analyzer when all unrecognized items are resolved
-  useEffect(() => {
-    if (isOpen && unrecognizedItems.length === 0) {
-      onClose();
-    }
-  }, [isOpen, unrecognizedItems.length, onClose]);
+  if (!isOpen) return null;
 
-  if (!isOpen || unrecognizedItems.length === 0) return null;
+  // Show Completion Screen when all unrecognized items are resolved
+  if (unrecognizedItems.length === 0) {
+    return (
+      <div className="fixed inset-0 z-[60] bg-stone-950/50 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div 
+          className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col p-6 sm:p-8 text-center items-center gap-5 animate-in fade-in zoom-in-95 duration-200"
+          role="dialog"
+        >
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#4A7C59] to-[#2D5540] text-white flex items-center justify-center shadow-lg">
+            <CheckCheck size={32} strokeWidth={2.5} />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-xl font-bold font-headline text-stone-900 dark:text-white">
+              Все операции разобраны!
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-gray-400 max-w-sm mx-auto">
+              Категории успешно назначены, а обученные правила сохранены. Теперь можно подтвердить импорт в основной список.
+            </p>
+          </div>
+          <RippleButton
+            onClick={onClose}
+            className="w-full py-3 px-6 rounded-2xl bg-[#4A7C59] hover:bg-[#3B6447] text-white font-bold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>Вернуться к выписке</span>
+            <ArrowRight size={16} />
+          </RippleButton>
+        </div>
+      </div>
+    );
+  }
 
   const safeIndex = Math.min(currentIndex, unrecognizedItems.length - 1);
   const activeItem = unrecognizedItems[safeIndex] || unrecognizedItems[0];
@@ -260,8 +284,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
 
               {/* Main Source Item Card */}
               <div 
-                onClick={() => onEditItem && onEditItem(activeItem)}
-                className="bg-white dark:bg-[#252528] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-sm space-y-3 cursor-pointer hover:border-[#4A7C59] transition-all group"
+                className="bg-white dark:bg-[#252528] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-sm space-y-3 transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1.5 min-w-0">
@@ -269,17 +292,37 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       <span className="text-xs font-bold font-mono text-stone-400 dark:text-gray-500 uppercase tracking-wider">
                         Исходная запись банковской выписки:
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#4A7C59] bg-[#EAF2EC] dark:bg-green-950/40 px-2 py-0.5 rounded-md group-hover:bg-[#4A7C59] group-hover:text-white transition">
-                        <Edit3 size={12} />
-                        Изменить название
-                      </span>
+                      {onEditItem && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditItem(activeItem);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#4A7C59] bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white px-2 py-0.5 rounded-md transition cursor-pointer"
+                        >
+                          <Edit3 size={12} />
+                          Изменить название
+                        </button>
+                      )}
                     </div>
                     <div className="text-base font-headline font-bold text-stone-900 dark:text-white break-words">
                       {activeItem.rawNote || activeItem.note}
                     </div>
                     <div className="text-xs text-stone-600 dark:text-gray-300 bg-[#F5F0E6] dark:bg-white/5 p-2.5 rounded-xl border border-[#E5DEC3] dark:border-white/10 mt-2 flex items-center justify-between gap-2">
                       <span>Очищенное название: <b className="text-stone-900 dark:text-white font-bold">{activeAnalysis.cleanName || activeItem.note}</b></span>
-                      <Edit3 size={14} className="text-[#4A7C59] shrink-0" />
+                      {onEditItem && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditItem(activeItem);
+                          }}
+                          className="text-[#4A7C59] hover:text-[#3B6447] p-1 cursor-pointer"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -411,8 +454,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                 return (
                   <div
                     key={item.id}
-                    onClick={() => onEditItem && onEditItem(item)}
-                    className="bg-white dark:bg-[#252528] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs flex flex-col gap-3 transition-all cursor-pointer hover:border-[#4A7C59] group"
+                    className="bg-white dark:bg-[#252528] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs flex flex-col gap-3 transition-all"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -432,9 +474,19 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                               <Sparkles size={10} />
                               Новое название
                             </span>
-                            <span className="text-gray-400 group-hover:text-[#4A7C59] transition ml-auto sm:ml-0">
-                              <Edit3 size={14} />
-                            </span>
+                            {onEditItem && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditItem(item);
+                                }}
+                                className="text-gray-400 hover:text-[#4A7C59] transition p-0.5 cursor-pointer ml-auto sm:ml-0"
+                                title="Редактировать название и параметры"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                            )}
                           </div>
 
                           {/* Исходная сырая строка */}

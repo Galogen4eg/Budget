@@ -251,7 +251,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubs = [
       unsubGlobal,
       subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[])),
-      subscribeToCollection(familyId, 'shopping', (data) => setShoppingItems(data as ShoppingItem[])),
+      subscribeToCollection(familyId, 'shopping', (data) => {
+        const uniqueMap = new Map<string, ShoppingItem>();
+        (data as ShoppingItem[]).forEach(item => {
+          if (item && item.id) uniqueMap.set(item.id, item);
+        });
+        setShoppingItems(Array.from(uniqueMap.values()));
+      }),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
       subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
       subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])),

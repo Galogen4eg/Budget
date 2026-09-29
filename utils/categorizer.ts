@@ -441,9 +441,22 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
   for (const rule of learnedRules) {
     if (cleanNote.includes(rule.keyword.toLowerCase())) return rule.categoryId;
   }
+
+  // Накопительные счета и копилки
+  if (
+    cleanNote.includes('накопительный') || 
+    cleanNote.includes('копилк') || 
+    cleanNote.includes('накопления') || 
+    cleanNote.includes('сберегательн') || 
+    cleanNote.includes('вклад')
+  ) {
+    return 'savings';
+  }
+
   if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer')) return 'transfer';
 
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
+    'savings': ['накопительный', 'копилка', 'накопления', 'вклад', 'сбережения'],
     'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'продукты', 'супермаркет', 'гастроном'],
     'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан', 'бар', 'паб', 'пицц', 'суши', 'роллы'],
     'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто', 'бензин', 'топливо', 'парковк', 'мойка', 'шиномонт'],
@@ -472,12 +485,14 @@ export const getTransferDetails = (note: string, rawNote?: string, categoryId?: 
   const rawStr = (rawNote || '').trim();
   const combined = `${noteStr} ${rawStr}`.toLowerCase();
 
-  const isTransferCategory = categoryId === 'transfer';
+  const isTransferCategory = categoryId === 'transfer' || categoryId === 'savings';
   const isTransferText = combined.includes('перевод') || 
                          combined.includes('сбп') || 
                          combined.includes('sbp') || 
                          combined.includes('transfer') || 
                          combined.includes('c2c') || 
+                         combined.includes('накопительн') ||
+                         combined.includes('копилк') ||
                          noteStr.startsWith('Перевод');
 
   if (!isTransferCategory && !isTransferText) {
@@ -486,6 +501,23 @@ export const getTransferDetails = (note: string, rawNote?: string, categoryId?: 
       isSelf: false,
       badgeLabel: '',
       badgeType: 'generic'
+    };
+  }
+
+  // Check for savings account transfer
+  if (
+    categoryId === 'savings' || 
+    combined.includes('накопительный') || 
+    combined.includes('копилк') || 
+    combined.includes('накопления') || 
+    combined.includes('вклад') || 
+    combined.includes('сберегательн')
+  ) {
+    return {
+      isTransfer: true,
+      isSelf: true,
+      badgeLabel: 'Накопительный счет',
+      badgeType: 'self'
     };
   }
 

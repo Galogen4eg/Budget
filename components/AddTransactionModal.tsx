@@ -11,6 +11,7 @@ import { getIconById, MemberMarker } from '../constants';
 import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
 import { triggerHaptic } from '../utils/haptics';
 import { sendTelegramMessage } from '../utils/telegram';
+import { CategoryPickerAccordion } from './CategoryPickerAccordion';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -23,6 +24,7 @@ interface AddTransactionModalProps {
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   transactions: Transaction[];
   onDelete?: (id: string) => Promise<void>;
+  onAddCategory?: (category: Category) => void;
 }
 
 const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => (
@@ -42,7 +44,7 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule, transactions = []
+  onClose, onSubmit, settings, members, categories, initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'categories' | 'assignee' | 'monthly_binding'>('main');
@@ -83,11 +85,16 @@ export default function AddTransactionModal({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // Dynamic Input Width for Amount
+  const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
+  const initialWidth = useMemo(() => {
+    return Math.max(initialAmount.length * 22 + 20, 60);
+  }, [initialAmount]);
   const spanRef = useRef<HTMLSpanElement>(null);
-  const [inputWidth, setInputWidth] = useState(60);
+  const [inputWidth, setInputWidth] = useState(initialWidth);
 
   // Derived Data
   const selectedCategory = categories.find(c => c.id === categoryId) || categories[0] || { id: 'other', label: 'Другое', color: '#4A7C59', icon: 'tag' };
+  const parentOfSelected = selectedCategory?.parentId ? categories.find(c => c.id === selectedCategory.parentId) : null;
   const selectedMember = members.find(m => m.id === memberId) || members[0] || { id: 'default', name: 'Гена', color: '#4A7C59' };
   const boundExpense = settings.mandatoryExpenses?.find(e => e.id === boundExpenseId);
   const mandatoryExpenses = settings.mandatoryExpenses || [];
@@ -265,14 +272,10 @@ export default function AddTransactionModal({
         {/* Mobile Drag Indicator Handle */}
         <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
 
-        <AnimatePresence initial={false} mode="popLayout">
+        <AnimatePresence initial={false} mode="wait">
           {currentView === 'main' && (
-            <motion.div 
+            <div 
               key="main"
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
               className="flex flex-col h-full overflow-hidden"
             >
               {/* Header */}
@@ -550,23 +553,29 @@ export default function AddTransactionModal({
                       onClick={() => setCurrentView('categories')}
                       className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div 
                           className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs group-hover:scale-105 transition-transform"
                           style={{ backgroundColor: selectedCategory.color || '#4A7C59' }}
                         >
                           {getIconById(selectedCategory.icon, 18)}
                         </div>
-                        <div>
-                          <div className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-primary transition">
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-primary transition truncate">
                             {selectedCategory.label}
                           </div>
-                          <div className="text-[9px] font-bold text-primary dark:text-green-400 tracking-wider uppercase mt-0.5">
-                            Нажмите, чтобы изменить
-                          </div>
+                          {parentOfSelected ? (
+                            <div className="text-[10px] text-graphite-muted dark:text-gray-400 truncate">
+                              в категории {parentOfSelected.label}
+                            </div>
+                          ) : (
+                            <div className="text-[9px] font-bold text-primary dark:text-green-400 tracking-wider uppercase mt-0.5">
+                              Нажмите, чтобы изменить
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <ChevronRight size={16} className="text-graphite-muted group-hover:text-primary group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight size={16} className="text-graphite-muted group-hover:text-primary group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
                     </div>
                   </div>
 
@@ -715,7 +724,7 @@ export default function AddTransactionModal({
                 </button>
               </div>
 
-            </motion.div>
+            </div>
           )}
 
           {/* SUBVIEW: Categories Selection */}
@@ -728,127 +737,20 @@ export default function AddTransactionModal({
               transition={{ type: 'spring', stiffness: 320, damping: 30 }}
               className="flex flex-col h-full bg-[#F8F6F2] dark:bg-[#121214]"
             >
-              <SubHeader title="Категория" onBack={() => { setCategorySearchQuery(''); setCurrentView('main'); }} />
+              <SubHeader title="Выбор категории" onBack={() => { setCurrentView('main'); }} />
 
-              {/* Search Field */}
-              <div className="px-4 pt-3 pb-1 shrink-0">
-                <div className="relative">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-graphite-muted dark:text-gray-400 pointer-events-none" />
-                  <input 
-                    type="text"
-                    value={categorySearchQuery}
-                    onChange={(e) => setCategorySearchQuery(e.target.value)}
-                    placeholder="Поиск категории..."
-                    className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl text-xs font-bold text-graphite dark:text-white placeholder:text-graphite-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
-                    autoFocus
-                  />
-                  {categorySearchQuery && (
-                    <button 
-                      type="button"
-                      onClick={() => setCategorySearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 no-scrollbar">
-                {categorySearchQuery.trim() ? (
-                  (() => {
-                    const q = categorySearchQuery.toLowerCase().trim();
-                    const filtered = categories.filter(c => c.label.toLowerCase().includes(q)).sort((a, b) => a.label.localeCompare(b.label));
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="text-center py-10 text-xs font-bold text-graphite-muted dark:text-gray-400">
-                          Категорий по запросу «{categorySearchQuery}» не найдено
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
-                        {filtered.map(cat => {
-                          const isSelected = categoryId === cat.id;
-                          const parentCat = cat.parentId ? categories.find(p => p.id === cat.parentId) : null;
-
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => { 
-                                setCategoryId(cat.id); 
-                                setCategorySearchQuery(''); 
-                                setCurrentView('main'); 
-                              }}
-                              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors text-left"
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div 
-                                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0" 
-                                  style={{ backgroundColor: cat.color || '#4A7C59' }}
-                                >
-                                  {getIconById(cat.icon, 16)}
-                                </div>
-                                <div className="min-w-0">
-                                  <span className={`text-sm block truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white font-medium'}`}>
-                                    {cat.label}
-                                  </span>
-                                  {parentCat && (
-                                    <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block">
-                                      в категории {parentCat.label}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()
-                ) : (
-                  categories.filter(c => !c.parentId).sort((a, b) => a.label.localeCompare(b.label)).map(parentCat => {
-                    const children = categories.filter(c => c.parentId === parentCat.id).sort((a, b) => a.label.localeCompare(b.label));
-                    const family = [parentCat, ...children];
-
-                    return (
-                      <div key={parentCat.id} className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
-                        {family.map((cat) => {
-                          const isChild = cat.parentId === parentCat.id;
-                          const isSelected = categoryId === cat.id;
-
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => { setCategoryId(cat.id); setCategorySearchQuery(''); setCurrentView('main'); }}
-                              className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors ${
-                                isChild ? 'pl-8 bg-[#FAF8F5]/50 dark:bg-[#1C1C1E]/50' : ''
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div 
-                                  className={`rounded-xl flex items-center justify-center text-white shadow-sm shrink-0 ${isChild ? 'w-7 h-7' : 'w-8 h-8'}`} 
-                                  style={{ backgroundColor: cat.color || '#4A7C59' }}
-                                >
-                                  {getIconById(cat.icon, isChild ? 14 : 16)}
-                                </div>
-                                <span className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
-                                  {cat.label}
-                                </span>
-                              </div>
-                              {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })
-                )}
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">
+                <CategoryPickerAccordion
+                  categories={categories}
+                  selectedCategoryId={categoryId}
+                  onSelectCategory={(id) => {
+                    setCategoryId(id);
+                    setCurrentView('main');
+                    triggerHaptic('light');
+                  }}
+                  onAddCategory={onAddCategory}
+                  maxHeightClass="max-h-[calc(100vh-180px)]"
+                />
               </div>
             </motion.div>
           )}

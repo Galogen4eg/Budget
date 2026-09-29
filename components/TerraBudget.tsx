@@ -4,7 +4,7 @@ import {
   PieChart, DollarSign, Check, History, Sparkles, Filter, ChevronDown, 
   ChevronUp, CheckCircle2, ArrowRight, ArrowDown, ArrowUp, Sprout, 
   User, Repeat, Calendar as CalendarIcon, Store, ShoppingCart, Train, 
-  Wifi, Home, CreditCard, Building, ShieldCheck
+  Wifi, Home, CreditCard, Building, ShieldCheck, List
 } from 'lucide-react';
 import { 
   Transaction, AppSettings, Category, FamilyMember, MandatoryExpense 
@@ -368,6 +368,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           title="Бюджет"
           onAdd={onOpenAddModal}
           addTitle="Добавить операцию"
+          onImport={onImportClick}
+          importTitle="Импорт выписки"
           onOpenSettings={onOpenSettings}
           rightExtra={
             <div className="relative">
@@ -867,14 +869,24 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
             {/* View All Categories Link Button */}
-            <button 
-              type="button"
-              onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
-              className="w-full py-2.5 mt-1 rounded-xl bg-[#EAE6DE] dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 hover:bg-[#E2DDD3] dark:hover:bg-[#2C2C2E] text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-            >
-              <span>Все категории ({categories.length})</span>
-              <ArrowRight size={16} />
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <button 
+                type="button"
+                onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
+                className="py-2.5 px-2 rounded-xl bg-[#EAE6DE] dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 hover:bg-[#E2DDD3] dark:hover:bg-[#2C2C2E] text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>Категории ({categories.length})</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => onSelectCategory ? onSelectCategory('all') : undefined}
+                className="py-2.5 px-2 rounded-xl bg-[#4A7C59] text-white hover:bg-[#3B6447] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <List size={15} />
+                <span>Все операции ({monthTransactions.length})</span>
+              </button>
+            </div>
           </section>
         </div>
       </div>
@@ -962,7 +974,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* Temporarily hidden 'Обучить' button per user request */}
+          <button 
+            onClick={() => onSelectCategory ? onSelectCategory('all') : undefined}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-graphite dark:text-white bg-white dark:bg-[#1C1C1E] hover:bg-[#F3EFE7] dark:hover:bg-[#2C2C2E] border border-surface-border dark:border-white/10 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            type="button"
+            title="Открыть список всех операций за текущий месяц"
+          >
+            <List size={15} className="text-[#4A7C59]" />
+            <span>Все операции ({monthTransactions.length})</span>
+          </button>
 
           {onImportClick && (
             <button 

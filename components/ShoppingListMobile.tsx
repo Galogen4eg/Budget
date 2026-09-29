@@ -18,6 +18,7 @@ import {
   parseQuickShoppingInput, 
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
+import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
 import { 
   recordPurchaseEvent, 
   getTopFrequentPurchases,
@@ -83,6 +84,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   // Quick Add State
   const [quickAddText, setQuickAddText] = useState('');
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
+  const quickInputRef = useRef<HTMLInputElement>(null);
 
   // Telegram Sending State
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
@@ -147,9 +149,16 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     AISLES.forEach(a => { groups[a.id] = []; });
 
     activeItems.forEach(item => {
-      const cat = item.category || detectProductCategory(item.title) || 'other';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(item);
+      let cat = item.category;
+      if (!cat || !AISLES.some(a => a.id === cat)) {
+        cat = detectProductCategory(item.title) || 'other';
+      }
+      if (!groups[cat]) {
+        groups['other'] = groups['other'] || [];
+        groups['other'].push(item);
+      } else {
+        groups[cat].push(item);
+      }
     });
 
     return groups;
@@ -205,26 +214,29 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       setIsAddModalOpen(false);
     } else {
-      // Create new shopping item
-      const newItem: ShoppingItem = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+      // Check if item is in completed or active list without creating duplicate
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb
+      } = mergeOrRestoreShoppingItems(items, [{
         title,
         amount: newItemAmount.trim() || '1',
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
-        completed: false,
         memberId: newItemMemberId
-      };
+      }], newItemMemberId);
 
-      recordPurchaseEvent(newItem.title, 'added', {
-        category: newItem.category,
-        amount: newItem.amount,
-        unit: newItem.unit
-      });
-
-      setItems(prev => [...prev, newItem]);
-      if (familyId) await addItem(familyId, 'shopping', newItem);
+      setItems(updatedList);
+      if (familyId) {
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
+        }
+        for (const item of itemsToAddInDb) {
+          await addItem(familyId, 'shopping', item);
+        }
+      }
 
       if (closeAfterSave) {
         setIsAddModalOpen(false);
@@ -305,35 +317,38 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
     try {
       setIsSubmittingQuick(true);
-      const parsedItems = createShoppingItemsFromQuickText(raw, user?.uid || 'user');
+      const targetMemberId = user?.uid || 'user';
+      const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
-      parsedItems.forEach(pi => {
-        recordPurchaseEvent(pi.title, 'added', {
-          category: pi.category,
-          amount: pi.amount,
-          unit: pi.unit
-        });
-      });
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb
+      } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
+
+      setItems(updatedList);
 
       if (familyId) {
-        if (parsedItems.length === 1) {
-          const saved = await addItem(familyId, 'shopping', parsedItems[0]);
-          setItems(prev => [...prev, saved]);
-        } else {
-          const batch = await addItemsBatch(familyId, 'shopping', parsedItems);
-          setItems(prev => [...prev, ...batch]);
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
         }
-      } else {
-        const local = parsedItems.map(it => ({
-          ...it,
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 6)
-        }));
-        setItems(prev => [...prev, ...local]);
+        if (itemsToAddInDb.length === 1) {
+          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
+        } else if (itemsToAddInDb.length > 1) {
+          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
+        }
       }
+
       setQuickAddText('');
+      setTimeout(() => {
+        quickInputRef.current?.focus();
+      }, 20);
     } finally {
       setIsSubmittingQuick(false);
+      setTimeout(() => {
+        quickInputRef.current?.focus();
+      }, 60);
     }
   };
 
@@ -342,26 +357,30 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     const amount = typeof stat === 'string' ? '1' : (stat.amount || '1');
     const unit = typeof stat === 'string' ? 'шт' : (stat.unit || 'шт');
     const category = typeof stat === 'string' ? detectProductCategory(title) : (stat.category || 'other');
+    const targetMemberId = user?.uid || 'user';
 
-    const newItem: ShoppingItem = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+    const {
+      updatedList,
+      itemsToUpdateInDb,
+      itemsToAddInDb
+    } = mergeOrRestoreShoppingItems(items, [{
       title,
       amount,
-      unit,
+      unit: unit as any,
       category,
       priority: 'medium',
-      completed: false,
-      memberId: user?.uid || 'user'
-    };
+      memberId: targetMemberId
+    }], targetMemberId);
 
-    recordPurchaseEvent(newItem.title, 'added', {
-      category: newItem.category,
-      amount: newItem.amount,
-      unit: newItem.unit
-    });
-
-    setItems(prev => [...prev, newItem]);
-    if (familyId) await addItem(familyId, 'shopping', newItem);
+    setItems(updatedList);
+    if (familyId) {
+      for (const item of itemsToUpdateInDb) {
+        await updateItem(familyId, 'shopping', item.id, item);
+      }
+      for (const item of itemsToAddInDb) {
+        await addItem(familyId, 'shopping', item);
+      }
+    }
   };
 
   // Voice Input with Gemini or fallback
@@ -391,7 +410,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (text) {
         setIsListening(false);
         setIsProcessingAI(true);
+        const targetMemberId = user?.uid || 'user';
         try {
+          let rawParsedItems: { title: string; amount?: string; unit?: string; category?: string }[] = [];
           if (apiKey) {
             const ai = new GoogleGenAI({ apiKey });
             const prompt = `Распознай список покупок на русском языке: "${text}". Верни JSON массив объектов [{"title":"Молоко","amount":"1","unit":"л","category":"dairy"}]. Категории: dairy, bakery, produce, meat, grocery, drinks, sweets, frozen, household, beauty, pets, pharmacy, other.`;
@@ -402,37 +423,41 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             });
             const parsed = JSON.parse(resp.text || '[]');
             if (Array.isArray(parsed) && parsed.length > 0) {
-              const newItems: ShoppingItem[] = parsed.map((p: any) => ({
-                id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
-                title: p.title,
-                amount: String(p.amount || '1'),
-                unit: p.unit || 'шт',
-                category: p.category || 'other',
-                completed: false,
-                memberId: user?.uid || 'user',
-                priority: 'medium'
-              }));
-              setItems(prev => [...prev, ...newItems]);
-              if (familyId) await addItemsBatch(familyId, 'shopping', newItems);
-              return;
+              rawParsedItems = parsed;
             }
           }
 
-          // Fallback regex parser
-          const parsed = parseVoiceShoppingText(text);
-          if (parsed.length > 0) {
-            const newItems: ShoppingItem[] = parsed.map(p => ({
-              id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+          if (rawParsedItems.length === 0) {
+            rawParsedItems = parseVoiceShoppingText(text);
+          }
+
+          if (rawParsedItems.length > 0) {
+            const incoming = rawParsedItems.map(p => ({
               title: p.title,
               amount: String(p.amount || '1'),
-              unit: p.unit || 'шт',
+              unit: (p.unit as any) || 'шт',
               category: p.category || 'other',
-              completed: false,
-              memberId: user?.uid || 'user',
-              priority: 'medium'
+              memberId: targetMemberId,
+              priority: 'medium' as const
             }));
-            setItems(prev => [...prev, ...newItems]);
-            if (familyId) await addItemsBatch(familyId, 'shopping', newItems);
+
+            const {
+              updatedList,
+              itemsToUpdateInDb,
+              itemsToAddInDb
+            } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
+
+            setItems(updatedList);
+            if (familyId) {
+              for (const item of itemsToUpdateInDb) {
+                await updateItem(familyId, 'shopping', item.id, item);
+              }
+              if (itemsToAddInDb.length === 1) {
+                await addItem(familyId, 'shopping', itemsToAddInDb[0]);
+              } else if (itemsToAddInDb.length > 1) {
+                await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
+              }
+            }
           }
         } catch {
           alert('Ошибка при обработке голоса');
@@ -585,6 +610,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-2">
             <Sparkles size={18} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
             <input 
+              ref={quickInputRef}
               type="text"
               value={quickAddText}
               onChange={e => setQuickAddText(e.target.value)}
@@ -604,7 +630,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px] text-[#4A7C59] dark:text-emerald-400 font-semibold border-t border-[#EAE4D6]/60 dark:border-white/10">
               <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
               {liveParsedItems.map((p, idx) => (
-                <span key={idx} className="bg-[#D8F0DE] dark:bg-[#1C3B24] text-[#2A6038] dark:text-[#8ECF9E] px-2 py-0.5 rounded-md text-[10px]">
+                <span key={`live-preview-${p.title}-${idx}`} className="bg-[#D8F0DE] dark:bg-[#1C3B24] text-[#2A6038] dark:text-[#8ECF9E] px-2 py-0.5 rounded-md text-[10px]">
                   {p.title} ({p.amount} {p.unit})
                 </span>
               ))}
@@ -629,7 +655,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             if (aisleItems.length === 0) return null;
 
             return (
-              <section key={aisle.id} className="space-y-2">
+              <section key={`aisle-${aisle.id}`} className="space-y-2">
                 {/* Category Header */}
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 min-w-0">
@@ -645,12 +671,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
                 {/* Items in Category */}
                 <div className="space-y-2">
-                  {aisleItems.map(item => {
+                  {aisleItems.map((item, itemIdx) => {
                     const isUrgent = item.priority === 'high';
 
                     return (
                       <SwipeableShoppingItem
-                        key={item.id}
+                        key={item.id ? `mob-item-${item.id}` : `mob-item-idx-${aisle.id}-${itemIdx}`}
                         item={item}
                         isUrgent={isUrgent}
                         onToggle={handleToggle}
@@ -695,9 +721,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
             {isCompletedOpen && (
               <div className="space-y-2 pt-1 border-t border-[#EAE4D6]/60 dark:border-white/10">
-                {completedItems.map(item => (
+                {completedItems.map((item, compIdx) => (
                   <SwipeableCompletedItem
-                    key={item.id}
+                    key={item.id ? `mob-comp-${item.id}` : `mob-comp-idx-${compIdx}`}
                     item={item}
                     onToggle={handleToggle}
                     onMoveToPantry={onMoveToPantry}
@@ -723,12 +749,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar touch-pan-x">
             {(frequentStaples.length > 0 ? frequentStaples : defaultSuggestions).map((item, idx) => {
               const label = typeof item === 'string' ? item : item.title;
               return (
                 <button 
-                  key={idx}
+                  key={`staple-${label}-${idx}`}
                   type="button"
                   onClick={() => handleAddFrequentPreset(item as any)}
                   className="bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 hover:bg-[#F5F1EA] active:scale-95 transition rounded-full px-3.5 py-1.5 text-xs font-semibold text-[#1E2420] dark:text-white shadow-2xs shrink-0 flex items-center gap-1 cursor-pointer"
@@ -945,6 +971,8 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
       {/* Draggable Card */}
       <motion.article 
         drag="x"
+        dragDirectionLock={true}
+        dragMomentum={false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.6}
         dragSnapToOrigin
@@ -960,7 +988,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer"
+        className="relative z-10 bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1067,6 +1095,8 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
 
       <motion.div
         drag="x"
+        dragDirectionLock={true}
+        dragMomentum={false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.6}
         dragSnapToOrigin
@@ -1077,7 +1107,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
             onToggle(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[#1C1C1E] flex items-center justify-between gap-2 py-1 px-1 rounded-xl"
+        className="relative z-10 bg-white dark:bg-[#1C1C1E] flex items-center justify-between gap-2 py-1 px-1 rounded-xl touch-pan-y"
       >
         <div 
           onClick={() => {

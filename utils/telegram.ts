@@ -280,20 +280,31 @@ export const sendTelegramMessage = async (
   // 1. Попытка редактирования существующего сообщения (если указан messageIdToEdit)
   if (messageIdToEdit) {
     const editUrl = buildTelegramApiUrl(baseUrl, token, 'editMessageText');
-    const editPayload = {
+    const editPayload: Record<string, unknown> = {
       chat_id: chatId,
       message_id: messageIdToEdit,
       text,
       parse_mode: parseMode,
     };
 
-    const editResponse = await executeTelegramPost(editUrl, editPayload);
+    let editResponse = await executeTelegramPost(editUrl, editPayload);
+
+    // Fallback: если Telegram вернул ошибку сущностей Markdown при редактировании, повторяем без parse_mode
+    if (!editResponse.ok && editResponse.errorDescription?.includes("can't parse entities")) {
+      delete editPayload.parse_mode;
+      editResponse = await executeTelegramPost(editUrl, editPayload);
+    }
+
     if (editResponse.ok) {
       return { success: true, messageId: messageIdToEdit };
     }
 
-    // Если ошибка редактирования связана с тем, что сообщение идентично или не найдено,
-    // продолжаем отправку новым сообщением.
+    // Если Telegram сообщает, что сообщение не изменилось — считаем это успехом
+    if (editResponse.errorDescription?.toLowerCase().includes('message is not modified')) {
+      return { success: true, messageId: messageIdToEdit };
+    }
+
+    // Если сообщение слишком старое или было удалено, продолжаем отправку новым сообщением
   }
 
   // 2. Отправка нового сообщения

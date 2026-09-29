@@ -41,6 +41,7 @@ import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
+import { mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 
@@ -237,6 +238,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   // Quick Add Bar State
   const [quickInputText, setQuickInputText] = useState('');
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
+  const quickInputRef = useRef<HTMLInputElement>(null);
   const [frequentTrigger, setFrequentTrigger] = useState(0);
   const dynamicFrequentPurchases = useMemo(() => {
     return getTopFrequentPurchases(8);
@@ -290,7 +292,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const filteredActiveItems = useMemo(() => {
     return items.filter(item => {
       if (item.completed) return false;
-      if (filterMemberId !== 'all' && item.memberId && item.memberId !== filterMemberId) {
+      if (filterMemberId !== 'all' && item.memberId && item.memberId !== 'all' && item.memberId !== 'family' && item.memberId !== filterMemberId) {
         return false;
       }
       if (searchQuery.trim()) {
@@ -304,7 +306,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const completedItems = useMemo(() => {
     return items.filter(item => {
       if (!item.completed) return false;
-      if (filterMemberId !== 'all' && item.memberId && item.memberId !== filterMemberId) {
+      if (filterMemberId !== 'all' && item.memberId && item.memberId !== 'all' && item.memberId !== 'family' && item.memberId !== filterMemberId) {
         return false;
       }
       if (searchQuery.trim()) {
@@ -319,7 +321,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const groups: { dept: DepartmentConfig; items: ShoppingItem[]; totalCost: number }[] = [];
 
     DEPARTMENTS.forEach(dept => {
-      const deptItems = filteredActiveItems.filter(i => (i.category || 'other') === dept.id);
+      const deptItems = filteredActiveItems.filter(i => {
+        let cat = i.category;
+        if (!cat || !DEPARTMENTS.some(d => d.id === cat)) {
+          cat = detectProductCategory(i.title) || 'other';
+        }
+        return cat === dept.id;
+      });
       if (deptItems.length > 0) {
         const totalCost = deptItems.reduce((sum, item) => {
           const qty = parseFloat(item.amount || '1') || 1;
@@ -419,92 +427,92 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     try {
       setIsSubmittingQuick(true);
       const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
-      const newItems = createShoppingItemsFromQuickText(raw, targetMemberId);
-      if (newItems.length === 0) return;
+      const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
+      if (parsedItems.length === 0) return;
 
-      // Record added events for frequent purchases
-      newItems.forEach(ni => {
-        recordPurchaseEvent(ni.title, 'added', { category: ni.category, amount: ni.amount, unit: ni.unit, price: ni.estimatedPrice });
-      });
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb,
+        summaryMessage
+      } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
+
+      setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
 
       if (familyId) {
-        if (newItems.length === 1) {
-          const saved = await addItem(familyId, 'shopping', newItems[0]);
-          setItems(prev => [saved, ...prev]);
-        } else {
-          const savedBatch = await addItemsBatch(familyId, 'shopping', newItems);
-          setItems(prev => [...savedBatch, ...prev]);
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
         }
-      } else {
-        const localItems: ShoppingItem[] = newItems.map(item => ({
-          ...item,
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 6)
-        }));
-        setItems(prev => [...localItems, ...prev]);
+        if (itemsToAddInDb.length === 1) {
+          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
+        } else if (itemsToAddInDb.length > 1) {
+          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
+        }
       }
 
-      if (newItems.length === 1) {
-        toast.success(`Добавлено: ${newItems[0].title} (${newItems[0].amount} ${newItems[0].unit})`);
-      } else {
-        toast.success(`Добавлено ${newItems.length} товаров в список`);
-      }
-
+      toast.success(summaryMessage);
       setQuickInputText('');
+      // Keep autofocus for rapid consecutive item additions
+      setTimeout(() => {
+        quickInputRef.current?.focus();
+      }, 10);
     } catch (err) {
       console.error('Quick add error:', err);
       toast.error('Не удалось добавить товар');
     } finally {
       setIsSubmittingQuick(false);
+      setTimeout(() => {
+        quickInputRef.current?.focus();
+      }, 50);
     }
   };
 
   const handleQuickAddFavorite = async (fav: FrequentItemStat) => {
-    recordPurchaseEvent(fav.title, 'added', { category: fav.category, amount: fav.amount, unit: fav.unit, price: fav.price });
+    const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
+    const {
+      updatedList,
+      itemsToUpdateInDb,
+      itemsToAddInDb,
+      summaryMessage
+    } = mergeOrRestoreShoppingItems(items, [{
+      title: fav.title,
+      amount: fav.amount,
+      unit: fav.unit as any,
+      category: fav.category,
+      estimatedPrice: fav.price,
+      memberId: targetMemberId,
+      priority: 'medium'
+    }], targetMemberId);
+
+    setItems(updatedList);
     setFrequentTrigger(prev => prev + 1);
 
-    // Check if item already exists
-    const existing = items.find(i => !i.completed && i.title.toLowerCase() === fav.title.toLowerCase());
-    if (existing) {
-      const currentQty = parseFloat(existing.amount || '1') || 1;
-      const addQty = parseFloat(fav.amount) || 1;
-      const newQty = currentQty + addQty;
-      const updated = { ...existing, amount: String(newQty) };
-      setItems(prev => prev.map(i => i.id === existing.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', existing.id, { amount: String(newQty) });
-      toast.success(`Количество «${fav.title}» увеличено до ${newQty} ${existing.unit}`);
-    } else {
-      const newItem: ShoppingItem = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-        title: fav.title,
-        amount: fav.amount,
-        unit: fav.unit as any,
-        category: fav.category,
-        estimatedPrice: fav.price,
-        completed: false,
-        memberId: members[0]?.id || user?.uid || 'user',
-        priority: 'medium'
-      };
-      setItems(prev => [newItem, ...prev]);
-      if (familyId) await addItem(familyId, 'shopping', newItem);
-      toast.success(`Добавлено: ${fav.title}`);
+    if (familyId) {
+      for (const item of itemsToUpdateInDb) {
+        await updateItem(familyId, 'shopping', item.id, item);
+      }
+      for (const item of itemsToAddInDb) {
+        await addItem(familyId, 'shopping', item);
+      }
     }
+
+    toast.success(summaryMessage);
   };
 
   const handleSaveModal = async (shouldMerge = false) => {
     if (!itemName.trim()) return;
-
-    recordPurchaseEvent(itemName.trim(), 'added', { category: itemCategory, amount: String(itemAmount), unit: itemUnit, price: itemEstimatedPrice });
-    setFrequentTrigger(prev => prev + 1);
+    const cleanName = itemName.trim();
+    const targetMemberId = itemMemberId === 'all' ? (members[0]?.id || 'user') : itemMemberId;
 
     if (editingItem) {
       const updated: ShoppingItem = {
         ...editingItem,
-        title: itemName.trim(),
+        title: cleanName,
         amount: String(itemAmount),
         unit: itemUnit,
         category: itemCategory,
-        memberId: itemMemberId === 'all' ? (members[0]?.id || 'user') : itemMemberId,
+        memberId: targetMemberId,
         priority: isUrgent ? 'high' : 'medium',
         estimatedPrice: itemEstimatedPrice
       };
@@ -512,35 +520,36 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
       if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       toast.success('Товар обновлен');
-    } else if (duplicateItem && shouldMerge) {
-      // Auto-summing logic
-      const currentQty = parseFloat(duplicateItem.amount || '1') || 1;
-      const mergedQty = currentQty + itemAmount;
-      const updated = {
-        ...duplicateItem,
-        amount: String(mergedQty),
-        priority: isUrgent ? 'high' : duplicateItem.priority
-      };
-
-      setItems(prev => prev.map(i => i.id === duplicateItem.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', duplicateItem.id, { amount: String(mergedQty) });
-      toast.success(`Суммировано: ${duplicateItem.title} (${mergedQty} ${duplicateItem.unit})`);
     } else {
-      const newItem: ShoppingItem = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-        title: itemName.trim(),
+      // Check if this item is in completed or active list without creating duplicate
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb,
+        summaryMessage
+      } = mergeOrRestoreShoppingItems(items, [{
+        title: cleanName,
         amount: String(itemAmount),
         unit: itemUnit,
         category: itemCategory,
-        memberId: itemMemberId === 'all' ? (members[0]?.id || 'user') : itemMemberId,
+        memberId: targetMemberId,
         priority: isUrgent ? 'high' : 'medium',
-        estimatedPrice: itemEstimatedPrice,
-        completed: false
-      };
+        estimatedPrice: itemEstimatedPrice
+      }], targetMemberId);
 
-      setItems(prev => [newItem, ...prev]);
-      if (familyId) await addItem(familyId, 'shopping', newItem);
-      toast.success(`Добавлено: ${newItem.title}`);
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
+
+      if (familyId) {
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
+        }
+        for (const item of itemsToAddInDb) {
+          await addItem(familyId, 'shopping', item);
+        }
+      }
+
+      toast.success(summaryMessage);
     }
 
     setIsModalOpen(false);
@@ -681,50 +690,39 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     setIsVoiceProcessing(true);
     try {
-      const itemsToAdd: ShoppingItem[] = [];
-      const updatedExistingItems: ShoppingItem[] = [...items];
+      const targetMemberId = filterMemberId !== 'all' ? filterMemberId : (members[0]?.id || user?.uid || 'user');
+      const incoming = parsedVoiceItems.map(p => ({
+        title: p.title,
+        amount: p.amount,
+        unit: p.unit as any,
+        category: p.category,
+        estimatedPrice: p.estimatedPrice,
+        memberId: targetMemberId,
+        priority: 'medium' as const
+      }));
 
-      for (const parsed of parsedVoiceItems) {
-        const cleanTitle = parsed.title.trim();
-        const existingIdx = updatedExistingItems.findIndex(
-          i => !i.completed && i.title.toLowerCase() === cleanTitle.toLowerCase()
-        );
+      const {
+        updatedList,
+        itemsToUpdateInDb,
+        itemsToAddInDb,
+        summaryMessage
+      } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
 
-        if (existingIdx >= 0) {
-          // Auto-summing with existing active shopping item
-          const existing = updatedExistingItems[existingIdx];
-          const curQty = parseFloat(existing.amount || '1') || 1;
-          const addQty = parseFloat(parsed.amount || '1') || 1;
-          const newQty = curQty + addQty;
-          const updated = { ...existing, amount: String(newQty) };
-          updatedExistingItems[existingIdx] = updated;
-          if (familyId) await updateItem(familyId, 'shopping', existing.id, { amount: String(newQty) });
-        } else {
-          const newItem: ShoppingItem = {
-            id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
-            title: parsed.title,
-            amount: parsed.amount,
-            unit: parsed.unit,
-            category: parsed.category,
-            estimatedPrice: parsed.estimatedPrice,
-            completed: false,
-            memberId: filterMemberId !== 'all' ? filterMemberId : (members[0]?.id || 'all'),
-            priority: 'medium'
-          };
-          itemsToAdd.push(newItem);
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
+
+      if (familyId) {
+        for (const item of itemsToUpdateInDb) {
+          await updateItem(familyId, 'shopping', item.id, item);
+        }
+        if (itemsToAddInDb.length === 1) {
+          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
+        } else if (itemsToAddInDb.length > 1) {
+          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
         }
       }
 
-      if (itemsToAdd.length > 0) {
-        setItems(prev => [...itemsToAdd, ...prev]);
-        if (familyId) {
-          await addItemsBatch(familyId, 'shopping', itemsToAdd);
-        }
-      } else {
-        setItems(updatedExistingItems);
-      }
-
-      toast.success(`Добавлено голосом (${parsedVoiceItems.length}): ${parsedVoiceItems.map(p => `${p.title} ${p.amount} ${p.unit}`).join(', ')}`);
+      toast.success(summaryMessage);
       setIsVoiceModalOpen(false);
       setVoiceTranscript('');
       setVoiceInterim('');
@@ -793,7 +791,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-stone-100 font-sans p-6 lg:p-8 min-h-screen">
+    <div className="flex-1 w-full h-full overflow-y-auto bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-stone-100 font-sans p-6 lg:p-8">
       <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-20">
         
         {/* Top Header & Summary */}
@@ -910,6 +908,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <label className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300 flex items-center gap-1.5 shrink-0">
                     <Sparkles size={14} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
                     <span>Быстрое добавление</span>
+                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[#EAE6DD] dark:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 rounded border border-[#D5CFBE] dark:border-stone-700">↵ Enter</kbd>
                   </label>
                   <span className="text-[11px] text-[#74796E] dark:text-stone-400 truncate hidden md:inline min-w-0">
                     Например: <span className="text-[#4A7C59] dark:text-emerald-400 font-semibold">чипсы 2 шт, молоко 1.5 л, сыр 300г</span>
@@ -918,9 +917,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 <div className="relative flex items-center w-full min-w-0">
                   <input 
+                    ref={quickInputRef}
                     type="text"
                     value={quickInputText}
                     onChange={(e) => setQuickInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setQuickInputText('');
+                      }
+                    }}
                     placeholder="Введите товары (чипсы 2 шт, бананы 1 кг, хлеб)..."
                     className="w-full min-w-0 bg-[#FAF8F5] dark:bg-[#252528] border border-[#ECE5DB] dark:border-white/10 rounded-xl text-xs sm:text-sm font-medium text-[#2E3230] dark:text-white placeholder-[#74796E] py-2.5 sm:py-3 pl-3.5 sm:pl-4 pr-11 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/40 focus:bg-white dark:focus:bg-[#2C2C2E] transition"
                   />
@@ -942,7 +947,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       const dept = DEPARTMENTS.find(d => d.id === pi.category) || DEPARTMENTS[DEPARTMENTS.length - 1];
                       return (
                         <div 
-                          key={idx}
+                          key={`parsed-quick-${pi.title}-${idx}`}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#EDF4EF] dark:bg-[#203425] text-[#2A6038] dark:text-emerald-300 border border-[#D1DBD1] dark:border-green-800/40 text-xs font-semibold shadow-2xs max-w-full truncate"
                         >
                           <span className="truncate">{pi.title}</span>
@@ -961,8 +966,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             </div>
             
             {groupedDepartments.length > 0 ? (
-              groupedDepartments.map(({ dept, items: deptItems }) => (
-                <section key={dept.id} className="flex flex-col gap-3">
+              groupedDepartments.map(({ dept, items: deptItems }, deptIdx) => (
+                <section key={`dept-sec-${dept.id || deptIdx}`} className="flex flex-col gap-3">
                   <div className="flex items-center justify-between px-2">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-7 h-7 rounded-lg ${dept.bgLight} ${dept.textLight} flex items-center justify-center shrink-0`}>
@@ -979,10 +984,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                   {/* Department Item Rows */}
                   <div className="flex flex-col gap-2">
-                    {deptItems.map((item) => {
+                    {deptItems.map((item, itemIdx) => {
                       return (
                         <div 
-                          key={item.id}
+                          key={item.id ? `desk-item-${item.id}` : `desk-item-idx-${dept.id}-${itemIdx}`}
                           onClick={() => openEditModal(item)}
                           className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xs hover:shadow-md border border-[#ECE5DB] dark:border-white/5 transition-all cursor-pointer hover:border-[#C8E8D0]"
                         >
@@ -1097,9 +1102,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 {/* Purchased items list */}
                 {isPurchasedOpen && (
                   <div className="flex flex-col gap-2 pt-2 animate-in fade-in duration-200">
-                    {completedItems.map(item => (
+                    {completedItems.map((item, compIdx) => (
                       <div 
-                        key={item.id}
+                        key={item.id ? `desk-comp-${item.id}` : `desk-comp-idx-${compIdx}`}
                         className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-[#1C1C1E]/60 opacity-60 hover:opacity-100 transition border border-[#ECE5DB]/60 dark:border-white/5"
                       >
                         <div className="flex items-center gap-3">
@@ -1153,7 +1158,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <div className="flex flex-wrap gap-2 pt-1">
                 {dynamicFrequentPurchases.map((fav, i) => (
                   <button 
-                    key={i}
+                    key={`fav-chip-${fav.title}-${i}`}
                     onClick={() => handleQuickAddFavorite(fav)}
                     title={`Добавлено/куплено: ${fav.frequencyLabel}. Нажмите для добавления в список`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#252528] hover:bg-[#E4E0D8] dark:hover:bg-stone-700 text-xs font-semibold text-[#2E3230] dark:text-stone-200 border border-[#ECE5DB] dark:border-white/5 shadow-2xs transition group cursor-pointer"
@@ -1520,7 +1525,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       const dept = DEPARTMENTS.find(d => d.id === item.category);
                       return (
                         <div 
-                          key={index}
+                          key={`voice-parsed-${item.title}-${index}`}
                           className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#252528] border border-[#ECE5DB] dark:border-white/5 shadow-2xs group"
                         >
                           <div className="flex items-center gap-3">

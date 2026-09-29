@@ -120,10 +120,20 @@ export const INITIAL_CATEGORIES: Category[] = [
   { id: 'charity', label: 'Благотв.', icon: 'HeartHandshake', color: '#E63946' },
   { id: 'services', label: 'Услуги', icon: 'Briefcase', color: '#6B705C' },
   { id: 'transfer', label: 'Переводы', icon: 'ArrowRightLeft', color: '#6B705C' },
+  { id: 'savings', label: 'Накопительный счет', icon: 'PiggyBank', color: '#7C3AED' },
   { id: 'other', label: 'Прочее', icon: 'MoreHorizontal', color: '#8D99AE' },
 ];
 
 export const DEFAULT_RULES: LearnedRule[] = [
+  // Savings & Transfers to savings account
+  { id: 'def_sav_1', keyword: 'накопительный счет', cleanName: 'Перевод на накопительный счет', categoryId: 'savings' },
+  { id: 'def_sav_2', keyword: 'накопительный счёт', cleanName: 'Перевод на накопительный счет', categoryId: 'savings' },
+  { id: 'def_sav_3', keyword: 'на накопительный', cleanName: 'Перевод на накопительный счет', categoryId: 'savings' },
+  { id: 'def_sav_4', keyword: 'пополнение копилки', cleanName: 'Пополнение копилки', categoryId: 'savings' },
+  { id: 'def_sav_5', keyword: 'в копилку', cleanName: 'Перевод в копилку', categoryId: 'savings' },
+  { id: 'def_sav_6', keyword: 'сберегательный', cleanName: 'Перевод на сберегательный счет', categoryId: 'savings' },
+  { id: 'def_sav_7', keyword: 'пополнение вклада', cleanName: 'Пополнение вклада', categoryId: 'savings' },
+
   // Yaroslavl Bars
   { id: 'def_yar_1', keyword: 'папин гараж', cleanName: 'Папин Гараж', categoryId: 'bar_papin_garage' },
   { id: 'def_yar_2', keyword: 'papin garage', cleanName: 'Папин Гараж', categoryId: 'bar_papin_garage' },

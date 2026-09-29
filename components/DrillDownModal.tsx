@@ -34,6 +34,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   currentMonth, selectedDate
 }) => {
   const isOtherOrTraining = categoryId === 'other' || categoryId === 'uncategorized';
+  const isAllTransactions = categoryId === 'all' || (!categoryId && !merchantName);
 
   // Active View Mode: 'inspector' (Registry & Split Inspector) vs 'analytics' (Analytics & Chart)
   const [viewMode, setViewMode] = useState<'inspector' | 'analytics'>('inspector');
@@ -115,9 +116,10 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
   // Calculate family category IDs
   const familyCategoryIds = useMemo(() => {
+    if (isAllTransactions) return [];
     if (!parentCategory) return categoryId ? [categoryId] : [];
     return [parentCategory.id, ...subcategories.map(s => s.id)];
-  }, [parentCategory, subcategories, categoryId]);
+  }, [parentCategory, subcategories, categoryId, isAllTransactions]);
 
   // All transactions matching current month/date context for the category family
   const allFamilyTransactions = useMemo(() => {
@@ -130,6 +132,10 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         if (d.getMonth() !== currentMonth.getMonth() || d.getFullYear() !== currentMonth.getFullYear()) return false;
       }
 
+      if (isAllTransactions) {
+        return true;
+      }
+
       if (merchantName) {
         const query = merchantName.toLowerCase();
         return (t.note || '').toLowerCase().includes(query) || (t.rawNote || '').toLowerCase().includes(query);
@@ -137,7 +143,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
       return familyCategoryIds.includes(t.category);
     });
-  }, [transactions, selectedDate, currentMonth, merchantName, familyCategoryIds]);
+  }, [transactions, selectedDate, currentMonth, merchantName, familyCategoryIds, isAllTransactions]);
 
   // Sorted subcategory statistics by amount descending (only subcategories with active spending in period)
   const sortedSubcategoriesStats = useMemo(() => {
@@ -585,8 +591,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     });
   }, [filteredTransactions, sortOrder]);
 
-  const categoryTitle = parentCategory?.label || initialCategory?.label || merchantName || 'Категория';
-  const categoryIcon = getIconById(parentCategory?.icon || initialCategory?.icon || 'tag', 20);
+  const categoryTitle = isAllTransactions 
+    ? 'Все операции за месяц' 
+    : (parentCategory?.label || initialCategory?.label || merchantName || 'Категория');
+    
+  const categoryIcon = isAllTransactions 
+    ? <List size={20} className="text-[#4A7C59]" />
+    : getIconById(parentCategory?.icon || initialCategory?.icon || 'tag', 20);
 
   const currentMember = useMemo(() => {
     return members.find(m => m.userId === auth.currentUser?.uid) || members[0] || null;

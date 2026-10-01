@@ -28,6 +28,9 @@ async function generateWithFallback(prompt) {
         contents: prompt
       });
 
+      // КРИТИЧНО: глушим зависший промис, чтобы он не крашил Vercel при 503
+      modelPromise.catch(() => {});
+
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`Timeout on ${modelName}`)), 3500)
       );
@@ -42,12 +45,12 @@ async function generateWithFallback(prompt) {
     }
   }
 
+  // Заглушка, если все модели недоступны
   return "Очередной курьёз со съёмок: свет выставили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
 }
 
 export default async function handler(req, res) {
   try {
-    // 1. Читаем переданный фид из query параметров либо берём PetaPixel по умолчанию
     const feedUrl = req.query.feed || "https://petapixel.com/feed/";
 
     const feedRes = await fetchWithTimeout(
@@ -94,7 +97,6 @@ export default async function handler(req, res) {
       postLink = linkMatch[1].trim();
     }
 
-    // 2. Адаптация через Gemini Flash
     const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
 Преврати этот инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
 
@@ -106,7 +108,6 @@ export default async function handler(req, res) {
 
     const adaptedText = await generateWithFallback(prompt);
 
-    // 3. Отправка черновика в Telegram
     const keyboard = {
       inline_keyboard: [
         [

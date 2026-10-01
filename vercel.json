@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/curator-find",
-      "schedule": "0 */4 * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }

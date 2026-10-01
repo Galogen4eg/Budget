@@ -19,7 +19,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
 }
 
 async function generateWithFallback(prompt) {
-  // Пробуем доступные модели линейки
   const models = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
 
   for (const modelName of models) {
@@ -39,28 +38,33 @@ async function generateWithFallback(prompt) {
       }
     } catch (err) {
       console.warn(`Сбой генерации через ${modelName}:`, err.message);
-      // Небольшая пауза перед второй попыткой
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
 
-  // Защита от сбоя: если API Google перегружен (503), возвращаем заглушку, но НЕ роняем скрипт
-  return "Очередной курьёз со съёмок: свет настроили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
+  return "Очередной курьёз со съёмок: свет выставили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
 }
 
 export default async function handler(req, res) {
   try {
-    // 1. Быстро забираем RSS
-    const feedUrl = "https://petapixel.com/feed/";
-    const feedRes = await fetchWithTimeout(feedUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
-      }
-    }, 4000);
+    // 1. Читаем переданный фид из query параметров либо берём PetaPixel по умолчанию
+    const feedUrl = req.query.feed || "https://petapixel.com/feed/";
+
+    const feedRes = await fetchWithTimeout(
+      feedUrl,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          Accept:
+            "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
+        }
+      },
+      4000
+    );
 
     if (!feedRes.ok) {
-      return res.status(502).json({ error: `Ошибка загрузки RSS: ${feedRes.status}` });
+      return res.status(502).json({ error: `Ошибка загрузки RSS: статус ${feedRes.status}` });
     }
 
     const xml = await feedRes.text();
@@ -77,24 +81,28 @@ export default async function handler(req, res) {
     let postTitle = "Инфоповод из мира фотографии";
     const titleMatch = itemChunk.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) {
-      postTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+      postTitle = titleMatch[1]
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#8217;/g, "'")
+        .trim();
     }
 
-    let postLink = "https://petapixel.com";
+    let postLink = feedUrl;
     const linkMatch = itemChunk.match(/<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/link>/i);
     if (linkMatch && linkMatch[1]) {
       postLink = linkMatch[1].trim();
     }
 
-    // 2. Адаптация через Gemini
+    // 2. Адаптация через Gemini Flash
     const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
-Преврати инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
+Преврати этот инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
 
 Формат:
 1. Хлёсткий заголовок.
 2. 2-3 коротких предложения с курьёзом из практики фотографа (про оптику, свет, исходники или заказчиков).
 3. Короткий вопрос к коллегам в конце.
-Чистый текст без тегов и разметки.`;
+Чистый текст без Markdown-разметки и тегов.`;
 
     const adaptedText = await generateWithFallback(prompt);
 

@@ -4,6 +4,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
   try {
+    // 1. Забираем свежие посты с Reddit
     const redditRes = await fetch("https://www.reddit.com/r/analogmemes/hot.json?limit=5", {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
     });
@@ -19,6 +20,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "Свежих постов с картинками не найдено" });
     }
 
+    // 2. Адаптация через Gemini
     const prompt = `
 Ты — практикующий фотограф с отличным чувством юмора и легким сарказмом. 
 Твоя задача — превратить англоязычный инфоповод или фото-мем в короткий вирусный пост для русскоязычного Telegram-канала.
@@ -40,7 +42,8 @@ export default async function handler(req, res) {
       contents: prompt
     });
 
-    const adaptedText = response.text.trim();
+    // Безопасно извлекаем текст ответа
+    const adaptedText = response.text ? response.text.trim() : "Жизненный момент из будней фотографа.";
     const tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendPhoto`;
     
     const keyboard = {
@@ -52,6 +55,7 @@ export default async function handler(req, res) {
       ]
     };
 
+    // 3. Отправка черновика в Telegram
     const tgRes = await fetch(tgUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,7 +68,12 @@ export default async function handler(req, res) {
     });
 
     const tgResult = await tgRes.json();
-    return res.status(200).json({ success: true, tg: tgResult });
+    
+    if (!tgResult.ok) {
+      return res.status(500).json({ error: "Telegram API Error", details: tgResult });
+    }
+
+    return res.status(200).json({ success: true, message: "Черновик успешно отправлен в Telegram!" });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

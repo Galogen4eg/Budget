@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   const token = process.env.TG_BOT_TOKEN;
   const channelId = process.env.PUBLIC_CHANNEL_ID;
 
+  // Постоянная нижняя клавиатура
   const mainKeyboard = {
     keyboard: [
       [{ text: "📰 Найти новость" }],
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
   };
 
   try {
-    // 1. Текстовые команды
+    // Обработка текстовых команд
     if (update.message && update.message.text) {
       const text = update.message.text.trim().toLowerCase();
       const chatId = update.message.chat.id;
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "Бот готов. Выбирай действие внизу:",
+            text: "Бот-куратор готов. Меню добавлено внизу экрана.",
             reply_markup: mainKeyboard
           })
         });
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "Выбери источник для генерации новости:",
+            text: "Выбери ленту для парсинга:",
             reply_markup: sourceButtons
           })
         });
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "Ищу новость из основного источника...",
+            text: "Ищу случайную новость...",
             reply_markup: mainKeyboard
           })
         });
@@ -76,13 +77,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Обработка кнопок
+    // Обработка инлайн-кнопок
     if (update.callback_query) {
       const callback = update.callback_query;
       const data = callback.data;
       const message = callback.message;
 
-      // Выбор конкретного источника
       if (data.startsWith("src_")) {
         const srcKey = data.replace("src_", "");
         const selected = SOURCES[srcKey];
@@ -90,10 +90,7 @@ export default async function handler(req, res) {
         await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            callback_query_id: callback.id,
-            text: `Выбран: ${selected.name}`
-          })
+          body: JSON.stringify({ callback_query_id: callback.id, text: `Источник: ${selected.name}` })
         });
 
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -101,8 +98,7 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: message.chat.id,
-            text: `Ищу новость из ${selected.name}...`,
-            reply_markup: mainKeyboard
+            text: `Парсю случайную новость из ${selected.name}...`
           })
         });
 
@@ -117,7 +113,7 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           callback_query_id: callback.id,
-          text: data === "publish_current" ? "Публикую..." : "Отклонено"
+          text: data === "publish_current" ? "Отправляю..." : "Удалено"
         })
       });
 
@@ -132,16 +128,11 @@ export default async function handler(req, res) {
           })
         });
 
-        const postData = await postRes.json();
-        if (postData.ok) {
+        if ((await postRes.json()).ok) {
           await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: message.chat.id,
-              message_id: message.message_id,
-              reply_markup: { inline_keyboard: [] }
-            })
+            body: JSON.stringify({ chat_id: message.chat.id, message_id: message.message_id, reply_markup: { inline_keyboard: [] } })
           });
         }
       }
@@ -150,14 +141,10 @@ export default async function handler(req, res) {
         await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: message.chat.id,
-            message_id: message.message_id
-          })
+          body: JSON.stringify({ chat_id: message.chat.id, message_id: message.message_id })
         });
       }
     }
-
     return res.status(200).json({ ok: true });
   } catch (err) {
     return res.status(200).json({ ok: true, error: err.message });

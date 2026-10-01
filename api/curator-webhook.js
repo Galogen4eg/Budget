@@ -1,7 +1,14 @@
 const SOURCES = {
-  petapixel: { name: "PetaPixel", url: "https://petapixel.com/feed/" },
-  diyphotography: { name: "DIYPhotography", url: "https://www.diyphotography.net/feed/" },
-  fstoppers: { name: "Fstoppers", url: "https://fstoppers.com/feed" }
+  pikabu: { name: "Пикабу", url: "https://pikabu.ru/xml/main.xml" },
+  yaplakal: { name: "ЯПлакалъ", url: "https://www.yaplakal.com/news.xml" },
+  fishki: { name: "Фишки.нет", url: "https://fishki.net/info/rss/" },
+  joyreactor: { name: "JoyReactor", url: "https://joyreactor.cc/rss" },
+  lepra: { name: "Лепра (TG)", url: "https://rsshub.app/telegram/channel/lepra2ch" },
+  photar: { name: "Photar.ru", url: "https://photar.ru/feed/" },
+  dtf: { name: "DTF (Geek)", url: "https://dtf.ru/rss/all" },
+  boredpanda: { name: "Bored Panda", url: "https://www.boredpanda.com/photography/feed/" },
+  reddit_mildly: { name: "r/MildlyInteresting", url: "https://www.reddit.com/r/mildlyinteresting/.rss" },
+  reddit_camera: { name: "r/CameraMan", url: "https://www.reddit.com/r/PraiseTheCameraMan/.rss" }
 };
 
 export default async function handler(req, res) {
@@ -11,7 +18,6 @@ export default async function handler(req, res) {
   const token = process.env.TG_BOT_TOKEN;
   const channelId = process.env.PUBLIC_CHANNEL_ID;
 
-  // Постоянная нижняя клавиатура
   const mainKeyboard = {
     keyboard: [
       [{ text: "📰 Найти новость" }],
@@ -22,7 +28,6 @@ export default async function handler(req, res) {
   };
 
   try {
-    // Обработка текстовых команд
     if (update.message && update.message.text) {
       const text = update.message.text.trim().toLowerCase();
       const chatId = update.message.chat.id;
@@ -33,7 +38,7 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "Бот-куратор готов. Меню добавлено внизу экрана.",
+            text: "Бот-куратор готов. Выбирай источник и ищи инфоповоды.",
             reply_markup: mainKeyboard
           })
         });
@@ -41,11 +46,16 @@ export default async function handler(req, res) {
       }
 
       if (text === "⚙️ сменить источник" || text === "/sources") {
-        const sourceButtons = {
-          inline_keyboard: Object.entries(SOURCES).map(([key, item]) => [
-            { text: item.name, callback_data: `src_${key}` }
-          ])
-        };
+        const keys = Object.keys(SOURCES);
+        const inline_keyboard = [];
+        
+        for (let i = 0; i < keys.length; i += 2) {
+          const row = [{ text: SOURCES[keys[i]].name, callback_data: `src_${keys[i]}` }];
+          if (keys[i+1]) {
+            row.push({ text: SOURCES[keys[i+1]].name, callback_data: `src_${keys[i+1]}` });
+          }
+          inline_keyboard.push(row);
+        }
 
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
@@ -53,7 +63,7 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             chat_id: chatId,
             text: "Выбери ленту для парсинга:",
-            reply_markup: sourceButtons
+            reply_markup: { inline_keyboard }
           })
         });
         return res.status(200).json({ ok: true });
@@ -77,7 +87,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Обработка инлайн-кнопок
     if (update.callback_query) {
       const callback = update.callback_query;
       const data = callback.data;
@@ -113,18 +122,18 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           callback_query_id: callback.id,
-          text: data === "publish_current" ? "Отправляю..." : "Удалено"
+          text: data === "publish_current" ? "Отправлено в канал" : "Удалено"
         })
       });
 
       if (data === "publish_current") {
-        const postRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        const postRes = await fetch(`https://api.telegram.org/bot${token}/copyMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: channelId,
-            text: message.text || "",
-            disable_web_page_preview: false
+            from_chat_id: message.chat.id,
+            message_id: message.message_id
           })
         });
 

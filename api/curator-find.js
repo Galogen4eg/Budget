@@ -62,7 +62,6 @@ export default async function handler(req, res) {
 
     const xml = await feedRes.text();
     
-    // Собираем до 5 последних новостей
     const items = [];
     let startIndex = 0;
     while (items.length < 5) {
@@ -76,16 +75,25 @@ export default async function handler(req, res) {
 
     if (items.length === 0) return res.status(200).json({ message: "Лента пуста" });
 
-    // Выбираем случайную новость из собранных
     const itemChunk = items[Math.floor(Math.random() * items.length)];
     
     let postTitle = "Инфоповод из мира фотографии";
     const titleMatch = itemChunk.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) postTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
 
-    let postLink = feedUrl;
-    const linkMatch = itemChunk.match(/<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/link>/i);
-    if (linkMatch && linkMatch[1]) postLink = linkMatch[1].trim();
+    let imageUrl = null;
+    const mediaMatch = itemChunk.match(/<media:content[^>]+url=(["'])(.*?)\1/i);
+    if (mediaMatch && mediaMatch[2]) imageUrl = mediaMatch[2];
+    
+    if (!imageUrl) {
+      const encMatch = itemChunk.match(/<enclosure[^>]+url=(["'])(.*?)\1[^>]*type=["']image\//i);
+      if (encMatch && encMatch[2]) imageUrl = encMatch[2];
+    }
+    
+    if (!imageUrl) {
+      const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(.*?)\1/i);
+      if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
+    }
 
     const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
 Преврати этот инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
@@ -97,6 +105,9 @@ export default async function handler(req, res) {
 Чистый текст без тегов.`;
 
     const adaptedText = await generateWithFallback(prompt);
+    
+    // Ссылка на источник убрана, отправляется только сгенерированный текст
+    const fullMessageText = adaptedText;
 
     const keyboard = {
       inline_keyboard: [[
@@ -105,15 +116,30 @@ export default async function handler(req, res) {
       ]]
     };
 
-    const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+    let tgUrl, tgBody;
+
+    if (imageUrl) {
+      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendPhoto`;
+      tgBody = {
+        chat_id: process.env.MY_TELEGRAM_ID,
+        photo: imageUrl,
+        caption: fullMessageText.substring(0, 1024),
+        reply_markup: keyboard
+      };
+    } else {
+      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`;
+      tgBody = {
+        chat_id: process.env.MY_TELEGRAM_ID,
+        text: fullMessageText,
+        reply_markup: keyboard,
+        disable_web_page_preview: true
+      };
+    }
+
+    const tgRes = await fetchWithTimeout(tgUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: process.env.MY_TELEGRAM_ID,
-        text: `${adaptedText}\n\n🔗 ${postLink}`,
-        reply_markup: keyboard,
-        disable_web_page_preview: false
-      })
+      body: JSON.stringify(tgBody)
     }, 3000);
 
     const tgData = await tgRes.json();

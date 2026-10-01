@@ -325,10 +325,35 @@ export const migrateFamilyData = async (sourceId: string, targetId: string) => {
     }
 };
 
+/**
+ * Recursively cleans an object for Firestore storage:
+ * - Replaces NaN or infinite numbers with 0
+ * - Strips undefined fields
+ * - Converts plain objects and arrays recursively
+ */
+export const cleanForFirestore = <T = any>(obj: T): T => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'number') {
+    return (Number.isFinite(obj) ? obj : 0) as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanForFirestore) as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) continue;
+      cleaned[key] = cleanForFirestore(value);
+    }
+    return cleaned;
+  }
+  return obj;
+};
+
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();
-  const cleanItem = JSON.parse(JSON.stringify(item));
+  const cleanItem = cleanForFirestore(item);
   const savedItem = { ...cleanItem, id };
   await setDoc(doc(db, 'families', familyId, collectionName, id), savedItem);
   return savedItem;
@@ -344,7 +369,7 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
     chunk.forEach(item => {
       const id = item.id || generateUniqueId();
       const docRef = doc(db, 'families', familyId, collectionName, id);
-      const cleanItem = JSON.parse(JSON.stringify(item));
+      const cleanItem = cleanForFirestore(item);
       const saved = { ...cleanItem, id };
       savedItems.push(saved);
       batch.set(docRef, saved);
@@ -357,7 +382,7 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {
   if (!familyId) return;
   const docRef = doc(db, 'families', familyId, collectionName, id);
-  const cleanUpdates = JSON.parse(JSON.stringify(updates));
+  const cleanUpdates = cleanForFirestore(updates);
   await updateDoc(docRef, cleanUpdates);
 };
 
@@ -369,7 +394,7 @@ export const updateItemsBatch = async (familyId: string, collectionName: string,
         const batch = writeBatch(db);
         chunk.forEach(item => {
             const docRef = doc(db, 'families', familyId, collectionName, item.id);
-            const cleanItem = JSON.parse(JSON.stringify(item));
+            const cleanItem = cleanForFirestore(item);
             batch.set(docRef, cleanItem, { merge: true });
         });
         await batch.commit();
@@ -393,4 +418,32 @@ export const deleteItemsBatch = async (familyId: string, collectionName: string,
       });
       await batch.commit();
   }
+};
+
+/**
+ * Атомарный перевод средств между счетами и сохранение транзакции
+ */
+export const executeAtomicTransfer = async (
+  familyId: string,
+  transferTransaction: Transaction,
+  updatedAccounts?: { sourceId: string; sourceBalance: number; destId: string; destBalance: number }
+) => {
+  if (!familyId) throw new Error("No family ID");
+  const batch = writeBatch(db);
+  
+  const txId = transferTransaction.id || generateUniqueId();
+  const txRef = doc(db, 'families', familyId, 'transactions', txId);
+  const cleanTx = cleanForFirestore({ ...transferTransaction, id: txId });
+  batch.set(txRef, cleanTx);
+
+  if (updatedAccounts) {
+    const sourceRef = doc(db, 'families', familyId, 'accounts', updatedAccounts.sourceId);
+    batch.set(sourceRef, { balance: updatedAccounts.sourceBalance }, { merge: true });
+
+    const destRef = doc(db, 'families', familyId, 'accounts', updatedAccounts.destId);
+    batch.set(destRef, { balance: updatedAccounts.destBalance }, { merge: true });
+  }
+
+  await batch.commit();
+  return { ...cleanTx, id: txId };
 };

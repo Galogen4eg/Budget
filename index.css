@@ -221,3 +221,64 @@ input[type=number] {
 }
 .animate-float-bell { animation: floatBell 3s ease-in-out infinite; }
 .animate-modal-entrance { animation: msgFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Subtle Natural Animations for Family Chat */
+@keyframes entranceFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes messagePopIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  65% {
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes reactionBurst {
+  0% { transform: scale(0.75); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes typingPulse {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.animate-main-entrance {
+  animation: entranceFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-sidebar-1 { animation: entranceFadeIn 0.35s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-sidebar-2 { animation: entranceFadeIn 0.35s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-sidebar-3 { animation: entranceFadeIn 0.35s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.stagger-msg-1 { animation: entranceFadeIn 0.35s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-msg-2 { animation: entranceFadeIn 0.35s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-msg-3 { animation: entranceFadeIn 0.35s 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.new-msg-enter {
+  animation: messagePopIn 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.15) forwards;
+}
+
+.reaction-animate {
+  animation: reactionBurst 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.typing-dot:nth-child(1) { animation: typingPulse 1.2s infinite ease-in-out; }
+.typing-dot:nth-child(2) { animation: typingPulse 1.2s 0.2s infinite ease-in-out; }
+.typing-dot:nth-child(3) { animation: typingPulse 1.2s 0.4s infinite ease-in-out; }

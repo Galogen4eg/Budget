@@ -11,13 +11,17 @@ export const DEBT_TRANSACTION_CATEGORY = 'debts';
  */
 export type DebtPaymentSource = 'transaction' | 'mandatory_expense' | 'manual_debt' | 'none';
 
+export type PaymentStatusCode = 'paid' | 'partially_paid' | 'unpaid';
+
 /**
  * Расширенная информация о статусе погашения долга за указанный месяц
  */
 export interface DebtMonthPaymentStatus {
   isPaid: boolean;
+  status: PaymentStatusCode;
   paidAmount: number;
   expectedAmount: number;
+  remainingAmount: number;
   source: DebtPaymentSource;
   linkedExpense?: MandatoryExpense;
   matchedTransactions: Transaction[];
@@ -137,9 +141,11 @@ export function computeDebtMonthPaymentStatus(
   const matchedTransactions = getDebtMatchingTransactions(debt, linkedExpense, transactions, month);
   const totalPaidByTx = matchedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
 
-  const isPaidByTx = expectedAmount > 0 
-    ? totalPaidByTx >= (expectedAmount * PAYMENT_MATCH_THRESHOLD)
+  const isFullyPaidByTx = expectedAmount > 0 
+    ? totalPaidByTx >= expectedAmount
     : totalPaidByTx > 0;
+
+  const isPartiallyPaidByTx = expectedAmount > 0 && totalPaidByTx > 0 && totalPaidByTx < expectedAmount;
 
   const isLinkedExpenseManualPaid = linkedExpense 
     ? manualPaidList.includes(linkedExpense.id) 
@@ -153,11 +159,13 @@ export function computeDebtMonthPaymentStatus(
   );
   const lastTx = sortedTxs[0];
 
-  if (isPaidByTx) {
+  if (isFullyPaidByTx) {
     return {
       isPaid: true,
+      status: 'paid',
       paidAmount: totalPaidByTx,
       expectedAmount,
+      remainingAmount: 0,
       source: 'transaction',
       linkedExpense,
       matchedTransactions: sortedTxs,
@@ -169,8 +177,10 @@ export function computeDebtMonthPaymentStatus(
   if (isLinkedExpenseManualPaid) {
     return {
       isPaid: true,
+      status: 'paid',
       paidAmount: expectedAmount,
       expectedAmount,
+      remainingAmount: 0,
       source: 'mandatory_expense',
       linkedExpense,
       matchedTransactions: sortedTxs,
@@ -181,8 +191,10 @@ export function computeDebtMonthPaymentStatus(
   if (isManualDebtPaid) {
     return {
       isPaid: true,
+      status: 'paid',
       paidAmount: expectedAmount,
       expectedAmount,
+      remainingAmount: 0,
       source: 'manual_debt',
       linkedExpense,
       matchedTransactions: sortedTxs,
@@ -190,10 +202,29 @@ export function computeDebtMonthPaymentStatus(
     };
   }
 
+  if (isPartiallyPaidByTx) {
+    const remainingAmount = Math.max(0, expectedAmount - totalPaidByTx);
+    return {
+      isPaid: false,
+      status: 'partially_paid',
+      paidAmount: totalPaidByTx,
+      expectedAmount,
+      remainingAmount,
+      source: 'transaction',
+      linkedExpense,
+      matchedTransactions: sortedTxs,
+      lastPaymentDate: lastTx?.date,
+      displayStatusText: `Частично оплачено (${Math.round(totalPaidByTx).toLocaleString('ru-RU')} из ${Math.round(expectedAmount).toLocaleString('ru-RU')} ₽, остаток ${Math.round(remainingAmount).toLocaleString('ru-RU')} ₽)`
+    };
+  }
+
+  const remainingAmount = expectedAmount;
   return {
     isPaid: false,
+    status: 'unpaid',
     paidAmount: totalPaidByTx,
     expectedAmount,
+    remainingAmount,
     source: 'none',
     linkedExpense,
     matchedTransactions: sortedTxs,

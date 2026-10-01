@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, Globe, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -56,7 +56,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
 const TAB_CONFIG = [
-  { id: 'overview', label: 'Обзор', icon: Globe },
+  { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
   { id: 'budget', label: 'Бюджет', icon: Wallet },
   { id: 'plans', label: 'Планы', icon: Calendar },
   { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
@@ -111,6 +111,7 @@ export default function App() {
   const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isMandatoryModalOpen, setIsMandatoryModalOpen] = useState(false);
@@ -820,7 +821,7 @@ export default function App() {
         <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-surface-border dark:border-white/5 px-4 py-3 pt-safe flex justify-between items-center shrink-0">
            <div className="text-xl font-headline font-black tracking-tighter text-graphite dark:text-white flex items-center gap-2">
              <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-sm shadow-[#4A7C59]/20">
-               <Globe className="w-4.5 h-4.5 text-white stroke-[2.2]" />
+               <Leaf className="w-4.5 h-4.5 text-white stroke-[2.2]" />
              </div>
              <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
            </div>
@@ -843,7 +844,7 @@ export default function App() {
                 title={isSidebarExpanded ? "Свернуть меню" : "Развернуть меню"}
               >
                 <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 group-hover:scale-105 transition-transform">
-                  <Globe className="w-5 h-5 text-white stroke-[2.2]" />
+                  <Leaf className="w-5 h-5 text-white stroke-[2.2]" />
                 </div>
                 {isSidebarExpanded && (
                   <div className="flex flex-col">
@@ -987,7 +988,14 @@ export default function App() {
                     }}
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
-                    onOpenAddEventModal={() => setIsAddEventModalOpen(true)}
+                    onOpenAddEventModal={() => {
+                        setSelectedEvent(null);
+                        setIsAddEventModalOpen(true);
+                    }}
+                    onEditEvent={(ev) => {
+                        setSelectedEvent(ev);
+                        setIsAddEventModalOpen(true);
+                    }}
                 />
             </div>
             
@@ -1201,8 +1209,13 @@ export default function App() {
 
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
+                      const rawNum = Number(clean.amount);
+                      const safeAmount = Number.isFinite(rawNum) ? Math.abs(rawNum) : 0;
                       return {
                         ...clean,
+                        amount: safeAmount,
+                        date: clean.date || new Date().toISOString(),
+                        type: clean.type === 'income' ? 'income' : 'expense',
                         id: clean.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
                       };
                     });
@@ -1305,14 +1318,26 @@ export default function App() {
             {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
             {isAddEventModalOpen && (
                 <EventModal 
-                    key="add-event-modal"
-                    event={null}
+                    key={selectedEvent ? `edit-event-${selectedEvent.id}` : 'add-event-modal'}
+                    event={selectedEvent}
                     members={members}
                     settings={settings}
                     templates={events.filter(e => e.isTemplate)}
                     allEvents={events}
-                    onClose={() => setIsAddEventModalOpen(false)}
-                    onSave={handleSaveEvent}
+                    onClose={() => {
+                        setIsAddEventModalOpen(false);
+                        setSelectedEvent(null);
+                    }}
+                    onSave={(e) => {
+                        handleSaveEvent(e);
+                        setIsAddEventModalOpen(false);
+                        setSelectedEvent(null);
+                    }}
+                    onDelete={(id) => {
+                        handleDeleteEvent(id);
+                        setIsAddEventModalOpen(false);
+                        setSelectedEvent(null);
+                    }}
                     onSendToTelegram={handleSendEventToTelegram}
                 />
             )}

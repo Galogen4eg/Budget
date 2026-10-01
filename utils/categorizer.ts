@@ -435,14 +435,68 @@ export const detectProductCategory = (name: string): string => {
   return 'other';
 };
 
+// MCC (Merchant Category Code) mapping based on ISO 18245 and Russian retail banking
+const MCC_MAP: Record<string, string> = {
+  // Продукты и супермаркеты
+  '5411': 'food', '5422': 'food', '5441': 'food', '5451': 'food', '5462': 'food', '5499': 'food',
+  // Кафе, рестораны и фастфуд
+  '5811': 'restaurants', '5812': 'restaurants', '5813': 'restaurants', '5814': 'restaurants',
+  // АЗС и автоуслуги
+  '5541': 'auto', '5542': 'auto', '5533': 'auto', '7538': 'auto', '7542': 'auto', '5511': 'auto',
+  // Такси и общественный транспорт
+  '4121': 'transport', '4111': 'transport', '4131': 'transport', '4789': 'transport', '4112': 'transport',
+  // Аптеки и здоровье
+  '5912': 'health', '5122': 'health', '8011': 'health', '8021': 'health', '8071': 'health', '8099': 'health',
+  // Одежда, обувь, маркетплейсы и электроника
+  '5311': 'shopping', '5331': 'shopping', '5611': 'shopping', '5621': 'shopping', '5651': 'shopping',
+  '5661': 'shopping', '5691': 'shopping', '5941': 'shopping', '5942': 'shopping', '5977': 'shopping',
+  '5722': 'shopping', '5732': 'shopping', '5200': 'shopping', '5211': 'shopping',
+  // Развлечения и кино
+  '7832': 'entertainment', '7922': 'entertainment', '7991': 'entertainment', '7996': 'entertainment', '7999': 'entertainment'
+};
+
+// Helper to resolve canonical category ID to the user's category list
+const resolveTargetCategoryId = (canonicalId: string, categories: Category[]): string => {
+  const exact = categories.find(c => c.id === canonicalId);
+  if (exact) return exact.id;
+
+  const LABEL_MAP: Record<string, string> = {
+    'food': 'продукт',
+    'restaurants': 'ресторан',
+    'auto': 'авто',
+    'transport': 'транспорт',
+    'shopping': 'покупк',
+    'health': 'здоров',
+    'entertainment': 'развлечен',
+    'savings': 'накоплен',
+    'transfer': 'перевод'
+  };
+
+  const needle = LABEL_MAP[canonicalId];
+  if (needle) {
+    const byLabel = categories.find(c => c.label.toLowerCase().includes(needle));
+    if (byLabel) return byLabel.id;
+  }
+
+  return canonicalId;
+};
+
 // Determine category for Transactions (Merchants)
-export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [], categories: Category[], mcc?: string, bankCategory?: string): string => {
+export const getSmartCategory = (
+  note: string, 
+  learnedRules: LearnedRule[] = [], 
+  categories: Category[], 
+  mcc?: string, 
+  bankCategory?: string
+): string => {
   const cleanNote = note.toLowerCase();
+
+  // 1. Приоритет пользователя: обученные правила
   for (const rule of learnedRules) {
     if (cleanNote.includes(rule.keyword.toLowerCase())) return rule.categoryId;
   }
 
-  // Накопительные счета и копилки
+  // 2. Накопительные счета и копилки
   if (
     cleanNote.includes('накопительный') || 
     cleanNote.includes('копилк') || 
@@ -450,11 +504,20 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
     cleanNote.includes('сберегательн') || 
     cleanNote.includes('вклад')
   ) {
-    return 'savings';
+    return resolveTargetCategoryId('savings', categories);
   }
 
-  if (cleanNote.includes('сбп') || cleanNote.includes('sbp') || cleanNote.includes('перевод') || cleanNote.includes('transfer')) return 'transfer';
+  // 3. Внутренние и внешние переводы
+  if (
+    cleanNote.includes('сбп') || 
+    cleanNote.includes('sbp') || 
+    cleanNote.includes('перевод') || 
+    cleanNote.includes('transfer')
+  ) {
+    return resolveTargetCategoryId('transfer', categories);
+  }
 
+  // 4. Анализ ключевых слов мерчанта
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'savings': ['накопительный', 'копилка', 'накопления', 'вклад', 'сбережения'],
     'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'продукты', 'супермаркет', 'гастроном'],
@@ -466,8 +529,32 @@ export const getSmartCategory = (note: string, learnedRules: LearnedRule[] = [],
   };
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some(k => cleanNote.includes(k))) return catId;
+    if (keywords.some(k => cleanNote.includes(k))) {
+      return resolveTargetCategoryId(catId, categories);
+    }
   }
+
+  // 5. Определение по MCC-коду операции
+  if (mcc) {
+    const cleanMcc = mcc.trim();
+    const mappedByMcc = MCC_MAP[cleanMcc];
+    if (mappedByMcc) {
+      return resolveTargetCategoryId(mappedByMcc, categories);
+    }
+  }
+
+  // 6. Определение по строковой категории из банковской выписки
+  if (bankCategory) {
+    const bCat = bankCategory.toLowerCase();
+    if (bCat.match(/супермаркет|продукт|бакалея/)) return resolveTargetCategoryId('food', categories);
+    if (bCat.match(/ресторан|кафе|фастфуд|столов|общепит/)) return resolveTargetCategoryId('restaurants', categories);
+    if (bCat.match(/азс|авто|бензин|топливо|парковк/)) return resolveTargetCategoryId('auto', categories);
+    if (bCat.match(/такси|транспорт|каршеринг|метро|поезд/)) return resolveTargetCategoryId('transport', categories);
+    if (bCat.match(/аптек|медицин|здоров|стоматолог/)) return resolveTargetCategoryId('health', categories);
+    if (bCat.match(/одежд|обув|электроник|техник|дом|ремонт|покупк/)) return resolveTargetCategoryId('shopping', categories);
+    if (bCat.match(/развлечен|кино|театр|спорт|фитнес/)) return resolveTargetCategoryId('entertainment', categories);
+  }
+
   return 'other';
 };
 

@@ -1,0 +1,128 @@
+{
+  "projectName": "Terra — Семейный Финансовый Контур",
+  "version": "1.0.0",
+  "environment": {
+    "framework": "React 18",
+    "buildTool": "Vite 5",
+    "language": "TypeScript 5",
+    "styling": "Tailwind CSS v4",
+    "targetPlatforms": ["Web SPA", "Mobile Web App (PWA)", "Capacitor Mobile (Android/iOS)"],
+    "ports": [3000]
+  },
+  "designSystem": {
+    "theme": "Warm Apple-Style Minimalism / Cozy Sage",
+    "colors": {
+      "backgroundLight": "#faf6f0",
+      "backgroundDark": "#1C1F1E",
+      "primarySage": "#4A7C59",
+      "primarySageLight": "#78a886",
+      "textLight": "#2e3230",
+      "textDark": "#fafafa"
+    },
+    "guidelines": [
+      "No telemetry, system logs, or status indicators in the user interface.",
+      "Strict padding guidelines: 16px (p-4) on mobile stacking, rounded-2xl / rounded-3xl corners.",
+      "Direct action buttons over complicated nested settings.",
+      "Full dark mode support with color inversion."
+    ]
+  },
+  "stateManagement": {
+    "auth": "AuthContext.tsx (Supports Firebase Auth, auto local-user generation if offline)",
+    "data": "DataContext.tsx (State manager for sync, provides transactions, categories, debts, shopping items, events, loyalty cards)"
+  },
+  "databaseSchema": {
+    "collections": {
+      "transactions": {
+        "id": "string (uuid / custom)",
+        "amount": "number",
+        "type": "expense | income",
+        "category": "string (categoryId)",
+        "note": "string",
+        "date": "string (YYYY-MM-DD)",
+        "memberId": "string"
+      },
+      "categories": {
+        "id": "string",
+        "label": "string",
+        "icon": "string (lucide-icon-name)",
+        "color": "string (hex)"
+      },
+      "debts": {
+        "id": "string",
+        "title": "string",
+        "balance": "number",
+        "minimumPayment": "number",
+        "rate": "number (APR percentage)",
+        "isActive": "boolean"
+      },
+      "shopping": {
+        "id": "string",
+        "title": "string",
+        "amount": "string",
+        "unit": "шт | кг | уп | л",
+        "completed": "boolean",
+        "memberId": "string",
+        "category": "string"
+      },
+      "events": {
+        "id": "string",
+        "title": "string",
+        "date": "string (YYYY-MM-DD)",
+        "time": "string (HH:MM)",
+        "description": "string",
+        "memberIds": "array of strings"
+      },
+      "loyaltyCards": {
+        "id": "string",
+        "title": "string",
+        "cardNumber": "string",
+        "barcodeFormat": "string",
+        "category": "string"
+      },
+      "members": {
+        "id": "string",
+        "name": "string",
+        "email": "string (optional)",
+        "color": "string (hex)",
+        "userId": "string (optional)"
+      }
+    }
+  },
+  "aiEngine": {
+    "architecture": "Hybrid Dual-Engine AI (Google Gemini + Terra Local Engine)",
+    "cloudMode": {
+      "primaryModel": "gemini-3.8-flash",
+      "fallbackModels": ["gemini-3.1-flash-lite", "gemini-flash-latest"],
+      "mimeType": "application/json"
+    },
+    "localMode": {
+      "trigger": "Activated automatically if no API Key is provided or upon HTTP 429/503 (GEMINI38_FLASH_OVERLOAD)",
+      "features": {
+        "regexParsing": "Direct extraction of transaction amounts, note text, shopping lists, and tomorrow calendars.",
+        "financialAdvisor": "Scans context.transactions to build local budgeting summaries and financial advice offline."
+      }
+    }
+  },
+  "keyModules": [
+    {
+      "name": "AIChat",
+      "path": "/components/AIChat.tsx",
+      "description": "Premium conversation portal. Supports rich expense cards, dynamic shopping checklist, voice overlay simulation, and attachments."
+    },
+    {
+      "name": "DebtSnowball",
+      "path": "/components/DebtSnowball.tsx",
+      "description": "Strategic debt optimizer with dynamic simulations. Displays payoff order under Avalanche (highest APR) vs Snowball (lowest balance) modes."
+    },
+    {
+      "name": "WalletApp",
+      "path": "/components/Wallet.tsx",
+      "description": "Loyalty card ledger. Features category grouping, quick barcode generation, and card creation."
+    },
+    {
+      "name": "MembersSettingsSection",
+      "path": "/components/MembersSettingsSection.tsx",
+      "description": "User profiling system. Integrates active session binding, preset color markers, and e-mail invitation links."
+    }
+  ]
+}

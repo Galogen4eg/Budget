@@ -18,9 +18,35 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
   }
 }
 
+async function generateWithFallback(prompt) {
+  const models = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"];
+  
+  for (const modelName of models) {
+    try {
+      const modelPromise = ai.models.generateContent({
+        model: modelName,
+        contents: prompt
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout ${modelName}`)), 3500)
+      );
+
+      const response = await Promise.race([modelPromise, timeoutPromise]);
+      if (response?.text) {
+        return response.text.trim();
+      }
+    } catch (err) {
+      console.warn(`Сбой вызова модели ${modelName}:`, err.message);
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+  }
+  return "Будни фотографа: новый курьез со съемок.";
+}
+
 export default async function handler(req, res) {
   try {
-    // 1. Получение фида (таймаут 4 сек)
+    // 1. Быстро забираем фид
     const feedUrl = "https://petapixel.com/feed/";
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
@@ -30,36 +56,33 @@ export default async function handler(req, res) {
     }, 4000);
 
     if (!feedRes.ok) {
-      return res.status(502).json({ error: `Ошибка загрузки RSS: статус ${feedRes.status}` });
+      return res.status(502).json({ error: `Ошибка загрузки RSS: ${feedRes.status}` });
     }
 
     const xml = await feedRes.text();
 
-    // Быстрое позиционное извлечение первого элемента без глубокого ReDoS
     const itemStart = xml.indexOf("<item>");
     const itemEnd = xml.indexOf("</item>", itemStart);
     
     if (itemStart === -1 || itemEnd === -1) {
-      return res.status(200).json({ message: "Записи в ленте не обнаружены" });
+      return res.status(200).json({ message: "Записи в ленте не найдены" });
     }
 
     const itemChunk = xml.slice(itemStart, itemEnd);
 
-    // Извлечение заголовка
     let postTitle = "Инфоповод из мира фотографии";
     const titleMatch = itemChunk.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) {
       postTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
     }
 
-    // Извлечение ссылки
     let postLink = "https://petapixel.com";
     const linkMatch = itemChunk.match(/<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/link>/i);
     if (linkMatch && linkMatch[1]) {
       postLink = linkMatch[1].trim();
     }
 
-    // 2. Генерация текста (таймаут 4.5 сек)
+    // 2. Адаптация через Gemini с авто-фоллбеком при 503
     const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
 Преврати инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
 
@@ -69,19 +92,9 @@ export default async function handler(req, res) {
 3. Короткий вопрос к коллегам в конце.
 Чистый текст без тегов и разметки.`;
 
-    const modelPromise = ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: prompt
-    });
+    const adaptedText = await generateWithFallback(prompt);
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Превышен таймаут ответа Gemini API (4.5s)")), 4500)
-    );
-
-    const response = await Promise.race([modelPromise, timeoutPromise]);
-    const adaptedText = response.text ? response.text.trim() : "Будни фотографа: свежий курьез со съемок.";
-
-    // 3. Отправка черновика в Telegram (таймаут 3 сек)
+    // 3. Отправка черновика в Telegram
     const keyboard = {
       inline_keyboard: [
         [
@@ -111,7 +124,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Telegram API Error", details: tgData });
     }
 
-    return res.status(200).json({ success: true, message: "Черновик доставлен в Telegram" });
+    return res.status(200).json({ success: true, message: "Черновик отправлен в Telegram" });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

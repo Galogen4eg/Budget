@@ -19,8 +19,9 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
 }
 
 async function generateWithFallback(prompt) {
-  const models = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"];
-  
+  // Пробуем доступные модели линейки
+  const models = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
+
   for (const modelName of models) {
     try {
       const modelPromise = ai.models.generateContent({
@@ -29,7 +30,7 @@ async function generateWithFallback(prompt) {
       });
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout ${modelName}`)), 3500)
+        setTimeout(() => reject(new Error(`Timeout on ${modelName}`)), 3500)
       );
 
       const response = await Promise.race([modelPromise, timeoutPromise]);
@@ -37,16 +38,19 @@ async function generateWithFallback(prompt) {
         return response.text.trim();
       }
     } catch (err) {
-      console.warn(`Сбой вызова модели ${modelName}:`, err.message);
-      await new Promise(resolve => setTimeout(resolve, 400));
+      console.warn(`Сбой генерации через ${modelName}:`, err.message);
+      // Небольшая пауза перед второй попыткой
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
-  return "Будни фотографа: новый курьез со съемок.";
+
+  // Защита от сбоя: если API Google перегружен (503), возвращаем заглушку, но НЕ роняем скрипт
+  return "Очередной курьёз со съёмок: свет настроили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
 }
 
 export default async function handler(req, res) {
   try {
-    // 1. Быстро забираем фид
+    // 1. Быстро забираем RSS
     const feedUrl = "https://petapixel.com/feed/";
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
@@ -63,7 +67,7 @@ export default async function handler(req, res) {
 
     const itemStart = xml.indexOf("<item>");
     const itemEnd = xml.indexOf("</item>", itemStart);
-    
+
     if (itemStart === -1 || itemEnd === -1) {
       return res.status(200).json({ message: "Записи в ленте не найдены" });
     }
@@ -82,7 +86,7 @@ export default async function handler(req, res) {
       postLink = linkMatch[1].trim();
     }
 
-    // 2. Адаптация через Gemini с авто-фоллбеком при 503
+    // 2. Адаптация через Gemini
     const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
 Преврати инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
 

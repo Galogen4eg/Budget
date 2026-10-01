@@ -6,14 +6,62 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
+    const token = process.env.TG_BOT_TOKEN;
+    const channelId = process.env.PUBLIC_CHANNEL_ID;
+
+    // Нижняя клавиатура с постоянной кнопкой запроса
+    const mainKeyboard = {
+      keyboard: [
+        [{ text: "📰 Найти новость" }]
+      ],
+      resize_keyboard: true,
+      persistent: true
+    };
+
+    // 1. Обработка входящих текстовых сообщений
+    if (update.message && update.message.text) {
+      const text = update.message.text.trim().toLowerCase();
+      const chatId = update.message.chat.id;
+
+      if (text === "/start") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: "Бот готов к работе. Нажми кнопку ниже, чтобы запросить свежий инфоповод.",
+            reply_markup: mainKeyboard
+          })
+        });
+        return res.status(200).json({ ok: true });
+      }
+
+      if (text === "📰 найти новость" || text === "/find" || text === "новость") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: "Ищу инфоповод и генерирую черновик...",
+            reply_markup: mainKeyboard
+          })
+        });
+
+        // Фоновый вызов парсера и генератора
+        const host = req.headers.host;
+        const protocol = host.includes("localhost") ? "http" : "https";
+        await fetch(`${protocol}://${host}/api/curator-find`);
+
+        return res.status(200).json({ ok: true });
+      }
+    }
+
+    // 2. Обработка нажатий инлайн-кнопок под черновиком
     if (update.callback_query) {
       const callback = update.callback_query;
       const data = callback.data;
       const message = callback.message;
-      const token = process.env.TG_BOT_TOKEN;
-      const channelId = process.env.PUBLIC_CHANNEL_ID;
 
-      // 1. Обязательно гасим крутилку на кнопке
       await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -24,37 +72,19 @@ export default async function handler(req, res) {
       });
 
       if (data === "publish_current") {
-        let postRes;
-
-        // Если это фото-пост
-        if (message.photo && message.photo.length > 0) {
-          const fileId = message.photo[message.photo.length - 1].file_id;
-          postRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channelId,
-              photo: fileId,
-              caption: message.caption || ""
-            })
-          });
-        } else {
-          // Если это текстовый пост
-          postRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channelId,
-              text: message.text || "",
-              disable_web_page_preview: false
-            })
-          });
-        }
+        const postRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channelId,
+            text: message.text || "",
+            disable_web_page_preview: false
+          })
+        });
 
         const postData = await postRes.json();
-
         if (postData.ok) {
-          // Обновляем сообщение у тебя в личке, чтобы убрать кнопки
+          // Убираем инлайн-кнопки у опубликованного черновика
           await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -68,7 +98,6 @@ export default async function handler(req, res) {
       }
 
       if (data === "dismiss") {
-        // Удаляем отклоненный черновик
         await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

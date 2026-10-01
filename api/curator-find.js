@@ -1,152 +1,29 @@
-import { GoogleGenAI } from "@google/genai";
+// Подтягиваем стиль из настроек Vercel или берем значение по умолчанию
+    const customStyle = process.env.PROMPT_STYLE || "Ты — коммерческий фотограф с саркастичным чувством юмора, пишущий для своего Telegram-канала. Аудитория — коллеги по цеху.";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const prompt = `## Task Context
+${customStyle}
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  }
-}
+## Task
+Прочитай эту новость (она может быть на иностранном языке) и напиши по ней короткий ироничный пост СТРОГО на русском языке.
 
-async function generateWithFallback(prompt) {
-  const models = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
+Заголовок: "${postTitle}"
+Суть новости: "${postDescription}"
 
-  for (const modelName of models) {
-    try {
-      const response = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`Timeout ${modelName}`)), 3500);
+## Tone & Style
+- Формат: разговорный, прямой, без корпоративного жаргона.
+- Подача: личное мнение → курьез или пример из практики → вывод или вопрос.
+- Синтаксис: короткие предложения (5–20 слов), активный залог.
 
-        ai.models.generateContent({
-          model: modelName,
-          contents: prompt
-        })
-        .then(res => {
-          clearTimeout(timer);
-          resolve(res);
-        })
-        .catch(err => {
-          clearTimeout(timer);
-          reject(err);
-        });
-      });
+## Rules
+MUST:
+- Писать от первого лица ("я", "у меня", "моя студия").
+- Вплетать реалистичные детали (работа со светом, заказчики, исходники, оптика).
+MUST NOT:
+- Использовать вводные слова и ИИ-штампы.
+- Добавлять кавычки в заголовок, хэштеги, Markdown-разметку или любые ссылки.
 
-      if (response?.text) return response.text.trim();
-    } catch (err) {
-      console.warn(`Сбой генерации через ${modelName}:`, err.message);
-      await new Promise((r) => setTimeout(r, 300));
-    }
-  }
-
-  return "Очередной курьёз со съёмок: свет выставили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
-}
-
-export default async function handler(req, res) {
-  try {
-    const feedUrl = req.query.feed || "https://petapixel.com/feed/";
-
-    const feedRes = await fetchWithTimeout(feedUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
-      }
-    }, 4000);
-
-    if (!feedRes.ok) return res.status(502).json({ error: `Ошибка RSS: статус ${feedRes.status}` });
-
-    const xml = await feedRes.text();
-    
-    const items = [];
-    let startIndex = 0;
-    while (items.length < 5) {
-      const start = xml.indexOf("<item>", startIndex);
-      if (start === -1) break;
-      const end = xml.indexOf("</item>", start);
-      if (end === -1) break;
-      items.push(xml.slice(start, end));
-      startIndex = end + 7;
-    }
-
-    if (items.length === 0) return res.status(200).json({ message: "Лента пуста" });
-
-    const itemChunk = items[Math.floor(Math.random() * items.length)];
-    
-    let postTitle = "Инфоповод из мира фотографии";
-    const titleMatch = itemChunk.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
-    if (titleMatch && titleMatch[1]) postTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-
-    let imageUrl = null;
-    const mediaMatch = itemChunk.match(/<media:content[^>]+url=(["'])(.*?)\1/i);
-    if (mediaMatch && mediaMatch[2]) imageUrl = mediaMatch[2];
-    
-    if (!imageUrl) {
-      const encMatch = itemChunk.match(/<enclosure[^>]+url=(["'])(.*?)\1[^>]*type=["']image\//i);
-      if (encMatch && encMatch[2]) imageUrl = encMatch[2];
-    }
-    
-    if (!imageUrl) {
-      const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(.*?)\1/i);
-      if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
-    }
-
-    const prompt = `Ты — коммерческий фотограф с саркастичным чувством юмора.
-Преврати этот инфоповод в короткий ироничный пост для Telegram-канала: "${postTitle}".
-
-Формат:
-1. Хлёсткий заголовок.
-2. 2-3 коротких предложения с курьёзом из практики фотографа.
-3. Короткий вопрос к коллегам в конце.
-Чистый текст без тегов.`;
-
-    const adaptedText = await generateWithFallback(prompt);
-    
-    // Ссылка на источник убрана, отправляется только сгенерированный текст
-    const fullMessageText = adaptedText;
-
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "✅ Опубликовать", callback_data: "publish_current" },
-        { text: "❌ Отклонить", callback_data: "dismiss" }
-      ]]
-    };
-
-    let tgUrl, tgBody;
-
-    if (imageUrl) {
-      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendPhoto`;
-      tgBody = {
-        chat_id: process.env.MY_TELEGRAM_ID,
-        photo: imageUrl,
-        caption: fullMessageText.substring(0, 1024),
-        reply_markup: keyboard
-      };
-    } else {
-      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`;
-      tgBody = {
-        chat_id: process.env.MY_TELEGRAM_ID,
-        text: fullMessageText,
-        reply_markup: keyboard,
-        disable_web_page_preview: true
-      };
-    }
-
-    const tgRes = await fetchWithTimeout(tgUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tgBody)
-    }, 3000);
-
-    const tgData = await tgRes.json();
-    if (!tgData.ok) return res.status(500).json({ error: "Telegram API Error", details: tgData });
-
-    return res.status(200).json({ success: true, message: "Черновик отправлен" });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-}
+## Output Format
+1. Хлёсткий заголовок (просто текст, без тегов).
+2. 2-3 предложения основного текста.
+3. Открытый вопрос к аудитории в конце.`;

@@ -93,25 +93,25 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
 
         {/* Header with Integrated Stats */}
         <div className="flex justify-between items-start mb-2 relative z-10 shrink-0">
-            <div>
+            <div className="min-w-0 flex-1 mr-2">
                 <div className="flex items-center gap-2 mb-0.5">
-                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl shrink-0">
                         <BarChart3 size={14} className="text-blue-500 dark:text-blue-400" />
                     </div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">
                         Динамика
                     </span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-xl md:text-2xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none">
+                    <h2 className="text-xl md:text-2xl font-black text-[#1C1C1E] dark:text-white tabular-nums tracking-tight leading-none truncate">
                         {settings.privacyMode ? '••••••' : totalExpenses.toLocaleString()}
                     </h2>
-                    <span className="text-xs font-bold text-gray-400">{settings.currency}</span>
+                    <span className="text-xs font-bold text-gray-400 shrink-0">{settings.currency}</span>
                 </div>
             </div>
 
             {/* Top Right Stats Badges */}
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end gap-1 shrink-0">
                 <div className="flex items-center gap-1.5 bg-blue-50/80 dark:bg-blue-900/20 px-2 py-1 rounded-lg backdrop-blur-sm">
                     <span className="text-[8px] font-black text-blue-400 uppercase tracking-wider">AVG</span>
                     <span className="text-[10px] font-bold text-blue-600 dark:text-blue-300 tabular-nums">

@@ -5,7 +5,7 @@ import {
   Edit3, Dumbbell, Sparkle, Car, Film, Coffee,
   RefreshCw, Plane, Home, ShoppingBag, Heart,
   CheckCircle2, Sparkles, History, Clock, Send,
-  AlertTriangle
+  AlertTriangle, Users
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
@@ -385,8 +385,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Фильтр: Общие */}
             <button 
               onClick={() => setFilterMemberId('all')} 
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400 transition cursor-pointer"
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                filterMemberId === 'all'
+                  ? 'bg-[#EBE5DB] dark:bg-white/20 text-stone-900 dark:text-white shadow-xs'
+                  : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400'
+              }`}
             >
+              <Users size={12} className="shrink-0 text-[#4A7C59]" />
               <span>Общие</span>
             </button>
 
@@ -737,9 +742,6 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
                                 <span>{badgeStyle.memberName}</span>
-                              </span>
-                              <span className="text-xs text-stone-400">
-                                {formattedDate}
                               </span>
                             </div>
                             <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">

@@ -367,41 +367,41 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   );
 
   const SummaryBlock = (
-      <div className="grid grid-cols-3 gap-3 mb-5 shrink-0">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 shrink-0">
           {/* Доход (Green card) */}
-          <div className="bg-[#EAF2EC] dark:bg-[#4A7C59]/15 rounded-2xl p-3.5 border border-[#D5E6D8] dark:border-[#4A7C59]/25">
+          <div className="bg-[#EAF2EC] dark:bg-[#4A7C59]/15 rounded-2xl p-2.5 sm:p-3.5 border border-[#D5E6D8] dark:border-[#4A7C59]/25 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <ArrowDownCircle size={14} className="text-[#4A7C59] dark:text-green-400" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#4A7C59] dark:text-green-400">
+                  <ArrowDownCircle size={14} className="text-[#4A7C59] dark:text-green-400 shrink-0" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#4A7C59] dark:text-green-400 truncate">
                     Доход
                   </span>
               </div>
-              <span className="text-base md:text-xl font-headline font-bold text-[#4A7C59] dark:text-green-400 whitespace-nowrap block">
+              <span className="text-xs sm:text-base md:text-xl font-headline font-bold text-[#4A7C59] dark:text-green-400 truncate block">
                   {settings.privacyMode ? '•••' : `+${stats.income.toLocaleString('ru-RU')}`}
               </span>
           </div>
 
           {/* Расход (Red card) */}
-          <div className="bg-[#FDF2F2] dark:bg-red-950/20 rounded-2xl p-3.5 border border-[#FADCDD] dark:border-red-900/25">
+          <div className="bg-[#FDF2F2] dark:bg-red-950/20 rounded-2xl p-2.5 sm:p-3.5 border border-[#FADCDD] dark:border-red-900/25 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <ArrowUpCircle size={14} className="text-[#E05252] dark:text-red-400" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E05252] dark:text-red-400">
+                  <ArrowUpCircle size={14} className="text-[#E05252] dark:text-red-400 shrink-0" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E05252] dark:text-red-400 truncate">
                     Расход
                   </span>
               </div>
-              <span className="text-base md:text-xl font-headline font-bold text-[#E05252] dark:text-red-400 whitespace-nowrap block">
+              <span className="text-xs sm:text-base md:text-xl font-headline font-bold text-[#E05252] dark:text-red-400 truncate block">
                   {settings.privacyMode ? '•••' : `-${stats.expense.toLocaleString('ru-RU')}`}
               </span>
           </div>
 
           {/* Итого (Neutral card) */}
-          <div className="bg-white dark:bg-[#252528] rounded-2xl p-3.5 border border-surface-border dark:border-white/5 shadow-sm">
+          <div className="bg-white dark:bg-[#252528] rounded-2xl p-2.5 sm:p-3.5 border border-surface-border dark:border-white/5 shadow-sm min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 truncate">
                     Итого
                   </span>
               </div>
-              <span className={`text-base md:text-xl font-headline font-bold whitespace-nowrap block ${
+              <span className={`text-xs sm:text-base md:text-xl font-headline font-bold truncate block ${
                 stats.net > 0 ? 'text-[#4A7C59] dark:text-green-400' : stats.net < 0 ? 'text-[#E05252] dark:text-red-400' : 'text-graphite dark:text-white'
               }`}>
                   {settings.privacyMode ? '•••' : `${stats.net > 0 ? '+' : ''}${stats.net.toLocaleString('ru-RU')}`}

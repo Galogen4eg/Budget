@@ -160,7 +160,7 @@ export const LoyaltyCardMobileModal: React.FC<LoyaltyCardMobileModalProps> = ({
         </header>
 
         {/* 2. Main Content */}
-        <main className="flex-1 flex flex-col relative w-full p-4 sm:p-5">
+        <main className="flex-1 flex flex-col relative w-full p-4 sm:p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
           <div className="flex flex-col w-full space-y-4">
             
             {/* Main Loyalty Card Surface */}

@@ -85,7 +85,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                       onClick={() => onEdit(tx)}
                       className="group flex items-center justify-between p-3.5 rounded-2xl border border-surface-border dark:border-white/5 transition-all cursor-pointer hover:border-gray-300 dark:hover:border-white/15 bg-white dark:bg-[#252528] shadow-xs hover:shadow active:scale-[0.99]"
                     >
-                      <div className="flex items-center gap-3.5 overflow-hidden flex-1">
+                      <div className="flex items-center gap-3.5 overflow-hidden flex-1 min-w-0">
                         <div className="shrink-0">
                           <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="md" />
                         </div>
@@ -128,7 +128,7 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                               </span>
                             )}
                             {tx.rawNote && tx.rawNote !== displayTitle && (
-                              <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
+                              <span className="text-[10px] text-gray-400 truncate max-w-[240px] lg:max-w-[360px]" title={tx.rawNote}>
                                 ({tx.rawNote})
                               </span>
                             )}

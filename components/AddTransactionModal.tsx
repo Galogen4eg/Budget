@@ -13,6 +13,8 @@ import { triggerHaptic } from '../utils/haptics';
 import { sendTelegramMessage } from '../utils/telegram';
 import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 import MobileCategoryPickerModal from './MobileCategoryPickerModal';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -28,6 +30,32 @@ interface AddTransactionModalProps {
   onDelete?: (id: string) => Promise<void>;
   onAddCategory?: (category: Category) => void;
 }
+
+/**
+ * Safely evaluates simple mathematical expressions (addition, subtraction, multiplication, division)
+ * without using dangerous eval() function. Supports decimals with both '.' and ',' separators.
+ * Returns null if the expression is invalid or empty.
+ */
+export const evaluateMathExpression = (expr: string): number | null => {
+  const cleanExpr = expr.replace(/\s/g, '').replace(/,/g, '.');
+  if (!cleanExpr) return null;
+
+  // Simple validation: only allow digits, decimal points, and + - * / ( )
+  if (!/^[0-9.+\-*/()]+$/.test(cleanExpr)) {
+    return null;
+  }
+
+  try {
+    const fn = new Function(`return (${cleanExpr})`);
+    const val = fn();
+    if (typeof val === 'number' && !isNaN(val) && isFinite(val)) {
+      return val;
+    }
+  } catch (e) {
+    // Syntax error in math expression
+  }
+  return null;
+};
 
 const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => (
   <div className="px-5 py-4 border-b flex justify-between items-center sticky top-0 z-30 bg-[#FAF8F5]/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md border-surface-border dark:border-white/10 shrink-0">
@@ -48,6 +76,10 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 export default function AddTransactionModal({
   onClose, onSubmit, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
+  // Lock body scroll with scrollbar compensation when modal is open
+  useBodyScrollLock();
+  useModalBackHandler(true, onClose);
+
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'assignee' | 'monthly_binding'>('main');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
@@ -92,63 +124,10 @@ export default function AddTransactionModal({
   });
   const [notifyTelegram, setNotifyTelegram] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
-
-  // QR Scanner for FNS Receipt API
-  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
-  const [fnsQrString, setFnsQrString] = useState('');
-  const [isFnsParsing, setIsFnsParsing] = useState(false);
-
-  const handleParseFnsQrCode = async (qrText: string) => {
-    if (!qrText || !qrText.trim()) {
-      toast.warning('Строка QR-кода пуста');
-      return;
-    }
-    const cleanQr = qrText.trim();
-    setIsFnsParsing(true);
-    try {
-      // FNS QR string format: t=YYYYMMDDTHHMM&s=SUM.DEC&fn=FN_NUM&i=FD_NUM&fp=FP_NUM&n=1
-      const params = new URLSearchParams(cleanQr.includes('?') ? cleanQr.split('?')[1] : cleanQr);
-      const sumParam = params.get('s');
-      const timeParam = params.get('t');
-      const fnParam = params.get('fn');
-      const iParam = params.get('i');
-
-      if (!sumParam) {
-        toast.error('Неверный формат QR-кода ФНС. Не найдено поле суммы (s).');
-        return;
-      }
-
-      const parsedSum = parseFloat(sumParam);
-      if (isNaN(parsedSum)) {
-        toast.error('Не удалось распарсить сумму чека.');
-        return;
-      }
-
-      setAmount(String(parsedSum));
-      triggerHaptic('success');
-
-      if (timeParam && timeParam.length >= 8) {
-        const year = timeParam.slice(0, 4);
-        const month = timeParam.slice(4, 6);
-        const day = timeParam.slice(6, 8);
-        setDate(`${year}-${month}-${day}`);
-      }
-
-      setRenamedTitle('Чек ФНС (Проверен)');
-      setNote(`ФНС Чек: ФН ${fnParam || '9999'}, ФД ${iParam || '1234'}`);
-
-      toast.success(`Чек ФНС успешно распознан и проверен через API! Сумма: ${parsedSum} ₽`);
-      setIsQrScannerOpen(false);
-      setFnsQrString('');
-    } catch (err) {
-      toast.error('Ошибка разбора данных чека ФНС.');
-    } finally {
-      setIsFnsParsing(false);
-    }
-  };
 
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
@@ -195,105 +174,128 @@ export default function AddTransactionModal({
   }, [amount]);
 
   const formatAmountInput = (val: string) => {
-    return val.replace(/[^0-9.,\s]/g, '');
+    return val.replace(/[^0-9.,\s+\-*/()]/g, '');
   };
 
   const handleSave = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setValidationError(null);
-    const cleanAmountStr = amount.replace(/\s/g, '').replace(',', '.');
-    const finalAmount = parseFloat(cleanAmountStr);
     
-    if (isNaN(finalAmount) || finalAmount <= 0) {
-      setValidationError("Пожалуйста, укажите сумму операции больше 0");
-      return;
-    }
-
-    let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
-
-    if (boundExpenseId) {
-      const expense = mandatoryExpenses.find(e => e.id === boundExpenseId);
-      if (expense && !finalDisplayName.toLowerCase().includes(expense.name.toLowerCase())) {
-        finalDisplayName = `${expense.name} ${finalDisplayName}`;
+    // Evaluate if it's a mathematical expression, otherwise parse as standard float
+    let finalAmount = parseFloat(amount.replace(/\s/g, '').replace(',', '.'));
+    if (isNaN(finalAmount)) {
+      const evaluated = evaluateMathExpression(amount);
+      if (evaluated !== null) {
+        finalAmount = evaluated;
+      }
+    } else {
+      // Check if there are operators in the string to see if we should override with evaluated result
+      if (/[\+\-\*\/]/.test(amount)) {
+        const evaluated = evaluateMathExpression(amount);
+        if (evaluated !== null) {
+          finalAmount = evaluated;
+        }
       }
     }
-
-    let dateObj = new Date(date);
-    const now = new Date();
     
-    if (dateObj.toDateString() === now.toDateString() && !initialTransaction) {
-      dateObj = now;
-    } else if (initialTransaction) {
-      const originalDate = new Date(initialTransaction.date);
-      const isSameDay = originalDate.getFullYear() === dateObj.getFullYear() &&
-                        originalDate.getMonth() === dateObj.getMonth() &&
-                        originalDate.getDate() === dateObj.getDate();
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      setValidationError("Пожалуйста, укажите верную сумму или математическое выражение больше 0");
+      setIsSubmitting(false);
+      return;
+    }
+    try {
+      let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
+
+      if (boundExpenseId) {
+        const expense = mandatoryExpenses.find(e => e.id === boundExpenseId);
+        if (expense && !finalDisplayName.toLowerCase().includes(expense.name.toLowerCase())) {
+          finalDisplayName = `${expense.name} ${finalDisplayName}`;
+        }
+      }
+
+      let dateObj = new Date(date);
+      const now = new Date();
       
-      if (isSameDay) {
-        dateObj = originalDate;
+      if (dateObj.toDateString() === now.toDateString() && !initialTransaction) {
+        dateObj = now;
+      } else if (initialTransaction) {
+        const originalDate = new Date(initialTransaction.date);
+        const isSameDay = originalDate.getFullYear() === dateObj.getFullYear() &&
+                          originalDate.getMonth() === dateObj.getMonth() &&
+                          originalDate.getDate() === dateObj.getDate();
+        
+        if (isSameDay) {
+          dateObj = originalDate;
+        } else {
+          dateObj.setHours(12, 0, 0, 0);
+        }
       } else {
         dateObj.setHours(12, 0, 0, 0);
       }
-    } else {
-      dateObj.setHours(12, 0, 0, 0);
-    }
 
-    let finalLinkedExpenseId = boundExpenseId;
-    if (!finalLinkedExpenseId && type === 'expense') {
-      const searchTarget = `${finalDisplayName} ${note}`.toLowerCase();
-      const matchedExpense = mandatoryExpenses.find(e => {
-        const expName = (e.name || '').toLowerCase().trim();
-        if (expName.length >= 3 && searchTarget.includes(expName)) return true;
-        const keywords = e.keywords || [];
-        return keywords.some(k => k.trim().length >= 3 && searchTarget.includes(k.toLowerCase().trim()));
-      });
-      if (matchedExpense) {
-        finalLinkedExpenseId = matchedExpense.id;
+      let finalLinkedExpenseId = boundExpenseId;
+      if (!finalLinkedExpenseId && type === 'expense') {
+        const searchTarget = `${finalDisplayName} ${note}`.toLowerCase();
+        const matchedExpense = mandatoryExpenses.find(e => {
+          const expName = (e.name || '').toLowerCase().trim();
+          if (expName.length >= 3 && searchTarget.includes(expName)) return true;
+          const keywords = e.keywords || [];
+          return keywords.some(k => k.trim().length >= 3 && searchTarget.includes(k.toLowerCase().trim()));
+        });
+        if (matchedExpense) {
+          finalLinkedExpenseId = matchedExpense.id;
+        }
       }
-    }
 
-    const txData: Omit<Transaction, 'id'> = {
-      amount: finalAmount,
-      type: type,
-      category: categoryId,
-      memberId: memberId,
-      note: finalDisplayName,
-      date: dateObj.toISOString(),
-      rawNote: note.trim() || finalDisplayName, 
-      userId: auth.currentUser?.uid,
-      linkedExpenseId: finalLinkedExpenseId || undefined
-    };
-
-    if (isLearningEnabled && cleanKeyword.trim()) {
-      const rule: LearnedRule = {
-        id: Date.now().toString(),
-        keyword: cleanKeyword.trim(),
-        cleanName: finalDisplayName,
-        categoryId: categoryId
+      const txData: Omit<Transaction, 'id'> = {
+        amount: finalAmount,
+        type: type,
+        category: categoryId,
+        memberId: memberId,
+        note: finalDisplayName,
+        date: dateObj.toISOString(),
+        rawNote: note.trim() || finalDisplayName, 
+        userId: auth.currentUser?.uid,
+        linkedExpenseId: finalLinkedExpenseId || undefined
       };
-      onLearnRule(rule);
-    }
 
-    // Optional Telegram notification
-    if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
-      const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
-      const formattedAmount = finalAmount.toLocaleString('ru-RU');
-      const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
-      
-      sendTelegramMessage({
-        config: {
-          botToken: settings.telegramBotToken,
-          chatId: settings.telegramChatId,
-          apiUrl: settings.telegramApiUrl,
-        },
-        text: telegramText,
-        parseMode: 'Markdown',
-      }).catch(err => {
-        console.error("Telegram notification failed:", err);
-      });
-    }
+      if (isLearningEnabled && cleanKeyword.trim()) {
+        const rule: LearnedRule = {
+          id: Date.now().toString(),
+          keyword: cleanKeyword.trim(),
+          cleanName: finalDisplayName,
+          categoryId: categoryId
+        };
+        onLearnRule(rule);
+      }
 
-    await onSubmit(txData);
-    onClose();
+      // Optional Telegram notification
+      if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
+        const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
+        const formattedAmount = finalAmount.toLocaleString('ru-RU');
+        const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
+        
+        sendTelegramMessage({
+          config: {
+            botToken: settings.telegramBotToken,
+            chatId: settings.telegramChatId,
+            apiUrl: settings.telegramApiUrl,
+          },
+          text: telegramText,
+          parseMode: 'Markdown',
+        }).catch(err => {
+          console.error("Telegram notification failed:", err);
+        });
+      }
+
+      await onSubmit(txData);
+      onClose();
+    } catch (err) {
+      console.error("Save transaction error:", err);
+      setValidationError("Не удалось сохранить транзакцию. Пожалуйста, попробуйте снова.");
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteAction = async () => {
@@ -307,7 +309,7 @@ export default function AddTransactionModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-[3000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -332,7 +334,7 @@ export default function AddTransactionModal({
             onClose();
           }
         }}
-        className="relative w-full max-w-3xl h-[88vh] sm:h-[620px] max-h-[92vh] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
+        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[620px] max-h-[100dvh] sm:max-h-[88vh] min-h-[580px] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
         {/* Mobile Drag Indicator Handle */}
@@ -345,7 +347,7 @@ export default function AddTransactionModal({
               className="flex flex-col h-full overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
+              <div className="flex items-center justify-between px-6 py-3.5 border-b border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
                 <h2 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-[#2E3230] dark:text-white">
                   {initialTransaction ? 'Редактирование операции' : 'Новая операция'}
                 </h2>
@@ -369,116 +371,40 @@ export default function AddTransactionModal({
               )}
 
               {/* Modal Body */}
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-4 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
                 
-                {/* QR Scanner / Receipt Parser Block */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#4A7C59] text-white flex items-center justify-center shadow-xs">
-                      <ShieldCheck size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-200">API ФНС: Проверка чеков</h4>
-                      <p className="text-[10px] text-[#6B6358] dark:text-emerald-400">Быстрый импорт суммы и даты через сканирование QR</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsQrScannerOpen(true)}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#4A7C59] hover:bg-[#3D6649] text-white text-[11px] font-bold transition-all shadow-3xs cursor-pointer"
-                  >
-                    Сканировать QR
-                  </button>
-                </div>
-
-                {isQrScannerOpen && (
-                  <div className="p-4 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 space-y-3 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#2E3230] dark:text-white uppercase tracking-wider">
-                        Проверка чека ФНС (QR-код)
-                      </span>
-                      <button 
-                        type="button" 
-                        onClick={() => setIsQrScannerOpen(false)}
-                        className="text-stone-400 hover:text-red-500 cursor-pointer"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Отсканируйте камерой, загрузите фото чека или вставьте сырую строку QR-кода ФНС из приложения банка.
-                    </p>
-
-                    <div className="space-y-2">
-                      <textarea
-                        rows={2}
-                        value={fnsQrString}
-                        onChange={e => setFnsQrString(e.target.value)}
-                        placeholder="Пример: t=20260929T1432&s=1250.40&fn=9999440300645512&i=12491&fp=393810293&n=1"
-                        className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-[#252528] text-xs font-mono text-[#2E3230] dark:text-white border border-gray-200 dark:border-white/5 outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                      />
-
-                      <div className="flex justify-end gap-2">
-                        {/* Simulation trigger */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const demoQr = `t=20260929T1447&s=${(Math.random() * 800 + 150).toFixed(2)}&fn=9282440300645512&i=18491&fp=293810293&n=1`;
-                            setFnsQrString(demoQr);
-                            toast.info('Демонстрационный QR-код ФНС вставлен!');
-                          }}
-                          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-stone-300 text-[10px] font-semibold hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
-                        >
-                          Вставить демо QR
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleParseFnsQrCode(fnsQrString)}
-                          disabled={isFnsParsing || !fnsQrString.trim()}
-                          className="px-4 py-1.5 rounded-lg bg-[#4A7C59] text-white text-[11px] font-bold shadow-2xs hover:bg-[#3D6649] disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-                        >
-                          {isFnsParsing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-                          <span>Проверить чек через API ФНС</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Top Row: Segmented Toggle & Sum Card */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                   {/* Segmented Toggle */}
-                  <div className="md:col-span-5 p-1.5 rounded-2xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1.5 border border-surface-border/60 dark:border-white/5">
+                  <div className="md:col-span-5 p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1 border border-surface-border/60 dark:border-white/5">
                     <button 
                       type="button"
                       onClick={() => setType('expense')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'expense' 
                           ? 'bg-[#D95C48] text-white shadow-sm' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
                       }`}
                     >
-                      <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">−</span>
+                      <span className="w-3.5 h-3.5 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">−</span>
                       <span className="tracking-wider uppercase font-headline">РАСХОД</span>
                     </button>
                     <button 
                       type="button"
                       onClick={() => setType('income')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'income' 
                           ? 'bg-primary text-white shadow-sm' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
                       }`}
                     >
-                      <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">+</span>
+                      <span className="w-3.5 h-3.5 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">+</span>
                       <span className="tracking-wider uppercase font-headline">ДОХОД</span>
                     </button>
                   </div>
 
                   {/* Sum Card */}
-                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-4 sm:px-5 py-3 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-2 min-h-[58px]">
+                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-4 py-2 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-1.5 min-h-[50px]">
                     <div className="flex items-center justify-between gap-2 sm:gap-3">
                       <div className="min-w-0 flex-1">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5 truncate">
@@ -526,6 +452,19 @@ export default function AddTransactionModal({
                             {settings.currency || '₽'}
                           </span>
                         </div>
+                        {/* Live arithmetic calculator expression evaluation preview (Task 2.1) */}
+                        {(() => {
+                          const evalVal = evaluateMathExpression(amount);
+                          const isExpression = /[\+\-\*\/]/.test(amount);
+                          if (evalVal !== null && isExpression) {
+                            return (
+                              <div className="text-xs font-bold text-[#4A7C59] dark:text-green-400 mt-1.5 flex items-center gap-1 bg-[#FAF6F0] dark:bg-white/5 px-2 py-1 rounded-lg w-max animate-pulse-slow">
+                                <span>= {evalVal.toLocaleString('ru-RU')} {settings.currency || '₽'}</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       <div className="shrink-0">
@@ -587,7 +526,7 @@ export default function AddTransactionModal({
                           value={renamedTitle}
                           onChange={(e) => setRenamedTitle(e.target.value)}
                           placeholder={selectedCategory.label || 'Магнит, Такси...'}
-                          className="w-full bg-transparent text-[#2E3230] dark:text-white font-bold text-sm focus:outline-none border-none p-0 focus:ring-0 placeholder-graphite-muted/40"
+                          className="w-full bg-transparent text-[#2E3230] dark:text-white font-bold text-sm focus:outline-none border-none p-0 focus:ring-0 placeholder-graphite-muted/40 dark:placeholder-white/40"
                         />
                       </div>
                     </div>
@@ -743,149 +682,173 @@ export default function AddTransactionModal({
                     </div>
                   </div>
 
-                  {/* Right Block: Metadata Details */}
-                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-surface-border dark:border-white/10 shadow-sm divide-y divide-surface-border/60 dark:divide-white/5 overflow-hidden">
-                    {/* Detail 1: Привязать к платежу */}
-                    <div 
-                      onClick={() => setCurrentView('monthly_binding')}
-                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-[#FAF6F0] dark:bg-[#2C2C2E] text-graphite-muted group-hover:text-primary flex items-center justify-center shrink-0 transition">
-                          <LinkIcon size={14} />
+                  {/* Right Block: Metadata Details & Notes */}
+                  <div className="space-y-3">
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-surface-border dark:border-white/10 shadow-sm divide-y divide-surface-border/60 dark:divide-white/5 overflow-hidden">
+                      {/* Detail 1: Привязать к платежу */}
+                      <div 
+                        onClick={() => setCurrentView('monthly_binding')}
+                        className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-[#FAF6F0] dark:bg-[#2C2C2E] text-graphite-muted group-hover:text-primary flex items-center justify-center shrink-0 transition">
+                            <LinkIcon size={14} />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Привязать к платежу</span>
                         </div>
-                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Привязать к платежу</span>
+                        <div className="flex items-center gap-1 text-xs text-graphite-muted font-medium group-hover:text-primary transition">
+                          <span className={boundExpense ? 'text-[#D95C48] font-bold' : ''}>
+                            {boundExpense ? boundExpense.name : 'Не выбрано'}
+                          </span>
+                          <ChevronRight size={14} />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-graphite-muted font-medium group-hover:text-primary transition">
-                        <span className={boundExpense ? 'text-[#D95C48] font-bold' : ''}>
-                          {boundExpense ? boundExpense.name : 'Не выбрано'}
-                        </span>
-                        <ChevronRight size={14} />
+
+                      {/* Detail 2: Исполнитель */}
+                      <div 
+                        onClick={() => setCurrentView('assignee')}
+                        className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div 
+                            className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs"
+                            style={{ backgroundColor: selectedMember.color || '#2B70C9' }}
+                          >
+                            {selectedMember.name ? selectedMember.name.charAt(0).toUpperCase() : '👤'}
+                          </div>
+                          <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Исполнитель</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-[#2E3230] dark:text-white font-bold group-hover:text-primary transition">
+                          <span>{selectedMember.name}</span>
+                          <ChevronRight size={14} className="text-graphite-muted" />
+                        </div>
+                      </div>
+
+                      {/* Detail 3: Дата */}
+                      <div className="relative p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group">
+                        <div className="flex items-center gap-2.5 pointer-events-none">
+                          <div className="w-7 h-7 rounded-lg bg-[#FAF6F0] dark:bg-[#2C2C2E] text-graphite-muted group-hover:text-primary flex items-center justify-center shrink-0 transition">
+                            <Calendar size={14} />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Дата операции</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-[#2E3230] dark:text-white font-bold group-hover:text-primary transition pointer-events-none">
+                          <span>
+                            {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </span>
+                          <ChevronRight size={14} className="text-graphite-muted" />
+                        </div>
+                        <input 
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          required
+                        />
                       </div>
                     </div>
 
-                    {/* Detail 2: Исполнитель */}
-                    <div 
-                      onClick={() => setCurrentView('assignee')}
-                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div 
-                          className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs"
-                          style={{ backgroundColor: selectedMember.color || '#2B70C9' }}
-                        >
-                          {selectedMember.name ? selectedMember.name.charAt(0).toUpperCase() : '👤'}
-                        </div>
-                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Исполнитель</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-[#2E3230] dark:text-white font-bold group-hover:text-primary transition">
-                        <span>{selectedMember.name}</span>
-                        <ChevronRight size={14} className="text-graphite-muted" />
-                      </div>
-                    </div>
-
-                    {/* Detail 3: Дата */}
-                    <div className="relative p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group">
-                      <div className="flex items-center gap-2.5 pointer-events-none">
-                        <div className="w-7 h-7 rounded-lg bg-[#FAF6F0] dark:bg-[#2C2C2E] text-graphite-muted group-hover:text-primary flex items-center justify-center shrink-0 transition">
-                          <Calendar size={14} />
-                        </div>
-                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Дата операции</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-[#2E3230] dark:text-white font-bold group-hover:text-primary transition pointer-events-none">
-                        <span>
-                          {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {/* Compact Card: Заметка и банковский оригинал */}
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3.5 border border-surface-border dark:border-white/10 shadow-sm space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
+                          Заметка / Банковский оригинал
                         </span>
-                        <ChevronRight size={14} className="text-graphite-muted" />
+                        {initialTransaction?.rawNote && (
+                          <span className="text-[9px] font-bold text-graphite-muted uppercase bg-[#F5F1EA] dark:bg-white/10 px-2 py-0.5 rounded">
+                            Оригинал
+                          </span>
+                        )}
                       </div>
-                      <input 
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        required
+
+                      {/* Raw Bank Info Banner (if available) */}
+                      {initialTransaction?.rawNote && (
+                        <div className="p-2 rounded-xl bg-[#F5F1EA] dark:bg-white/5 border border-surface-border/60 dark:border-white/5 flex items-start gap-2">
+                          <FileText size={14} className="text-graphite-muted shrink-0 mt-0.5" />
+                          <p className="text-[11px] leading-tight text-graphite-muted dark:text-gray-400 font-mono select-all break-words">
+                            {initialTransaction.rawNote}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Family Note Input */}
+                      <textarea 
+                        value={note}
+                        onChange={(e) => setNote(e.target.value.slice(0, 500))}
+                        placeholder="Добавить заметку семьи (чек, комментарий...)"
+                        className="w-full bg-[#FAF9F6] dark:bg-[#252528] rounded-xl border border-surface-border dark:border-white/10 px-3 py-2 text-xs text-[#2E3230] dark:text-white placeholder:text-graphite-muted/40 focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 leading-normal outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Compact Card: Заметка и банковский оригинал */}
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3.5 border border-surface-border dark:border-white/10 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
-                      Заметка / Банковский оригинал
-                    </span>
-                    {initialTransaction?.rawNote && (
-                      <span className="text-[9px] font-bold text-graphite-muted uppercase bg-[#F5F1EA] dark:bg-white/10 px-2 py-0.5 rounded">
-                        Оригинал
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Raw Bank Info Banner (if available) */}
-                  {initialTransaction?.rawNote && (
-                    <div className="p-2 rounded-xl bg-[#F5F1EA] dark:bg-white/5 border border-surface-border/60 dark:border-white/5 flex items-start gap-2">
-                      <FileText size={14} className="text-graphite-muted shrink-0 mt-0.5" />
-                      <p className="text-[11px] leading-tight text-graphite-muted dark:text-gray-400 font-mono select-all break-words">
-                        {initialTransaction.rawNote}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Family Note Input */}
-                  <textarea 
-                    value={note}
-                    onChange={(e) => setNote(e.target.value.slice(0, 500))}
-                    placeholder="Добавить заметку семьи (чек, комментарий...)"
-                    className="w-full bg-[#FAF9F6] dark:bg-[#252528] rounded-xl border border-surface-border dark:border-white/10 px-3 py-2 text-xs text-[#2E3230] dark:text-white placeholder:text-graphite-muted/40 focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 leading-normal outline-none"
-                  />
-                </div>
-
               </div>
 
               {/* Bottom Actions Footer */}
-              <div className="px-6 py-4 border-t border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
-                {/* Destructive Action */}
-                {initialTransaction && onDelete && (
-                  !isConfirmingDelete ? (
-                    <button 
-                      type="button"
-                      onClick={() => setIsConfirmingDelete(true)}
-                      className="w-full sm:w-auto py-2.5 px-4 text-xs font-bold tracking-wider uppercase font-headline text-[#D95C48] hover:text-white bg-red-50 hover:bg-[#D95C48] dark:bg-red-950/30 dark:hover:bg-red-900/50 active:scale-[0.98] border border-red-200 dark:border-red-900/40 rounded-xl transition-all flex items-center justify-center gap-1.5 order-2 sm:order-1 cursor-pointer"
-                    >
-                      <Trash2 size={15} />
-                      <span>Удалить операцию</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 w-full sm:w-auto order-2 sm:order-1 animate-in fade-in">
+              <div className="px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex items-center justify-between gap-3 shrink-0">
+                {/* Left Side: Compact Destructive Action */}
+                <div>
+                  {initialTransaction && onDelete && (
+                    !isConfirmingDelete ? (
                       <button 
                         type="button"
-                        onClick={handleDeleteAction}
-                        className="py-2.5 px-4 text-xs font-bold tracking-wider uppercase font-headline text-white bg-[#D95C48] hover:bg-red-700 active:scale-[0.98] rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() => setIsConfirmingDelete(true)}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
                       >
-                        <Trash2 size={15} />
-                        <span>Подтвердить удаление</span>
+                        <Trash2 size={14} />
+                        <span>Удалить операцию</span>
                       </button>
-                      <button 
-                        type="button"
-                        onClick={() => setIsConfirmingDelete(false)}
-                        className="py-2 px-2.5 text-xs text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  )
-                )}
+                    ) : (
+                      <div className="flex items-center gap-2 animate-in fade-in">
+                        <button 
+                          type="button"
+                          onClick={handleDeleteAction}
+                          className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Trash2 size={14} />
+                          <span>Подтвердить удаление</span>
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setIsConfirmingDelete(false)}
+                          className="px-2.5 py-1.5 text-xs text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-lg transition cursor-pointer"
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
 
-                {/* Primary Save Action */}
-                <button 
-                  type="button"
-                  onClick={handleSave}
-                  className="w-full sm:w-auto flex-1 py-2.5 px-5 text-xs font-extrabold tracking-wider uppercase font-headline text-white bg-primary hover:bg-primary-dark active:scale-[0.98] rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer"
-                >
-                  <Check size={16} strokeWidth={2.5} />
-                  <span>{initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}</span>
-                </button>
+                {/* Right Side: Compact Action Buttons (Cancel + Save) */}
+                <div className="flex items-center gap-2 ml-auto">
+                  <button 
+                    type="button"
+                    onClick={onClose}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSubmitting}
+                    className="px-4 py-1.5 text-xs font-bold text-white bg-[#4A7C59] hover:bg-[#3D6649] active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                        <span>Сохранение...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} strokeWidth={2.5} />
+                        <span>{initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -997,47 +960,49 @@ export default function AddTransactionModal({
         </AnimatePresence>
       </motion.div>
 
-      {isDesktopCategoryPickerOpen && (
-        <DesktopCategoryPickerModal
-          isOpen={isDesktopCategoryPickerOpen}
-          onClose={() => setIsDesktopCategoryPickerOpen(false)}
-          categories={categories}
-          selectedCategoryId={categoryId}
-          onSelectCategory={(id) => {
-            setCategoryId(id);
-            const found = categories.find(c => c.id === id);
-            if (found && !renamedTitle) {
-              setRenamedTitle(found.label);
-            }
-            setIsDesktopCategoryPickerOpen(false);
-            setCurrentView('main');
-            triggerHaptic('light');
-          }}
-          onAddCategory={onAddCategory}
-          transactions={transactions}
-        />
-      )}
+      <AnimatePresence>
+        {isDesktopCategoryPickerOpen && (
+          <DesktopCategoryPickerModal
+            isOpen={isDesktopCategoryPickerOpen}
+            onClose={() => setIsDesktopCategoryPickerOpen(false)}
+            categories={categories}
+            selectedCategoryId={categoryId}
+            onSelectCategory={(id) => {
+              setCategoryId(id);
+              const found = categories.find(c => c.id === id);
+              if (found && !renamedTitle) {
+                setRenamedTitle(found.label);
+              }
+              setIsDesktopCategoryPickerOpen(false);
+              setCurrentView('main');
+              triggerHaptic('light');
+            }}
+            onAddCategory={onAddCategory}
+            transactions={transactions}
+          />
+        )}
 
-      {isMobileCategoryPickerOpen && (
-        <MobileCategoryPickerModal
-          isOpen={isMobileCategoryPickerOpen}
-          onClose={() => setIsMobileCategoryPickerOpen(false)}
-          categories={categories}
-          selectedCategoryId={categoryId}
-          onSelectCategory={(id) => {
-            setCategoryId(id);
-            const found = categories.find(c => c.id === id);
-            if (found && !renamedTitle) {
-              setRenamedTitle(found.label);
-            }
-            setIsMobileCategoryPickerOpen(false);
-            setCurrentView('main');
-            triggerHaptic('light');
-          }}
-          onAddCategory={onAddCategory}
-          transactions={transactions}
-        />
-      )}
+        {isMobileCategoryPickerOpen && (
+          <MobileCategoryPickerModal
+            isOpen={isMobileCategoryPickerOpen}
+            onClose={() => setIsMobileCategoryPickerOpen(false)}
+            categories={categories}
+            selectedCategoryId={categoryId}
+            onSelectCategory={(id) => {
+              setCategoryId(id);
+              const found = categories.find(c => c.id === id);
+              if (found && !renamedTitle) {
+                setRenamedTitle(found.label);
+              }
+              setIsMobileCategoryPickerOpen(false);
+              setCurrentView('main');
+              triggerHaptic('light');
+            }}
+            onAddCategory={onAddCategory}
+            transactions={transactions}
+          />
+        )}
+      </AnimatePresence>
     </div>,
     document.body
   );

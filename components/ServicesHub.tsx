@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, ChevronLeft, Wallet, MoreHorizontal } from 'lucide-react';
+import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import TerraMobileHeader from './TerraMobileHeader';
 
 import DebtSnowball from './DebtSnowball';
 import WalletApp from './Wallet';
+import FnsReceiptScanner from './FnsReceiptScanner';
 
-type ServiceType = 'menu' | 'debts' | 'wallet';
+type ServiceType = 'menu' | 'debts' | 'wallet' | 'receipts';
 
 interface ServicesHubProps {
   initialService?: string | null;
@@ -82,6 +83,20 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       )
     },
+    { 
+      id: 'receipts', 
+      label: 'Чеки ФНС и выписки', 
+      desc: 'Сканирование QR чеков и разделение на пул позиций по категориям', 
+      hasAttention: false,
+      icon: (
+        <ShieldCheck className="w-6 h-6 stroke-[1.8]" />
+      ),
+      component: (
+        <FnsReceiptScanner 
+          onClose={() => setActiveService('menu')}
+        />
+      )
+    },
   ];
 
   return (
@@ -94,68 +109,61 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-5xl mx-auto p-4 md:p-8 pt-3 md:pt-6 pb-16 md:pb-8 space-y-4">
+      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-6xl mx-auto p-4 md:p-8 pt-3 md:pt-6 pb-32 md:pb-8 space-y-5">
         {activeService === 'menu' ? (
-          <div className="flex flex-col space-y-4">
+          <div className="flex flex-col space-y-5">
             {/* Desktop-only SectionHeaderCard */}
             <div className="hidden md:flex flex-col space-y-4">
-              <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
+              <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-6 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <h1 className="text-[22px] font-bold tracking-tight text-stone-900 dark:text-white leading-tight">
                     Финансовые сервисы
                   </h1>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
                     {SERVICES.length} сервиса
                   </span>
                 </div>
                 <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
-                  Специализированные инструменты управления задолженностями, ликвидностью и картами
+                  Специализированные инструменты управления задолженностями, лояльностью и чеками ФНС
                 </p>
               </div>
             </div>
 
-            {/* BEGIN: ServicesList */}
-            <div className="flex flex-col space-y-3.5" data-purpose="service-cards-stack">
+            {/* BEGIN: Services Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <article
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 shadow-[0_3px_10px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/40 hover:shadow-[0_4px_16px_rgba(59,122,87,0.08)] active:scale-[0.985] cursor-pointer"
+                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-[0_3px_10px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.985] cursor-pointer flex flex-col justify-between group"
                 >
-                  {/* Card Top Bar: Icon and Direct Action */}
-                  <div className="flex items-start justify-between mb-4">
-                    {/* Icon with Sage/Mint Rounded Container */}
-                    <div className="w-12 h-12 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-xs">
-                      {app.icon}
+                  <div>
+                    {/* Card Top Bar: Icon and Arrow */}
+                    <div className="flex items-start justify-between mb-4">
+                      {/* Icon with Sage/Mint Rounded Container */}
+                      <div className="w-12 h-12 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-xs">
+                        {app.icon}
+                      </div>
+
+                      <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-1">
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
                     </div>
 
-                    {/* "Открыть →" Link */}
-                    <div className="inline-flex items-center text-[13px] font-medium text-stone-700 dark:text-stone-300 hover:text-[#3B7A57] dark:hover:text-emerald-400 transition-colors py-1 group">
-                      <span>Открыть</span>
-                      <span className="ml-1 text-sm font-semibold transition-transform group-hover:translate-x-0.5">→</span>
+                    {/* Title and Description */}
+                    <div>
+                      <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors">
+                        {app.label}
+                      </h2>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 leading-relaxed">
+                        {app.desc}
+                      </p>
                     </div>
-                  </div>
-
-                  {/* Title and Description */}
-                  <div className="mb-5 relative">
-                    <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight">
-                      {app.label}
-                    </h2>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-snug">
-                      {app.desc}
-                    </p>
-                  </div>
-
-                  {/* Card Footer Action Separator */}
-                  <div className="pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-stone-400 hover:text-[#3B7A57] dark:hover:text-emerald-400 transition-colors">
-                      Перейти в модуль
-                    </span>
                   </div>
                 </article>
               ))}
             </div>
-            {/* END: ServicesList */}
+            {/* END: Services Grid */}
           </div>
         ) : (
           <div className="flex flex-col space-y-4">

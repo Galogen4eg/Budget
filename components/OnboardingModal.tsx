@@ -52,8 +52,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6 bg-[#F2F2F7] dark:bg-black">
-      <div className="w-full max-w-sm">
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6 bg-[#F2F2F7] dark:bg-black overflow-y-auto no-scrollbar py-8">
+      <div className="w-full max-w-sm my-auto">
         <AnimatePresence mode="wait">
             {step === 'choice' && (
                 <motion.div 

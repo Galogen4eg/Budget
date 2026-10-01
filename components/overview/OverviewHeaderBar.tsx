@@ -40,9 +40,9 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   onOpenAIChat
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 select-none w-full">
+    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] items-center gap-3 md:gap-4 pb-2 select-none w-full">
       {/* Mode Selector (Family / Personal) */}
-      <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-2 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs">
+      <div className="w-full md:w-auto grid grid-cols-2 md:grid-flow-col md:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start">
         <button
           type="button"
           onClick={() => setBudgetMode('family')}
@@ -72,8 +72,8 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         </button>
       </div>
 
-      {/* Month Selector & Controls */}
-      <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+      {/* Toolbar Controls Subgrid: Auto-flowing columns pinned to the right edge */}
+      <div className="grid grid-flow-col auto-cols-max items-center justify-end gap-2 sm:gap-2.5 w-full md:w-auto md:justify-self-end">
         {/* Month Picker Dropdown */}
         <div className="relative">
           <button
@@ -87,29 +87,35 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           </button>
 
           {isMonthPickerOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-xl z-30 py-1.5 overflow-hidden font-sans">
-              {monthOptions.map(m => {
-                const isSelected = 
-                  m.date.getMonth() === activeMonth.getMonth() && 
-                  m.date.getFullYear() === activeMonth.getFullYear();
-                return (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => {
-                      onMonthChange(m.date);
-                      setIsMonthPickerOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-[#F2ECE1] dark:hover:bg-white/10 transition cursor-pointer ${
-                      isSelected ? 'text-[#4A7C59] font-bold bg-[#EAE6DD]/40 dark:bg-white/5' : 'text-graphite dark:text-gray-300'
-                    }`}
-                  >
-                    <span className="capitalize">{m.label}</span>
-                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59]" />}
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <div 
+                className="fixed inset-0 z-20" 
+                onClick={() => setIsMonthPickerOpen(false)} 
+              />
+              <div className="absolute right-0 top-full mt-2 w-48 bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-xl z-30 py-1.5 overflow-hidden font-sans">
+                {monthOptions.map(m => {
+                  const isSelected = 
+                    m.date.getMonth() === activeMonth.getMonth() && 
+                    m.date.getFullYear() === activeMonth.getFullYear();
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => {
+                        onMonthChange(m.date);
+                        setIsMonthPickerOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-[#F2ECE1] dark:hover:bg-white/10 transition cursor-pointer ${
+                        isSelected ? 'text-[#4A7C59] font-bold bg-[#EAE6DD]/40 dark:bg-white/5' : 'text-graphite dark:text-gray-300'
+                      }`}
+                    >
+                      <span className="capitalize">{m.label}</span>
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 

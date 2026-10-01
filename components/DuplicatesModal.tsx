@@ -115,7 +115,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         initial={{ y: '100%' }} 
         animate={{ y: 0 }} 
         exit={{ y: '100%' }} 
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
           <div className="flex items-center gap-3">

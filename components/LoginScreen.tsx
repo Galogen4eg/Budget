@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn, X, Mail, KeyRound, Loader2, CheckCircle2, Globe } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn, X, Mail, KeyRound, Loader2, CheckCircle2, Leaf } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -97,7 +97,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] bg-[radial-gradient(at_15%_15%,rgba(226,235,224,0.75)_0px,transparent_55%),radial-gradient(at_85%_15%,rgba(243,235,222,0.8)_0px,transparent_50%),radial-gradient(at_50%_85%,rgba(235,240,233,0.7)_0px,transparent_65%),radial-gradient(at_85%_85%,rgba(238,230,218,0.6)_0px,transparent_50%)] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans text-[#1c241f] selection:bg-[#c8e8d0] selection:text-[#002110]">
+    <div className="min-h-[100dvh] overflow-y-auto bg-[#f7f4ee] bg-[radial-gradient(at_15%_15%,rgba(226,235,224,0.75)_0px,transparent_55%),radial-gradient(at_85%_15%,rgba(243,235,222,0.8)_0px,transparent_50%),radial-gradient(at_50%_85%,rgba(235,240,233,0.7)_0px,transparent_65%),radial-gradient(at_85%_85%,rgba(238,230,218,0.6)_0px,transparent_50%)] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans text-[#1c241f] selection:bg-[#c8e8d0] selection:text-[#002110]">
       {/* Главный контейнер */}
       <main className="w-full max-w-[420px] mx-auto">
         <motion.div 
@@ -113,7 +113,7 @@ export const LoginScreen: React.FC = () => {
           <header className="text-center relative z-10 flex flex-col items-center">
             <div className="relative mb-4 group cursor-default">
               <div className="w-[68px] h-[68px] rounded-2xl bg-[#4A7C59] shadow-[0_10px_24px_-4px_rgba(74,124,89,0.28)] flex items-center justify-center text-white border border-[#52835d]/40 transition-transform duration-300 group-hover:scale-105">
-                <Globe className="w-8 h-8 text-white stroke-[2.2]" />
+                <Leaf className="w-8 h-8 text-white stroke-[2.2]" />
               </div>
             </div>
 

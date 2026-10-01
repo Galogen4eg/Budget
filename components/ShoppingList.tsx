@@ -16,7 +16,9 @@ export interface ShoppingListProps {
 }
 
 export const ShoppingList: React.FC<ShoppingListProps> = (props) => {
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => 
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  );
 
   useEffect(() => {
     const checkDesktop = () => {

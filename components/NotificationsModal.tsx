@@ -106,7 +106,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
   }, [items, activeFilter, markedAllRead]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -123,7 +123,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
         exit={{ scale: 0.96, opacity: 0, y: 10 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
-        className="relative z-50 w-full max-w-[480px] max-h-[85vh] bg-[#faf6f0] dark:bg-[#1C1F1E] rounded-2xl shadow-2xl border border-[#e6e0d4] dark:border-white/10 flex flex-col overflow-hidden select-none"
+        className="relative z-50 w-full max-w-[480px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] bg-[#faf6f0] dark:bg-[#1C1F1E] rounded-t-3xl sm:rounded-2xl shadow-2xl border-0 sm:border border-[#e6e0d4] dark:border-white/10 flex flex-col overflow-hidden select-none pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         {/* Header */}
         <header className="sticky top-0 bg-[#faf6f0] dark:bg-[#1C1F1E] z-20 px-5 py-4 border-b border-[#e6e0d4] dark:border-white/10 flex items-center justify-between shrink-0">

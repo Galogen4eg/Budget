@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { 
   X, Search, Calendar as CalendarIcon, BarChart3, List, ArrowUpRight, ArrowDownRight, 
-  Users, TrendingDown, Sparkles, Zap, Scale, CheckCircle2, ChevronLeft, ChevronRight,
-  Layers, ArrowUpDown, ArrowLeft
+  Users, TrendingDown, Zap, Scale, CheckCircle2, ChevronLeft, ChevronRight,
+  Layers, ArrowUpDown, ArrowLeft, PieChart
 } from 'lucide-react';
 import { Transaction, AppSettings, FamilyMember, LearnedRule, Category } from '../types';
 import { getIconById } from '../constants';
@@ -13,6 +13,7 @@ import DrillDownMobile from './DrillDownMobile';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import DrillDownTransactionList from './drilldown/DrillDownTransactionList';
 import DrillDownAnalyticsChart from './drilldown/DrillDownAnalyticsChart';
 
@@ -38,6 +39,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   onLearnRule, onApplyRuleToExisting, onEditTransaction,
   currentMonth, selectedDate
 }) => {
+  useModalBackHandler(true, onClose);
   const isOtherOrTraining = categoryId === 'other' || categoryId === 'uncategorized';
   const isAllTransactions = categoryId === 'all' || (!categoryId && !merchantName);
 
@@ -544,7 +546,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: 6 }}
         transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-5xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[88vh] max-h-[820px] min-h-[580px] border border-[#E4E0D8]/60 dark:border-white/10"
+        className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-6xl 2xl:max-w-7xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[90vh] max-h-[880px] min-h-[580px] border border-[#E4E0D8]/60 dark:border-white/10"
       >
         {/* 1. Unified Top Modal Header */}
         <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] border-b border-[#E4E0D8] dark:border-white/10 flex flex-wrap items-center justify-between px-5 sm:px-8 py-3.5 gap-3 shrink-0">

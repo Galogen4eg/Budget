@@ -124,7 +124,7 @@ const WalletWidget: React.FC<WalletWidgetProps> = ({ cards, onClick }) => {
     {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
             {selectedCard && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6">
+                <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6">
                     <motion.div 
                         initial={{ opacity: 0 }} 
                         animate={{ opacity: 1 }} 
@@ -137,7 +137,7 @@ const WalletWidget: React.FC<WalletWidgetProps> = ({ cards, onClick }) => {
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.9, opacity: 0 }}
-                        className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] overflow-hidden shadow-2xl"
+                        className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[92vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
                     >
                         <div className="h-32 p-6 relative flex flex-col justify-between" style={{ background: selectedCard.color }}>
                             <div className="flex justify-between items-start text-white">

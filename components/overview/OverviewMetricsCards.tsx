@@ -53,9 +53,9 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
         </div>
 
         <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-graphite-muted dark:text-gray-400">Израсходовано от лимита</span>
-            <span className="font-bold text-graphite dark:text-white font-headline">
+          <div className="flex justify-between items-center text-xs gap-2 min-w-0">
+            <span className="text-graphite-muted dark:text-gray-400 truncate">Израсходовано от лимита</span>
+            <span className="font-bold text-graphite dark:text-white font-headline truncate shrink-0">
               {settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`}
             </span>
           </div>

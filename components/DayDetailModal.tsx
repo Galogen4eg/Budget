@@ -61,7 +61,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all overflow-y-auto"
+        className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all overflow-y-auto"
         onClick={onClose}
       >
         <motion.div 
@@ -76,7 +76,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
               onClose();
             }
           }}
-          className="bg-white dark:bg-[#1C1C1E] w-full max-w-2xl rounded-2xl border border-surface-border dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto pb-[env(safe-area-inset-bottom,0px)]"
+          className="bg-white dark:bg-[#1C1C1E] w-full max-w-3xl lg:max-w-4xl rounded-t-3xl sm:rounded-2xl border-0 sm:border border-surface-border dark:border-white/10 shadow-2xl flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden my-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Mobile Drag Indicator Handle */}

@@ -202,8 +202,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
     recordingTimeoutRef.current = setTimeout(() => {
       closeVoiceModal();
-      handleSend("Купили фермерские яблоки и сыр на 720 рублей");
-    }, 3500);
+      toast.error('Голосовой ввод не поддерживается вашей платформой. Пожалуйста, введите запрос текстом.');
+    }, 1500);
   };
 
   const closeVoiceModal = () => {
@@ -374,6 +374,18 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     }));
   };
 
+  const toggleRealShoppingItem = async (title: string) => {
+    const existing = shoppingItems.find(i => i.title.toLowerCase() === title.toLowerCase());
+    if (existing) {
+      const updated = shoppingItems.map(i => i.id === existing.id ? { ...i, completed: !i.completed } : i);
+      setShoppingItems(updated);
+      if (familyId) {
+        await addItem(familyId, 'shopping', { ...existing, completed: !existing.completed });
+      }
+      toast.success(`Статус покупки «${title}» изменен`);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-screen sm:min-h-0 bg-[#faf6f0] dark:bg-[#1C1F1E] font-body text-[#2e3230] dark:text-stone-100 relative overflow-hidden select-none">
       
@@ -485,21 +497,35 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
                           Семейный список покупок
                         </div>
                         <div className="flex flex-col gap-1.5 mb-2">
-                          {['Стиральный порошок (Аня)', 'Овсяное молоко', 'Свежая зелень и томаты', 'Фильтр для воды'].map(item => {
-                            const isChecked = !!m.checkedShoppingItems?.[item];
+                          {((m.shoppingPayload?.items && m.shoppingPayload.items.length > 0) 
+                            ? m.shoppingPayload.items 
+                            : shoppingItems.slice(0, 4)
+                          ).map((item, idx) => {
+                            const title = typeof item === 'string' ? item : item.title;
+                            const isDbItem = shoppingItems.find(i => i.title.toLowerCase() === title.toLowerCase());
+                            const isChecked = isDbItem ? isDbItem.completed : !!m.checkedShoppingItems?.[title];
+                            
                             return (
                               <button
-                                key={item}
+                                key={idx}
                                 type="button"
-                                onClick={() => toggleShoppingCheck(m.id, item)}
-                                className="flex items-center gap-2 p-2 rounded-lg bg-[#f0ece4] dark:bg-[#1C1F1E] text-xs text-[#2e3230] dark:text-white text-left cursor-pointer"
+                                onClick={() => {
+                                  if (isDbItem) {
+                                    toggleRealShoppingItem(title);
+                                  } else {
+                                    toggleShoppingCheck(m.id, title);
+                                  }
+                                }}
+                                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white dark:bg-[#1C1F1E] border border-gray-200/50 dark:border-white/5 text-xs text-[#2e3230] dark:text-white text-left cursor-pointer transition-all active:scale-[0.98]"
                               >
                                 {isChecked ? (
                                   <CheckSquare size={16} className="text-[#4a7c59] shrink-0" />
                                 ) : (
                                   <Square size={16} className="text-[#74796e] shrink-0" />
-                                )}
-                                <span className={isChecked ? 'line-through text-[#74796e]' : ''}>{item}</span>
+                                )}{' '}
+                                <span className={isChecked ? 'line-through text-[#74796e]' : ''}>
+                                  {title} {(!isDbItem && typeof item !== 'string' && item.amount) ? `(${item.amount} ${item.unit || 'шт'})` : ''}
+                                </span>
                               </button>
                             );
                           })}
@@ -611,7 +637,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       )}
 
       {/* Fixed Bottom Input Bar */}
-      <footer className="fixed bottom-0 w-full z-40 pb-safe bg-[#faf6f0]/90 dark:bg-[#1C1F1E]/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(46,50,48,0.05)]">
+      <footer className="fixed bottom-0 w-full z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] bg-[#faf6f0]/90 dark:bg-[#1C1F1E]/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(46,50,48,0.05)]">
         <div className="px-4 py-3">
           <form 
             onSubmit={(e) => {

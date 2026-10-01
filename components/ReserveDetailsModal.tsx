@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { 
   X, Lock, ShieldCheck, Receipt, PiggyBank, Box, Coins, 
   Info, Clock, Calendar, Check, ArrowRight, Edit3, CheckCircle2, RotateCcw,
@@ -82,6 +83,7 @@ const DEFAULT_SAMPLE_BILLS: DetailedMandatoryExpense[] = [
 ];
 
 export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
+  isOpen,
   onClose,
   totalBalance = 184320,
   reservedAmount = 39490,
@@ -98,6 +100,8 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   privacyMode = false,
   currency = '₽'
 }) => {
+  useBodyScrollLock(isOpen ?? true);
+
   const currentMonthName = useMemo(() => {
     const raw = new Date().toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
     return raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -187,13 +191,13 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 16 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-5xl bg-[#FCFAF7] dark:bg-[#1C1C1E] border border-stone-200/90 dark:border-white/10 rounded-3xl shadow-2xl shadow-stone-900/15 overflow-hidden text-stone-800 dark:text-stone-100 my-auto max-h-[92vh] flex flex-col"
+        className="relative w-full max-w-5xl bg-[#FCFAF7] dark:bg-[#1C1C1E] border-0 sm:border border-stone-200/90 dark:border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-stone-900/15 overflow-hidden text-stone-800 dark:text-stone-100 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         {/* Top Decorative Glow Accent */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-36 bg-primary/10 blur-3xl pointer-events-none rounded-full" />

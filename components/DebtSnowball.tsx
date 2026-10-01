@@ -1198,8 +1198,8 @@ const DebtSnowball: React.FC<Props> = ({
 
       {/* 10. Модальное окно редактирования / создания долга (Terra) */}
       {editingDebt && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-[520px] bg-white dark:bg-[#1C1C1E] rounded-3xl border border-stone-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 relative z-50 my-auto max-h-[95vh] overflow-y-auto no-scrollbar text-stone-800 dark:text-stone-100">
+        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-[520px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] bg-white dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-3xl border-0 sm:border border-stone-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 relative z-50 overflow-y-auto no-scrollbar text-stone-800 dark:text-stone-100 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
             
             <header className="flex items-center justify-between">
               <h2 className="text-2xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">

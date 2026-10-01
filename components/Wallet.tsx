@@ -437,7 +437,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
   };
 
   return (
-    <div className="space-y-6 w-full text-stone-800 dark:text-stone-100 font-sans pb-12">
+    <div className="space-y-6 w-full text-stone-800 dark:text-stone-100 font-sans pb-32 md:pb-12">
       
       {/* 1. Header & Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -918,8 +918,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
       {/* 6. Add / Edit Card Modal (Terra Design Prototype 3) */}
       {editingCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-md overflow-y-auto">
-          <div className="relative w-full max-w-[490px] my-auto bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-stone-200 dark:border-white/10 max-h-[95vh] overflow-y-auto no-scrollbar">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-[490px] my-auto bg-white dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-stone-200 dark:border-white/10 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] overflow-y-auto no-scrollbar pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
             
             {/* Modal Header */}
             <div className="px-6 pt-6 pb-3 flex items-center justify-between border-b border-stone-100 dark:border-white/5">

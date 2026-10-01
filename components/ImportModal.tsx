@@ -504,7 +504,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           onCancel();
         }
       }}
-      className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 transition-all duration-300 select-none cursor-pointer"
+      className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-all duration-300 select-none cursor-pointer"
     >
       
       {/* Модальное диалоговое окно */}
@@ -513,7 +513,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-headline"
-        className="relative w-full max-w-5xl bg-[#FAF8F5] dark:bg-[#18181A] rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border border-[#ECE6DE] dark:border-white/10 flex flex-col max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white cursor-default"
+        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border-0 sm:border border-[#ECE6DE] dark:border-white/10 flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         
         {/* Кнопка закрытия в верхнем правом углу */}

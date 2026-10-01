@@ -240,11 +240,11 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
           onClose();
         }
       }}
-      className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 md:p-6 transition-all select-none"
+      className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-all select-none"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-4xl lg:max-w-5xl rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200"
+        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-4xl lg:max-w-5xl rounded-t-3xl sm:rounded-3xl shadow-2xl border-0 sm:border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         role="dialog"
       >
         {/* Modal Header */}

@@ -112,8 +112,8 @@ export const ConflictResolverModal: React.FC<ConflictResolverModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-[#FAF8F5] dark:bg-[#1A1A1C] text-stone-900 dark:text-stone-100 w-full max-w-4xl rounded-[28px] shadow-2xl flex flex-col justify-between overflow-hidden border border-[#ECE5DB] dark:border-white/10 my-auto">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-6 overflow-y-auto">
+      <div className="bg-[#FAF8F5] dark:bg-[#1A1A1C] text-stone-900 dark:text-stone-100 w-full max-w-4xl rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col justify-between overflow-hidden border-0 sm:border border-[#ECE5DB] dark:border-white/10 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
         
         {/* Шапка модального окна (Спецификация с макета) */}
         <div className="p-5 sm:p-6 border-b border-[#ECE5DB] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1A1A1C] flex items-center justify-between sticky top-0 z-10">

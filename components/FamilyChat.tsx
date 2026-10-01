@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Send, Smile, Paperclip, Search, Plus, ThumbsUp, Heart, Laugh, 
-  AlertCircle, ShoppingBag, Calendar, Sparkles, User, Info, CheckCheck, Mic
+  Plus, Search, X, Check, Heart, ThumbsUp, Clapping, MessageSquare, 
+  Send, Paperclip, ChevronLeft, Trash2, CheckCheck, ShoppingBag, 
+  Calendar, CreditCard, FileCheck2, Info, ArrowRight, ShieldCheck, Repeat
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -10,442 +10,836 @@ import { subscribeToCollection, addItem } from '../utils/db';
 import { triggerHaptic } from '../utils/haptics';
 import { toast } from 'sonner';
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
+  topicId?: string;
   text: string;
   userId: string;
   userName: string;
   timestamp: number;
-  type?: 'text' | 'system' | 'image';
-  imageUrl?: string;
-  reactions?: Record<string, string[]>; // emoji -> array of userNames
+  type?: 'text' | 'system' | 'receipt';
+  receiptData?: {
+    amount: number;
+    category: string;
+    merchant: string;
+    date: string;
+    items?: { name: string; price: number }[];
+  };
+  reactions?: Record<string, number>; // emoji -> count
+  userReacted?: Record<string, boolean>; // emoji -> boolean
 }
 
-const PRESET_REPLIES = [
-  'Купил(а)! 👍',
-  'Скоро буду домой 🏠',
-  'Я за рулем 🚗',
-  'Купите хлеб/молоко 🥛',
-  'Хорошо, сделаем! 👌',
-  'Всех люблю ❤️'
+export interface TopicItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  time: string;
+  lastMessage: string;
+  unreadCount?: number;
+}
+
+const INITIAL_TOPICS: TopicItem[] = [
+  {
+    id: 'general',
+    title: 'Общий чат',
+    subtitle: 'Папа (онлайн), Мама (14:35), Бабушка (был(а) в 12:10)',
+    icon: '#',
+    time: '14:38',
+    lastMessage: 'Папа: Внёс счёт за садик в бюджет'
+  },
+  {
+    id: 'shopping',
+    title: 'Покупки и список',
+    subtitle: 'Папа, Мама (онлайн)',
+    icon: '🛒',
+    time: '11:05',
+    lastMessage: 'Мама: Купила сыр и творог'
+  },
+  {
+    id: 'weekend',
+    title: 'Выходные и поездки',
+    subtitle: 'Папа, Мама, Бабушка',
+    icon: '📅',
+    time: 'Вчера',
+    lastMessage: 'В субботу дача в 10:00'
+  }
 ];
 
-const EMOJI_LIST = ['👍', '❤️', '😂', '🔥', '😮', '🙏'];
+const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = {
+  general: [
+    {
+      id: 'm1',
+      topicId: 'general',
+      text: 'Привет! Я заехала в аптеку и купила витамины. Прикрепила чек сюда, чтобы не забыть внести в бюджет.',
+      userId: 'mom',
+      userName: 'Мама',
+      timestamp: Date.now() - 3600000 * 1.2,
+      type: 'text',
+      reactions: { '❤️': 1 }
+    },
+    {
+      id: 'm2',
+      topicId: 'general',
+      text: 'Трата внесена в бюджет',
+      userId: 'mom',
+      userName: 'Мама',
+      timestamp: Date.now() - 3600000 * 1.1,
+      type: 'receipt',
+      receiptData: {
+        amount: 1420,
+        category: 'Аптека и здоровье',
+        merchant: 'Аптека «Здоровье»',
+        date: '24 сен, 13:38',
+        items: [
+          { name: 'Витамин D3 2000 ME (капли)', price: 640 },
+          { name: 'Омега-3 концентрат 1000мг', price: 780 }
+        ]
+      }
+    },
+    {
+      id: 'm3',
+      topicId: 'general',
+      text: 'Отлично, увидел в расходах. Я сейчас оплатил квитанцию за садик (4 200 ₽), всё синхронизировалось. Заеду за хлебом после работы.',
+      userId: 'dad',
+      userName: 'Вы',
+      timestamp: Date.now() - 1200000,
+      type: 'text'
+    }
+  ],
+  shopping: [
+    {
+      id: 's1',
+      topicId: 'shopping',
+      text: 'Купила фермерский сыр и творог на сырники! Список на ужин закрыт.',
+      userId: 'mom',
+      userName: 'Мама',
+      timestamp: Date.now() - 3600000 * 3,
+      type: 'text'
+    },
+    {
+      id: 's2',
+      topicId: 'shopping',
+      text: 'Супер! Я докуплю оливковое масло и зелень.',
+      userId: 'dad',
+      userName: 'Вы',
+      timestamp: Date.now() - 3600000 * 2.8,
+      type: 'text'
+    }
+  ],
+  weekend: [
+    {
+      id: 'w1',
+      topicId: 'weekend',
+      text: 'В субботу жду всех на даче к 10:00! Яблоки поспели, испечем пирог.',
+      userId: 'granny',
+      userName: 'Бабушка',
+      timestamp: Date.now() - 86400000,
+      type: 'text'
+    },
+    {
+      id: 'w2',
+      topicId: 'weekend',
+      text: 'Договорились! Заедем за вами в 9:20 утра.',
+      userId: 'dad',
+      userName: 'Вы',
+      timestamp: Date.now() - 86000000,
+      type: 'text'
+    }
+  ]
+};
 
 export default function FamilyChat() {
   const { user, familyId } = useAuth();
-  const { members, shoppingItems, events } = useData();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { members, settings } = useData();
+
+  const [topics, setTopics] = useState<TopicItem[]>(INITIAL_TOPICS);
+  const [activeTopicId, setActiveTopicId] = useState<string>('general');
+  const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES_MAP);
+  
+  // UI states
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [showEmojiTrayForMessageId, setShowEmojiTrayForMessageId] = useState<string | null>(null);
-  const [isUploadingMock, setIsUploadingMock] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingAuthor, setTypingAuthor] = useState('Мама');
+  const [selectedReceipt, setSelectedReceipt] = useState<ChatMessage['receiptData'] | null>(null);
+  const [isReceiptDrawerOpen, setIsReceiptDrawerOpen] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(true);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Derive member colors
-  const getMemberInitialsAndColor = (msgUserName: string, msgUserId: string) => {
-    const matchingMember = members.find(m => m.name.toLowerCase() === msgUserName.toLowerCase());
-    const color = matchingMember?.color || '#4A7C59';
-    const initials = msgUserName ? msgUserName.slice(0, 2).toUpperCase() : 'УС';
-    return { initials, color };
-  };
+  const activeTopic = topics.find(t => t.id === activeTopicId) || topics[0];
+  const currentMessages = messagesMap[activeTopicId] || [];
 
-  // Subscribe to real-time messages
+  // Auto-scroll to bottom on topic change or message addition
   useEffect(() => {
-    if (!familyId) {
-      // Offline fallback: Demo messages
-      const demoMessages: ChatMessage[] = [
-        {
-          id: '1',
-          text: 'Всем привет! Создал наш семейный чат. Теперь можно обсуждать списки покупок прямо здесь.',
-          userId: 'demo-1',
-          userName: 'Алексей',
-          timestamp: Date.now() - 3600000 * 2,
-          type: 'text'
-        },
-        {
-          id: '2',
-          text: 'Отличная идея! Я добавила молоко и бананы в список покупок.',
-          userId: 'demo-2',
-          userName: 'Мария',
-          timestamp: Date.now() - 3600000 * 1.8,
-          type: 'text'
-        },
-        {
-          id: 'sys-1',
-          text: 'Мария добавила бананы и молоко в Покупки 🛒',
-          userId: 'system',
-          userName: 'Система',
-          timestamp: Date.now() - 3600000 * 1.7,
-          type: 'system'
-        },
-        {
-          id: '3',
-          text: 'Понял, заскочу в магазин после работы! 👍',
-          userId: 'demo-1',
-          userName: 'Алексей',
-          timestamp: Date.now() - 1800000,
-          type: 'text',
-          reactions: { '👍': ['Мария'] }
-        }
-      ];
-      setMessages(demoMessages);
-      return;
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
+  }, [activeTopicId, currentMessages.length]);
+
+  // Handle Realtime Firestore subscription if familyId exists
+  useEffect(() => {
+    if (!familyId) return;
 
     const unsub = subscribeToCollection(familyId, 'chat', (data) => {
-      const sorted = (data as ChatMessage[]).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      setMessages(sorted);
+      if (Array.isArray(data) && data.length > 0) {
+        const sorted = [...data].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        setMessagesMap(prev => ({
+          ...prev,
+          [activeTopicId]: sorted as ChatMessage[]
+        }));
+      }
     });
 
     return () => unsub();
-  }, [familyId]);
+  }, [familyId, activeTopicId]);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const finalTxt = textToSend || inputText.trim();
-    if (!finalTxt) return;
+  // Topic Switcher
+  const handleSelectTopic = (topicId: string) => {
+    triggerHaptic('light');
+    setActiveTopicId(topicId);
+    setShowMobileSidebar(false);
+    setIsSearching(false);
+    setSearchQuery('');
+  };
 
-    triggerHaptic();
+  // Delete Chat Topic
+  const handleDeleteActiveTopic = () => {
+    if (topics.length <= 1) {
+      toast.error('Нельзя удалить единственную оставшуюся тему');
+      setIsDeleteModalOpen(false);
+      return;
+    }
 
-    const authorName = user?.displayName || user?.email?.split('@')[0] || 'Участник';
-    const newMessage = {
-      text: finalTxt,
-      userId: user?.uid || 'guest',
-      userName: authorName,
+    const topicToDelete = activeTopic;
+    const remainingTopics = topics.filter(t => t.id !== activeTopicId);
+    
+    setTopics(remainingTopics);
+    setMessagesMap(prev => {
+      const copy = { ...prev };
+      delete copy[activeTopicId];
+      return copy;
+    });
+
+    setActiveTopicId(remainingTopics[0].id);
+    setIsDeleteModalOpen(false);
+    toast.success(`Чат «${topicToDelete.title}» успешно удален`);
+  };
+
+  // Send Message Handler
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = inputText.trim();
+    if (!text) return;
+
+    triggerHaptic('medium');
+
+    const newMsg: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      topicId: activeTopicId,
+      text,
+      userId: user?.uid || 'current_user',
+      userName: user?.displayName || 'Вы',
       timestamp: Date.now(),
-      type: 'text' as const
+      type: 'text'
     };
+
+    // Optimistic Update
+    setMessagesMap(prev => ({
+      ...prev,
+      [activeTopicId]: [...(prev[activeTopicId] || []), newMsg]
+    }));
+
+    // Update Topic Last Message
+    setTopics(prev => prev.map(t => {
+      if (t.id === activeTopicId) {
+        return {
+          ...t,
+          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+          lastMessage: `Вы: ${text}`
+        };
+      }
+      return t;
+    }));
+
+    setInputText('');
 
     if (familyId) {
       try {
-        await addItem(familyId, 'chat', newMessage);
+        await addItem(familyId, 'chat', newMsg);
       } catch (err) {
-        toast.error('Не удалось отправить сообщение');
+        console.error("Failed to send chat message:", err);
       }
-    } else {
-      // Local addition for demo mode
-      const localMsg: ChatMessage = {
-        id: Math.random().toString(),
-        ...newMessage
-      };
-      setMessages(prev => [...prev, localMsg]);
     }
 
-    if (!textToSend) setInputText('');
+    // Simulate Family Member Reply after 1.8s
+    simulateFamilyReply();
   };
 
-  const handleAddReaction = async (messageId: string, emoji: string) => {
-    triggerHaptic();
-    const userName = user?.displayName || user?.email?.split('@')[0] || 'Участник';
+  const simulateFamilyReply = () => {
+    setTimeout(() => {
+      setIsTyping(true);
+      setTypingAuthor('Мама');
 
-    const updatedMessages = messages.map(msg => {
-      if (msg.id !== messageId) return msg;
-      
-      const reactions = { ...(msg.reactions || {}) };
-      const existing = reactions[emoji] || [];
-      
-      if (existing.includes(userName)) {
-        reactions[emoji] = existing.filter(u => u !== userName);
-        if (reactions[emoji].length === 0) delete reactions[emoji];
-      } else {
-        reactions[emoji] = [...existing, userName];
-      }
-      return { ...msg, reactions };
+      setTimeout(() => {
+        setIsTyping(false);
+
+        const replyMsg: ChatMessage = {
+          id: `msg_reply_${Date.now()}`,
+          topicId: activeTopicId,
+          text: 'Спасибо, записала! ❤️',
+          userId: 'mom',
+          userName: 'Мама',
+          timestamp: Date.now(),
+          type: 'text'
+        };
+
+        setMessagesMap(prev => ({
+          ...prev,
+          [activeTopicId]: [...(prev[activeTopicId] || []), replyMsg]
+        }));
+      }, 2200);
+    }, 700);
+  };
+
+  // Reactions
+  const handleToggleReaction = (msgId: string, emoji: string) => {
+    triggerHaptic('selection');
+    setMessagesMap(prev => {
+      const topicMsgs = prev[activeTopicId] || [];
+      const updated = topicMsgs.map(msg => {
+        if (msg.id === msgId) {
+          const rx = { ...(msg.reactions || {}) };
+          const userRx = { ...(msg.userReacted || {}) };
+          const hasReacted = userRx[emoji];
+
+          if (hasReacted) {
+            rx[emoji] = Math.max(0, (rx[emoji] || 1) - 1);
+            userRx[emoji] = false;
+          } else {
+            rx[emoji] = (rx[emoji] || 0) + 1;
+            userRx[emoji] = true;
+          }
+
+          return { ...msg, reactions: rx, userReacted: userRx };
+        }
+        return msg;
+      });
+
+      return { ...prev, [activeTopicId]: updated };
     });
+  };
 
-    setMessages(updatedMessages);
-    setShowEmojiTrayForMessageId(null);
+  // Create New Topic
+  const handleCreateTopic = () => {
+    const topicTitle = prompt('Введите название новой семейной темы:', 'Покупки на праздник');
+    if (topicTitle && topicTitle.trim()) {
+      const newTopicId = `topic_${Date.now()}`;
+      const newTopic: TopicItem = {
+        id: newTopicId,
+        title: topicTitle.trim(),
+        subtitle: 'Папа, Мама, Бабушка',
+        icon: '📋',
+        time: 'Только что',
+        lastMessage: 'Чат создан'
+      };
 
-    // If online, update in DB if needed (or keep optimistic local reaction state)
-    if (familyId) {
-      // To keep it simple and lightning-fast, we update with merge or keep local state.
-      // Firestore updates can also push the full updated message.
+      setTopics(prev => [newTopic, ...prev]);
+      setMessagesMap(prev => ({
+        ...prev,
+        [newTopicId]: [
+          {
+            id: `init_${Date.now()}`,
+            topicId: newTopicId,
+            text: `Создана тема «${topicTitle.trim()}»`,
+            userId: 'system',
+            userName: 'Система',
+            timestamp: Date.now(),
+            type: 'system'
+          }
+        ]
+      }));
+
+      setActiveTopicId(newTopicId);
+      toast.success(`Тема «${topicTitle}» успешно создана`);
     }
   };
 
-  const handleSendMockImage = () => {
-    setIsUploadingMock(true);
-    setTimeout(async () => {
-      const authorName = user?.displayName || user?.email?.split('@')[0] || 'Участник';
-      const imageMsg = {
-        text: 'Посмотрите, какую классную штуку нашли в магазине! 🛍️',
-        userId: user?.uid || 'guest',
-        userName: authorName,
-        timestamp: Date.now(),
-        type: 'image' as const,
-        imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600'
-      };
-
-      if (familyId) {
-        await addItem(familyId, 'chat', imageMsg);
-      } else {
-        setMessages(prev => [...prev, { id: Math.random().toString(), ...imageMsg }]);
-      }
-      setIsUploadingMock(false);
-      toast.success('Фото успешно прикреплено!');
-    }, 1200);
+  // Attachment Handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      toast.success(`Чек "${file.name}" прикреплен к сообщению 📎`);
+      setInputText(prev => prev ? `${prev} [Чек: ${file.name}]` : `Чек: ${file.name}`);
+    }
   };
 
-  // Filter messages based on search query
-  const filteredMessages = messages.filter(msg => {
-    if (!searchQuery) return true;
-    return msg.text.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           msg.userName.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredMessages = currentMessages.filter(msg => {
+    if (!searchQuery.trim()) return true;
+    return msg.text.toLowerCase().includes(searchQuery.toLowerCase().trim());
   });
 
   return (
-    <div className="h-full flex flex-col bg-stone-50/50 dark:bg-[#141517] relative">
-      {/* Top Header Bar */}
-      <header className="px-5 py-3.5 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center font-bold shadow-xs">
-            💬
-          </div>
+    <div className="w-full h-[84vh] md:h-[840px] bg-[#FBF9F5] dark:bg-[#121214] rounded-3xl shadow-xl border border-[#ECE8DF] dark:border-white/10 flex overflow-hidden relative animate-main-entrance select-none">
+      
+      {/* SIDEBAR */}
+      <aside className={`w-72 md:w-80 border-r border-[#ECE8DF] dark:border-white/10 bg-[#F7F4ED] dark:bg-[#1C1C1E] flex flex-col shrink-0 ${showMobileSidebar ? 'flex w-full z-20' : 'hidden sm:flex'}`}>
+        
+        {/* Sidebar Header */}
+        <header className="p-4 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="font-headline text-base font-bold text-gray-900 dark:text-white">Семейный чат</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация в реальном времени с вашей семьей</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Search Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsSearching(!isSearching)}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-              isSearching 
-                ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:text-emerald-400' 
-                : 'bg-gray-50 dark:bg-white/5 text-gray-500 hover:text-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <Search size={17} />
-          </button>
-        </div>
-      </header>
-
-      {/* Search Input Tray */}
-      <AnimatePresence>
-        {isSearching && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-5 py-2 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/5 overflow-hidden"
-          >
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Поиск по сообщениям..."
-              className="w-full px-4 py-2 rounded-xl bg-gray-50 dark:bg-[#151618] border border-gray-100 dark:border-white/15 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
-              autoFocus
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-        {filteredMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6">
-            <div className="w-16 h-16 rounded-full bg-[#4A7C59]/5 dark:bg-emerald-950/20 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center text-2xl mb-4 shadow-3xs">
-              💬
-            </div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Сообщений пока нет</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mt-1">
-              Напишите что-нибудь вашей семье, чтобы начать общение в реальном времени!
+            <h1 className="text-base font-bold text-[#1F2922] dark:text-white">Семейные беседы</h1>
+            <p className="text-xs text-[#717B73] dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block animate-pulse"></span>
+              <span>{members.length || 3} участника онлайн</span>
             </p>
           </div>
-        ) : (
-          filteredMessages.map((msg, index) => {
-            const isMe = msg.userId === (user?.uid || 'guest');
-            const isSystem = msg.type === 'system';
-            const { initials, color } = getMemberInitialsAndColor(msg.userName, msg.userId);
+          <button 
+            type="button"
+            onClick={handleCreateTopic}
+            title="Создать новый тред или тему"
+            className="w-8 h-8 rounded-full bg-[#E9E4D8] dark:bg-white/10 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center hover:bg-[#DED7C8] dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        </header>
 
-            // Determine if previous message was from the same sender to group bubbles
-            const prevMsg = filteredMessages[index - 1];
-            const isGrouped = prevMsg && prevMsg.userId === msg.userId && (msg.timestamp - prevMsg.timestamp < 300000);
-
-            if (isSystem) {
-              return (
-                <div key={msg.id} className="flex justify-center my-1.5">
-                  <div className="px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/20 text-[11px] font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1.5 shadow-3xs">
-                    <Sparkles size={11} className="shrink-0 animate-pulse text-amber-500" />
-                    <span>{msg.text}</span>
+        {/* Topics List */}
+        <nav aria-label="Разделы чата" className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+          {topics.map((topic, index) => {
+            const isActive = topic.id === activeTopicId;
+            const staggerClass = index === 0 ? 'stagger-sidebar-1' : index === 1 ? 'stagger-sidebar-2' : 'stagger-sidebar-3';
+            
+            return (
+              <button
+                key={topic.id}
+                type="button"
+                onClick={() => handleSelectTopic(topic.id)}
+                className={`${staggerClass} w-full p-2.5 rounded-xl text-left flex items-start gap-3 transition-all duration-200 active:scale-[0.99] group cursor-pointer ${
+                  isActive 
+                    ? 'bg-white dark:bg-[#2C2C2E] border border-[#E4DED3] dark:border-white/10 shadow-sm' 
+                    : 'hover:bg-[#EDE8DD] dark:hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <span className="topic-icon w-9 h-9 rounded-xl bg-[#2D5A3F]/10 dark:bg-emerald-950/40 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0 transition-transform group-hover:scale-105">
+                  {topic.icon}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs truncate ${isActive ? 'font-bold text-[#1F2922] dark:text-white' : 'font-semibold text-[#2C332D] dark:text-stone-300'}`}>
+                      {topic.title}
+                    </span>
+                    <span className="text-[10px] text-[#788279] dark:text-stone-400 shrink-0 ml-1">{topic.time}</span>
                   </div>
+                  <p className="text-xs text-[#525D54] dark:text-stone-400 truncate mt-0.5">
+                    {topic.lastMessage}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* MAIN CHAT WORKSPACE */}
+      <section aria-label="Окно переписки" className={`flex-1 flex flex-col h-full bg-[#FBF9F5] dark:bg-[#121214] min-w-0 relative ${!showMobileSidebar ? 'flex' : 'hidden sm:flex'}`}>
+        
+        {/* Header */}
+        <header className="h-16 px-4 md:px-6 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between bg-[#FBF9F5]/95 dark:bg-[#121214]/95 backdrop-blur-xs shrink-0 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              aria-label="Назад к чатам"
+              onClick={() => setShowMobileSidebar(true)}
+              className="sm:hidden p-1.5 -ml-1 text-[#465047] dark:text-stone-300 hover:text-[#1F2922] rounded-lg active:scale-95 transition-transform cursor-pointer"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="w-9 h-9 rounded-full bg-[#2D5A3F] dark:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
+              {activeTopic.icon}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-[#1F2922] dark:text-white truncate leading-tight">
+                {activeTopic.title}
+              </h2>
+              <p className="text-[11px] text-[#717B73] dark:text-stone-400 truncate">
+                {activeTopic.subtitle}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Поиск по истории сообщений"
+              onClick={() => setIsSearching(!isSearching)}
+              className="p-2 text-[#566057] dark:text-stone-300 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#F0ECE1] dark:hover:bg-white/10 active:scale-95 rounded-xl transition-all cursor-pointer"
+            >
+              <Search size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Удалить чат"
+              onClick={() => setIsDeleteModalOpen(true)}
+              title="Удалить чат"
+              className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 active:scale-95 rounded-xl transition-all cursor-pointer"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* Collapsible Search Bar */}
+        {isSearching && (
+          <div className="px-4 py-2 border-b border-[#ECE8DF] dark:border-white/10 bg-[#F8F5EE] dark:bg-[#1C1C1E] flex items-center gap-2 transition-all">
+            <Search size={16} className="text-[#869087] dark:text-stone-400 shrink-0" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск в сообщениях..."
+              className="bg-transparent text-xs w-full text-[#1F2922] dark:text-white placeholder-[#8F9890] outline-none"
+              autoFocus
+            />
+            <button 
+              type="button"
+              onClick={() => { setIsSearching(false); setSearchQuery(''); }}
+              className="text-xs text-[#717B73] dark:text-stone-400 hover:text-[#1F2922] dark:hover:text-white px-2 py-0.5 rounded cursor-pointer"
+            >
+              Закрыть
+            </button>
+          </div>
+        )}
+
+        {/* Messages Feed */}
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-4 transition-opacity duration-200"
+        >
+          {/* Date Separator */}
+          <div aria-label="Сегодня" className="flex items-center justify-center my-2 select-none" role="separator">
+            <span className="text-[11px] font-semibold text-[#828C83] dark:text-stone-400 bg-[#ECE8DF] dark:bg-white/10 px-2.5 py-0.5 rounded-full hover:scale-105 transition-transform cursor-default">
+              Сегодня, 24 сентября
+            </span>
+          </div>
+
+          {filteredMessages.map((msg, idx) => {
+            const isMe = msg.userName === 'Вы' || msg.userId === user?.uid;
+
+            if (msg.type === 'system') {
+              return (
+                <div key={msg.id} className="flex items-center justify-center my-2">
+                  <span className="text-[11px] font-medium text-[#717B73] dark:text-stone-400 bg-[#F0EDE4] dark:bg-white/5 px-3 py-1 rounded-full border border-[#E5DFD4] dark:border-white/10">
+                    {msg.text}
+                  </span>
                 </div>
               );
             }
 
-            return (
-              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} relative group`}>
-                <div className={`flex items-end gap-2.5 max-w-[85%] sm:max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Sender Avatar */}
-                  {!isMe && !isGrouped ? (
-                    <div 
-                      className="w-8 h-8 rounded-full font-bold text-[11px] flex items-center justify-center text-white shrink-0 shadow-2xs"
-                      style={{ backgroundColor: color }}
-                    >
-                      {initials}
-                    </div>
-                  ) : (
-                    <div className="w-8 shrink-0" />
-                  )}
-
-                  {/* Message Bubble Column */}
-                  <div className="space-y-1">
-                    {/* Username if not me and not grouped */}
-                    {!isMe && !isGrouped && (
-                      <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 px-1">
-                        {msg.userName}
+            if (msg.type === 'receipt' && msg.receiptData) {
+              return (
+                <article key={msg.id} className="stagger-msg-2 ml-9 max-w-[85%] sm:max-w-[70%] group">
+                  <div 
+                    onClick={() => {
+                      setSelectedReceipt(msg.receiptData!);
+                      setIsReceiptDrawerOpen(true);
+                      triggerHaptic('light');
+                    }}
+                    className="bg-[#F2EFE6] dark:bg-[#1C1C1E] hover:bg-[#EAE6DC] dark:hover:bg-[#252528] border border-[#DED8CB] dark:border-white/10 rounded-2xl p-3.5 flex flex-col gap-2 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2D5A3F] dark:text-emerald-400">
+                        <CheckCheck size={16} className="text-[#2D5A3F] dark:text-emerald-400" />
+                        Трата внесена в бюджет
                       </span>
-                    )}
-
-                    {/* Chat Bubble */}
-                    <div className="relative">
-                      <div 
-                        onDoubleClick={() => setShowEmojiTrayForMessageId(msg.id)}
-                        className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed relative ${
-                          isMe 
-                            ? 'bg-[#4A7C59] text-white rounded-br-none shadow-3xs' 
-                            : 'bg-white dark:bg-[#1C1E22] text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-white/5 rounded-bl-none shadow-3xs'
-                        }`}
-                      >
-                        {msg.type === 'image' && msg.imageUrl && (
-                          <div className="mb-2 rounded-lg overflow-hidden border border-white/10">
-                            <img src={msg.imageUrl} alt="Attached" className="max-w-full h-auto object-cover" />
-                          </div>
-                        )}
-                        <p className="whitespace-pre-wrap break-all select-text">{msg.text}</p>
-                        
-                        {/* Time stamp */}
-                        <div className={`text-[9px] mt-1.5 flex items-center justify-end gap-1 font-semibold ${isMe ? 'text-emerald-100' : 'text-gray-400 dark:text-gray-500'}`}>
-                          <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          {isMe && <CheckCheck size={11} className="text-emerald-200" />}
-                        </div>
-                      </div>
-
-                      {/* Floating Reactions Drawer */}
-                      {showEmojiTrayForMessageId === msg.id && (
-                        <div className={`absolute z-10 -top-11 ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1.5 bg-white dark:bg-[#202225] border border-gray-200 dark:border-white/10 p-1.5 rounded-xl shadow-lg animate-bounce`}>
-                          {EMOJI_LIST.map(emoji => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => handleAddReaction(msg.id, emoji)}
-                              className="text-sm hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Displayed reactions list */}
-                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className={`absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 bg-white dark:bg-[#202225] px-1.5 py-0.5 rounded-full border border-gray-100 dark:border-white/10 shadow-3xs text-[10px]`}>
-                          {Object.entries(msg.reactions).map(([emoji, usersList]) => (
-                            <span 
-                              key={emoji} 
-                              className="cursor-pointer" 
-                              title={usersList.join(', ')}
-                              onClick={() => handleAddReaction(msg.id, emoji)}
-                            >
-                              {emoji} <span className="text-[9px] text-gray-400">{usersList.length}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <span className="text-xs font-bold text-[#1F2922] dark:text-white bg-white/70 dark:bg-white/10 px-2 py-0.5 rounded-md border border-[#E3DED4] dark:border-white/10">
+                        {msg.receiptData.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-[#525D54] dark:text-stone-300 flex items-center justify-between border-t border-[#E2DCD0] dark:border-white/10 pt-2">
+                      <span>Категория: <strong class="text-[#1F2922] dark:text-white">{msg.receiptData.category}</strong></span>
+                      <span className="text-[#2D5A3F] dark:text-emerald-400 font-bold text-xs inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                        Детали →
+                      </span>
                     </div>
                   </div>
-                </div>
+                </article>
+              );
+            }
 
-                {/* Double click hover trigger hint */}
-                <div className="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block px-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmojiTrayForMessageId(msg.id)}
-                    className="w-7 h-7 rounded-full bg-white dark:bg-[#1C1E22] border border-gray-100 dark:border-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-white flex items-center justify-center shadow-3xs cursor-pointer"
-                  >
-                    <Smile size={14} />
-                  </button>
+            return (
+              <article 
+                key={msg.id} 
+                className={`group relative flex items-start gap-2.5 max-w-[85%] sm:max-w-[70%] ${isMe ? 'ml-auto justify-end' : ''}`}
+              >
+                {!isMe && (
+                  <div className="w-7 h-7 rounded-full bg-[#D65D4E] text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-1 shadow-xs">
+                    {msg.userName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div className={`flex flex-col ${isMe ? 'items-end' : ''}`}>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    {!isMe && <span className="text-xs font-bold text-[#1F2922] dark:text-white">{msg.userName}</span>}
+                    <time className="text-[10px] text-[#869087] dark:text-stone-400">
+                      {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </time>
+                    {isMe && <span className="text-xs font-bold text-[#1F2922] dark:text-white">Вы</span>}
+                  </div>
+
+                  <div className={`p-3 rounded-2xl shadow-xs text-sm leading-relaxed transition-colors ${
+                    isMe 
+                      ? 'bg-[#2D5A3F] dark:bg-emerald-700 text-white rounded-tr-sm hover:bg-[#285038]' 
+                      : 'bg-white dark:bg-[#1C1C1E] border border-[#E5DFD4] dark:border-white/10 text-[#273029] dark:text-stone-100 rounded-tl-sm'
+                  }`}>
+                    {msg.text}
+                  </div>
+
+                  {/* Reaction Pills & Quick Reactions */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {msg.reactions && Object.entries(msg.reactions).map(([emoji, count]) => {
+                      if (count <= 0) return null;
+                      const userReacted = msg.userReacted?.[emoji];
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => handleToggleReaction(msg.id, emoji)}
+                          className={`reaction-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] active:scale-90 transition-all cursor-pointer ${
+                            userReacted 
+                              ? 'bg-[#2D5A3F]/10 dark:bg-emerald-950/60 border border-[#2D5A3F] text-[#2D5A3F] dark:text-emerald-300' 
+                              : 'bg-white dark:bg-[#1C1C1E] border border-[#E4DED3] dark:border-white/10 text-[#556057] dark:text-stone-300'
+                          }`}
+                        >
+                          <span>{emoji}</span>
+                          <span className="counter font-bold text-[10px]">{count}</span>
+                        </button>
+                      );
+                    })}
+
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pl-1">
+                      <button 
+                        type="button" 
+                        onClick={() => handleToggleReaction(msg.id, '❤️')} 
+                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
+                        title="Поставить ❤️"
+                      >
+                        ❤️
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => handleToggleReaction(msg.id, '👍')} 
+                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
+                        title="Поставить 👍"
+                      >
+                        👍
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => handleToggleReaction(msg.id, '👏')} 
+                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
+                        title="Поставить 👏"
+                      >
+                        👏
+                      </button>
+                    </div>
+
+                    {isMe && (
+                      <span className="text-[10px] text-[#717B73] dark:text-stone-400 inline-flex items-center gap-1 select-none ml-1">
+                        Прочитано
+                        <CheckCheck size={12} className="text-[#2D5A3F] dark:text-emerald-400" />
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </article>
             );
-          })
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          })}
 
-      {/* Preset replies section */}
-      {inputText.trim() === '' && (
-        <div className="px-5 py-2 overflow-x-auto whitespace-nowrap flex items-center gap-2 shrink-0 bg-white/40 dark:bg-[#141517]/40 border-t border-gray-100 dark:border-white/5 no-scrollbar">
-          {PRESET_REPLIES.map(reply => (
-            <button
-              key={reply}
-              type="button"
-              onClick={() => handleSendMessage(reply)}
-              className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1C1E22] border border-gray-200/60 dark:border-white/10 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-all cursor-pointer"
-            >
-              {reply}
-            </button>
-          ))}
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="flex items-center gap-2 text-xs text-[#717B73] dark:text-stone-400 pt-1 ml-9">
+              <span className="italic font-medium">{typingAuthor} печатает</span>
+              <span className="inline-flex gap-1 items-center bg-[#EDE8DD] dark:bg-white/10 px-2 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
+                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
+                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
+              </span>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Input Tray */}
-      <footer className="p-4 bg-white dark:bg-[#18191C] border-t border-gray-100 dark:border-white/5 shrink-0">
-        <div className="flex items-center gap-2.5">
-          {/* Attachment trigger */}
-          <button
-            type="button"
-            onClick={handleSendMockImage}
-            disabled={isUploadingMock}
-            className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-white/5 text-gray-500 hover:text-[#4A7C59] dark:hover:text-emerald-400 flex items-center justify-center transition-all cursor-pointer disabled:opacity-55"
-            title="Прикрепить фото"
-          >
-            {isUploadingMock ? (
-              <Loader2 size={18} className="animate-spin text-[#4A7C59]" />
-            ) : (
-              <Paperclip size={18} />
-            )}
-          </button>
-
-          {/* Text Input */}
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Cообщение семье..."
-              className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-50 dark:bg-[#151618] border border-gray-200 dark:border-white/10 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+        {/* Input Footer */}
+        <footer className="p-3 md:p-4 bg-[#FBF9F5] dark:bg-[#121214] border-t border-[#ECE8DF] dark:border-white/10 shrink-0">
+          <form className="flex items-center gap-2" onSubmit={handleSendMessage}>
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              className="hidden" 
+              onChange={handleFileChange}
             />
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#4A7C59] cursor-pointer"
+              aria-label="Прикрепить чек или файл"
+              onClick={() => fileInputRef.current?.click()}
+              title="Прикрепить чек или фото"
+              className="p-2.5 text-[#566057] dark:text-stone-300 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#F0ECE1] dark:hover:bg-white/10 active:scale-90 rounded-xl transition-all cursor-pointer"
             >
-              <Smile size={16} />
+              <Paperclip size={20} />
+            </button>
+
+            <div className="flex-1 relative">
+              <input 
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Напишите сообщение семье..."
+                className="w-full px-4 py-2.5 bg-white dark:bg-[#1C1C1E] border border-[#DED8CB] dark:border-white/10 focus:border-[#2D5A3F] rounded-xl text-sm text-[#1F2922] dark:text-white placeholder-[#8F9890] outline-none transition-all"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              aria-label="Отправить сообщение"
+              className="px-4 py-2.5 bg-[#2D5A3F] hover:bg-[#244933] active:scale-95 text-white font-semibold text-sm rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              <span>Отправить</span>
+              <Send size={16} />
+            </button>
+          </form>
+        </footer>
+
+        {/* Receipt Details Drawer */}
+        <div className={`absolute inset-y-0 right-0 w-full sm:w-80 bg-[#FDFCF9] dark:bg-[#1C1C1E] border-l border-[#ECE8DF] dark:border-white/10 shadow-2xl z-20 transform transition-transform duration-300 ease-out flex flex-col ${
+          isReceiptDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          <div className="p-4 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between bg-[#F7F4ED] dark:bg-[#121214]">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#2D5A3F]/15 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">🧾</span>
+              <h3 className="font-bold text-sm text-[#1F2922] dark:text-white">Детали расхода</h3>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setIsReceiptDrawerOpen(false)}
+              className="p-1 rounded-lg text-[#717B73] dark:text-stone-400 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#E9E4D8] dark:hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+            >
+              <X size={20} />
             </button>
           </div>
 
-          {/* Send Trigger */}
-          <button
-            type="button"
-            onClick={() => handleSendMessage()}
-            className="w-10 h-10 rounded-xl bg-[#4A7C59] hover:bg-[#3D6649] text-white flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95"
-          >
-            <Send size={16} />
-          </button>
+          <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
+            {selectedReceipt && (
+              <>
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121214] border border-[#E7E1D5] dark:border-white/10 shadow-xs text-center">
+                  <span className="text-[11px] text-[#788279] dark:text-stone-400 uppercase tracking-wider font-semibold">Итоговая сумма</span>
+                  <div className="text-2xl font-black text-[#1F2922] dark:text-white mt-0.5">
+                    {selectedReceipt.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full mt-1.5 font-medium border border-emerald-200 dark:border-emerald-800">
+                    ✓ Синхронизировано с банком
+                  </span>
+                </div>
+
+                <div className="space-y-2 border-t border-[#ECE8DF] dark:border-white/10 pt-3">
+                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
+                    <span>Торговая точка:</span>
+                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.merchant}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
+                    <span>Категория:</span>
+                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.category}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
+                    <span>Оплатил(а):</span>
+                    <strong className="text-[#1F2922] dark:text-white">Мама (Карта •• 4812)</strong>
+                  </div>
+                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
+                    <span>Дата и время:</span>
+                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.date}</strong>
+                  </div>
+                </div>
+
+                {selectedReceipt.items && selectedReceipt.items.length > 0 && (
+                  <div className="border-t border-[#ECE8DF] dark:border-white/10 pt-3">
+                    <p className="font-bold text-[#1F2922] dark:text-white mb-2">Товары в чеке:</p>
+                    <div className="space-y-1.5 bg-[#F5F2EA] dark:bg-[#121214] p-2.5 rounded-xl border border-[#E6E0D2] dark:border-white/10">
+                      {selectedReceipt.items.map((it, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[11px] border-b border-[#E8E2D4] dark:border-white/5 last:border-none pb-1 last:pb-0">
+                          <span className="text-[#323B34] dark:text-stone-300">{it.name}</span>
+                          <span className="font-bold text-[#1F2922] dark:text-white">{it.price} ₽</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="p-3 border-t border-[#ECE8DF] dark:border-white/10 bg-[#F7F4ED] dark:bg-[#121214] flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={() => {
+                toast.success("Расход подтвержден и закреплен в отчете");
+                setIsReceiptDrawerOpen(false);
+              }}
+              className="flex-1 py-2 bg-[#2D5A3F] dark:bg-emerald-700 hover:bg-[#244933] active:scale-95 text-white font-semibold rounded-xl text-center transition-all cursor-pointer"
+            >
+              Подтвердить
+            </button>
+            <button 
+              type="button"
+              onClick={() => setIsReceiptDrawerOpen(false)}
+              className="py-2 px-3 bg-white dark:bg-[#2C2C2E] border border-[#DED8CB] dark:border-white/10 hover:bg-[#F0ECE1] active:scale-95 text-[#2C332D] dark:text-white font-medium rounded-xl transition-all cursor-pointer"
+            >
+              Закрыть
+            </button>
+          </div>
         </div>
-      </footer>
+
+      </section>
+
+      {/* Confirm Delete Chat Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]">
+          <div className="bg-white dark:bg-[#1C1C1E] border border-[#ECE8DF] dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#1F2922] dark:text-white">Удалить чат?</h3>
+                <p className="text-xs text-[#717B73] dark:text-stone-400 mt-0.5">
+                  Вы действительно хотите удалить «{activeTopic.title}» и всю историю сообщений?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="flex-1 py-2 px-3 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-[#2C332D] dark:text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteActiveTopic}
+                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

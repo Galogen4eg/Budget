@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, X, Plus, ChevronDown, Check, ArrowRight, FolderOutput 
 } from 'lucide-react';
 import { Category, Transaction } from '../types';
 import { getIconById } from '../constants';
 import { toast } from 'sonner';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export interface DesktopCategoryPickerModalProps {
   isOpen: boolean;
@@ -28,6 +30,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   onAddCategory,
   transactions = []
 }) => {
+  useModalBackHandler(isOpen, onClose);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
 
@@ -53,15 +56,12 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
       if (selectedCategoryId) {
         const found = categories.find(c => c.id === selectedCategoryId);
         if (found?.parentId) {
-          setExpandedCatIds(prev => ({ ...prev, [found.parentId!]: true }));
+          setExpandedCatIds({ [found.parentId]: true });
         } else if (found) {
-          setExpandedCatIds(prev => ({ ...prev, [found.id]: true }));
+          setExpandedCatIds({ [found.id]: true });
         }
       } else {
-        const firstParent = categories.find(c => !c.parentId && c.id !== 'other');
-        if (firstParent) {
-          setExpandedCatIds({ [firstParent.id]: true });
-        }
+        setExpandedCatIds({});
       }
     }
   }, [isOpen, selectedCategoryId, categories]);
@@ -254,30 +254,34 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
   const handleConfirm = () => {
     if (!activeSelectedId) return;
-    setIsConfirming(true);
 
     if (currentSelectionInfo) {
       toast.success(`Категория "${currentSelectionInfo.categoryName} → ${currentSelectionInfo.subcategoryName}" сохранена`);
     }
 
     onSelectCategory(activeSelectedId);
-    setTimeout(() => {
-      setIsConfirming(false);
-      onClose();
-    }, 200);
+    onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div 
-      id="categoryModalWrapper"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-[3px] overflow-y-auto"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div 
-        className="modal-animate-enter relative max-w-3xl w-full bg-[#F7F5F0] dark:bg-[#1C1C1E] rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto transition-all"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          id="categoryModalWrapper"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/25 backdrop-blur-[2px] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+      <motion.div 
+        initial={{ scale: 0.94, opacity: 0, y: 18 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.94, opacity: 0, y: 18 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
+        className="relative max-w-4xl lg:max-w-5xl w-full bg-[#F7F5F0] dark:bg-[#1C1C1E] rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -309,101 +313,111 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         </div>
 
         {/* Inline Category Creation Block with Smooth Expand/Collapse */}
-        <div className={`create-panel-collapse border-b border-[#E8E4DA] dark:border-white/10 bg-[#EFECE3]/80 dark:bg-[#252528] px-6 py-4 shrink-0 relative z-20 ${!isCreatePanelOpen ? 'collapsed' : ''}`}>
-          <div className="accordion-inner space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
-                Быстрое создание категории
-              </span>
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsCreatePanelOpen(false);
-                }}
-                className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white font-semibold transition-colors hover:underline cursor-pointer relative z-30 p-1 rounded"
-              >
-                Скрыть форму
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Название категории
-                </label>
-                <input 
-                  ref={newCatNameInputRef}
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Название категории..."
-                  className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs font-medium"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Добавить подкатегорию
-                </label>
-                <div className="flex items-center gap-2">
-                  <input 
-                    ref={newSubcatInputRef}
-                    type="text"
-                    value={newSubcategoryInput}
-                    onChange={(e) => setNewSubcategoryInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddSubcategoryTag();
-                      }
-                    }}
-                    placeholder="Добавить подкатегорию..."
-                    className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs"
-                  />
+        <AnimatePresence initial={false}>
+          {isCreatePanelOpen && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden border-b border-[#E8E4DA] dark:border-white/10 bg-[#EFECE3]/80 dark:bg-[#252528] px-6 py-4 shrink-0 relative z-20"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                    Быстрое создание категории
+                  </span>
                   <button 
                     type="button"
-                    onClick={handleAddSubcategoryTag}
-                    className="w-8 h-8 rounded-xl bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 flex items-center justify-center shrink-0 transition-all shadow-sm cursor-pointer"
-                    title="Добавить подкатегорию"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsCreatePanelOpen(false);
+                    }}
+                    className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white font-semibold transition-colors hover:underline cursor-pointer relative z-30 p-1 rounded"
                   >
-                    <Plus size={15} />
+                    Скрыть форму
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
+                      Название категории
+                    </label>
+                    <input 
+                      ref={newCatNameInputRef}
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Название категории..."
+                      className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
+                      Добавить подкатегорию
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        ref={newSubcatInputRef}
+                        type="text"
+                        value={newSubcategoryInput}
+                        onChange={(e) => setNewSubcategoryInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSubcategoryTag();
+                          }
+                        }}
+                        placeholder="Добавить подкатегорию..."
+                        className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs"
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleAddSubcategoryTag}
+                        className="w-8 h-8 rounded-xl bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 flex items-center justify-center shrink-0 transition-all shadow-sm cursor-pointer"
+                        title="Добавить подкатегорию"
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subcategory Tags */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {subcategoryTags.map((tag, idx) => (
+                      <span 
+                        key={`${tag}-${idx}`}
+                        className="tag-item inline-flex items-center gap-1 bg-[#EFECE3] dark:bg-[#1E2023] border border-[#DDD8CB] dark:border-white/10 text-stone-700 dark:text-stone-300 text-xs px-2.5 py-1 rounded-lg transition-transform hover:-translate-y-0.5"
+                      >
+                        <span>{tag}</span>
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveTag(idx)}
+                          aria-label="Удалить тег"
+                          className="text-stone-400 hover:text-stone-700 dark:hover:text-white ml-0.5 transition-colors cursor-pointer"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={handleSaveCategoryBundle}
+                    className="btn-shine-effect bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 px-4 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all shadow-sm cursor-pointer self-end sm:self-auto"
+                  >
+                    Сохранить категорию
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Subcategory Tags */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {subcategoryTags.map((tag, idx) => (
-                  <span 
-                    key={`${tag}-${idx}`}
-                    className="tag-item inline-flex items-center gap-1 bg-[#EFECE3] dark:bg-[#1E2023] border border-[#DDD8CB] dark:border-white/10 text-stone-700 dark:text-stone-300 text-xs px-2.5 py-1 rounded-lg transition-transform hover:-translate-y-0.5"
-                  >
-                    <span>{tag}</span>
-                    <button 
-                      type="button"
-                      onClick={() => handleRemoveTag(idx)}
-                      aria-label="Удалить тег"
-                      className="text-stone-400 hover:text-stone-700 dark:hover:text-white ml-0.5 transition-colors cursor-pointer"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <button 
-                type="button"
-                onClick={handleSaveCategoryBundle}
-                className="btn-shine-effect bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 px-4 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all shadow-sm cursor-pointer self-end sm:self-auto"
-              >
-                Сохранить категорию
-              </button>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Search Input Area */}
         <div className="p-6 pb-2 shrink-0">
@@ -500,83 +514,93 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                   </div>
                 </div>
 
-                {/* Smooth CSS Grid Accordion Content */}
-                <div className={`accordion-content border-t border-[#F0ECE1] dark:border-white/10 ${isExpanded ? 'open' : ''}`}>
-                  <div className="accordion-inner px-4 pb-4 pt-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-2">
-                      {/* Option to select parent category as whole */}
-                      <button 
-                        type="button"
-                        onClick={() => handleSelect(parent.id)}
-                        className={`text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                          activeSelectedId === parent.id
-                            ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
-                            : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
-                        }`}
-                      >
-                        <div className="min-w-0 pr-2">
-                          <span className={`text-xs font-bold block truncate ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
-                            Все расходы ({parent.label})
-                          </span>
-                          <span className={`text-[10px] block truncate ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
-                            Общая категория
-                          </span>
-                        </div>
-                        <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
-                      </button>
+                {/* Smooth Framer Motion Accordion Content */}
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden border-t border-[#F0ECE1] dark:border-white/10"
+                    >
+                      <div className="px-4 pb-4 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-2">
+                          {/* Option to select parent category as whole */}
+                          <button 
+                            type="button"
+                            onClick={() => handleSelect(parent.id)}
+                            className={`text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                              activeSelectedId === parent.id
+                                ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
+                                : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className={`text-xs font-bold block truncate ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
+                                Все расходы ({parent.label})
+                              </span>
+                              <span className={`text-[10px] block truncate ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                                Общая категория
+                              </span>
+                            </div>
+                            <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
+                          </button>
 
-                      {/* Subcategory Buttons with Move Action */}
-                      {subcats.map(sub => {
-                        const isSubSelected = activeSelectedId === sub.id;
-                        return (
-                          <div key={sub.id} className="relative group/sub flex items-center gap-1 min-w-0">
-                            <button 
-                              type="button"
-                              onClick={() => handleSelect(sub.id)}
-                              className={`flex-1 text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                                isSubSelected
-                                  ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
-                                  : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
-                              }`}
-                            >
-                              <div className="min-w-0 pr-2">
-                                <span className={`text-xs font-bold block truncate ${isSubSelected ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
-                                  {sub.label}
-                                </span>
-                                <span className={`text-[10px] block truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
-                                  {parent.label}
-                                </span>
+                          {/* Subcategory Buttons with Move Action */}
+                          {subcats.map(sub => {
+                            const isSubSelected = activeSelectedId === sub.id;
+                            return (
+                              <div key={sub.id} className="relative group/sub flex items-center gap-1 min-w-0">
+                                <button 
+                                  type="button"
+                                  onClick={() => handleSelect(sub.id)}
+                                  className={`flex-1 text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                                    isSubSelected
+                                      ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
+                                      : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
+                                  }`}
+                                >
+                                  <div className="min-w-0 pr-2">
+                                    <span className={`text-xs font-bold block truncate ${isSubSelected ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
+                                      {sub.label}
+                                    </span>
+                                    <span className={`text-[10px] block truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                                      {parent.label}
+                                    </span>
+                                  </div>
+                                  <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${isSubSelected ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  title="Перенести подкатегорию в другую категорию"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMovingSubcategory(sub);
+                                  }}
+                                  className="p-2.5 rounded-xl border border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:bg-[#3E6543] hover:text-white dark:hover:bg-[#3E6543] text-stone-500 dark:text-stone-300 transition-all cursor-pointer shrink-0"
+                                >
+                                  <FolderOutput size={14} />
+                                </button>
                               </div>
-                              <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${isSubSelected ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
-                            </button>
+                            );
+                          })}
 
-                            <button
-                              type="button"
-                              title="Перенести подкатегорию в другую категорию"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMovingSubcategory(sub);
-                              }}
-                              className="p-2.5 rounded-xl border border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:bg-[#3E6543] hover:text-white dark:hover:bg-[#3E6543] text-stone-500 dark:text-stone-300 transition-all cursor-pointer shrink-0"
-                            >
-                              <FolderOutput size={14} />
-                            </button>
-                          </div>
-                        );
-                      })}
-
-                      {/* Quick Add Subcategory Dashed Card */}
-                      <button 
-                        type="button"
-                        onClick={() => handleQuickAddSubcategoryForParent(parent.label)}
-                        className="text-left p-3 rounded-xl border border-dashed border-[#DDD8CB] dark:border-white/20 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-white hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-white/5 active:scale-[0.98] flex items-center justify-center gap-1.5 transition-all text-xs font-medium cursor-pointer"
-                      >
-                        <Plus size={14} />
-                        <span>Подкатегория</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                          {/* Quick Add Subcategory Dashed Card */}
+                          <button 
+                            type="button"
+                            onClick={() => handleQuickAddSubcategoryForParent(parent.label)}
+                            className="text-left p-3 rounded-xl border border-dashed border-[#DDD8CB] dark:border-white/20 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-white hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-white/5 active:scale-[0.98] flex items-center justify-center gap-1.5 transition-all text-xs font-medium cursor-pointer"
+                          >
+                            <Plus size={14} />
+                            <span>Подкатегория</span>
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           })}
@@ -673,8 +697,10 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           </div>
         )}
 
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 };
 

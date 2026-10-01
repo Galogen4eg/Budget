@@ -143,13 +143,13 @@ const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, onForg
         </div>
 
         {/* Keypad Section */}
-        <div className="pb-8 w-full">
-            <div className="grid grid-cols-3 gap-x-6 gap-y-5 w-full max-w-[300px] mx-auto">
+        <div className="pb-8 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] w-full">
+            <div className="grid grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-5 w-full max-w-[280px] sm:max-w-[300px] mx-auto">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                     <button
                         key={num}
                         onClick={() => handleNum(num)}
-                        className="w-20 h-20 rounded-full bg-white/50 backdrop-blur-md shadow-sm border border-white/60 flex items-center justify-center text-3xl font-medium text-[#1C1C1E] active:bg-white/80 active:scale-95 transition-all duration-100 select-none"
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/50 backdrop-blur-md shadow-sm border border-white/60 flex items-center justify-center text-2xl sm:text-3xl font-medium text-[#1C1C1E] active:bg-white/80 active:scale-95 transition-all duration-100 select-none"
                     >
                         {num}
                     </button>
@@ -160,7 +160,7 @@ const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, onForg
                     {onCancel && (
                         <button 
                             onClick={onCancel} 
-                            className="w-20 h-20 rounded-full flex items-center justify-center text-sm font-bold text-[#1C1C1E] active:opacity-50 transition-opacity"
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-[#1C1C1E] active:opacity-50 transition-opacity"
                         >
                             Отмена
                         </button>
@@ -169,16 +169,16 @@ const PinScreen: React.FC<PinScreenProps> = ({ mode, onSuccess, onCancel, onForg
                 
                 <button
                     onClick={() => handleNum(0)}
-                    className="w-20 h-20 rounded-full bg-white/50 backdrop-blur-md shadow-sm border border-white/60 flex items-center justify-center text-3xl font-medium text-[#1C1C1E] active:bg-white/80 active:scale-95 transition-all duration-100 select-none"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/50 backdrop-blur-md shadow-sm border border-white/60 flex items-center justify-center text-2xl sm:text-3xl font-medium text-[#1C1C1E] active:bg-white/80 active:scale-95 transition-all duration-100 select-none"
                 >
                     0
                 </button>
                 
                 <button
                     onClick={handleDelete}
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-[#1C1C1E] active:opacity-50 transition-opacity active:scale-95"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-[#1C1C1E] active:opacity-50 transition-opacity active:scale-95"
                 >
-                    <Delete size={28} strokeWidth={1.5} />
+                    <Delete size={24} className="sm:w-7 sm:h-7" strokeWidth={1.5} />
                 </button>
             </div>
             

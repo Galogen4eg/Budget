@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { X, Check, Trash2, Plus, Minus, Target } from 'lucide-react';
 import { SavingsGoal, AppSettings } from '../types';
 import { getIconById } from '../constants';
+import { toast } from 'sonner';
 
 interface GoalModalProps {
   goal: SavingsGoal | null;
@@ -35,7 +36,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
 
   const handleSave = () => {
     if (!title.trim() || !targetAmount) {
-      alert("Заполните название и целевую сумму");
+      toast.warning("Заполните название и целевую сумму");
       return;
     }
 
@@ -64,35 +65,35 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-        className="relative bg-[#F2F2F7] w-full max-w-lg md:rounded-[3.5rem] rounded-t-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-lg h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[90vh] md:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
-        <div className="bg-white p-7 flex justify-between items-center border-b border-gray-100">
-          <h2 className="text-xl font-black text-[#1C1C1E]">{goal ? 'Редактировать цель' : 'Новая цель'}</h2>
-          <button onClick={onClose} className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 ios-btn-active">
-            <X size={22} strokeWidth={2.5} />
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 sm:p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/10">
+          <h2 className="text-xl font-headline font-bold text-gray-900 dark:text-white">{goal ? 'Редактировать цель' : 'Новая цель'}</h2>
+          <button onClick={onClose} className="w-9 h-9 bg-gray-100 dark:bg-white/10 rounded-xl flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer active:scale-95 transition">
+            <X size={18} strokeWidth={2.2} />
           </button>
         </div>
 
-        <div className="p-8 space-y-8 overflow-y-auto no-scrollbar pb-12">
-          <div className="bg-white p-6 rounded-[2.5rem] border border-white shadow-sm space-y-4 text-center">
+        <div className="p-6 sm:p-7 space-y-6 overflow-y-auto no-scrollbar pb-10">
+          <div className="bg-white dark:bg-[#252528] p-5 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-xs space-y-3 text-center">
             <div 
-              className="w-20 h-20 rounded-[2rem] mx-auto flex items-center justify-center text-white shadow-xl mb-4"
+              className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-white shadow-md mb-2"
               style={{ backgroundColor: color }}
             >
-              {getIconById(icon, 40)}
+              {getIconById(icon, 32)}
             </div>
             <input
               type="text"
               placeholder="Название цели (напр. Отпуск)"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-2xl font-black text-center outline-none bg-transparent text-[#1C1C1E]"
+              className="w-full text-xl font-headline font-bold text-center outline-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-              <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Цель ({settings.currency})</span>
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="bg-white dark:bg-[#252528] p-4 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 block">Цель ({settings.currency})</span>
               <input
                 type="number"
                 min="0"
@@ -100,11 +101,11 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
                 placeholder="0"
-                className="w-full font-black text-xl outline-none text-[#1C1C1E]"
+                className="w-full font-headline font-bold text-lg outline-none bg-transparent text-gray-900 dark:text-white"
               />
             </div>
-            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-              <span className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Уже есть</span>
+            <div className="bg-white dark:bg-[#252528] p-4 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 block">Уже есть</span>
               <input
                 type="number"
                 min="0"
@@ -112,19 +113,19 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
                 value={currentAmount}
                 onChange={(e) => setCurrentAmount(e.target.value)}
                 placeholder="0"
-                className="w-full font-black text-xl outline-none text-[#1C1C1E]"
+                className="w-full font-headline font-bold text-lg outline-none bg-transparent text-gray-900 dark:text-white"
               />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Иконка</span>
-            <div className="flex flex-wrap gap-3 px-1">
+          <div className="space-y-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">Иконка</span>
+            <div className="flex flex-wrap gap-2.5 px-0.5">
               {PRESET_ICONS.map(i => (
                 <button
                   key={i}
                   onClick={() => setIcon(i)}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${icon === i ? 'bg-blue-500 text-white scale-110 shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'}`}
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer ${icon === i ? 'bg-[#4A7C59] text-white scale-105 shadow-sm' : 'bg-white dark:bg-[#252528] text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200/80 dark:border-white/10'}`}
                 >
                   {getIconById(i, 20)}
                 </button>
@@ -132,31 +133,31 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
             </div>
           </div>
 
-          <div className="space-y-4">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Цвет</span>
-            <div className="flex flex-wrap gap-4 px-2">
+          <div className="space-y-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">Цвет</span>
+            <div className="flex flex-wrap gap-3 px-1">
               {PRESET_COLORS.map(c => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full border-4 transition-transform ${color === c ? 'border-white scale-125 shadow-md' : 'border-transparent'}`}
+                  className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${color === c ? 'border-gray-900 dark:border-white scale-125 shadow-xs' : 'border-transparent'}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-4">
+          <div className="flex flex-col gap-2.5 pt-2">
             <button
               onClick={handleSave}
-              className="w-full bg-blue-500 text-white font-black py-6 rounded-[2.5rem] shadow-xl text-xs uppercase tracking-widest active:scale-95 transition-transform"
+              className="w-full bg-[#4A7C59] hover:bg-[#3D6649] text-white font-bold py-3.5 rounded-2xl shadow-sm text-xs uppercase tracking-wider active:scale-[0.98] transition cursor-pointer"
             >
               {goal ? 'Обновить цель' : 'Создать цель'}
             </button>
             {goal && onDelete && (
               <button
                 onClick={() => onDelete(goal.id)}
-                className="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest hover:text-red-600"
+                className="w-full py-2.5 text-rose-500 font-bold text-xs uppercase tracking-wider hover:text-rose-600 transition cursor-pointer"
               >
                 Удалить цель
               </button>

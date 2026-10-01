@@ -838,7 +838,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -850,9 +850,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isScanning}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 text-[#2E3230] dark:text-stone-200 text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition shadow-xs cursor-pointer"
+                title="Распознать штрихкод товара по фото"
               >
                 {isScanning ? <Loader2 size={18} className="animate-spin text-[#705C30]" /> : <ScanLine size={18} className="text-[#705C30]" />}
-                <span>Сканировать чек</span>
+                <span>Штрихкод товара</span>
               </button>
 
               <button 

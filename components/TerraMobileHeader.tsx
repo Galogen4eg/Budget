@@ -21,13 +21,13 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
   rightExtra,
 }) => {
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF6F0]/95 dark:bg-[#121214]/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 shrink-0 transition-colors">
-      {/* Section Title without app name */}
-      <h1 className="text-xl font-extrabold font-headline text-[#1E2420] dark:text-white tracking-tight leading-tight">
+    <header className="sticky top-0 z-30 bg-[#FAF6F0]/95 dark:bg-[#121214]/95 backdrop-blur-md px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-3 flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 shrink-0 transition-colors">
+      {/* Section Title without app name with safe wrapping and truncation */}
+      <h1 className="text-lg sm:text-xl font-extrabold font-headline text-[#1E2420] dark:text-white tracking-tight leading-tight truncate mr-3 min-w-0 flex-1">
         {title}
       </h1>
 
-      {/* Action Buttons */}
+      {/* Action Buttons with correct accessibility tap targets (minimum 44x44px) */}
       <div className="flex items-center gap-1.5 shrink-0">
         {rightExtra}
 
@@ -37,9 +37,9 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onImport}
             aria-label={importTitle}
             title={importTitle}
-            className="w-9 h-9 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs transition-all cursor-pointer"
+            className="w-11 h-11 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs transition-all cursor-pointer animate-press"
           >
-            <Upload size={17} strokeWidth={2.2} />
+            <Upload size={18} strokeWidth={2.2} />
           </button>
         )}
 
@@ -49,9 +49,9 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onAdd}
             aria-label={addTitle}
             title={addTitle}
-            className="w-9 h-9 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] active:scale-95 text-white flex items-center justify-center shadow-xs transition-all cursor-pointer"
+            className="w-11 h-11 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] active:scale-95 text-white flex items-center justify-center shadow-xs transition-all cursor-pointer animate-press"
           >
-            <Plus size={19} strokeWidth={2.5} />
+            <Plus size={20} strokeWidth={2.5} />
           </button>
         )}
 
@@ -61,7 +61,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onOpenSettings}
             aria-label="Настройки и профиль"
             title="Настройки и профиль"
-            className="w-9 h-9 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs transition-all cursor-pointer"
+            className="w-11 h-11 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs transition-all cursor-pointer animate-press"
           >
             <Settings size={18} strokeWidth={2.2} />
           </button>
@@ -72,4 +72,3 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
 };
 
 export default TerraMobileHeader;
-

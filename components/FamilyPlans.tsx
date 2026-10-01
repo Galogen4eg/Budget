@@ -36,7 +36,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'list'>('month');
   const [listTab, setListTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => 
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  );
   
   // Modal & Logic State
   const [activeEvent, setActiveEvent] = useState<{ event: FamilyEvent | null; prefill?: any } | null>(null);

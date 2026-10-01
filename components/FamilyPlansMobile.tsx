@@ -774,8 +774,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         }
       />
 
-      {/* 2. MAIN CONTENT WRAPPER */}
-      <div className="px-3.5 pt-3 space-y-3.5 max-w-md mx-auto w-full">
+      {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
+      <div className="px-3.5 pt-3 pb-32 space-y-3.5 max-w-md mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (

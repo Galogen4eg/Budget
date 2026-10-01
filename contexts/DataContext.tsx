@@ -104,6 +104,21 @@ const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export const useData = () => useContext(DataContext);
 
+/**
+ * Валидатор и санитайзер транзакций для гарантии числового формата суммы и корректных дат
+ */
+export const sanitizeTransaction = (raw: any): Transaction => {
+  const num = Number(raw?.amount);
+  const amount = Number.isFinite(num) ? Math.abs(num) : 0;
+  return {
+    ...raw,
+    id: raw?.id || String(Date.now()),
+    amount,
+    date: raw?.date || new Date().toISOString(),
+    type: raw?.type === 'income' ? 'income' : 'expense'
+  };
+};
+
 // Helper to merge widgets
 const mergeWidgets = (currentWidgets: any[] = []) => {
     const defaultWidgets = DEFAULT_SETTINGS.widgets || [];
@@ -207,7 +222,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const demoMembers = isOfflineMode ? FAMILY_MEMBERS : [];
         const demoCards = isOfflineMode ? DEMO_LOYALTY_CARDS : [];
 
-        loadLocal('transactions', setTransactions, demoTransactions);
+        loadLocal('transactions', (items: any[]) => {
+            const list = Array.isArray(items) ? items.map(sanitizeTransaction) : [];
+            setTransactions(list);
+        }, demoTransactions.map(sanitizeTransaction));
         loadLocal('shopping', setShoppingItems, demoShopping);
         loadLocal('events', setEvents, demoEvents);
         loadLocal('goals', setGoals, demoGoals);
@@ -250,7 +268,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubs = [
       unsubGlobal,
-      subscribeToCollection(familyId, 'transactions', (data) => setTransactions(data as Transaction[])),
+      subscribeToCollection(familyId, 'transactions', (data) => {
+        const list = Array.isArray(data) ? data.map(sanitizeTransaction) : [];
+        setTransactions(list);
+      }),
       subscribeToCollection(familyId, 'shopping', (data) => {
         const uniqueMap = new Map<string, ShoppingItem>();
         (data as ShoppingItem[]).forEach(item => {
@@ -430,23 +451,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return transactions.filter(t => t.memberId === myMemberId);
   }, [transactions, budgetMode, members, user]);
 
+  const parseLocalDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date(dateStr);
+  };
+
   const totalBalance = useMemo(() => {
     let relevantTransactions = filteredTransactions;
     if (settings.initialBalanceDate) {
-        const startDate = new Date(settings.initialBalanceDate);
+        const startDate = parseLocalDate(settings.initialBalanceDate);
         startDate.setHours(0, 0, 0, 0);
-        relevantTransactions = filteredTransactions.filter(t => new Date(t.date).getTime() >= startDate.getTime());
+        relevantTransactions = filteredTransactions.filter(t => parseLocalDate(t.date).getTime() >= startDate.getTime());
     }
-    const income = relevantTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = relevantTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    return (settings.initialBalance || 0) + income - expense;
+    const income = relevantTransactions
+      .filter(t => t.type === 'income')
+      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
+    const expense = relevantTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
+    const safeInitial = Number.isFinite(Number(settings.initialBalance)) ? Number(settings.initialBalance) : 0;
+    const rawBalance = safeInitial + income - expense;
+    return Math.round(rawBalance * 100) / 100;
   }, [filteredTransactions, settings.initialBalance, settings.initialBalanceDate]);
 
   const currentMonthSpent = useMemo(() => {
     const now = new Date();
-    return filteredTransactions
-      .filter(t => t.type === 'expense' && new Date(t.date).getMonth() === now.getMonth() && new Date(t.date).getFullYear() === now.getFullYear())
-      .reduce((acc, t) => acc + t.amount, 0);
+    const rawSpent = filteredTransactions
+      .filter(t => {
+        if (t.type !== 'expense') return false;
+        const txDate = parseLocalDate(t.date);
+        return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
+    return Math.round(rawSpent * 100) / 100;
   }, [filteredTransactions]);
 
   const value = {

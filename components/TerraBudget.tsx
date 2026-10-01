@@ -425,7 +425,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         />
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-16 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
           <section className="flex flex-col gap-3.5 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10">
             {/* Top Row: Daily Safe Limit & Pace Badge */}
@@ -480,15 +480,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </div>
             </div>
 
-            {/* Family Member Filter Chips */}
-            <div 
-              className="w-full grid gap-1.5 py-0.5" 
-              style={{ gridTemplateColumns: `repeat(${1 + members.length}, minmax(0, 1fr))` }}
-            >
+            {/* Family Member Filter Chips with safe horizontal scrolling */}
+            <div className="w-full flex items-center gap-1.5 py-0.5 overflow-x-auto no-scrollbar scroll-smooth flex-nowrap shrink-0">
               <button 
                 type="button"
                 onClick={() => setSelectedMember('all')}
-                className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer truncate ${
+                className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 ${
                   selectedMember === 'all'
                     ? 'bg-[#4A7C59] text-white'
                     : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
@@ -502,7 +499,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMember(m.id)}
-                  className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer truncate ${
+                  className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 ${
                     selectedMember === m.id
                       ? 'bg-[#4A7C59] text-white shadow-xs'
                       : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
@@ -1210,17 +1207,33 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   return `${absVal}`;
                 };
 
+                // Calculate dynamic heatmap styling based on budget performance (Task 2.2)
+                let dayBgClass = '';
+                let dayBorderClass = '';
+                
+                if (isSelected) {
+                  dayBgClass = 'bg-primary-light/40 dark:bg-primary/20 border-primary ring-2 ring-primary/20 shadow-sm z-10';
+                } else if (dayExpense > 0) {
+                  if (safeDailyLimit > 0 && dayExpense > safeDailyLimit) {
+                    dayBgClass = 'bg-red-500/[0.04] dark:bg-red-500/[0.06] hover:bg-red-500/[0.08]';
+                    dayBorderClass = 'border-red-300/60 dark:border-red-900/40 hover:border-red-400';
+                  } else {
+                    dayBgClass = 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.05] hover:bg-emerald-500/[0.08]';
+                    dayBorderClass = 'border-[#4A7C59]/40 dark:border-[#4A7C59]/20 hover:border-[#4A7C59]/60';
+                  }
+                } else if (isCurrentToday) {
+                  dayBgClass = 'bg-primary-light/[0.15] dark:bg-primary/[0.08] hover:bg-primary-light/[0.25]';
+                  dayBorderClass = 'border-primary/40 dark:border-primary/20';
+                } else {
+                  dayBgClass = 'bg-white dark:bg-[#252528] hover:bg-gray-50 dark:hover:bg-[#2C2C2E]';
+                  dayBorderClass = 'border-surface-border dark:border-white/5';
+                }
+
                 return (
                   <div 
                     key={dayNum}
                     onClick={() => setSelectedDay(dayNum)}
-                    className={`h-14 sm:h-16 p-1 sm:p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${
-                      isSelected 
-                        ? 'border-2 border-primary bg-primary-light/50 dark:bg-primary/20 ring-2 ring-primary/20 shadow-md z-10' 
-                        : isCurrentToday 
-                          ? 'border-primary/50 bg-[#FBF9F5] dark:bg-[#252528] hover:border-primary/60'
-                          : 'border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50'
-                    }`}
+                    className={`h-14 sm:h-16 p-1 sm:p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${dayBgClass} ${dayBorderClass}`}
                   >
                     <div className="flex justify-between items-start min-w-0">
                       <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
@@ -1250,20 +1263,20 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     {/* Amount badge on cell: Income minus expense (Day Net) */}
                     {hasTransactions ? (
                       dayNet > 0 ? (
-                        <div className="bg-emerald-50 dark:bg-emerald-950/40 text-primary dark:text-green-400 font-headline text-[9px] font-extrabold px-1 py-0.5 rounded border border-primary/30 truncate text-right">
+                        <div className="hidden sm:block bg-emerald-50 dark:bg-emerald-950/40 text-primary dark:text-green-400 font-headline text-[9px] font-extrabold px-1 py-0.5 rounded border border-primary/30 truncate text-right">
                           {settings.privacyMode ? '•••' : `+${formatDayAmount(dayNet)} ₽`}
                         </div>
                       ) : dayNet < 0 ? (
-                        <div className="bg-[#FDF2F0] dark:bg-red-950/40 text-[#D95C48] dark:text-red-400 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-red-200 dark:border-red-900/30 truncate text-right">
+                        <div className="hidden sm:block bg-[#FDF2F0] dark:bg-red-950/40 text-[#D95C48] dark:text-red-400 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-red-200 dark:border-red-900/30 truncate text-right">
                           {settings.privacyMode ? '•••' : `-${formatDayAmount(dayNet)} ₽`}
                         </div>
                       ) : (
-                        <div className="bg-[#F5F1EA] dark:bg-white/5 text-graphite-muted dark:text-gray-400 font-headline text-[9px] font-semibold px-1 py-0.5 rounded border border-surface-border/60 dark:border-white/10 truncate text-right">
+                        <div className="hidden sm:block bg-[#F5F1EA] dark:bg-white/5 text-graphite-muted dark:text-gray-400 font-headline text-[9px] font-semibold px-1 py-0.5 rounded border border-surface-border/60 dark:border-white/10 truncate text-right">
                           {settings.privacyMode ? '•••' : '0 ₽'}
                         </div>
                       )
                     ) : paidMandatory ? (
-                      <div className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
+                      <div className="hidden sm:block bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
                         {settings.privacyMode ? '•••' : `${formatDayAmount(paidMandatory.amount)} ₽`}
                       </div>
                     ) : null}
@@ -1379,7 +1392,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   value={quickTitle}
                   onChange={(e) => setQuickTitle(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted focus:ring-1 focus:ring-primary focus:border-primary" 
+                  className="w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Название (например: Обед, Такси...)" 
                   type="text"
                 />
@@ -1387,7 +1400,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   value={quickAmount}
                   onChange={(e) => setQuickAmount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted focus:ring-1 focus:ring-primary focus:border-primary" 
+                  className="w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Сумма ₽" 
                   type="text"
                 />
@@ -1422,27 +1435,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽ израсходовано`}
                   </p>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsCatModalOpen(true)}
-                  className="text-[11px] font-semibold text-graphite dark:text-stone-300 hover:text-primary dark:hover:text-green-400 transition cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-border/40 dark:bg-white/5 border border-surface-border/60 dark:border-white/10"
-                  type="button"
-                  title="Создать или настроить категории"
-                >
-                  <Plus size={12} />
-                  <span>Категория</span>
-                </button>
-                <button 
-                  onClick={() => onSelectCategory?.('all')}
-                  className="text-[11px] font-bold text-primary dark:text-green-400 hover:underline cursor-pointer flex items-center gap-0.5"
-                  type="button"
-                  title="Открыть аналитику всех категорий"
-                >
-                  <span>Аналитика</span>
-                  <ChevronRight size={13} />
-                </button>
               </div>
             </div>
 

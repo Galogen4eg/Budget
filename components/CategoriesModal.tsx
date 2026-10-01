@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Category, AppSettings, Transaction } from '../types';
 import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 import MobileCategoryPickerModal from './MobileCategoryPickerModal';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 export interface CategoriesModalProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export const CategoriesModal: React.FC<CategoriesModalProps> = ({
   const [isDesktop, setIsDesktop] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
+
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);

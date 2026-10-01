@@ -594,24 +594,31 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
           </button>
         </section>
 
-        {/* Card: Текущая активная сессия */}
+        {/* Card: Ваш профиль в семье */}
         <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none flex flex-col gap-3.5 border border-gray-100 dark:border-white/5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase">
-              Текущая активная сессия
-            </span>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-[10px] font-semibold text-gray-700 dark:text-gray-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] dark:bg-emerald-400 inline-block"></span>
-              <span>{currentUserEmail.split('@')[0]}@local</span>
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0"
+              style={{ backgroundColor: mappedMember?.color || '#4A7C59' }}
+            >
+              {mappedMember ? mappedMember.name.slice(0, 2).toUpperCase() : 'Г'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase block">
+                Ваша текущая роль
+              </span>
+              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                {mappedMember ? mappedMember.name : 'Гость / Наблюдатель'}
+              </p>
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            Вы сопоставлены с профилем: <strong className="text-gray-900 dark:text-white font-bold">{mappedMember ? mappedMember.name : 'Гость'}</strong>. Все новые операции связываются с этим маркером.
+            Все вводимые вами расходы и доходы автоматически связываются с выбранным участником семьи.
           </p>
           
           <div className="flex flex-col gap-1.5 pt-1">
             <label className="text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase">
-              Связать текущую сессию с:
+              Сменить активный профиль:
             </label>
             <div className="relative w-full">
               <select 
@@ -624,7 +631,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     {m.name} {mappedMember?.id === m.id ? '(Вы)' : ''}
                   </option>
                 ))}
-                <option value={GUEST_MODE_ID}>Гостевой режим без сопоставления</option>
+                <option value={GUEST_MODE_ID}>Гостевой режим</option>
               </select>
               <ChevronDown size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
@@ -828,12 +835,12 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       {/* ──────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isInviteModalOpen && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-white dark:bg-[#1E2023] rounded-3xl p-6 shadow-2xl border border-gray-200 dark:border-white/10 space-y-4"
+              className="w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] bg-white dark:bg-[#1E2023] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border-0 sm:border border-gray-200 dark:border-white/10 space-y-4 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/5">
                 <div className="flex items-center gap-2.5">

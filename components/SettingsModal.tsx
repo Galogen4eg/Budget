@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -8,21 +8,22 @@ import {
   Eye, EyeOff, Save, Calendar, AlertOctagon, ShoppingBag, ShieldCheck, 
   BellRing, FolderOpen, ArrowUp, ArrowDown, Gift, Moon, Sun, 
   MessageSquareQuote, Send, Cloud, CloudOff, BrainCircuit, Mail, MessageSquare, 
-  RefreshCcw, MoveUpRight, Play, Search, Bell, BadgeCheck, Filter, Trash,
-  SlidersHorizontal, CheckCheck, Database, Server, Wifi, WifiOff, CheckCircle2,
-  AtSign, Award, Shield, Laptop
+  RefreshCcw, MoveUpRight, Play, Search, AtSign, Award, Shield, Laptop, CheckCircle2,
+  Database, CheckCheck
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
-import { MemberMarker } from '../constants';
 import { auth } from '../firebase';
 import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
-import { createInvitation, deleteItem, migrateFamilyData } from '../utils/db';
+import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
+import { migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
+import AIKnowledgeTab from './AIKnowledgeTab';
+import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
 import { testTelegramBotConnection, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
 import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
@@ -52,16 +53,6 @@ interface SettingsModalProps {
   onOpenDuplicates?: () => void;
 }
 
-const WIDGET_METADATA = [ 
-  { id: 'balance', label: 'Главный баланс' },
-  { id: 'month_chart', label: 'График расходов' },
-  { id: 'recent_transactions', label: 'История операций' },
-  { id: 'category_analysis', label: 'Анализ категорий' },
-  { id: 'shopping', label: 'Список покупок' },
-  { id: 'wallet', label: 'Кошелек (Карты)' },
-  { id: 'goals', label: 'Цели и копилка' }, 
-];
-
 type SectionType = 'account' | 'family' | 'budget' | 'categories' | 'integrations';
 
 interface SectionConfig {
@@ -79,74 +70,24 @@ const SECTIONS: SectionConfig[] = [
   { id: 'integrations', label: 'Интеграции (Telegram и ИИ)', subtitle: 'Telegram бот, Chat ID, Gemini API', icon: <Send size={18} /> },
 ];
 
-const PRESET_COLORS = [ '#4A7C59', '#007AFF', '#FF2D55', '#AF52DE', '#FF9500', '#FF3B30', '#5856D6', '#00C7BE', '#8E8E93', '#BF5AF2' ];
-
-const AVAILABLE_TABS = [
-  { id: 'overview', label: 'Обзор', icon: <LayoutGrid size={18}/> },
-  { id: 'budget', label: 'Бюджет', icon: <Calculator size={18}/> },
-  { id: 'plans', label: 'Планы', icon: <Calendar size={18}/> },
-  { id: 'shopping', label: 'Покупки', icon: <ShoppingBag size={18}/> },
-  { id: 'chat', label: 'Чат', icon: <MessageSquare size={18}/> },
-  { id: 'services', label: 'Сервисы', icon: <AppWindow size={18}/> }
-];
-
-const AVAILABLE_SERVICES = [
-  { id: 'debts', label: 'Обязательства и долги', desc: 'Кредиты, графики платежей и стратегия выплат', icon: <Calculator size={18}/> },
-  { id: 'wallet', label: 'Кошелек', desc: 'Карты лояльности и скидки', icon: <Wallet size={18}/> }
-];
-
 const ToggleSwitch = ({ checked, onChange, id }: { checked: boolean; onChange: () => void; id?: string }) => (
   <button 
     id={id} 
     type="button"
     onClick={onChange} 
     className={`w-11 h-6 rounded-full p-1 transition-colors relative focus:outline-none cursor-pointer ${
-      checked ? 'bg-[#4A7C59] dark:bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
+      checked ? 'bg-[#2D5A43] dark:bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
     }`}
   >
     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
   </button>
 );
 
-const TemplateEditor = ({ label, value, onChange, variables, previewData }: { label: string; value: string; onChange: (val: string) => void; variables: string[]; previewData: any }) => {
-  const handleAddVar = (v: string) => onChange((value || '') + ` ${v}`);
-  
-  let previewText = value || '';
-  Object.keys(previewData).forEach(key => {
-    previewText = previewText.replace(new RegExp(key, 'g'), previewData[key]);
-  });
-
-  return (
-    <div className="space-y-2 pt-2">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">{label}</label>
-        <div className="flex flex-wrap gap-1">
-          {variables.map(v => (
-            <button 
-              key={v} 
-              type="button" 
-              onClick={() => handleAddVar(v)} 
-              className="bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded text-[10px] font-mono text-[#4A7C59] dark:text-emerald-400 hover:bg-[#4A7C59]/10 transition-colors"
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="bg-gray-50 dark:bg-[#232528] p-3.5 rounded-xl border border-gray-200 dark:border-white/10 space-y-3">
-        <textarea 
-          value={value || ''} 
-          onChange={(e) => onChange(e.target.value)} 
-          className="w-full bg-white dark:bg-[#18191C] p-3 rounded-lg font-mono text-xs text-gray-900 dark:text-white outline-none h-24 resize-none border border-gray-200 dark:border-white/10 focus:border-[#4A7C59] transition-colors" 
-          placeholder="Настройте текст..." 
-        />
-        <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">Предпросмотр</span>
-          <p className="text-xs font-medium text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{previewText}</p>
-        </div>
-      </div>
-    </div>
-  );
+const getInitialUsername = (email: string, displayName?: string | null): string => {
+  if (email.endsWith('@family.local')) {
+    return email.replace('@family.local', '');
+  }
+  return displayName || email;
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
@@ -172,24 +113,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
   
   // Data Context Access for AI Knowledge
-  const { aiKnowledge, deleteAIKnowledge, addAIKnowledge } = useData();
-  const [newFact, setNewFact] = useState('');
+  const { aiKnowledge: rawAiKnowledge, deleteAIKnowledge, addAIKnowledge } = useData();
+  const {
+    knowledgeItems: aiKnowledge,
+    newFactText: newFact,
+    setNewFactText: setNewFact,
+    handleAddFact,
+    handleDeleteFact
+  } = useAIKnowledgeBase({
+    aiKnowledge: rawAiKnowledge,
+    addAIKnowledge,
+    deleteAIKnowledge
+  });
 
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
   const [shouldMigrate, setShouldMigrate] = useState(false);
-
-  // Period deletion
-  const [deleteStart, setDeleteStart] = useState('');
-  const [deleteEnd, setDeleteEnd] = useState('');
+  const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
   // Account & Password Management State
   const currentUser = auth.currentUser;
   const currentEmail = currentUser?.email || '';
-  const initialUsername = currentEmail.endsWith('@family.local')
-    ? currentEmail.replace('@family.local', '')
-    : (currentUser?.displayName || currentEmail);
+  const initialUsername = getInitialUsername(currentEmail, currentUser?.displayName);
 
   const [accountLogin, setAccountLogin] = useState(initialUsername);
   const [currentPasswordForLogin, setCurrentPasswordForLogin] = useState('');
@@ -309,7 +255,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   useEffect(() => {
-    if (activeSection === 'telegram') {
+    if (activeSection === 'integrations') {
       refreshQueueCount();
     }
   }, [activeSection]);
@@ -464,8 +410,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // AI Testing State
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const apiKey = settings.geminiApiKey || process.env.API_KEY;
-  const isAIEnabled = !!apiKey;
+  const apiKey = settings.geminiApiKey || '';
 
   useEffect(() => {
     if (currentFamilyId) setNewFamilyId(currentFamilyId);
@@ -479,7 +424,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: apiKey });
       await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-2.5-flash",
         contents: "Hello",
       });
       setAiTestStatus('success');
@@ -491,62 +436,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // DB Sync / Access Status
-  const [isDbConnected, setIsDbConnected] = useState<boolean>(navigator.onLine);
-  const [isCheckingDb, setIsCheckingDb] = useState<boolean>(false);
-
-  const handleCheckDbConnection = async () => {
-    setIsCheckingDb(true);
-    try {
-      await new Promise(res => setTimeout(res, 400));
-      if (navigator.onLine) {
-        setIsDbConnected(true);
-        toast.success(currentFamilyId ? 'Связь с базой данных Firestore активна и синхронизирована' : 'Подключение к сети активно (локальное пространство)');
-      } else {
-        setIsDbConnected(false);
-        toast.warning('Сеть недоступна, работа в автономном режиме');
-      }
-    } catch (e) {
-      setIsDbConnected(false);
-      toast.error('Ошибка проверки подключения к БД');
-    } finally {
-      setIsCheckingDb(false);
-    }
-  };
-
-  const handleChange = (key: keyof AppSettings, value: any) => onUpdate({ ...settings, [key]: value });
-
-  const toggleTab = (id: string) => {
-    const current = settings.enabledTabs || [];
-    const updated = current.includes(id) ? current.filter(t => t !== id) : [...current, id];
-    handleChange('enabledTabs', updated);
-  };
-
-  const toggleService = (id: string) => {
-    const current = settings.enabledServices || [];
-    const updated = current.includes(id) ? current.filter(s => s !== id) : [...current, id];
-    handleChange('enabledServices', updated);
-  };
-
-  const toggleWidgetVisibility = (id: string) => {
-    const updated = (settings.widgets || []).map(w => w.id === id ? { ...w, isVisible: !w.isVisible } : w);
-    handleChange('widgets', updated);
-  };
-
-  const moveWidget = (index: number, direction: 'up' | 'down') => {
-    const widgets = [...(settings.widgets || [])];
-    if (direction === 'up' && index > 0) {
-      [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]];
-    } else if (direction === 'down' && index < widgets.length - 1) {
-      [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]];
-    }
-    handleChange('widgets', widgets);
-  };
-
-  const toggleTheme = () => {
-    const isDark = settings.theme === 'dark';
-    handleChange('theme', isDark ? 'light' : 'dark');
-  };
+  const handleChange = useCallback((key: keyof AppSettings, value: any) => {
+    onUpdate({ ...settings, [key]: value });
+  }, [settings, onUpdate]);
 
   const handleUpdateFamilyId = async () => {
     const targetId = newFamilyId.trim();
@@ -582,9 +474,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'account':
         return (
           <div className="space-y-6 w-full max-w-full">
-            {/* Top Session Status & Breadcrumb bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#4A7C59] dark:text-emerald-400">
+            {/* Top Session Status Card */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#2D5A43] dark:text-emerald-400">
                 <Shield size={16} />
                 <span>Безопасность и аккаунт</span>
               </div>
@@ -593,11 +485,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* CARD 1: Учетная запись (Личные данные) */}
-            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-6">
+            {/* CARD 1: Учетная запись */}
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
                     <User size={20} />
                   </div>
                   <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Учетная запись</h3>
@@ -612,9 +504,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <h4 className="font-headline font-bold text-xl text-gray-900 dark:text-white">
-                      {currentUser?.displayName || accountLogin || 'Алексей Смирнов'}
+                      {currentUser?.displayName || accountLogin || 'Пользователь'}
                     </h4>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#4A7C59] dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#2D5A43] dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold">
                       <Award size={13} />
                       <span>Администратор пространства</span>
                     </span>
@@ -641,7 +533,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Login / Username Row */}
+              {/* Login Input Block */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Логин / Имя пользователя
@@ -656,25 +548,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={accountLogin}
                       onChange={e => setAccountLogin(e.target.value)}
                       placeholder="alexey_smirnov"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500 transition-all duration-200"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleUpdateAccountLogin}
                     disabled={isUpdatingLogin || !accountLogin.trim() || accountLogin === initialUsername}
-                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                    className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                   >
                     {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     <span>{accountLogin !== initialUsername ? 'Сохранить логин' : 'Изменить'}</span>
                   </button>
                 </div>
                 <span className="text-xs text-gray-500 dark:text-gray-400 inline-block">
-                  Используется для быстрых упоминаний в задачах и общих планах покупок.
+                  Используется для упоминаний в задачах и общих планах покупок.
                 </span>
 
                 {requiresLoginPassword && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2">
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1">
                     <label className="text-xs font-bold text-amber-800 dark:text-amber-300">
                       Введите текущий пароль для подтверждения смены логина:
                     </label>
@@ -683,7 +575,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={currentPasswordForLogin}
                       onChange={e => setCurrentPasswordForLogin(e.target.value)}
                       placeholder="Текущий пароль"
-                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none"
+                      className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
                     />
                   </div>
                 )}
@@ -691,29 +583,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* CARD 2: Смена пароля */}
-            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-5">
-              <div className="flex items-center justify-between pb-1">
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5">
+              <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
                     <Lock size={20} />
                   </div>
                   <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Смена пароля</h3>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[#4A7C59] dark:text-emerald-400 font-semibold">
+                <div className="flex items-center gap-1.5 text-xs text-[#2D5A43] dark:text-emerald-400 font-semibold">
                   <CheckCircle2 size={16} />
-                  <span>Последнее изменение 3 мес. назад</span>
+                  <span>Пароль надежно зашифрован</span>
                 </div>
               </div>
 
               {requiresPassConfirm && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5">
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 animate-in fade-in">
                   <label className="text-xs font-bold text-amber-800 dark:text-amber-300">Введите текущий пароль для подтверждения:</label>
                   <input
                     type="password"
                     value={currentPasswordForPass}
                     onChange={e => setCurrentPasswordForPass(e.target.value)}
                     placeholder="Текущий пароль"
-                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none"
+                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
                   />
                 </div>
               )}
@@ -730,12 +622,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={currentPasswordForPass}
                       onChange={e => setCurrentPasswordForPass(e.target.value)}
                       placeholder="Текущий пароль"
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPass(!showCurrentPass)}
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                     >
                       {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -752,12 +644,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="Минимум 6 символов"
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPass(!showNewPass)}
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                     >
                       {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -774,12 +666,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Повторите ввод"
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPass(!showConfirmPass)}
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                     >
                       {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -790,13 +682,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Requirements Bar & Action */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
                 <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
-                  <span className={`inline-flex items-center gap-1 ${/[A-ZА-Я]/.test(newPassword) ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                  <span className={`inline-flex items-center gap-1 ${/[A-Z]/.test(newPassword) ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
                     <Check size={14} /> Заглавные буквы
                   </span>
-                  <span className={`inline-flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                  <span className={`inline-flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
                     <Check size={14} /> Цифры
                   </span>
-                  <span className={`inline-flex items-center gap-1 ${newPassword.length >= 6 ? 'text-[#4A7C59] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
+                  <span className={`inline-flex items-center gap-1 ${newPassword.length >= 6 ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
                     <Check size={14} /> Мин. 6 символов
                   </span>
                 </div>
@@ -805,7 +697,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleUpdatePassword}
                   disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
-                  className="px-6 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                  className="px-6 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                 >
                   {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
                   <span>Обновить пароль</span>
@@ -827,61 +719,45 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </section>
 
-            {/* CARD 3: Двухфакторная аутентификация (2FA) */}
-            <section className="p-6 sm:p-7 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 space-y-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
+            {/* CARD 3: Двухфакторная аутентификация */}
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center shrink-0">
                     <ShieldCheck size={22} />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h3 className="font-headline text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
                         Двухфакторная аутентификация (2FA)
                       </h3>
-                      <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                      <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
                         Рекомендовано
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-xl">
                       Дополнительное подтверждение через Telegram при входе с нового устройства. Код одноразового доступа приходит в официальный бот Terra Guard.
                     </p>
-                    <div className="flex items-center gap-2 pt-2 text-xs text-gray-500 dark:text-gray-400">
-                      <Send size={14} className="text-[#4A7C59] dark:text-emerald-400" />
-                      <span>Привязанный Telegram: <strong className="text-gray-800 dark:text-gray-200 font-semibold">@alex_terra_user</strong></span>
+                    <div className="flex items-center gap-2 pt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Send size={14} className="text-[#2D5A43] dark:text-emerald-400 shrink-0" />
+                      <span className="truncate">Привязанный Telegram: <strong className="text-gray-800 dark:text-gray-200 font-semibold">@alex_terra_user</strong></span>
                     </div>
                   </div>
                 </div>
 
-                <ToggleSwitch 
-                  checked={is2FAEnabled} 
-                  onChange={() => {
-                    setIs2FAEnabled(!is2FAEnabled);
-                    toast.success(!is2FAEnabled ? '2FA успешно активирована' : '2FA деактивирована');
-                  }} 
-                />
-              </div>
-
-              {/* Active Sessions Subcard */}
-              <div className="pt-4 bg-white dark:bg-[#18191C] rounded-xl p-4 border border-gray-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Laptop size={20} className="text-gray-400 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold text-gray-900 dark:text-white block">Активные доверенные сессии</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">MacBook Pro 16" (Текущий), iPhone 15 Pro, iPad Air</span>
-                  </div>
+                <div className="flex justify-end pt-2 sm:pt-0 shrink-0">
+                  <ToggleSwitch 
+                    checked={is2FAEnabled} 
+                    onChange={() => {
+                      setIs2FAEnabled(!is2FAEnabled);
+                      toast.success(!is2FAEnabled ? '2FA успешно активирована' : '2FA деактивирована');
+                    }} 
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toast.success('Все остальные сеансы успешно завершены')}
-                  className="text-xs font-semibold text-[#4A7C59] dark:text-emerald-400 hover:underline self-start sm:self-auto cursor-pointer"
-                >
-                  Завершить другие сеансы
-                </button>
               </div>
             </section>
 
-            {/* BOTTOM ACTIONS & LOGOUT */}
+            {/* BOTTOM ACTIONS */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 pb-4">
               <div className="text-xs text-gray-500 dark:text-gray-400">
                 Все действия в журнале аудита шифруются локальным ключом семьи.
@@ -910,10 +786,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Family Space ID & Sync */}
-            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center">
                     <Cloud size={20} />
                   </div>
                   <div>
@@ -929,7 +805,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       navigator.clipboard.writeText(currentFamilyId);
                       toast.success('ID пространства скопирован');
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#4A7C59] transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <Copy size={14} />
                     <span>Скопировать ID</span>
@@ -943,14 +819,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="text" 
                     value={newFamilyId}
                     onChange={e => setNewFamilyId(e.target.value)}
-                    placeholder="Введитe ID семейного пространства..."
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    placeholder="Введите ID семейного пространства..."
+                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                   />
                   <button 
                     type="button"
                     onClick={handleUpdateFamilyId}
                     disabled={isJoining || newFamilyId.trim() === currentFamilyId}
-                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm"
+                    className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                   >
                     {isJoining ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
                     <span>Подключиться</span>
@@ -963,7 +839,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="checkbox"
                       checked={shouldMigrate}
                       onChange={e => setShouldMigrate(e.target.checked)}
-                      className="rounded border-gray-300 text-[#4A7C59] focus:ring-[#4A7C59]"
+                      className="rounded border-gray-300 text-[#2D5A43] focus:ring-[#2D5A43]"
                     />
                     <span>Перенести существующие записи из текущего пространства в новое</span>
                   </label>
@@ -1006,8 +882,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         return (
           <div className="space-y-6 w-full max-w-full">
             {/* Telegram Bot Settings */}
-            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
-              <div className="flex items-center justify-between">
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2.5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Send size={20} />
@@ -1022,7 +898,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleTestTelegramConnection}
                   disabled={isTestingTelegram || !settings.telegramBotToken}
-                  className="px-4 py-2 bg-[#4A7C59] hover:bg-[#3D6649] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs"
+                  className="px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs"
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Проверить связь</span>
@@ -1036,7 +912,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="password" 
                     value={settings.telegramBotToken || ''} 
                     onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="712345678:AAHk..." 
                   />
                 </div>
@@ -1046,14 +922,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="text" 
                     value={settings.telegramChatId || ''} 
                     onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="-1001928374650" 
                   />
                 </div>
               </div>
 
               {telegramTestResult && (
-                <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-in fade-in ${
                   telegramTestResult.ok 
                     ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-800 dark:text-emerald-200' 
                     : 'bg-red-50 dark:bg-red-950/30 border-red-200 text-red-800 dark:text-red-200'
@@ -1064,9 +940,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Live Telegram Bot Listener Panel */}
               <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center animate-pulse">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center animate-pulse shrink-0">
                       <Play size={16} />
                     </div>
                     <div>
@@ -1081,7 +957,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-3xs cursor-pointer ${
                       isBotActive 
                         ? 'bg-red-500 hover:bg-red-600 text-white' 
-                        : 'bg-[#4A7C59] hover:bg-[#3D6649] text-white'
+                        : 'bg-[#2D5A43] hover:bg-[#204332] text-white'
                     }`}
                   >
                     {isBotActive ? 'Остановить' : 'Запустить слушатель'}
@@ -1090,11 +966,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Console Log Terminal */}
                 {isBotActive && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 animate-in fade-in">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                       Логи работы Telegram-бота (Терминал):
                     </span>
-                    <div className="p-3 bg-black text-xs font-mono text-emerald-400 rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-white/5 no-scrollbar">
+                    <div className="p-3.5 bg-black text-xs font-mono text-emerald-400 rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-white/5 no-scrollbar">
                       {botLogs.length === 0 ? (
                         <div className="text-stone-500 text-[11px] animate-pulse">Ожидание входящих сообщений от Telegram API...</div>
                       ) : (
@@ -1119,7 +995,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* Gemini API Key */}
-            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-white/5 space-y-4">
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
@@ -1131,19 +1007,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2D5A43] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
                   Получить ключ <MoveUpRight size={12} />
                 </a>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="relative">
                   <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
                     onChange={e => handleChange('geminiApiKey', e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]" 
+                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
                   <button
@@ -1154,55 +1030,53 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-              </div>
-            </section>
 
-            {/* AI Knowledge Base */}
-            <section className="p-6 rounded-2xl bg-gray-50 dark:bg-[#202225] border border-gray-100 dark:border-white/5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <BrainCircuit size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">База знаний ассистента Terra</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Факты и постоянно контекстное окружение</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input 
-                  type="text" 
-                  value={newFact}
-                  onChange={e => setNewFact(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && newFact.trim() && (addAIKnowledge(newFact.trim()), setNewFact(''))}
-                  placeholder="Добавить факт (напр. код домофона 123, аванс 25-го числа...)" 
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                />
-                <button 
-                  type="button" 
-                  onClick={() => { if(newFact.trim()) { addAIKnowledge(newFact.trim()); setNewFact(''); } }} 
-                  className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-sm transition-colors cursor-pointer shrink-0"
-                >
-                  Запомнить
-                </button>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                {aiKnowledge.length === 0 ? (
-                  <div className="p-6 text-center rounded-xl bg-white dark:bg-[#18191C] text-xs text-gray-400">
-                    Память пока пуста. Добавьте факты вручную или скажите ассистенту в чате «Запомни...»
+                {apiKey && (
+                  <div className="flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleTestKey}
+                      disabled={aiTestStatus === 'loading'}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {aiTestStatus === 'loading' ? (
+                        <Loader2 size={13} className="animate-spin text-purple-500" />
+                      ) : (
+                        <BrainCircuit size={13} className="text-purple-500" />
+                      )}
+                      <span>
+                        {aiTestStatus === 'success' ? 'Связь активна! ✅' : aiTestStatus === 'error' ? 'Ошибка ключа! ❌' : 'Проверить ключ ИИ'}
+                      </span>
+                    </button>
                   </div>
-                ) : (
-                  aiKnowledge.map(item => (
-                    <div key={item.id} className="p-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{item.text}</span>
-                      <button type="button" onClick={() => deleteAIKnowledge(item.id)} className="text-gray-400 hover:text-red-500 p-1 cursor-pointer">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))
                 )}
               </div>
             </section>
+
+            {/* AI Knowledge Base (Extracted Tab) */}
+            <AIKnowledgeTab
+              aiKnowledge={aiKnowledge}
+              newFact={newFact}
+              onNewFactChange={setNewFact}
+              onAddFact={handleAddFact}
+              onDeleteFact={setFactIdToDelete}
+            />
+
+            <ConfirmationModal
+              isOpen={factIdToDelete !== null}
+              onClose={() => setFactIdToDelete(null)}
+              onConfirm={() => {
+                if (factIdToDelete) {
+                  handleDeleteFact(factIdToDelete);
+                  setFactIdToDelete(null);
+                }
+              }}
+              title="Стереть воспоминание?"
+              message="Вы уверены, что хотите стереть этот факт из памяти ассистента Terra? ИИ больше не будет учитывать его при аналитике."
+              confirmText="Стереть"
+              cancelText="Отмена"
+              isDestructive={true}
+            />
           </div>
         );
 
@@ -1214,7 +1088,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const currentSection = SECTIONS.find(s => s.id === activeSection) || SECTIONS[0];
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-3 lg:p-4">
       {/* Backdrop */}
       <div 
         onClick={onClose} 
@@ -1223,7 +1097,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       {/* Main Container */}
       <div 
-        className="modal-animate-enter relative bg-white dark:bg-[#18191C] w-full md:max-w-[98vw] lg:max-w-[98vw] xl:max-w-[98vw] 2xl:max-w-[98vw] h-full md:h-[96vh] md:max-h-[1100px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        className="modal-animate-enter relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-full md:h-[94vh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
@@ -1242,7 +1116,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </header>
 
-        {/* MOBILE Top Header Bar (< md) */}
+        {/* MOBILE Top Header Bar (< md) - view-stack routing aware */}
         <header className="md:hidden h-14 px-4 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
           {showMobileMenu ? (
             <div className="flex items-center gap-2">
@@ -1259,26 +1133,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Назад</span>
               </button>
               <h3 className="font-headline text-sm font-bold text-gray-900 dark:text-white truncate">
-                {currentSection.id === 'general' 
-                  ? 'Общее' 
-                  : currentSection.id === 'account' 
-                    ? 'Аккаунт' 
-                    : currentSection.label}
+                {currentSection.label}
               </h3>
             </div>
           )}
 
           <div className="flex items-center gap-2">
-            {!showMobileMenu && (currentSection.id === 'general' || currentSection.id === 'account' || currentSection.id === 'budget') && (
-              <button
-                type="button"
-                onClick={() => toast.success('Настройки сохранены')}
-                className="px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
-              >
-                <Check size={14} />
-                <span>Сохранить</span>
-              </button>
-            )}
             <button 
               type="button" 
               onClick={onClose}
@@ -1289,24 +1149,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </header>
 
-        {/* 2-Column Core Layout / Mobile Screen */}
+        {/* 2-Column Core Layout / Mobile View */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
-            <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618]">
+            <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-32">
               {/* Profile Card */}
               <div 
                 onClick={() => { setActiveSection('account'); setShowMobileMenu(false); }}
-                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#4A7C59]/40"
+                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#2D5A43]/40"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#4A7C59] dark:text-emerald-300 font-bold text-lg flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
-                    {(currentUser?.displayName || accountLogin || 'А')[0].toUpperCase()}
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#2D5A43] dark:text-emerald-300 font-bold text-lg flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
+                    {(currentUser?.displayName || accountLogin || 'П')[0].toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
-                        {currentUser?.displayName || accountLogin || 'Алексей Смирнов'}
+                        {currentUser?.displayName || accountLogin || 'Пользователь'}
                       </h4>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
                         ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
@@ -1334,7 +1194,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center shrink-0">
                           {item.icon}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -1360,20 +1220,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
 
-              {/* Footer version */}
+              {/* Version Info */}
               <div className="text-center pb-8 pt-2">
                 <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
-                  Terra — Семейный бюджет v2.4
+                  Terra — Семейный бюджет v3.4
                 </p>
               </div>
             </div>
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[260px] lg:w-[280px] xl:w-[300px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-4 flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex w-[230px] lg:w-[250px] xl:w-[265px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-3.5 flex-col shrink-0 overflow-y-auto">
             <div className="px-2 pt-1 pb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                Разделы системы
+                Разделы настроек
               </span>
             </div>
 
@@ -1389,7 +1249,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     }} 
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
                       isActive 
-                        ? 'bg-[#4A7C59] text-white shadow-sm' 
+                        ? 'bg-[#2D5A43] text-white shadow-sm' 
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5'
                     }`}
                   >
@@ -1412,20 +1272,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <main className={`flex-1 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
             showMobileMenu ? 'hidden md:flex' : 'flex'
           }`}>
-            {/* Desktop Section Header (hidden on mobile since mobile header is at top, and hidden for categories which has its own toolbar) */}
+            {/* Desktop Section Header (hidden on mobile) */}
             {currentSection.id !== 'categories' && (
-              <div className="hidden md:flex p-6 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+              <div className="hidden md:flex px-6 py-4 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-headline text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-                        {currentSection.id === 'general' 
-                          ? 'Основные настройки' 
-                          : currentSection.id === 'account' 
-                            ? 'Аккаунт и безопасность' 
-                            : currentSection.id === 'budget'
-                              ? 'Параметры бюджета'
-                              : currentSection.label}
+                        {currentSection.label}
                       </h3>
                       {currentSection.id === 'account' && (
                         <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
@@ -1434,33 +1288,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {currentSection.id === 'general' 
-                        ? 'Базовые параметры интерфейса и алгоритмов.' 
-                        : currentSection.id === 'account' 
-                          ? 'Управление доступом к семейному пространству и смена учетных данных' 
-                          : currentSection.id === 'budget'
-                            ? 'Финансовый цикл, суточные лимиты, зарплатные даты и авто-резерв'
-                            : currentSection.subtitle}
+                      {currentSection.subtitle}
                     </p>
                   </div>
                 </div>
-
-                {(currentSection.id === 'general' || currentSection.id === 'account' || currentSection.id === 'budget') && (
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Настройки сохранены')}
-                    className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-semibold transition-colors shadow-sm flex items-center gap-2 cursor-pointer active:scale-[0.98]"
-                  >
-                    <Check size={16} />
-                    <span className="hidden sm:inline">Сохранить изменения</span>
-                    <span className="sm:hidden">Сохранить</span>
-                  </button>
-                )}
               </div>
             )}
 
-            {/* Scrollable Section Content Canvas */}
-            <div className={`flex-1 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6'}`}>
+            {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
+            <div className={`flex-1 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-24 md:pb-6'}`}>
               {renderSectionContent()}
             </div>
           </main>
@@ -1490,7 +1326,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span>Выберите пункт «На экран "Домой"»</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full bg-[#4A7C59] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full bg-[#2D5A43] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 Понятно
               </button>
             </motion.div>
@@ -1502,7 +1338,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       <AnimatePresence>
         {showLogoutConfirm && (
           <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6">
-            {/* Backdrop with Blur */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1511,7 +1346,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               className="absolute inset-0 bg-black/50 backdrop-blur-[6px]"
             />
 
-            {/* Confirmation Dialog Card */}
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -1519,7 +1353,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               transition={{ duration: 0.18, ease: 'easeOut' }}
               className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-gray-200/80 dark:border-white/10 z-10"
             >
-              {/* Subtle ambient decorative glows */}
               <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-red-500/10 filter blur-3xl pointer-events-none" />
               <div className="absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 filter blur-3xl pointer-events-none" />
 
@@ -1534,7 +1367,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       Сессия пользователя
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Terra Hub v3.4, узел «Северный»
+                      Terra Hub v3.4
                     </span>
                   </div>
                 </div>
@@ -1580,13 +1413,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Metadata Grid */}
               <div className="relative z-10 grid grid-cols-2 gap-3">
                 <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
-                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Устройство авторизации</span>
-                  <span className="text-xs font-bold text-gray-900 dark:text-white truncate">MacBook Pro (Главный терминал)</span>
+                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Устройство</span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-white truncate">Мобильный/Веб узел</span>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
-                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Сохраненных черновиков</span>
-                  <span className="text-xs font-bold text-[#4A7C59] dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCheck size={14} /> Все 18 записаны
+                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Синхронизация</span>
+                  <span className="text-xs font-bold text-[#2D5A43] dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCheck size={14} /> Все записано
                   </span>
                 </div>
               </div>

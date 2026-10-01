@@ -82,18 +82,18 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                 <div className="space-y-1.5 pt-1 overflow-y-auto no-scrollbar">
                     {data.allCategories.map((item) => (
                         <div key={item.id} className="flex items-center justify-between gap-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors px-1">
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div 
                                     className="w-5 h-5 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
                                     style={{ backgroundColor: item.color }}
                                 >
                                     <span className="scale-[0.6]">{getIconById(item.icon, 14)}</span>
                                 </div>
-                                <div className="flex flex-col min-w-0">
+                                <div className="flex flex-col min-w-0 flex-1">
                                     <span className="text-[11px] font-bold text-[#1C1C1E] dark:text-white truncate leading-tight">{item.label}</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end">
+                            <div className="flex flex-col items-end shrink-0">
                                 <span className="text-[11px] font-black text-[#1C1C1E] dark:text-white tabular-nums leading-none">
                                     {settings.privacyMode ? '•••' : item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </span>

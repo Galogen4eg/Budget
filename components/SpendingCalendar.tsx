@@ -142,7 +142,7 @@ const SpendingCalendar: React.FC<SpendingCalendarProps> = ({
                     onSelectDate(new Date(year, month, day));
                 }
               }}
-              className={`relative flex flex-col items-center justify-center aspect-square md:aspect-auto md:h-13 rounded-xl md:rounded-2xl transition-all duration-200 group ${
+              className={`relative flex flex-col items-center justify-center aspect-square md:aspect-auto md:h-14 rounded-xl md:rounded-2xl transition-all duration-200 group ${
                 isSelected 
                   ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105 z-10' 
                   : isToday 

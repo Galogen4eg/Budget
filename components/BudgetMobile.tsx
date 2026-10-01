@@ -129,6 +129,11 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                 {member.name}
                               </span>
                             )}
+                            {tx.rawNote && tx.rawNote !== displayTitle && (
+                              <span className="text-[10px] text-gray-400 truncate max-w-[140px]" title={tx.rawNote}>
+                                ({tx.rawNote})
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

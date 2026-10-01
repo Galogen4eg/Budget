@@ -281,12 +281,12 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
         </div>
 
         {/* Переключатель Умного резерва */}
-        <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-4 rounded-xl flex items-center justify-between gap-3 border border-transparent dark:border-white/5">
-          <div className="flex items-start gap-3">
+        <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-transparent dark:border-white/5">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="w-9 h-9 rounded-lg bg-[#78a886]/25 dark:bg-emerald-950/50 text-[#2a6038] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
               <Lock size={18} />
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1 min-w-0 flex-1">
               <div className="text-sm font-semibold text-[#2e3230] dark:text-white leading-snug">
                 Авторезерв обязательных платежей
               </div>
@@ -295,18 +295,20 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onUpdateSetting('enableSmartReserve', !smartReserve)}
-            className={`w-12 h-6 rounded-full p-1 transition-colors relative cursor-pointer shrink-0 ${
-              smartReserve ? 'bg-[#4a7c59]' : 'bg-[#e4e0d8] dark:bg-gray-700'
-            }`}
-            aria-label="Включить авторезерв"
-          >
-            <div className={`w-4 h-4 bg-white rounded-full shadow-xs transition-transform ${
-              smartReserve ? 'translate-x-6' : 'translate-x-0'
-            }`} />
-          </button>
+          <div className="flex justify-end pt-2 sm:pt-0 shrink-0">
+            <button
+              type="button"
+              onClick={() => onUpdateSetting('enableSmartReserve', !smartReserve)}
+              className={`w-11 h-6 rounded-full p-1 transition-colors relative cursor-pointer ${
+                smartReserve ? 'bg-[#4a7c59]' : 'bg-gray-300 dark:bg-gray-700'
+              }`}
+              aria-label="Включить авторезерв"
+            >
+              <div className={`w-4 h-4 bg-white rounded-full shadow-xs transition-transform ${
+                smartReserve ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
+          </div>
         </div>
       </section>
 

@@ -100,10 +100,13 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
     const isDebt = expenseType === 'debt';
     const effectiveLinkedDebtId = isDebt && linkedDebtId ? linkedDebtId : null;
 
+    const parsedAmount = parseFloat(String(amount).replace(',', '.'));
+    const safeAmount = Number.isFinite(parsedAmount) ? Math.abs(parsedAmount) : 0;
+
     const updatedExpense: MandatoryExpense = {
       id: expenseId,
       name: name.trim(),
-      amount: parseFloat(amount) || 0,
+      amount: safeAmount,
       day: Math.max(1, Math.min(31, parseInt(day) || 1)),
       remind,
       memberId: memberId || null,
@@ -141,7 +144,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
       if (targetDebt) {
         const debtUpdates: Partial<Debt> = {
           linkedExpenseId: expenseId,
-          ...(isPaidCurrentMonth ? { paidThisMonth: true } : {})
+          paidThisMonth: isPaidCurrentMonth
         };
         setDebts(prev => prev.map(d => d.id === effectiveLinkedDebtId ? { ...d, ...debtUpdates } : d));
         if (familyId) {
@@ -169,11 +172,11 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000] bg-stone-950/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 select-none"
+      className="fixed inset-0 z-[2000] bg-stone-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 select-none"
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-[490px] bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border border-[#ECE6DE] dark:border-white/10 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto no-scrollbar"
+        className="relative w-full max-w-[490px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border-0 sm:border border-[#ECE6DE] dark:border-white/10 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
         onClick={e => e.stopPropagation()}
       >
         {/* Заголовок модального окна */}

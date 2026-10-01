@@ -13,10 +13,8 @@ import {
 import { Transaction, AppSettings, Category, FamilyMember, ShoppingItem, MandatoryExpense } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, addItemsBatch, updateItem } from '../utils/db';
-import { parseSingleQuickShoppingText, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
-import { recordPurchaseEvent } from '../utils/frequentPurchases';
+import useQuickShopping from '../hooks/useQuickShopping';
+import QuickShoppingWidget from './QuickShoppingWidget';
 import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
@@ -40,6 +38,7 @@ interface TerraOverviewProps {
   currentMonth?: Date;
   onMonthChange?: (date: Date) => void;
   onOpenAddEventModal?: () => void;
+  onEditEvent?: (event: FamilyEvent) => void;
 }
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
@@ -52,7 +51,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onEditMandatoryExpense,
   currentMonth,
   onMonthChange,
-  onOpenAddEventModal
+  onOpenAddEventModal,
+  onEditEvent
 }) => {
   const { 
     transactions, 
@@ -76,8 +76,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const { user: firebaseUser, familyId } = useAuth();
 
   const [chartScale, setChartScale] = useState<'day' | 'week' | 'month'>('day');
-  const [newShoppingTitle, setNewShoppingTitle] = useState('');
-  const [isAddingShopping, setIsAddingShopping] = useState(false);
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [selectedCatModalId, setSelectedCatModalId] = useState<string | null>(null);
@@ -145,6 +143,21 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const currentMember = useMemo(() => {
     return members.find(m => m.userId === firebaseUser?.uid) || members[0] || { name: 'Пользователь' };
   }, [members, firebaseUser]);
+
+  // Quick Shopping Management (Managed via Custom Hook)
+  const {
+    newShoppingTitle,
+    setNewShoppingTitle,
+    isAddingShopping,
+    liveParsedShopping,
+    handleToggleShopping,
+    handleAddShoppingInline,
+  } = useQuickShopping({
+    shoppingItems,
+    setShoppingItems,
+    familyId,
+    currentMemberId: currentMember?.id || 'user',
+  });
 
   const memberInitial = (currentMember.name || 'П').charAt(0).toUpperCase();
 
@@ -302,7 +315,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Salary incomes this month for auto-savings
   const currentMonthSalary = useMemo(() => {
-    return currentMonthTransactions
+    const rawVal = currentMonthTransactions
       .filter(t => {
         const isSalaryCat = t.category === 'salary';
         const catLabel = categories.find(c => c.id === t.category)?.label.toLowerCase();
@@ -310,11 +323,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         return t.type === 'income' && (isSalaryCat || isCustomSalary);
       })
       .reduce((acc, t) => acc + t.amount, 0);
+    return Math.round(rawVal * 100) / 100;
   }, [currentMonthTransactions, categories]);
 
   // Savings accounts (копилка / накопительный счёт) total balance
   const totalSavingsAccountAmount = useMemo(() => {
-    return (goals || []).reduce((acc, g) => acc + (g.currentAmount || 0), 0);
+    const rawVal = (goals || []).reduce((acc, g) => acc + (g.currentAmount || 0), 0);
+    return Math.round(rawVal * 100) / 100;
   }, [goals]);
 
   // Reserve & Available Balance
@@ -607,62 +622,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const activeShoppingItems = useMemo(() => {
     return shoppingItems.filter(i => !i.completed);
   }, [shoppingItems]);
-
-  const liveParsedShopping = useMemo(() => {
-    if (!newShoppingTitle.trim()) return null;
-    return parseSingleQuickShoppingText(newShoppingTitle);
-  }, [newShoppingTitle]);
-
-  const handleToggleShopping = async (item: ShoppingItem) => {
-    const nextCompleted = !item.completed;
-    const updated = { ...item, completed: nextCompleted };
-    setShoppingItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) {
-      await updateItem(familyId, 'shopping', item.id, updated);
-    }
-    recordPurchaseEvent(
-      item.title,
-      nextCompleted ? 'completed' : 'restored',
-      { category: item.category, amount: item.amount, unit: item.unit, price: item.estimatedPrice }
-    );
-  };
-
-  const handleAddShoppingInline = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const raw = newShoppingTitle.trim();
-    if (!raw || isAddingShopping) return;
-
-    try {
-      setIsAddingShopping(true);
-      const targetMemberId = currentMember.id || 'user';
-      const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
-      if (parsedItems.length === 0) return;
-
-      const {
-        updatedList,
-        itemsToUpdateInDb,
-        itemsToAddInDb
-      } = mergeOrRestoreShoppingItems(shoppingItems, parsedItems, targetMemberId);
-
-      setShoppingItems(updatedList);
-      setNewShoppingTitle('');
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to add shopping item inline:', err);
-    } finally {
-      setIsAddingShopping(false);
-    }
-  };
 
   // Recent Transactions (top 4)
   const recentTransactions = useMemo(() => {
@@ -1027,10 +986,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       key={scale}
                       type="button"
                       onClick={() => setChartScale(scale)}
-                      className={`px-2.5 py-1 rounded-lg text-xs transition ${
+                      className={`px-3.5 py-2 rounded-lg text-xs transition ${
                         isCurrent
                           ? 'bg-white dark:bg-[#1C1C1E] text-graphite dark:text-white font-bold shadow-xs'
-                          : 'text-graphite-muted dark:text-gray-400'
+                          : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
                       }`}
                     >
                       {labels[scale]}
@@ -1177,71 +1136,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
           </section>
 
-          {/* 4. Список покупок Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShoppingCart size={18} className="text-[#4A7C59]" />
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
-                  Список покупок
-                </h3>
-                <span className="bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                  {activeShoppingItems.length || 3} шт
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigateTab('shopping')}
-                className="flex items-center gap-0.5 text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition"
-              >
-                <span>Все</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {displayShoppingItems.map((item, idx) => (
-                <div 
-                  key={item.id ? `mob-shop-${item.id}` : `mob-shop-idx-${idx}`}
-                  className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-xl p-3 flex items-center justify-between hover:bg-[#EAE6DD]/60 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleShopping(item as any)}
-                      className="w-5 h-5 rounded-md border-2 border-[#C5BFB4] dark:border-white/20 flex items-center justify-center hover:border-[#4A7C59] transition cursor-pointer"
-                    >
-                      {item.completed && <Check size={13} className="text-[#4A7C59]" />}
-                    </button>
-                    <span className={`text-xs font-medium text-graphite dark:text-white ${item.completed ? 'line-through text-graphite-muted' : ''}`}>
-                      {item.title}
-                    </span>
-                  </div>
-                  <span className="text-xs font-medium text-graphite-muted dark:text-gray-400">
-                    {item.amount ? `${item.amount} ${item.unit || 'шт'}` : '1 шт'}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Quick add bar with round green + button */}
-            <form onSubmit={handleAddShoppingInline} className="bg-[#EAE6DD]/50 dark:bg-white/5 rounded-2xl p-1.5 pl-4 flex items-center gap-2 border border-transparent focus-within:border-[#4A7C59]/40 transition">
-              <input 
-                type="text"
-                value={newShoppingTitle}
-                onChange={(e) => setNewShoppingTitle(e.target.value)}
-                placeholder="Быстро добавить в список..."
-                className="text-xs bg-transparent flex-1 text-graphite dark:text-white placeholder-graphite-muted outline-none"
-              />
-              <button
-                type="submit"
-                disabled={!newShoppingTitle.trim() || isAddingShopping}
-                className="w-9 h-9 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] active:scale-95 disabled:opacity-50 text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer transition"
-              >
-                <Plus size={18} strokeWidth={2.4} />
-              </button>
-            </form>
-          </section>
+          {/* 4. Список покупок Card (Extracted Widget) */}
+          <QuickShoppingWidget
+            activeShoppingItems={activeShoppingItems}
+            displayShoppingItems={displayShoppingItems}
+            newShoppingTitle={newShoppingTitle}
+            setNewShoppingTitle={setNewShoppingTitle}
+            isAddingShopping={isAddingShopping}
+            handleToggleShopping={handleToggleShopping}
+            handleAddShoppingInline={handleAddShoppingInline}
+            onNavigateTab={onNavigateTab}
+          />
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
           {upcomingWeekEvents.length > 0 && (
@@ -1288,7 +1193,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   return (
                     <div
                       key={ev.id ? `mob-ev-${ev.id}` : `mob-ev-idx-${idx}`}
-                      onClick={() => onNavigateTab('plans')}
+                      onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
                       className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -1396,99 +1301,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* DESKTOP VIEW (Visible on md and up)                       */}
       {/* ========================================================= */}
       <div className="hidden md:flex flex-col min-w-0 w-full">
-        {/* Top Navigation Bar */}
-        <header className="h-20 border-b border-surface-border dark:border-white/5 bg-[#FAF8F5]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shrink-0">
-        {/* Left: Scope Selector, Month, Search */}
-        <div className="flex items-center gap-2 sm:gap-3.5">
-          {/* Pill Switcher (Личный / Семейный) */}
-          <div className="bg-surface-subtle dark:bg-[#2C2C2E] p-1 rounded-xl border border-surface-border dark:border-white/5 flex items-center shadow-inner">
-            <button 
-              type="button"
-              onClick={() => setBudgetMode('personal')}
-              className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-                budgetMode === 'personal' 
-                  ? 'bg-white dark:bg-[#1C1C1E] text-graphite dark:text-white font-bold shadow-xs border border-surface-border dark:border-white/10' 
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
-              }`}
-            >
-              <User size={14} className={budgetMode === 'personal' ? 'text-primary' : ''} />
-              <span className="hidden xs:inline">Личный</span>
-            </button>
-            <button 
-              type="button"
-              onClick={() => setBudgetMode('family')}
-              className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-                budgetMode === 'family' 
-                  ? 'bg-white dark:bg-[#1C1C1E] text-[#1E3B26] dark:text-green-400 font-bold shadow-xs border border-[#D5E2D8] dark:border-white/10' 
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
-              }`}
-            >
-              <Users size={14} className={budgetMode === 'family' ? 'text-primary' : ''} />
-              <span className="hidden xs:inline">Семейный</span>
-            </button>
-          </div>
-
-          {/* Month Pill / Stepper */}
-          <div className="hidden sm:flex items-center text-xs font-semibold text-graphite dark:text-gray-200 bg-surface-subtle dark:bg-[#2C2C2E] px-2 py-1 rounded-xl border border-surface-border dark:border-white/5 gap-1.5 select-none">
-            <button
-              type="button"
-              onClick={() => handleStepMonth(-1)}
-              className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white transition cursor-pointer"
-              title="Предыдущий месяц"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="capitalize px-1 font-semibold">{currentMonthName}</span>
-            <button
-              type="button"
-              onClick={() => handleStepMonth(1)}
-              className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white transition cursor-pointer"
-              title="Следующий месяц"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Action Buttons Group */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* AI Assistant Button */}
-          <button 
-            type="button"
-            onClick={onOpenAIChat}
-            title="AI Ассистент (Gemini)"
-            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D6849] active:scale-[0.98] text-white text-xs font-bold shadow-sm transition cursor-pointer"
-          >
-            <Sparkles size={15} />
-            <span className="hidden sm:inline">AI АССИСТЕНТ</span>
-            <span className="sm:hidden">AI</span>
-          </button>
-
-          {/* New Transaction Button */}
-          <button 
-            type="button"
-            onClick={onOpenAddModal}
-            className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-primary/25 transition cursor-pointer"
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span className="hidden xs:inline tracking-wider">+ ЗАПИСЬ</span>
-            <span className="xs:hidden">ЗАПИСЬ</span>
-          </button>
-
-          {/* Privacy Eye Toggle */}
-          <button 
-            type="button"
-            onClick={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })}
-            title={settings.privacyMode ? "Показать суммы" : "Скрыть суммы"}
-            className="p-2 rounded-xl bg-white dark:bg-[#2C2C2E] hover:bg-surface-subtle dark:hover:bg-[#3A3A3C] border border-surface-border dark:border-white/5 text-graphite-muted dark:text-gray-300 hover:text-graphite transition shadow-xs active:scale-95 cursor-pointer"
-          >
-            {settings.privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-      </header>
-
-      {/* Main Dashboard Container */}
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1720px] mx-auto w-full">
+        {/* Main Dashboard Container */}
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1720px] mx-auto w-full">
+          {/* Top Navigation Bar (Extracted Subcomponent) */}
+          <OverviewHeaderBar
+            budgetMode={budgetMode}
+            setBudgetMode={setBudgetMode}
+            settings={settings}
+            updateSettings={updateSettings}
+            currentMemberName={currentMember.name || 'Пользователь'}
+            memberInitial={memberInitial}
+            currentMonthName={currentMonthName}
+            isMonthPickerOpen={isMonthPickerOpen}
+            setIsMonthPickerOpen={setIsMonthPickerOpen}
+            monthOptions={monthOptions}
+            activeMonth={activeMonth}
+            onMonthChange={handleMonthChange}
+            onStepMonth={handleStepMonth}
+            onOpenAddModal={onOpenAddModal}
+            onOpenAIChat={onOpenAIChat}
+          />
         {/* ALERT BANNER: Daily Limit Exceeded (Terra Warning) */}
         {isOverDailyLimit && (
           <section 
@@ -2054,7 +1886,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     return (
                       <div
                         key={ev.id ? `desk-ev-${ev.id}` : `desk-ev-idx-${idx}`}
-                        onClick={() => onNavigateTab('plans')}
+                        onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
                         className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
                       >
                         <div className="flex items-center gap-3 min-w-0">

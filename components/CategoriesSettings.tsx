@@ -49,6 +49,11 @@ const CATEGORY_ICONS = [
   { id: 'savings', label: 'Копилка', icon: PiggyBank },
 ];
 
+const getCategoryIconComponent = (iconId: string | undefined) => {
+  const match = CATEGORY_ICONS.find(item => item.id === iconId);
+  return match ? match.icon : ShoppingBasket;
+};
+
 const PRESET_COLORS = [
   '#3E6B4E', '#52796F', '#3B82F6', '#06B6D4', 
   '#8B5CF6', '#B94B32', '#C59A45', '#64748B'
@@ -301,7 +306,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   }, [mainCategories, categories, searchQuery]);
 
   return (
-    <div className="w-full h-full bg-[#FAF6F0] dark:bg-[#1C1F1E] text-[#2E3230] dark:text-white flex flex-col overflow-hidden rounded-2xl border border-[#E4E0D8] dark:border-white/10 shadow-2xl">
+    <div className="w-full h-full bg-[#FAF6F0] dark:bg-[#1C1F1E] text-[#2E3230] dark:text-white flex flex-col overflow-hidden md:rounded-2xl md:border md:border-[#E4E0D8] dark:md:border-white/10 md:shadow-2xl">
       
       {/* Toast Notification */}
       {showToast && (
@@ -314,7 +319,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE VIEW (< md) */}
       {/* ========================================================================= */}
-      <div className="md:hidden flex-1 flex flex-col overflow-y-auto pb-24">
+      <div className="md:hidden flex-1 flex flex-col overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
         
         {/* Interactive Search & Overview Header */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">
@@ -376,7 +381,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           <div className="relative p-1 bg-[#F0ECE4] dark:bg-[#202225] rounded-xl flex items-center text-xs font-semibold">
             <div 
               className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white dark:bg-[#18191C] rounded-lg shadow-2xs transition-transform duration-300 ease-out"
-              style={{ transform: mobileTab === 'categories' ? 'translateX(0)' : 'translateX(100%)' }}
+              style={{ transform: mobileTab === 'categories' ? 'translateX(0)' : 'translateX(calc(100% + 4px))' }}
             />
             <button 
               type="button"
@@ -422,12 +427,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     className="p-4 flex items-center justify-between cursor-pointer active:bg-[#F0ECE4] select-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white"
-                        style={{ backgroundColor: cat.color || '#4A7C59' }}
-                      >
-                        <ShoppingBasket size={20} />
-                      </div>
+                      {(() => {
+                        const IconComponent = getCategoryIconComponent(cat.icon);
+                        return (
+                          <div 
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white"
+                            style={{ backgroundColor: cat.color || '#4A7C59' }}
+                          >
+                            <IconComponent size={20} />
+                          </div>
+                        );
+                      })()}
                       <div className="min-w-0">
                         <h3 className="font-bold text-sm text-[#2E3230] dark:text-white truncate">
                           {cat.label}
@@ -471,18 +481,18 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                       )}
 
                       {/* Color Picker Group */}
-                      <div className="pt-2 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-[#6B6358] dark:text-stone-400 uppercase tracking-wider">
+                      <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
+                        <span className="text-[11px] font-semibold text-[#6B6358] dark:text-stone-400 uppercase tracking-wider shrink-0">
                           Цветовой маркер
                         </span>
-                        <div className="flex items-center gap-2">
-                          {PRESET_COLORS.slice(0, 5).map(col => (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {PRESET_COLORS.map(col => (
                             <button
                               key={col}
                               type="button"
                               onClick={() => setFormDataColor(col)}
                               style={{ backgroundColor: col }}
-                              className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
+                              className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer shrink-0"
                             >
                               {formColor === col && <Check size={12} className="text-white font-bold" />}
                             </button>
@@ -507,8 +517,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     {selectedCat.label}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-1.5">
-                  {CATEGORY_ICONS.slice(0, 6).map(item => {
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {CATEGORY_ICONS.map(item => {
                     const IconComp = item.icon;
                     const isSelected = formIcon === item.id;
                     return (
@@ -516,13 +526,14 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => setFormDataIcon(item.id)}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                           isSelected 
                             ? 'bg-[#4A7C59] text-white shadow-2xs' 
                             : 'bg-[#F5F1EA] dark:bg-[#18191C] text-[#6B6358] dark:text-stone-300 hover:bg-white'
                         }`}
+                        title={item.label}
                       >
-                        <IconComp size={18} />
+                        <IconComp size={16} />
                       </button>
                     );
                   })}
@@ -544,12 +555,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 {/* Header */}
                 <div className="flex items-center justify-between pb-2 border-b border-[#E4E0D8]/60 dark:border-white/10">
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white"
-                      style={{ backgroundColor: mainCat.color || '#4A7C59' }}
-                    >
-                      <ShoppingBasket size={20} />
-                    </div>
+                    {(() => {
+                      const IconComponent = getCategoryIconComponent(mainCat.icon);
+                      return (
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white"
+                          style={{ backgroundColor: mainCat.color || '#4A7C59' }}
+                        >
+                          <IconComponent size={20} />
+                        </div>
+                      );
+                    })()}
                     <div>
                       <h3 className="font-bold text-sm text-[#2E3230] dark:text-white leading-tight">
                         {mainCat.label}
@@ -680,23 +696,23 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           </div>
         )}
 
-        {/* Mobile Sticky Action Bar */}
-        <div className="fixed bottom-0 left-0 right-0 p-3 bg-[#FAF6F0]/90 dark:bg-[#1C1F1E]/90 backdrop-blur-md shadow-2xl flex items-center gap-2.5 z-40 border-t border-[#E4E0D8] dark:border-white/10">
+        {/* Mobile Sticky Action Bar with Safe Area Bottom Padding and Standardized h-11 Height */}
+        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] bg-[#FAF6F0]/95 dark:bg-[#1C1F1E]/95 backdrop-blur-md shadow-2xl flex items-center gap-2.5 z-40 border-t border-[#E4E0D8] dark:border-white/10">
           <button 
             type="button"
             onClick={handleCreateNewCategory}
-            className="h-12 px-4 rounded-xl bg-[#E4E0D8] dark:bg-white/10 text-[#2E3230] dark:text-white font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
+            className="h-11 px-4 rounded-xl bg-[#E4E0D8] dark:bg-white/10 text-[#2E3230] dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             <span>Новая</span>
           </button>
           
           <button 
             type="button"
             onClick={handleSaveCategory}
-            className="h-12 flex-1 rounded-xl bg-[#4A7C59] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-2xs active:scale-95 transition-transform cursor-pointer"
+            className="h-11 flex-1 rounded-xl bg-[#4A7C59] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-transform cursor-pointer"
           >
-            <Check size={20} />
+            <Check size={16} />
             <span>{saveSuccess ? 'Сохранено!' : 'Сохранить изменения'}</span>
           </button>
         </div>
@@ -754,12 +770,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   >
                     <div className="flex items-center justify-between pb-3 border-b border-[#E4E0D8]/60 dark:border-white/10">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white"
-                          style={{ backgroundColor: cat.color || '#4A7C59' }}
-                        >
-                          <ShoppingBasket size={18} />
-                        </div>
+                        {(() => {
+                          const IconComponent = getCategoryIconComponent(cat.icon);
+                          return (
+                            <div 
+                              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white"
+                              style={{ backgroundColor: cat.color || '#4A7C59' }}
+                            >
+                              <IconComponent size={18} />
+                            </div>
+                          );
+                        })()}
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-[#2E3230] dark:text-white leading-tight">
@@ -821,12 +842,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     className="p-3.5 flex items-center justify-between cursor-pointer select-none"
                   >
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white"
-                        style={{ backgroundColor: cat.color || '#6B6358' }}
-                      >
-                        <ShoppingBasket size={18} />
-                      </div>
+                      {(() => {
+                        const IconComponent = getCategoryIconComponent(cat.icon);
+                        return (
+                          <div 
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white"
+                            style={{ backgroundColor: cat.color || '#6B6358' }}
+                          >
+                            <IconComponent size={18} />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <span className="font-bold text-xs text-[#2E3230] dark:text-white block leading-tight">
                           {cat.label}

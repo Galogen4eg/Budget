@@ -24,6 +24,7 @@ import {
   getTopFrequentPurchases,
   FrequentItemStat
 } from '../utils/frequentPurchases';
+import { toast } from 'sonner';
 
 export interface ShoppingListMobileProps {
   items: ShoppingItem[];
@@ -387,7 +388,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      alert('Голосовой ввод не поддерживается вашим браузером');
+      toast.error('Голосовой ввод не поддерживается вашим браузером');
       return;
     }
 
@@ -460,7 +461,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             }
           }
         } catch {
-          alert('Ошибка при обработке голоса');
+          toast.error('Ошибка при обработке голоса');
         } finally {
           setIsProcessingAI(false);
         }
@@ -473,7 +474,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-16 text-[#1E2420] dark:text-gray-100 font-body transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 text-[#1E2420] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
         title="Список покупок"
@@ -773,7 +774,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
-              className="w-full max-w-md bg-[#FBF9F5] dark:bg-[#1C1C1E] rounded-t-[32px] sm:rounded-[32px] p-5 shadow-2xl border border-[#EAE4D6] dark:border-white/10 space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar"
+              className="w-full max-w-md bg-[#FBF9F5] dark:bg-[#1C1C1E] rounded-t-[32px] sm:rounded-[32px] p-5 shadow-2xl border-0 sm:border border-[#EAE4D6] dark:border-white/10 space-y-4 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="flex items-center justify-between border-b border-[#EAE4D6]/60 dark:border-white/10 pb-3">
                 <div>

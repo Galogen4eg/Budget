@@ -4,5 +4,11 @@
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/curator-find",
+      "schedule": "0 */4 * * *"
+    }
   ]
 }

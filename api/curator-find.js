@@ -4,37 +4,43 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
   try {
-    // 1. Забираем свежие посты с Reddit
-    const redditRes = await fetch("https://www.reddit.com/r/analogmemes/hot.json?limit=5", {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
-    });
-    const data = await redditRes.json();
-    const posts = data?.data?.children || [];
+    // 1. Забираем свежие посты из надежного источника (PetaPixel RSS в JSON через открытый конвертер rss2json)
+    const feedUrl = encodeURIComponent("https://petapixel.com/feed/");
+    const rssRes = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${feedUrl}`);
+    
+    if (!rssRes.ok) {
+      const errText = await rssRes.text();
+      return res.status(502).json({ error: "Ошибка загрузки ленты", details: errText.slice(0, 100) });
+    }
 
-    const targetPost = posts.map(p => p.data).find(p => 
-      !p.is_self && 
-      (p.url.endsWith(".jpg") || p.url.endsWith(".png") || p.url.endsWith(".jpeg"))
-    );
+    const feedData = await rssRes.json();
+    const items = feedData?.items || [];
+
+    // Берем первую новость/статью с картинкой
+    const targetPost = items.find(item => item.enclosure?.link || item.thumbnail);
 
     if (!targetPost) {
-      return res.status(200).json({ message: "Свежих постов с картинками не найдено" });
+      return res.status(200).json({ message: "Свежих записей с картинками не найдено" });
     }
+
+    const imageUrl = targetPost.enclosure?.link || targetPost.thumbnail;
+    const postTitle = targetPost.title || "Интересный инфоповод из мира фотографии";
 
     // 2. Адаптация через Gemini
     const prompt = `
 Ты — практикующий фотограф с отличным чувством юмора и легким сарказмом. 
-Твоя задача — превратить англоязычный инфоповод или фото-мем в короткий вирусный пост для русскоязычного Telegram-канала.
+Твоя задача — превратить фото-новость или инфоповод в короткий пост для русскоязычного Telegram-канала фотографа.
 
-Контекст мема: "${targetPost.title}".
+Инфоповод: "${postTitle}".
 
 Правила:
-- Пиши от первого лица, живо, используй сленг (исходники, пыхи, софты, модель, ракурс).
+- Пиши от первого лица, живо, с юмором, используй профессиональный сленг (исходники, пыхи, софты, модель, ракурс).
 - Никакой сухой теории или обучающего тона. Только жиза и курьез ситуации.
 - Формат:
 1. Короткий ироничный заголовок.
 2. 2-3 емких предложения с экспозицией и панчлайном.
-3. Короткий вопрос к подписчикам в конце для комментариев.
-- Чистый текст без тегов.
+3. Короткий вопрос к коллегам в конце для обсуждения в комментариях.
+- Чистый текст без XML/HTML тегов.
 `;
 
     const response = await ai.models.generateContent({
@@ -42,10 +48,9 @@ export default async function handler(req, res) {
       contents: prompt
     });
 
-    // Безопасно извлекаем текст ответа
-    const adaptedText = response.text ? response.text.trim() : "Жизненный момент из будней фотографа.";
+    const adaptedText = response.text ? response.text.trim() : "Новый пост из будней фотографа.";
     const tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendPhoto`;
-    
+
     const keyboard = {
       inline_keyboard: [
         [
@@ -61,14 +66,14 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: process.env.MY_TELEGRAM_ID,
-        photo: targetPost.url,
-        caption: `${adaptedText}\n\n🔗 Источник: ${targetPost.permalink ? 'https://reddit.com' + targetPost.permalink : 'Reddit'}`,
+        photo: imageUrl,
+        caption: `${adaptedText}\n\n🔗 Источник: ${targetPost.link}`,
         reply_markup: keyboard
       })
     });
 
     const tgResult = await tgRes.json();
-    
+
     if (!tgResult.ok) {
       return res.status(500).json({ error: "Telegram API Error", details: tgResult });
     }

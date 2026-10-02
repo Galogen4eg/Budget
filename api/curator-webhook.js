@@ -24,6 +24,7 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
+    // 1. ПЕРЕХВАТ ФОТОГРАФИЙ ИЗ КАНАЛА-СКЛАДА
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
+    // 2. ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ И КОМАНД ОТ АДМИНА
     const message = update.message;
     if (message && message.text) {
       if (ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
@@ -61,7 +63,7 @@ export default async function handler(req, res) {
           await redis.del('photos:used');
           await redis.del('photos:rejected');
 
-          const keys = await redis.keys('photo:pending:*');
+          const keys = await redis.keys('photo:*');
           if (keys && keys.length > 0) {
             await redis.del(...keys);
           }
@@ -78,9 +80,67 @@ export default async function handler(req, res) {
 
           return res.status(200).json({ ok: true, cleared: true });
         }
+
+        // Проверяем, ожидает ли бот текст для публикации конкретного фото
+        const waitingShortKey = await redis.get(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+        if (waitingShortKey) {
+          const fileId = await redis.get(`photo:pending:${waitingShortKey}`);
+
+          if (!fileId) {
+            await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: '❌ Срок действия сессии истек. Начните заново.',
+            });
+            return res.status(200).json({ ok: true });
+          }
+
+          // Публикуем фото с введенным текстом в публичный канал
+          const publishResponse = await tgRequest('sendPhoto', {
+            chat_id: TARGET_CHANNEL_ID,
+            photo: fileId,
+            caption: text,
+          });
+
+          if (!publishResponse.ok) {
+            console.error('Failed to publish to public channel:', publishResponse);
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: `❌ Ошибка публикации: ${publishResponse.description}`,
+            });
+            return res.status(200).json({ ok: false, error: publishResponse.description });
+          }
+
+          // Очищаем состояния
+          await redis.srem('photos:available', fileId);
+          await redis.sadd('photos:used', fileId);
+          await redis.del(`photo:pending:${waitingShortKey}`);
+          await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '✅ Успешно опубликовано в публичный канал!',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '⏭ Запросить следующее фото', callback_data: 'action:next' }]
+              ]
+            }
+          });
+
+          const remaining = await redis.scard('photos:available');
+          if (remaining <= 3) {
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: `⚠️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
+            });
+          }
+
+          return res.status(200).json({ ok: true });
+        }
       }
     }
 
+    // 3. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -94,6 +154,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Запрос следующего фото
       if (data === 'action:next') {
         const totalAvailable = await redis.scard('photos:available');
 
@@ -117,7 +178,7 @@ export default async function handler(req, res) {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
+                { text: '✅ Опубликовать с текстом', callback_data: `publish:${shortKey}` },
                 { text: '❌ Отклонить', callback_data: `reject:${shortKey}` },
               ],
               [
@@ -148,48 +209,21 @@ export default async function handler(req, res) {
       }
 
       if (action === 'publish') {
-        const publishResponse = await tgRequest('sendPhoto', {
-          chat_id: TARGET_CHANNEL_ID,
-          photo: fileId,
-        });
-
-        if (!publishResponse.ok) {
-          console.error('Failed to publish to public channel:', publishResponse);
-          await tgRequest('answerCallbackQuery', {
-            callback_query_id: callbackId,
-            text: `Ошибка публикации: ${publishResponse.description}`,
-            show_alert: true,
-          });
-          return res.status(200).json({ ok: false, error: publishResponse.description });
-        }
-
-        await redis.srem('photos:available', fileId);
-        await redis.sadd('photos:used', fileId);
-        await redis.del(`photo:pending:${shortKey}`);
+        // Устанавливаем флаг, что админ должен ввести текст для этого photo
+        await redis.set(`admin:waiting_text:${ADMIN_CHAT_ID}`, shortKey, { ex: 3600 });
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
-          text: 'Опубликовано в канал!',
+          text: 'Введите текст для поста следующим сообщением.',
+          show_alert: true,
         });
 
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          caption: '✅ Опубликовано в публичный канал.',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '⏭ Запросить следующее фото', callback_data: 'action:next' }]
-            ]
-          },
+          caption: '✍️ Отправьте текст для поста ответным сообщением в этот чат.',
+          reply_markup: { inline_keyboard: [] },
         });
-
-        const remaining = await redis.scard('photos:available');
-        if (remaining <= 3) {
-          await tgRequest('sendMessage', {
-            chat_id: ADMIN_CHAT_ID,
-            text: `⚠️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
-          });
-        }
       } else if (action === 'reject') {
         await redis.srem('photos:available', fileId);
         await redis.sadd('photos:rejected', fileId);

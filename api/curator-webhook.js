@@ -1,11 +1,10 @@
 import { redis } from '../lib/redis.js';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;         // Подтягивает твой личный ID
-const TARGET_CHANNEL_ID = process.env.PUBLIC_CHANNEL_ID;  // Подтягивает ID твоего канала
+const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;
+const TARGET_CHANNEL_ID = process.env.PUBLIC_CHANNEL_ID;
 const WAREHOUSE_CHANNEL_ID = process.env.WAREHOUSE_CHANNEL_ID;
 
-// Универсальный хелпер запросов к Telegram Bot API
 async function tgRequest(method, data) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/${method}`;
   const res = await fetch(url, {
@@ -24,7 +23,6 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
-    // 1. ПЕРЕХВАТ ФОТОГРАФИЙ ИЗ КАНАЛА-СКЛАДА
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -47,7 +45,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ ПРЕМОДЕРАЦИИ
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -61,10 +58,20 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      const [action, ...rest] = data.split(':');
-      const fileId = rest.join(':');
+      const [action, shortKey] = data.split(':');
+      const fileId = await redis.get(`photo:pending:${shortKey}`);
+
+      if (!fileId) {
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Срок действия сессии истек или фото уже обработано.',
+          show_alert: true,
+        });
+        return res.status(200).json({ ok: true });
+      }
 
       if (action === 'publish') {
+        // Публикуем фото в публичный канал
         await tgRequest('sendPhoto', {
           chat_id: TARGET_CHANNEL_ID,
           photo: fileId,
@@ -72,6 +79,7 @@ export default async function handler(req, res) {
 
         await redis.srem('photos:available', fileId);
         await redis.sadd('photos:used', fileId);
+        await redis.del(`photo:pending:${shortKey}`);
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
@@ -82,6 +90,7 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           caption: '✅ Опубликовано в публичный канал.',
+          reply_markup: { inline_keyboard: [] },
         });
 
         const remaining = await redis.scard('photos:available');
@@ -94,6 +103,7 @@ export default async function handler(req, res) {
       } else if (action === 'reject') {
         await redis.srem('photos:available', fileId);
         await redis.sadd('photos:rejected', fileId);
+        await redis.del(`photo:pending:${shortKey}`);
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
@@ -104,13 +114,14 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           caption: '❌ Отклонено модератором.',
+          reply_markup: { inline_keyboard: [] },
         });
 
         const remaining = await redis.scard('photos:available');
         if (remaining <= 3) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: `⚠️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
+            text: `⚠️️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
           });
         }
       }

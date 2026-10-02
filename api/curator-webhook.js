@@ -152,10 +152,21 @@ export default async function handler(req, res) {
       }
 
       if (action === 'publish') {
-        await tgRequest('sendPhoto', {
+        // Публикация в публичный канал с проверкой ответа от Telegram
+        const publishResponse = await tgRequest('sendPhoto', {
           chat_id: TARGET_CHANNEL_ID,
           photo: fileId,
         });
+
+        if (!publishResponse.ok) {
+          console.error('Failed to publish to public channel:', publishResponse);
+          await tgRequest('answerCallbackQuery', {
+            callback_query_id: callbackId,
+            text: `Ошибка публикации: ${publishResponse.description}`,
+            show_alert: true,
+          });
+          return res.status(200).json({ ok: false, error: publishResponse.description });
+        }
 
         await redis.srem('photos:available', fileId);
         await redis.sadd('photos:used', fileId);

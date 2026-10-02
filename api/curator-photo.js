@@ -1,4 +1,5 @@
 import { redis } from '../lib/redis.js';
+import crypto from 'crypto';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;
@@ -46,7 +47,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'no_photo_found' });
     }
 
-    // Пробуем отправить фото и логируем точный ответ от Telegram API
+    // Создаем короткий уникальный ключ для callback_data (вместо длинного file_id)
+    const shortKey = crypto.randomBytes(4).toString('hex');
+    await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 }); // храним 1 час
+
     const tgResponse = await tgRequest('sendPhoto', {
       chat_id: ADMIN_CHAT_ID,
       photo: randomFileId,
@@ -54,8 +58,8 @@ export default async function handler(req, res) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ Опубликовать', callback_data: `publish:${randomFileId}` },
-            { text: '❌ Отклонить', callback_data: `reject:${randomFileId}` },
+            { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
+            { text: '❌ Отклонить', callback_data: `reject:${shortKey}` },
           ],
         ],
       },

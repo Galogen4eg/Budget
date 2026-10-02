@@ -30,6 +30,11 @@ export default async function handler(req, res) {
       await tgRequest('sendMessage', {
         chat_id: ADMIN_CHAT_ID,
         text: '❌ Пул фотографий пуст. Загрузи новые изображения в канал-склад.',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Запросить фото (пусто)', callback_data: 'action:next' }]
+          ]
+        }
       });
       return res.status(200).json({ status: 'empty' });
     }
@@ -47,9 +52,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'no_photo_found' });
     }
 
-    // Создаем короткий уникальный ключ для callback_data (вместо длинного file_id)
     const shortKey = crypto.randomBytes(4).toString('hex');
-    await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 }); // храним 1 час
+    await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
 
     const tgResponse = await tgRequest('sendPhoto', {
       chat_id: ADMIN_CHAT_ID,
@@ -61,6 +65,9 @@ export default async function handler(req, res) {
             { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
             { text: '❌ Отклонить', callback_data: `reject:${shortKey}` },
           ],
+          [
+            { text: '⏭ Запросить следующее', callback_data: 'action:next' }
+          ]
         ],
       },
     });

@@ -24,7 +24,6 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
-    // 1. ПЕРЕХВАТ ФОТОГРАФИЙ ИЗ КАНАЛА-СКЛАДА
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -52,7 +51,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. ОБРАБОТКА ТЕКСТОВЫХ КОМАНД ОТ АДМИНА (/clear)
     const message = update.message;
     if (message && message.text) {
       if (ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
@@ -83,7 +81,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -97,7 +94,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Обработка запроса следующего фото по кнопке
       if (data === 'action:next') {
         const totalAvailable = await redis.scard('photos:available');
 
@@ -152,7 +148,6 @@ export default async function handler(req, res) {
       }
 
       if (action === 'publish') {
-        // Публикация в публичный канал с проверкой ответа от Telegram
         const publishResponse = await tgRequest('sendPhoto', {
           chat_id: TARGET_CHANNEL_ID,
           photo: fileId,

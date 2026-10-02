@@ -1,7 +1,7 @@
 import { redis } from '../lib/redis.js';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;         // Подтягивает твой личный ID
+const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 async function tgRequest(method, data) {
@@ -46,7 +46,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'no_photo_found' });
     }
 
-    await tgRequest('sendPhoto', {
+    // Пробуем отправить фото и логируем точный ответ от Telegram API
+    const tgResponse = await tgRequest('sendPhoto', {
       chat_id: ADMIN_CHAT_ID,
       photo: randomFileId,
       caption: `📸 Новое фото на модерацию (в очереди: ${totalAvailable} шт.)`,
@@ -59,6 +60,11 @@ export default async function handler(req, res) {
         ],
       },
     });
+
+    if (!tgResponse.ok) {
+      console.error('Telegram API Error:', tgResponse);
+      return res.status(500).json({ error: tgResponse.description || 'Telegram API failed to send photo' });
+    }
 
     return res.status(200).json({ ok: true, sent_for_moderation: randomFileId });
   } catch (error) {

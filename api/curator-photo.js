@@ -1,7 +1,7 @@
 import { redis } from '../lib/redis.js';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;         // Подтягивает твой личный ID
 const CRON_SECRET = process.env.CRON_SECRET;
 
 async function tgRequest(method, data) {
@@ -15,7 +15,6 @@ async function tgRequest(method, data) {
 }
 
 export default async function handler(req, res) {
-  // Защита от случайных вызовов извне
   if (CRON_SECRET) {
     const authHeader = req.headers['authorization'];
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
@@ -24,7 +23,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Получаем остаток доступных фото
     const totalAvailable = await redis.scard('photos:available');
 
     if (totalAvailable === 0) {
@@ -35,7 +33,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'empty' });
     }
 
-    // Если фото осталось 3 или меньше — шлём предупреждение
     if (totalAvailable <= 3) {
       await tgRequest('sendMessage', {
         chat_id: ADMIN_CHAT_ID,
@@ -43,14 +40,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Берём случайное фото из множества (SRANDMEMBER не удаляет элемент сразу)
     const randomFileId = await redis.srandmember('photos:available');
 
     if (!randomFileId) {
       return res.status(200).json({ status: 'no_photo_found' });
     }
 
-    // Отправляем админу на премодерацию с инлайн-кнопками
     await tgRequest('sendPhoto', {
       chat_id: ADMIN_CHAT_ID,
       photo: randomFileId,

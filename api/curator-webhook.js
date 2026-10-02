@@ -23,6 +23,7 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
+    // 1. ПЕРЕХВАТ ФОТОГРАФИЙ ИЗ КАНАЛА-СКЛАДА
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -45,6 +46,34 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
+    // 2. ОБРАБОТКА ТЕКСТОВЫХ КОМАНД ОТ АДМИНА (/clear или /clean)
+    const message = update.message;
+    if (message && message.text) {
+      if (ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
+        const text = message.text.trim();
+
+        if (text === '/clear' || text === '/clean') {
+          await redis.del('photos:available');
+          await redis.del('photos:used');
+          await redis.del('photos:rejected');
+
+          // Удаляем временные ключи премодерации, если они есть
+          const keys = await redis.keys('photo:pending:*');
+          if (keys && keys.length > 0) {
+            await redis.del(...keys);
+          }
+
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '🗑 Пул фотографий и история полностью очищены.',
+          });
+
+          return res.status(200).json({ ok: true, cleared: true });
+        }
+      }
+    }
+
+    // 3. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ ПРЕМОДЕРАЦИИ
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -71,7 +100,6 @@ export default async function handler(req, res) {
       }
 
       if (action === 'publish') {
-        // Публикуем фото в публичный канал
         await tgRequest('sendPhoto', {
           chat_id: TARGET_CHANNEL_ID,
           photo: fileId,
@@ -121,7 +149,7 @@ export default async function handler(req, res) {
         if (remaining <= 3) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: `⚠️️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
+            text: `⚠️ Внимание! На складе осталось всего ${remaining} фото. Пора загрузить новые.`,
           });
         }
       }

@@ -1,4 +1,5 @@
 import { redis } from '../lib/redis.js';
+import crypto from 'crypto';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;
@@ -40,13 +41,18 @@ export default async function handler(req, res) {
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
           text: `📥 Фото добавлено в пул.\nВсего в наличии: ${totalAvailable} шт.`,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭ Запросить фото на модерацию', callback_data: 'action:next' }]
+            ]
+          }
         });
       }
 
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. ОБРАБОТКА ТЕКСТОВЫХ КОМАНД ОТ АДМИНА (/clear или /clean)
+    // 2. ОБРАБОТКА ТЕКСТОВЫХ КОМАНД ОТ АДМИНА (/clear)
     const message = update.message;
     if (message && message.text) {
       if (ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
@@ -57,7 +63,6 @@ export default async function handler(req, res) {
           await redis.del('photos:used');
           await redis.del('photos:rejected');
 
-          // Удаляем временные ключи премодерации, если они есть
           const keys = await redis.keys('photo:pending:*');
           if (keys && keys.length > 0) {
             await redis.del(...keys);
@@ -66,6 +71,11 @@ export default async function handler(req, res) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: '🗑 Пул фотографий и история полностью очищены.',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '⏭ Запросить фото на модерацию', callback_data: 'action:next' }]
+              ]
+            }
           });
 
           return res.status(200).json({ ok: true, cleared: true });
@@ -73,7 +83,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ ПРЕМОДЕРАЦИИ
+    // 3. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -84,6 +94,48 @@ export default async function handler(req, res) {
           text: 'Доступ запрещён.',
           show_alert: true,
         });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Обработка запроса следующего фото по кнопке
+      if (data === 'action:next') {
+        const totalAvailable = await redis.scard('photos:available');
+
+        if (totalAvailable === 0) {
+          await tgRequest('answerCallbackQuery', {
+            callback_query_id: callbackId,
+            text: 'Пул фотографий пуст!',
+            show_alert: true,
+          });
+          return res.status(200).json({ ok: true });
+        }
+
+        const randomFileId = await redis.srandmember('photos:available');
+        const shortKey = crypto.randomBytes(4).toString('hex');
+        await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
+
+        await tgRequest('sendPhoto', {
+          chat_id: ADMIN_CHAT_ID,
+          photo: randomFileId,
+          caption: `📸 Новое фото на модерацию (в очереди: ${totalAvailable} шт.)`,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
+                { text: '❌ Отклонить', callback_data: `reject:${shortKey}` },
+              ],
+              [
+                { text: '⏭ Запросить следующее', callback_data: 'action:next' }
+              ]
+            ],
+          },
+        });
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Загружаю фото...',
+        });
+
         return res.status(200).json({ ok: true });
       }
 
@@ -118,7 +170,11 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           caption: '✅ Опубликовано в публичный канал.',
-          reply_markup: { inline_keyboard: [] },
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭ Запросить следующее фото', callback_data: 'action:next' }]
+            ]
+          },
         });
 
         const remaining = await redis.scard('photos:available');
@@ -142,7 +198,11 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           caption: '❌ Отклонено модератором.',
-          reply_markup: { inline_keyboard: [] },
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭ Запросить следующее фото', callback_data: 'action:next' }]
+            ]
+          },
         });
 
         const remaining = await redis.scard('photos:available');

@@ -21,14 +21,13 @@ async function setupBotCommands() {
     commands: [
       { command: 'start', description: 'Запустить / Главное меню' },
       { command: 'stop', description: 'Остановить работу бота' },
-      { command: 'clear', description: 'Полная очистка базы' }
-    ]
+      { command: 'clear', description: 'Полная очистка базы' },
+    ],
   });
 }
 
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
-  // Включено по умолчанию, если ключ пуст или равен '1'
   const isEnabled = timerState === null || timerState === '1' || timerState === 'true';
   const timerButtonText = isEnabled 
     ? '🟢 Автопостинг: ВКЛ' 
@@ -38,18 +37,18 @@ async function getMainMenuKeyboard() {
     inline_keyboard: [
       [
         { text: '📰 Новости', callback_data: 'menu:news' },
-        { text: '🖼 Запросить изображение', callback_data: 'action:next' }
+        { text: '🖼 Запросить изображение', callback_data: 'action:next' },
       ],
       [
-        { text: timerButtonText, callback_data: 'timer:toggle' }
+        { text: timerButtonText, callback_data: 'timer:toggle' },
       ],
       [
-        { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' }
+        { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' },
       ],
       [
-        { text: '🛑 Стоп (выключить всё)', callback_data: 'bot:stop' }
-      ]
-    ]
+        { text: '🛑 Стоп (выключить всё)', callback_data: 'bot:stop' },
+      ],
+    ],
   };
 }
 
@@ -85,7 +84,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений администратора
+    // 2. Обработка входящих сообщений
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -105,10 +104,10 @@ export default async function handler(req, res) {
             inline_keyboard: [
               [
                 { text: '✅ Готово (ввести текст)', callback_data: 'album:done' },
-                { text: '🗑 Очистить выбор', callback_data: 'album:clear' }
-              ]
-            ]
-          }
+                { text: '🗑 Очистить выбор', callback_data: 'album:clear' },
+              ],
+            ],
+          },
         });
 
         return res.status(200).json({ ok: true, batch_count: count });
@@ -139,9 +138,9 @@ export default async function handler(req, res) {
             text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }]
-              ]
-            }
+                [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }],
+              ],
+            },
           });
           return res.status(200).json({ ok: true });
         }
@@ -291,7 +290,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий на инлайн-кнопки
+    // 3. Обработка инлайн-кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -305,7 +304,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель автопостинга
+      // Переключатель автопостинга (инлайн-тумблер)
       if (data === 'timer:toggle') {
         const current = await redis.get('settings:timer_enabled');
         const nextState = (current === null || current === '1' || current === 'true') ? '0' : '1';
@@ -324,7 +323,7 @@ export default async function handler(req, res) {
           reply_markup: newKeyboard,
         });
 
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ ok: true, state: nextState });
       }
 
       // Остановка бота
@@ -345,9 +344,9 @@ export default async function handler(req, res) {
           text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }]
-            ]
-          }
+              [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }],
+            ],
+          },
         });
 
         return res.status(200).json({ ok: true });
@@ -382,10 +381,10 @@ export default async function handler(req, res) {
             inline_keyboard: [
               [
                 { text: '⚠️ Да, вернуть в пул', callback_data: 'reset:confirm' },
-                { text: 'Отмена', callback_data: 'reset:cancel' }
-              ]
-            ]
-          }
+                { text: 'Отмена', callback_data: 'reset:cancel' },
+              ],
+            ],
+          },
         });
         return res.status(200).json({ ok: true });
       }
@@ -486,13 +485,13 @@ export default async function handler(req, res) {
             inline_keyboard: [
               [
                 { text: 'Источник 1', callback_data: 'news:src1' },
-                { text: 'Источник 2', callback_data: 'news:src2' }
+                { text: 'Источник 2', callback_data: 'news:src2' },
               ],
               [
-                { text: '◀️ Назад в меню', callback_data: 'menu:back' }
-              ]
-            ]
-          }
+                { text: '◀️ Назад в меню', callback_data: 'menu:back' },
+              ],
+            ],
+          },
         });
         return res.status(200).json({ ok: true });
       }
@@ -534,8 +533,8 @@ export default async function handler(req, res) {
                 { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
               ],
               [
-                { text: '🖼 Другое изображение', callback_data: 'action:next' }
-              ]
+                { text: '🖼 Другое изображение', callback_data: 'action:next' },
+              ],
             ],
           },
         });
@@ -588,8 +587,8 @@ export default async function handler(req, res) {
           caption: '⏸ Отложено (осталось в доступном пуле).',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '🖼 Запросить изображение', callback_data: 'action:next' }]
-            ]
+              [{ text: '🖼 Запросить изображение', callback_data: 'action:next' }],
+            ],
           },
         });
       }

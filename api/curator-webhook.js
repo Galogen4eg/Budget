@@ -36,7 +36,6 @@ async function setupBotCommands() {
   });
 }
 
-// Компактная двухуровневая клавиатура (2 сверху, 3 снизу)
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
   const isEnabled = isTimerActive(timerState);
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
-    // 1. Приём фото из канала-склада
+    // 1. Приём новых фото из канала-склада
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -156,6 +155,7 @@ export default async function handler(req, res) {
           await redis.del('photos:rejected');
           await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
           await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+          await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
           const keys = await redis.keys('photo:*');
           if (keys && keys.length > 0) {
@@ -164,13 +164,14 @@ export default async function handler(req, res) {
 
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: '🗑 Пул фотографий и сессии полностью очищены.',
+            text: '🗑 Пул доступных фото, история публикаций и сессии полностью очищены.',
             reply_markup: await getMainMenuKeyboard(),
           });
 
           return res.status(200).json({ ok: true, cleared: true });
         }
 
+        // Публикация альбома с текстом
         const isWaitingAlbumText = await redis.get(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         if (isWaitingAlbumText) {
           const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
@@ -210,7 +211,7 @@ export default async function handler(req, res) {
             console.error('Failed to publish album:', publishResponse);
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
-              text: `Ошибка публикации альбома: ${publishResponse.description}`,
+              text: `Ошибка публикации: ${publishResponse.description}`,
               reply_markup: await getMainMenuKeyboard(),
             });
             return res.status(200).json({ ok: false, error: publishResponse.description });
@@ -241,6 +242,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true });
         }
 
+        // Одиночная публикация с текстом
         const waitingShortKey = await redis.get(`admin:waiting_text:${ADMIN_CHAT_ID}`);
         if (waitingShortKey) {
           const fileId = await redis.get(`photo:pending:${waitingShortKey}`);
@@ -295,7 +297,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка кнопок
+    // 3. Обработка callback-кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -309,7 +311,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель таймера
+      // Переключатель таймера автопостинга
       if (data === 'timer:toggle') {
         const rawState = await redis.get('settings:timer_enabled');
         const currentlyActive = isTimerActive(rawState);
@@ -380,17 +382,24 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос подтверждения очистки
+      // Меню сброса (истории used или очистки пула available)
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
+        const availCount = await redis.scard('photos:available');
+
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `⚠️ В базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
+          text: `⚙️ Управление базой фотографий:\n• В наличии в пуле: ${availCount} шт.\n• Опубликовано ранее: ${usedCount} шт.`,
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚠️ Да, вернуть', callback_data: 'reset:confirm' },
+                { text: '♻️ Вернуть отправленные в пул', callback_data: 'reset:confirm' },
+              ],
+              [
+                { text: '🧹 Очистить весь пул (склад пуст)', callback_data: 'reset:pool_confirm' },
+              ],
+              [
                 { text: 'Отмена', callback_data: 'reset:cancel' },
               ],
             ],
@@ -399,6 +408,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Возврат опубликованных фото в доступный пул
       if (data === 'reset:confirm') {
         const usedPhotos = await redis.smembers('photos:used');
 
@@ -424,6 +434,28 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Полное обнуление доступного пула (когда склад в Telegram очищен)
+      if (data === 'reset:pool_confirm') {
+        await redis.del('photos:available');
+        await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
+        await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+        await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Пул очищен!',
+        });
+
+        await tgRequest('editMessageText', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          text: '🧹 Пул доступных фото очищен до 0. Загрузите новые фотографии в канал-склад.',
+          reply_markup: await getMainMenuKeyboard(),
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
       if (data === 'reset:cancel') {
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
@@ -435,6 +467,61 @@ export default async function handler(req, res) {
           message_id: message.message_id,
           text: 'Очистка отменена.',
           reply_markup: await getMainMenuKeyboard(),
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Запрос случайного фото с авто-валидацией и чисткой мертвых file_id
+      if (data === 'action:next') {
+        let sent = false;
+
+        while (!sent) {
+          const totalAvailable = await redis.scard('photos:available');
+
+          if (totalAvailable === 0) {
+            await tgRequest('answerCallbackQuery', {
+              callback_query_id: callbackId,
+              text: 'В хранилище не осталось доступных фото!',
+              show_alert: true,
+            });
+            return res.status(200).json({ ok: true });
+          }
+
+          const randomFileId = await redis.srandmember('photos:available');
+          const shortKey = crypto.randomBytes(4).toString('hex');
+
+          const sendRes = await tgRequest('sendPhoto', {
+            chat_id: ADMIN_CHAT_ID,
+            photo: randomFileId,
+            caption: `📸 Фото на модерацию (в пуле: ${totalAvailable} шт.)`,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
+                  { text: '❌ Пропустить', callback_data: `reject:${shortKey}` },
+                ],
+                [
+                  { text: '🖼 Другое изображение', callback_data: 'action:next' },
+                ],
+              ],
+            },
+          });
+
+          // Если фото удалено в Telegram или file_id стал невалидным
+          if (!sendRes.ok) {
+            console.warn(`Фото ${randomFileId} недоступно в Telegram. Удаляем из Redis:`, sendRes.description);
+            await redis.srem('photos:available', randomFileId);
+            continue;
+          }
+
+          await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
+          sent = true;
+        }
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Изображение отправлено',
         });
 
         return res.status(200).json({ ok: true });
@@ -498,7 +585,7 @@ export default async function handler(req, res) {
                 { text: 'Источник 2', callback_data: 'news:src2' },
               ],
               [
-                { text: '◀️ Назад в меню', callback_data: 'menu:back' },
+                { text: '◀️️ Назад в меню', callback_data: 'menu:back' },
               ],
             ],
           },
@@ -510,50 +597,9 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: '🎛 Панель управления:\nВыберите действие:',
+          text: '🎛 Главное меню:',
           reply_markup: await getMainMenuKeyboard(),
         });
-        return res.status(200).json({ ok: true });
-      }
-
-      if (data === 'action:next') {
-        const totalAvailable = await redis.scard('photos:available');
-
-        if (totalAvailable === 0) {
-          await tgRequest('answerCallbackQuery', {
-            callback_query_id: callbackId,
-            text: 'Пул фотографий пуст!',
-            show_alert: true,
-          });
-          return res.status(200).json({ ok: true });
-        }
-
-        const randomFileId = await redis.srandmember('photos:available');
-        const shortKey = crypto.randomBytes(4).toString('hex');
-        await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
-
-        await tgRequest('sendPhoto', {
-          chat_id: ADMIN_CHAT_ID,
-          photo: randomFileId,
-          caption: `📸 Фото на модерацию (в пуле: ${totalAvailable} шт.)`,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
-                { text: '❌ Пропустить', callback_data: `reject:${shortKey}` },
-              ],
-              [
-                { text: '🖼 Другое изображение', callback_data: 'action:next' },
-              ],
-            ],
-          },
-        });
-
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Изображение отправлено',
-        });
-
         return res.status(200).json({ ok: true });
       }
 

@@ -16,7 +16,6 @@ async function tgRequest(method, data) {
   return res.json();
 }
 
-// Регистрация постоянных кнопок команд в интерфейсе Telegram
 async function setupBotCommands() {
   await tgRequest('setMyCommands', {
     commands: [
@@ -29,7 +28,8 @@ async function setupBotCommands() {
 
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
-  const isEnabled = timerState === null || timerState === 'true';
+  // Включено по умолчанию, если ключ пуст или равен '1'
+  const isEnabled = timerState === null || timerState === '1' || timerState === 'true';
   const timerButtonText = isEnabled 
     ? '🟢 Автопостинг: ВКЛ' 
     : '🔴 Автопостинг: ВЫКЛ';
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений
+    // 2. Обработка входящих сообщений администратора
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -117,7 +117,6 @@ export default async function handler(req, res) {
       if (message.text) {
         const text = message.text.trim();
 
-        // Команда старта / перезапуска
         if (text === '/start' || text === '/menu') {
           await setupBotCommands();
 
@@ -129,9 +128,8 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true });
         }
 
-        // Команда полной остановки
         if (text === '/stop') {
-          await redis.set('settings:timer_enabled', 'false');
+          await redis.set('settings:timer_enabled', '0');
           await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
           await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
           await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
@@ -293,7 +291,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка кнопок
+    // 3. Обработка нажатий на инлайн-кнопки
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -307,9 +305,31 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Кнопка Стоп из интерфейса
+      // Переключатель автопостинга
+      if (data === 'timer:toggle') {
+        const current = await redis.get('settings:timer_enabled');
+        const nextState = (current === null || current === '1' || current === 'true') ? '0' : '1';
+        await redis.set('settings:timer_enabled', nextState);
+
+        const newKeyboard = await getMainMenuKeyboard();
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: nextState === '1' ? 'Автопостинг включен 🟢' : 'Автопостинг выключен 🔴',
+        });
+
+        await tgRequest('editMessageReplyMarkup', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          reply_markup: newKeyboard,
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Остановка бота
       if (data === 'bot:stop') {
-        await redis.set('settings:timer_enabled', 'false');
+        await redis.set('settings:timer_enabled', '0');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
@@ -333,9 +353,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Кнопка Запуск из сообщения остановки
+      // Запуск бота
       if (data === 'bot:start') {
-        await redis.set('settings:timer_enabled', 'true');
+        await redis.set('settings:timer_enabled', '1');
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
@@ -346,29 +366,6 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           text: '🎛 Бот запущен. Выберите нужное действие:',
-          reply_markup: await getMainMenuKeyboard(),
-        });
-
-        return res.status(200).json({ ok: true });
-      }
-
-      // Переключатель автопостинга
-      if (data === 'timer:toggle') {
-        const current = await redis.get('settings:timer_enabled');
-        const isCurrentlyActive = current === null || current === 'true';
-        const nextState = isCurrentlyActive ? 'false' : 'true';
-        
-        await redis.set('settings:timer_enabled', nextState);
-
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: nextState === 'true' ? 'Автопостинг включен' : 'Автопостинг выключен',
-        });
-
-        await tgRequest('editMessageText', {
-          chat_id: message.chat.id,
-          message_id: message.message_id,
-          text: '🎛 Панель управления ботом:\nВыберите нужное действие:',
           reply_markup: await getMainMenuKeyboard(),
         });
 
@@ -492,7 +489,7 @@ export default async function handler(req, res) {
                 { text: 'Источник 2', callback_data: 'news:src2' }
               ],
               [
-                { text: '◀️️ Назад в меню', callback_data: 'menu:back' }
+                { text: '◀️ Назад в меню', callback_data: 'menu:back' }
               ]
             ]
           }

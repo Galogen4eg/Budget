@@ -187,17 +187,19 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true });
           }
 
+          const safeCaption = text ? text.substring(0, 1024) : undefined;
           let publishResponse;
+
           if (fileIds.length === 1) {
             publishResponse = await tgRequest('sendPhoto', {
               chat_id: TARGET_CHANNEL_ID,
               photo: fileIds[0],
-              caption: text ? text.substring(0, 1024) : undefined,
+              caption: safeCaption,
             });
           } else {
             const mediaGroup = fileIds.slice(0, 10).map((id, index) => {
               const item = { type: 'photo', media: id };
-              if (index === 0) item.caption = text ? text.substring(0, 1024) : undefined;
+              if (index === 0 && safeCaption) item.caption = safeCaption;
               return item;
             });
 
@@ -217,9 +219,13 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
 
+          // Переносим в used только если фото изначально принадлежало складу
           for (const fid of fileIds) {
-            await redis.srem('photos:available', fid);
-            await redis.sadd('photos:used', fid);
+            const isFromPool = await redis.sismember('photos:available', fid);
+            if (isFromPool) {
+              await redis.srem('photos:available', fid);
+              await redis.sadd('photos:used', fid);
+            }
           }
 
           await redis.del(batchKey);
@@ -257,10 +263,11 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true });
           }
 
+          const safeCaption = text ? text.substring(0, 1024) : undefined;
           const publishResponse = await tgRequest('sendPhoto', {
             chat_id: TARGET_CHANNEL_ID,
             photo: fileId,
-            caption: text ? text.substring(0, 1024) : undefined,
+            caption: safeCaption,
           });
 
           if (!publishResponse.ok) {
@@ -311,7 +318,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель таймера автопостинга
       if (data === 'timer:toggle') {
         const rawState = await redis.get('settings:timer_enabled');
         const currentlyActive = isTimerActive(rawState);
@@ -337,7 +343,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, state: nextState });
       }
 
-      // Остановка бота
       if (data === 'bot:stop') {
         await redis.set('settings:timer_enabled', '0');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
@@ -363,7 +368,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запуск бота
       if (data === 'bot:start') {
         await redis.set('settings:timer_enabled', '1');
 
@@ -382,7 +386,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Меню сброса (истории used или очистки пула available)
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
         const availCount = await redis.scard('photos:available');
@@ -393,22 +396,15 @@ export default async function handler(req, res) {
           text: `⚙️ Управление базой фотографий:\n• В наличии в пуле: ${availCount} шт.\n• Опубликовано ранее: ${usedCount} шт.`,
           reply_markup: {
             inline_keyboard: [
-              [
-                { text: '♻️ Вернуть отправленные в пул', callback_data: 'reset:confirm' },
-              ],
-              [
-                { text: '🧹 Очистить весь пул (склад пуст)', callback_data: 'reset:pool_confirm' },
-              ],
-              [
-                { text: 'Отмена', callback_data: 'reset:cancel' },
-              ],
+              [{ text: '♻️ Вернуть отправленные в пул', callback_data: 'reset:confirm' }],
+              [{ text: '🧹 Очистить весь пул (склад пуст)', callback_data: 'reset:pool_confirm' }],
+              [{ text: 'Отмена', callback_data: 'reset:cancel' }],
             ],
           },
         });
         return res.status(200).json({ ok: true });
       }
 
-      // Возврат опубликованных фото в доступный пул
       if (data === 'reset:confirm') {
         const usedPhotos = await redis.smembers('photos:used');
 
@@ -434,7 +430,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Полное обнуление доступного пула (когда склад в Telegram очищен)
       if (data === 'reset:pool_confirm') {
         await redis.del('photos:available');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
@@ -472,11 +467,16 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос случайного фото с авто-валидацией и чисткой мертвых file_id
+      // Запрос случайного фото
       if (data === 'action:next') {
-        let sent = false;
+        // Сбрасываем ожидание текста, если админ передумал и запросил новое фото
+        await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
-        while (!sent) {
+        let sent = false;
+        let attempts = 0;
+
+        while (!sent && attempts < 10) {
+          attempts++;
           const totalAvailable = await redis.scard('photos:available');
 
           if (totalAvailable === 0) {
@@ -508,11 +508,22 @@ export default async function handler(req, res) {
             },
           });
 
-          // Если фото удалено в Telegram или file_id стал невалидным
           if (!sendRes.ok) {
-            console.warn(`Фото ${randomFileId} недоступно в Telegram. Удаляем из Redis:`, sendRes.description);
-            await redis.srem('photos:available', randomFileId);
-            continue;
+            // Удаляем из пула ТОЛЬКО если Telegram вернул ошибку 400 (несуществующий/удаленный file_id)
+            if (sendRes.error_code === 400) {
+              console.warn(`Фото ${randomFileId} невалидно, удаляем из базы:`, sendRes.description);
+              await redis.srem('photos:available', randomFileId);
+              continue;
+            } else {
+              // При сетевом сбое Telegram (5xx, 429) прерываем цикл, чтобы не стереть базу
+              console.error('Сбой Telegram API, прерываем выборку:', sendRes.description);
+              await tgRequest('answerCallbackQuery', {
+                callback_query_id: callbackId,
+                text: 'Сбой сети Telegram. Попробуйте позже.',
+                show_alert: true,
+              });
+              return res.status(200).json({ ok: false });
+            }
           }
 
           await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
@@ -581,8 +592,7 @@ export default async function handler(req, res) {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: 'Источник 1', callback_data: 'news:src1' },
-                { text: 'Источник 2', callback_data: 'news:src2' },
+                { text: 'PetaPixel', callback_data: 'news:petapixel' },
               ],
               [
                 { text: '◀ Назад в меню', callback_data: 'menu:back' },
@@ -590,6 +600,19 @@ export default async function handler(req, res) {
             ],
           },
         });
+        return res.status(200).json({ ok: true });
+      }
+
+      if (data === 'news:petapixel') {
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Генерация новости запущена...',
+        });
+
+        // Запуск генерации черновика новостей
+        const curatorUrl = `https://${process.env.VERCEL_PROJECT_URL || req.headers.host}/api/curator-find`;
+        fetch(curatorUrl).catch(e => console.error('Ошибка вызова curator-find:', e));
+
         return res.status(200).json({ ok: true });
       }
 
@@ -626,11 +649,12 @@ export default async function handler(req, res) {
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          caption: '✍️ Отправьте текст для этого фото следующим сообщением.',
+          caption: '✍️️ Отправьте текст для этого фото следующим сообщением.',
           reply_markup: { inline_keyboard: [] },
         });
       } else if (action === 'reject') {
         await redis.del(`photo:pending:${shortKey}`);
+        await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,

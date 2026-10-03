@@ -16,12 +16,20 @@ async function tgRequest(method, data) {
   return res.json();
 }
 
-function getMainMenuKeyboard() {
+async function getMainMenuKeyboard() {
+  const isTimerActive = await redis.get('settings:timer_enabled');
+  const timerButtonText = isTimerActive === '0' 
+    ? '🔴 Автопостинг: ВЫКЛ' 
+    : '🟢 Автопостинг: ВКЛ';
+
   return {
     inline_keyboard: [
       [
         { text: '📰 Новости', callback_data: 'menu:news' },
         { text: '🖼 Запросить изображение', callback_data: 'action:next' }
+      ],
+      [
+        { text: timerButtonText, callback_data: 'timer:toggle' }
       ],
       [
         { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' }
@@ -55,7 +63,7 @@ export default async function handler(req, res) {
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
           text: `Фото добавлено в пул.\nВсего в наличии: ${totalAvailable} шт.`,
-          reply_markup: getMainMenuKeyboard(),
+          reply_markup: await getMainMenuKeyboard(),
         });
       }
 
@@ -98,7 +106,7 @@ export default async function handler(req, res) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: '🎛 Панель управления ботом:\nВыберите нужное действие:',
-            reply_markup: getMainMenuKeyboard(),
+            reply_markup: await getMainMenuKeyboard(),
           });
           return res.status(200).json({ ok: true });
         }
@@ -118,7 +126,7 @@ export default async function handler(req, res) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: '🗑 Пул фотографий и сессии полностью очищены.',
-            reply_markup: getMainMenuKeyboard(),
+            reply_markup: await getMainMenuKeyboard(),
           });
 
           return res.status(200).json({ ok: true, cleared: true });
@@ -134,7 +142,7 @@ export default async function handler(req, res) {
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: '❌ Корзина пуста. Перешлите фотографии заново.',
-              reply_markup: getMainMenuKeyboard(),
+              reply_markup: await getMainMenuKeyboard(),
             });
             return res.status(200).json({ ok: true });
           }
@@ -164,7 +172,7 @@ export default async function handler(req, res) {
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: `Ошибка публикации альбома: ${publishResponse.description}`,
-              reply_markup: getMainMenuKeyboard(),
+              reply_markup: await getMainMenuKeyboard(),
             });
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
@@ -180,7 +188,7 @@ export default async function handler(req, res) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: `✅ Пост (${fileIds.length} фото) успешно опубликован в канал!`,
-            reply_markup: getMainMenuKeyboard(),
+            reply_markup: await getMainMenuKeyboard(),
           });
 
           const remaining = await redis.scard('photos:available');
@@ -203,7 +211,7 @@ export default async function handler(req, res) {
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: 'Срок действия сессии истёк. Запросите фото заново.',
-              reply_markup: getMainMenuKeyboard(),
+              reply_markup: await getMainMenuKeyboard(),
             });
             return res.status(200).json({ ok: true });
           }
@@ -219,7 +227,7 @@ export default async function handler(req, res) {
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: `Ошибка публикации: ${publishResponse.description}`,
-              reply_markup: getMainMenuKeyboard(),
+              reply_markup: await getMainMenuKeyboard(),
             });
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
@@ -232,7 +240,7 @@ export default async function handler(req, res) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: '✅ Фото с описанием успешно опубликовано в канал!',
-            reply_markup: getMainMenuKeyboard(),
+            reply_markup: await getMainMenuKeyboard(),
           });
 
           const remaining = await redis.scard('photos:available');
@@ -262,13 +270,32 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос подтверждения очистки истории отправленных фото
+      // Переключатель автопостинга (ВКЛ / ВЫКЛ)
+      if (data === 'timer:toggle') {
+        const current = await redis.get('settings:timer_enabled');
+        const nextState = current === '0' ? '1' : '0';
+        await redis.set('settings:timer_enabled', nextState);
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: nextState === '1' ? 'Автопостинг включен' : 'Автопостинг выключен',
+        });
+
+        await tgRequest('editMessageReplyMarkup', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          reply_markup: await getMainMenuKeyboard(),
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `⚠️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
+          text: `⚠️️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
           reply_markup: {
             inline_keyboard: [
               [
@@ -281,7 +308,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Подтверждение возврата использованных фото
       if (data === 'reset:confirm') {
         const usedPhotos = await redis.smembers('photos:used');
 
@@ -301,13 +327,12 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           text: `✅ История очищена. Все фото возвращены.\nВсего доступно к публикации: ${totalAvailable} шт.`,
-          reply_markup: getMainMenuKeyboard(),
+          reply_markup: await getMainMenuKeyboard(),
         });
 
         return res.status(200).json({ ok: true });
       }
 
-      // Отмена сброса истории
       if (data === 'reset:cancel') {
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
@@ -318,7 +343,7 @@ export default async function handler(req, res) {
           chat_id: message.chat.id,
           message_id: message.message_id,
           text: 'Очистка отменена.',
-          reply_markup: getMainMenuKeyboard(),
+          reply_markup: await getMainMenuKeyboard(),
         });
 
         return res.status(200).json({ ok: true });
@@ -360,7 +385,7 @@ export default async function handler(req, res) {
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
           text: '🗑 Выбор сброшен. Можете переслать новые фото.',
-          reply_markup: getMainMenuKeyboard(),
+          reply_markup: await getMainMenuKeyboard(),
         });
 
         return res.status(200).json({ ok: true });
@@ -395,7 +420,7 @@ export default async function handler(req, res) {
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
           text: '🎛 Главное меню:',
-          reply_markup: getMainMenuKeyboard(),
+          reply_markup: await getMainMenuKeyboard(),
         });
         return res.status(200).json({ ok: true });
       }

@@ -16,9 +16,19 @@ async function tgRequest(method, data) {
   return res.json();
 }
 
+// Регистрация постоянных кнопок команд в интерфейсе Telegram
+async function setupBotCommands() {
+  await tgRequest('setMyCommands', {
+    commands: [
+      { command: 'start', description: 'Запустить / Главное меню' },
+      { command: 'stop', description: 'Остановить работу бота' },
+      { command: 'clear', description: 'Полная очистка базы' }
+    ]
+  });
+}
+
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
-  // Включен, если ключа нет или явно стоит 'true'
   const isEnabled = timerState === null || timerState === 'true';
   const timerButtonText = isEnabled 
     ? '🟢 Автопостинг: ВКЛ' 
@@ -35,6 +45,9 @@ async function getMainMenuKeyboard() {
       ],
       [
         { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' }
+      ],
+      [
+        { text: '🛑 Стоп (выключить всё)', callback_data: 'bot:stop' }
       ]
     ]
   };
@@ -72,7 +85,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений в ЛС от админа
+    // 2. Обработка входящих сообщений
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -104,11 +117,33 @@ export default async function handler(req, res) {
       if (message.text) {
         const text = message.text.trim();
 
+        // Команда старта / перезапуска
         if (text === '/start' || text === '/menu') {
+          await setupBotCommands();
+
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: '🎛 Панель управления ботом:\nВыберите нужное действие:',
+            text: '🎛 Бот запущен. Выберите нужное действие:',
             reply_markup: await getMainMenuKeyboard(),
+          });
+          return res.status(200).json({ ok: true });
+        }
+
+        // Команда полной остановки
+        if (text === '/stop') {
+          await redis.set('settings:timer_enabled', 'false');
+          await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
+          await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+          await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }]
+              ]
+            }
           });
           return res.status(200).json({ ok: true });
         }
@@ -258,7 +293,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий на инлайн-кнопки
+    // 3. Обработка кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -269,6 +304,51 @@ export default async function handler(req, res) {
           text: 'Доступ запрещён.',
           show_alert: true,
         });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Кнопка Стоп из интерфейса
+      if (data === 'bot:stop') {
+        await redis.set('settings:timer_enabled', 'false');
+        await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
+        await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+        await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Бот остановлен',
+        });
+
+        await tgRequest('editMessageText', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }]
+            ]
+          }
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Кнопка Запуск из сообщения остановки
+      if (data === 'bot:start') {
+        await redis.set('settings:timer_enabled', 'true');
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Бот запущен',
+        });
+
+        await tgRequest('editMessageText', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          text: '🎛 Бот запущен. Выберите нужное действие:',
+          reply_markup: await getMainMenuKeyboard(),
+        });
+
         return res.status(200).json({ ok: true });
       }
 
@@ -285,7 +365,6 @@ export default async function handler(req, res) {
           text: nextState === 'true' ? 'Автопостинг включен' : 'Автопостинг выключен',
         });
 
-        // Надежное обновление текста и кнопок сообщения через editMessageText
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
           message_id: message.message_id,
@@ -413,7 +492,7 @@ export default async function handler(req, res) {
                 { text: 'Источник 2', callback_data: 'news:src2' }
               ],
               [
-                { text: '◀️ Назад в меню', callback_data: 'menu:back' }
+                { text: '◀️️ Назад в меню', callback_data: 'menu:back' }
               ]
             ]
           }

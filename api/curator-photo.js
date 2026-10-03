@@ -24,9 +24,9 @@ export default async function handler(req, res) {
   }
 
   try {
-   // Проверка активности таймера в Redis
+    // Проверка статуса: если отключен ('0' или 'false'), запрос отбрасывается
     const timerState = await redis.get('settings:timer_enabled');
-    if (timerState === 'false') {
+    if (timerState === '0' || timerState === 'false') {
       return res.status(200).json({ status: 'timer_disabled' });
     }
 
@@ -57,8 +57,8 @@ export default async function handler(req, res) {
             { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
           ],
           [
-            { text: '🖼 Другое изображение', callback_data: 'action:next' }
-          ]
+            { text: '🖼 Другое изображение', callback_data: 'action:next' },
+          ],
         ],
       },
     });

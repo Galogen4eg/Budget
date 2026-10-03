@@ -1,14 +1,15 @@
 {
+  "version": 2,
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/curator-find",
-      "schedule": "0 10 * * *"
+      "source": "/((?!api/|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ]
 }

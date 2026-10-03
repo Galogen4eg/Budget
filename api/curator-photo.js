@@ -16,7 +16,6 @@ async function tgRequest(method, data) {
 }
 
 export default async function handler(req, res) {
-  // Защита эндпоинта от посторонних вызовов
   if (CRON_SECRET) {
     const authHeader = req.headers['authorization'];
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
@@ -25,6 +24,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Проверка активности таймера в Redis
+    const isTimerActive = await redis.get('settings:timer_enabled');
+    if (isTimerActive === '0') {
+      return res.status(200).json({ status: 'timer_disabled' });
+    }
+
     const totalAvailable = await redis.scard('photos:available');
 
     if (totalAvailable === 0) {

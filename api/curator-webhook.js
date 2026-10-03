@@ -16,11 +16,14 @@ async function tgRequest(method, data) {
   return res.json();
 }
 
+// Единая генерация инлайн-клавиатуры главного меню
 async function getMainMenuKeyboard() {
   const isTimerActive = await redis.get('settings:timer_enabled');
-  const timerButtonText = isTimerActive === '0' 
-    ? '🔴 Автопостинг: ВЫКЛ' 
-    : '🟢 Автопостинг: ВКЛ';
+  // Если ключа еще нет в базе, считаем его включенным ('1') по умолчанию
+  const isEnabled = isTimerActive === null || isTimerActive === '1';
+  const timerButtonText = isEnabled 
+    ? '🟢 Автопостинг: ВКЛ' 
+    : '🔴 Автопостинг: ВЫКЛ';
 
   return {
     inline_keyboard: [
@@ -70,7 +73,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка сообщений от администратора
+    // 2. Обработка входящих текстовых сообщений
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -103,6 +106,14 @@ export default async function handler(req, res) {
         const text = message.text.trim();
 
         if (text === '/start' || text === '/menu') {
+          // Принудительно гасим старую нижнюю Reply-панель
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '🔄 Обновление интерфейса...',
+            reply_markup: { remove_keyboard: true },
+          });
+
+          // Отправляем актуальное меню с инлайн-кнопками
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
             text: '🎛 Панель управления ботом:\nВыберите нужное действие:',
@@ -256,7 +267,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка инлайн-кнопок
+    // 3. Обработка кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -270,10 +281,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель автопостинга (ВКЛ / ВЫКЛ)
+      // Переключатель автопостинга с надежным триггером 0/1
       if (data === 'timer:toggle') {
         const current = await redis.get('settings:timer_enabled');
-        const nextState = current === '0' ? '1' : '0';
+        const isCurrentlyActive = current === null || current === '1';
+        const nextState = isCurrentlyActive ? '0' : '1';
         await redis.set('settings:timer_enabled', nextState);
 
         await tgRequest('answerCallbackQuery', {
@@ -281,6 +293,7 @@ export default async function handler(req, res) {
           text: nextState === '1' ? 'Автопостинг включен' : 'Автопостинг выключен',
         });
 
+        // Мгновенное обновление кнопок на текущем сообщении
         await tgRequest('editMessageReplyMarkup', {
           chat_id: message.chat.id,
           message_id: message.message_id,
@@ -295,7 +308,7 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `⚠️️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
+          text: `⚠️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
           reply_markup: {
             inline_keyboard: [
               [

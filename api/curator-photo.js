@@ -12,7 +12,17 @@ async function tgRequest(method, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
+  const json = await res.json();
+  if (!json.ok) {
+    console.error(`Telegram API [${method}] Error:`, json);
+  }
+  return json;
+}
+
+function isTimerActive(val) {
+  if (val === null || val === undefined) return true;
+  const normalized = String(val).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
 }
 
 export default async function handler(req, res) {
@@ -24,9 +34,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Проверка статуса: если отключен ('0' или 'false'), запрос отбрасывается
-    const timerState = await redis.get('settings:timer_enabled');
-    if (timerState === '0' || timerState === 'false') {
+    const rawState = await redis.get('settings:timer_enabled');
+    if (!isTimerActive(rawState)) {
       return res.status(200).json({ status: 'timer_disabled' });
     }
 

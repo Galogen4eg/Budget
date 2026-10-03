@@ -16,6 +16,7 @@ async function tgRequest(method, data) {
 }
 
 export default async function handler(req, res) {
+  // Защита эндпоинта от посторонних вызовов
   if (CRON_SECRET) {
     const authHeader = req.headers['authorization'];
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
@@ -27,59 +28,39 @@ export default async function handler(req, res) {
     const totalAvailable = await redis.scard('photos:available');
 
     if (totalAvailable === 0) {
-      await tgRequest('sendMessage', {
-        chat_id: ADMIN_CHAT_ID,
-        text: '❌ Пул фотографий пуст. Загрузи новые изображения в канал-склад.',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Запросить фото (пусто)', callback_data: 'action:next' }]
-          ]
-        }
-      });
+      if (ADMIN_CHAT_ID) {
+        await tgRequest('sendMessage', {
+          chat_id: ADMIN_CHAT_ID,
+          text: '⏰ Таймер сработал, но пул фото пуст. Загрузи новые фото на склад.',
+        });
+      }
       return res.status(200).json({ status: 'empty' });
     }
 
-    if (totalAvailable <= 3) {
-      await tgRequest('sendMessage', {
-        chat_id: ADMIN_CHAT_ID,
-        text: `⚠️ Внимание! На складе осталось всего ${totalAvailable} фото.`,
-      });
-    }
-
     const randomFileId = await redis.srandmember('photos:available');
-
-    if (!randomFileId) {
-      return res.status(200).json({ status: 'no_photo_found' });
-    }
-
     const shortKey = crypto.randomBytes(4).toString('hex');
     await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
 
-    const tgResponse = await tgRequest('sendPhoto', {
+    await tgRequest('sendPhoto', {
       chat_id: ADMIN_CHAT_ID,
       photo: randomFileId,
-      caption: `📸 Новое фото на модерацию (в очереди: ${totalAvailable} шт.)`,
+      caption: `⏰ Фото по расписанию на модерацию (в очереди: ${totalAvailable} шт.)`,
       reply_markup: {
         inline_keyboard: [
           [
             { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
-            { text: '❌ Отклонить', callback_data: `reject:${shortKey}` },
+            { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
           ],
           [
-            { text: '⏭ Запросить следующее', callback_data: 'action:next' }
+            { text: '🖼 Другое изображение', callback_data: 'action:next' }
           ]
         ],
       },
     });
 
-    if (!tgResponse.ok) {
-      console.error('Telegram API Error:', tgResponse);
-      return res.status(500).json({ error: tgResponse.description || 'Telegram API failed to send photo' });
-    }
-
-    return res.status(200).json({ ok: true, sent_for_moderation: randomFileId });
+    return res.status(200).json({ ok: true, sent: randomFileId });
   } catch (error) {
-    console.error('Curator Photo Error:', error);
+    console.error('Timer Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }

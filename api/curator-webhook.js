@@ -20,9 +20,8 @@ async function tgRequest(method, data) {
   return json;
 }
 
-// Универсальная проверка активности таймера с защитой от типов Upstash
 function isTimerActive(val) {
-  if (val === null || val === undefined) return true; // по умолчанию включен
+  if (val === null || val === undefined) return true;
   const normalized = String(val).trim().toLowerCase();
   return normalized === '1' || normalized === 'true';
 }
@@ -37,25 +36,22 @@ async function setupBotCommands() {
   });
 }
 
+// Компактная двухуровневая клавиатура (2 сверху, 3 снизу)
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
   const isEnabled = isTimerActive(timerState);
-  const timerButtonText = isEnabled ? '🟢 Автопостинг: ВКЛ' : '🔴 Автопостинг: ВЫКЛ';
+  const timerButtonText = isEnabled ? '🟢 Авто' : '🔴 Авто';
 
   return {
     inline_keyboard: [
       [
         { text: '📰 Новости', callback_data: 'menu:news' },
-        { text: '🖼 Запросить изображение', callback_data: 'action:next' },
+        { text: '🖼 Запросить фото', callback_data: 'action:next' },
       ],
       [
         { text: timerButtonText, callback_data: 'timer:toggle' },
-      ],
-      [
-        { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' },
-      ],
-      [
-        { text: '🛑 Стоп (выключить всё)', callback_data: 'bot:stop' },
+        { text: '🛑 Стоп', callback_data: 'bot:stop' },
+        { text: '🗑 Сброс', callback_data: 'reset:ask' },
       ],
     ],
   };
@@ -93,7 +89,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка сообщений в ЛС от админа
+    // 2. Обработка входящих сообщений
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -130,7 +126,7 @@ export default async function handler(req, res) {
 
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: '🎛 Бот запущен. Выберите нужное действие:',
+            text: '🎛 Панель управления:\nВыберите действие:',
             reply_markup: await getMainMenuKeyboard(),
           });
           return res.status(200).json({ ok: true });
@@ -299,7 +295,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий на инлайн-кнопки
+    // 3. Обработка кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -313,7 +309,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель автопостинга
+      // Переключатель таймера
       if (data === 'timer:toggle') {
         const rawState = await redis.get('settings:timer_enabled');
         const currentlyActive = isTimerActive(rawState);
@@ -377,23 +373,24 @@ export default async function handler(req, res) {
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          text: '🎛 Бот запущен. Выберите нужное действие:',
+          text: '🎛 Панель управления:\nВыберите действие:',
           reply_markup: await getMainMenuKeyboard(),
         });
 
         return res.status(200).json({ ok: true });
       }
 
+      // Запрос подтверждения очистки
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `⚠️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
+          text: `⚠️ В базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚠️ Да, вернуть в пул', callback_data: 'reset:confirm' },
+                { text: '⚠️ Да, вернуть', callback_data: 'reset:confirm' },
                 { text: 'Отмена', callback_data: 'reset:cancel' },
               ],
             ],
@@ -513,7 +510,7 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: '🎛 Главное меню:',
+          text: '🎛 Панель управления:\nВыберите действие:',
           reply_markup: await getMainMenuKeyboard(),
         });
         return res.status(200).json({ ok: true });
@@ -543,7 +540,7 @@ export default async function handler(req, res) {
             inline_keyboard: [
               [
                 { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
-                { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
+                { text: '❌ Пропустить', callback_data: `reject:${shortKey}` },
               ],
               [
                 { text: '🖼 Другое изображение', callback_data: 'action:next' },

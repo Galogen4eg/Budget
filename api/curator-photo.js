@@ -40,9 +40,11 @@ export default async function handler(req, res) {
     }
 
     let sent = false;
+    let attempts = 0;
     let selectedFileId = null;
 
-    while (!sent) {
+    while (!sent && attempts < 10) {
+      attempts++;
       const totalAvailable = await redis.scard('photos:available');
 
       if (totalAvailable === 0) {
@@ -75,11 +77,15 @@ export default async function handler(req, res) {
         },
       });
 
-      // Если фото недоступно или удалено из Telegram, вычищаем из базы и берем следующее
       if (!sendRes.ok) {
-        console.warn(`Фото ${randomFileId} недоступно по таймеру, удаляем из базы:`, sendRes.description);
-        await redis.srem('photos:available', randomFileId);
-        continue;
+        if (sendRes.error_code === 400) {
+          console.warn(`Фото ${randomFileId} недоступно по таймеру, удаляем из базы:`, sendRes.description);
+          await redis.srem('photos:available', randomFileId);
+          continue;
+        } else {
+          console.error('Сбой сети Telegram в cron, останавливаем попытки:', sendRes.description);
+          return res.status(502).json({ error: 'Telegram API Unavailable' });
+        }
       }
 
       await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });

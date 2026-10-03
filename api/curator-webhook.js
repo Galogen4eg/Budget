@@ -22,6 +22,9 @@ function getMainMenuKeyboard() {
       [
         { text: '📰 Новости', callback_data: 'menu:news' },
         { text: '🖼 Запросить изображение', callback_data: 'action:next' }
+      ],
+      [
+        { text: '🗑 Сбросить историю отправленных', callback_data: 'reset:ask' }
       ]
     ]
   };
@@ -59,10 +62,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений от админа в ЛС
+    // 2. Обработка сообщений от администратора
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
-      // 2.1. Пересылка фото администратором в диалог (накопление корзины)
       if (message.photo) {
         const photo = message.photo[message.photo.length - 1];
         const fileId = photo.file_id;
@@ -89,7 +91,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, batch_count: count });
       }
 
-      // 2.2. Обработка текстовых команд и ввода описания
       if (message.text) {
         const text = message.text.trim();
 
@@ -123,7 +124,6 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true, cleared: true });
         }
 
-        // Публикация альбома из корзины с введенным текстом
         const isWaitingAlbumText = await redis.get(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         if (isWaitingAlbumText) {
           const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
@@ -194,7 +194,6 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true });
         }
 
-        // Одиночная публикация (сохраненная базовая логика)
         const waitingShortKey = await redis.get(`admin:waiting_text:${ADMIN_CHAT_ID}`);
         if (waitingShortKey) {
           const fileId = await redis.get(`photo:pending:${waitingShortKey}`);
@@ -249,7 +248,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка callback-кнопок
+    // 3. Обработка инлайн-кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -263,7 +262,68 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Финализация подборки альбома
+      // Запрос подтверждения очистки истории отправленных фото
+      if (data === 'reset:ask') {
+        const usedCount = await redis.scard('photos:used');
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
+        await tgRequest('sendMessage', {
+          chat_id: ADMIN_CHAT_ID,
+          text: `⚠️ Внимание!\nВ базе числится ${usedCount} использованных фото.\nВернуть их все обратно в доступный пул?`,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '⚠️ Да, вернуть в пул', callback_data: 'reset:confirm' },
+                { text: 'Отмена', callback_data: 'reset:cancel' }
+              ]
+            ]
+          }
+        });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Подтверждение возврата использованных фото
+      if (data === 'reset:confirm') {
+        const usedPhotos = await redis.smembers('photos:used');
+
+        if (usedPhotos && usedPhotos.length > 0) {
+          await redis.sadd('photos:available', ...usedPhotos);
+          await redis.del('photos:used');
+        }
+
+        const totalAvailable = await redis.scard('photos:available');
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'История сброшена!',
+        });
+
+        await tgRequest('editMessageText', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          text: `✅ История очищена. Все фото возвращены.\nВсего доступно к публикации: ${totalAvailable} шт.`,
+          reply_markup: getMainMenuKeyboard(),
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Отмена сброса истории
+      if (data === 'reset:cancel') {
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Отменено.',
+        });
+
+        await tgRequest('editMessageText', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          text: 'Очистка отменена.',
+          reply_markup: getMainMenuKeyboard(),
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
       if (data === 'album:done') {
         const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
         const count = await redis.llen(batchKey);
@@ -288,7 +348,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Сброс корзины
       if (data === 'album:clear') {
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
@@ -405,7 +464,7 @@ export default async function handler(req, res) {
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          caption: '✍️️ Отправьте текст для этого фото следующим сообщением.',
+          caption: '✍️ Отправьте текст для этого фото следующим сообщением.',
           reply_markup: { inline_keyboard: [] },
         });
       } else if (action === 'reject') {

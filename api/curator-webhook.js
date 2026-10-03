@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const update = req.body;
 
   try {
-    // 1. Приём фото из канала-склада
+    // 1. Приём новых фото в канал-склад
     const post = update.channel_post;
     if (post && post.photo) {
       if (WAREHOUSE_CHANNEL_ID && String(post.chat.id) !== String(WAREHOUSE_CHANNEL_ID)) {
@@ -59,10 +59,38 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка текстовых сообщений и команд
+    // 2. Обработка входящих сообщений от админа в ЛС
     const message = update.message;
-    if (message && message.text) {
-      if (ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
+    if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
+      // 2.1. Пересылка фото администратором в диалог (накопление корзины)
+      if (message.photo) {
+        const photo = message.photo[message.photo.length - 1];
+        const fileId = photo.file_id;
+
+        const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
+        await redis.rpush(batchKey, fileId);
+        await redis.expire(batchKey, 3600);
+
+        const count = await redis.llen(batchKey);
+
+        await tgRequest('sendMessage', {
+          chat_id: ADMIN_CHAT_ID,
+          text: `📥 Фото добавлено в подборку. Выбрано: ${count} шт. (макс. 10)`,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Готово (ввести текст)', callback_data: 'album:done' },
+                { text: '🗑 Очистить выбор', callback_data: 'album:clear' }
+              ]
+            ]
+          }
+        });
+
+        return res.status(200).json({ ok: true, batch_count: count });
+      }
+
+      // 2.2. Обработка текстовых команд и ввода описания
+      if (message.text) {
         const text = message.text.trim();
 
         if (text === '/start' || text === '/menu') {
@@ -78,6 +106,8 @@ export default async function handler(req, res) {
           await redis.del('photos:available');
           await redis.del('photos:used');
           await redis.del('photos:rejected');
+          await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
+          await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
 
           const keys = await redis.keys('photo:*');
           if (keys && keys.length > 0) {
@@ -93,7 +123,78 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true, cleared: true });
         }
 
-        // Проверка ожидания текста поста для выбранного фото
+        // Публикация альбома из корзины с введенным текстом
+        const isWaitingAlbumText = await redis.get(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+        if (isWaitingAlbumText) {
+          const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
+          const fileIds = await redis.lrange(batchKey, 0, -1);
+
+          if (!fileIds || fileIds.length === 0) {
+            await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: '❌ Корзина пуста. Перешлите фотографии заново.',
+              reply_markup: getMainMenuKeyboard(),
+            });
+            return res.status(200).json({ ok: true });
+          }
+
+          let publishResponse;
+          if (fileIds.length === 1) {
+            publishResponse = await tgRequest('sendPhoto', {
+              chat_id: TARGET_CHANNEL_ID,
+              photo: fileIds[0],
+              caption: text,
+            });
+          } else {
+            const mediaGroup = fileIds.slice(0, 10).map((id, index) => {
+              const item = { type: 'photo', media: id };
+              if (index === 0) item.caption = text;
+              return item;
+            });
+
+            publishResponse = await tgRequest('sendMediaGroup', {
+              chat_id: TARGET_CHANNEL_ID,
+              media: mediaGroup,
+            });
+          }
+
+          if (!publishResponse.ok) {
+            console.error('Failed to publish album:', publishResponse);
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: `Ошибка публикации альбома: ${publishResponse.description}`,
+              reply_markup: getMainMenuKeyboard(),
+            });
+            return res.status(200).json({ ok: false, error: publishResponse.description });
+          }
+
+          for (const fid of fileIds) {
+            await redis.srem('photos:available', fid);
+            await redis.sadd('photos:used', fid);
+          }
+
+          await redis.del(batchKey);
+          await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: `✅ Пост (${fileIds.length} фото) успешно опубликован в канал!`,
+            reply_markup: getMainMenuKeyboard(),
+          });
+
+          const remaining = await redis.scard('photos:available');
+          if (remaining <= 3) {
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: `Осталось неопубликованных всего ${remaining} фото.`,
+            });
+          }
+
+          return res.status(200).json({ ok: true });
+        }
+
+        // Одиночная публикация (сохраненная базовая логика)
         const waitingShortKey = await redis.get(`admin:waiting_text:${ADMIN_CHAT_ID}`);
         if (waitingShortKey) {
           const fileId = await redis.get(`photo:pending:${waitingShortKey}`);
@@ -124,7 +225,6 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
 
-          // Удаляем только опубликованное
           await redis.srem('photos:available', fileId);
           await redis.sadd('photos:used', fileId);
           await redis.del(`photo:pending:${waitingShortKey}`);
@@ -149,7 +249,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий на инлайн-кнопки
+    // 3. Обработка callback-кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -160,6 +260,50 @@ export default async function handler(req, res) {
           text: 'Доступ запрещён.',
           show_alert: true,
         });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Финализация подборки альбома
+      if (data === 'album:done') {
+        const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
+        const count = await redis.llen(batchKey);
+
+        if (count === 0) {
+          await tgRequest('answerCallbackQuery', {
+            callback_query_id: callbackId,
+            text: 'Корзина пуста. Сначала перешлите фото.',
+            show_alert: true,
+          });
+          return res.status(200).json({ ok: true });
+        }
+
+        await redis.set(`admin:waiting_album_text:${ADMIN_CHAT_ID}`, '1', { ex: 3600 });
+
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
+        await tgRequest('sendMessage', {
+          chat_id: ADMIN_CHAT_ID,
+          text: `✍️ Выбрано ${count} фото. Отправьте текст для поста следующим сообщением в этот чат:`,
+        });
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Сброс корзины
+      if (data === 'album:clear') {
+        await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
+        await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
+
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Корзина очищена.',
+        });
+
+        await tgRequest('sendMessage', {
+          chat_id: ADMIN_CHAT_ID,
+          text: '🗑 Выбор сброшен. Можете переслать новые фото.',
+          reply_markup: getMainMenuKeyboard(),
+        });
+
         return res.status(200).json({ ok: true });
       }
 
@@ -261,11 +405,10 @@ export default async function handler(req, res) {
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          caption: '✍️ Отправьте текст для этого фото следующим сообщением.',
+          caption: '✍️️ Отправьте текст для этого фото следующим сообщением.',
           reply_markup: { inline_keyboard: [] },
         });
       } else if (action === 'reject') {
-        // Не удаляем из photos:available, снимаем только временный ключ сессии
         await redis.del(`photo:pending:${shortKey}`);
 
         await tgRequest('answerCallbackQuery', {

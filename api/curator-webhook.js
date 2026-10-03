@@ -219,7 +219,7 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
 
-          // Переносим в used только если фото изначально принадлежало складу
+          // Переносим в used только если фото изначально принадлежало пулу склада
           for (const fid of fileIds) {
             const isFromPool = await redis.sismember('photos:available', fid);
             if (isFromPool) {
@@ -318,6 +318,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Переключатель таймера автопостинга
       if (data === 'timer:toggle') {
         const rawState = await redis.get('settings:timer_enabled');
         const currentlyActive = isTimerActive(rawState);
@@ -343,6 +344,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, state: nextState });
       }
 
+      // Остановка бота
       if (data === 'bot:stop') {
         await redis.set('settings:timer_enabled', '0');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
@@ -368,6 +370,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Запуск бота
       if (data === 'bot:start') {
         await redis.set('settings:timer_enabled', '1');
 
@@ -386,6 +389,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Меню сброса
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
         const availCount = await redis.scard('photos:available');
@@ -405,6 +409,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Возврат опубликованных фото в доступный пул
       if (data === 'reset:confirm') {
         const usedPhotos = await redis.smembers('photos:used');
 
@@ -430,6 +435,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Полное обнуление пула
       if (data === 'reset:pool_confirm') {
         await redis.del('photos:available');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
@@ -467,9 +473,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос случайного фото
+      // Запрос случайного фото из склада
       if (data === 'action:next') {
-        // Сбрасываем ожидание текста, если админ передумал и запросил новое фото
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
         let sent = false;
@@ -509,14 +514,12 @@ export default async function handler(req, res) {
           });
 
           if (!sendRes.ok) {
-            // Удаляем из пула ТОЛЬКО если Telegram вернул ошибку 400 (несуществующий/удаленный file_id)
             if (sendRes.error_code === 400) {
-              console.warn(`Фото ${randomFileId} невалидно, удаляем из базы:`, sendRes.description);
+              console.warn(`Фото ${randomFileId} невалидно, удаляем:`, sendRes.description);
               await redis.srem('photos:available', randomFileId);
               continue;
             } else {
-              // При сетевом сбое Telegram (5xx, 429) прерываем цикл, чтобы не стереть базу
-              console.error('Сбой Telegram API, прерываем выборку:', sendRes.description);
+              console.error('Сбой сети Telegram:', sendRes.description);
               await tgRequest('answerCallbackQuery', {
                 callback_query_id: callbackId,
                 text: 'Сбой сети Telegram. Попробуйте позже.',
@@ -580,49 +583,90 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // Меню выбора тематики новостей (редактирует текущее сообщение)
       if (data === 'menu:news') {
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
-          text: 'Выбор источника новостей',
+          text: 'Выбор темы',
         });
 
-        await tgRequest('sendMessage', {
-          chat_id: ADMIN_CHAT_ID,
-          text: '📰 Выберите источник новостей:',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: 'PetaPixel', callback_data: 'news:petapixel' },
-              ],
-              [
-                { text: '◀ Назад в меню', callback_data: 'menu:back' },
-              ],
+        const newsKeyboard = {
+          inline_keyboard: [
+            [
+              { text: '💻 IT / Хабр', callback_data: 'news:it' },
+              { text: '📱 Гаджеты (3DNews)', callback_data: 'news:gadgets' },
             ],
-          },
-        });
+            [
+              { text: '🔬 Научпоп (Naked Science)', callback_data: 'news:science' },
+              { text: '🌍 The Verge', callback_data: 'news:verge' },
+            ],
+            [
+              { text: '◀ Назад в меню', callback_data: 'menu:back' },
+            ],
+          ],
+        };
+
+        if (message && message.chat && message.message_id) {
+          await tgRequest('editMessageText', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            text: '📰 Выберите тематику новости для генерации:',
+            reply_markup: newsKeyboard,
+          });
+        } else {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '📰 Выберите тематику новости для генерации:',
+            reply_markup: newsKeyboard,
+          });
+        }
+
         return res.status(200).json({ ok: true });
       }
 
-      if (data === 'news:petapixel') {
+      // Запуск генерации новости по выбранной теме
+      if (data.startsWith('news:')) {
+        const topic = data.split(':')[1];
+
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
-          text: 'Генерация новости запущена...',
+          text: `Генерация [${topic}] запущена...`,
         });
 
-        // Запуск генерации черновика новостей
-        const curatorUrl = `https://${process.env.VERCEL_PROJECT_URL || req.headers.host}/api/curator-find`;
-        fetch(curatorUrl).catch(e => console.error('Ошибка вызова curator-find:', e));
+        const baseUrl = process.env.VERCEL_PROJECT_URL
+          ? `https://${process.env.VERCEL_PROJECT_URL}`
+          : (req.headers.host ? `https://${req.headers.host}` : '');
+
+        if (baseUrl) {
+          fetch(`${baseUrl}/api/curator-find?source=${topic}`).catch(e =>
+            console.error('Ошибка вызова curator-find:', e)
+          );
+        }
 
         return res.status(200).json({ ok: true });
       }
 
+      // Возврат в главное меню
       if (data === 'menu:back') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
-        await tgRequest('sendMessage', {
-          chat_id: ADMIN_CHAT_ID,
-          text: '🎛 Главное меню:',
-          reply_markup: await getMainMenuKeyboard(),
-        });
+
+        const mainKeyboard = await getMainMenuKeyboard();
+
+        if (message && message.chat && message.message_id) {
+          await tgRequest('editMessageText', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            text: '🎛 Главное меню:\nВыберите действие:',
+            reply_markup: mainKeyboard,
+          });
+        } else {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '🎛 Главное меню:\nВыберите действие:',
+            reply_markup: mainKeyboard,
+          });
+        }
+
         return res.status(200).json({ ok: true });
       }
 

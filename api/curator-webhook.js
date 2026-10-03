@@ -13,7 +13,18 @@ async function tgRequest(method, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
+  const json = await res.json();
+  if (!json.ok) {
+    console.error(`Telegram API [${method}] Error:`, json);
+  }
+  return json;
+}
+
+// Универсальная проверка активности таймера с защитой от типов Upstash
+function isTimerActive(val) {
+  if (val === null || val === undefined) return true; // по умолчанию включен
+  const normalized = String(val).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
 }
 
 async function setupBotCommands() {
@@ -28,10 +39,8 @@ async function setupBotCommands() {
 
 async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
-  const isEnabled = timerState === null || timerState === '1' || timerState === 'true';
-  const timerButtonText = isEnabled 
-    ? '🟢 Автопостинг: ВКЛ' 
-    : '🔴 Автопостинг: ВЫКЛ';
+  const isEnabled = isTimerActive(timerState);
+  const timerButtonText = isEnabled ? '🟢 Автопостинг: ВКЛ' : '🔴 Автопостинг: ВЫКЛ';
 
   return {
     inline_keyboard: [
@@ -84,7 +93,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений
+    // 2. Обработка сообщений в ЛС от админа
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -290,7 +299,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка инлайн-кнопок
+    // 3. Обработка нажатий на инлайн-кнопки
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -304,24 +313,28 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель автопостинга (инлайн-тумблер)
+      // Переключатель автопостинга
       if (data === 'timer:toggle') {
-        const current = await redis.get('settings:timer_enabled');
-        const nextState = (current === null || current === '1' || current === 'true') ? '0' : '1';
-        await redis.set('settings:timer_enabled', nextState);
+        const rawState = await redis.get('settings:timer_enabled');
+        const currentlyActive = isTimerActive(rawState);
+        const nextState = currentlyActive ? '0' : '1';
 
-        const newKeyboard = await getMainMenuKeyboard();
+        await redis.set('settings:timer_enabled', nextState);
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
           text: nextState === '1' ? 'Автопостинг включен 🟢' : 'Автопостинг выключен 🔴',
         });
 
-        await tgRequest('editMessageReplyMarkup', {
-          chat_id: message.chat.id,
-          message_id: message.message_id,
-          reply_markup: newKeyboard,
-        });
+        const newKeyboard = await getMainMenuKeyboard();
+
+        if (message && message.chat && message.message_id) {
+          await tgRequest('editMessageReplyMarkup', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            reply_markup: newKeyboard,
+          });
+        }
 
         return res.status(200).json({ ok: true, state: nextState });
       }

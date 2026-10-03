@@ -2,7 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 2500) {
+const FEEDS = {
+  it: "https://habr.com/ru/rss/hubs/all/",
+  gadgets: "https://3dnews.ru/news/rss/",
+  science: "https://naked-science.ru/feed",
+  verge: "https://www.theverge.com/rss/index.xml",
+};
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 6000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -16,12 +23,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 2500) {
 }
 
 async function generateWithFallback(prompt) {
-  const models = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
+  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
   for (const modelName of models) {
     try {
       const response = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`Timeout ${modelName}`)), 2500);
+        const timer = setTimeout(() => reject(new Error(`Timeout ${modelName}`)), 4000);
 
         ai.models.generateContent({
           model: modelName,
@@ -43,75 +50,103 @@ async function generateWithFallback(prompt) {
     }
   }
 
-  return "Очередной курьёз со съёмок: свет выставили, модель пришла вовремя, а флешку забыли в картридере дома.\n\nКоллеги, у кого случалось подобное?";
+  return "Забавный курьёз из мира технологий: очередное обновление исправило пять старых багов и добавило десять новых.\n\nКоллеги, кто уже успел обновиться?";
 }
 
 export default async function handler(req, res) {
   try {
-    const feedUrl = req.query.feed || "https://petapixel.com/feed/";
+    // Выбор источника: передается ?source=it | gadgets | science или кастомный ?feed=...
+    const sourceKey = req.query.source || "it";
+    const feedUrl = req.query.feed || FEEDS[sourceKey] || FEEDS.it;
 
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/rss+xml, application/atom+xml, text/xml, application/xml;q=0.9, */*;q=0.8"
       }
-    }, 2500);
+    }, 6000);
 
-    if (!feedRes.ok) return res.status(502).json({ error: `Ошибка RSS: статус ${feedRes.status}` });
+    if (!feedRes.ok) {
+      return res.status(502).json({ error: `Ошибка RSS [${feedUrl}]: статус ${feedRes.status}` });
+    }
 
     const xml = await feedRes.text();
-    
+
+    // Универсальный поиск блоков: поддерживает и RSS (<item>), и Atom (<entry>)
+    const isAtom = xml.includes("<entry") && !xml.includes("<item");
+    const tagOpen = isAtom ? "<entry" : "<item";
+    const tagClose = isAtom ? "</entry>" : "</item>";
+
     const items = [];
     let startIndex = 0;
-    while (items.length < 5) {
-      const start = xml.indexOf("<item>", startIndex);
+    while (items.length < 8) {
+      const start = xml.indexOf(tagOpen, startIndex);
       if (start === -1) break;
-      const end = xml.indexOf("</item>", start);
+      const end = xml.indexOf(tagClose, start);
       if (end === -1) break;
       items.push(xml.slice(start, end));
-      startIndex = end + 7;
+      startIndex = end + tagClose.length;
     }
 
-    if (items.length === 0) return res.status(200).json({ message: "Лента пуста" });
+    if (items.length === 0) {
+      return res.status(200).json({ message: "Лента пуста или имеет неподдерживаемый формат" });
+    }
 
+    // Случайный элемент из свежих
     const itemChunk = items[Math.floor(Math.random() * items.length)];
-    
+
     let postTitle = "Инфоповод";
-    const titleMatch = itemChunk.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
-    if (titleMatch && titleMatch[1]) postTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+    const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+    if (titleMatch && titleMatch[1]) {
+      postTitle = titleMatch[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+    }
 
     let postDescription = "";
-    const descMatch = itemChunk.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
+    // Поиск по тегам описания: summary, content или description
+    const descMatch = itemChunk.match(/<(?:summary|content|description)[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:summary|content|description)>/i);
     if (descMatch && descMatch[1]) {
-      postDescription = descMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 1500).trim();
+      postDescription = descMatch[1]
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .substring(0, 1500)
+        .trim();
     }
 
+    // Поиск картинки во всех распространенных форматах RSS/Atom
     let imageUrl = null;
     const mediaMatch = itemChunk.match(/<media:content[^>]+url=(["'])(.*?)\1/i);
     if (mediaMatch && mediaMatch[2]) imageUrl = mediaMatch[2];
-    
+
     if (!imageUrl) {
       const encMatch = itemChunk.match(/<enclosure[^>]+url=(["'])(.*?)\1[^>]*type=["']image\//i);
       if (encMatch && encMatch[2]) imageUrl = encMatch[2];
     }
-    
+
     if (!imageUrl) {
-      const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(.*?)\1/i);
+      const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(https?:\/\/[^"'\s]+)\1/i);
       if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
     }
 
-    const customStyle = process.env.PROMPT_STYLE || "Ты — автор развлекательного канала. Пиши иронично и легко.";
+    const customStyle = process.env.PROMPT_STYLE || "Ты — автор живого личного Telegram-канала. Пиши легко, иронично, без штампов и канцелярита.";
 
     const prompt = `## Task Context
 ${customStyle}
 
 ## Task
-Прочитай новость и напиши фановый пост СТРОГО на русском языке.
+Прочитай новость и напиши короткий, увлекательный пост для канала на русском языке.
+Сделай акцент на самом интересном факте или курьёзе. 
 Заголовок: "${postTitle}"
-Суть: "${postDescription}"
+Суть новости: "${postDescription}"
 
 ## Output Format
-Чистый текст без тегов, markdown-разметки и ссылок.`;
+Чистый текст без Markdown, без ссылок и без шаблонных вводных фраз. Длина до 600 символов.`;
 
     const adaptedText = await generateWithFallback(prompt);
 
@@ -125,7 +160,7 @@ ${customStyle}
     let tgUrl, tgBody;
 
     if (imageUrl) {
-      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendPhoto`;
+      tgUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN}/sendPhoto`;
       tgBody = {
         chat_id: process.env.MY_TELEGRAM_ID,
         photo: imageUrl,
@@ -133,7 +168,7 @@ ${customStyle}
         reply_markup: keyboard
       };
     } else {
-      tgUrl = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`;
+      tgUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN}/sendMessage`;
       tgBody = {
         chat_id: process.env.MY_TELEGRAM_ID,
         text: adaptedText,
@@ -146,13 +181,14 @@ ${customStyle}
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(tgBody)
-    }, 2000);
+    }, 4000);
 
     const tgData = await tgRes.json();
     if (!tgData.ok) return res.status(500).json({ error: "Telegram API Error", details: tgData });
 
-    return res.status(200).json({ success: true, message: "Черновик отправлен" });
+    return res.status(200).json({ success: true, message: "Черновик отправлен", source: feedUrl });
   } catch (error) {
+    console.error("Ошибка curator-find:", error);
     return res.status(500).json({ error: error.message });
   }
 }

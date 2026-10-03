@@ -1,23 +1,18 @@
 /**
  * @file api/webhook.js
  * Обработчик входящих вебхуков от Telegram бота с интеграцией Google Gemini
- * и синхронизацией данных с веб-приложением Terra.
+ * и синхронизацией данных с веб-приложением Terra через Redis.
  */
 
-import fs from 'fs';
-import path from 'path';
+import { redis } from '../lib/redis.js';
 
-const QUEUE_FILE = path.join('/tmp', 'terra_telegram_queue.json');
+const QUEUE_KEY = 'terra:sync:queue';
 
 /**
- * Записывает действие в очередь синхронизации с сайтом.
+ * Записывает действие в очередь синхронизации с сайтом через Redis.
  */
-function enqueueAction(action, payload, chatId) {
+async function enqueueAction(action, payload, chatId) {
   try {
-    let queue = [];
-    if (fs.existsSync(QUEUE_FILE)) {
-      queue = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf-8')) || [];
-    }
     const newEntry = {
       id: `tg_act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       action,
@@ -25,11 +20,11 @@ function enqueueAction(action, payload, chatId) {
       chatId: String(chatId),
       createdAt: Date.now(),
     };
-    queue.push(newEntry);
-    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue.slice(-100)), 'utf-8');
+    await redis.lpush(QUEUE_KEY, JSON.stringify(newEntry));
+    await redis.ltrim(QUEUE_KEY, 0, 99);
     return newEntry;
   } catch (err) {
-    console.error('Ошибка записи в очередь telegram-sync:', err);
+    console.error('Ошибка записи в очередь telegram-sync (Redis):', err);
     return null;
   }
 }
@@ -48,7 +43,6 @@ function fallbackRuleParser(text) {
 
     const parts = rawItems.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
     const items = parts.map(part => {
-      // Ищем количество и единицу (например: "мука 1 кг" или "молоко 2 шт")
       const match = part.match(/^(.*?)\s+(\d+(?:[.,]\d+)?)\s*(кг|г|л|мл|шт|уп|пач(?:ка|ки)?)?$/i);
       if (match) {
         let unit = match[3] || 'шт';
@@ -112,11 +106,11 @@ export default async function handler(req, res) {
       const welcome = 
         `👋 Привет! Я семейный AI-ассистент Terra.\n\n` +
         `Я умею мгновенно изменять данные на вашем сайте:\n` +
-        `• 🛒 *«Добавь в список покупок муку 1 кг и сыр»* — добавит товары на сайт\n` +
-        `• 💸 *«Расход 450 кофе»* — запишет трату\n` +
-        `• 📅 *«Создай событие на завтра в 14:00 встреча»* — добавит в планы\n` +
-        `• 📊 *«Сколько потрачено в этом месяце?»* — проанализирует траты\n\n` +
-        `Ваш Chat ID: \`${chatId}\`\n(Укажите его в Настройках на сайте в разделе Telegram)`;
+        `• 🛒 «Добавь в список покупок муку 1 кг и сыр» — добавит товары на сайт\n` +
+        `• 💸 «Расход 450 кофе» — запишет трату\n` +
+        `• 📅 «Создай событие на завтра в 14:00 встреча» — добавит в планы\n` +
+        `• 📊 «Сколько потрачено в этом месяце?» — проанализирует траты\n\n` +
+        `Ваш Chat ID: ${chatId}\n(Укажите его в Настройках на сайте в разделе Telegram)`;
       
       await sendTelegram(chatId, welcome);
       return res.status(200).send('OK');
@@ -125,7 +119,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
     let handled = false;
 
-    // Пытаемся обработать через Gemini AI
+    // Обработка через Gemini AI
     if (apiKey) {
       try {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -163,7 +157,7 @@ export default async function handler(req, res) {
           }
 
           if (parsed && parsed.action && parsed.action !== 'general_chat') {
-            enqueueAction(parsed.action, parsed, chatId);
+            await enqueueAction(parsed.action, parsed, chatId);
             await sendTelegram(chatId, `✅ ${parsed.reply || 'Действие синхронизировано с сайтом!'}`);
             handled = true;
           } else if (parsed && parsed.reply) {
@@ -176,11 +170,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // Если AI недоступен или не справился, используем надёжный резервный парсер
+    // Резервный парсер при недоступности AI
     if (!handled) {
       const fallback = fallbackRuleParser(userText);
       if (fallback) {
-        enqueueAction(fallback.action, fallback, chatId);
+        await enqueueAction(fallback.action, fallback, chatId);
         await sendTelegram(chatId, fallback.reply);
         handled = true;
       }
@@ -219,13 +213,14 @@ async function sendTelegram(chatId, text) {
 
   const safeText = text && text.length > 4000 ? text.slice(0, 4000) + '...' : (text || 'Пустой ответ.');
 
+  // Отправка без parse_mode исключает падения из-за спецсимволов _, *, [, ]
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
       text: safeText,
-      parse_mode: 'Markdown'
+      disable_web_page_preview: true
     })
   });
 }

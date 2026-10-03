@@ -24,9 +24,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Проверка активности таймера в Redis
-    const isTimerActive = await redis.get('settings:timer_enabled');
-    if (isTimerActive === '0') {
+   // Проверка активности таймера в Redis
+    const timerState = await redis.get('settings:timer_enabled');
+    if (timerState === 'false') {
       return res.status(200).json({ status: 'timer_disabled' });
     }
 

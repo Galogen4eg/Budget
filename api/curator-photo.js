@@ -39,40 +39,55 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'timer_disabled' });
     }
 
-    const totalAvailable = await redis.scard('photos:available');
+    let sent = false;
+    let selectedFileId = null;
 
-    if (totalAvailable === 0) {
-      if (ADMIN_CHAT_ID) {
-        await tgRequest('sendMessage', {
-          chat_id: ADMIN_CHAT_ID,
-          text: '⏰ Таймер сработал, но пул фото пуст. Загрузи новые фото на склад.',
-        });
+    while (!sent) {
+      const totalAvailable = await redis.scard('photos:available');
+
+      if (totalAvailable === 0) {
+        if (ADMIN_CHAT_ID) {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '⏰ Таймер сработал, но пул фото пуст. Загрузи новые фото на склад.',
+          });
+        }
+        return res.status(200).json({ status: 'empty' });
       }
-      return res.status(200).json({ status: 'empty' });
+
+      const randomFileId = await redis.srandmember('photos:available');
+      const shortKey = crypto.randomBytes(4).toString('hex');
+
+      const sendRes = await tgRequest('sendPhoto', {
+        chat_id: ADMIN_CHAT_ID,
+        photo: randomFileId,
+        caption: `⏰ Фото по расписанию на модерацию (в очереди: ${totalAvailable} шт.)`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
+              { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
+            ],
+            [
+              { text: '🖼 Другое изображение', callback_data: 'action:next' },
+            ],
+          ],
+        },
+      });
+
+      // Если фото недоступно или удалено из Telegram, вычищаем из базы и берем следующее
+      if (!sendRes.ok) {
+        console.warn(`Фото ${randomFileId} недоступно по таймеру, удаляем из базы:`, sendRes.description);
+        await redis.srem('photos:available', randomFileId);
+        continue;
+      }
+
+      await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
+      sent = true;
+      selectedFileId = randomFileId;
     }
 
-    const randomFileId = await redis.srandmember('photos:available');
-    const shortKey = crypto.randomBytes(4).toString('hex');
-    await redis.set(`photo:pending:${shortKey}`, randomFileId, { ex: 3600 });
-
-    await tgRequest('sendPhoto', {
-      chat_id: ADMIN_CHAT_ID,
-      photo: randomFileId,
-      caption: `⏰ Фото по расписанию на модерацию (в очереди: ${totalAvailable} шт.)`,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '✅ Опубликовать', callback_data: `publish:${shortKey}` },
-            { text: '❌ Пропустить (оставить в пуле)', callback_data: `reject:${shortKey}` },
-          ],
-          [
-            { text: '🖼 Другое изображение', callback_data: 'action:next' },
-          ],
-        ],
-      },
-    });
-
-    return res.status(200).json({ ok: true, sent: randomFileId });
+    return res.status(200).json({ ok: true, sent: selectedFileId });
   } catch (error) {
     console.error('Timer Error:', error);
     return res.status(500).json({ error: error.message });

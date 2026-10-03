@@ -1,0 +1,16 @@
+name: Photo Curator Timer
+
+on:
+  schedule:
+    # Запуск каждые 4 часа (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Возможность запустить руками из вкладки Actions
+
+jobs:
+  trigger-curator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel Endpoint
+        run: |
+          curl -X GET "https://${{ secrets.VERCEL_PROJECT_URL }}/api/curator-photo" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

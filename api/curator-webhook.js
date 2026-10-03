@@ -192,12 +192,12 @@ export default async function handler(req, res) {
             publishResponse = await tgRequest('sendPhoto', {
               chat_id: TARGET_CHANNEL_ID,
               photo: fileIds[0],
-              caption: text,
+              caption: text ? text.substring(0, 1024) : undefined,
             });
           } else {
             const mediaGroup = fileIds.slice(0, 10).map((id, index) => {
               const item = { type: 'photo', media: id };
-              if (index === 0) item.caption = text;
+              if (index === 0) item.caption = text ? text.substring(0, 1024) : undefined;
               return item;
             });
 
@@ -260,7 +260,7 @@ export default async function handler(req, res) {
           const publishResponse = await tgRequest('sendPhoto', {
             chat_id: TARGET_CHANNEL_ID,
             photo: fileId,
-            caption: text,
+            caption: text ? text.substring(0, 1024) : undefined,
           });
 
           if (!publishResponse.ok) {
@@ -585,7 +585,7 @@ export default async function handler(req, res) {
                 { text: 'Источник 2', callback_data: 'news:src2' },
               ],
               [
-                { text: '◀️️ Назад в меню', callback_data: 'menu:back' },
+                { text: '◀ Назад в меню', callback_data: 'menu:back' },
               ],
             ],
           },

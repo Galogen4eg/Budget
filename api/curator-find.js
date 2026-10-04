@@ -79,8 +79,8 @@ async function callGeminiDirect(prompt) {
   }
 
   try {
-    console.warn("Переключение на резервную модель gemini-2.5-flash...");
-    return await fetchGeminiModel("gemini-2.5-flash", prompt, 10000);
+    console.warn("Переключение на резервную модель gemini-3.8-flash-8b...");
+    return await fetchGeminiModel("gemini-3.8-flash-8b", prompt, 10000);
   } catch (err) {
     throw new Error(`Все модели перегружены. Последний сбой: ${err.message}`);
   }

@@ -33,11 +33,10 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
   }
 }
 
-async function callGeminiDirect(prompt) {
+async function fetchGeminiModel(modelName, prompt, timeoutMs) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY не задан в переменных окружения Vercel");
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -45,13 +44,46 @@ async function callGeminiDirect(prompt) {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.7 }
     })
-  }, 9000);
+  }, timeoutMs);
 
   const data = await res.json();
-  if (data.error) throw new Error(`${data.error.message}`);
+  if (data.error) throw new Error(data.error.message);
+  
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Пустой ответ от API");
+  
   return text.trim();
+}
+
+async function callGeminiDirect(prompt) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY не задан в переменных окружения Vercel");
+  }
+
+  let lastError = "";
+
+  try {
+    return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
+  } catch (err) {
+    lastError = err.message;
+    console.warn(`Попытка 1 (3.8-flash) отклонена: ${lastError}`);
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  try {
+    return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
+  } catch (err) {
+    lastError = err.message;
+    console.warn(`Попытка 2 (3.8-flash) отклонена: ${lastError}`);
+  }
+
+  try {
+    console.warn("Переключение на резервную модель gemini-2.5-flash...");
+    return await fetchGeminiModel("gemini-2.5-flash", prompt, 10000);
+  } catch (err) {
+    throw new Error(`Все модели перегружены. Последний сбой: ${err.message}`);
+  }
 }
 
 export async function findAndSendNews(topic = "it") {
@@ -110,13 +142,16 @@ export async function findAndSendNews(topic = "it") {
     if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
   }
 
-  const prompt = `Ты — автор интересного Telegram-канала про технологии, науку и гаджеты.
-Перескажи эту новость живо, коротко, без канцелярщины и клише.
-Если исходный текст на английском языке — обязательно переведи и адаптируй на русский язык.
-Объем поста: 400-600 символов.
+  const customStyle = process.env.PROMPT_STYLE || "Ты — автор интересного Telegram-канала про технологии, науку и гаджеты. Перескажи эту новость живо, коротко, без канцелярщины и клише. Объем: 400-600 символов.";
+
+  const prompt = `${customStyle}
+
+Технические требования:
+- Если исходный текст на английском языке — обязательно переведи и адаптируй на русский язык.
+- Выведи только готовый текст поста без Markdown-разметки (без звездочек и решеток), без ссылок и без шаблонных вводных фраз.
+
 Заголовок новости: "${postTitle}"
-Суть: "${postDescription}"
-Выведи только готовый текст поста без Markdown-разметки (без звездочек и решеток), без ссылок и без шаблонных приветствий.`;
+Суть: "${postDescription}"`;
 
   let adaptedText;
   try {

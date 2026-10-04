@@ -57,10 +57,19 @@ async function getMainMenuKeyboard() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+if (req.method !== 'POST') {
+    // Если перешли по ссылке для теста новостей: /api/curator-webhook?source=it
+    if (req.query && req.query.source) {
+      try {
+        const topic = req.query.source;
+        const result = await findAndSendNews(topic);
+        return res.status(200).json({ ok: true, topic, result });
+      } catch (err) {
+        return res.status(500).json({ ok: false, error: err.message });
+      }
+    }
     return res.status(200).send('Curator Webhook is running');
   }
-
   const update = req.body;
 
   try {

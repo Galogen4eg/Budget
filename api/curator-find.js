@@ -3,6 +3,8 @@ const FEEDS = {
   gadgets: "https://3dnews.ru/news/rss/",
   science: "https://naked-science.ru/feed",
   verge: "https://www.theverge.com/rss/index.xml",
+  popculture: "https://dtf.ru/rss/all",
+  life: "https://lifehacker.ru/feed/"
 };
 
 function cleanHtml(str) {
@@ -65,7 +67,6 @@ async function callGeminiDirect(prompt) {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      // Всегда бьем в основную стабильную модель
       return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
     } catch (err) {
       lastError = err.message;

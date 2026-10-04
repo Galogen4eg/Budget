@@ -103,20 +103,16 @@ export async function findAndSendNews(topic = "it") {
   let finalPrompt = "";
 
   if (topic === "memes") {
-    const redditRes = await fetchWithTimeout("https://www.reddit.com/r/memes/hot.json?limit=20", {
-      headers: { "User-Agent": "TelegramCuratorBot/1.0" }
-    }, 7000);
+    // Используем открытый API-агрегатор для обхода блокировки Reddit по IP
+    const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
     
-    if (!redditRes.ok) throw new Error(`Ошибка Reddit API: HTTP ${redditRes.status}`);
+    if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
     
-    const redditData = await redditRes.json();
-    const posts = redditData.data.children.filter(c => c.data.post_hint === 'image' && !c.data.is_video);
-    if (posts.length === 0) throw new Error("Не найдено свежих картинок на Reddit");
-    
-    const post = posts[Math.floor(Math.random() * posts.length)].data;
+    const post = await memeRes.json();
     postTitle = post.title;
     imageUrl = post.url;
 
+    // Скачиваем картинку в память для распознавания текста в Gemini
     const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
     const arrayBuffer = await imgRes.arrayBuffer();
     base64ForGemini = Buffer.from(arrayBuffer).toString('base64');

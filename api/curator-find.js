@@ -61,29 +61,24 @@ async function callGeminiDirect(prompt) {
   }
 
   let lastError = "";
+  const delays = [2000, 4000]; // Паузы между попытками: 2 сек и 4 сек
 
-  try {
-    return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
-  } catch (err) {
-    lastError = err.message;
-    console.warn(`Попытка 1 (3.8-flash) отклонена: ${lastError}`);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // Всегда бьем в основную стабильную модель
+      return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
+    } catch (err) {
+      lastError = err.message;
+      console.warn(`Попытка ${attempt + 1} отклонена: ${lastError}`);
+      
+      if (attempt < 2) {
+        console.warn(`Пауза ${delays[attempt] / 1000} сек. перед повтором...`);
+        await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+      }
+    }
   }
 
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  try {
-    return await fetchGeminiModel("gemini-3.8-flash", prompt, 12000);
-  } catch (err) {
-    lastError = err.message;
-    console.warn(`Попытка 2 (3.8-flash) отклонена: ${lastError}`);
-  }
-
-  try {
-    console.warn("Переключение на резервную модель gemini-3.8-flash-8b...");
-    return await fetchGeminiModel("gemini-3.8-flash-8b", prompt, 10000);
-  } catch (err) {
-    throw new Error(`Все модели перегружены. Последний сбой: ${err.message}`);
-  }
+  throw new Error(`Модель перегружена (сделано 3 попытки). Последний сбой: ${lastError}`);
 }
 
 export async function findAndSendNews(topic = "it") {

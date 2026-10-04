@@ -5,6 +5,21 @@ const FEEDS = {
   verge: "https://www.theverge.com/rss/index.xml",
 };
 
+function cleanHtml(str) {
+  if (!str) return "";
+  return str
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#8230;/g, "...")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -22,7 +37,7 @@ async function callGeminiDirect(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY не задан в переменных окружения Vercel");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,11 +45,13 @@ async function callGeminiDirect(prompt) {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.7 }
     })
-  }, 8000);
+  }, 9000);
 
   const data = await res.json();
   if (data.error) throw new Error(`Gemini API: ${data.error.message}`);
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini вернул пустой текст ответа");
+  return text.trim();
 }
 
 export async function findAndSendNews(topic = "it") {
@@ -56,7 +73,7 @@ export async function findAndSendNews(topic = "it") {
 
   const items = [];
   let startIndex = 0;
-  while (items.length < 8) {
+  while (items.length < 10) {
     const start = xml.indexOf(tagOpen, startIndex);
     if (start === -1) break;
     const end = xml.indexOf(tagClose, start);
@@ -65,20 +82,20 @@ export async function findAndSendNews(topic = "it") {
     startIndex = end + tagClose.length;
   }
 
-  if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста или имеет неподдерживаемый формат`);
+  if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста или имеет нестандартный формат XML`);
 
   const itemChunk = items[Math.floor(Math.random() * items.length)];
 
   let postTitle = "Инфоповод";
   const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
   if (titleMatch && titleMatch[1]) {
-    postTitle = titleMatch[1].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+    postTitle = cleanHtml(titleMatch[1]);
   }
 
   let postDescription = "";
   const descMatch = itemChunk.match(/<(?:summary|content|description)[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:summary|content|description)>/i);
   if (descMatch && descMatch[1]) {
-    postDescription = descMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").substring(0, 1500).trim();
+    postDescription = cleanHtml(descMatch[1]).substring(0, 1500);
   }
 
   let imageUrl = null;
@@ -93,25 +110,27 @@ export async function findAndSendNews(topic = "it") {
     if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
   }
 
-  const prompt = `Ты — автор живого личного Telegram-канала. Пиши легко, иронично, без штампов.
-Напиши короткий пост для канала на русском языке (до 600 символов).
-Заголовок: "${postTitle}"
-Суть новости: "${postDescription}"
-Чистый текст без Markdown, без ссылок и без шаблонных вводных фраз.`;
+  const prompt = `Ты — автор интересного Telegram-канала про технологии, науку и гаджеты.
+Перескажи эту новость живо, коротко, без канцелярщины и клише.
+Если исходный текст на английском языке — обязательно переведи и адаптируй на русский язык.
+Объем поста: 400-600 символов.
+Заголовок новости: "${postTitle}"
+Суть: "${postDescription}"
+Выведи только готовый текст поста без Markdown-разметки (без звездочек и решеток), без ссылок и без шаблонных приветствий.`;
 
   let adaptedText;
   try {
     adaptedText = await callGeminiDirect(prompt);
   } catch (err) {
-    console.warn("Сбой генерации Gemini, отправка выжимки:", err.message);
-    adaptedText = `${postTitle}\n\n${postDescription.substring(0, 350)}...`;
+    console.warn("Сбой Gemini, отправляем оригинальный текст:", err.message);
+    adaptedText = `${postTitle}\n\n${postDescription.substring(0, 400)}...`;
   }
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const adminId = process.env.MY_TELEGRAM_ID;
 
   if (!botToken || !adminId) {
-    throw new Error("Не заданы TELEGRAM_BOT_TOKEN или MY_TELEGRAM_ID в настройках проекта");
+    throw new Error("Не указаны TELEGRAM_BOT_TOKEN или MY_TELEGRAM_ID");
   }
 
   const keyboard = {
@@ -121,19 +140,50 @@ export async function findAndSendNews(topic = "it") {
     ]]
   };
 
-  const endpoint = imageUrl ? "sendPhoto" : "sendMessage";
-  const payload = imageUrl
-    ? { chat_id: adminId, photo: imageUrl, caption: adaptedText.substring(0, 1024), reply_markup: keyboard }
-    : { chat_id: adminId, text: adaptedText, reply_markup: keyboard, disable_web_page_preview: true };
+  let tgData = null;
 
-  const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  }, 5000);
+  // 1. Попытка отправить с фото
+  if (imageUrl) {
+    try {
+      const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: adminId,
+          photo: imageUrl,
+          caption: adaptedText.substring(0, 1024),
+          reply_markup: keyboard
+        })
+      }, 5000);
+      const resJson = await tgRes.json();
+      if (resJson.ok) {
+        tgData = resJson;
+      } else {
+        console.warn("Telegram отклонил отправку sendPhoto:", resJson.description);
+      }
+    } catch (e) {
+      console.warn("Не удалось отправить фото, делаем фолбэк на текст:", e.message);
+    }
+  }
 
-  const tgData = await tgRes.json();
-  if (!tgData.ok) throw new Error(`Telegram API Error: ${tgData.description}`);
+  // 2. Фолбэк на текстовое сообщение (если картинки не было или сайт заблокировал ее скачивание)
+  if (!tgData) {
+    const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: adminId,
+        text: adaptedText,
+        reply_markup: keyboard,
+        disable_web_page_preview: false
+      })
+    }, 5000);
+    tgData = await tgRes.json();
+  }
+
+  if (!tgData.ok) {
+    throw new Error(`Telegram API Error: ${tgData.description}`);
+  }
 
   return tgData;
 }
@@ -143,7 +193,7 @@ export default async function handler(req, res) {
     const host = req.headers.host || 'localhost';
     const parsedUrl = new URL(req.url, `https://${host}`);
     const topic = parsedUrl.searchParams.get('source') || req.query?.source || 'it';
-    
+
     const data = await findAndSendNews(topic);
     return res.status(200).json({ ok: true, data });
   } catch (err) {

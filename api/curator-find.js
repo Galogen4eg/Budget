@@ -37,7 +37,7 @@ async function callGeminiDirect(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY не задан в переменных окружения Vercel");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -48,9 +48,9 @@ async function callGeminiDirect(prompt) {
   }, 9000);
 
   const data = await res.json();
-  if (data.error) throw new Error(`Gemini API: ${data.error.message}`);
+  if (data.error) throw new Error(`${data.error.message}`);
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini вернул пустой текст ответа");
+  if (!text) throw new Error("Пустой ответ от API");
   return text.trim();
 }
 
@@ -122,8 +122,8 @@ export async function findAndSendNews(topic = "it") {
   try {
     adaptedText = await callGeminiDirect(prompt);
   } catch (err) {
-    console.warn("Сбой Gemini, отправляем оригинальный текст:", err.message);
-    adaptedText = `${postTitle}\n\n${postDescription.substring(0, 400)}...`;
+    console.warn("Сбой Gemini:", err.message);
+    adaptedText = `🤖 Ошибка API: ${err.message}\n\nОригинал: ${postTitle}\n\n${postDescription.substring(0, 300)}...`;
   }
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -142,7 +142,6 @@ export async function findAndSendNews(topic = "it") {
 
   let tgData = null;
 
-  // 1. Попытка отправить с фото
   if (imageUrl) {
     try {
       const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
@@ -166,7 +165,6 @@ export async function findAndSendNews(topic = "it") {
     }
   }
 
-  // 2. Фолбэк на текстовое сообщение (если картинки не было или сайт заблокировал ее скачивание)
   if (!tgData) {
     const tgRes = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",

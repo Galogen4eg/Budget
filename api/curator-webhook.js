@@ -1,5 +1,6 @@
 import { redis } from '../lib/redis.js';
 import crypto from 'crypto';
+import { findAndSendNews } from './curator-find.js';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.MY_TELEGRAM_ID;
@@ -57,19 +58,32 @@ async function getMainMenuKeyboard() {
 }
 
 export default async function handler(req, res) {
-if (req.method !== 'POST') {
-    // Если перешли по ссылке для теста новостей: /api/curator-webhook?source=it
-    if (req.query && req.query.source) {
+  // Обработка GET-запросов и тестовых ссылок в браузере
+  if (req.method !== 'POST') {
+    const host = req.headers.host || 'localhost';
+    const parsedUrl = new URL(req.url, `https://${host}`);
+    const sourceParam = parsedUrl.searchParams.get('source') || req.query?.source;
+
+    if (sourceParam) {
       try {
-        const topic = req.query.source;
-        const result = await findAndSendNews(topic);
-        return res.status(200).json({ ok: true, topic, result });
+        const result = await findAndSendNews(sourceParam);
+        return res.status(200).json({
+          status: 'ok',
+          topic: sourceParam,
+          result
+        });
       } catch (err) {
-        return res.status(500).json({ ok: false, error: err.message });
+        return res.status(500).json({
+          status: 'error',
+          topic: sourceParam,
+          message: err.message
+        });
       }
     }
-    return res.status(200).send('Curator Webhook is running');
+
+    return res.status(200).send('Curator Webhook is running (build v2)');
   }
+
   const update = req.body;
 
   try {
@@ -97,7 +111,7 @@ if (req.method !== 'POST') {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка входящих сообщений
+    // 2. Обработка сообщений от администратора
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -180,7 +194,7 @@ if (req.method !== 'POST') {
           return res.status(200).json({ ok: true, cleared: true });
         }
 
-        // Публикация альбома с текстом
+        // Публикация альбома
         const isWaitingAlbumText = await redis.get(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         if (isWaitingAlbumText) {
           const batchKey = `admin:batch:${ADMIN_CHAT_ID}`;
@@ -228,7 +242,6 @@ if (req.method !== 'POST') {
             return res.status(200).json({ ok: false, error: publishResponse.description });
           }
 
-          // Переносим в used только если фото изначально принадлежало пулу склада
           for (const fid of fileIds) {
             const isFromPool = await redis.sismember('photos:available', fid);
             if (isFromPool) {
@@ -246,18 +259,10 @@ if (req.method !== 'POST') {
             reply_markup: await getMainMenuKeyboard(),
           });
 
-          const remaining = await redis.scard('photos:available');
-          if (remaining <= 3) {
-            await tgRequest('sendMessage', {
-              chat_id: ADMIN_CHAT_ID,
-              text: `Осталось неопубликованных всего ${remaining} фото.`,
-            });
-          }
-
           return res.status(200).json({ ok: true });
         }
 
-        // Одиночная публикация с текстом
+        // Публикация одного фото с подписью
         const waitingShortKey = await redis.get(`admin:waiting_text:${ADMIN_CHAT_ID}`);
         if (waitingShortKey) {
           const fileId = await redis.get(`photo:pending:${waitingShortKey}`);
@@ -300,20 +305,12 @@ if (req.method !== 'POST') {
             reply_markup: await getMainMenuKeyboard(),
           });
 
-          const remaining = await redis.scard('photos:available');
-          if (remaining <= 3) {
-            await tgRequest('sendMessage', {
-              chat_id: ADMIN_CHAT_ID,
-              text: `Осталось неопубликованных всего ${remaining} фото.`,
-            });
-          }
-
           return res.status(200).json({ ok: true });
         }
       }
     }
 
-    // 3. Обработка callback-кнопок
+    // 3. Обработка нажатий на инлайн-кнопки
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -327,7 +324,6 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Переключатель таймера автопостинга
       if (data === 'timer:toggle') {
         const rawState = await redis.get('settings:timer_enabled');
         const currentlyActive = isTimerActive(rawState);
@@ -353,17 +349,13 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true, state: nextState });
       }
 
-      // Остановка бота
       if (data === 'bot:stop') {
         await redis.set('settings:timer_enabled', '0');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Бот остановлен',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Бот остановлен' });
 
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
@@ -371,7 +363,7 @@ if (req.method !== 'POST') {
           text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }],
+              [{ text: '▶️️ Запустить бота снова', callback_data: 'bot:start' }],
             ],
           },
         });
@@ -379,14 +371,9 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Запуск бота
       if (data === 'bot:start') {
         await redis.set('settings:timer_enabled', '1');
-
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Бот запущен',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Бот запущен' });
 
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
@@ -398,7 +385,6 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Меню сброса
       if (data === 'reset:ask') {
         const usedCount = await redis.scard('photos:used');
         const availCount = await redis.scard('photos:available');
@@ -418,21 +404,15 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Возврат опубликованных фото в доступный пул
       if (data === 'reset:confirm') {
         const usedPhotos = await redis.smembers('photos:used');
-
         if (usedPhotos && usedPhotos.length > 0) {
           await redis.sadd('photos:available', ...usedPhotos);
           await redis.del('photos:used');
         }
 
         const totalAvailable = await redis.scard('photos:available');
-
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'История сброшена!',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'История сброшена!' });
 
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
@@ -444,17 +424,13 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Полное обнуление пула
       if (data === 'reset:pool_confirm') {
         await redis.del('photos:available');
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Пул очищен!',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пул очищен!' });
 
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
@@ -467,10 +443,7 @@ if (req.method !== 'POST') {
       }
 
       if (data === 'reset:cancel') {
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Отменено.',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Отменено.' });
 
         await tgRequest('editMessageText', {
           chat_id: message.chat.id,
@@ -482,7 +455,7 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос случайного фото из склада
+      // Запрос фото
       if (data === 'action:next') {
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
@@ -524,11 +497,10 @@ if (req.method !== 'POST') {
 
           if (!sendRes.ok) {
             if (sendRes.error_code === 400) {
-              console.warn(`Фото ${randomFileId} невалидно, удаляем:`, sendRes.description);
+              console.warn(`Фото ${randomFileId} невалидно:`, sendRes.description);
               await redis.srem('photos:available', randomFileId);
               continue;
             } else {
-              console.error('Сбой сети Telegram:', sendRes.description);
               await tgRequest('answerCallbackQuery', {
                 callback_query_id: callbackId,
                 text: 'Сбой сети Telegram. Попробуйте позже.',
@@ -542,11 +514,7 @@ if (req.method !== 'POST') {
           sent = true;
         }
 
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Изображение отправлено',
-        });
-
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Изображение отправлено' });
         return res.status(200).json({ ok: true });
       }
 
@@ -564,11 +532,10 @@ if (req.method !== 'POST') {
         }
 
         await redis.set(`admin:waiting_album_text:${ADMIN_CHAT_ID}`, '1', { ex: 3600 });
-
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `✍️ Выбрано ${count} фото. Отправьте текст для поста следующим сообщением в этот чат:`,
+          text: `✍️ Выбрано ${count} фото. Отправьте текст для поста следующим сообщением:`,
         });
 
         return res.status(200).json({ ok: true });
@@ -578,11 +545,7 @@ if (req.method !== 'POST') {
         await redis.del(`admin:batch:${ADMIN_CHAT_ID}`);
         await redis.del(`admin:waiting_album_text:${ADMIN_CHAT_ID}`);
 
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Корзина очищена.',
-        });
-
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Корзина очищена.' });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
           text: '🗑 Выбор сброшен. Можете переслать новые фото.',
@@ -592,12 +555,9 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Меню выбора тематики новостей (редактирует текущее сообщение)
+      // Меню выбора новостей
       if (data === 'menu:news') {
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Выбор темы',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Выбор темы' });
 
         const newsKeyboard = {
           inline_keyboard: [
@@ -633,32 +593,31 @@ if (req.method !== 'POST') {
         return res.status(200).json({ ok: true });
       }
 
-      // Запуск генерации новости по выбранной теме
+      // Запуск генерации новости
       if (data.startsWith('news:')) {
         const topic = data.split(':')[1];
 
         await tgRequest('answerCallbackQuery', {
           callback_query_id: callbackId,
-          text: `Генерация [${topic}] запущена...`,
+          text: `Ищу новость [${topic}]...`,
         });
 
-        const baseUrl = process.env.VERCEL_PROJECT_URL
-          ? `https://${process.env.VERCEL_PROJECT_URL}`
-          : (req.headers.host ? `https://${req.headers.host}` : '');
-
-        if (baseUrl) {
-          fetch(`${baseUrl}/api/curator-find?source=${topic}`).catch(e =>
-            console.error('Ошибка вызова curator-find:', e)
-          );
+        try {
+          await findAndSendNews(topic);
+        } catch (err) {
+          console.error('Ошибка генерации новости:', err.message);
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: `⚠️ Сбой при получении новости (${topic}):\n${err.message}`,
+          });
         }
 
         return res.status(200).json({ ok: true });
       }
 
-      // Возврат в главное меню
+      // Назад в главное меню
       if (data === 'menu:back') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
-
         const mainKeyboard = await getMainMenuKeyboard();
 
         if (message && message.chat && message.message_id) {
@@ -693,26 +652,19 @@ if (req.method !== 'POST') {
 
       if (action === 'publish') {
         await redis.set(`admin:waiting_text:${ADMIN_CHAT_ID}`, shortKey, { ex: 3600 });
-
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Введите текст поста.',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Введите текст поста.' });
 
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,
           message_id: message.message_id,
-          caption: '✍️️ Отправьте текст для этого фото следующим сообщением.',
+          caption: '✍️ Отправьте текст для этого фото следующим сообщением.',
           reply_markup: { inline_keyboard: [] },
         });
       } else if (action === 'reject') {
         await redis.del(`photo:pending:${shortKey}`);
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
-        await tgRequest('answerCallbackQuery', {
-          callback_query_id: callbackId,
-          text: 'Пропущено. Фото сохранено в пуле.',
-        });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пропущено. Фото сохранено в пуле.' });
 
         await tgRequest('editMessageCaption', {
           chat_id: message.chat.id,

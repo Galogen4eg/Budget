@@ -608,10 +608,10 @@ export default async function handler(req, res) {
       if (data === 'menu:news') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Выбор темы' });
 
-        const newsKeyboard = {
+const newsKeyboard = {
           inline_keyboard: [
             [
-              { text: '💻 IT / Хабр', callback_data: 'news:it' },
+              { text: '💻 IT (Хабр)', callback_data: 'news:it' },
               { text: '📱 Гаджеты', callback_data: 'news:gadgets' },
             ],
             [
@@ -619,15 +619,17 @@ export default async function handler(req, res) {
               { text: '🌍 The Verge', callback_data: 'news:verge' },
             ],
             [
-              { text: '🍿 Кино и игры', callback_data: 'news:popculture' },
+              { text: '🍿 Кино и Игры', callback_data: 'news:popculture' },
               { text: '🛋 Лайфхакер', callback_data: 'news:life' },
+            ],
+            [
+              { text: '🤡 Reddit Мемы', callback_data: 'news:memes' },
             ],
             [
               { text: '◀ Назад в меню', callback_data: 'menu:back' },
             ],
           ],
         };
-
         if (message && message.chat && message.message_id) {
           await tgRequest('editMessageText', {
             chat_id: message.chat.id,

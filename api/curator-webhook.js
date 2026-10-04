@@ -58,7 +58,7 @@ async function getMainMenuKeyboard() {
 }
 
 export default async function handler(req, res) {
-  // Обработка GET-запросов и тестовых ссылок в браузере
+  // Обработка ручных прямых вызовов через браузер
   if (req.method !== 'POST') {
     const host = req.headers.host || 'localhost';
     const parsedUrl = new URL(req.url, `https://${host}`);
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка сообщений от администратора
+    // 2. Обработка текстовых команд и загрузок от администратора
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -233,7 +233,7 @@ export default async function handler(req, res) {
           }
 
           if (!publishResponse.ok) {
-            console.error('Failed to publish album:', publishResponse);
+            console.error('Ошибка публикации альбома:', publishResponse);
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: `Ошибка публикации: ${publishResponse.description}`,
@@ -285,7 +285,7 @@ export default async function handler(req, res) {
           });
 
           if (!publishResponse.ok) {
-            console.error('Failed to publish photo:', publishResponse);
+            console.error('Ошибка публикации фото:', publishResponse);
             await tgRequest('sendMessage', {
               chat_id: ADMIN_CHAT_ID,
               text: `Ошибка публикации: ${publishResponse.description}`,
@@ -310,7 +310,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий на инлайн-кнопки
+    // 3. Обработка нажатий кнопок
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -320,6 +320,57 @@ export default async function handler(req, res) {
           callback_query_id: callbackId,
           text: 'Доступ запрещён.',
           show_alert: true,
+        });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Кнопка модерации новости: Опубликовать
+      if (data === 'publish_current') {
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Публикую...' });
+
+        let publishRes;
+        if (message.photo && message.photo.length > 0) {
+          const photoId = message.photo[message.photo.length - 1].file_id;
+          publishRes = await tgRequest('sendPhoto', {
+            chat_id: TARGET_CHANNEL_ID,
+            photo: photoId,
+            caption: message.caption || undefined,
+          });
+        } else if (message.text) {
+          publishRes = await tgRequest('sendMessage', {
+            chat_id: TARGET_CHANNEL_ID,
+            text: message.text,
+            disable_web_page_preview: false,
+          });
+        }
+
+        if (publishRes && publishRes.ok) {
+          await tgRequest('editMessageReplyMarkup', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            reply_markup: { inline_keyboard: [] },
+          });
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '✅ Новость опубликована в канал!',
+            reply_markup: await getMainMenuKeyboard(),
+          });
+        } else {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: `Ошибка публикации новости: ${publishRes?.description || 'неизвестно'}`,
+          });
+        }
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // Кнопка модерации новости: Отклонить
+      if (data === 'dismiss') {
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Отклонено' });
+        await tgRequest('deleteMessage', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
         });
         return res.status(200).json({ ok: true });
       }
@@ -363,7 +414,7 @@ export default async function handler(req, res) {
           text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶️️ Запустить бота снова', callback_data: 'bot:start' }],
+              [{ text: '▶ Запустить бота снова', callback_data: 'bot:start' }],
             ],
           },
         });
@@ -455,7 +506,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запрос фото
       if (data === 'action:next') {
         await redis.del(`admin:waiting_text:${ADMIN_CHAT_ID}`);
 
@@ -593,7 +643,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Запуск генерации новости
+      // Запуск генерации новости с перехватом ошибок
       if (data.startsWith('news:')) {
         const topic = data.split(':')[1];
 
@@ -615,7 +665,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Назад в главное меню
       if (data === 'menu:back') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         const mainKeyboard = await getMainMenuKeyboard();

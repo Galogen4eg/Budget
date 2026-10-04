@@ -58,7 +58,6 @@ async function getMainMenuKeyboard() {
 }
 
 export default async function handler(req, res) {
-  // Обработка ручных прямых вызовов через браузер
   if (req.method !== 'POST') {
     const host = req.headers.host || 'localhost';
     const parsedUrl = new URL(req.url, `https://${host}`);
@@ -111,7 +110,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, added: fileId });
     }
 
-    // 2. Обработка текстовых команд и загрузок от администратора
+    // 2. Обработка текстовых сообщений
     const message = update.message;
     if (message && ADMIN_CHAT_ID && String(message.chat.id) === String(ADMIN_CHAT_ID)) {
       if (message.photo) {
@@ -310,7 +309,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Обработка нажатий кнопок
+    // 3. Обработка нажатий на инлайн-кнопки
     const callbackQuery = update.callback_query;
     if (callbackQuery) {
       const { id: callbackId, data, message, from } = callbackQuery;
@@ -613,11 +612,15 @@ export default async function handler(req, res) {
           inline_keyboard: [
             [
               { text: '💻 IT / Хабр', callback_data: 'news:it' },
-              { text: '📱 Гаджеты (3DNews)', callback_data: 'news:gadgets' },
+              { text: '📱 Гаджеты', callback_data: 'news:gadgets' },
             ],
             [
-              { text: '🔬 Научпоп (Naked Science)', callback_data: 'news:science' },
+              { text: '🔬 Научпоп', callback_data: 'news:science' },
               { text: '🌍 The Verge', callback_data: 'news:verge' },
+            ],
+            [
+              { text: '🍿 Кино и игры', callback_data: 'news:popculture' },
+              { text: '🛋 Лайфхакер', callback_data: 'news:life' },
             ],
             [
               { text: '◀ Назад в меню', callback_data: 'menu:back' },

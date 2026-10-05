@@ -1,3 +1,5 @@
+import { redis } from '../lib/redis.js';
+
 const FEEDS = {
   it: "https://habr.com/ru/rss/hubs/all/",
   gadgets: "https://3dnews.ru/news/rss/",
@@ -43,10 +45,7 @@ async function fetchGeminiModel(modelName, prompt, timeoutMs, base64Image = null
   
   if (base64Image) {
     parts.push({
-      inline_data: {
-        mime_type: mimeType,
-        data: base64Image
-      }
+      inline_data: { mime_type: mimeType, data: base64Image }
     });
   }
 
@@ -82,50 +81,59 @@ async function callGeminiDirect(prompt, base64Image = null, mimeType = "image/jp
     } catch (err) {
       lastError = err.message;
       console.warn(`Попытка ${attempt + 1} отклонена: ${lastError}`);
-      
       if (attempt < 2) {
-        console.warn(`Пауза ${delays[attempt] / 1000} сек...`);
         await new Promise(resolve => setTimeout(resolve, delays[attempt]));
       }
     }
   }
-
-  throw new Error(`Модель перегружена (сделано 3 попытки). Последний сбой: ${lastError}`);
+  throw new Error(`Модель перегружена (3 попытки). Последний сбой: ${lastError}`);
 }
 
-export async function findAndSendNews(topic = "it") {
+export async function findAndSendNews(topic = "it", retryData = null) {
   let postTitle = "Инфоповод";
   let postDescription = "";
   let imageUrl = null;
-  
   let base64ForGemini = null;
   let imageMimeType = "image/jpeg";
   let finalPrompt = "";
 
-  if (topic === "memes") {
-    // Используем открытый API-агрегатор для обхода блокировки Reddit по IP
+  // Если это повторный запуск упавшей новости
+  if (retryData) {
+    postTitle = retryData.title;
+    postDescription = retryData.desc;
+    imageUrl = retryData.img;
+    topic = retryData.topic;
+
+    if (imageUrl) {
+      try {
+        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
+        const arrayBuffer = await imgRes.arrayBuffer();
+        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
+        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
+        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
+      } catch(e) {
+        console.warn("Сбой загрузки картинки при повторе:", e.message);
+      }
+    }
+  } 
+  // Парсинг мемов с нуля
+  else if (topic === "memes") {
     const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
-    
     if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
     
     const post = await memeRes.json();
     postTitle = post.title;
     imageUrl = post.url;
 
-    // Скачиваем картинку в память для распознавания текста в Gemini
     const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
     const arrayBuffer = await imgRes.arrayBuffer();
     base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
     
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
-
-    finalPrompt = `Ты — автор развлекательного Telegram-канала. Тебе прислали мем с Reddit (заголовок автора: "${postTitle}").
-Твоя задача: прочитай текст прямо на картинке, которую я прикрепил. Переведи этот текст на русский язык.
-Напиши короткую смешную подпись для русскоязычной аудитории, которая передает суть мема (до 400 символов).
-Не пиши Markdown, не пиши приветствия. Просто выдай итоговый текст, который будет висеть под этой картинкой в канале.`;
-
-  } else {
+  } 
+  // Идеальный парсинг RSS через регулярки
+  else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
@@ -135,25 +143,16 @@ export async function findAndSendNews(topic = "it") {
     }, 7000);
 
     if (!feedRes.ok) throw new Error(`Ошибка RSS [${feedUrl}]: HTTP ${feedRes.status}`);
-
     const xml = await feedRes.text();
-    const isAtom = xml.includes("<entry") && !xml.includes("<item");
-    const tagOpen = isAtom ? "<entry" : "<item";
-    const tagClose = isAtom ? "</entry>" : "</item>";
 
     const items = [];
-    let startIndex = 0;
-    while (items.length < 10) {
-      const start = xml.indexOf(tagOpen, startIndex);
-      if (start === -1) break;
-      const end = xml.indexOf(tagClose, start);
-      if (end === -1) break;
-      items.push(xml.slice(start, end));
-      startIndex = end + tagClose.length;
+    const regex = /<(item|entry)[^>]*>([\s\S]*?)<\/\1>/gi;
+    let match;
+    while ((match = regex.exec(xml)) !== null && items.length < 15) {
+      items.push(match[0]);
     }
 
     if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста.`);
-
     const itemChunk = items[Math.floor(Math.random() * items.length)];
 
     const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
@@ -172,29 +171,51 @@ export async function findAndSendNews(topic = "it") {
       const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(https?:\/\/[^"'\s]+)\1/i);
       if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
     }
+  }
 
-    const customStyle = process.env.PROMPT_STYLE || "Ты — автор интересного Telegram-канала про технологии, науку и гаджеты. Перескажи эту новость живо, коротко, без канцелярщины и клише.";
-    finalPrompt = `${customStyle}\n\nТехнические требования:\n- Если текст на английском — обязательно переведи.\n- Выведи только готовый текст без Markdown.\n\nЗаголовок: "${postTitle}"\nСуть: "${postDescription}"`;
+  // Сборка промпта (только секрет из Vercel + данные поста)
+  const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
+  
+  if (topic === "memes") {
+    finalPrompt = `${secretPrompt}\n\nЗаголовок автора: "${postTitle}"`;
+  } else {
+    finalPrompt = `${secretPrompt}\n\nЗаголовок: "${postTitle}"\nСуть: "${postDescription}"`;
   }
 
   let adaptedText;
+  let isError = false;
   try {
     adaptedText = await callGeminiDirect(finalPrompt, base64ForGemini, imageMimeType);
   } catch (err) {
     console.warn("Сбой Gemini:", err.message);
-    adaptedText = `🤖 Ошибка API: ${err.message}\n\nОригинал: ${postTitle}\n\n${postDescription.substring(0, 300)}...`;
+    adaptedText = `🤖 Ошибка API: ${err.message}\n\nОригинал: ${postTitle}\n\n${postDescription.substring(0, 200)}...`;
+    isError = true;
   }
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const adminId = process.env.MY_TELEGRAM_ID;
-  if (!botToken || !adminId) throw new Error("Не указаны TELEGRAM_BOT_TOKEN или MY_TELEGRAM_ID");
+  if (!botToken || !adminId) throw new Error("Не указаны токены Telegram");
 
-  const keyboard = {
-    inline_keyboard: [[
+  const keyboard = { inline_keyboard: [] };
+
+  if (isError) {
+    const retryKey = Math.random().toString(36).substring(2, 10);
+    await redis.set(`retry_news:${retryKey}`, JSON.stringify({
+      topic, title: postTitle, desc: postDescription, img: imageUrl
+    }), { ex: 3600 * 24 });
+
+    keyboard.inline_keyboard.push([
+      { text: "🔄 Повторить генерацию", callback_data: `retry_news:${retryKey}` }
+    ]);
+    keyboard.inline_keyboard.push([
+      { text: "❌ Отклонить", callback_data: "dismiss" }
+    ]);
+  } else {
+    keyboard.inline_keyboard.push([
       { text: "✅ Опубликовать", callback_data: "publish_current" },
       { text: "❌ Отклонить", callback_data: "dismiss" }
-    ]]
-  };
+    ]);
+  }
 
   let tgData = null;
 
@@ -213,7 +234,7 @@ export async function findAndSendNews(topic = "it") {
       const resJson = await tgRes.json();
       if (resJson.ok) tgData = resJson;
     } catch (e) {
-      console.warn("Не удалось отправить фото, фолбэк на текст:", e.message);
+      console.warn("Фолбэк на текст из-за картинки:", e.message);
     }
   }
 

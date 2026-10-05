@@ -7,8 +7,9 @@ const FEEDS = {
   verge: "https://www.theverge.com/rss/index.xml",
   popculture: "https://dtf.ru/rss/all",
   life: "https://lifehacker.ru/feed/",
-  pikabu_hot: "https://pikabu.cc/xmlfeeds.php?cmd=popular",
-  pikabu_best: "https://pikabu.cc/xmlfeeds.php?cmd=best"
+  pikabu_home: "https://pikabu.ru/",
+  pikabu_best_week: "https://pikabu.ru/best/week",
+  pikabu_new: "https://pikabu.ru/new"
 };
 
 function cleanHtml(str) {
@@ -38,6 +39,58 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
     clearTimeout(timer);
     throw err;
   }
+}
+
+async function parsePikabuWeb(sectionUrl) {
+  const res = await fetchWithTimeout(sectionUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
+  }, 7000);
+
+  if (!res.ok) throw new Error(`Ошибка загрузки Пикабу [${sectionUrl}]: HTTP ${res.status}`);
+  const html = await res.text();
+
+  const rawPosts = html.split(/<article\s+[^>]*class=["'][^"']*story[^"']*["']/i);
+  if (rawPosts.length < 2) throw new Error("Посты на странице Пикабу не найдены");
+
+  const candidates = [];
+  for (let i = 1; i < rawPosts.length; i++) {
+    const block = rawPosts[i];
+
+    let title = "";
+    const titleMatch = block.match(/<a\s+[^>]*class=["'][^"']*story__title-link[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (titleMatch && titleMatch[1]) {
+      title = cleanHtml(titleMatch[1]);
+    }
+
+    let desc = "";
+    const descMatch = block.match(/<div\s+[^>]*class=["'][^"']*story__text[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    if (descMatch && descMatch[1]) {
+      desc = cleanHtml(descMatch[1]);
+    }
+
+    let imgUrl = null;
+    const imgMatch = block.match(/<img\s+[^>]*src=["'](https:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp))["']/i) 
+                  || block.match(/data-src=["'](https:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp))["']/i);
+    if (imgMatch && imgMatch[1]) {
+      imgUrl = imgMatch[1];
+    }
+
+    if (title || desc) {
+      candidates.push({ title, desc, imgUrl });
+    }
+  }
+
+  if (candidates.length === 0) throw new Error("Не удалось извлечь посты с Пикабу");
+
+  const post = candidates[Math.floor(Math.random() * Math.min(candidates.length, 10))];
+  return {
+    title: post.title || "Пост с Пикабу",
+    desc: post.desc,
+    imgUrl: post.imgUrl
+  };
 }
 
 async function fetchGeminiModel(modelName, prompt, timeoutMs, base64Image = null, mimeType = "image/jpeg") {
@@ -92,33 +145,36 @@ async function callGeminiDirect(prompt, base64Image = null, mimeType = "image/jp
   throw new Error(`Модель перегружена (3 попытки). Последний сбой: ${lastError}`);
 }
 
-async function callOpenRouterBackup(prompt, base64Image, mimeType) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY не задан");
+async function callGroqBackup(prompt, base64Image, mimeType) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY не задан");
 
-  const content = [{ type: "text", text: prompt }];
+  const messages = [{
+    role: "user",
+    content: [
+      { type: "text", text: prompt }
+    ]
+  }];
 
   if (base64Image) {
-    content.push({
+    messages[0].content.push({
       type: "image_url",
       image_url: { url: `data:${mimeType};base64,${base64Image}` }
     });
   }
 
-  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://vercel.com",
-      "X-Title": "Telegram Curator Bot"
+      "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "qwen/qwen-2-vl-7b-instruct:free",
-      messages: [{ role: "user", content: content }],
+      model: "llama-3.2-11b-vision-preview",
+      messages: messages,
       temperature: 0.7
     })
-  }, 12000);
+  }, 10000);
 
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
@@ -132,11 +188,12 @@ async function callAIWithFallback(prompt, base64Image = null, mimeType = "image/
     const isRateLimit = err.message.includes("429") || 
                         err.message.includes("exhausted") || 
                         err.message.includes("quota") ||
-                        err.message.includes("перегружена");
+                        err.message.includes("перегружена") ||
+                        err.message.includes("No endpoints found");
                         
-    if (isRateLimit && process.env.OPENROUTER_API_KEY) {
-      console.warn("Лимит Gemini исчерпан, переключаюсь на OpenRouter (Qwen)...");
-      return await callOpenRouterBackup(prompt, base64Image, mimeType);
+    if (isRateLimit && process.env.GROQ_API_KEY) {
+      console.warn("Лимит Gemini исчерпан, переключаюсь на Groq...");
+      return await callGroqBackup(prompt, base64Image, mimeType);
     }
     throw err;
   }
@@ -151,10 +208,11 @@ export async function findAndSendNews(topic = "it", retryData = null) {
   let finalPrompt = "";
 
   if (retryData) {
-    postTitle = retryData.title;
-    postDescription = retryData.desc;
-    imageUrl = retryData.img;
-    topic = retryData.topic;
+    const parsedRetry = typeof retryData === 'string' ? JSON.parse(retryData) : retryData;
+    postTitle = parsedRetry.title;
+    postDescription = parsedRetry.desc;
+    imageUrl = parsedRetry.img;
+    topic = parsedRetry.topic;
 
     if (imageUrl) {
       try {
@@ -183,6 +241,25 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
+  else if (topic.startsWith("pikabu_")) {
+    const pikabuUrl = FEEDS[topic];
+    const pikabuData = await parsePikabuWeb(pikabuUrl);
+    postTitle = pikabuData.title;
+    postDescription = pikabuData.desc;
+    imageUrl = pikabuData.imgUrl;
+
+    if (imageUrl) {
+      try {
+        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
+        const arrayBuffer = await imgRes.arrayBuffer();
+        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
+        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
+        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
+      } catch (e) {
+        console.warn("Сбой скачивания картинки Пикабу для нейросети:", e.message);
+      }
+    }
+  }
   else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
@@ -203,14 +280,7 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
 
     if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста.`);
-    
-    let selectedItems = items;
-    if (topic.startsWith("pikabu")) {
-      const withImages = items.filter(i => i.includes("<enclosure") || i.includes("<media:content") || i.includes("<img"));
-      if (withImages.length > 0) selectedItems = withImages;
-    }
-
-    const itemChunk = selectedItems[Math.floor(Math.random() * selectedItems.length)];
+    const itemChunk = items[Math.floor(Math.random() * items.length)];
 
     const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) postTitle = cleanHtml(titleMatch[1]);

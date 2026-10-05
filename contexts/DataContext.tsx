@@ -151,14 +151,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const learnedRules = useMemo(() => {
       const ruleMap = new Map<string, LearnedRule>();
       
+      const addRuleToMap = (r: LearnedRule) => {
+        const kw = (r.keyword || (r.keywords && r.keywords[0]) || '').toLowerCase().trim();
+        if (!kw) return;
+        const normalized: LearnedRule = {
+          ...r,
+          keyword: kw,
+          keywords: r.keywords && r.keywords.length > 0 ? Array.from(new Set(r.keywords.map(k => k.toLowerCase().trim()))) : [kw]
+        };
+        ruleMap.set(kw, normalized);
+      };
+
       // 1. Apply Default Rules (Lowest Priority)
-      DEFAULT_RULES.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      DEFAULT_RULES.forEach(addRuleToMap);
       
       // 2. Apply Global Database Rules (Medium Priority)
-      globalRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      globalRules.forEach(addRuleToMap);
       
       // 3. Apply Local Family Rules (Highest Priority - Overrides others)
-      localRules.forEach(r => ruleMap.set(r.keyword.toLowerCase(), r));
+      localRules.forEach(addRuleToMap);
       
       return Array.from(ruleMap.values());
   }, [localRules, globalRules]);
@@ -188,8 +199,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  // Unified persistent updater for learned rules
+  const updateRules = async (rulesOrFn: LearnedRule[] | ((prev: LearnedRule[]) => LearnedRule[])) => {
+      const updated = typeof rulesOrFn === 'function' ? rulesOrFn(localRules) : rulesOrFn;
+      setLocalRules(updated);
+      try {
+          localStorage.setItem('local_rules', JSON.stringify(updated));
+      } catch (e) {
+          console.warn("Failed to write local_rules to localStorage:", e);
+      }
+      if (familyId) {
+          try {
+              await addItemsBatch(familyId, 'rules', updated);
+          } catch (e) {
+              console.warn("Failed to sync rules with Firestore:", e);
+          }
+      }
+  };
+
   // --- Subscriptions ---
   useEffect(() => {
+    // Always load locally cached rules as baseline to prevent rules disappearance on reload
+    const cachedRules = localStorage.getItem('local_rules');
+    if (cachedRules) {
+        try {
+            const parsed = JSON.parse(cachedRules);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                setLocalRules(parsed);
+            }
+        } catch (e) {
+            console.warn("Could not parse cached local_rules", e);
+        }
+    }
+
     const unsubGlobal = subscribeToGlobalRules((rules) => {
         setGlobalRules(rules);
     });
@@ -288,7 +330,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'categories', (data) => { 
           if (data.length > 0) setCategories(data as Category[]);
       }),
-      subscribeToCollection(familyId, 'rules', (data) => setLocalRules(data as LearnedRule[])),
+      subscribeToCollection(familyId, 'rules', async (data) => {
+          const list = (data as LearnedRule[]) || [];
+          if (list.length > 0) {
+              setLocalRules(list);
+              try { localStorage.setItem('local_rules', JSON.stringify(list)); } catch {}
+          } else {
+              // If Firestore rules are empty, check if we have cached rules locally and upload them
+              const cached = localStorage.getItem('local_rules');
+              if (cached) {
+                  try {
+                      const parsed = JSON.parse(cached);
+                      if (Array.isArray(parsed) && parsed.length > 0) {
+                          setLocalRules(parsed);
+                          await addItemsBatch(familyId, 'rules', parsed);
+                      }
+                  } catch (e) {
+                      console.warn("Failed to migrate cached rules to Firestore", e);
+                  }
+              }
+          }
+      }),
       subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
       subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
@@ -316,6 +378,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
       // Sync dismissed notifications to local storage immediately
       localStorage.setItem('local_dismissed_notifs', JSON.stringify(dismissedNotificationIds));
+      // Always keep local rules backed up on device
+      try { localStorage.setItem('local_rules', JSON.stringify(localRules)); } catch {}
 
       if (!authLoading && !isInitialLoad.current && !familyId) {
           localStorage.setItem('local_transactions', JSON.stringify(transactions));
@@ -329,8 +393,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('local_members', JSON.stringify(members));
           localStorage.setItem('local_knowledge', JSON.stringify(aiKnowledge));
           localStorage.setItem('local_reminders', JSON.stringify(reminders));
-          // RESTORED: Saving rules to local storage
-          localStorage.setItem('local_rules', JSON.stringify(localRules));
       } else {
           localStorage.setItem('local_reminders', JSON.stringify(reminders));
       }
@@ -501,7 +563,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    learnedRules, setLearnedRules: setLocalRules,
+    learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings, setSettings, updateSettings, // Expose unified updater
     debts, setDebts,

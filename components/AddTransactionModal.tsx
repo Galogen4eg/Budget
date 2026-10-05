@@ -252,6 +252,8 @@ export default function AddTransactionModal({
         amount: finalAmount,
         type: type,
         category: categoryId,
+        subcategory: parentOfSelected ? selectedCategory.label : undefined,
+        payee: finalDisplayName,
         memberId: memberId,
         note: finalDisplayName,
         date: dateObj.toISOString(),
@@ -265,7 +267,10 @@ export default function AddTransactionModal({
           id: Date.now().toString(),
           keyword: cleanKeyword.trim(),
           cleanName: finalDisplayName,
-          categoryId: categoryId
+          categoryId: categoryId,
+          subcategory: parentOfSelected ? selectedCategory.label : undefined,
+          payee: finalDisplayName,
+          pattern: cleanKeyword.trim().toUpperCase()
         };
         onLearnRule(rule);
       }

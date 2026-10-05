@@ -747,7 +747,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-16 text-[#2E3230] dark:text-gray-100 transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar text-[#2E3230] dark:text-gray-100 transition-colors">
       
       {/* 1. UNIFIED MOBILE HEADER */}
       <TerraMobileHeader
@@ -775,7 +775,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       />
 
       {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
-      <div className="px-3.5 pt-3 pb-32 space-y-3.5 max-w-md mx-auto w-full">
+      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (

@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, Search, X, Check, Heart, ThumbsUp, Clapping, MessageSquare, 
-  Send, Paperclip, ChevronLeft, Trash2, CheckCheck, ShoppingBag, 
-  Calendar, CreditCard, FileCheck2, Info, ArrowRight, ShieldCheck, Repeat
-} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { subscribeToCollection, addItem } from '../utils/db';
 import { triggerHaptic } from '../utils/haptics';
 import { toast } from 'sonner';
+import { useVirtualMessageList, CHAT_VIRTUALIZATION_THRESHOLD } from '../hooks/useVirtualMessageList';
 
 export interface ChatMessage {
   id: string;
@@ -25,8 +21,8 @@ export interface ChatMessage {
     date: string;
     items?: { name: string; price: number }[];
   };
-  reactions?: Record<string, number>; // emoji -> count
-  userReacted?: Record<string, boolean>; // emoji -> boolean
+  reactions?: Record<string, number>;
+  userReacted?: Record<string, boolean>;
 }
 
 export interface TopicItem {
@@ -36,15 +32,14 @@ export interface TopicItem {
   icon: string;
   time: string;
   lastMessage: string;
-  unreadCount?: number;
 }
 
 const INITIAL_TOPICS: TopicItem[] = [
   {
     id: 'general',
-    title: 'Общий чат',
-    subtitle: 'Папа (онлайн), Мама (14:35), Бабушка (был(а) в 12:10)',
-    icon: '#',
+    title: 'Общий семейный чат',
+    subtitle: 'Папа (онлайн), Мама (14:35)',
+    icon: 'СБ',
     time: '14:38',
     lastMessage: 'Папа: Внёс счёт за садик в бюджет'
   },
@@ -76,7 +71,8 @@ const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = {
       userName: 'Мама',
       timestamp: Date.now() - 3600000 * 1.2,
       type: 'text',
-      reactions: { '❤️': 1 }
+      reactions: { '❤️': 1 },
+      userReacted: { '❤️': false }
     },
     {
       id: 'm2',
@@ -90,7 +86,7 @@ const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = {
         amount: 1420,
         category: 'Аптека и здоровье',
         merchant: 'Аптека «Здоровье»',
-        date: '24 сен, 13:38',
+        date: 'Сегодня, 13:38',
         items: [
           { name: 'Витамин D3 2000 ME (капли)', price: 640 },
           { name: 'Омега-3 концентрат 1000мг', price: 780 }
@@ -161,11 +157,12 @@ export default function FamilyChat() {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingAuthor, setTypingAuthor] = useState('Мама');
   const [selectedReceipt, setSelectedReceipt] = useState<ChatMessage['receiptData'] | null>(null);
-  const [isReceiptDrawerOpen, setIsReceiptDrawerOpen] = useState(false);
-  const [showMobileSidebar, setShowMobileSidebar] = useState(true);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // Mobile View Navigation State: 'list' (topic folders) vs 'chat' (active conversation)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('chat');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -178,7 +175,7 @@ export default function FamilyChat() {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [activeTopicId, currentMessages.length]);
+  }, [activeTopicId, currentMessages.length, mobileView]);
 
   // Handle Realtime Firestore subscription if familyId exists
   useEffect(() => {
@@ -197,43 +194,54 @@ export default function FamilyChat() {
     return () => unsub();
   }, [familyId, activeTopicId]);
 
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
   // Topic Switcher
   const handleSelectTopic = (topicId: string) => {
     triggerHaptic('light');
     setActiveTopicId(topicId);
-    setShowMobileSidebar(false);
+    setMobileView('chat');
     setIsSearching(false);
     setSearchQuery('');
   };
 
-  // Delete Chat Topic
-  const handleDeleteActiveTopic = () => {
-    if (topics.length <= 1) {
-      toast.error('Нельзя удалить единственную оставшуюся тему');
-      setIsDeleteModalOpen(false);
-      return;
+  // Create New Topic
+  const handleCreateTopic = () => {
+    const topicTitle = prompt('Введите название новой семейной темы:', 'Покупки на праздник');
+    if (topicTitle && topicTitle.trim()) {
+      const newTopicId = `topic_${Date.now()}`;
+      const newTopic: TopicItem = {
+        id: newTopicId,
+        title: topicTitle.trim(),
+        subtitle: 'Папа, Мама, Бабушка',
+        icon: '📋',
+        time: 'Только что',
+        lastMessage: 'Чат создан'
+      };
+
+      setTopics(prev => [newTopic, ...prev]);
+      setMessagesMap(prev => ({
+        ...prev,
+        [newTopicId]: [
+          {
+            id: `init_${Date.now()}`,
+            topicId: newTopicId,
+            text: `Создана тема «${topicTitle.trim()}»`,
+            userId: 'system',
+            userName: 'Система',
+            timestamp: Date.now(),
+            type: 'system'
+          }
+        ]
+      }));
+
+      setActiveTopicId(newTopicId);
+      setMobileView('chat');
+      toast.success(`Тема «${topicTitle}» успешно создана`);
     }
-
-    const topicToDelete = activeTopic;
-    const remainingTopics = topics.filter(t => t.id !== activeTopicId);
-    
-    setTopics(remainingTopics);
-    setMessagesMap(prev => {
-      const copy = { ...prev };
-      delete copy[activeTopicId];
-      return copy;
-    });
-
-    setActiveTopicId(remainingTopics[0].id);
-    setIsDeleteModalOpen(false);
-    toast.success(`Чат «${topicToDelete.title}» успешно удален`);
   };
 
   // Send Message Handler
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const text = inputText.trim();
     if (!text) return;
 
@@ -276,38 +284,9 @@ export default function FamilyChat() {
         console.error("Failed to send chat message:", err);
       }
     }
-
-    // Simulate Family Member Reply after 1.8s
-    simulateFamilyReply();
   };
 
-  const simulateFamilyReply = () => {
-    setTimeout(() => {
-      setIsTyping(true);
-      setTypingAuthor('Мама');
-
-      setTimeout(() => {
-        setIsTyping(false);
-
-        const replyMsg: ChatMessage = {
-          id: `msg_reply_${Date.now()}`,
-          topicId: activeTopicId,
-          text: 'Спасибо, записала! ❤️',
-          userId: 'mom',
-          userName: 'Мама',
-          timestamp: Date.now(),
-          type: 'text'
-        };
-
-        setMessagesMap(prev => ({
-          ...prev,
-          [activeTopicId]: [...(prev[activeTopicId] || []), replyMsg]
-        }));
-      }, 2200);
-    }, 700);
-  };
-
-  // Reactions
+  // Toggle Reactions
   const handleToggleReaction = (msgId: string, emoji: string) => {
     triggerHaptic('selection');
     setMessagesMap(prev => {
@@ -335,39 +314,27 @@ export default function FamilyChat() {
     });
   };
 
-  // Create New Topic
-  const handleCreateTopic = () => {
-    const topicTitle = prompt('Введите название новой семейной темы:', 'Покупки на праздник');
-    if (topicTitle && topicTitle.trim()) {
-      const newTopicId = `topic_${Date.now()}`;
-      const newTopic: TopicItem = {
-        id: newTopicId,
-        title: topicTitle.trim(),
-        subtitle: 'Папа, Мама, Бабушка',
-        icon: '📋',
-        time: 'Только что',
-        lastMessage: 'Чат создан'
-      };
-
-      setTopics(prev => [newTopic, ...prev]);
-      setMessagesMap(prev => ({
-        ...prev,
-        [newTopicId]: [
-          {
-            id: `init_${Date.now()}`,
-            topicId: newTopicId,
-            text: `Создана тема «${topicTitle.trim()}»`,
-            userId: 'system',
-            userName: 'Система',
-            timestamp: Date.now(),
-            type: 'system'
-          }
-        ]
-      }));
-
-      setActiveTopicId(newTopicId);
-      toast.success(`Тема «${topicTitle}» успешно создана`);
+  // Delete Chat Topic
+  const handleDeleteActiveTopic = () => {
+    if (topics.length <= 1) {
+      toast.error('Нельзя удалить единственную оставшуюся тему');
+      setIsDeleteModalOpen(false);
+      return;
     }
+
+    const topicToDelete = activeTopic;
+    const remainingTopics = topics.filter(t => t.id !== activeTopicId);
+    
+    setTopics(remainingTopics);
+    setMessagesMap(prev => {
+      const copy = { ...prev };
+      delete copy[activeTopicId];
+      return copy;
+    });
+
+    setActiveTopicId(remainingTopics[0].id);
+    setIsDeleteModalOpen(false);
+    toast.success(`Чат «${topicToDelete.title}» успешно удален`);
   };
 
   // Attachment Handler
@@ -384,438 +351,434 @@ export default function FamilyChat() {
     return msg.text.toLowerCase().includes(searchQuery.toLowerCase().trim());
   });
 
+  // Dynamic virtualization: activates when exceeding 500 records
+  const {
+    isVirtual,
+    virtualItems,
+    topSpacerHeight,
+    bottomSpacerHeight
+  } = useVirtualMessageList({
+    itemCount: filteredMessages.length,
+    containerRef: messagesContainerRef,
+    threshold: CHAT_VIRTUALIZATION_THRESHOLD
+  });
+
   return (
-    <div className="w-full h-[84vh] md:h-[840px] bg-[#FBF9F5] dark:bg-[#121214] rounded-3xl shadow-xl border border-[#ECE8DF] dark:border-white/10 flex overflow-hidden relative animate-main-entrance select-none">
+    <div className="w-full h-full flex-1 flex bg-[#FAF6F0] dark:bg-[#121214] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-3xl overflow-hidden border-0 md:border md:border-outline-variant/30 md:shadow-lg select-none min-h-0">
       
-      {/* SIDEBAR */}
-      <aside className={`w-72 md:w-80 border-r border-[#ECE8DF] dark:border-white/10 bg-[#F7F4ED] dark:bg-[#1C1C1E] flex flex-col shrink-0 ${showMobileSidebar ? 'flex w-full z-20' : 'hidden sm:flex'}`}>
-        
+      {/* LEFT COLUMN: CHAT FOLDERS / TOPICS LIST (Always visible on desktop md+, toggleable on mobile) */}
+      <aside className={`w-full md:w-72 lg:w-80 border-r border-outline-variant/30 bg-[#F5F1EA] dark:bg-[#1C1C1E] flex-col shrink-0 h-full ${
+        mobileView === 'list' ? 'flex' : 'hidden md:flex'
+      }`}>
         {/* Sidebar Header */}
-        <header className="p-4 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between">
+        <header className="h-16 px-4 border-b border-surface-variant/40 dark:border-white/10 flex items-center justify-between shrink-0 bg-[#FAF6F0] dark:bg-[#121214]">
           <div>
-            <h1 className="text-base font-bold text-[#1F2922] dark:text-white">Семейные беседы</h1>
-            <p className="text-xs text-[#717B73] dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block animate-pulse"></span>
+            <h1 className="font-headline font-bold text-base text-on-surface dark:text-white">Семейные беседы</h1>
+            <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block animate-pulse"></span>
               <span>{members.length || 3} участника онлайн</span>
             </p>
           </div>
           <button 
             type="button"
             onClick={handleCreateTopic}
-            title="Создать новый тред или тему"
-            className="w-8 h-8 rounded-full bg-[#E9E4D8] dark:bg-white/10 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center hover:bg-[#DED7C8] dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer"
+            title="Создать тему"
+            className="w-9 h-9 rounded-full bg-primary-container/60 hover:bg-primary-container text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
           >
-            <Plus size={18} strokeWidth={2.5} />
+            <span className="material-symbols-outlined text-[20px]">add</span>
           </button>
         </header>
 
         {/* Topics List */}
-        <nav aria-label="Разделы чата" className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-          {topics.map((topic, index) => {
-            const isActive = topic.id === activeTopicId;
-            const staggerClass = index === 0 ? 'stagger-sidebar-1' : index === 1 ? 'stagger-sidebar-2' : 'stagger-sidebar-3';
-            
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-2">
+          {topics.map(t => {
+            const isActive = t.id === activeTopicId;
             return (
               <button
-                key={topic.id}
+                key={t.id}
                 type="button"
-                onClick={() => handleSelectTopic(topic.id)}
-                className={`${staggerClass} w-full p-2.5 rounded-xl text-left flex items-start gap-3 transition-all duration-200 active:scale-[0.99] group cursor-pointer ${
+                onClick={() => handleSelectTopic(t.id)}
+                className={`w-full p-3 rounded-2xl text-left flex items-start gap-3 transition-all cursor-pointer ${
                   isActive 
-                    ? 'bg-white dark:bg-[#2C2C2E] border border-[#E4DED3] dark:border-white/10 shadow-sm' 
-                    : 'hover:bg-[#EDE8DD] dark:hover:bg-white/5 border border-transparent'
+                    ? 'bg-surface dark:bg-[#2C2C2E] border border-primary/40 shadow-sm' 
+                    : 'hover:bg-surface-container/60 dark:hover:bg-white/5 border border-transparent'
                 }`}
               >
-                <span className="topic-icon w-9 h-9 rounded-xl bg-[#2D5A3F]/10 dark:bg-emerald-950/40 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0 transition-transform group-hover:scale-105">
-                  {topic.icon}
-                </span>
+                <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline font-semibold text-sm shrink-0 shadow-[0_2px_8px_rgba(74,124,89,0.15)]">
+                  {t.icon}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs truncate ${isActive ? 'font-bold text-[#1F2922] dark:text-white' : 'font-semibold text-[#2C332D] dark:text-stone-300'}`}>
-                      {topic.title}
+                    <span className={`font-headline text-sm truncate ${isActive ? 'font-bold text-on-surface dark:text-white' : 'font-semibold text-on-surface/90 dark:text-stone-300'}`}>
+                      {t.title}
                     </span>
-                    <span className="text-[10px] text-[#788279] dark:text-stone-400 shrink-0 ml-1">{topic.time}</span>
+                    <span className="text-[10.5px] font-body text-on-surface-variant dark:text-stone-400 shrink-0 ml-1">{t.time}</span>
                   </div>
-                  <p className="text-xs text-[#525D54] dark:text-stone-400 truncate mt-0.5">
-                    {topic.lastMessage}
+                  <p className="text-xs font-body text-on-surface-variant dark:text-stone-400 truncate mt-0.5">
+                    {t.lastMessage}
                   </p>
                 </div>
               </button>
             );
           })}
-        </nav>
+        </div>
       </aside>
 
-      {/* MAIN CHAT WORKSPACE */}
-      <section aria-label="Окно переписки" className={`flex-1 flex flex-col h-full bg-[#FBF9F5] dark:bg-[#121214] min-w-0 relative ${!showMobileSidebar ? 'flex' : 'hidden sm:flex'}`}>
+      {/* RIGHT COLUMN: ACTIVE CHAT FEED (Always visible on desktop md+, toggleable on mobile) */}
+      <section className={`flex-1 flex flex-col h-full bg-[#FAF6F0] dark:bg-[#121214] min-w-0 relative ${
+        mobileView === 'chat' ? 'flex' : 'hidden md:flex'
+      }`}>
         
-        {/* Header */}
-        <header className="h-16 px-4 md:px-6 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between bg-[#FBF9F5]/95 dark:bg-[#121214]/95 backdrop-blur-xs shrink-0 z-10">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              aria-label="Назад к чатам"
-              onClick={() => setShowMobileSidebar(true)}
-              className="sm:hidden p-1.5 -ml-1 text-[#465047] dark:text-stone-300 hover:text-[#1F2922] rounded-lg active:scale-95 transition-transform cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div className="w-9 h-9 rounded-full bg-[#2D5A3F] dark:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
-              {activeTopic.icon}
+        {/* Chat Header */}
+        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0] dark:bg-[#121214] shadow-[0_2px_12px_rgba(46,50,48,0.04)] border-b border-surface-variant/40 dark:border-white/10 shrink-0">
+          <div className="h-16 px-3.5 flex items-center justify-between gap-2">
+            
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Back Button for Mobile View */}
+              <button 
+                type="button"
+                aria-label="К спискам чатов" 
+                onClick={() => setMobileView('list')}
+                className="md:hidden w-10 h-10 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
+              </button>
+
+              <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline font-semibold text-sm shrink-0 shadow-[0_2px_8px_rgba(74,124,89,0.15)]">
+                {activeTopic.icon}
+              </div>
+
+              <div className="flex flex-col min-w-0 flex-1">
+                <h2 className="text-[15px] font-headline font-semibold text-on-surface dark:text-white truncate leading-snug">
+                  {activeTopic.title}
+                </h2>
+                <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 truncate leading-none mt-0.5">
+                  {activeTopic.subtitle}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-[#1F2922] dark:text-white truncate leading-tight">
-                {activeTopic.title}
-              </h2>
-              <p className="text-[11px] text-[#717B73] dark:text-stone-400 truncate">
-                {activeTopic.subtitle}
-              </p>
+
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button 
+                type="button"
+                aria-label="Поиск" 
+                onClick={() => setIsSearching(!isSearching)}
+                className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant dark:text-stone-300 hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[22px]">search</span>
+              </button>
+
+              <button 
+                type="button"
+                aria-label="Удалить чат" 
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="w-10 h-10 flex items-center justify-center rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                title="Удалить чат"
+              >
+                <span className="material-symbols-outlined text-[22px]">delete</span>
+              </button>
+
+              <div className="w-8 h-8 rounded-full bg-[#4A7C59] !text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                <span className="material-symbols-outlined text-[18px]">person</span>
+              </div>
             </div>
+
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Поиск по истории сообщений"
-              onClick={() => setIsSearching(!isSearching)}
-              className="p-2 text-[#566057] dark:text-stone-300 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#F0ECE1] dark:hover:bg-white/10 active:scale-95 rounded-xl transition-all cursor-pointer"
-            >
-              <Search size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Удалить чат"
-              onClick={() => setIsDeleteModalOpen(true)}
-              title="Удалить чат"
-              className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 active:scale-95 rounded-xl transition-all cursor-pointer"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
+          {/* Collapsible Search Bar */}
+          {isSearching && (
+            <div className="px-4 py-2 bg-surface-container-low dark:bg-[#1C1C1E] border-t border-surface-variant/40 dark:border-white/10 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">search</span>
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по сообщениям..."
+                className="w-full bg-transparent text-xs text-on-surface dark:text-white placeholder:text-on-surface-variant/60 outline-none"
+                autoFocus
+              />
+              <button 
+                type="button"
+                onClick={() => { setIsSearching(false); setSearchQuery(''); }}
+                className="text-xs font-bold text-on-surface-variant dark:text-stone-400 hover:text-on-surface px-2 py-0.5 cursor-pointer"
+              >
+                Закрыть
+              </button>
+            </div>
+          )}
         </header>
 
-        {/* Collapsible Search Bar */}
-        {isSearching && (
-          <div className="px-4 py-2 border-b border-[#ECE8DF] dark:border-white/10 bg-[#F8F5EE] dark:bg-[#1C1C1E] flex items-center gap-2 transition-all">
-            <Search size={16} className="text-[#869087] dark:text-stone-400 shrink-0" />
+        {/* Messages Feed */}
+        <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[#121214] overflow-hidden">
+          <div 
+            ref={messagesContainerRef}
+            className="px-4 py-3 flex-1 overflow-y-auto flex flex-col gap-4 min-h-0 custom-scrollbar"
+          >
+            {/* Date Separator */}
+            <div className="flex items-center justify-center my-1">
+              <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
+                <span>Сегодня, 24 сентября</span>
+                {isVirtual && (
+                  <span className="text-[10.5px] bg-[#4A7C59]/15 text-[#2D5A3F] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" title="Виртуализация активна: рендерятся только видимые сообщения">
+                    ⚡ {filteredMessages.length} сообщ. (60fps)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {topSpacerHeight > 0 && (
+              <div style={{ height: topSpacerHeight }} aria-hidden="true" />
+            )}
+
+            {virtualItems.map(({ index }) => {
+              const msg = filteredMessages[index];
+              if (!msg) return null;
+
+              const isMe = msg.userName === 'Вы' || msg.userId === user?.uid;
+
+              if (msg.type === 'system') {
+                return (
+                  <div key={msg.id} className="flex items-center justify-center my-1">
+                    <span className="text-xs font-medium text-on-surface-variant dark:text-stone-400 bg-surface-container-low dark:bg-white/5 px-3 py-1 rounded-full">
+                      {msg.text}
+                    </span>
+                  </div>
+                );
+              }
+
+              if (msg.type === 'receipt' && msg.receiptData) {
+                return (
+                  <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
+                    <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                      {msg.userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2 px-1">
+                        <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
+                        <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                          {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <div className="bg-surface-container-low dark:bg-[#1C1C1E] rounded-xl p-3.5 shadow-sm flex flex-col gap-2.5 border border-outline-variant/20 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-primary-fixed dark:bg-emerald-950 flex items-center justify-center shrink-0 text-primary dark:text-emerald-400">
+                              <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-body font-medium text-on-surface-variant dark:text-stone-300">Трата внесена в бюджет</p>
+                              <p className="text-base font-headline font-bold text-on-surface dark:text-white leading-tight mt-0.5">
+                                {msg.receiptData.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-body font-semibold px-2 py-0.5 rounded-full bg-tertiary-fixed dark:bg-amber-950/60 text-on-tertiary-fixed dark:text-amber-300 shrink-0">
+                            Чек учтен
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 bg-surface-container/60 dark:bg-white/5 -mx-3.5 -mb-3.5 px-3.5 py-2.5 rounded-b-xl border-t border-surface-variant/30 dark:border-white/5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="material-symbols-outlined text-[17px] text-tertiary dark:text-amber-400">medication</span>
+                            <span className="text-xs font-body text-on-surface-variant dark:text-stone-300 truncate">
+                              Категория: {msg.receiptData.category}
+                            </span>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setSelectedReceipt(msg.receiptData!);
+                              setIsReceiptModalOpen(true);
+                              triggerHaptic('light');
+                            }}
+                            className="text-xs font-body font-bold text-primary dark:text-emerald-400 hover:text-on-primary-fixed-variant flex items-center gap-0.5 shrink-0 pl-2 py-1 cursor-pointer"
+                          >
+                            <span>Детали</span>
+                            <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (!isMe) {
+                return (
+                  <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
+                    <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                      {msg.userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      <div className="flex items-baseline gap-2 px-1">
+                        <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
+                        <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                          {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <div className="relative bg-surface-container-lowest dark:bg-[#1C1C1E] border border-outline-variant/20 dark:border-white/10 p-3.5 rounded-2xl rounded-tl-sm shadow-[0_3px_14px_rgba(46,50,48,0.04)] text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
+                        {msg.text}
+
+                        {/* Heart Reaction Badge */}
+                        {msg.reactions && msg.reactions['❤️'] > 0 && (
+                          <div 
+                            onClick={() => handleToggleReaction(msg.id, '❤️')}
+                            className={`absolute -bottom-2.5 right-3 rounded-full px-2 py-0.5 shadow-sm flex items-center gap-1 cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
+                              msg.userReacted?.['❤️'] 
+                                ? 'bg-tertiary-fixed/60 border border-tertiary' 
+                                : 'bg-surface-container-lowest dark:bg-[#2C2C2E] border border-outline-variant/30'
+                            }`}
+                          >
+                            <span className="text-xs">❤️</span>
+                            <span className="text-[11px] font-bold text-on-surface-variant dark:text-stone-200">
+                              {msg.reactions['❤️']}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={msg.id} className="flex flex-col items-end gap-1 self-end max-w-[88%] ml-auto">
+                  <div className="flex items-baseline gap-2 px-1">
+                    <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                      {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">Вы</span>
+                  </div>
+
+                  <div className="bg-[#2D5A3F] text-white p-3.5 rounded-2xl rounded-tr-sm shadow-[0_3px_14px_rgba(45,90,63,0.18)] text-[14.5px] leading-relaxed font-body font-medium">
+                    {msg.text}
+                  </div>
+
+                  <div className="flex items-center gap-1 pr-1 text-[11px] text-on-surface-variant dark:text-stone-400 font-body">
+                    <span className="material-symbols-outlined text-[15px] text-[#2D5A3F] dark:text-emerald-400">done_all</span>
+                    <span>Прочитано всеми</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {bottomSpacerHeight > 0 && (
+              <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />
+            )}
+          </div>
+        </main>
+
+        {/* Composer Bar */}
+        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[#1C1C1E] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-3">
+          <form className="p-2 sm:p-3 flex items-center gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
             <input 
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск в сообщениях..."
-              className="bg-transparent text-xs w-full text-[#1F2922] dark:text-white placeholder-[#8F9890] outline-none"
-              autoFocus
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileChange}
             />
             <button 
               type="button"
-              onClick={() => { setIsSearching(false); setSearchQuery(''); }}
-              className="text-xs text-[#717B73] dark:text-stone-400 hover:text-[#1F2922] dark:hover:text-white px-2 py-0.5 rounded cursor-pointer"
-            >
-              Закрыть
-            </button>
-          </div>
-        )}
-
-        {/* Messages Feed */}
-        <div 
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-4 transition-opacity duration-200"
-        >
-          {/* Date Separator */}
-          <div aria-label="Сегодня" className="flex items-center justify-center my-2 select-none" role="separator">
-            <span className="text-[11px] font-semibold text-[#828C83] dark:text-stone-400 bg-[#ECE8DF] dark:bg-white/10 px-2.5 py-0.5 rounded-full hover:scale-105 transition-transform cursor-default">
-              Сегодня, 24 сентября
-            </span>
-          </div>
-
-          {filteredMessages.map((msg, idx) => {
-            const isMe = msg.userName === 'Вы' || msg.userId === user?.uid;
-
-            if (msg.type === 'system') {
-              return (
-                <div key={msg.id} className="flex items-center justify-center my-2">
-                  <span className="text-[11px] font-medium text-[#717B73] dark:text-stone-400 bg-[#F0EDE4] dark:bg-white/5 px-3 py-1 rounded-full border border-[#E5DFD4] dark:border-white/10">
-                    {msg.text}
-                  </span>
-                </div>
-              );
-            }
-
-            if (msg.type === 'receipt' && msg.receiptData) {
-              return (
-                <article key={msg.id} className="stagger-msg-2 ml-9 max-w-[85%] sm:max-w-[70%] group">
-                  <div 
-                    onClick={() => {
-                      setSelectedReceipt(msg.receiptData!);
-                      setIsReceiptDrawerOpen(true);
-                      triggerHaptic('light');
-                    }}
-                    className="bg-[#F2EFE6] dark:bg-[#1C1C1E] hover:bg-[#EAE6DC] dark:hover:bg-[#252528] border border-[#DED8CB] dark:border-white/10 rounded-2xl p-3.5 flex flex-col gap-2 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2D5A3F] dark:text-emerald-400">
-                        <CheckCheck size={16} className="text-[#2D5A3F] dark:text-emerald-400" />
-                        Трата внесена в бюджет
-                      </span>
-                      <span className="text-xs font-bold text-[#1F2922] dark:text-white bg-white/70 dark:bg-white/10 px-2 py-0.5 rounded-md border border-[#E3DED4] dark:border-white/10">
-                        {msg.receiptData.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-[#525D54] dark:text-stone-300 flex items-center justify-between border-t border-[#E2DCD0] dark:border-white/10 pt-2">
-                      <span>Категория: <strong class="text-[#1F2922] dark:text-white">{msg.receiptData.category}</strong></span>
-                      <span className="text-[#2D5A3F] dark:text-emerald-400 font-bold text-xs inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                        Детали →
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              );
-            }
-
-            return (
-              <article 
-                key={msg.id} 
-                className={`group relative flex items-start gap-2.5 max-w-[85%] sm:max-w-[70%] ${isMe ? 'ml-auto justify-end' : ''}`}
-              >
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-[#D65D4E] text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-1 shadow-xs">
-                    {msg.userName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-
-                <div className={`flex flex-col ${isMe ? 'items-end' : ''}`}>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    {!isMe && <span className="text-xs font-bold text-[#1F2922] dark:text-white">{msg.userName}</span>}
-                    <time className="text-[10px] text-[#869087] dark:text-stone-400">
-                      {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                    </time>
-                    {isMe && <span className="text-xs font-bold text-[#1F2922] dark:text-white">Вы</span>}
-                  </div>
-
-                  <div className={`p-3 rounded-2xl shadow-xs text-sm leading-relaxed transition-colors ${
-                    isMe 
-                      ? 'bg-[#2D5A3F] dark:bg-emerald-700 text-white rounded-tr-sm hover:bg-[#285038]' 
-                      : 'bg-white dark:bg-[#1C1C1E] border border-[#E5DFD4] dark:border-white/10 text-[#273029] dark:text-stone-100 rounded-tl-sm'
-                  }`}>
-                    {msg.text}
-                  </div>
-
-                  {/* Reaction Pills & Quick Reactions */}
-                  <div className="flex items-center gap-1.5 mt-1">
-                    {msg.reactions && Object.entries(msg.reactions).map(([emoji, count]) => {
-                      if (count <= 0) return null;
-                      const userReacted = msg.userReacted?.[emoji];
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleToggleReaction(msg.id, emoji)}
-                          className={`reaction-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] active:scale-90 transition-all cursor-pointer ${
-                            userReacted 
-                              ? 'bg-[#2D5A3F]/10 dark:bg-emerald-950/60 border border-[#2D5A3F] text-[#2D5A3F] dark:text-emerald-300' 
-                              : 'bg-white dark:bg-[#1C1C1E] border border-[#E4DED3] dark:border-white/10 text-[#556057] dark:text-stone-300'
-                          }`}
-                        >
-                          <span>{emoji}</span>
-                          <span className="counter font-bold text-[10px]">{count}</span>
-                        </button>
-                      );
-                    })}
-
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pl-1">
-                      <button 
-                        type="button" 
-                        onClick={() => handleToggleReaction(msg.id, '❤️')} 
-                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                        title="Поставить ❤️"
-                      >
-                        ❤️
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => handleToggleReaction(msg.id, '👍')} 
-                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                        title="Поставить 👍"
-                      >
-                        👍
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => handleToggleReaction(msg.id, '👏')} 
-                        className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                        title="Поставить 👏"
-                      >
-                        👏
-                      </button>
-                    </div>
-
-                    {isMe && (
-                      <span className="text-[10px] text-[#717B73] dark:text-stone-400 inline-flex items-center gap-1 select-none ml-1">
-                        Прочитано
-                        <CheckCheck size={12} className="text-[#2D5A3F] dark:text-emerald-400" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-
-          {/* Typing Indicator */}
-          {isTyping && (
-            <div className="flex items-center gap-2 text-xs text-[#717B73] dark:text-stone-400 pt-1 ml-9">
-              <span className="italic font-medium">{typingAuthor} печатает</span>
-              <span className="inline-flex gap-1 items-center bg-[#EDE8DD] dark:bg-white/10 px-2 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
-                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
-                <span className="w-1.5 h-1.5 bg-[#2D5A3F] dark:bg-emerald-400 rounded-full typing-dot"></span>
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Input Footer */}
-        <footer className="p-3 md:p-4 bg-[#FBF9F5] dark:bg-[#121214] border-t border-[#ECE8DF] dark:border-white/10 shrink-0">
-          <form className="flex items-center gap-2" onSubmit={handleSendMessage}>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              className="hidden" 
-              onChange={handleFileChange}
-            />
-            <button
-              type="button"
               aria-label="Прикрепить чек или файл"
               onClick={() => fileInputRef.current?.click()}
-              title="Прикрепить чек или фото"
-              className="p-2.5 text-[#566057] dark:text-stone-300 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#F0ECE1] dark:hover:bg-white/10 active:scale-90 rounded-xl transition-all cursor-pointer"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-surface-container-low dark:bg-white/5 hover:bg-surface-container flex items-center justify-center text-on-surface-variant dark:text-stone-300 transition-colors shrink-0 cursor-pointer"
             >
-              <Paperclip size={20} />
+              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">attach_file</span>
             </button>
 
-            <div className="flex-1 relative">
+            <div className="flex-1 bg-surface-container-low dark:bg-[#121214] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
               <input 
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Напишите сообщение семье..."
-                className="w-full px-4 py-2.5 bg-white dark:bg-[#1C1C1E] border border-[#DED8CB] dark:border-white/10 focus:border-[#2D5A3F] rounded-xl text-sm text-[#1F2922] dark:text-white placeholder-[#8F9890] outline-none transition-all"
-                required
+                placeholder="Сообщение семье..."
+                className="w-full bg-transparent text-[14px] text-on-surface dark:text-white placeholder:text-on-surface-variant/70 focus:outline-none font-body leading-normal"
               />
             </div>
 
-            <button
+            <button 
               type="submit"
               aria-label="Отправить сообщение"
-              className="px-4 py-2.5 bg-[#2D5A3F] hover:bg-[#244933] active:scale-95 text-white font-semibold text-sm rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl bg-[#2D5A3F] hover:bg-[#244933] text-white font-body font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
             >
-              <span>Отправить</span>
-              <Send size={16} />
+              <span className="hidden sm:inline text-white">Отправить</span>
+              <span className="material-symbols-outlined text-[17px] text-white">send</span>
             </button>
           </form>
         </footer>
 
-        {/* Receipt Details Drawer */}
-        <div className={`absolute inset-y-0 right-0 w-full sm:w-80 bg-[#FDFCF9] dark:bg-[#1C1C1E] border-l border-[#ECE8DF] dark:border-white/10 shadow-2xl z-20 transform transition-transform duration-300 ease-out flex flex-col ${
-          isReceiptDrawerOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}>
-          <div className="p-4 border-b border-[#ECE8DF] dark:border-white/10 flex items-center justify-between bg-[#F7F4ED] dark:bg-[#121214]">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-[#2D5A3F]/15 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">🧾</span>
-              <h3 className="font-bold text-sm text-[#1F2922] dark:text-white">Детали расхода</h3>
+      </section>
+
+      {/* EXPENSE DETAILS MODAL SHEET */}
+      {isReceiptModalOpen && selectedReceipt && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-end justify-center p-0 transition-opacity">
+          <div className="w-full max-w-md !bg-white dark:!bg-[#1C1C1E] rounded-t-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-6 duration-200 border-t border-stone-200 dark:border-white/10 relative z-10">
+            <div className="w-12 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600 mx-auto"></div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+                </div>
+                <div>
+                  <h3 className="font-headline font-bold text-base text-on-surface dark:text-white">Детали расхода</h3>
+                  <p className="text-xs text-on-surface-variant dark:text-stone-400 font-body">Внесено через чек Мамой</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 flex items-center justify-center text-on-surface-variant dark:text-stone-300 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
+
+            <div className="bg-stone-50 dark:bg-[#121214] rounded-xl p-3.5 space-y-2 text-xs font-body text-on-surface dark:text-stone-200 border border-stone-200 dark:border-white/10">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant dark:text-stone-400">Сумма покупки:</span>
+                <span className="font-bold text-sm text-on-surface dark:text-white">
+                  {selectedReceipt.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant dark:text-stone-400">Категория:</span>
+                <span className="font-semibold text-[#2D5A3F] dark:text-emerald-400">{selectedReceipt.category}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant dark:text-stone-400">Источник списания:</span>
+                <span className="font-medium">Семейная карта Мир •• 4912</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant dark:text-stone-400">Дата и время:</span>
+                <span>{selectedReceipt.date}</span>
+              </div>
+            </div>
+
             <button 
               type="button"
-              onClick={() => setIsReceiptDrawerOpen(false)}
-              className="p-1 rounded-lg text-[#717B73] dark:text-stone-400 hover:text-[#1F2922] dark:hover:text-white hover:bg-[#E9E4D8] dark:hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+              onClick={() => setIsReceiptModalOpen(false)}
+              className="w-full py-3 bg-[#2D5A3F] hover:bg-[#244933] text-white rounded-xl font-headline font-semibold text-sm shadow-sm active:scale-95 transition-transform cursor-pointer"
             >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
-            {selectedReceipt && (
-              <>
-                <div className="p-3 rounded-xl bg-white dark:bg-[#121214] border border-[#E7E1D5] dark:border-white/10 shadow-xs text-center">
-                  <span className="text-[11px] text-[#788279] dark:text-stone-400 uppercase tracking-wider font-semibold">Итоговая сумма</span>
-                  <div className="text-2xl font-black text-[#1F2922] dark:text-white mt-0.5">
-                    {selectedReceipt.amount.toLocaleString('ru-RU')} {settings.currency || '₽'}
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full mt-1.5 font-medium border border-emerald-200 dark:border-emerald-800">
-                    ✓ Синхронизировано с банком
-                  </span>
-                </div>
-
-                <div className="space-y-2 border-t border-[#ECE8DF] dark:border-white/10 pt-3">
-                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
-                    <span>Торговая точка:</span>
-                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.merchant}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
-                    <span>Категория:</span>
-                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.category}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
-                    <span>Оплатил(а):</span>
-                    <strong className="text-[#1F2922] dark:text-white">Мама (Карта •• 4812)</strong>
-                  </div>
-                  <div className="flex justify-between py-1 text-[#667268] dark:text-stone-400">
-                    <span>Дата и время:</span>
-                    <strong className="text-[#1F2922] dark:text-white">{selectedReceipt.date}</strong>
-                  </div>
-                </div>
-
-                {selectedReceipt.items && selectedReceipt.items.length > 0 && (
-                  <div className="border-t border-[#ECE8DF] dark:border-white/10 pt-3">
-                    <p className="font-bold text-[#1F2922] dark:text-white mb-2">Товары в чеке:</p>
-                    <div className="space-y-1.5 bg-[#F5F2EA] dark:bg-[#121214] p-2.5 rounded-xl border border-[#E6E0D2] dark:border-white/10">
-                      {selectedReceipt.items.map((it, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-[11px] border-b border-[#E8E2D4] dark:border-white/5 last:border-none pb-1 last:pb-0">
-                          <span className="text-[#323B34] dark:text-stone-300">{it.name}</span>
-                          <span className="font-bold text-[#1F2922] dark:text-white">{it.price} ₽</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="p-3 border-t border-[#ECE8DF] dark:border-white/10 bg-[#F7F4ED] dark:bg-[#121214] flex items-center gap-2">
-            <button 
-              type="button"
-              onClick={() => {
-                toast.success("Расход подтвержден и закреплен в отчете");
-                setIsReceiptDrawerOpen(false);
-              }}
-              className="flex-1 py-2 bg-[#2D5A3F] dark:bg-emerald-700 hover:bg-[#244933] active:scale-95 text-white font-semibold rounded-xl text-center transition-all cursor-pointer"
-            >
-              Подтвердить
-            </button>
-            <button 
-              type="button"
-              onClick={() => setIsReceiptDrawerOpen(false)}
-              className="py-2 px-3 bg-white dark:bg-[#2C2C2E] border border-[#DED8CB] dark:border-white/10 hover:bg-[#F0ECE1] active:scale-95 text-[#2C332D] dark:text-white font-medium rounded-xl transition-all cursor-pointer"
-            >
-              Закрыть
+              Понятно
             </button>
           </div>
         </div>
+      )}
 
-      </section>
-
-      {/* Confirm Delete Chat Modal */}
+      {/* CONFIRM DELETE CHAT MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]">
-          <div className="bg-white dark:bg-[#1C1C1E] border border-[#ECE8DF] dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="!bg-white dark:!bg-[#1C1C1E] border border-stone-200 dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4 relative z-10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 size={20} />
+              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">delete</span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#1F2922] dark:text-white">Удалить чат?</h3>
-                <p className="text-xs text-[#717B73] dark:text-stone-400 mt-0.5">
+                <h3 className="font-headline font-bold text-base text-on-surface dark:text-white">Удалить чат?</h3>
+                <p className="text-xs text-on-surface-variant dark:text-stone-400 mt-0.5 font-body">
                   Вы действительно хотите удалить «{activeTopic.title}» и всю историю сообщений?
                 </p>
               </div>
@@ -825,14 +788,14 @@ export default function FamilyChat() {
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2 px-3 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-[#2C332D] dark:text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                className="flex-1 py-2 px-3 bg-surface-container dark:bg-white/10 hover:bg-surface-container-high text-on-surface dark:text-white text-xs font-headline font-bold rounded-xl transition-colors cursor-pointer"
               >
                 Отмена
               </button>
               <button
                 type="button"
                 onClick={handleDeleteActiveTopic}
-                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-headline font-bold rounded-xl transition-all shadow-xs cursor-pointer"
               >
                 Удалить
               </button>
@@ -840,6 +803,7 @@ export default function FamilyChat() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

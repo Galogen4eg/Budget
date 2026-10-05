@@ -121,6 +121,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     return null;
   });
 
+  // Active payee filter state
+  const [payeeFilter, setPayeeFilter] = useState<string | null>(null);
+
   // Active parent category filter when in "All categories" mode
   const [activeAllCatId, setActiveAllCatId] = useState<string | null>(null);
 
@@ -214,20 +217,41 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     };
   }, [checkScrollOverflow, sortedSubcategoriesStats]);
 
-  // Apply search query & operation type filters
+  // Extract unique payees statistics from familyTransactions
+  const payeesStats = useMemo(() => {
+    const map = new Map<string, { payee: string; count: number; spent: number }>();
+    familyTransactions.forEach(t => {
+      const p = t.payee || t.note || 'Другое';
+      if (!p) return;
+      const existing = map.get(p) || { payee: p, count: 0, spent: 0 };
+      existing.count += 1;
+      if (t.type === 'expense') existing.spent += Math.round(t.amount);
+      map.set(p, existing);
+    });
+    return Array.from(map.values()).filter(i => i.spent > 0).sort((a, b) => b.spent - a.spent);
+  }, [familyTransactions]);
+
+  // Apply search query, payee & operation type filters
   const filteredTransactions = useMemo(() => {
     return familyTransactions.filter(t => {
       if (typeFilter === 'expense' && t.type !== 'expense') return false;
       if (typeFilter === 'income' && t.type !== 'income') return false;
 
+      if (payeeFilter) {
+        const pName = t.payee || t.note;
+        if (pName !== payeeFilter) return false;
+      }
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const payeeMatch = (t.payee || '').toLowerCase().includes(q);
+        const subcatMatch = (t.subcategory || '').toLowerCase().includes(q);
         const noteMatch = (t.note || '').toLowerCase().includes(q);
         const rawNoteMatch = (t.rawNote || '').toLowerCase().includes(q);
         const amountMatch = String(t.amount).includes(q);
         const member = members.find(m => m.id === t.memberId);
         const memberMatch = member ? member.name.toLowerCase().includes(q) : false;
-        return noteMatch || rawNoteMatch || amountMatch || memberMatch;
+        return payeeMatch || subcatMatch || noteMatch || rawNoteMatch || amountMatch || memberMatch;
       }
 
       return true;
@@ -236,7 +260,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       const timeB = new Date(b.date).getTime();
       return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
     });
-  }, [familyTransactions, typeFilter, searchQuery, sortOrder, members]);
+  }, [familyTransactions, typeFilter, payeeFilter, searchQuery, sortOrder, members]);
 
   // Calculate Financial KPIs
   const totalExpense = useMemo(() => {
@@ -721,6 +745,46 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
           </div>
         )}
 
+        {/* Payees / Merchants Filter Ribbon */}
+        {payeesStats.length > 0 && (
+          <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] px-4 sm:px-6 py-2 border-b border-[#E4E0D8]/60 dark:border-white/10 shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-[11px] font-bold text-[#68726B] dark:text-stone-400 uppercase tracking-wider shrink-0 mr-1">
+              Получатель/Магазин:
+            </span>
+            <button
+              type="button"
+              onClick={() => setPayeeFilter(null)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                payeeFilter === null
+                  ? 'bg-[#2D5A3F] text-white shadow-xs'
+                  : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
+              }`}
+            >
+              Все ({familyTransactions.length})
+            </button>
+            {payeesStats.map(({ payee, spent, count }) => {
+              const isActive = payeeFilter === payee;
+              return (
+                <button
+                  key={payee}
+                  type="button"
+                  onClick={() => setPayeeFilter(isActive ? null : payee)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-[#2D5A3F] text-white shadow-xs'
+                      : 'bg-[#F5F1EA] dark:bg-[#2C2C2E] text-[#2E3230] dark:text-stone-300 hover:bg-[#EAE6DE]'
+                  }`}
+                >
+                  <span>{payee}</span>
+                  <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
+                    ({spent.toLocaleString('ru-RU')} ₽)
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* 2. BODY CONTENT (Strict Fixed-Height Container) */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {viewMode === 'inspector' ? (
@@ -991,6 +1055,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 settings={settings}
                 activeSubcategoryId={activeSubcategoryId}
                 monthLabel={monthLabel}
+                categories={categories}
               />
 
               {/* 3. Bottom Analytics Split (2 Columns) */}

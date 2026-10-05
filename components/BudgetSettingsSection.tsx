@@ -143,7 +143,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
   }, [archiveStart, archiveEnd, onDeleteTransactionsByPeriod]);
 
   return (
-    <div className="flex flex-col w-full pb-6 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
+    <div className="flex flex-col w-full pb-2 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
       {/* Верхний статус-контекст */}
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center px-3 py-1.5 rounded-full bg-[#f0ece4] dark:bg-[#202225] text-[#4a4e4a] dark:text-gray-300 text-xs font-semibold tracking-wide border border-transparent dark:border-white/5">
@@ -197,14 +197,14 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <label className="text-xs font-semibold text-[#4a4e4a] dark:text-gray-400">
               Дата начала учета
             </label>
-            <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center justify-between mt-1 relative cursor-pointer">
               <input
                 type="date"
                 value={initialDate}
                 onChange={e => onUpdateSetting('initialBalanceDate', e.target.value)}
-                className="w-full bg-transparent font-headline font-semibold text-base text-[#2e3230] dark:text-white focus:outline-none cursor-pointer"
+                className="w-full bg-transparent font-headline font-semibold text-base text-[#2e3230] dark:text-white focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
-              <span className="text-[#4a4e4a] dark:text-gray-400 ml-2 shrink-0">
+              <span className="text-[#4a4e4a] dark:text-gray-400 ml-2 shrink-0 pointer-events-none">
                 <Calendar size={20} />
               </span>
             </div>
@@ -422,30 +422,30 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3 rounded-xl flex items-center justify-between border border-transparent dark:border-white/5">
+            <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3 rounded-xl flex items-center justify-between border border-transparent dark:border-white/5 relative cursor-pointer">
               <div className="flex flex-col flex-1 mr-2">
                 <span className="text-[10px] text-[#4a4e4a] dark:text-gray-400 font-semibold">С</span>
                 <input
                   type="date"
                   value={archiveStart}
                   onChange={e => setArchiveStart(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
-              <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0" />
+              <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0 pointer-events-none" />
             </div>
 
-            <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3 rounded-xl flex items-center justify-between border border-transparent dark:border-white/5">
+            <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3 rounded-xl flex items-center justify-between border border-transparent dark:border-white/5 relative cursor-pointer">
               <div className="flex flex-col flex-1 mr-2">
                 <span className="text-[10px] text-[#4a4e4a] dark:text-gray-400 font-semibold">По</span>
                 <input
                   type="date"
                   value={archiveEnd}
                   onChange={e => setArchiveEnd(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
-              <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0" />
+              <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0 pointer-events-none" />
             </div>
           </div>
 

@@ -5,9 +5,10 @@ import {
   Dumbbell, GraduationCap, Baby, Dog, CreditCard, Zap, 
   Plane, Gamepad2, ShoppingBag, Scissors, Fuel, Wrench, 
   FileText, Film, Trees, FastForward, Shirt, PiggyBank, 
-  Store, CheckCircle2, Layers3, Tag
+  Store, CheckCircle2, Layers3, Tag, Phone
 } from 'lucide-react';
 import { Category, LearnedRule, AppSettings, Transaction } from '../types';
+import { DEFAULT_RULES } from '../constants';
 import { toast } from 'sonner';
 
 export interface CategoriesSettingsProps {
@@ -77,6 +78,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [rulesViewMode, setRulesViewMode] = useState<'category' | 'all' | 'phones'>('category');
+  const [ruleSearchTerm, setRuleSearchTerm] = useState('');
   const [accordionOpenMap, setAccordionOpenMap] = useState<Record<string, boolean>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -107,25 +110,42 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     }
   }, [selectedCat]);
 
-  // CONSOLIDATED RULES: Group rules by Main Category ID
+  // CONSOLIDATED RULES: Group rules by Main Category ID & include unassigned rules
   const groupedRulesByCategory = useMemo(() => {
     const map = new Map<string, { mainCat: Category; subcats: Category[]; rules: LearnedRule[] }>();
+    const assignedRuleIds = new Set<string>();
 
     for (const mainCat of mainCategories) {
       const subcats = categories.filter(c => c.parentId === mainCat.id);
       const subcatIds = new Set(subcats.map(s => s.id));
       subcatIds.add(mainCat.id);
 
+      const subcatLabels = new Set([mainCat.label.toLowerCase(), ...subcats.map(s => s.label.toLowerCase())]);
+
       // Get all rules belonging to this main category or any of its subcategories
-      const catRules = learnedRules.filter(r => 
-        subcatIds.has(r.categoryId) || 
-        (r.subCategoryId && subcatIds.has(r.subCategoryId))
-      );
+      const catRules = learnedRules.filter(r => {
+        const matchesId = subcatIds.has(r.categoryId) || (r.subCategoryId && subcatIds.has(r.subCategoryId));
+        const matchesSubLabel = r.subcategory && subcatLabels.has(r.subcategory.toLowerCase());
+        const matchesCleanLabel = r.cleanName && subcatLabels.has(r.cleanName.toLowerCase());
+        return matchesId || matchesSubLabel || matchesCleanLabel;
+      });
+
+      catRules.forEach(r => assignedRuleIds.add(r.id));
 
       map.set(mainCat.id, {
         mainCat,
         subcats,
         rules: catRules
+      });
+    }
+
+    // Unassigned or custom rules that don't match active category IDs
+    const unassignedRules = learnedRules.filter(r => !assignedRuleIds.has(r.id));
+    if (unassignedRules.length > 0) {
+      map.set('unassigned', {
+        mainCat: { id: 'unassigned', label: 'Дополнительные правила', icon: 'Tag', color: '#8D99AE' },
+        subcats: [],
+        rules: unassignedRules
       });
     }
 
@@ -224,13 +244,25 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
   // Rule keyword modification handlers
   const handleRemoveKeywordFromRule = (ruleId: string, kwToRemove: string) => {
-    const updated = learnedRules.map(r => {
-      if (r.id === ruleId) {
-        const kws = (r.keywords || [r.keyword]).filter(k => k.toLowerCase() !== kwToRemove.toLowerCase());
-        return { ...r, keywords: kws, keyword: kws[0] || '' };
+    const exists = learnedRules.some(r => r.id === ruleId);
+    let updated: LearnedRule[];
+    if (exists) {
+      updated = learnedRules.map(r => {
+        if (r.id === ruleId) {
+          const kws = (r.keywords || [r.keyword]).filter(k => k.toLowerCase() !== kwToRemove.toLowerCase());
+          return { ...r, keywords: kws, keyword: kws[0] || '' };
+        }
+        return r;
+      }).filter(r => (r.keywords && r.keywords.length > 0) || r.keyword);
+    } else {
+      const defaultRule = DEFAULT_RULES.find(r => r.id === ruleId);
+      if (defaultRule) {
+        const kws = (defaultRule.keywords || [defaultRule.keyword]).filter(k => k.toLowerCase() !== kwToRemove.toLowerCase());
+        updated = [...learnedRules, { ...defaultRule, keywords: kws, keyword: kws[0] || '' }];
+      } else {
+        updated = learnedRules;
       }
-      return r;
-    }).filter(r => (r.keywords && r.keywords.length > 0) || r.keyword);
+    }
 
     onUpdateRules(updated);
     toast.success('Ключевое слово удалено');
@@ -240,15 +272,34 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     const word = inlineKeywordText.trim().toLowerCase();
     if (!word) return;
 
-    const updated = learnedRules.map(r => {
-      if (r.id === ruleId) {
-        const kws = r.keywords || [r.keyword];
-        if (!kws.includes(word)) {
-          return { ...r, keywords: [...kws, word] };
+    const exists = learnedRules.some(r => r.id === ruleId);
+    let updated: LearnedRule[];
+    if (exists) {
+      updated = learnedRules.map(r => {
+        if (r.id === ruleId) {
+          const kws = r.keywords || [r.keyword];
+          if (!kws.includes(word)) {
+            return { ...r, keywords: [...kws, word] };
+          }
         }
+        return r;
+      });
+    } else {
+      const defaultRule = DEFAULT_RULES.find(r => r.id === ruleId);
+      if (defaultRule) {
+        const kws = defaultRule.keywords || [defaultRule.keyword];
+        updated = [...learnedRules, { ...defaultRule, keywords: [...kws, word] }];
+      } else {
+        const newRule: LearnedRule = {
+          id: 'rule_' + Date.now(),
+          keyword: word,
+          keywords: [word],
+          categoryId: selectedCat?.id || 'other',
+          confidence: 1
+        };
+        updated = [...learnedRules, newRule];
       }
-      return r;
-    });
+    }
 
     onUpdateRules(updated);
     setInlineKeywordText('');
@@ -277,6 +328,33 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
     onUpdateRules([...learnedRules, newRule]);
     toast.success('Правило успешно добавлено');
+  };
+
+  const handleCreatePhoneRule = () => {
+    const rawPhone = prompt('Введите номер телефона (например: +7 999 123-45-67 или 9101234567):');
+    if (!rawPhone || !rawPhone.trim()) return;
+    const recipient = prompt('Имя получателя или назначение перевода (например: Иван И., Мама, Аренда квартиры):') || 'Перевод по СБП';
+    const cleanPhone = rawPhone.trim();
+    const digitsOnly = cleanPhone.replace(/\D/g, '');
+    const mobile10 = digitsOnly.length === 11 && (digitsOnly.startsWith('7') || digitsOnly.startsWith('8')) ? digitsOnly.substring(1) : digitsOnly;
+    
+    const kws = Array.from(new Set([cleanPhone, digitsOnly, mobile10 ? `+7${mobile10}` : '', mobile10].filter(Boolean)));
+
+    const targetCatId = selectedCat?.id || 'transfer_sbp';
+    const newRule: LearnedRule = {
+      id: 'phone_' + Date.now(),
+      keyword: cleanPhone,
+      keywords: kws,
+      cleanName: `Перевод: ${recipient}`,
+      categoryId: targetCatId,
+      subCategoryId: targetCatId === selectedCat?.id ? undefined : targetCatId,
+      subcategory: selectedCat?.label || 'Перевод по СБП',
+      payee: recipient,
+      confidence: 1
+    };
+
+    onUpdateRules([...learnedRules, newRule]);
+    toast.success(`Правило для номера ${cleanPhone} сохранено`);
   };
 
   const handleUpdateRuleTarget = (ruleId: string, targetId: string) => {
@@ -319,7 +397,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE VIEW (< md) */}
       {/* ========================================================================= */}
-      <div className="md:hidden flex-1 flex flex-col overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+      <div className="md:hidden flex-1 flex flex-col overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
         
         {/* Interactive Search & Overview Header */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">
@@ -1023,27 +1101,168 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     Правила автоматического распознавания
                   </h3>
                   <p className="text-[11px] text-[#6B6358]">
-                    Каждое правило сопоставляет ключевые слова с конкретной подкатегорией
+                    Сопоставление ключевых слов и номеров телефонов (СБП) с категориями
                   </p>
                 </div>
-                {selectedCat && (
+                <div className="flex items-center gap-2">
                   <button 
                     type="button"
-                    onClick={() => handleCreateNewRuleForCategory(selectedCat.id)}
-                    className="text-[#4A7C59] dark:text-emerald-400 hover:text-[#335840] active:scale-95 text-xs font-bold flex items-center gap-1 px-3 py-2 rounded-lg border border-[#4A7C59]/40 hover:bg-[#EAF1ED] transition-all cursor-pointer"
+                    onClick={handleCreatePhoneRule}
+                    className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 active:scale-95 text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100/60 transition-all cursor-pointer shadow-2xs"
+                    title="Привязать номер телефона к получателю и категории"
                   >
-                    <Plus size={15} />
-                    <span>Добавить правило распознавания</span>
+                    <Phone size={13} />
+                    <span>+ Телефон СБП</span>
                   </button>
-                )}
+                  {selectedCat && (
+                    <button 
+                      type="button"
+                      onClick={() => handleCreateNewRuleForCategory(selectedCat.id)}
+                      className="text-[#4A7C59] dark:text-emerald-400 hover:text-[#335840] active:scale-95 text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#4A7C59]/40 hover:bg-[#EAF1ED] transition-all cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Слово</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* View Mode Tabs and Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                <div className="flex items-center gap-1 p-1 bg-stone-200/60 dark:bg-white/5 rounded-xl text-xs font-semibold overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setRulesViewMode('category')}
+                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      rulesViewMode === 'category' 
+                        ? 'bg-white dark:bg-[#202225] text-[#2E3230] dark:text-white shadow-xs font-bold' 
+                        : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
+                    }`}
+                  >
+                    {selectedCat?.label || 'Категория'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRulesViewMode('phones')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      rulesViewMode === 'phones' 
+                        ? 'bg-white dark:bg-[#202225] text-emerald-700 dark:text-emerald-300 shadow-xs font-bold' 
+                        : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
+                    }`}
+                  >
+                    <Phone size={12} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>Связки с телефонами (СБП)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRulesViewMode('all')}
+                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      rulesViewMode === 'all' 
+                        ? 'bg-white dark:bg-[#202225] text-[#2E3230] dark:text-white shadow-xs font-bold' 
+                        : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
+                    }`}
+                  >
+                    Все правила ({learnedRules.length > 0 ? learnedRules.length : DEFAULT_RULES.length})
+                  </button>
+                </div>
+
+                <div className="relative min-w-[220px]">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input 
+                    type="text"
+                    value={ruleSearchTerm}
+                    onChange={e => setRuleSearchTerm(e.target.value)}
+                    placeholder="Поиск (+7, имя, слово)..."
+                    className="w-full pl-7 pr-7 py-1 text-xs rounded-lg border border-[#E4E0D8] dark:border-white/10 bg-white dark:bg-[#18191C] text-[#2E3230] dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
+                  />
+                  {ruleSearchTerm && (
+                    <button 
+                      type="button"
+                      onClick={() => setRuleSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Consolidated Tile for Selected Category */}
               {selectedCat && (() => {
-                const groupInfo = groupedRulesByCategory.get(selectedCat.id) || {
+                const childSubcats = categories.filter(c => c.parentId === selectedCat.id);
+                const relevantCatIds = new Set([selectedCat.id, ...childSubcats.map(s => s.id)]);
+                if (selectedCat.parentId) {
+                  relevantCatIds.add(selectedCat.parentId);
+                }
+
+                const catLabelLow = selectedCat.label.toLowerCase();
+
+                const isFuel = /бензин|азс|заправк|топлив|лукойл|газпромнефть|роснефть|татнефть|fuel|gas/i.test(catLabelLow);
+                const isTransport = /транспорт|такси|taxi|uber|метро|автобус|проезд|каршеринг/i.test(catLabelLow);
+                const isFood = /продукт|супермаркет|еда|магазин|бакалея|food|grocery/i.test(catLabelLow);
+                const isFastfood = /фастфуд|ресторан|кафе|бургер|пицц|суши|роллы|kfc|dodo/i.test(catLabelLow);
+                const isShopping = /покупк|маркетплейс|одежд|обув|wildberries|ozon/i.test(catLabelLow);
+                const isPharmacy = /аптек|здоров|медицин|лекарств|pharmacy/i.test(catLabelLow);
+                const isTransfer = /перевод|сбп|transfer|sbp|банк|сбер|тинькофф|альфа|втб/i.test(catLabelLow);
+
+                const ruleMatchesCategory = (r: LearnedRule) => {
+                  if (relevantCatIds.has(r.categoryId) || (r.subCategoryId && relevantCatIds.has(r.subCategoryId))) return true;
+                  if (r.subcategory && r.subcategory.toLowerCase().includes(catLabelLow)) return true;
+                  if (r.cleanName && r.cleanName.toLowerCase().includes(catLabelLow)) return true;
+                  if (r.keyword && catLabelLow.includes(r.keyword.toLowerCase())) return true;
+                  
+                  if (isFuel && (r.categoryId === 'fuel' || /бензин|азс|заправк|топлив|лукойл|газпромнефть|роснефть|татнефть/i.test(r.subcategory || r.cleanName || r.keyword || ''))) return true;
+                  if (isTransport && (r.categoryId === 'transport' || r.categoryId === 'taxi' || /транспорт|такси/i.test(r.subcategory || r.cleanName || ''))) return true;
+                  if (isFood && (r.categoryId === 'food' || r.categoryId === 'supermarkets' || /продукт|супермаркет/i.test(r.subcategory || r.cleanName || ''))) return true;
+                  if (isFastfood && (r.categoryId === 'fastfood' || r.categoryId === 'restaurants' || /фастфуд|ресторан|кафе/i.test(r.subcategory || r.cleanName || ''))) return true;
+                  if (isShopping && (r.categoryId === 'shopping' || r.categoryId === 'marketplaces' || /покупк|маркетплейс/i.test(r.subcategory || r.cleanName || ''))) return true;
+                  if (isPharmacy && (r.categoryId === 'pharmacy' || /аптек/i.test(r.subcategory || r.cleanName || ''))) return true;
+                  if (isTransfer && (r.categoryId.startsWith('transfer') || /перевод|сбп|сбер|тинькофф|альфа|втб|копилк/i.test(r.subcategory || r.cleanName || r.keyword || ''))) return true;
+
+                  return false;
+                };
+
+                const allPool = learnedRules.length > 0 ? learnedRules : DEFAULT_RULES;
+
+                let catRules = allPool.filter(ruleMatchesCategory);
+
+                let targetRuleList: LearnedRule[] = catRules;
+                let viewTitle = `Все правила категории: ${selectedCat.label}`;
+
+                if (rulesViewMode === 'phones') {
+                  viewTitle = '📱 Связки с номерами телефонов (СБП)';
+                  targetRuleList = allPool.filter(r => {
+                    const kws = r.keywords && r.keywords.length > 0 ? r.keywords : [r.keyword];
+                    const hasPhone = kws.some(k => /\d{5,}/.test(k) || k.includes('+7') || k.startsWith('89') || k.startsWith('9'));
+                    const isSbpOrPhone = (r.cleanName && /телефон|сбп/i.test(r.cleanName)) || (r.subcategory && /сбп|телефон/i.test(r.subcategory));
+                    return hasPhone || isSbpOrPhone;
+                  });
+                } else if (rulesViewMode === 'all') {
+                  viewTitle = 'Все правила приложения';
+                  targetRuleList = allPool;
+                }
+
+                if (ruleSearchTerm.trim()) {
+                  const q = ruleSearchTerm.trim().toLowerCase();
+                  const qDigits = q.replace(/\D/g, '');
+                  targetRuleList = targetRuleList.filter(r => {
+                    const nameMatch = r.cleanName && r.cleanName.toLowerCase().includes(q);
+                    const subMatch = r.subcategory && r.subcategory.toLowerCase().includes(q);
+                    const kws = r.keywords && r.keywords.length > 0 ? r.keywords : [r.keyword];
+                    const kwMatch = kws.some(k => {
+                      const kLow = k.toLowerCase();
+                      if (kLow.includes(q)) return true;
+                      if (qDigits.length >= 4 && k.replace(/\D/g, '').includes(qDigits)) return true;
+                      return false;
+                    });
+                    return nameMatch || subMatch || kwMatch;
+                  });
+                }
+
+                const groupInfo = {
                   mainCat: selectedCat,
-                  subcats: selectedSubcategories,
-                  rules: []
+                  subcats: childSubcats,
+                  rules: targetRuleList
                 };
 
                 return (
@@ -1055,7 +1274,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                           style={{ backgroundColor: selectedCat.color || '#4A7C59' }}
                         />
                         <span className="text-sm font-bold text-[#2E3230] dark:text-white uppercase tracking-wider">
-                          Все правила категории: {selectedCat.label}
+                          {viewTitle}
                         </span>
                       </div>
                       <span className="text-xs font-mono text-stone-500">
@@ -1067,14 +1286,18 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     {groupInfo.rules.length === 0 ? (
                       <div className="p-6 text-center bg-white dark:bg-[#18191C] rounded-lg border border-dashed border-[#E4E0D8]">
                         <p className="text-xs text-stone-400 dark:text-stone-500">
-                          Для данной категории еще не настроено правил распознавания.
+                          {rulesViewMode === 'phones' 
+                            ? 'Правил со связками с номерами телефонов еще нет. Нажмите «+ Телефон СБП» выше, чтобы создать!'
+                            : 'Для данной выборки не найдено правил распознавания.'
+                          }
                         </p>
                         <button
                           type="button"
-                          onClick={() => handleCreateNewRuleForCategory(selectedCat.id)}
-                          className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 bg-[#4A7C59] text-white rounded-lg text-xs font-semibold cursor-pointer"
+                          onClick={rulesViewMode === 'phones' ? handleCreatePhoneRule : () => handleCreateNewRuleForCategory(selectedCat.id)}
+                          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4A7C59] text-white rounded-lg text-xs font-semibold cursor-pointer"
                         >
-                          Создать первое правило
+                          {rulesViewMode === 'phones' ? <Phone size={13} /> : <Plus size={13} />}
+                          <span>{rulesViewMode === 'phones' ? 'Привязать первый телефон' : 'Создать первое правило'}</span>
                         </button>
                       </div>
                     ) : (

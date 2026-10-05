@@ -202,14 +202,17 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
   // Save new category and subcategories bundle
   const handleSaveCategoryBundle = () => {
+    if (isConfirming) return;
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) {
       newCatNameInputRef.current?.focus();
       return;
     }
 
+    setIsConfirming(true);
     const timestamp = Date.now();
-    const parentId = `cat-${timestamp}`;
+    const uniqueSuffix = Math.random().toString(36).substring(2, 6);
+    const parentId = `cat-${timestamp}-${uniqueSuffix}`;
 
     let existingParent = categories.find(c => c.label.toLowerCase() === trimmedName.toLowerCase() && !c.parentId);
     const parentToUse = existingParent || {
@@ -228,7 +231,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
     subcatsToCreate.forEach((subLabel, idx) => {
       const subObj: Category = {
-        id: `sub-${timestamp}-${idx}`,
+        id: `sub-${timestamp}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
         label: subLabel,
         parentId: parentToUse.id,
         color: parentToUse.color,
@@ -246,6 +249,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     setIsCreatePanelOpen(false);
     setNewCategoryName('');
     setSubcategoryTags(['Корм и питание', 'Ветклиника']);
+    setIsConfirming(false);
   };
 
   const handleSelect = (id: string) => {

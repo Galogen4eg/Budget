@@ -1,18 +1,23 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Интеграция модальных окон с системной кнопкой «Назад» на Android (popstate).
+ * Интеграция модальных окон с кнопкой «Назад» (popstate).
  * При открытии добавляет запись в history.pushState, а при нажатии «Назад» 
- * закрывает только активное модальное окно без ухода с текущей вкладки.
+ * закрывает активное модальное окно. Не вызывает history.back() при размонтировании,
+ * чтобы не провоцировать каскадные закрытия родительских окон.
  */
 export function useModalBackHandler(isOpen: boolean, onClose: () => void) {
   const isPushedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  // Always keep latest onClose reference
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) {
-      if (isPushedRef.current) {
-        isPushedRef.current = false;
-      }
+      isPushedRef.current = false;
       return;
     }
 
@@ -27,7 +32,7 @@ export function useModalBackHandler(isOpen: boolean, onClose: () => void) {
     const handlePopState = (event: PopStateEvent) => {
       if (isPushedRef.current) {
         isPushedRef.current = false;
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -35,18 +40,9 @@ export function useModalBackHandler(isOpen: boolean, onClose: () => void) {
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      if (isPushedRef.current) {
-        isPushedRef.current = false;
-        if (window.history.state?.modalId === modalId) {
-          try {
-            window.history.back();
-          } catch (e) {
-            console.warn("Failed to revert history state:", e);
-          }
-        }
-      }
+      isPushedRef.current = false;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 }
 
 export default useModalBackHandler;

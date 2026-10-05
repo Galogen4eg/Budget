@@ -109,9 +109,9 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-6xl mx-auto p-4 md:p-8 pt-3 md:pt-6 pb-32 md:pb-8 space-y-5">
+      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
         {activeService === 'menu' ? (
-          <div className="flex flex-col space-y-5">
+          <div className="flex flex-col space-y-3 sm:space-y-5">
             {/* Desktop-only SectionHeaderCard */}
             <div className="hidden md:flex flex-col space-y-4">
               <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-6 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
@@ -129,33 +129,33 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
               </div>
             </div>
 
-            {/* BEGIN: Services Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-purpose="service-cards-grid">
+            {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <article
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-[0_3px_10px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.985] cursor-pointer flex flex-col justify-between group"
+                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-3 sm:p-5 shadow-[0_2px_8px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.98] cursor-pointer flex flex-col justify-between group min-h-[110px] sm:min-h-[135px]"
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-2 sm:mb-3.5">
                       {/* Icon with Sage/Mint Rounded Container */}
-                      <div className="w-12 h-12 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-xs">
+                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-2xs shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
                         {app.icon}
                       </div>
 
-                      <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-1">
-                        <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                      <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-0.5 sm:p-1">
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
 
                     {/* Title and Description */}
                     <div>
-                      <h2 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors">
+                      <h2 className="text-xs sm:text-base font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors truncate">
                         {app.label}
                       </h2>
-                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 leading-relaxed">
+                      <p className="text-[10.5px] sm:text-xs text-stone-500 dark:text-stone-400 mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed line-clamp-2">
                         {app.desc}
                       </p>
                     </div>

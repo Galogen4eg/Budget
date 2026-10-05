@@ -387,7 +387,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-screen sm:min-h-0 bg-[#faf6f0] dark:bg-[#1C1F1E] font-body text-[#2e3230] dark:text-stone-100 relative overflow-hidden select-none">
+    <div className="flex flex-col h-full bg-[#faf6f0] dark:bg-[#1C1F1E] font-body text-[#2e3230] dark:text-stone-100 relative overflow-hidden select-none min-h-0">
       
       {/* Toast Alert Notification */}
       {toastMessage && (
@@ -636,8 +636,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         </div>
       )}
 
-      {/* Fixed Bottom Input Bar */}
-      <footer className="fixed bottom-0 w-full z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] bg-[#faf6f0]/90 dark:bg-[#1C1F1E]/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(46,50,48,0.05)]">
+      {/* Sticky Bottom Input Bar (Scoped to Chat Modal) */}
+      <footer className="sticky bottom-0 w-full z-40 shrink-0 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] bg-[#faf6f0]/95 dark:bg-[#1C1F1E]/95 backdrop-blur-xl border-t border-[#e4e0d8]/60 dark:border-white/10 shadow-[0_-2px_12px_rgba(46,50,48,0.05)]">
         <div className="px-4 py-3">
           <form 
             onSubmit={(e) => {

@@ -425,7 +425,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         />
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
           <section className="flex flex-col gap-3.5 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10">
             {/* Top Row: Daily Safe Limit & Pace Badge */}

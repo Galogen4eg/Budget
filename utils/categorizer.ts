@@ -248,13 +248,42 @@ export const getMerchantBrandKey = (name: string): string | undefined => {
   return undefined;
 };
 
+export const extractPhoneDigits = (str: string): string => {
+  const digits = str.replace(/\D/g, '');
+  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+    return digits.substring(1);
+  }
+  if (digits.length === 10 && digits.startsWith('9')) {
+    return digits;
+  }
+  return digits.length >= 7 ? digits : '';
+};
+
 export const cleanMerchantName = (rawNote: string, learnedRules: LearnedRule[] = []): string => {
   if (!rawNote || !rawNote.trim()) return "Банковская операция";
   let name = rawNote.trim();
   const lowNote = name.toLowerCase();
+  const notePhone = extractPhoneDigits(lowNote);
 
   for (const rule of learnedRules) {
-    if (rule.keyword && lowNote.includes(rule.keyword.toLowerCase())) return rule.cleanName;
+    const allKeywords = rule.keywords && rule.keywords.length > 0 
+      ? rule.keywords 
+      : (rule.keyword ? [rule.keyword] : []);
+
+    for (const kw of allKeywords) {
+      const cleanKw = kw.trim().toLowerCase();
+      if (!cleanKw) continue;
+
+      if (lowNote.includes(cleanKw) && rule.cleanName) {
+        return rule.cleanName;
+      }
+
+      // Smart phone matching (matches +7..., 8..., 9..., and formatted numbers)
+      const kwPhone = extractPhoneDigits(cleanKw);
+      if (kwPhone && notePhone && (notePhone === kwPhone || notePhone.includes(kwPhone) || kwPhone.includes(notePhone)) && rule.cleanName) {
+        return rule.cleanName;
+      }
+    }
   }
 
   // SBP & Transfer Recognition logic
@@ -462,12 +491,22 @@ const resolveTargetCategoryId = (canonicalId: string, categories: Category[]): s
 
   const LABEL_MAP: Record<string, string> = {
     'food': 'продукт',
+    'supermarkets': 'супермаркет',
+    'hypermarkets': 'гипермаркет',
     'restaurants': 'ресторан',
+    'fastfood': 'фастфуд',
+    'pizzerias': 'пиццери',
+    'food_delivery': 'доставка',
     'auto': 'авто',
+    'fuel': 'бензин',
     'transport': 'транспорт',
+    'taxi': 'такси',
     'shopping': 'покупк',
+    'marketplaces': 'маркетплейс',
     'health': 'здоров',
+    'pharmacy': 'аптек',
     'entertainment': 'развлечен',
+    'subscriptions': 'подписк',
     'savings': 'накоплен',
     'transfer': 'перевод'
   };
@@ -476,6 +515,17 @@ const resolveTargetCategoryId = (canonicalId: string, categories: Category[]): s
   if (needle) {
     const byLabel = categories.find(c => c.label.toLowerCase().includes(needle));
     if (byLabel) return byLabel.id;
+  }
+
+  // If subcategory canonicalId not found, try resolving parent
+  if (canonicalId === 'fastfood' || canonicalId === 'pizzerias' || canonicalId === 'food_delivery') {
+    const parent = categories.find(c => c.id === 'restaurants' || c.label.toLowerCase().includes('ресторан') || c.label.toLowerCase().includes('кафе'));
+    if (parent) return parent.id;
+  }
+
+  if (canonicalId === 'supermarkets' || canonicalId === 'hypermarkets') {
+    const parent = categories.find(c => c.id === 'food' || c.label.toLowerCase().includes('продукт'));
+    if (parent) return parent.id;
   }
 
   return canonicalId;
@@ -492,8 +542,26 @@ export const getSmartCategory = (
   const cleanNote = note.toLowerCase();
 
   // 1. Приоритет пользователя: обученные правила
+  const notePhone = extractPhoneDigits(cleanNote);
   for (const rule of learnedRules) {
-    if (cleanNote.includes(rule.keyword.toLowerCase())) return rule.categoryId;
+    const allKeywords = rule.keywords && rule.keywords.length > 0 
+      ? rule.keywords 
+      : (rule.keyword ? [rule.keyword] : []);
+
+    for (const kw of allKeywords) {
+      const cleanKw = kw.trim().toLowerCase();
+      if (!cleanKw) continue;
+
+      if (cleanNote.includes(cleanKw)) {
+        return resolveTargetCategoryId(rule.categoryId, categories);
+      }
+
+      // Smart phone matching
+      const kwPhone = extractPhoneDigits(cleanKw);
+      if (kwPhone && notePhone && (notePhone === kwPhone || notePhone.includes(kwPhone) || kwPhone.includes(notePhone))) {
+        return resolveTargetCategoryId(rule.categoryId, categories);
+      }
+    }
   }
 
   // 2. Накопительные счета и копилки
@@ -519,13 +587,23 @@ export const getSmartCategory = (
 
   // 4. Анализ ключевых слов мерчанта
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
-    'savings': ['накопительный', 'копилка', 'накопления', 'вклад', 'сбережения'],
-    'food': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'продукты', 'супермаркет', 'гастроном'],
-    'restaurants': ['burger king', 'kfc', 'rostics', 'vnoit', 'dodo', 'teremok', 'shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан', 'бар', 'паб', 'пицц', 'суши', 'роллы'],
-    'auto': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'gpn', 'shell', 'tatneft', 'azs', 'азс', 'auto', 'авто', 'бензин', 'топливо', 'парковк', 'мойка', 'шиномонт'],
-    'transport': ['yandex.go', 'yandex.taxi', 'uber', 'taxi', 'такси', 'metro', 'метро', 'rzd', 'ржд', 'автобус', 'проезд'],
-    'shopping': ['wildberries', 'wb', 'ozon', 'aliexpress', 'lamoda', 'dns', 'mvideo', 'eldorado', 'leroy', 'lemana', 'одежда', 'обувь', 'магазин'],
-    'health': ['apteka', 'аптека', 'doctor', 'clinic', 'med', 'vita', 'aprel', 'врач', 'клиник', 'больниц', 'анализ', 'стоматолог']
+    'fastfood': [
+      'вкусно и точка', 'vkusno i tochka', 'vkusnoitochka', 'vkusno-i-tochka', 'vkusno_i_tochka', 'вкусноitoчка', 
+      'vnoit', 'burger king', 'бургер кинг', 'burgerking', 'kfc', 'ростикс', 'rostics', 'додо', 'dodo', 
+      'mcdonalds', 'макдоналдс', 'теремок', 'teremok', 'шаурма', 'шаверма', 'фастфуд', 'fastfood', 
+      'крошка картошка', 'папа джонс', 'суши вок', 'суши', 'роллы', 'бургер'
+    ],
+    'restaurants': ['shokoladnitsa', 'cofix', 'coffee', 'cafe', 'кафе', 'ресторан', 'бар', 'паб', 'пицц', 'столовая', 'общепит', 'остерия', 'бистро', 'трактир'],
+    'supermarkets': ['magnit', 'магнит', 'pyaterochka', 'пятерочка', 'perekrestok', 'перекресток', 'ashan', 'auchan', 'lenta', 'лента', 'dixy', 'дикси', 'vkusvill', 'вкусвилл', 'samokat', 'самокат', 'чижик', 'фикс прайс', 'глобус', 'продукты', 'супермаркет', 'гастроном'],
+    'marketplaces': ['wildberries', 'wb', 'вайлдберриз', 'ozon', 'озон', 'яндекс маркет', 'yandex market', 'aliexpress', 'алиэкспресс', 'казаньэкспресс', 'мегамаркет'],
+    'taxi': ['yandex.go', 'yandex.taxi', 'яндекс такси', 'яндекс go', 'uber', 'taxi', 'такси', 'ситимобил', 'ситидрайв', 'делимобиль'],
+    'fuel': ['lukoil', 'лукойл', 'rosneft', 'роснефть', 'gazprom', 'газпромнефть', 'gpn', 'shell', 'tatneft', 'татнефть', 'azs', 'азс', 'бензин', 'топливо'],
+    'pharmacy': ['apteka', 'аптека', 'vita', 'вита', 'aprel', 'апрель', 'ригла', 'столички', 'еаптека', 'планета здоровья', 'фармленд'],
+    'auto': ['auto', 'авто', 'парковк', 'мойка', 'шиномонт', 'автосервис', 'детали'],
+    'transport': ['metro', 'метро', 'rzd', 'ржд', 'автобус', 'проезд', 'троллейбус', 'трамвай'],
+    'shopping': ['lamoda', 'dns', 'mvideo', 'мвидео', 'eldorado', 'эльдорадо', 'leroy', 'леруа', 'лемана', 'одежда', 'обувь', 'магазин'],
+    'health': ['doctor', 'clinic', 'med', 'врач', 'клиник', 'больниц', 'анализ', 'стоматолог'],
+    'subscriptions': ['яндекс плюс', 'yandex plus', 'youtube', 'spotify', 'иви', 'okko', 'кинопоиск']
   };
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {

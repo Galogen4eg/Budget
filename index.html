@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,300..900;1,6..12,300..900&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       function showError(title, detail) {
@@ -103,6 +104,8 @@
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
       .ios-btn-active:active { transform: scale(0.96); opacity: 0.9; transition: transform 0.1s ease; }
+      
+      input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; cursor: pointer; }
       
       ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
       ::view-transition-new(root) { z-index: 9999; }

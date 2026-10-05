@@ -7,6 +7,8 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: string;
+  subcategory?: string;
+  payee?: string;
   memberId: string;
   userId?: string;
   note: string;
@@ -20,9 +22,14 @@ export interface Transaction {
 export interface LearnedRule {
   id: string;
   keyword: string;
-  cleanName: string;
+  keywords?: string[];
+  cleanName?: string;
   categoryId: string;
+  subCategoryId?: string;
+  subcategory?: string;
+  payee?: string;
   pattern?: string;
+  confidence?: number;
 }
 
 export interface AIKnowledgeItem {

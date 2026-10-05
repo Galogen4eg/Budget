@@ -319,12 +319,13 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пробую еще раз...' });
         
         try {
-          await findAndSendNews(JSON.parse(cachedStr).topic, JSON.parse(cachedStr));
+          const parsed = JSON.parse(cachedStr);
+          await findAndSendNews(parsed.topic, parsed);
           await tgRequest('deleteMessage', { chat_id: message.chat.id, message_id: message.message_id });
         } catch (err) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: `⚠️️ Повторный сбой:\n${err.message}`,
+            text: `⚠️ Повторный сбой:\n${err.message}`,
           });
         }
         return res.status(200).json({ ok: true });
@@ -598,19 +599,15 @@ export default async function handler(req, res) {
             ],
             [
               { text: '🔬 Научпоп', callback_data: 'news:science' },
-              { text: '🍿 Кино/Игры', callback_data: 'news:popculture' },
+              { text: '🍿 DTF', callback_data: 'news:popculture' },
             ],
             [
               { text: '🤡 Reddit Мемы', callback_data: 'news:memes' },
               { text: '🐱 Странные коты', callback_data: 'news:cats' },
             ],
             [
-              { text: '🗿 Абстракт', callback_data: 'news:abstract' },
-              { text: '🌭 Колбаса/Сыр', callback_data: 'news:kolbasa' },
-            ],
-            [
+              { text: '🌭 Колбаса и Сыр', callback_data: 'news:kolbasa' },
               { text: '🤪 Бред собачий', callback_data: 'news:bred' },
-              { text: '👵 ШКЯ', callback_data: 'news:shkya' },
             ],
             [
               { text: '◀ Назад в меню', callback_data: 'menu:back' },
@@ -637,7 +634,7 @@ export default async function handler(req, res) {
 
       if (data.startsWith('news:')) {
         const topic = data.split(':')[1];
-        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: `Ищу новость [${topic}]...` });
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: `Ищу контент [${topic}]...` });
 
         try {
           await findAndSendNews(topic);
@@ -645,7 +642,7 @@ export default async function handler(req, res) {
           console.error('Ошибка генерации новости:', err.message);
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: `⚠️ Сбой при получении новости (${topic}):\n${err.message}`,
+            text: `⚠️ Сбой при получении контента (${topic}):\n${err.message}`,
           });
         }
         return res.status(200).json({ ok: true });

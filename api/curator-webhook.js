@@ -599,15 +599,15 @@ export default async function handler(req, res) {
             ],
             [
               { text: '🔬 Научпоп', callback_data: 'news:science' },
-              { text: '🍿 DTF', callback_data: 'news:popculture' },
+              { text: '🍿 Кино/Игры', callback_data: 'news:popculture' },
             ],
             [
               { text: '🤡 Reddit Мемы', callback_data: 'news:memes' },
-              { text: '🐱 Странные коты', callback_data: 'news:cats' },
+              { text: '🔥 Пикабу Горячее', callback_data: 'news:pikabu_hot' },
             ],
             [
-              { text: '🌭 Колбаса и Сыр', callback_data: 'news:kolbasa' },
-              { text: '🤪 Бред собачий', callback_data: 'news:bred' },
+              { text: '⭐ Пикабу Лучшее', callback_data: 'news:pikabu_best' },
+              { text: '🛋 Лайфхакер', callback_data: 'news:life' },
             ],
             [
               { text: '◀ Назад в меню', callback_data: 'menu:back' },

@@ -6,17 +6,19 @@ const FEEDS = {
   science: "https://naked-science.ru/feed",
   verge: "https://www.theverge.com/rss/index.xml",
   popculture: "https://dtf.ru/rss/all",
-  life: "https://lifehacker.ru/feed/",
-  abstract: "https://rsshub.app/vk/wall/abstract_memes",
-  bred: "https://rsshub.app/telegram/channel/bred_cobachiy",
-  cats: "https://rsshub.app/telegram/channel/weird_cats_ru",
-  shkya: "https://rsshub.app/vk/wall/shkya",
-  kolbasa: "https://rsshub.app/telegram/channel/kolbasa_cheese_shitpost"
+  life: "https://lifehacker.ru/feed/"
+};
+
+const TG_CHANNELS = {
+  bred: "bred_cobachiy",
+  cats: "weird_cats_ru",
+  kolbasa: "kolbasa_cheese_shitpost"
 };
 
 function cleanHtml(str) {
   if (!str) return "";
   return str
+    .replace(/<br\s*[\/]?>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -40,6 +42,50 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
     clearTimeout(timer);
     throw err;
   }
+}
+
+async function parseTelegramChannel(channelUser) {
+  const url = `https://t.me/s/${channelUser}`;
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
+  }, 7000);
+
+  if (!res.ok) throw new Error(`Ошибка загрузки канала [${channelUser}]: HTTP ${res.status}`);
+  const html = await res.text();
+
+  const rawMessages = html.split('<div class="tgme_widget_message_wrap');
+  if (rawMessages.length < 2) throw new Error(`Посты в канале @${channelUser} не найдены`);
+
+  const candidates = [];
+  for (let i = 1; i < rawMessages.length; i++) {
+    const block = rawMessages[i];
+    
+    // Ищем фоновое изображение сообщения
+    let imgUrl = null;
+    const bgMatch = block.match(/background-image:url\('([^']+)'\)/i);
+    if (bgMatch && bgMatch[1]) {
+      imgUrl = bgMatch[1];
+    }
+
+    // Ищем текст сообщения
+    let text = "";
+    const textMatch = block.match(/<div class="tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
+    if (textMatch && textMatch[1]) {
+      text = cleanHtml(textMatch[1]);
+    }
+
+    if (imgUrl || text) {
+      candidates.push({ imgUrl, text });
+    }
+  }
+
+  if (candidates.length === 0) throw new Error(`Не удалось извлечь контент из @${channelUser}`);
+  
+  // Берем один из последних 7 постов для разнообразия
+  const recentSlice = candidates.slice(-7);
+  return recentSlice[Math.floor(Math.random() * recentSlice.length)];
 }
 
 async function fetchGeminiModel(modelName, prompt, timeoutMs, base64Image = null, mimeType = "image/jpeg") {
@@ -115,11 +161,33 @@ export async function findAndSendNews(topic = "it", retryData = null) {
         base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
         if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
         if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
-      } catch(e) {
+      } catch (e) {
         console.warn("Сбой загрузки картинки при повторе:", e.message);
       }
     }
   } 
+  // Парсинг через веб-интерфейс t.me/s/
+  else if (TG_CHANNELS[topic]) {
+    const channelName = TG_CHANNELS[topic];
+    const tgPost = await parseTelegramChannel(channelName);
+    
+    postTitle = `Пост из канала @${channelName}`;
+    postDescription = tgPost.text;
+    imageUrl = tgPost.imgUrl;
+
+    if (imageUrl) {
+      try {
+        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
+        const arrayBuffer = await imgRes.arrayBuffer();
+        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
+        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
+        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
+      } catch (e) {
+        console.warn("Сбой скачивания картинки TG для нейросети:", e.message);
+      }
+    }
+  }
+  // Парсинг реддита
   else if (topic === "memes") {
     const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
     if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
@@ -135,6 +203,7 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
+  // Парсинг стандартных RSS
   else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
@@ -175,6 +244,7 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
   }
 
+  // Промпт: только секрет из Vercel + контент
   const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
   
   if (topic === "memes") {

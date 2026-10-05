@@ -1,30 +1,15 @@
 import { redis } from '../lib/redis.js';
 
-const STANDARD_FEEDS = {
+const FEEDS = {
   it: "https://habr.com/ru/rss/hubs/all/",
   gadgets: "https://3dnews.ru/news/rss/",
   science: "https://naked-science.ru/feed",
   verge: "https://www.theverge.com/rss/index.xml",
   popculture: "https://dtf.ru/rss/all",
-  life: "https://lifehacker.ru/feed/"
+  life: "https://lifehacker.ru/feed/",
+  pikabu_hot: "https://pikabu.cc/xmlfeeds.php?cmd=popular",
+  pikabu_best: "https://pikabu.cc/xmlfeeds.php?cmd=best"
 };
-
-// Пути для источников, требующих RSSHub (VK и Telegram)
-const MIRRORED_FEEDS = {
-  abstract: "/vk/wall/abstract_memes",
-  bred: "/telegram/channel/bred_cobachiy",
-  cats: "/telegram/channel/weird_cats_ru",
-  shkya: "/vk/wall/shkya",
-  kolbasa: "/telegram/channel/kolbasa_cheese_shitpost"
-};
-
-// Список публичных рабочих зеркал RSSHub
-const RSSHUB_MIRRORS = [
-  "https://rsshub.rssforever.com",
-  "https://rsshub.mxd.cx",
-  "https://rss.shab.fun",
-  "https://rsshub.ktachibana.party"
-];
 
 function cleanHtml(str) {
   if (!str) return "";
@@ -114,7 +99,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
   let base64ForGemini = null;
   let imageMimeType = "image/jpeg";
   let finalPrompt = "";
-  let xmlData = null;
 
   if (retryData) {
     postTitle = retryData.title;
@@ -149,37 +133,8 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
-  else if (MIRRORED_FEEDS[topic]) {
-    // Перебор зеркал RSSHub для сложных источников
-    const path = MIRRORED_FEEDS[topic];
-    let mirrorError = "";
-
-    for (const mirror of RSSHUB_MIRRORS) {
-      try {
-        const feedRes = await fetchWithTimeout(mirror + path, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Accept": "application/rss+xml, text/xml"
-          }
-        }, 5000);
-
-        if (feedRes.ok) {
-          xmlData = await feedRes.text();
-          break; // Успешно получили данные
-        }
-      } catch (e) {
-        mirrorError = e.message;
-        console.warn(`Зеркало ${mirror} не ответило.`);
-      }
-    }
-
-    if (!xmlData) {
-      throw new Error(`Все зеркала недоступны или паблик заблокирован. Последняя ошибка: ${mirrorError}`);
-    }
-  } 
-  else if (STANDARD_FEEDS[topic]) {
-    // Обычные RSS ленты
-    const feedUrl = STANDARD_FEEDS[topic];
+  else {
+    const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -188,20 +143,25 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }, 7000);
 
     if (!feedRes.ok) throw new Error(`Ошибка RSS [${feedUrl}]: HTTP ${feedRes.status}`);
-    xmlData = await feedRes.text();
-  }
+    const xml = await feedRes.text();
 
-  // Общий парсинг XML (как для стандартных лент, так и для RSSHub)
-  if (xmlData) {
     const items = [];
     const regex = /<(item|entry)[^>]*>([\s\S]*?)<\/\1>/gi;
     let match;
-    while ((match = regex.exec(xmlData)) !== null && items.length < 15) {
+    while ((match = regex.exec(xml)) !== null && items.length < 20) {
       items.push(match[0]);
     }
 
-    if (items.length === 0) throw new Error(`Лента новостей пуста или недоступна.`);
-    const itemChunk = items[Math.floor(Math.random() * items.length)];
+    if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста.`);
+    
+    // Если это Пикабу, стараемся брать посты с картинками
+    let selectedItems = items;
+    if (topic.startsWith("pikabu")) {
+      const withImages = items.filter(i => i.includes("<enclosure") || i.includes("<media:content") || i.includes("<img"));
+      if (withImages.length > 0) selectedItems = withImages;
+    }
+
+    const itemChunk = selectedItems[Math.floor(Math.random() * selectedItems.length)];
 
     const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) postTitle = cleanHtml(titleMatch[1]);
@@ -220,7 +180,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
     }
 
-    // Загрузка изображения для передачи в зрение Gemini
     if (imageUrl) {
       try {
         const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
@@ -234,7 +193,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
   }
 
-  // Промпт: только секрет из Vercel + контент
   const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
   
   if (topic === "memes") {

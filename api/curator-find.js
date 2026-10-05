@@ -145,23 +145,9 @@ async function callGeminiDirect(prompt, base64Image = null, mimeType = "image/jp
   throw new Error(`Модель перегружена (3 попытки). Последний сбой: ${lastError}`);
 }
 
-async function callGroqBackup(prompt, base64Image, mimeType) {
+async function callGroqBackup(prompt) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY не задан");
-
-  const messages = [{
-    role: "user",
-    content: [
-      { type: "text", text: prompt }
-    ]
-  }];
-
-  if (base64Image) {
-    messages[0].content.push({
-      type: "image_url",
-      image_url: { url: `data:${mimeType};base64,${base64Image}` }
-    });
-  }
 
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -170,8 +156,8 @@ async function callGroqBackup(prompt, base64Image, mimeType) {
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
-      messages: messages,
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     })
   }, 10000);
@@ -189,11 +175,12 @@ async function callAIWithFallback(prompt, base64Image = null, mimeType = "image/
                         err.message.includes("exhausted") || 
                         err.message.includes("quota") ||
                         err.message.includes("перегружена") ||
-                        err.message.includes("No endpoints found");
+                        err.message.includes("No endpoints found") ||
+                        err.message.includes("decommissioned");
                         
     if (isRateLimit && process.env.GROQ_API_KEY) {
-      console.warn("Лимит Gemini исчерпан, переключаюсь на Groq...");
-      return await callGroqBackup(prompt, base64Image, mimeType);
+      console.warn("Лимит Gemini исчерпан, переключаюсь на текстовый Groq...");
+      return await callGroqBackup(prompt);
     }
     throw err;
   }

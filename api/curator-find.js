@@ -24,6 +24,7 @@ function cleanHtml(str) {
     .replace(/&#8230;/g, "...")
     .replace(/&mdash;/g, "—")
     .replace(/&ndash;/g, "–")
+    .replace(/[^\wа-яА-ЯёЁ0-9\s.,!?«»""—–\-_]/g, "") // Очистка от битых символов кодировки
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -45,7 +46,8 @@ async function parsePikabuWeb(sectionUrl) {
   const res = await fetchWithTimeout(sectionUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Charset": "utf-8"
     }
   }, 7000);
 

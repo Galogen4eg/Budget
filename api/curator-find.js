@@ -24,7 +24,6 @@ function cleanHtml(str) {
     .replace(/&#8230;/g, "...")
     .replace(/&mdash;/g, "—")
     .replace(/&ndash;/g, "–")
-    .replace(/[^\wа-яА-ЯёЁ0-9\s.,!?«»""—–\-_]/g, "") // Очистка от битых символов кодировки
     .replace(/\s+/g, " ")
     .trim();
 }

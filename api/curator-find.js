@@ -6,14 +6,9 @@ const FEEDS = {
   science: "https://naked-science.ru/feed",
   verge: "https://www.theverge.com/rss/index.xml",
   popculture: "https://dtf.ru/rss/all",
-  life: "https://lifehacker.ru/feed/"
-};
-
-// Прямые веб-разделы Пикабу
-const PIKABU_WEB_FEEDS = {
-  pikabu_new: "https://pikabu.ru/new",
-  pikabu_best_week: "https://pikabu.ru/best/week",
-  pikabu_home: "https://pikabu.ru/"
+  life: "https://lifehacker.ru/feed/",
+  pikabu_hot: "https://pikabu.cc/xmlfeeds.php?cmd=popular",
+  pikabu_best: "https://pikabu.cc/xmlfeeds.php?cmd=best"
 };
 
 function cleanHtml(str) {
@@ -43,63 +38,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
     clearTimeout(timer);
     throw err;
   }
-}
-
-async function parsePikabuWeb(sectionUrl) {
-  const res = await fetchWithTimeout(sectionUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-    }
-  }, 7000);
-
-  if (!res.ok) throw new Error(`Ошибка загрузки Пикабу [${sectionUrl}]: HTTP ${res.status}`);
-  const html = await res.text();
-
-  // Ищем блоки постов на странице Пикабу
-  const rawPosts = html.split(/<article\s+[^>]*class=["'][^"']*story[^"']*["']/i);
-  if (rawPosts.length < 2) throw new Error("Посты на странице Пикабу не найдены");
-
-  const candidates = [];
-  for (let i = 1; i < rawPosts.length; i++) {
-    const block = rawPosts[i];
-
-    // Извлекаем заголовок поста
-    let title = "";
-    const titleMatch = block.match(/<a\s+[^>]*class=["'][^"']*story__title-link[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
-    if (titleMatch && titleMatch[1]) {
-      title = cleanHtml(titleMatch[1]);
-    }
-
-    // Извлекаем текст/описание
-    let desc = "";
-    const descMatch = block.match(/<div\s+[^>]*class=["'][^"']*story__text[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-    if (descMatch && descMatch[1]) {
-      desc = cleanHtml(descMatch[1]);
-    }
-
-    // Ищем картинку внутри поста
-    let imgUrl = null;
-    const imgMatch = block.match(/<img\s+[^>]*src=["'](https:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp))["']/i) 
-                  || block.match(/data-src=["'](https:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp))["']/i);
-    if (imgMatch && imgMatch[1]) {
-      imgUrl = imgMatch[1];
-    }
-
-    if (title || desc) {
-      candidates.push({ title, desc, imgUrl });
-    }
-  }
-
-  if (candidates.length === 0) throw new Error("Не удалось извлечь посты с Пикабу");
-
-  // Берем случайный пост из свежих на странице
-  const post = candidates[Math.floor(Math.random() * Math.min(candidates.length, 10))];
-  return {
-    title: post.title || "Пост с Пикабу",
-    desc: post.desc,
-    imgUrl: post.imgUrl
-  };
 }
 
 async function fetchGeminiModel(modelName, prompt, timeoutMs, base64Image = null, mimeType = "image/jpeg") {
@@ -154,6 +92,56 @@ async function callGeminiDirect(prompt, base64Image = null, mimeType = "image/jp
   throw new Error(`Модель перегружена (3 попытки). Последний сбой: ${lastError}`);
 }
 
+async function callOpenRouterBackup(prompt, base64Image, mimeType) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY не задан");
+
+  const content = [{ type: "text", text: prompt }];
+
+  if (base64Image) {
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:${mimeType};base64,${base64Image}` }
+    });
+  }
+
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://vercel.com",
+      "X-Title": "Telegram Curator Bot"
+    },
+    body: JSON.stringify({
+      model: "qwen/qwen-2-vl-7b-instruct:free",
+      messages: [{ role: "user", content: content }],
+      temperature: 0.7
+    })
+  }, 12000);
+
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.choices[0].message.content.trim();
+}
+
+async function callAIWithFallback(prompt, base64Image = null, mimeType = "image/jpeg") {
+  try {
+    return await callGeminiDirect(prompt, base64Image, mimeType);
+  } catch (err) {
+    const isRateLimit = err.message.includes("429") || 
+                        err.message.includes("exhausted") || 
+                        err.message.includes("quota") ||
+                        err.message.includes("перегружена");
+                        
+    if (isRateLimit && process.env.OPENROUTER_API_KEY) {
+      console.warn("Лимит Gemini исчерпан, переключаюсь на OpenRouter (Qwen)...");
+      return await callOpenRouterBackup(prompt, base64Image, mimeType);
+    }
+    throw err;
+  }
+}
+
 export async function findAndSendNews(topic = "it", retryData = null) {
   let postTitle = "Инфоповод";
   let postDescription = "";
@@ -195,24 +183,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
-  else if (PIKABU_WEB_FEEDS[topic]) {
-    const pikabuData = await parsePikabuWeb(PIKABU_WEB_FEEDS[topic]);
-    postTitle = pikabuData.title;
-    postDescription = pikabuData.desc;
-    imageUrl = pikabuData.imgUrl;
-
-    if (imageUrl) {
-      try {
-        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
-        const arrayBuffer = await imgRes.arrayBuffer();
-        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
-        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
-        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
-      } catch (e) {
-        console.warn("Сбой скачивания картинки Пикабу для нейросети:", e.message);
-      }
-    }
-  }
   else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
@@ -233,7 +203,14 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
 
     if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста.`);
-    const itemChunk = items[Math.floor(Math.random() * items.length)];
+    
+    let selectedItems = items;
+    if (topic.startsWith("pikabu")) {
+      const withImages = items.filter(i => i.includes("<enclosure") || i.includes("<media:content") || i.includes("<img"));
+      if (withImages.length > 0) selectedItems = withImages;
+    }
+
+    const itemChunk = selectedItems[Math.floor(Math.random() * selectedItems.length)];
 
     const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
     if (titleMatch && titleMatch[1]) postTitle = cleanHtml(titleMatch[1]);
@@ -276,9 +253,9 @@ export async function findAndSendNews(topic = "it", retryData = null) {
   let adaptedText;
   let isError = false;
   try {
-    adaptedText = await callGeminiDirect(finalPrompt, base64ForGemini, imageMimeType);
+    adaptedText = await callAIWithFallback(finalPrompt, base64ForGemini, imageMimeType);
   } catch (err) {
-    console.warn("Сбой Gemini:", err.message);
+    console.warn("Сбой AI:", err.message);
     adaptedText = `🤖 Ошибка API: ${err.message}\n\nОригинал: ${postTitle}\n\n${postDescription.substring(0, 200)}...`;
     isError = true;
   }

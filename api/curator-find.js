@@ -6,7 +6,12 @@ const FEEDS = {
   science: "https://naked-science.ru/feed",
   verge: "https://www.theverge.com/rss/index.xml",
   popculture: "https://dtf.ru/rss/all",
-  life: "https://lifehacker.ru/feed/"
+  life: "https://lifehacker.ru/feed/",
+  abstract: "https://rsshub.app/vk/wall/abstract_memes",
+  bred: "https://rsshub.app/telegram/channel/bred_cobachiy",
+  cats: "https://rsshub.app/telegram/channel/weird_cats_ru",
+  shkya: "https://rsshub.app/vk/wall/shkya",
+  kolbasa: "https://rsshub.app/telegram/channel/kolbasa_cheese_shitpost"
 };
 
 function cleanHtml(str) {
@@ -97,7 +102,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
   let imageMimeType = "image/jpeg";
   let finalPrompt = "";
 
-  // Если это повторный запуск упавшей новости
   if (retryData) {
     postTitle = retryData.title;
     postDescription = retryData.desc;
@@ -116,7 +120,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       }
     }
   } 
-  // Парсинг мемов с нуля
   else if (topic === "memes") {
     const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
     if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
@@ -132,7 +135,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
-  // Идеальный парсинг RSS через регулярки
   else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
@@ -173,7 +175,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
   }
 
-  // Сборка промпта (только секрет из Vercel + данные поста)
   const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
   
   if (topic === "memes") {

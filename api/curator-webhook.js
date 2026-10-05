@@ -570,7 +570,7 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         await tgRequest('sendMessage', {
           chat_id: ADMIN_CHAT_ID,
-          text: `✍️ Выбрано ${count} фото. Отправьте текст для поста следующим сообщением:`,
+          text: `✍️️ Выбрано ${count} фото. Отправьте текст для поста следующим сообщением:`,
         });
         return res.status(200).json({ ok: true });
       }
@@ -598,16 +598,12 @@ export default async function handler(req, res) {
               { text: '📱 Гаджеты', callback_data: 'news:gadgets' },
             ],
             [
-              { text: '🔬 Научпоп', callback_data: 'news:science' },
-              { text: '🍿 Кино/Игры', callback_data: 'news:popculture' },
+              { text: '🔥 Пикабу Главная', callback_data: 'news:pikabu_home' },
+              { text: '⭐ Пикабу За неделю', callback_data: 'news:pikabu_best_week' },
             ],
             [
+              { text: '⏱ Пикабу Свежее', callback_data: 'news:pikabu_new' },
               { text: '🤡 Reddit Мемы', callback_data: 'news:memes' },
-              { text: '🔥 Пикабу Горячее', callback_data: 'news:pikabu_hot' },
-            ],
-            [
-              { text: '⭐ Пикабу Лучшее', callback_data: 'news:pikabu_best' },
-              { text: '🛋 Лайфхакер', callback_data: 'news:life' },
             ],
             [
               { text: '◀ Назад в меню', callback_data: 'menu:back' },

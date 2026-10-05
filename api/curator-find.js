@@ -156,7 +156,7 @@ async function callGroqBackup(prompt) {
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     })

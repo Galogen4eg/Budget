@@ -1,6 +1,6 @@
 import { redis } from '../lib/redis.js';
 
-const FEEDS = {
+const STANDARD_FEEDS = {
   it: "https://habr.com/ru/rss/hubs/all/",
   gadgets: "https://3dnews.ru/news/rss/",
   science: "https://naked-science.ru/feed",
@@ -9,11 +9,22 @@ const FEEDS = {
   life: "https://lifehacker.ru/feed/"
 };
 
-const TG_CHANNELS = {
-  bred: "bred_cobachiy",
-  cats: "weird_cats_ru",
-  kolbasa: "kolbasa_cheese_shitpost"
+// Пути для источников, требующих RSSHub (VK и Telegram)
+const MIRRORED_FEEDS = {
+  abstract: "/vk/wall/abstract_memes",
+  bred: "/telegram/channel/bred_cobachiy",
+  cats: "/telegram/channel/weird_cats_ru",
+  shkya: "/vk/wall/shkya",
+  kolbasa: "/telegram/channel/kolbasa_cheese_shitpost"
 };
+
+// Список публичных рабочих зеркал RSSHub
+const RSSHUB_MIRRORS = [
+  "https://rsshub.rssforever.com",
+  "https://rsshub.mxd.cx",
+  "https://rss.shab.fun",
+  "https://rsshub.ktachibana.party"
+];
 
 function cleanHtml(str) {
   if (!str) return "";
@@ -42,56 +53,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
     clearTimeout(timer);
     throw err;
   }
-}
-
-async function parseTelegramChannel(channelUser) {
-  const url = `https://t.me/s/${channelUser}`;
-  const res = await fetchWithTimeout(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
-    }
-  }, 7000);
-
-  if (!res.ok) throw new Error(`Ошибка загрузки t.me/s/${channelUser}: HTTP ${res.status}`);
-  const html = await res.text();
-
-  const rawPosts = html.split(/data-post=["'][^"']+["']/i);
-  if (rawPosts.length < 2) {
-    if (html.includes("tgme_page_icon") && html.includes("View in Telegram")) {
-      throw new Error(`Канал @${channelUser} ограничил веб-предпросмотр для серверов`);
-    }
-    throw new Error(`Посты в канале @${channelUser} не найдены`);
-  }
-
-  const candidates = [];
-  for (let i = 1; i < rawPosts.length; i++) {
-    const block = rawPosts[i];
-
-    let imgUrl = null;
-    const bgMatch = block.match(/background-image:\s*url\(\s*['"]?(https:\/\/[^'"\)]+)['"]?\s*\)/i);
-    if (bgMatch && bgMatch[1]) {
-      imgUrl = bgMatch[1];
-    }
-
-    let text = "";
-    const textMatch = block.match(/class=["'][^"']*tgme_widget_message_text[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-    if (textMatch && textMatch[1]) {
-      text = cleanHtml(textMatch[1]);
-    }
-
-    if (imgUrl || text) {
-      candidates.push({ imgUrl, text });
-    }
-  }
-
-  if (candidates.length === 0) {
-    throw new Error(`В канале @${channelUser} нет подходящих постов с медиа или текстом`);
-  }
-
-  const recentSlice = candidates.slice(-6);
-  return recentSlice[Math.floor(Math.random() * recentSlice.length)];
 }
 
 async function fetchGeminiModel(modelName, prompt, timeoutMs, base64Image = null, mimeType = "image/jpeg") {
@@ -153,6 +114,7 @@ export async function findAndSendNews(topic = "it", retryData = null) {
   let base64ForGemini = null;
   let imageMimeType = "image/jpeg";
   let finalPrompt = "";
+  let xmlData = null;
 
   if (retryData) {
     postTitle = retryData.title;
@@ -172,26 +134,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       }
     }
   } 
-  else if (TG_CHANNELS[topic]) {
-    const channelName = TG_CHANNELS[topic];
-    const tgPost = await parseTelegramChannel(channelName);
-    
-    postTitle = `Пост из канала @${channelName}`;
-    postDescription = tgPost.text;
-    imageUrl = tgPost.imgUrl;
-
-    if (imageUrl) {
-      try {
-        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
-        const arrayBuffer = await imgRes.arrayBuffer();
-        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
-        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
-        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
-      } catch (e) {
-        console.warn("Сбой скачивания картинки TG для нейросети:", e.message);
-      }
-    }
-  }
   else if (topic === "memes") {
     const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
     if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
@@ -207,8 +149,37 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
-  else {
-    const feedUrl = FEEDS[topic] || FEEDS.it;
+  else if (MIRRORED_FEEDS[topic]) {
+    // Перебор зеркал RSSHub для сложных источников
+    const path = MIRRORED_FEEDS[topic];
+    let mirrorError = "";
+
+    for (const mirror of RSSHUB_MIRRORS) {
+      try {
+        const feedRes = await fetchWithTimeout(mirror + path, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept": "application/rss+xml, text/xml"
+          }
+        }, 5000);
+
+        if (feedRes.ok) {
+          xmlData = await feedRes.text();
+          break; // Успешно получили данные
+        }
+      } catch (e) {
+        mirrorError = e.message;
+        console.warn(`Зеркало ${mirror} не ответило.`);
+      }
+    }
+
+    if (!xmlData) {
+      throw new Error(`Все зеркала недоступны или паблик заблокирован. Последняя ошибка: ${mirrorError}`);
+    }
+  } 
+  else if (STANDARD_FEEDS[topic]) {
+    // Обычные RSS ленты
+    const feedUrl = STANDARD_FEEDS[topic];
     const feedRes = await fetchWithTimeout(feedUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -217,16 +188,19 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }, 7000);
 
     if (!feedRes.ok) throw new Error(`Ошибка RSS [${feedUrl}]: HTTP ${feedRes.status}`);
-    const xml = await feedRes.text();
+    xmlData = await feedRes.text();
+  }
 
+  // Общий парсинг XML (как для стандартных лент, так и для RSSHub)
+  if (xmlData) {
     const items = [];
     const regex = /<(item|entry)[^>]*>([\s\S]*?)<\/\1>/gi;
     let match;
-    while ((match = regex.exec(xml)) !== null && items.length < 15) {
+    while ((match = regex.exec(xmlData)) !== null && items.length < 15) {
       items.push(match[0]);
     }
 
-    if (items.length === 0) throw new Error(`Лента [${feedUrl}] пуста.`);
+    if (items.length === 0) throw new Error(`Лента новостей пуста или недоступна.`);
     const itemChunk = items[Math.floor(Math.random() * items.length)];
 
     const titleMatch = itemChunk.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
@@ -245,8 +219,22 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       const imgMatch = itemChunk.match(/<img[^>]+src=(["'])(https?:\/\/[^"'\s]+)\1/i);
       if (imgMatch && imgMatch[2]) imageUrl = imgMatch[2];
     }
+
+    // Загрузка изображения для передачи в зрение Gemini
+    if (imageUrl) {
+      try {
+        const imgRes = await fetchWithTimeout(imageUrl, {}, 5000);
+        const arrayBuffer = await imgRes.arrayBuffer();
+        base64ForGemini = Buffer.from(arrayBuffer).toString('base64');
+        if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
+        if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
+      } catch (e) {
+        console.warn("Сбой загрузки картинки из RSS для нейросети:", e.message);
+      }
+    }
   }
 
+  // Промпт: только секрет из Vercel + контент
   const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
   
   if (topic === "memes") {

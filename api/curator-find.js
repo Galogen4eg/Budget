@@ -48,30 +48,35 @@ async function parseTelegramChannel(channelUser) {
   const url = `https://t.me/s/${channelUser}`;
   const res = await fetchWithTimeout(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
     }
   }, 7000);
 
-  if (!res.ok) throw new Error(`Ошибка загрузки канала [${channelUser}]: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Ошибка загрузки t.me/s/${channelUser}: HTTP ${res.status}`);
   const html = await res.text();
 
-  const rawMessages = html.split('<div class="tgme_widget_message_wrap');
-  if (rawMessages.length < 2) throw new Error(`Посты в канале @${channelUser} не найдены`);
+  const rawPosts = html.split(/data-post=["'][^"']+["']/i);
+  if (rawPosts.length < 2) {
+    if (html.includes("tgme_page_icon") && html.includes("View in Telegram")) {
+      throw new Error(`Канал @${channelUser} ограничил веб-предпросмотр для серверов`);
+    }
+    throw new Error(`Посты в канале @${channelUser} не найдены`);
+  }
 
   const candidates = [];
-  for (let i = 1; i < rawMessages.length; i++) {
-    const block = rawMessages[i];
-    
-    // Ищем фоновое изображение сообщения
+  for (let i = 1; i < rawPosts.length; i++) {
+    const block = rawPosts[i];
+
     let imgUrl = null;
-    const bgMatch = block.match(/background-image:url\('([^']+)'\)/i);
+    const bgMatch = block.match(/background-image:\s*url\(\s*['"]?(https:\/\/[^'"\)]+)['"]?\s*\)/i);
     if (bgMatch && bgMatch[1]) {
       imgUrl = bgMatch[1];
     }
 
-    // Ищем текст сообщения
     let text = "";
-    const textMatch = block.match(/<div class="tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
+    const textMatch = block.match(/class=["'][^"']*tgme_widget_message_text[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     if (textMatch && textMatch[1]) {
       text = cleanHtml(textMatch[1]);
     }
@@ -81,10 +86,11 @@ async function parseTelegramChannel(channelUser) {
     }
   }
 
-  if (candidates.length === 0) throw new Error(`Не удалось извлечь контент из @${channelUser}`);
-  
-  // Берем один из последних 7 постов для разнообразия
-  const recentSlice = candidates.slice(-7);
+  if (candidates.length === 0) {
+    throw new Error(`В канале @${channelUser} нет подходящих постов с медиа или текстом`);
+  }
+
+  const recentSlice = candidates.slice(-6);
   return recentSlice[Math.floor(Math.random() * recentSlice.length)];
 }
 
@@ -166,7 +172,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       }
     }
   } 
-  // Парсинг через веб-интерфейс t.me/s/
   else if (TG_CHANNELS[topic]) {
     const channelName = TG_CHANNELS[topic];
     const tgPost = await parseTelegramChannel(channelName);
@@ -187,7 +192,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
       }
     }
   }
-  // Парсинг реддита
   else if (topic === "memes") {
     const memeRes = await fetchWithTimeout("https://meme-api.com/gimme/memes", {}, 7000);
     if (!memeRes.ok) throw new Error(`Ошибка Meme API: HTTP ${memeRes.status}`);
@@ -203,7 +207,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     if (imageUrl.toLowerCase().endsWith("png")) imageMimeType = "image/png";
     if (imageUrl.toLowerCase().endsWith("webp")) imageMimeType = "image/webp";
   } 
-  // Парсинг стандартных RSS
   else {
     const feedUrl = FEEDS[topic] || FEEDS.it;
     const feedRes = await fetchWithTimeout(feedUrl, {
@@ -244,7 +247,6 @@ export async function findAndSendNews(topic = "it", retryData = null) {
     }
   }
 
-  // Промпт: только секрет из Vercel + контент
   const secretPrompt = process.env.PROMPT_STYLE || "Переведи и перескажи на русском языке. Без Markdown.";
   
   if (topic === "memes") {

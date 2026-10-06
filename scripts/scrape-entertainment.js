@@ -6,6 +6,9 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+// Минимальный рейтинг поста (плюсы), ниже которого пост отбрасывается
+const MIN_RATING = 300;
+
 const SOURCES = [
   { url: 'https://pikabu.ru/community/mem/hot', name: 'community/mem' },
   { url: 'https://pikabu.ru/community/Dankmemes/hot', name: 'community/Dankmemes' },
@@ -73,6 +76,23 @@ async function scrapeSource(page, source) {
       const hasParent = Boolean(art.querySelector('.story__parent-link, .story__header-parent'));
       const hasVideo = Boolean(art.querySelector('video, .player, [data-type="video"], .story__video-wrap'));
 
+      // Извлечение рейтинга поста (из data-rating либо из текста счетчика)
+      let rating = 0;
+      const dataRating = art.getAttribute('data-rating');
+      if (dataRating !== null && dataRating !== '') {
+        rating = parseInt(dataRating, 10) || 0;
+      } else {
+        const ratingEl = art.querySelector('.story__rating-count, .story__rating-val');
+        if (ratingEl) {
+          const raw = ratingEl.innerText.trim().replace(/\s+/g, '');
+          if (raw.endsWith('k') || raw.endsWith('K') || raw.endsWith('к') || raw.endsWith('К')) {
+            rating = Math.round(parseFloat(raw.replace(',', '.')) * 1000) || 0;
+          } else {
+            rating = parseInt(raw, 10) || 0;
+          }
+        }
+      }
+
       const contentImages = Array.from(
         art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
       );
@@ -92,6 +112,7 @@ async function scrapeSource(page, source) {
       return {
         url: linkEl ? linkEl.href : null,
         title: linkEl ? linkEl.innerText.trim() : '',
+        rating,
         imgCount: contentImages.length,
         imgUrl,
         hasVideo,
@@ -114,6 +135,9 @@ function isValidMeme(story) {
   if (story.imgCount !== 1) return false;
   if (story.hasVideo || story.hasParent) return false;
 
+  // Фильтр по минимальному рейтингу
+  if (story.rating < MIN_RATING) return false;
+
   const normalizedTags = story.tags.map(t => t.toLowerCase());
 
   for (const tag of normalizedTags) {
@@ -129,7 +153,7 @@ function isValidMeme(story) {
 }
 
 async function run() {
-  console.log('Запуск Chromium для сбора мемов...');
+  console.log(`Запуск Chromium... Фильтр по рейтингу: >= ${MIN_RATING} плюсов`);
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
@@ -159,6 +183,7 @@ async function run() {
           sourcePage: story.sourcePage,
           id: storyId,
           title: story.title,
+          rating: story.rating,
           url: story.url,
           imgUrl: story.imgUrl,
           tags: story.tags,

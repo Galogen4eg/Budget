@@ -12,8 +12,27 @@ const redis = new Redis({
 const TTL_30_DAYS = 30 * 24 * 60 * 60;
 const MAX_POSTS_PER_SOURCE = 30;
 
-// Минимальный рейтинг: посты с меньшим числом плюсов отбрасываются
+// Минимальный рейтинг поста
 const MIN_RATING = 300;
+
+// Максимальная длина текста (чтобы отсекать простыни, не помещающиеся в Telegram)
+const MAX_TEXT_LENGTH = 1200;
+
+// Запрещенные теги
+const STOP_TAGS = new Set([
+  'ответ на пост',
+  'длиннопост',
+  'видео',
+  'короткие видео',
+  'вертикальное видео',
+  'подборка',
+  'повтор',
+  'реклама',
+  'политика',
+  '18+',
+  'nsfw',
+  'жесть',
+]);
 
 const SOURCES = [
   // Общие разделы
@@ -83,11 +102,13 @@ async function scrapePage(page, source) {
   }
 
   const rawPosts = await page.evaluate(
-    ({ categoryName, minRating }) => {
+    ({ categoryName, minRating, maxTextLen, stopTagsList }) => {
+      const stopTags = new Set(stopTagsList);
       const articles = Array.from(document.querySelectorAll('article.story, div.story'));
       const results = [];
 
       for (const art of articles) {
+        // Исключаем спонсорские публикации и рекламу
         if (
           art.classList.contains('story_sponsor') ||
           art.querySelector('.story__sponsor, .story__header-sponsor, a[href*="/sponsor"]')
@@ -95,12 +116,28 @@ async function scrapePage(page, source) {
           continue;
         }
 
+        // Исключаем посты с видео
         if (art.querySelector('video, .player, [data-type="video"], .story__video-wrap')) {
+          continue;
+        }
+
+        // Исключаем ответы на другие посты (по разметке Пикабу)
+        const hasParentLink = Boolean(
+          art.querySelector('.story__parent-link, .story__header-parent, .story__parent, a[href*="parent_id"]')
+        );
+        if (hasParentLink) {
           continue;
         }
 
         const linkEl = art.querySelector('a.story__title-link, .story__header-title a, a[href*="/story/"]');
         if (!linkEl) continue;
+
+        const title = linkEl.innerText?.trim() || '';
+
+        // Проверка заголовка на шаблонные ответы
+        if (/^ответ на пост/i.test(title)) {
+          continue;
+        }
 
         const href = linkEl.getAttribute('href') || '';
         const fullUrl = href.startsWith('http') ? href : `https://pikabu.ru${href}`;
@@ -110,7 +147,20 @@ async function scrapePage(page, source) {
 
         if (!storyId) continue;
 
-        // Извлечение рейтинга
+        // Проверка тегов поста
+        const tagEls = Array.from(art.querySelectorAll('a[href*="/tag/"]'));
+        const tags = tagEls.map((t) => t.innerText.trim().toLowerCase()).filter(Boolean);
+
+        let hasStopTag = false;
+        for (const t of tags) {
+          if (stopTags.has(t)) {
+            hasStopTag = true;
+            break;
+          }
+        }
+        if (hasStopTag) continue;
+
+        // Рейтинг
         let rating = 0;
         const dataRating = art.getAttribute('data-rating');
         if (dataRating !== null && dataRating !== '') {
@@ -127,14 +177,18 @@ async function scrapePage(page, source) {
           }
         }
 
-        // Отсекаем публикации со слабым рейтингом
         if (rating < minRating) {
           continue;
         }
 
-        const title = linkEl.innerText?.trim() || '';
+        // Текст
         const textEl = art.querySelector('.story__text, .story-block_type_text');
         const text = textEl ? textEl.innerText.trim() : '';
+
+        // Исключаем простыни текста
+        if (text.length > maxTextLen) {
+          continue;
+        }
 
         let comments = 0;
         const dataComments = art.getAttribute('data-comments-count');
@@ -151,6 +205,7 @@ async function scrapePage(page, source) {
         const communityEl = art.querySelector('a[href*="/community/"], .story__community-link');
         const timeEl = art.querySelector('time');
 
+        // Картинки
         const imgElements = Array.from(
           art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
         );
@@ -194,14 +249,19 @@ async function scrapePage(page, source) {
 
       return results;
     },
-    { categoryName: source.category, minRating: MIN_RATING }
+    {
+      categoryName: source.category,
+      minRating: MIN_RATING,
+      maxTextLen: MAX_TEXT_LENGTH,
+      stopTagsList: Array.from(STOP_TAGS),
+    }
   );
 
   return rawPosts.slice(0, MAX_POSTS_PER_SOURCE);
 }
 
 async function run() {
-  console.log(`Старт парсера Пикабу... Фильтр рейтинга: >= ${MIN_RATING} плюсов`);
+  console.log(`Старт парсера Пикабу... Рейтинг >= ${MIN_RATING}, длина текста <= ${MAX_TEXT_LENGTH}`);
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
@@ -234,7 +294,7 @@ async function run() {
   }
 
   await browser.close();
-  console.log(`Всего постов с рейтингом >= ${MIN_RATING}: ${collectedMap.size}`);
+  console.log(`Всего подходящих постов извлечено: ${collectedMap.size}`);
 
   let addedCount = 0;
   for (const [storyId, post] of collectedMap.entries()) {

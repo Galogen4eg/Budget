@@ -41,19 +41,22 @@ async function getMainMenuKeyboard() {
   const timerState = await redis.get('settings:timer_enabled');
   const isEnabled = isTimerActive(timerState);
   const timerButtonText = isEnabled ? '🟢 Авто' : '🔴 Авто';
-  const queueCount = await redis.llen('queue:entertainment_posts');
+
+  const pikabuCount = await redis.llen('queue:entertainment_posts');
+  const threadsCount = await redis.llen('queue:memes');
 
   return {
     inline_keyboard: [
       [
+        { text: `🎭 Пикабу (${pikabuCount})`, callback_data: 'queue:next' },
+        { text: `🧵 Threads (${threadsCount})`, callback_data: 'threads:next' },
+      ],
+      [
         { text: '📰 Новости', callback_data: 'menu:news' },
-        { text: `🎭 Очередь (${queueCount})`, callback_data: 'queue:next' },
-      ],
-      [
         { text: '🖼 Запросить фото', callback_data: 'action:next' },
-        { text: timerButtonText, callback_data: 'timer:toggle' },
       ],
       [
+        { text: timerButtonText, callback_data: 'timer:toggle' },
         { text: '🛑 Стоп', callback_data: 'bot:stop' },
         { text: '🗑 Сброс', callback_data: 'reset:ask' },
       ],
@@ -174,7 +177,7 @@ export default async function handler(req, res) {
             chat_id: ADMIN_CHAT_ID,
             text: '🛑 Работа бота приостановлена. Автопостинг выключен, буферы очищены.',
             reply_markup: {
-              inline_keyboard: [[{ text: '▶️ Запустить бота снова', callback_data: 'bot:start' }]],
+              inline_keyboard: [[{ text: '▶ Запустить бота снова', callback_data: 'bot:start' }]],
             },
           });
           return res.status(200).json({ ok: true });
@@ -328,7 +331,137 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // --- ВЫДАЧА ИЗ ОЧЕРЕДИ ПАРСЕРА ---
+      // --- ВЫДАЧА ИЗ ОЧЕРЕДИ THREADS ---
+      if (data === 'threads:next') {
+        const rawPost = await redis.rpop('queue:memes');
+        const countLeft = await redis.llen('queue:memes');
+
+        if (!rawPost) {
+          await tgRequest('answerCallbackQuery', {
+            callback_query_id: callbackId,
+            text: 'Очередь Threads пуста! Запустите парсер Threads.',
+            show_alert: true,
+          });
+          return res.status(200).json({ ok: true });
+        }
+
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
+
+        const postData = typeof rawPost === 'string' ? JSON.parse(rawPost) : rawPost;
+        const qKey = crypto.randomBytes(4).toString('hex');
+        await redis.set(`threads:pending:${qKey}`, JSON.stringify(postData), { ex: 3600 });
+
+        const postTitle = postData.text || postData.title || '';
+        const formattedCaption = postTitle ? `<b>${postTitle.slice(0, 900)}</b>` : '';
+
+        const queueItemMarkup = {
+          inline_keyboard: [
+            [
+              { text: '🚀 Опубликовать в канал', callback_data: `threads:pub:${qKey}` },
+              { text: '❌ Пропустить', callback_data: `threads:skip:${qKey}` },
+            ],
+            [
+              { text: `▶️ Следующий (еще ${countLeft})`, callback_data: 'threads:next' },
+              { text: '◀️ В меню', callback_data: 'menu:back' },
+            ],
+          ],
+        };
+
+        if (postData.imgUrl) {
+          const imgRes = await tgRequest('sendPhoto', {
+            chat_id: ADMIN_CHAT_ID,
+            photo: postData.imgUrl,
+            caption: formattedCaption || undefined,
+            parse_mode: 'HTML',
+            reply_markup: queueItemMarkup,
+          });
+          if (!imgRes.ok) {
+            await tgRequest('sendMessage', {
+              chat_id: ADMIN_CHAT_ID,
+              text: formattedCaption || 'Мем из Threads',
+              parse_mode: 'HTML',
+              reply_markup: queueItemMarkup,
+            });
+          }
+        } else {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: formattedCaption || 'Мем из Threads',
+            parse_mode: 'HTML',
+            reply_markup: queueItemMarkup,
+          });
+        }
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // --- ПУБЛИКАЦИЯ В КАНАЛ ИЗ THREADS ---
+      if (data.startsWith('threads:pub:')) {
+        const qKey = data.split(':')[2];
+        const rawCached = await redis.get(`threads:pending:${qKey}`);
+
+        if (!rawCached) {
+          await tgRequest('answerCallbackQuery', {
+            callback_query_id: callbackId,
+            text: 'Данные устарели. Возьмите следующий пост.',
+            show_alert: true,
+          });
+          return res.status(200).json({ ok: true });
+        }
+
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Публикую...' });
+        const postData = JSON.parse(rawCached);
+        const postTitle = postData.text || postData.title || '';
+        const channelCaption = postTitle ? `<b>${postTitle.slice(0, 900)}</b>` : undefined;
+
+        let pubRes;
+        if (postData.imgUrl) {
+          pubRes = await tgRequest('sendPhoto', {
+            chat_id: TARGET_CHANNEL_ID,
+            photo: postData.imgUrl,
+            caption: channelCaption,
+            parse_mode: 'HTML',
+          });
+        } else {
+          pubRes = await tgRequest('sendMessage', {
+            chat_id: TARGET_CHANNEL_ID,
+            text: channelCaption || 'Мем из Threads',
+            parse_mode: 'HTML',
+          });
+        }
+
+        if (pubRes && pubRes.ok) {
+          await redis.del(`threads:pending:${qKey}`);
+          await tgRequest('editMessageReplyMarkup', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            reply_markup: { inline_keyboard: [] },
+          });
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: '✅ Пост из Threads опубликован в канал!',
+            reply_markup: await getMainMenuKeyboard(),
+          });
+        } else {
+          await tgRequest('sendMessage', {
+            chat_id: ADMIN_CHAT_ID,
+            text: `Ошибка публикации: ${pubRes?.description || 'неизвестно'}`,
+          });
+        }
+
+        return res.status(200).json({ ok: true });
+      }
+
+      // --- ПРОПУСК ПОСТА ИЗ THREADS ---
+      if (data.startsWith('threads:skip:')) {
+        const qKey = data.split(':')[2];
+        await redis.del(`threads:pending:${qKey}`);
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пропущено' });
+        await tgRequest('deleteMessage', { chat_id: message.chat.id, message_id: message.message_id });
+        return res.status(200).json({ ok: true });
+      }
+
+      // --- ВЫДАЧА ИЗ ОЧЕРЕДИ ПИКАБУ ---
       if (data === 'queue:next') {
         const rawPost = await redis.rpop('queue:entertainment_posts');
         const countLeft = await redis.llen('queue:entertainment_posts');
@@ -348,7 +481,6 @@ export default async function handler(req, res) {
         const qKey = crypto.randomBytes(4).toString('hex');
         await redis.set(`queue:pending:${qKey}`, JSON.stringify(postData), { ex: 3600 });
 
-        // Только заголовок без описаний и без ссылок
         const formattedCaption = `<b>${postData.title}</b>`;
 
         const queueItemMarkup = {
@@ -392,7 +524,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // --- ПУБЛИКАЦИЯ В КАНАЛ ИЗ ОЧЕРЕДИ ---
+      // --- ПУБЛИКАЦИЯ В КАНАЛ ИЗ ПИКАБУ ---
       if (data.startsWith('queue:pub:')) {
         const qKey = data.split(':')[2];
         const rawCached = await redis.get(`queue:pending:${qKey}`);
@@ -455,7 +587,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // --- ПРОПУСК ПОСТА ИЗ ОЧЕРЕДИ ---
+      // --- ПРОПУСК ПОСТА ИЗ ПИКАБУ ---
       if (data.startsWith('queue:skip:')) {
         const qKey = data.split(':')[2];
         await redis.del(`queue:pending:${qKey}`);
@@ -486,7 +618,7 @@ export default async function handler(req, res) {
         } catch (err) {
           await tgRequest('sendMessage', {
             chat_id: ADMIN_CHAT_ID,
-            text: `⚠️️ Повторный сбой:\n${err.message}`,
+            text: `⚠️ Повторный сбой:\n${err.message}`,
           });
         }
         return res.status(200).json({ ok: true });
@@ -750,7 +882,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Подменю без кнопок Пикабу
       if (data === 'menu:news') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Выбор темы' });
 
@@ -807,7 +938,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Исправленный возврат в меню
       if (data === 'menu:back') {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
         const mainKeyboard = await getMainMenuKeyboard();

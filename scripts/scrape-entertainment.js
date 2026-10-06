@@ -11,29 +11,28 @@ async function run() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 800 }
+    viewport: { width: 1280, height: 900 }
   });
   const page = await context.newPage();
 
   console.log('Открываю Пикабу...');
   await page.goto('https://pikabu.ru/best/week', { 
     waitUntil: 'domcontentloaded', 
-    timeout: 30000 
+    timeout: 35000 
   });
 
   await page.waitForSelector('article.story', { timeout: 10000 });
-  await page.evaluate(() => window.scrollBy(0, 1500));
-  await page.waitForTimeout(2000);
 
-  const posts = await page.$$eval('article.story', articles => {
+  // Скроллим вниз порциями, пока не наберется минимум 30 постов с картинками
+  let scrollAttempts = 0;
+  while (scrollAttempts < 20) {
+    const imagesCount = await page.$$eval('article.story', articles => {       return articles.filter(art => {         const imgEl = art.querySelector('.story-image__image, .story__content img');         return Boolean(imgEl);       }).length;     });      if (imagesCount >= 30) break;      await page.evaluate(() => window.scrollBy(0, 3000));     await page.waitForTimeout(1500);     scrollAttempts++;   }    const posts = await page.$$eval('article.story', articles => {
     return articles.map(art => {
       const linkEl = art.querySelector('a.story__title-link');
-      const textEl = art.querySelector('.story__text');
       const imgEl = art.querySelector('.story-image__image, .story__content img');
 
       const title = linkEl ? linkEl.innerText.trim() : '';
       const url = linkEl ? linkEl.href : '';
-      const desc = textEl ? textEl.innerText.trim() : '';
       let imgUrl = null;
 
       if (imgEl) {
@@ -43,14 +42,17 @@ async function run() {
                  null;
       }
 
-      return { title, url, desc, imgUrl };
-    }).filter(p => p.url && (p.title || p.desc || p.imgUrl));
+      return { title, url, imgUrl };
+    })
+    // Оставляем только карточки с картинками, отсекаем пустые заглушки base64
+    .filter(p => p.url && p.title && p.imgUrl && !p.imgUrl.startsWith('data:'));
   });
 
-  console.log(`Найдено постов на странице: ${posts.length}`);
+  const targetPosts = posts.slice(0, 30);
+  console.log(`Найдено постов с картинками: ${targetPosts.length}`);
 
   let addedCount = 0;
-  for (const post of posts) {
+  for (const post of targetPosts) {
     const storyIdMatch = post.url.match(/_(\d+)$/);
     const storyId = storyIdMatch ? storyIdMatch[1] : Buffer.from(post.url).toString('base64').substring(0, 24);
     const redisKey = `pikabu:processed:${storyId}`;
@@ -61,9 +63,7 @@ async function run() {
         source: 'pikabu',
         id: storyId,
         title: post.title,
-        desc: post.desc,
         imgUrl: post.imgUrl,
-        url: post.url,
         scrapedAt: new Date().toISOString()
       }));
 
@@ -72,7 +72,7 @@ async function run() {
     }
   }
 
-  console.log(`Добавлено новых постов в очередь Redis: ${addedCount}`);
+  console.log(`Добавлено новых картинок в очередь Redis: ${addedCount}`);
   await browser.close();
 }
 

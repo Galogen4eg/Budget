@@ -12,16 +12,15 @@ const redis = new Redis({
 const TTL_30_DAYS = 30 * 24 * 60 * 60;
 const MAX_POSTS_PER_SOURCE = 30;
 
-// Минимальный рейтинг поста
+// Минимальный рейтинг для попадания в выборку
 const MIN_RATING = 300;
 
-// Максимальная длина текста (чтобы отсекать простыни, не помещающиеся в Telegram)
+// Максимальный объем текста под формат Telegram
 const MAX_TEXT_LENGTH = 1200;
 
-// Запрещенные теги
+// Запрещенные теги (длиннопост контролируется через maxTextLen)
 const STOP_TAGS = new Set([
   'ответ на пост',
-  'длиннопост',
   'видео',
   'короткие видео',
   'вертикальное видео',
@@ -34,40 +33,41 @@ const STOP_TAGS = new Set([
   'жесть',
 ]);
 
+// Источники переведены на вкладку /best для гарантированного высокого рейтинга
 const SOURCES = [
   // Общие разделы
   { url: 'https://pikabu.ru/best/day', category: 'best', name: 'Лучшее за день' },
   { url: 'https://pikabu.ru/best/week', category: 'best', name: 'Лучшее за неделю' },
 
   // Мемы
-  { url: 'https://pikabu.ru/community/mem/hot', category: 'memes', name: 'Мемы' },
-  { url: 'https://pikabu.ru/community/Dankmemes/hot', category: 'memes', name: 'Dank Memes' },
+  { url: 'https://pikabu.ru/community/mem/best', category: 'memes', name: 'Мемы' },
+  { url: 'https://pikabu.ru/community/Dankmemes/best', category: 'memes', name: 'Dank Memes' },
 
   // Технологии и гаджеты
-  { url: 'https://pikabu.ru/community/infotech/hot', category: 'technology', name: 'IT' },
-  { url: 'https://pikabu.ru/tag/IT/hot', category: 'technology', name: 'Тег IT' },
-  { url: 'https://pikabu.ru/tag/Гаджеты/hot', category: 'gadgets', name: 'Гаджеты' },
+  { url: 'https://pikabu.ru/community/infotech/best', category: 'technology', name: 'IT' },
+  { url: 'https://pikabu.ru/tag/IT/best', category: 'technology', name: 'Тег IT' },
+  { url: 'https://pikabu.ru/tag/Гаджеты/best', category: 'gadgets', name: 'Гаджеты' },
 
   // Новости и наука
-  { url: 'https://pikabu.ru/community/news/hot', category: 'news', name: 'Новости' },
-  { url: 'https://pikabu.ru/community/science/hot', category: 'science', name: 'Наука' },
+  { url: 'https://pikabu.ru/community/news/best', category: 'news', name: 'Новости' },
+  { url: 'https://pikabu.ru/community/science/best', category: 'science', name: 'Наука' },
 
   // Игры
-  { url: 'https://pikabu.ru/community/gamers/hot', category: 'games', name: 'Лига Геймеров' },
-  { url: 'https://pikabu.ru/tag/Игры/hot', category: 'games', name: 'Тег Игры' },
+  { url: 'https://pikabu.ru/community/gamers/best', category: 'games', name: 'Лига Геймеров' },
+  { url: 'https://pikabu.ru/tag/Игры/best', category: 'games', name: 'Тег Игры' },
 
   // Ремонт и DIY
-  { url: 'https://pikabu.ru/community/remont/hot', category: 'diy', name: 'Ремонт' },
-  { url: 'https://pikabu.ru/community/diy/hot', category: 'diy', name: 'Своими руками' },
+  { url: 'https://pikabu.ru/community/remont/best', category: 'diy', name: 'Ремонт' },
+  { url: 'https://pikabu.ru/community/diy/best', category: 'diy', name: 'Своими руками' },
 
   // Путешествия, животные, кино, фото, лайфхаки
-  { url: 'https://pikabu.ru/community/travel/hot', category: 'travel', name: 'Путешествия' },
-  { url: 'https://pikabu.ru/community/kotiki_obormotiki/hot', category: 'animals', name: 'Котомафия' },
-  { url: 'https://pikabu.ru/tag/Животные/hot', category: 'animals', name: 'Тег Животные' },
-  { url: 'https://pikabu.ru/tag/Фильмы/hot', category: 'cinema', name: 'Тег Фильмы' },
-  { url: 'https://pikabu.ru/community/music/hot', category: 'music', name: 'Музыка' },
-  { url: 'https://pikabu.ru/community/photo/hot', category: 'photo', name: 'Фотография' },
-  { url: 'https://pikabu.ru/tag/Лайфхак/hot', category: 'lifehacks', name: 'Тег Лайфхаки' },
+  { url: 'https://pikabu.ru/community/travel/best', category: 'travel', name: 'Путешествия' },
+  { url: 'https://pikabu.ru/community/kotiki_obormotiki/best', category: 'animals', name: 'Котомафия' },
+  { url: 'https://pikabu.ru/tag/Животные/best', category: 'animals', name: 'Тег Животные' },
+  { url: 'https://pikabu.ru/tag/Фильмы/best', category: 'cinema', name: 'Тег Фильмы' },
+  { url: 'https://pikabu.ru/community/music/best', category: 'music', name: 'Музыка' },
+  { url: 'https://pikabu.ru/community/photo/best', category: 'photo', name: 'Фотография' },
+  { url: 'https://pikabu.ru/tag/Лайфхак/best', category: 'lifehacks', name: 'Тег Лайфхаки' },
 ];
 
 async function saveDebugArtifact(page, sourceName) {
@@ -96,9 +96,10 @@ async function scrapePage(page, source) {
     return [];
   }
 
-  for (let i = 0; i < 4; i++) {
-    await page.evaluate(() => window.scrollBy(0, 2800));
-    await page.waitForTimeout(700);
+  // 7 скроллов для выгрузки 35–50 постов
+  for (let i = 0; i < 7; i++) {
+    await page.evaluate(() => window.scrollBy(0, 3000));
+    await page.waitForTimeout(650);
   }
 
   const rawPosts = await page.evaluate(
@@ -108,7 +109,7 @@ async function scrapePage(page, source) {
       const results = [];
 
       for (const art of articles) {
-        // Исключаем спонсорские публикации и рекламу
+        // Исключение рекламы
         if (
           art.classList.contains('story_sponsor') ||
           art.querySelector('.story__sponsor, .story__header-sponsor, a[href*="/sponsor"]')
@@ -116,16 +117,16 @@ async function scrapePage(page, source) {
           continue;
         }
 
-        // Исключаем посты с видео
+        // Исключение видео
         if (art.querySelector('video, .player, [data-type="video"], .story__video-wrap')) {
           continue;
         }
 
-        // Исключаем ответы на другие посты (по разметке Пикабу)
-        const hasParentLink = Boolean(
+        // Исключение ответов на другие посты
+        const hasParent = Boolean(
           art.querySelector('.story__parent-link, .story__header-parent, .story__parent, a[href*="parent_id"]')
         );
-        if (hasParentLink) {
+        if (hasParent) {
           continue;
         }
 
@@ -133,8 +134,6 @@ async function scrapePage(page, source) {
         if (!linkEl) continue;
 
         const title = linkEl.innerText?.trim() || '';
-
-        // Проверка заголовка на шаблонные ответы
         if (/^ответ на пост/i.test(title)) {
           continue;
         }
@@ -147,7 +146,7 @@ async function scrapePage(page, source) {
 
         if (!storyId) continue;
 
-        // Проверка тегов поста
+        // Фильтр по тегам
         const tagEls = Array.from(art.querySelectorAll('a[href*="/tag/"]'));
         const tags = tagEls.map((t) => t.innerText.trim().toLowerCase()).filter(Boolean);
 
@@ -185,7 +184,7 @@ async function scrapePage(page, source) {
         const textEl = art.querySelector('.story__text, .story-block_type_text');
         const text = textEl ? textEl.innerText.trim() : '';
 
-        // Исключаем простыни текста
+        // Проверка реальной длины текста
         if (text.length > maxTextLen) {
           continue;
         }
@@ -205,7 +204,7 @@ async function scrapePage(page, source) {
         const communityEl = art.querySelector('a[href*="/community/"], .story__community-link');
         const timeEl = art.querySelector('time');
 
-        // Картинки
+        // Изображения
         const imgElements = Array.from(
           art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
         );

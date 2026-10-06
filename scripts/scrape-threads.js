@@ -4,12 +4,21 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MAX_TOPICS = 8;
-const MAX_POSTS_PER_TOPIC = 20;
+const MAX_POSTS_PER_PROFILE = 10;
 const MAX_TOTAL_MEMES = 50;
-const TTL_14_DAYS = 14 * 24 * 60 * 60; // 1209600 секунд
+const TTL_14_DAYS = 14 * 24 * 60 * 60;
 
-const FALLBACK_TOPICS = ['мемы', 'юмор', 'мем дня', 'смешные картинки'];
+// Список открытых русскоязычных мем-аккаунтов в Threads
+const MEME_PROFILES = [
+  'memes',
+  'ru.memes',
+  'leprum',
+  'pikabu.ru',
+  'i_mems',
+  'dank_memes_ru',
+  'smeh_humor_memes',
+  'memepedia_ru'
+];
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -23,105 +32,51 @@ async function saveDebugArtifacts(page, prefix) {
   }
   const timestamp = Date.now();
   const screenPath = path.join(artifactsDir, `${prefix}-${timestamp}.png`);
-  const htmlPath = path.join(artifactsDir, `${prefix}-${timestamp}.html`);
-
   try {
-    await page.screenshot({ path: screenPath, fullPage: true });
-    const html = await page.content();
-    fs.writeFileSync(htmlPath, html, 'utf-8');
-    console.log(`[DIAGNOSTIC] Сохранены артефакты: ${screenPath}, ${htmlPath}`);
+    await page.screenshot({ path: screenPath, fullPage: false });
+    console.log(`[DIAGNOSTIC] Сохранен скриншот: ${screenPath}`);
   } catch (err) {
-    console.error(`[DIAGNOSTIC] Ошибка сохранения артефактов: ${err.message}`);
+    console.error(`[DIAGNOSTIC] Ошибка скриншота: ${err.message}`);
   }
 }
 
 async function dismissModals(page) {
   try {
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
 
     const closeButtons = page.locator('div[role="dialog"] svg[aria-label="Close"], div[role="dialog"] svg[aria-label="Закрыть"], div[role="dialog"] button');
-    const count = await closeButtons.count();
-    if (count > 0) {
+    if (await closeButtons.count() > 0) {
       await closeButtons.first().click().catch(() => {});
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(400);
     }
   } catch {
     // Игнорируем отсутствие модалок
   }
 }
 
-async function extractTrendingTopics(page) {
-  console.log('[STEP 1] Переход на https://www.threads.net/search...');
-  await page.goto('https://www.threads.net/search', { waitUntil: 'domcontentloaded', timeout: 35000 });
-  await page.waitForTimeout(3000);
-  await dismissModals(page);
-
-  const currentUrl = page.url();
-  if (currentUrl.includes('/login')) {
-    console.warn('[AUTH_REQUIRED] Threads принудительно перенаправил на страницу входа.');
-    await saveDebugArtifacts(page, 'threads-login-redirect');
-    return [];
-  }
-
-  const topics = await page.evaluate(() => {
-    const found = new Set();
-    const keywords = ['trending', 'trending now', 'в тренде', 'актуальные', 'тренды', 'популярное'];
-
-    const searchLinks = Array.from(document.querySelectorAll('a[href*="/search?q="], a[href*="/search/"]'));
-    for (const a of searchLinks) {
-      const text = a.textContent?.trim();
-      if (text && text.length > 1 && text.length < 60 && !text.includes('Search') && !text.includes('Поиск')) {
-        found.add(text);
-      }
-    }
-
-    if (found.size === 0) {
-      const allElements = Array.from(document.querySelectorAll('div, span, p, h2, h3'));
-      for (const el of allElements) {
-        const text = el.textContent?.toLowerCase().trim() || '';
-        if (keywords.some(k => text === k || text.startsWith(k))) {
-          const parent = el.closest('div[style*="flex"], div');
-          if (parent) {
-            const items = parent.querySelectorAll('a, button, div[dir="auto"]');
-            items.forEach(item => {
-              const itemText = item.textContent?.trim();
-              if (itemText && itemText.length > 2 && itemText.length < 50 && !keywords.includes(itemText.toLowerCase())) {
-                found.add(itemText);
-              }
-            });
-          }
-        }
-      }
-    }
-
-    return Array.from(found);
-  });
-
-  return topics.slice(0, MAX_TOPICS);
-}
-
-async function scrapePostsForTopic(page, topic) {
-  console.log(`[STEP 2] Сбор постов по теме: "${topic}"`);
-  const searchUrl = `https://www.threads.net/search?q=${encodeURIComponent(topic)}&serp_type=default`;
+async function scrapeProfile(page, username) {
+  const profileUrl = `https://www.threads.net/@${username}`;
+  console.log(`[PROFILE] Парсинг @${username}...`);
 
   try {
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
     await dismissModals(page);
 
+    // Скроллим страницу для подгрузки первых постов
     for (let i = 0; i < 3; i++) {
-      await page.mouse.wheel(0, 1000);
-      await page.waitForTimeout(1500);
+      await page.mouse.wheel(0, 1200);
+      await page.waitForTimeout(1000);
       await dismissModals(page);
     }
 
-    const rawPosts = await page.evaluate((topicName) => {
+    const posts = await page.evaluate((authorName) => {
       const results = [];
-      const postLinks = Array.from(document.querySelectorAll('a[href*="/post/"]'));
+      const links = Array.from(document.querySelectorAll('a[href*="/post/"]'));
       const seenIds = new Set();
 
-      for (const link of postLinks) {
+      for (const link of links) {
         const href = link.getAttribute('href') || '';
         const match = href.match(/\/@([^\/]+)\/post\/([A-Za-z0-9_-]+)/);
         if (!match) continue;
@@ -130,20 +85,19 @@ async function scrapePostsForTopic(page, topic) {
         if (seenIds.has(postId)) continue;
         seenIds.add(postId);
 
+        // Поиск родительского контейнера публикации
         let container = link;
         for (let i = 0; i < 7; i++) {
           if (!container.parentElement) break;
           container = container.parentElement;
-          if (container.tagName.toLowerCase() === 'article' || container.querySelector('a[href*="/post/"]') === link) {
-            if (container.querySelectorAll('a[href*="/post/"]').length === 1) break;
-          }
+          if (container.querySelectorAll('a[href*="/post/"]').length === 1) break;
         }
 
+        // Пропускаем видео и рекламу
         if (container.querySelector('video')) continue;
+        if (container.innerText?.includes('Sponsored')) continue;
 
-        const containerText = container.innerText || '';
-        if (containerText.includes('Sponsored') || containerText.includes('Реклама')) continue;
-
+        // Ищем картинку поста (отсекая аватарки)
         const images = Array.from(container.querySelectorAll('img'));
         let postImgUrl = null;
 
@@ -152,8 +106,8 @@ async function scrapePostsForTopic(page, topic) {
           if (!src || !src.startsWith('http')) continue;
 
           const alt = (img.getAttribute('alt') || '').toLowerCase();
-          const isAvatar = alt.includes('profile') || alt.includes('аватар') || alt.includes('фото профиля');
-          const isSmall = (img.naturalWidth > 0 && img.naturalWidth < 150) || (img.clientWidth > 0 && img.clientWidth < 150);
+          const isAvatar = alt.includes('profile') || alt.includes('аватар');
+          const isSmall = img.clientWidth > 0 && img.clientWidth < 120;
 
           if (!isAvatar && !isSmall) {
             postImgUrl = src;
@@ -163,6 +117,7 @@ async function scrapePostsForTopic(page, topic) {
 
         if (!postImgUrl) continue;
 
+        // Извлекаем текст
         const textElements = Array.from(container.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
         let longestText = '';
         for (const te of textElements) {
@@ -178,27 +133,27 @@ async function scrapePostsForTopic(page, topic) {
           source: 'threads',
           id: postId,
           url: href.startsWith('http') ? href : `https://www.threads.net${href}`,
-          title: longestText.slice(0, 80).replace(/\n/g, ' ') || topicName,
+          title: longestText.slice(0, 80).replace(/\n/g, ' ') || `Мем от @${authorName}`,
           text: longestText,
           imgUrl: postImgUrl,
-          topic: topicName,
+          topic: `@${authorName}`,
           scrapedAt: new Date().toISOString()
         });
       }
 
       return results;
-    }, topic);
+    }, username);
 
-    return rawPosts.slice(0, MAX_POSTS_PER_TOPIC);
+    return posts.slice(0, MAX_POSTS_PER_PROFILE);
   } catch (err) {
-    console.error(`[ERROR] Ошибка сбора темы "${topic}": ${err.message}`);
+    console.error(`[ERROR] Ошибка профиля @${username}: ${err.message}`);
     return [];
   }
 }
 
 async function run() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    console.error('[FATAL] Отсутствуют переменные окружения UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN');
+    console.error('[FATAL] Отсутствуют переменные окружения Redis');
     process.exit(1);
   }
 
@@ -208,7 +163,7 @@ async function run() {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
-      '--lang=ru-RU,ru,en-US,en'
+      '--lang=ru-RU,ru'
     ]
   });
 
@@ -216,65 +171,49 @@ async function run() {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
     locale: 'ru-RU',
-    extraHTTPHeaders: {
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
-    }
   });
 
   const page = await context.newPage();
-
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
   try {
-    let topics = await extractTrendingTopics(page);
+    let addedCount = 0;
 
-    if (topics.length === 0) {
-      console.warn('[WARN] Раздел Trending Now недоступен без авторизации на текущем IP. Включение резервных мем-тем.');
-      await saveDebugArtifacts(page, 'threads-trends-unavailable');
-      topics = FALLBACK_TOPICS;
-    } else {
-      console.log(`[INFO] Найдено трендовых тем: ${topics.length} (${topics.join(', ')})`);
-    }
+    for (const username of MEME_PROFILES) {
+      if (addedCount >= MAX_TOTAL_MEMES) break;
 
-    let addedMemesCount = 0;
-
-    for (const topic of topics) {
-      if (addedMemesCount >= MAX_TOTAL_MEMES) {
-        console.log(`[LIMIT] Достигнут общий лимит в ${MAX_TOTAL_MEMES} постов.`);
-        break;
-      }
-
-      const posts = await scrapePostsForTopic(page, topic);
-      console.log(`[PARSED] Найдено подходящих постов по теме "${topic}": ${posts.length}`);
+      const posts = await scrapeProfile(page, username);
+      console.log(`[FOUND] @${username}: найдено подходящих постов: ${posts.length}`);
 
       for (const post of posts) {
-        if (addedMemesCount >= MAX_TOTAL_MEMES) break;
+        if (addedCount >= MAX_TOTAL_MEMES) break;
 
+        // Дедупликация по ID поста
         const postKey = `threads:processed:${post.id}`;
         const isNewPost = await redis.set(postKey, '1', { nx: true, ex: TTL_14_DAYS });
-        if (!isNewPost) {
-          continue;
-        }
+        if (!isNewPost) continue;
 
+        // Дедупликация по хешу картинки
         const imgHash = crypto.createHash('md5').update(post.imgUrl).digest('hex');
         const imgKey = `threads:processed_img:${imgHash}`;
         const isNewImg = await redis.set(imgKey, '1', { nx: true, ex: TTL_14_DAYS });
-        if (!isNewImg) {
-          continue;
-        }
+        if (!isNewImg) continue;
 
         await redis.lpush('queue:memes', JSON.stringify(post));
-        addedMemesCount++;
-        console.log(`[QUEUED] (${addedMemesCount}/${MAX_TOTAL_MEMES}) [${post.id}] ${post.title}`);
+        addedCount++;
+        console.log(`[QUEUED] (${addedCount}) [${post.id}] ${post.title}`);
       }
     }
 
-    console.log(`[FINISH] Успешно добавлено новых мемов в queue:memes: ${addedMemesCount}`);
+    if (addedCount === 0) {
+      await saveDebugArtifacts(page, 'threads-zero-collected');
+    }
+
+    console.log(`[FINISH] Добавлено мемов в queue:memes: ${addedCount}`);
   } catch (error) {
-    console.error(`[FATAL] Сбой выполнения: ${error.message}`);
-    await saveDebugArtifacts(page, 'threads-runtime-error');
+    console.error(`[FATAL] ${error.message}`);
     process.exit(1);
   } finally {
     await browser.close();

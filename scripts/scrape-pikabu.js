@@ -12,28 +12,25 @@ const redis = new Redis({
 const TTL_30_DAYS = 30 * 24 * 60 * 60;
 const MAX_POSTS_PER_SOURCE = 30;
 
-// Конфигурация реальных разделов и сообществ Пикабу
+// Конфигурация публичных разделов и сообществ без авто, финансов и кулинарии
 const SOURCES = [
-  // 1. Общие разделы
+  // Общие разделы
   { url: 'https://pikabu.ru/best/day', category: 'best', name: 'Лучшее за день' },
   { url: 'https://pikabu.ru/best/week', category: 'best', name: 'Лучшее за неделю' },
 
-  // 2. Тематические сообщества
+  // Тематические сообщества
   { url: 'https://pikabu.ru/community/mem/hot', category: 'memes', name: 'Мемы' },
   { url: 'https://pikabu.ru/community/Dankmemes/hot', category: 'memes', name: 'Dank Memes' },
   { url: 'https://pikabu.ru/community/it/hot', category: 'technology', name: 'IT' },
   { url: 'https://pikabu.ru/community/dev/hot', category: 'technology', name: 'Разработка' },
   { url: 'https://pikabu.ru/community/news/hot', category: 'news', name: 'Новости' },
   { url: 'https://pikabu.ru/community/science/hot', category: 'science', name: 'Наука' },
-  { url: 'https://pikabu.ru/community/auto/hot', category: 'auto', name: 'Авто' },
   { url: 'https://pikabu.ru/community/games/hot', category: 'games', name: 'Игры' },
   { url: 'https://pikabu.ru/community/gadgets/hot', category: 'gadgets', name: 'Гаджеты' },
-  { url: 'https://pikabu.ru/community/finance/hot', category: 'finance', name: 'Финансы' },
   { url: 'https://pikabu.ru/community/remont/hot', category: 'diy', name: 'Ремонт' },
   { url: 'https://pikabu.ru/community/diy/hot', category: 'diy', name: 'Своими руками' },
   { url: 'https://pikabu.ru/community/travel/hot', category: 'travel', name: 'Путешествия' },
   { url: 'https://pikabu.ru/community/animals/hot', category: 'animals', name: 'Животные' },
-  { url: 'https://pikabu.ru/community/cook/hot', category: 'food', name: 'Кулинария' },
   { url: 'https://pikabu.ru/community/cinema/hot', category: 'cinema', name: 'Кино' },
   { url: 'https://pikabu.ru/community/music/hot', category: 'music', name: 'Музыка' },
   { url: 'https://pikabu.ru/community/photo/hot', category: 'photo', name: 'Фотография' },
@@ -49,9 +46,9 @@ async function saveDebugArtifact(page, sourceName) {
   const screenPath = path.join(artifactsDir, `fail-${cleanName}-${Date.now()}.png`);
   try {
     await page.screenshot({ path: screenPath, fullPage: false });
-    console.log(`[DIAGNOSTIC] Сохранен скриншот ошибки: ${screenPath}`);
+    console.log(`[DIAGNOSTIC] Сохранен скриншот: ${screenPath}`);
   } catch (err) {
-    console.error(`[DIAGNOSTIC] Ошибка снятия скриншота: ${err.message}`);
+    console.error(`[DIAGNOSTIC] Ошибка скриншота: ${err.message}`);
   }
 }
 
@@ -66,7 +63,6 @@ async function scrapePage(page, source) {
     return [];
   }
 
-  // 4 скролла для подгрузки динамического контента без перегрузки раннера
   for (let i = 0; i < 4; i++) {
     await page.evaluate(() => window.scrollBy(0, 2800));
     await page.waitForTimeout(700);
@@ -77,7 +73,6 @@ async function scrapePage(page, source) {
     const results = [];
 
     for (const art of articles) {
-      // Исключение рекламы и промо-постов
       if (
         art.classList.contains('story_sponsor') ||
         art.querySelector('.story__sponsor, .story__header-sponsor, a[href*="/sponsor"]')
@@ -85,12 +80,10 @@ async function scrapePage(page, source) {
         continue;
       }
 
-      // Исключение постов с видео
       if (art.querySelector('video, .player, [data-type="video"], .story__video-wrap')) {
         continue;
       }
 
-      // Получение ссылки и ID
       const linkEl = art.querySelector('a.story__title-link, .story__header-title a, a[href*="/story/"]');
       if (!linkEl) continue;
 
@@ -104,11 +97,9 @@ async function scrapePage(page, source) {
 
       const title = linkEl.innerText?.trim() || '';
 
-      // Текст статьи
       const textEl = art.querySelector('.story__text, .story-block_type_text');
       const text = textEl ? textEl.innerText.trim() : '';
 
-      // Рейтинг
       let rating = 0;
       const dataRating = art.getAttribute('data-rating');
       if (dataRating !== null && dataRating !== '') {
@@ -125,7 +116,6 @@ async function scrapePage(page, source) {
         }
       }
 
-      // Комментарии
       let comments = 0;
       const dataComments = art.getAttribute('data-comments-count');
       if (dataComments !== null && dataComments !== '') {
@@ -137,12 +127,10 @@ async function scrapePage(page, source) {
         }
       }
 
-      // Автор, сообщество и дата
       const authorEl = art.querySelector('a.user__nick, a[href*="/@"]');
       const communityEl = art.querySelector('a[href*="/community/"], .story__community-link');
       const timeEl = art.querySelector('time');
 
-      // Сбор изображений с фильтрацией аватаров и data-URL
       const imgElements = Array.from(
         art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
       );
@@ -159,7 +147,6 @@ async function scrapePage(page, source) {
         }
       }
 
-      // Правило валидации: мемы обязаны иметь картинку; остальным категориям разрешен длинный текст
       if (categoryName === 'memes' && images.length === 0) {
         continue;
       }
@@ -233,7 +220,6 @@ async function run() {
     const isNew = await redis.set(postKey, '1', { nx: true, ex: TTL_30_DAYS });
     if (!isNew) continue;
 
-    // Дедупликация по картинке при ее наличии
     if (post.imgUrl) {
       const imgHash = crypto.createHash('md5').update(post.imgUrl).digest('hex');
       const imgKey = `pikabu:processed_img:${imgHash}`;
@@ -243,10 +229,7 @@ async function run() {
 
     const payload = JSON.stringify(post);
 
-    // 1. Запись в мастер-очередь
     await redis.lpush('queue:pikabu', payload);
-
-    // 2. Параллельная запись в целевую категорию для мгновенной отдачи в боте
     await redis.lpush(`queue:pikabu:${post.category}`, payload);
 
     addedCount++;

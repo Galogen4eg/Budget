@@ -1,8 +1,8 @@
-const { chromium } = require('playwright');
-const { Redis } = require('@upstash/redis');
-const crypto = require('node:crypto');
-const fs = require('node:fs');
-const path = require('node:path');
+import { chromium } from 'playwright';
+import { Redis } from '@upstash/redis';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const MAX_TOPICS = 8;
 const MAX_POSTS_PER_TOPIC = 20;
@@ -40,7 +40,6 @@ async function dismissModals(page) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
 
-    // Попытка кликнуть по кнопкам закрытия диалогов или иконкам "Close"
     const closeButtons = page.locator('div[role="dialog"] svg[aria-label="Close"], div[role="dialog"] svg[aria-label="Закрыть"], div[role="dialog"] button');
     const count = await closeButtons.count();
     if (count > 0) {
@@ -58,7 +57,6 @@ async function extractTrendingTopics(page) {
   await page.waitForTimeout(3000);
   await dismissModals(page);
 
-  // Проверка на жесткий редирект на логин
   const currentUrl = page.url();
   if (currentUrl.includes('/login')) {
     console.warn('[AUTH_REQUIRED] Threads принудительно перенаправил на страницу входа.');
@@ -66,12 +64,10 @@ async function extractTrendingTopics(page) {
     return [];
   }
 
-  // Поиск трендовых элементов по тексту заголовков и ссылкам поиска
   const topics = await page.evaluate(() => {
     const found = new Set();
     const keywords = ['trending', 'trending now', 'в тренде', 'актуальные', 'тренды', 'популярное'];
 
-    // Поиск по ссылкам с поисковым запросом
     const searchLinks = Array.from(document.querySelectorAll('a[href*="/search?q="], a[href*="/search/"]'));
     for (const a of searchLinks) {
       const text = a.textContent?.trim();
@@ -80,7 +76,6 @@ async function extractTrendingTopics(page) {
       }
     }
 
-    // Если ссылок мало, ищем блоки с текстовыми метками трендов
     if (found.size === 0) {
       const allElements = Array.from(document.querySelectorAll('div, span, p, h2, h3'));
       for (const el of allElements) {
@@ -115,7 +110,6 @@ async function scrapePostsForTopic(page, topic) {
     await page.waitForTimeout(3000);
     await dismissModals(page);
 
-    // Скроллинг для подгрузки динамического контента
     for (let i = 0; i < 3; i++) {
       await page.mouse.wheel(0, 1000);
       await page.waitForTimeout(1500);
@@ -136,7 +130,6 @@ async function scrapePostsForTopic(page, topic) {
         if (seenIds.has(postId)) continue;
         seenIds.add(postId);
 
-        // Находим контейнер поста
         let container = link;
         for (let i = 0; i < 7; i++) {
           if (!container.parentElement) break;
@@ -146,14 +139,11 @@ async function scrapePostsForTopic(page, topic) {
           }
         }
 
-        // 1. Пропускаем посты с видео
         if (container.querySelector('video')) continue;
 
-        // 2. Пропускаем рекламу
         const containerText = container.innerText || '';
         if (containerText.includes('Sponsored') || containerText.includes('Реклама')) continue;
 
-        // 3. Извлекаем картинки (исключая аватары)
         const images = Array.from(container.querySelectorAll('img'));
         let postImgUrl = null;
 
@@ -161,7 +151,6 @@ async function scrapePostsForTopic(page, topic) {
           const src = img.getAttribute('src');
           if (!src || !src.startsWith('http')) continue;
 
-          // Исключаем аватары
           const alt = (img.getAttribute('alt') || '').toLowerCase();
           const isAvatar = alt.includes('profile') || alt.includes('аватар') || alt.includes('фото профиля');
           const isSmall = (img.naturalWidth > 0 && img.naturalWidth < 150) || (img.clientWidth > 0 && img.clientWidth < 150);
@@ -174,7 +163,6 @@ async function scrapePostsForTopic(page, topic) {
 
         if (!postImgUrl) continue;
 
-        // 4. Текст поста
         const textElements = Array.from(container.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
         let longestText = '';
         for (const te of textElements) {
@@ -184,7 +172,6 @@ async function scrapePostsForTopic(page, topic) {
           }
         }
 
-        // Отбрасываем простыни текста (не мемный формат)
         if (longestText.length > 500) continue;
 
         results.push({
@@ -236,7 +223,6 @@ async function run() {
 
   const page = await context.newPage();
 
-  // Удаление признаков автоматизации
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
@@ -266,14 +252,12 @@ async function run() {
       for (const post of posts) {
         if (addedMemesCount >= MAX_TOTAL_MEMES) break;
 
-        // 1. Дедупликация по ID поста
         const postKey = `threads:processed:${post.id}`;
         const isNewPost = await redis.set(postKey, '1', { nx: true, ex: TTL_14_DAYS });
         if (!isNewPost) {
           continue;
         }
 
-        // 2. Дедупликация по хешу картинки
         const imgHash = crypto.createHash('md5').update(post.imgUrl).digest('hex');
         const imgKey = `threads:processed_img:${imgHash}`;
         const isNewImg = await redis.set(imgKey, '1', { nx: true, ex: TTL_14_DAYS });
@@ -281,7 +265,6 @@ async function run() {
           continue;
         }
 
-        // 3. Отправка в очередь
         await redis.lpush('queue:memes', JSON.stringify(post));
         addedMemesCount++;
         console.log(`[QUEUED] (${addedMemesCount}/${MAX_TOTAL_MEMES}) [${post.id}] ${post.title}`);

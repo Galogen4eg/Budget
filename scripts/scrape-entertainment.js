@@ -7,16 +7,16 @@ const redis = new Redis({
 });
 
 const SOURCES = [
-  { url: 'https://pikabu.ru/community/mem/hot', name: 'community/mem/hot' },
-  { url: 'https://pikabu.ru/community/Dankmemes/hot', name: 'community/Dankmemes/hot' },
-  { url: 'https://pikabu.ru/community/truedankmemes/hot', name: 'community/truedankmemes/hot' },
-  { url: 'https://pikabu.ru/community/humorandmems/hot', name: 'community/humorandmems/hot' },
-  { url: 'https://pikabu.ru/tag/Мемы/hot', name: 'tag/Мемы/hot' },
-  { url: 'https://pikabu.ru/tag/Картинка%20с%20текстом/hot', name: 'tag/Картинка с текстом/hot' },
-  { url: 'https://pikabu.ru/tag/Юмор/hot', name: 'tag/Юмор/hot' },
-  { url: 'https://pikabu.ru/tag/Ирония/hot', name: 'tag/Ирония/hot' },
-  { url: 'https://pikabu.ru/tag/Сарказм/hot', name: 'tag/Сарказм/hot' },
-  { url: 'https://pikabu.ru/tag/Абсурдный%20юмор%2CМемы/hot', name: 'tag/Абсурдный юмор,Мемы/hot' },
+  { url: 'https://pikabu.ru/community/mem/hot', name: 'community/mem' },
+  { url: 'https://pikabu.ru/community/Dankmemes/hot', name: 'community/Dankmemes' },
+  { url: 'https://pikabu.ru/community/truedankmemes/hot', name: 'community/truedankmemes' },
+  { url: 'https://pikabu.ru/community/humorandmems/hot', name: 'community/humorandmems' },
+  { url: 'https://pikabu.ru/tag/Мемы/hot', name: 'tag/Мемы' },
+  { url: 'https://pikabu.ru/tag/Картинка%20с%20текстом/hot', name: 'tag/Картинка с текстом' },
+  { url: 'https://pikabu.ru/tag/Юмор/hot', name: 'tag/Юмор' },
+  { url: 'https://pikabu.ru/tag/Ирония/hot', name: 'tag/Ирония' },
+  { url: 'https://pikabu.ru/tag/Сарказм/hot', name: 'tag/Сарказм' },
+  { url: 'https://pikabu.ru/tag/Абсурдный%20юмор%2CМемы/hot', name: 'tag/Абсурдный юмор' },
 ];
 
 const MEME_TAGS = new Set([
@@ -51,19 +51,17 @@ const STOP_TAGS = new Set([
 ]);
 
 async function scrapeSource(page, source) {
-  console.log(`Открываю источник: ${source.url}`);
   try {
     await page.goto(source.url, { waitUntil: 'domcontentloaded', timeout: 35000 });
     await page.waitForSelector('article.story', { timeout: 12000 });
   } catch (err) {
-    console.warn(`Не удалось загрузить ${source.url}: ${err.message}`);
+    console.warn(`[WARN] Ошибка загрузки ${source.name}: ${err.message}`);
     return [];
   }
 
-  // Прокручиваем страницу 12 раз для подгрузки глубины ленты
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     await page.evaluate(() => window.scrollBy(0, 2500));
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(800);
   }
 
   const rawStories = await page.$$eval('article.story', articles => {
@@ -75,12 +73,10 @@ async function scrapeSource(page, source) {
       const hasParent = Boolean(art.querySelector('.story__parent-link, .story__header-parent'));
       const hasVideo = Boolean(art.querySelector('video, .player, [data-type="video"], .story__video-wrap'));
 
-      // Поиск всех картинок внутри контента поста (исключая аватары)
       const contentImages = Array.from(
         art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
       );
 
-      // Извлечение тегов по ссылке
       const tagEls = Array.from(art.querySelectorAll('a[href*="/tag/"]'));
       const tags = tagEls.map(t => t.innerText.trim()).filter(Boolean);
 
@@ -112,31 +108,21 @@ async function scrapeSource(page, source) {
 }
 
 function isValidMeme(story) {
-  // Базовая проверка структуры
   if (!story.url || !story.url.includes('/story/')) return false;
   if (!story.title || !story.imgUrl) return false;
   if (story.imgUrl.startsWith('data:')) return false;
-
-  // Строго 1 картинка в посте
   if (story.imgCount !== 1) return false;
-
-  // Исключение видео и ответов на посты
   if (story.hasVideo || story.hasParent) return false;
 
-  // Нормализация тегов
   const normalizedTags = story.tags.map(t => t.toLowerCase());
 
-  // Проверка на стоп-теги
   for (const tag of normalizedTags) {
     if (STOP_TAGS.has(tag)) return false;
   }
 
-  // Проверка на наличие минимум 2 мемных тегов
   let memeTagCount = 0;
   for (const tag of normalizedTags) {
-    if (MEME_TAGS.has(tag)) {
-      memeTagCount++;
-    }
+    if (MEME_TAGS.has(tag)) memeTagCount++;
   }
 
   return memeTagCount >= 2;
@@ -146,16 +132,18 @@ async function run() {
   console.log('Запуск Chromium для сбора мемов...');
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
   });
   const page = await context.newPage();
 
   const collectedPosts = new Map();
+  const sourceStats = {};
 
   for (const source of SOURCES) {
+    sourceStats[source.name] = { totalFound: 0, passedFilter: 0, pushedToRedis: 0 };
     const stories = await scrapeSource(page, source);
-    console.log(`На источнике [${source.name}] найдено карточек: ${stories.length}`);
+    sourceStats[source.name].totalFound = stories.length;
 
     for (const story of stories) {
       if (!isValidMeme(story)) continue;
@@ -164,8 +152,8 @@ async function run() {
       if (!storyIdMatch) continue;
       const storyId = storyIdMatch[1];
 
-      // Устраняем дубликаты между разными источниками за текущий запуск
       if (!collectedPosts.has(storyId)) {
+        sourceStats[source.name].passedFilter++;
         collectedPosts.set(storyId, {
           source: 'pikabu',
           sourcePage: story.sourcePage,
@@ -183,25 +171,28 @@ async function run() {
   }
 
   await browser.close();
-  console.log(`Всего уникальных валидных мемов собрано: ${collectedPosts.size}`);
 
-  let addedCount = 0;
+  let addedTotal = 0;
   for (const [storyId, postData] of collectedPosts.entries()) {
     const redisKey = `pikabu:processed:${storyId}`;
     const isProcessed = await redis.get(redisKey);
 
     if (!isProcessed) {
       await redis.lpush('queue:entertainment_posts', JSON.stringify(postData));
-      // Храним признак обработки 30 дней
       await redis.set(redisKey, 'in_queue', { ex: 60 * 60 * 24 * 30 });
-      addedCount++;
+      if (sourceStats[postData.sourcePage]) {
+        sourceStats[postData.sourcePage].pushedToRedis++;
+      }
+      addedTotal++;
     }
   }
 
-  console.log(`Добавлено новых мемов в очередь Redis: ${addedCount}`);
+  console.log('\n================ СВОДКА ПО ИСТОЧНИКАМ ================');
+  console.table(sourceStats);
+  console.log(`Всего новых постов сохранено в Redis: ${addedTotal}`);
 }
 
 run().catch(err => {
-  console.error('Ошибка в парсере мемов:', err);
+  console.error('Ошибка в парсере:', err);
   process.exit(1);
 });

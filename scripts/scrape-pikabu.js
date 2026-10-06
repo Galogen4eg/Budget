@@ -18,23 +18,35 @@ const SOURCES = [
   { url: 'https://pikabu.ru/best/day', category: 'best', name: 'Лучшее за день' },
   { url: 'https://pikabu.ru/best/week', category: 'best', name: 'Лучшее за неделю' },
 
-  // Тематические сообщества
+  // Мемы
   { url: 'https://pikabu.ru/community/mem/hot', category: 'memes', name: 'Мемы' },
   { url: 'https://pikabu.ru/community/Dankmemes/hot', category: 'memes', name: 'Dank Memes' },
-  { url: 'https://pikabu.ru/community/it/hot', category: 'technology', name: 'IT' },
-  { url: 'https://pikabu.ru/community/dev/hot', category: 'technology', name: 'Разработка' },
+
+  // Технологии и гаджеты
+  { url: 'https://pikabu.ru/community/infotech/hot', category: 'technology', name: 'IT' },
+  { url: 'https://pikabu.ru/tag/IT/hot', category: 'technology', name: 'Тег IT' },
+  { url: 'https://pikabu.ru/tag/Гаджеты/hot', category: 'gadgets', name: 'Гаджеты' },
+
+  // Новости и наука
   { url: 'https://pikabu.ru/community/news/hot', category: 'news', name: 'Новости' },
   { url: 'https://pikabu.ru/community/science/hot', category: 'science', name: 'Наука' },
-  { url: 'https://pikabu.ru/community/games/hot', category: 'games', name: 'Игры' },
-  { url: 'https://pikabu.ru/community/gadgets/hot', category: 'gadgets', name: 'Гаджеты' },
+
+  // Игры
+  { url: 'https://pikabu.ru/community/gamers/hot', category: 'games', name: 'Лига Геймеров' },
+  { url: 'https://pikabu.ru/tag/Игры/hot', category: 'games', name: 'Тег Игры' },
+
+  // Ремонт и DIY
   { url: 'https://pikabu.ru/community/remont/hot', category: 'diy', name: 'Ремонт' },
   { url: 'https://pikabu.ru/community/diy/hot', category: 'diy', name: 'Своими руками' },
+
+  // Путешествия, животные, кино, фото, лайфхаки
   { url: 'https://pikabu.ru/community/travel/hot', category: 'travel', name: 'Путешествия' },
-  { url: 'https://pikabu.ru/community/animals/hot', category: 'animals', name: 'Животные' },
-  { url: 'https://pikabu.ru/community/cinema/hot', category: 'cinema', name: 'Кино' },
+  { url: 'https://pikabu.ru/community/kotiki_obormotiki/hot', category: 'animals', name: 'Котомафия' },
+  { url: 'https://pikabu.ru/tag/Животные/hot', category: 'animals', name: 'Тег Животные' },
+  { url: 'https://pikabu.ru/tag/Фильмы/hot', category: 'cinema', name: 'Тег Фильмы' },
   { url: 'https://pikabu.ru/community/music/hot', category: 'music', name: 'Музыка' },
   { url: 'https://pikabu.ru/community/photo/hot', category: 'photo', name: 'Фотография' },
-  { url: 'https://pikabu.ru/community/lifehack/hot', category: 'lifehacks', name: 'Лайфхаки' },
+  { url: 'https://pikabu.ru/tag/Лайфхак/hot', category: 'lifehacks', name: 'Тег Лайфхаки' },
 ];
 
 async function saveDebugArtifact(page, sourceName) {

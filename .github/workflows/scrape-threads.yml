@@ -1,0 +1,42 @@
+name: Threads Trending Scraper
+
+on:
+  schedule:
+    - cron: '0 7,14 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Scraper
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: node scripts/scrape-threads.js
+
+      - name: Upload Debug Artifacts on Failure or Warning
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: threads-debug-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 3

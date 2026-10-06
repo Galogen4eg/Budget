@@ -61,6 +61,69 @@ async function getMainMenuKeyboard() {
   };
 }
 
+async function showNextQueuePost(chatId, oldMessageId = null) {
+  if (oldMessageId) {
+    await tgRequest('deleteMessage', { chat_id: chatId, message_id: oldMessageId });
+  }
+
+  const rawPost = await redis.rpop('queue:entertainment_posts');
+  const countLeft = await redis.llen('queue:entertainment_posts');
+
+  if (!rawPost) {
+    await tgRequest('sendMessage', {
+      chat_id: chatId,
+      text: '📭 Очередь постов пуста! Все мемы просмотрены.',
+      reply_markup: await getMainMenuKeyboard(),
+    });
+    return;
+  }
+
+  const postData = typeof rawPost === 'string' ? JSON.parse(rawPost) : rawPost;
+  const qKey = crypto.randomBytes(4).toString('hex');
+  // Храним пост 30 дней, чтобы к нему можно было вернуться позже
+  await redis.set(`queue:pending:${qKey}`, JSON.stringify(postData), { ex: 30 * 86400 });
+
+  const formattedCaption = `<b>${postData.title}</b>`;
+
+  const queueItemMarkup = {
+    inline_keyboard: [
+      [
+        { text: '🚀 Опубликовать в канал', callback_data: `queue:pub:${qKey}` },
+        { text: '❌ Пропустить', callback_data: `queue:skip:${qKey}` },
+      ],
+      [
+        { text: `▶️️ Следующий (еще ${countLeft})`, callback_data: `queue:next:${qKey}` },
+        { text: '◀️ В меню', callback_data: 'menu:back' },
+      ],
+    ],
+  };
+
+  if (postData.imgUrl) {
+    const imgRes = await tgRequest('sendPhoto', {
+      chat_id: chatId,
+      photo: postData.imgUrl,
+      caption: formattedCaption,
+      parse_mode: 'HTML',
+      reply_markup: queueItemMarkup,
+    });
+    if (!imgRes.ok) {
+      await tgRequest('sendMessage', {
+        chat_id: chatId,
+        text: formattedCaption,
+        parse_mode: 'HTML',
+        reply_markup: queueItemMarkup,
+      });
+    }
+  } else {
+    await tgRequest('sendMessage', {
+      chat_id: chatId,
+      text: formattedCaption,
+      parse_mode: 'HTML',
+      reply_markup: queueItemMarkup,
+    });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     const host = req.headers.host || 'localhost';
@@ -328,70 +391,67 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Выдача из очереди Пикабу
-      if (data === 'queue:next') {
-        const rawPost = await redis.rpop('queue:entertainment_posts');
-        const countLeft = await redis.llen('queue:entertainment_posts');
+      // --- СЛЕДУЮЩИЙ ПОСТ (ЗАТИРАЕТ СТАРЫЙ) ---
+      if (data.startsWith('queue:next')) {
+        const parts = data.split(':');
+        const oldKey = parts[2];
 
-        if (!rawPost) {
+        if (oldKey) {
+          await redis.del(`queue:pending:${oldKey}`);
+        }
+
+        const count = await redis.llen('queue:entertainment_posts');
+        if (count === 0 && !oldKey) {
           await tgRequest('answerCallbackQuery', {
             callback_query_id: callbackId,
-            text: 'Очередь постов пуста! Дождитесь работы парсера.',
+            text: 'Очередь постов пуста! Запустите парсер.',
             show_alert: true,
           });
           return res.status(200).json({ ok: true });
         }
 
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId });
-
-        const postData = typeof rawPost === 'string' ? JSON.parse(rawPost) : rawPost;
-        const qKey = crypto.randomBytes(4).toString('hex');
-        await redis.set(`queue:pending:${qKey}`, JSON.stringify(postData), { ex: 3600 });
-
-        const formattedCaption = `<b>${postData.title}</b>`;
-
-        const queueItemMarkup = {
-          inline_keyboard: [
-            [
-              { text: '🚀 Опубликовать в канал', callback_data: `queue:pub:${qKey}` },
-              { text: '❌ Пропустить', callback_data: `queue:skip:${qKey}` },
-            ],
-            [
-              { text: `▶️ Следующий (еще ${countLeft})`, callback_data: 'queue:next' },
-              { text: '◀️ В меню', callback_data: 'menu:back' },
-            ],
-          ],
-        };
-
-        if (postData.imgUrl) {
-          const imgRes = await tgRequest('sendPhoto', {
-            chat_id: ADMIN_CHAT_ID,
-            photo: postData.imgUrl,
-            caption: formattedCaption,
-            parse_mode: 'HTML',
-            reply_markup: queueItemMarkup,
-          });
-          if (!imgRes.ok) {
-            await tgRequest('sendMessage', {
-              chat_id: ADMIN_CHAT_ID,
-              text: formattedCaption,
-              parse_mode: 'HTML',
-              reply_markup: queueItemMarkup,
-            });
-          }
-        } else {
-          await tgRequest('sendMessage', {
-            chat_id: ADMIN_CHAT_ID,
-            text: formattedCaption,
-            parse_mode: 'HTML',
-            reply_markup: queueItemMarkup,
-          });
-        }
-
+        await showNextQueuePost(ADMIN_CHAT_ID, message?.message_id);
         return res.status(200).json({ ok: true });
       }
 
-      // Публикация в канал из очереди
+      // --- ПРОПУСК ПОСТА (НЕ ЗАТИРАЕТ, ОСТАВЛЯЕТ В ЧАТЕ И ДАЕТ СЛЕДУЮЩИЙ) ---
+      if (data.startsWith('queue:skip:')) {
+        const qKey = data.split(':')[2];
+        await tgRequest('answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: 'Отложено. Пост сохранен в чате.',
+        });
+
+        // На отложенном посте оставляем только кнопку публикации и кнопку удаления
+        await tgRequest('editMessageReplyMarkup', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🚀 Опубликовать в канал', callback_data: `queue:pub:${qKey}` },
+                { text: '🗑 Удалить', callback_data: `queue:delete:${qKey}` },
+              ],
+            ],
+          },
+        });
+
+        // Грузим следующий пост без удаления старого сообщения
+        await showNextQueuePost(ADMIN_CHAT_ID, null);
+        return res.status(200).json({ ok: true });
+      }
+
+      // --- РУЧНОЕ УДАЛЕНИЕ ОТЛОЖЕННОГО ПОСТА ---
+      if (data.startsWith('queue:delete:')) {
+        const qKey = data.split(':')[2];
+        await redis.del(`queue:pending:${qKey}`);
+        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Удалено' });
+        await tgRequest('deleteMessage', { chat_id: message.chat.id, message_id: message.message_id });
+        return res.status(200).json({ ok: true });
+      }
+
+      // --- ПУБЛИКАЦИЯ В КАНАЛ (ИСПРАВЛЕНА ОШИБКА JSON ПАРСИНГА) ---
       if (data.startsWith('queue:pub:')) {
         const qKey = data.split(':')[2];
         const rawCached = await redis.get(`queue:pending:${qKey}`);
@@ -399,14 +459,16 @@ export default async function handler(req, res) {
         if (!rawCached) {
           await tgRequest('answerCallbackQuery', {
             callback_query_id: callbackId,
-            text: 'Данные устарели. Возьмите следующий пост.',
+            text: 'Данные устарели. Запросите пост заново.',
             show_alert: true,
           });
           return res.status(200).json({ ok: true });
         }
 
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Публикую в канал...' });
-        const postData = JSON.parse(rawCached);
+
+        // Если Upstash вернул объект напрямую, не вызываем JSON.parse повторно
+        const postData = typeof rawCached === 'string' ? JSON.parse(rawCached) : rawCached;
         const channelCaption = `<b>${postData.title}</b>`;
 
         let pubRes;
@@ -454,15 +516,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // Пропуск поста
-      if (data.startsWith('queue:skip:')) {
-        const qKey = data.split(':')[2];
-        await redis.del(`queue:pending:${qKey}`);
-        await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пропущено' });
-        await tgRequest('deleteMessage', { chat_id: message.chat.id, message_id: message.message_id });
-        return res.status(200).json({ ok: true });
-      }
-
       if (data.startsWith('retry_news:')) {
         const shortKey = data.split(':')[1];
         const cachedStr = await redis.get(`retry_news:${shortKey}`);
@@ -479,7 +532,7 @@ export default async function handler(req, res) {
         await tgRequest('answerCallbackQuery', { callback_query_id: callbackId, text: 'Пробую еще раз...' });
 
         try {
-          const parsed = JSON.parse(cachedStr);
+          const parsed = typeof cachedStr === 'string' ? JSON.parse(cachedStr) : cachedStr;
           await findAndSendNews(parsed.topic, parsed);
           await tgRequest('deleteMessage', { chat_id: message.chat.id, message_id: message.message_id });
         } catch (err) {

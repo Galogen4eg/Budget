@@ -12,7 +12,9 @@ const redis = new Redis({
 const TTL_30_DAYS = 30 * 24 * 60 * 60;
 const MAX_POSTS_PER_SOURCE = 30;
 
-// Конфигурация публичных разделов и сообществ без авто, финансов и кулинарии
+// Минимальный рейтинг: посты с меньшим числом плюсов отбрасываются
+const MIN_RATING = 300;
+
 const SOURCES = [
   // Общие разделы
   { url: 'https://pikabu.ru/best/day', category: 'best', name: 'Лучшее за день' },
@@ -80,118 +82,126 @@ async function scrapePage(page, source) {
     await page.waitForTimeout(700);
   }
 
-  const rawPosts = await page.evaluate((categoryName) => {
-    const articles = Array.from(document.querySelectorAll('article.story, div.story'));
-    const results = [];
+  const rawPosts = await page.evaluate(
+    ({ categoryName, minRating }) => {
+      const articles = Array.from(document.querySelectorAll('article.story, div.story'));
+      const results = [];
 
-    for (const art of articles) {
-      if (
-        art.classList.contains('story_sponsor') ||
-        art.querySelector('.story__sponsor, .story__header-sponsor, a[href*="/sponsor"]')
-      ) {
-        continue;
-      }
+      for (const art of articles) {
+        if (
+          art.classList.contains('story_sponsor') ||
+          art.querySelector('.story__sponsor, .story__header-sponsor, a[href*="/sponsor"]')
+        ) {
+          continue;
+        }
 
-      if (art.querySelector('video, .player, [data-type="video"], .story__video-wrap')) {
-        continue;
-      }
+        if (art.querySelector('video, .player, [data-type="video"], .story__video-wrap')) {
+          continue;
+        }
 
-      const linkEl = art.querySelector('a.story__title-link, .story__header-title a, a[href*="/story/"]');
-      if (!linkEl) continue;
+        const linkEl = art.querySelector('a.story__title-link, .story__header-title a, a[href*="/story/"]');
+        if (!linkEl) continue;
 
-      const href = linkEl.getAttribute('href') || '';
-      const fullUrl = href.startsWith('http') ? href : `https://pikabu.ru${href}`;
-      const idMatch = fullUrl.match(/_(\d+)$/) || href.match(/\/story\/[^_]+_(\d+)/);
-      const dataId = art.getAttribute('data-story-id');
-      const storyId = dataId || (idMatch ? idMatch[1] : null);
+        const href = linkEl.getAttribute('href') || '';
+        const fullUrl = href.startsWith('http') ? href : `https://pikabu.ru${href}`;
+        const idMatch = fullUrl.match(/_(\d+)$/) || href.match(/\/story\/[^_]+_(\d+)/);
+        const dataId = art.getAttribute('data-story-id');
+        const storyId = dataId || (idMatch ? idMatch[1] : null);
 
-      if (!storyId) continue;
+        if (!storyId) continue;
 
-      const title = linkEl.innerText?.trim() || '';
-
-      const textEl = art.querySelector('.story__text, .story-block_type_text');
-      const text = textEl ? textEl.innerText.trim() : '';
-
-      let rating = 0;
-      const dataRating = art.getAttribute('data-rating');
-      if (dataRating !== null && dataRating !== '') {
-        rating = parseInt(dataRating, 10) || 0;
-      } else {
-        const ratingEl = art.querySelector('.story__rating-count, .story__rating-val');
-        if (ratingEl) {
-          const rawRating = ratingEl.innerText.trim().replace(/\s+/g, '');
-          if (/[kKкК]$/.test(rawRating)) {
-            rating = Math.round(parseFloat(rawRating.replace(',', '.')) * 1000) || 0;
-          } else {
-            rating = parseInt(rawRating, 10) || 0;
+        // Извлечение рейтинга
+        let rating = 0;
+        const dataRating = art.getAttribute('data-rating');
+        if (dataRating !== null && dataRating !== '') {
+          rating = parseInt(dataRating, 10) || 0;
+        } else {
+          const ratingEl = art.querySelector('.story__rating-count, .story__rating-val');
+          if (ratingEl) {
+            const rawRating = ratingEl.innerText.trim().replace(/\s+/g, '');
+            if (/[kKкК]$/.test(rawRating)) {
+              rating = Math.round(parseFloat(rawRating.replace(',', '.')) * 1000) || 0;
+            } else {
+              rating = parseInt(rawRating, 10) || 0;
+            }
           }
         }
-      }
 
-      let comments = 0;
-      const dataComments = art.getAttribute('data-comments-count');
-      if (dataComments !== null && dataComments !== '') {
-        comments = parseInt(dataComments, 10) || 0;
-      } else {
-        const commEl = art.querySelector('a.story__comments-link, .story__comments-count');
-        if (commEl) {
-          comments = parseInt(commEl.innerText.replace(/\D/g, ''), 10) || 0;
+        // Отсекаем публикации со слабым рейтингом
+        if (rating < minRating) {
+          continue;
         }
-      }
 
-      const authorEl = art.querySelector('a.user__nick, a[href*="/@"]');
-      const communityEl = art.querySelector('a[href*="/community/"], .story__community-link');
-      const timeEl = art.querySelector('time');
+        const title = linkEl.innerText?.trim() || '';
+        const textEl = art.querySelector('.story__text, .story-block_type_text');
+        const text = textEl ? textEl.innerText.trim() : '';
 
-      const imgElements = Array.from(
-        art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
-      );
-
-      const images = [];
-      for (const img of imgElements) {
-        const src =
-          img.getAttribute('data-large-image') ||
-          img.getAttribute('data-src') ||
-          img.getAttribute('src');
-
-        if (src && src.startsWith('http') && !src.startsWith('data:')) {
-          images.push(src);
+        let comments = 0;
+        const dataComments = art.getAttribute('data-comments-count');
+        if (dataComments !== null && dataComments !== '') {
+          comments = parseInt(dataComments, 10) || 0;
+        } else {
+          const commEl = art.querySelector('a.story__comments-link, .story__comments-count');
+          if (commEl) {
+            comments = parseInt(commEl.innerText.replace(/\D/g, ''), 10) || 0;
+          }
         }
+
+        const authorEl = art.querySelector('a.user__nick, a[href*="/@"]');
+        const communityEl = art.querySelector('a[href*="/community/"], .story__community-link');
+        const timeEl = art.querySelector('time');
+
+        const imgElements = Array.from(
+          art.querySelectorAll('.story-image__image, .story__content img:not(.user__avatar)')
+        );
+
+        const images = [];
+        for (const img of imgElements) {
+          const src =
+            img.getAttribute('data-large-image') ||
+            img.getAttribute('data-src') ||
+            img.getAttribute('src');
+
+          if (src && src.startsWith('http') && !src.startsWith('data:')) {
+            images.push(src);
+          }
+        }
+
+        if (categoryName === 'memes' && images.length === 0) {
+          continue;
+        }
+
+        if (images.length === 0 && text.length < 40) {
+          continue;
+        }
+
+        results.push({
+          source: 'pikabu',
+          id: storyId,
+          url: fullUrl,
+          title,
+          text,
+          imgUrl: images[0] || null,
+          images,
+          category: categoryName,
+          community: communityEl ? communityEl.innerText.trim() : null,
+          rating,
+          comments,
+          author: authorEl ? authorEl.innerText.trim() : null,
+          publishedAt: timeEl ? timeEl.getAttribute('datetime') : null,
+        });
       }
 
-      if (categoryName === 'memes' && images.length === 0) {
-        continue;
-      }
-
-      if (images.length === 0 && text.length < 40) {
-        continue;
-      }
-
-      results.push({
-        source: 'pikabu',
-        id: storyId,
-        url: fullUrl,
-        title,
-        text,
-        imgUrl: images[0] || null,
-        images,
-        category: categoryName,
-        community: communityEl ? communityEl.innerText.trim() : null,
-        rating,
-        comments,
-        author: authorEl ? authorEl.innerText.trim() : null,
-        publishedAt: timeEl ? timeEl.getAttribute('datetime') : null,
-      });
-    }
-
-    return results;
-  }, source.category);
+      return results;
+    },
+    { categoryName: source.category, minRating: MIN_RATING }
+  );
 
   return rawPosts.slice(0, MAX_POSTS_PER_SOURCE);
 }
 
 async function run() {
-  console.log('Старт универсального сборщика Пикабу...');
+  console.log(`Старт парсера Пикабу... Фильтр рейтинга: >= ${MIN_RATING} плюсов`);
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
@@ -224,7 +234,7 @@ async function run() {
   }
 
   await browser.close();
-  console.log(`Всего уникальных постов извлечено: ${collectedMap.size}`);
+  console.log(`Всего постов с рейтингом >= ${MIN_RATING}: ${collectedMap.size}`);
 
   let addedCount = 0;
   for (const [storyId, post] of collectedMap.entries()) {
@@ -249,7 +259,7 @@ async function run() {
 
   console.log('\n================ СТАТИСТИКА СБОРА ================');
   console.table(stats);
-  console.log(`Успешно добавлено новых записей в Redis: ${addedCount}`);
+  console.log(`Успешно добавлено качественных записей в Redis: ${addedCount}`);
 }
 
 run().catch((err) => {

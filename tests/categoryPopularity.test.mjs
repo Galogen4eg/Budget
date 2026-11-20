@@ -11,15 +11,15 @@ const categories = [
   { id: 'other', label: 'Прочее' }
 ];
 test('parent popularity includes its child transactions', () => {
-  const ranked = sortCategoriesByPopularity(categories.filter(c => !c.parentId && c.id !== 'other'), {
+  const ranked = sortCategoriesByPopularity(categories, {
     magnit: 8, pyaterochka: 3, pizza: 4, restaurants: 1
-  });
+  }).filter(c => !c.parentId && c.id !== 'other');
   assert.deepEqual(ranked.map(c => c.id), ['food', 'restaurants']);
 });
 test('subcategories are sorted by their own use', () => {
-  const ranked = sortCategoriesByPopularity(categories.filter(c => c.parentId === 'food'), {
+  const ranked = sortCategoriesByPopularity(categories, {
     magnit: 2, pyaterochka: 7
-  });
+  }).filter(c => c.parentId === 'food');
   assert.deepEqual(ranked.map(c => c.id), ['pyaterochka', 'magnit']);
 });
 test('usage counts one operation once, preferring a valid subcategory', () => {

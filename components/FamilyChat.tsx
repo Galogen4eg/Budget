@@ -91,6 +91,18 @@ export default function FamilyChat() {
         messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       }
       setMessagesMap(grouped);
+      setTopics(prev => {
+        const known = new Set(prev.map(topic => topic.id));
+        const discovered = Object.keys(grouped).filter(id => !known.has(id)).map(id => ({
+          id,
+          title: id === 'shopping' ? 'Покупки' : id === 'weekend' ? 'Выходные' : `Тема ${id}`,
+          subtitle: 'Сообщения семьи',
+          icon: '💬',
+          time: '',
+          lastMessage: 'История сообщений'
+        }));
+        return discovered.length ? [...prev, ...discovered] : prev;
+      });
     });
     return () => unsub();
   }, [familyId]);
@@ -104,40 +116,9 @@ export default function FamilyChat() {
     setSearchQuery('');
   };
 
-  // Create New Topic
+  // Topic metadata is not persisted yet. Do not offer a misleading local-only chat.
   const handleCreateTopic = () => {
-    const topicTitle = prompt('Введите название новой семейной темы:', 'Покупки на праздник');
-    if (topicTitle && topicTitle.trim()) {
-      const newTopicId = `topic_${Date.now()}`;
-      const newTopic: TopicItem = {
-        id: newTopicId,
-        title: topicTitle.trim(),
-        subtitle: 'Сообщения темы',
-        icon: '📋',
-        time: 'Только что',
-        lastMessage: 'Пока нет сообщений'
-      };
-
-      setTopics(prev => [newTopic, ...prev]);
-      setMessagesMap(prev => ({
-        ...prev,
-        [newTopicId]: [
-          {
-            id: `init_${Date.now()}`,
-            topicId: newTopicId,
-            text: `Создана тема «${topicTitle.trim()}»`,
-            userId: 'system',
-            userName: 'Система',
-            timestamp: Date.now(),
-            type: 'system'
-          }
-        ]
-      }));
-
-      setActiveTopicId(newTopicId);
-      setMobileView('chat');
-      toast.info('Тема создана на этом устройстве. Синхронизация тем пока не поддерживается.');
-    }
+    toast.info('Создание новых тем временно недоступно до подключения синхронизации.');
   };
 
   // Send only confirmed messages; retain the draft when saving fails.
@@ -206,27 +187,10 @@ export default function FamilyChat() {
     });
   };
 
-  // Delete Chat Topic
+  // Deleting a local topic would leave its messages in Firestore.
   const handleDeleteActiveTopic = () => {
-    if (topics.length <= 1) {
-      toast.error('Нельзя удалить единственную оставшуюся тему');
-      setIsDeleteModalOpen(false);
-      return;
-    }
-
-    const topicToDelete = activeTopic;
-    const remainingTopics = topics.filter(t => t.id !== activeTopicId);
-    
-    setTopics(remainingTopics);
-    setMessagesMap(prev => {
-      const copy = { ...prev };
-      delete copy[activeTopicId];
-      return copy;
-    });
-
-    setActiveTopicId(remainingTopics[0].id);
     setIsDeleteModalOpen(false);
-    toast.success(`Чат «${topicToDelete.title}» успешно удален`);
+    toast.info('Удаление тем пока недоступно: история хранится в семейном пространстве.');
   };
 
   // Attachment Handler
@@ -267,7 +231,7 @@ export default function FamilyChat() {
           <div>
             <h1 className="font-headline font-bold text-base text-on-surface dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block animate-pulse"></span>
+              <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block"></span>
               <span>{members.length} участников семьи</span>
             </p>
           </div>
@@ -307,7 +271,7 @@ export default function FamilyChat() {
                     <span className="text-[10.5px] font-body text-on-surface-variant dark:text-stone-400 shrink-0 ml-1">{t.time}</span>
                   </div>
                   <p className="text-xs font-body text-on-surface-variant dark:text-stone-400 truncate mt-0.5">
-                    {t.lastMessage}
+                    {messagesMap[t.id]?.length ? messagesMap[t.id][messagesMap[t.id].length - 1].text : t.lastMessage}
                   </p>
                 </div>
               </button>
@@ -550,11 +514,17 @@ export default function FamilyChat() {
 
                   <div className="flex items-center gap-1 pr-1 text-[11px] text-on-surface-variant dark:text-stone-400 font-body">
                     <span className="material-symbols-outlined text-[15px] text-[#2D5A3F] dark:text-emerald-400">done_all</span>
-                    <span>Прочитано всеми</span>
+                    <span>Отправлено</span>
                   </div>
                 </div>
               );
             })}
+
+            {filteredMessages.length === 0 && (
+              <div className="text-center text-sm text-on-surface-variant dark:text-stone-400 py-8 px-4">
+                Здесь пока нет сообщений. Напишите первое сообщение семье.
+              </div>
+            )}
 
             {bottomSpacerHeight > 0 && (
               <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />
@@ -593,6 +563,7 @@ export default function FamilyChat() {
             <button 
               type="submit"
               aria-label="Отправить сообщение"
+              disabled={isSendingMessage || !inputText.trim()}
               className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl bg-[#2D5A3F] hover:bg-[#244933] text-white font-body font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
             >
               <span className="hidden sm:inline text-white">Отправить</span>
@@ -616,7 +587,7 @@ export default function FamilyChat() {
                 </div>
                 <div>
                   <h3 className="font-headline font-bold text-base text-on-surface dark:text-white">Детали расхода</h3>
-                  <p className="text-xs text-on-surface-variant dark:text-stone-400 font-body">Внесено через чек Мамой</p>
+                  <p className="text-xs text-on-surface-variant dark:text-stone-400 font-body">Данные прикреплённого чека</p>
                 </div>
               </div>
               <button 
@@ -638,10 +609,6 @@ export default function FamilyChat() {
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-stone-400">Категория:</span>
                 <span className="font-semibold text-[#2D5A3F] dark:text-emerald-400">{selectedReceipt.category}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-on-surface-variant dark:text-stone-400">Источник списания:</span>
-                <span className="font-medium">Семейная карта Мир •• 4912</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-stone-400">Дата и время:</span>

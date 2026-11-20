@@ -10,6 +10,7 @@ import { auth } from '../firebase';
 import { toast } from 'sonner';
 import { formatLocalCalendarDate, parseLocalCalendarDate, eventDateTime } from '../utils/calendarDates';
 import { findEventConflicts } from '../utils/eventConflicts';
+import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -145,23 +146,29 @@ export const EventModal: React.FC<EventModalProps> = ({
     return calculateEndTime(time, parseFloat(String(dur)) || 1);
   }, [time, dur]);
 
-  // Conflict detection
+  // Expand recurring events around the date being edited before checking conflicts.
   const conflict = useMemo(() => {
-    const candidate: FamilyEvent = {
-      id: event?.id || '__calendar_pending__',
-      title,
-      description: desc,
-      date,
-      time,
-      duration: parseFloat(String(dur)) || 1,
-      memberIds: mIds
-    };
-    const rest = allEvents.filter(existing => existing.id !== event?.id);
-    const pair = findEventConflicts([...rest, candidate]).conflictPairs.find(
-      entry => entry.eventA.id === candidate.id || entry.eventB.id === candidate.id
+    let around:FamilyEvent[];
+    try{
+      const startDate=parseLocalCalendarDate(date);
+      startDate.setDate(startDate.getDate()-1);
+      const endDate=parseLocalCalendarDate(date);
+      endDate.setDate(endDate.getDate()+2);
+      around=buildCalendarOccurrences(allEvents,formatLocalCalendarDate(startDate),formatLocalCalendarDate(endDate));
+    }catch{return null;}
+    const seriesId=event?.seriesId||event?.id;
+    const rest=around.filter(existing=>
+      existing.id!==event?.id && (!seriesId || (existing.seriesId||existing.id)!==seriesId)
     );
-    return pair ? (pair.eventA.id === candidate.id ? pair.eventB : pair.eventA) : null;
-  }, [date, time, dur, mIds, allEvents, event?.id]);
+    const candidate:FamilyEvent={
+      id:event?.id||'__calendar_pending__',title,description:desc,date,time,
+      duration:parseFloat(String(dur))||1,memberIds:mIds
+    };
+    const pair=findEventConflicts([...rest,candidate]).conflictPairs.find(
+      entry=>entry.eventA.id===candidate.id||entry.eventB.id===candidate.id
+    );
+    return pair?(pair.eventA.id===candidate.id?pair.eventB:pair.eventA):null;
+  },[date,time,dur,mIds,allEvents,event?.id,event?.seriesId]);
 
 
   // Suggested conflict-free slot

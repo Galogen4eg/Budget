@@ -10,7 +10,7 @@ import { FamilyMember, Transaction } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
-import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
+import { deleteUnclaimedFamilyMember, createFamilyMemberWithInvitation } from '../utils/db';
 import { bindFamilyProfile } from '../utils/familyBinding';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
@@ -228,7 +228,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     }
     triggerHaptic();
     try {
-      await deleteItem(currentFamilyId, 'members', editingMemberId);
+      await deleteUnclaimedFamilyMember(currentFamilyId, editingMemberId);
     } catch (error) {
       console.error('Cloud delete fail:', error);
       toast.error('Не удалось удалить профиль из Firebase');

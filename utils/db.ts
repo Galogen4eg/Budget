@@ -466,7 +466,7 @@ export const saveShoppingMerge = async (
   const batch = writeBatch(db);
   for (const item of uniqueUpdates.values()) {
     if (!item.id) throw new Error('Shopping item has no ID');
-    batch.update(doc(db, 'families', familyId, 'shopping', item.id), cleanForFirestore(item));
+    batch.update(doc(db, 'families', familyId, 'shopping', item.id), { ...cleanForFirestore(item) });
   }
   for (const item of uniqueAdditions.values()) {
     if (!item.id) throw new Error('Shopping item has no ID');

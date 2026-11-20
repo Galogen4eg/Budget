@@ -207,13 +207,22 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     );
   }
 
-  // Confirm all auto suggestions
+  // Only high-confidence non-fallback suggestions may be accepted in bulk.
+  // Never silently label an unknown operation as Shopping.
+  const eligibleAutoSuggestions = useMemo(() => unrecognizedItems.filter(item => {
+    const result = analyzedMap.get(item.id);
+    return Boolean(result && result.source !== 'fallback' &&
+      result.confidence >= 88 && result.suggestedCategoryId !== 'other' &&
+      categories.some(c => c.id === result.suggestedCategoryId));
+  }), [unrecognizedItems, analyzedMap, categories]);
+
   const handleConfirmAllSuggestions = () => {
-    const results = unrecognizedItems.map(item => {
-      const analysis = analyzedMap.get(item.id);
-      const catId = analysis?.suggestedCategoryId || 'shopping';
-      let rule: LearnedRule | undefined = undefined;
-      if (saveRuleChecked && analysis?.ruleKeyword && catId !== 'other') {
+    if (eligibleAutoSuggestions.length === 0) return;
+    const results = eligibleAutoSuggestions.map(item => {
+      const analysis = analyzedMap.get(item.id)!;
+      const catId = analysis.suggestedCategoryId;
+      let rule: LearnedRule | undefined;
+      if (saveRuleChecked && analysis.ruleKeyword && analysis.source !== 'mcc') {
         rule = {
           id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           keyword: analysis.ruleKeyword,
@@ -221,11 +230,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
           categoryId: catId
         };
       }
-      return {
-        itemId: item.id,
-        categoryId: catId,
-        ruleToLearn: rule
-      };
+      return { itemId: item.id, categoryId: catId, ruleToLearn: rule };
     });
 
     onApplyAllSuggestions(results);
@@ -310,10 +315,11 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
         <div className="px-6 py-2.5 bg-[#F5F0E6] dark:bg-[#222225] border-b border-[#ECE6DE] dark:border-white/10 flex items-center justify-between text-xs gap-3">
           <div className="flex items-center gap-2 text-stone-600 dark:text-gray-300 font-semibold">
             <Wand2 size={15} className="text-[#4A7C59] dark:text-green-400" />
-            <span>Система подготовила авто-правила для всех нераспознанных позиций</span>
+            <span>Уверенных предложений: {eligibleAutoSuggestions.length} из {unrecognizedItems.length}. Остальные требуют проверки.</span>
           </div>
           <RippleButton
             onClick={handleConfirmAllSuggestions}
+            disabled={eligibleAutoSuggestions.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold shadow-sm transition"
           >
             <CheckCheck size={15} />

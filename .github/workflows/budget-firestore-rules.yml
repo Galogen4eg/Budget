@@ -1,0 +1,29 @@
+name: Budget Firestore security rules (draft)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'security/**'
+      - '.github/workflows/budget-firestore-rules.yml'
+  workflow_dispatch:
+
+jobs:
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install app and emulator testing dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund @firebase/rules-unit-testing@3
+      - name: Run draft rules against Firestore Emulator
+        run: npx --yes firebase-tools@13 emulators:exec --only firestore --project demo-budget-security --config security/firebase.emulator.json 'node --test security/firestore.emulator.test.mjs'

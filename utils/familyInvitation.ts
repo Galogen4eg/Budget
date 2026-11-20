@@ -25,3 +25,52 @@ export function prepareFamilyMemberInvitation(
     invitation: email ? { familyId, placeholderMemberId: member.id, email } : null
   };
 }
+
+/** Ensures cancelling an unclaimed invitation never revokes or silently deletes an active account. */
+export function validateUnclaimedMemberRemoval(
+  familyId: string,
+  member: FamilyMember,
+  invitation: { familyId?: string; placeholderMemberId?: string } | null
+): boolean {
+  if (member.userId) throw new Error('Нельзя удалить профиль, привязанный к аккаунту');
+  if (member.isAdmin) throw new Error('Нельзя удалить профиль администратора');
+  return Boolean(invitation &&
+    invitation.familyId === familyId &&
+    invitation.placeholderMemberId === member.id);
+}
+
+/** A rejoining member already has a profile: do not create another one. */
+export function resolveFamilyJoin(
+  existingMemberIds: readonly string[] | unknown,
+  uid: string,
+  invitation: { placeholderMemberId?: string } | null
+): { existingMember: boolean; placeholderMemberId: string | null } {
+  const existingMember = Array.isArray(existingMemberIds) && existingMemberIds.includes(uid);
+  if (existingMember) return { existingMember: true, placeholderMemberId: null };
+  if (invitation) {
+    const placeholderMemberId = invitation.placeholderMemberId?.trim();
+    if (!placeholderMemberId) throw new Error('Некорректное приглашение: профиль участника не указан');
+    return { existingMember, placeholderMemberId };
+  }
+  if (!existingMember) throw new Error('Для присоединения требуется приглашение на email этого аккаунта');
+  return { existingMember: true, placeholderMemberId: null };
+}
+
+/** Prevent a global email invitation from being silently overwritten by another family. */
+export function assertInvitationAvailable(
+  existing: { familyId?: string; placeholderMemberId?: string } | null
+): void {
+  if (existing) throw new Error('На этот email уже существует приглашение. Сначала отмените предыдущее.');
+}
+
+/**
+ * Rules allow reading email-keyed invitations only for a verified address.
+ * Local synthetic usernames remain valid for their existing family, not for accepting invites.
+ */
+export function mayReadInvitation(user: {
+  email?: string | null;
+  emailVerified?: boolean;
+}): boolean {
+  const email = user.email?.trim().toLowerCase() || '';
+  return Boolean(user.emailVerified && email && !email.endsWith('@family.local'));
+}

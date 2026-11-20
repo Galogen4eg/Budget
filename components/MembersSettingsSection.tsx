@@ -10,7 +10,8 @@ import { FamilyMember, Transaction } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
-import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
+import { deleteUnclaimedFamilyMember, createFamilyMemberWithInvitation } from '../utils/db';
+import { bindFamilyProfile } from '../utils/familyBinding';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
 export const MAX_MEMBER_NAME_LENGTH = 40;
@@ -75,7 +76,7 @@ export function formatCurrencyRub(amount: number): string {
 
 export interface MembersSettingsSectionProps {
   readonly members: FamilyMember[];
-  readonly onUpdateMembers: (members: FamilyMember[]) => void;
+  readonly onUpdateMembers: (members: FamilyMember[]) => Promise<void>;
   readonly currentFamilyId: string | null;
   readonly transactions?: Transaction[];
 }
@@ -124,39 +125,27 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
   // Find currently mapped member
   const mappedMember = useMemo(() => {
-    if (!members || members.length === 0) return null;
-    if (currentUserId) {
-      const byUserId = members.find(m => m.userId === currentUserId);
-      if (byUserId) return byUserId;
-    }
-    if (user?.email) {
-      const byEmail = members.find(m => m.email?.toLowerCase() === user.email?.toLowerCase());
-      if (byEmail) return byEmail;
-    }
-    return null;
-  }, [members, currentUserId, user?.email]);
+    // Email may belong to an invited but unclaimed placeholder.
+    // Only the persisted account UID establishes an active profile binding.
+    if (!currentUserId) return null;
+    return members.find(m => m.userId === currentUserId) || null;
+  }, [members, currentUserId]);
 
-  const handleBindProfile = useCallback((targetMemberId: string) => {
-    triggerHaptic();
-    if (targetMemberId === GUEST_MODE_ID) {
-      const updated = members.map(m => (m.userId === currentUserId ? { ...m, userId: null } : m));
-      onUpdateMembers(updated);
-      toast.success('Сессия переключена в гостевой режим');
-    } else {
-      const updated = members.map(m => {
-        if (m.id === targetMemberId) {
-          return { ...m, userId: currentUserId || 'local-user' };
-        }
-        if (currentUserId && m.userId === currentUserId) {
-          return { ...m, userId: null };
-        }
-        return m;
-      });
-      onUpdateMembers(updated);
-      const selected = members.find(m => m.id === targetMemberId);
-      toast.success(`Сессия успешно сопоставлена с профилем «${selected?.name || ''}»`);
+  const handleBindProfile = useCallback(async (targetMemberId: string) => {
+    try {
+      const updated = bindFamilyProfile(members, currentUserId, targetMemberId, user?.email);
+      await onUpdateMembers(updated);
+      triggerHaptic();
+      if (targetMemberId === GUEST_MODE_ID) {
+        toast.success('Сессия переключена в гостевой режим');
+      } else {
+        const selected = members.find(m => m.id === targetMemberId);
+        toast.success(`Сессия сопоставлена с профилем «${selected?.name || ''}»`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить привязку профиля');
     }
-  }, [members, currentUserId, onUpdateMembers]);
+  }, [members, currentUserId, user?.email, onUpdateMembers]);
 
   // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {
@@ -177,7 +166,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   // Save member modifications
-  const handleSaveMemberDetails = () => {
+  const handleSaveMemberDetails = async () => {
     if (!editingMemberId) return;
     const nameVal = validateMemberName(editName);
     const emailVal = validateMemberEmail(editEmail);
@@ -196,7 +185,12 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       color: editColor,
     } : m);
 
-    onUpdateMembers(updated);
+    try {
+      await onUpdateMembers(updated);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
+      return;
+    }
     setIsSaveToastVisible(true);
     toast.success('Профиль участника успешно обновлен!');
 
@@ -218,18 +212,23 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       return;
     }
 
-    triggerHaptic();
-    const updated = members.filter(m => m.id !== editingMemberId);
-    onUpdateMembers(updated);
-
-    if (currentFamilyId) {
-      try {
-        await deleteItem(currentFamilyId, 'members', editingMemberId);
-      } catch (err) {
-        console.error('Cloud delete fail:', err);
-      }
+    if (target?.userId) {
+      toast.error('Профиль привязан к аккаунту. Сначала необходимо оформить исключение пользователя из семьи, чтобы не оставить доступ к общим данным.');
+      return;
     }
-
+    if (!currentFamilyId) {
+      toast.error('Семейный аккаунт недоступен');
+      return;
+    }
+    triggerHaptic();
+    try {
+      await deleteUnclaimedFamilyMember(currentFamilyId, editingMemberId);
+    } catch (error) {
+      console.error('Cloud delete fail:', error);
+      toast.error('Не удалось удалить профиль из Firebase');
+      return;
+    }
+    const updated = members.filter(m => m.id !== editingMemberId);
     toast.success(`Профиль «${target?.name || ''}» удален`);
     setEditingMemberId(updated[0]?.id || null);
   };

@@ -50,7 +50,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId, updateFamilyMemberProfiles 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -1183,20 +1183,10 @@ export default function App() {
                 savingsRate={savingsRate} 
                 setSavingsRate={setSavingsRate} 
                 members={members} 
-                onUpdateMembers={async (m) => { 
-                  setMembers(m);
-                  try {
-                    localStorage.setItem('local_members', JSON.stringify(m));
-                  } catch (storageErr) {
-                    console.warn('Failed to save members to localStorage:', storageErr);
-                  }
-                  if (familyId) {
-                    try {
-                      await updateItemsBatch(familyId, 'members', m);
-                    } catch (cloudErr) {
-                      console.error('Failed to sync members to cloud:', cloudErr);
-                    }
-                  }
+                onUpdateMembers={async (m) => {
+                  if (!familyId) throw new Error('Семейный аккаунт недоступен');
+                  await updateFamilyMemberProfiles(familyId, members, m, user?.uid || null, user?.email);
+                  // The Firestore subscription is authoritative; do not replace it with a stale whole-list snapshot.
                 }} 
                 categories={categories} 
                 onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} 

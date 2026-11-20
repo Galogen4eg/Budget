@@ -13,12 +13,12 @@ import {
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
 import { auth } from '../firebase';
-import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, sendEmailVerification, reload as reloadFirebaseUser, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
-import { migrateFamilyData } from '../utils/db';
+import { validateFamilySwitch } from '../utils/familySwitch';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
@@ -37,14 +37,14 @@ interface SettingsModalProps {
   savingsRate: number;
   setSavingsRate: (val: number) => void;
   members: FamilyMember[];
-  onUpdateMembers: (members: FamilyMember[]) => void;
+  onUpdateMembers: (members: FamilyMember[]) => Promise<void>;
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
   onDeleteCategory?: (id: string) => void;
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   currentFamilyId: string | null;
-  onJoinFamily: (id: string) => void;
+  onJoinFamily: (id: string) => Promise<void>;
   onLogout: () => void;
   installPrompt?: any;
   transactions?: Transaction[];
@@ -129,7 +129,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
-  const [shouldMigrate, setShouldMigrate] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
   // Account & Password Management State
@@ -152,6 +151,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(true);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -294,6 +294,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setAccountLogin(initialUsername);
   }, [initialUsername]);
 
+  const handleVerifyEmail = async (checkOnly: boolean) => {
+    if (!currentUser || !currentUser.email || currentUser.email.endsWith('@family.local')) return;
+    setIsVerifyingEmail(true);
+    try {
+      if (checkOnly) {
+        await reloadFirebaseUser(currentUser);
+        await currentUser.getIdToken(true);
+        if (currentUser.emailVerified) {
+          toast.success('Email подтверждён. Проверяем семейные приглашения...');
+          window.location.reload();
+        } else {
+          toast.info('Почта пока не подтверждена. Откройте письмо и нажмите ссылку.');
+        }
+      } else {
+        await sendEmailVerification(currentUser);
+        toast.success('Письмо для подтверждения отправлено на вашу почту.');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Не удалось проверить или отправить подтверждение email');
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
+
   const handleUpdateAccountLogin = async () => {
     if (!currentUser) {
       toast.error('Вы находитесь в локальном демо-режиме');
@@ -315,7 +339,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             ? { ...m, name: cleanLogin } 
             : m
         );
-        onUpdateMembers(updatedMembers);
+        await onUpdateMembers(updatedMembers);
       }
 
       const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
@@ -443,25 +467,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [settings, onUpdate]);
 
   const handleUpdateFamilyId = async () => {
-    const targetId = newFamilyId.trim();
-    if (!targetId) {
-      toast.error("ID не может быть пустым");
+    let targetId: string;
+    try {
+      targetId = validateFamilySwitch(currentFamilyId, newFamilyId, false);
+    } catch (error: any) {
+      toast.error(error.message);
       return;
     }
-    if (targetId === currentFamilyId) return;
-
-    if (!confirm(`Вы уверены, что хотите сменить ID пространства на ${targetId}?`)) return;
+    if (!confirm(`Присоединиться к семейному пространству ${targetId}? Для доступа требуется приглашение.`)) return;
 
     setIsJoining(true);
     try {
-      if (shouldMigrate && currentFamilyId) {
-        toast.info('Переносим данные в новое пространство...');
-        await migrateFamilyData(currentFamilyId, targetId);
-        toast.success('Данные перенесены!');
-      }
       await onJoinFamily(targetId);
     } catch (e: any) {
-      toast.error(e.message || "Ошибка при смене ID");
+      toast.error(e.message || "Ошибка при присоединении к семье");
+    } finally {
       setIsJoining(false);
     }
   };
@@ -534,6 +554,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {currentUser && currentUser.email && !currentUser.email.endsWith('@family.local') && !currentUser.emailVerified && (
+                <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 space-y-3">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    Подтвердите email для принятия семейных приглашений
+                  </p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                    Ваша личная семья доступна и без подтверждения. Чтобы присоединиться к семье другого пользователя, подтвердите адрес письмом Firebase.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={isVerifyingEmail} onClick={() => void handleVerifyEmail(false)}
+                      className="px-3 py-2 rounded-lg bg-[#2D5A43] text-white text-xs font-semibold disabled:opacity-50">
+                      Отправить письмо повторно
+                    </button>
+                    <button type="button" disabled={isVerifyingEmail} onClick={() => void handleVerifyEmail(true)}
+                      className="px-3 py-2 rounded-lg border border-amber-400 text-amber-900 dark:text-amber-200 text-xs font-semibold disabled:opacity-50">
+                      Я подтвердил почту — проверить
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Login Input Block */}
               <div className="space-y-2">
@@ -836,15 +877,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {currentFamilyId && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer pt-1">
-                    <input 
-                      type="checkbox"
-                      checked={shouldMigrate}
-                      onChange={e => setShouldMigrate(e.target.checked)}
-                      className="rounded border-gray-300 text-[#2D5A43] focus:ring-[#2D5A43]"
-                    />
-                    <span>Перенести существующие записи из текущего пространства в новое</span>
-                  </label>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 pt-1">
+                    Перенос старых операций временно отключён: он может нарушить общий бюджет другой семьи. Присоединение по приглашению не переносит прежние данные.
+                  </p>
                 )}
               </div>
             </section>

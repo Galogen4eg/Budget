@@ -5,7 +5,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { prepareFamilyMemberInvitation } from './familyInvitation';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, mayReadInvitation } from './familyInvitation';
+import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -177,23 +178,26 @@ export const createFamilyMemberWithInvitation = async (
   existingMembers: readonly FamilyMember[]
 ): Promise<void> => {
   const prepared = prepareFamilyMemberInvitation(familyId, member, existingMembers);
+  // Use a batch, not a read-before-write transaction. The inviting owner
+  // cannot read an invitation that does not exist under the restricted rules.
+  // Invitation updates are denied in rules: if the email is already invited,
+  // this entire batch is rejected and the placeholder is not created.
   const batch = writeBatch(db);
   batch.set(
     doc(db, 'families', familyId, 'members', prepared.member.id),
     cleanForFirestore(prepared.member)
   );
   if (prepared.invitation) {
-    batch.set(
-      doc(db, 'invitations', prepared.invitation.email),
-      { ...prepared.invitation, createdAt: new Date().toISOString() }
-    );
+    batch.set(doc(db, 'invitations', prepared.invitation.email), {
+      ...prepared.invitation, createdAt: new Date().toISOString()
+    });
   }
   await batch.commit();
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
-  if (!user.email) return null;
-  const email = user.email.trim().toLowerCase();
+  if (!mayReadInvitation(user)) return null;
+  const email = user.email!.trim().toLowerCase();
   const invitation = await getDoc(doc(db, 'invitations', email));
   if (!invitation.exists()) return null;
   const familyId = invitation.data().familyId;
@@ -243,63 +247,77 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
+  if (!targetFamilyId?.trim() || !user) throw new Error('ID семьи или пользователь не определены');
 
   const cleanFamilyId = targetFamilyId.trim();
   const familyRef = doc(db, 'families', cleanFamilyId);
   const userRef = doc(db, 'users', user.uid);
-
-  // Do not silently create a new empty family when a join code is mistyped.
-  const familySnap = await getDoc(familyRef);
-  if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
-
-  const cleanEmail = user.email?.toLowerCase().trim();
+  const cleanEmail = user.email?.trim().toLowerCase();
   const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
-  const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
-  const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
-    ? inviteSnap.data() : null;
-
-  // An arbitrary family ID is not an invitation. Existing members may rejoin;
-  // new members must have an invitation addressed to their signed-in email.
-  const isExistingMember = Array.isArray(familySnap.data().members) &&
-    familySnap.data().members.includes(user.uid);
-  if (!invitation && !isExistingMember) {
-    throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
-  }
-
-  // Reuse the placeholder created when the invitation was issued.
-  const memberId = invitation?.placeholderMemberId || user.uid;
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
-  const memberSnap = await getDoc(memberRef);
-  const batch = writeBatch(db);
-
-  batch.update(familyRef, { members: arrayUnion(user.uid) });
-  batch.set(userRef, {
-    email: user.email,
-    familyId: cleanFamilyId,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
-
-  const member: FamilyMember = {
-    id: memberId,
-    userId: user.uid,
-    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
-    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
-    isAdmin: false
-  };
-  if (user.photoURL) member.avatar = user.photoURL;
-  batch.set(memberRef, member, { merge: true });
-  if (invitation && inviteRef) batch.delete(inviteRef);
 
   try {
-    // All membership writes succeed together, or none is applied.
-    await batch.commit();
-  } catch (e: any) {
-    console.error('Family join failed:', e);
-    if (e.code === 'permission-denied') {
+    // Read the invitation, member profile and family document in the same
+    // transaction that consumes the invitation and grants membership.
+    // Cancelling the invitation concurrently forces a retry and cannot grant
+    // access based on a stale invitation snapshot.
+    await runTransaction(db, async transaction => {
+      const familySnap = await transaction.get(familyRef);
+      if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
+
+      const alreadyMember = Array.isArray(familySnap.data().members) &&
+        familySnap.data().members.includes(user.uid);
+      if (!alreadyMember && !mayReadInvitation(user)) {
+        throw new Error('Для принятия приглашения нужен подтверждённый email. Проверьте почту и повторите вход.');
+      }
+      const inviteSnap = inviteRef && mayReadInvitation(user) ? await transaction.get(inviteRef) : null;
+      const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
+        ? inviteSnap.data() : null;
+      const joinPlan = resolveFamilyJoin(familySnap.data().members, user.uid, invitation);
+      const userSnap = await transaction.get(userRef);
+
+      const memberRef = joinPlan.placeholderMemberId
+        ? doc(db, 'families', cleanFamilyId, 'members', joinPlan.placeholderMemberId)
+        : null;
+      const memberSnap = memberRef ? await transaction.get(memberRef) : null;
+      if (memberRef && !memberSnap?.exists()) {
+        throw new Error('Приглашённый профиль удалён. Попросите повторное приглашение');
+      }
+      if (memberSnap?.exists() && memberSnap.data().userId &&
+          memberSnap.data().userId !== user.uid) {
+        throw new Error('Приглашённый профиль уже занят другим аккаунтом');
+      }
+
+      // No new profile is created when the UID is already a family member.
+      if (joinPlan.existingMember && userSnap.exists() &&
+          userSnap.data().familyId === cleanFamilyId && !invitation) return;
+
+      transaction.update(familyRef, { members: arrayUnion(user.uid) });
+      transaction.set(userRef, {
+        email: user.email,
+        familyId: cleanFamilyId,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      if (memberRef && memberSnap?.exists()) {
+        const existing = memberSnap.data();
+        const member: FamilyMember = {
+          id: memberRef.id,
+          userId: user.uid,
+          name: existing.name || user.displayName || user.email?.split('@')[0] || 'Участник',
+          color: existing.color || '#34C759',
+          isAdmin: false
+        };
+        if (user.photoURL) member.avatar = user.photoURL;
+        transaction.set(memberRef, member, { merge: true });
+      }
+      if (invitation && inviteRef) transaction.delete(inviteRef);
+    });
+  } catch (error: any) {
+    console.error('Family join failed:', error);
+    if (error?.code === 'permission-denied') {
       throw new Error('Доступ к семье запрещён правилами Firestore. Проверьте приглашение и права доступа.');
     }
-    throw e;
+    throw error;
   }
 };
 
@@ -563,6 +581,56 @@ export const updateItem = async (familyId: string, collectionName: string, id: s
   const docRef = doc(db, 'families', familyId, collectionName, id);
   const cleanUpdates = cleanForFirestore(updates);
   await updateDoc(docRef, cleanUpdates);
+};
+
+/**
+ * Persist only changed family-member fields against fresh Firestore snapshots.
+ * A conflicting same-field edit or concurrent account claim aborts the whole transaction.
+ */
+/**
+ * Remove an unclaimed profile together with its pending email invitation.
+ * Rechecks the actual member document to avoid deleting a profile claimed on another device.
+ */
+export const deleteUnclaimedFamilyMember = async (familyId: string, memberId: string): Promise<void> => {
+  if (!familyId || !memberId) throw new Error('Семья или участник не определены');
+  await runTransaction(db, async transaction => {
+    const memberRef = doc(db, 'families', familyId, 'members', memberId);
+    const memberSnap = await transaction.get(memberRef);
+    if (!memberSnap.exists()) throw new Error('Профиль участника уже удалён');
+    const member = { ...memberSnap.data(), id: memberSnap.id } as FamilyMember;
+    const inviteEmail = member.email?.trim().toLowerCase();
+    const inviteRef = inviteEmail ? doc(db, 'invitations', inviteEmail) : null;
+    const inviteSnap = inviteRef ? await transaction.get(inviteRef) : null;
+    const deleteInvite = validateUnclaimedMemberRemoval(
+      familyId, member, inviteSnap?.exists() ? inviteSnap.data() : null
+    );
+    transaction.delete(memberRef);
+    if (deleteInvite && inviteRef) transaction.delete(inviteRef);
+  });
+};
+
+export const updateFamilyMemberProfiles = async (
+  familyId: string,
+  previous: readonly FamilyMember[],
+  updated: readonly FamilyMember[],
+  requesterUid: string | null,
+  requesterEmail?: string | null
+): Promise<void> => {
+  if (!familyId || !requesterUid) throw new Error('Семейный аккаунт недоступен');
+  const changes = planMemberMutations(previous, updated);
+  if (!changes.length) return;
+  await runTransaction(db, async transaction => {
+    const refs = changes.map(change => doc(db, 'families', familyId, 'members', change.id));
+    // Firestore requires all reads to complete before any write.
+    const snapshots = await Promise.all(refs.map(ref => transaction.get(ref)));
+    changes.forEach((change, index) => {
+      const snapshot = snapshots[index];
+      if (!snapshot.exists()) throw new Error('Профиль больше не существует. Обновите список участников');
+      const live = { ...snapshot.data(), id: snapshot.id } as FamilyMember;
+      const fields = validateMemberMutation(change, live, requesterUid, requesterEmail);
+      transaction.update(refs[index], { ...cleanForFirestore(fields) });
+    });
+  });
 };
 
 export const updateItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {

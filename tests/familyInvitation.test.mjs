@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareFamilyMemberInvitation } from '../utils/familyInvitation.ts';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable, mayReadInvitation } from '../utils/familyInvitation.ts';
 
 const member = { id: 'member-2', name: 'Анна', email: '  Anna@Example.com ', color: '#007AFF' };
 
@@ -26,4 +26,50 @@ test('rejects duplicate member IDs, invalid email and missing family', () => {
   assert.throws(() => prepareFamilyMemberInvitation('family-1', member, [member]), /уже/i);
   assert.throws(() => prepareFamilyMemberInvitation('family-1', { ...member, email: 'invalid' }, []), /email/i);
   assert.throws(() => prepareFamilyMemberInvitation('', member, []), /семейн/i);
+});
+
+test('remove unclaimed profile and its matching invitation', () => {
+  const invitation = { familyId: 'family-1', placeholderMemberId: 'member-2' };
+  assert.equal(validateUnclaimedMemberRemoval('family-1', member, invitation), true);
+  assert.equal(validateUnclaimedMemberRemoval('family-1', { ...member, email: undefined }, null), false);
+});
+
+test('never delete an active or admin family member', () => {
+  assert.throws(() => validateUnclaimedMemberRemoval('family-1', { ...member, userId: 'uid2' }, null), /аккаунт/);
+  assert.throws(() => validateUnclaimedMemberRemoval('family-1', { ...member, isAdmin: true }, null), /администратор/);
+  assert.equal(validateUnclaimedMemberRemoval('family-1', member, { familyId: 'other-family', placeholderMemberId: 'member-2' }), false);
+});
+
+test('rejoining an existing family without an invitation reuses membership rather than creating a new profile', () => {
+  assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', null), { existingMember: true, placeholderMemberId: null });
+  assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', { placeholderMemberId: 'stale-invite' }), { existingMember: true, placeholderMemberId: null });
+});
+
+test('new account requires a matching email invitation with a placeholder', () => {
+  assert.throws(() => resolveFamilyJoin(['owner'], 'uid-2', null), /приглашение/);
+  assert.deepEqual(
+    resolveFamilyJoin(['owner'], 'uid-2', { placeholderMemberId: 'member-2' }),
+    { existingMember: false, placeholderMemberId: 'member-2' }
+  );
+  assert.throws(() => resolveFamilyJoin(['owner'], 'uid-2', { placeholderMemberId: '' }), /некорректн/i);
+});
+
+test('new invitation cannot overwrite a pending invite of another family', () => {
+  assert.doesNotThrow(() => assertInvitationAvailable(null));
+  assert.throws(() => assertInvitationAvailable({
+    familyId: 'other-family', placeholderMemberId: 'other'
+  }), /приглашение/);
+});
+
+test('unverified email accounts cannot read or consume invitations', () => {
+  assert.equal(mayReadInvitation({ email: 'person@example.com', emailVerified: false }), false);
+  assert.equal(mayReadInvitation({ email: 'person@example.com', emailVerified: true }), true);
+  assert.equal(mayReadInvitation({ email: 'User@family.local', emailVerified: true }), false);
+  assert.equal(mayReadInvitation({ email: null, emailVerified: true }), false);
+});
+
+test('existing legacy family members may remain signed in without email verification', () => {
+  assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', null), {
+    existingMember: true, placeholderMemberId: null
+  });
 });

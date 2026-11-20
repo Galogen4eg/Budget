@@ -258,7 +258,13 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     const nextCompleted = !item.completed;
     const updated = { ...item, completed: nextCompleted };
     setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+    try {
+      if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+    } catch (error) {
+      setItems(prev => prev.map(i => i.id === item.id && i.completed === nextCompleted ? item : i));
+      toast.error('Не удалось сохранить статус покупки');
+      return;
+    }
 
     recordPurchaseEvent(item.title, nextCompleted ? 'completed' : 'restored', {
       category: item.category,
@@ -279,9 +285,13 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-    if (familyId) await deleteItem(familyId, 'shopping', id);
-    if (editingItem?.id === id) setIsAddModalOpen(false);
+    try {
+      if (familyId) await deleteItem(familyId, 'shopping', id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      if (editingItem?.id === id) setIsAddModalOpen(false);
+    } catch (error) {
+      toast.error('Не удалось удалить покупку');
+    }
   };
 
   const handleClearCompleted = async () => {

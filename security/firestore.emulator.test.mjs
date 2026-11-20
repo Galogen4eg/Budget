@@ -24,6 +24,8 @@ const seed = async () => {
     });
     await setDoc(doc(db, 'users', 'owner1'), { familyId: family });
     await setDoc(doc(db, 'families', family, 'transactions', 't1'), { amount: 120, type: 'expense' });
+    await setDoc(doc(db, 'families', 'otherfamily'), { ownerId: 'otherowner', members: ['otherowner'] });
+    await setDoc(doc(db, 'families', 'otherfamily', 'accounts', 'a1'), { balance: 1000 });
   });
 };
 
@@ -181,12 +183,6 @@ test('a stranger cannot read member profiles nor enumerate family invitations', 
 });
 
 test('family member cannot overwrite or delete an unrelated family account', async () => {
-  await env.withSecurityRulesDisabled(async ctx => {
-    await setDoc(doc(ctx.firestore(), 'families', 'otherfamily'), {
-      ownerId: 'otherowner', members: ['otherowner']
-    });
-    await setDoc(doc(ctx.firestore(), 'families', 'otherfamily', 'accounts', 'a1'), { balance: 1000 });
-  });
   await assertFails(getDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1')));
   await assertFails(setDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1'), { balance: 0 }));
 });

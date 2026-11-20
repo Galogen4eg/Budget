@@ -4,6 +4,7 @@ import {
   onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { nextShoppingAmount } from './shoppingAmount';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -389,6 +390,27 @@ export const deleteTransactionWithGoal = async (
     batch.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
   }
   await batch.commit();
+};
+
+/**
+ * Apply a relative shopping amount change against the latest server document.
+ * Firestore retries the transaction if another family member changed it meanwhile.
+ */
+export const adjustShoppingAmount = async (
+  familyId: string,
+  itemId: string,
+  delta: number,
+  minimum = 1
+): Promise<string> => {
+  if (!familyId || !itemId) throw new Error('No family or shopping item ID');
+  return runTransaction(db, async transaction => {
+    const ref = doc(db, 'families', familyId, 'shopping', itemId);
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error('Shopping item no longer exists');
+    const amount = nextShoppingAmount(snapshot.data().amount, delta, minimum);
+    transaction.update(ref, { amount });
+    return amount;
+  });
 };
 
 /** Move an item into the pantry atomically, avoiding duplicate or lost items on failure. */

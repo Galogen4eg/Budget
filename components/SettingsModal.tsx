@@ -18,7 +18,7 @@ import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
-import { migrateFamilyData } from '../utils/db';
+import { validateFamilySwitch } from '../utils/familySwitch';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
@@ -44,7 +44,7 @@ interface SettingsModalProps {
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   currentFamilyId: string | null;
-  onJoinFamily: (id: string) => void;
+  onJoinFamily: (id: string) => Promise<void>;
   onLogout: () => void;
   installPrompt?: any;
   transactions?: Transaction[];
@@ -468,25 +468,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [settings, onUpdate]);
 
   const handleUpdateFamilyId = async () => {
-    const targetId = newFamilyId.trim();
-    if (!targetId) {
-      toast.error("ID не может быть пустым");
+    let targetId: string;
+    try {
+      targetId = validateFamilySwitch(currentFamilyId, newFamilyId, shouldMigrate);
+    } catch (error: any) {
+      toast.error(error.message);
       return;
     }
-    if (targetId === currentFamilyId) return;
-
-    if (!confirm(`Вы уверены, что хотите сменить ID пространства на ${targetId}?`)) return;
+    if (!confirm(`Присоединиться к семейному пространству ${targetId}? Для доступа требуется приглашение.`)) return;
 
     setIsJoining(true);
     try {
-      if (shouldMigrate && currentFamilyId) {
-        toast.info('Переносим данные в новое пространство...');
-        await migrateFamilyData(currentFamilyId, targetId);
-        toast.success('Данные перенесены!');
-      }
       await onJoinFamily(targetId);
     } catch (e: any) {
-      toast.error(e.message || "Ошибка при смене ID");
+      toast.error(e.message || "Ошибка при присоединении к семье");
+    } finally {
       setIsJoining(false);
     }
   };

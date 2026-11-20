@@ -140,7 +140,9 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   };
 
   const assignCategory = (item: UnrecognizedAnalyzerItem, categoryId: string) => {
-    if (!isUsableCategory(categoryId, categories)) return;
+    // The shared picker may have just created a category; its parent props
+    // will update on the next render, so do not reject that new ID here.
+    if (!categoryId || categoryId === 'other') return;
     onApplyCategoryWithRule(item.id, categoryId, buildRule(item, categoryId));
     setOpenPickerId(null);
   };

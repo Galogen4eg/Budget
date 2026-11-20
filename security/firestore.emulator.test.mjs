@@ -213,3 +213,11 @@ test('legacy family owner can access its old records while strangers remain excl
   await assertSucceeds(getDoc(doc(user(), 'families', legacyId, 'transactions', 'legacy-tx')));
   await assertFails(getDoc(doc(stranger(), 'families', legacyId, 'transactions', 'legacy-tx')));
 });
+
+test('family chat messages are readable and writable by members but inaccessible to outsiders', async () => {
+  const messageRef = doc(user(), 'families', family, 'chat', 'msg1');
+  await assertSucceeds(setDoc(messageRef, { id: 'msg1', topicId: 'general', text: 'Привет', userId: 'owner1', timestamp: 1 }));
+  await assertSucceeds(getDoc(messageRef));
+  await assertFails(getDoc(doc(stranger(), 'families', family, 'chat', 'msg1')));
+  await assertFails(setDoc(doc(stranger(), 'families', family, 'chat', 'msg1'), { text: 'Чужое' }));
+});

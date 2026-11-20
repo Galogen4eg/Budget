@@ -236,8 +236,9 @@ export function analyzeTransaction(
   ];
 
   for (const brand of BRAND_RULES) {
-    if (brand.keywords.some(k => lowerFull.includes(k))) {
-      const matchCat = categories.find(c => c.id === brand.categoryId) ? brand.categoryId : 'shopping';
+    if (brand.keywords.some(k => lowerFull.includes(k)) &&
+        categories.some(c => c.id === brand.categoryId)) {
+      const matchCat = brand.categoryId;
       return {
         suggestedCategoryId: matchCat,
         confidence: 88,

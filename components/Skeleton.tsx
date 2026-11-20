@@ -2,11 +2,13 @@ import React from 'react';
 
 interface SkeletonProps {
   className?: string;
+  style?: React.CSSProperties;
   variant?: 'text' | 'circular' | 'rectangular';
 }
 
 export const Skeleton: React.FC<SkeletonProps> = ({ 
-  className = '', 
+  className = '',
+  style,
   variant = 'rectangular' 
 }) => {
   const baseClasses = 'bg-[#EAE6DD]/50 dark:bg-white/5 animate-pulse';
@@ -23,7 +25,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   return (
     <div 
       className={`${baseClasses} ${variantClasses} ${className}`}
-      style={{ animationDuration: '1.6s' }}
+      style={{ animationDuration: '1.6s', ...style }}
     />
   );
 };

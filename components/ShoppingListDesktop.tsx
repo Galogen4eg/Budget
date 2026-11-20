@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, addItemsBatch, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
+import { saveShoppingMerge, addItem, addItemsBatch, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
@@ -482,14 +482,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
     {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
@@ -529,12 +522,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
-      for (const item of itemsToUpdateInDb) {
-        await updateItem(familyId, 'shopping', item.id, item);
-      }
-      for (const item of itemsToAddInDb) {
-        await addItem(familyId, 'shopping', item);
-      }
+      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
@@ -582,12 +570,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
       try {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        for (const item of itemsToAddInDb) {
-          await addItem(familyId, 'shopping', item);
-        }
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
@@ -752,14 +735,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       if (!familyId) throw new Error('Family is not ready');
       {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       }
 
       setItems(updatedList);

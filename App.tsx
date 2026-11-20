@@ -50,7 +50,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId, updateFamilyMemberProfiles 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -1185,7 +1185,7 @@ export default function App() {
                 members={members} 
                 onUpdateMembers={async (m) => {
                   if (!familyId) throw new Error('Семейный аккаунт недоступен');
-                  await updateItemsBatch(familyId, 'members', m);
+                  await updateFamilyMemberProfiles(familyId, members, m, user?.uid || null, user?.email);
                   setMembers(m);
                   try {
                     localStorage.setItem('local_members', JSON.stringify(m));

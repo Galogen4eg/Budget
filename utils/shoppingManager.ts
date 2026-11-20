@@ -146,8 +146,9 @@ export function mergeOrRestoreShoppingItems(
 
   // One document must be written only once per batch. Repeated incoming
   // products may update the same card more than once; keep the final value.
-  const finalAdditions = new Map(itemsToAddInDb.map(item => [item.id, item]));
-  const finalUpdates = new Map(itemsToUpdateInDb.map(item => [item.id, item]));
+  const finalItemsById = new Map(resultList.map(item => [item.id, item]));
+  const finalAdditions = new Map(itemsToAddInDb.map(item => [item.id, finalItemsById.get(item.id)!]));
+  const finalUpdates = new Map(itemsToUpdateInDb.map(item => [item.id, finalItemsById.get(item.id)!]));
   for (const id of finalAdditions.keys()) finalUpdates.delete(id);
 
   // Generate clear user notification

@@ -223,6 +223,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         if (merchantKey && onLearnRule) {
           onLearnRule({
             id: 'rule-' + Date.now(),
+            keyword: merchantKey,
             pattern: merchantKey,
             categoryId: newCategoryId,
             exactMatch: false

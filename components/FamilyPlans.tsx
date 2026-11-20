@@ -25,6 +25,7 @@ interface FamilyPlansProps {
   onDeleteEvent?: (id: string) => Promise<void>;
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
+  onOpenBudget?: () => void;
 }
 
 const FamilyPlans: React.FC<FamilyPlansProps> = ({ 
@@ -35,7 +36,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   onSendToTelegram, 
   onDeleteEvent,
   onOpenSettings,
-  onOpenNotifications
+  onOpenNotifications,
+  onOpenBudget
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -324,6 +326,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     <div className="flex h-full min-h-0 w-full flex-col">
       <FamilyAgendaPanel events={events} members={members}
         payments={settings.mandatoryExpenses||[]}
+        paidByMonth={settings.manualPaidExpenses}
+        onOpenBudget={onOpenBudget}
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
         onEnableReminders={()=>void enableReminders()}

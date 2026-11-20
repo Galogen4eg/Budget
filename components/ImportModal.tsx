@@ -84,7 +84,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       tempId: `import-${idx}-${Date.now()}`,
       isVerified: false,
       rememberRule: false,
-      mcc: extractMcc(p.rawNote || p.note),
+      mcc: (p as typeof p & { mcc?: string }).mcc || extractMcc(p.rawNote || p.note),
       accountMask: extractAccountMask(p.rawNote || p.note) || '••3271'
     }));
   });

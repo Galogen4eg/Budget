@@ -21,13 +21,13 @@ import { Category, FamilyMember, PantryItem, Transaction, ShoppingItem, FamilyEv
 
 export const INITIAL_CATEGORIES: Category[] = [
   // Shared income catalog. Existing family IDs are never rewritten.
-  { id: 'income', label: 'Доходы', icon: 'Wallet', color: '#2F855A', transactionType: 'income' },
+  { id: 'income', label: 'Доходы', icon: 'Landmark', color: '#2F855A', transactionType: 'income' },
   { id: 'salary', label: 'Зарплата', icon: 'Briefcase', color: '#2F855A', parentId: 'income', transactionType: 'income' },
   { id: 'benefits', label: 'Пособия и больничные', icon: 'Heart', color: '#2F855A', parentId: 'income', transactionType: 'income' },
   { id: 'income_interest', label: 'Проценты по вкладам', icon: 'PiggyBank', color: '#2F855A', parentId: 'income', transactionType: 'income' },
   { id: 'income_cashback', label: 'Кэшбэк', icon: 'CreditCard', color: '#2F855A', parentId: 'income', transactionType: 'income' },
   { id: 'income_refund', label: 'Возвраты', icon: 'ArrowRightLeft', color: '#2F855A', parentId: 'income', transactionType: 'income' },
-  { id: 'income_other', label: 'Другие доходы', icon: 'Wallet', color: '#2F855A', parentId: 'income', transactionType: 'income' },
+  { id: 'income_other', label: 'Другие доходы', icon: 'Landmark', color: '#2F855A', parentId: 'income', transactionType: 'income' },
 
   // Food & Dining (Main & Subcategories)
   { id: 'food', label: 'Продукты', icon: 'ShoppingBasket', color: '#4A7C59' },

@@ -10,7 +10,7 @@ import {
 import TerraMobileHeader from './TerraMobileHeader';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { saveShoppingMerge, addItem, updateItem, deleteItem, addItemsBatch, deleteItemsBatch } from '../utils/db';
+import { saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
 import { parseVoiceShoppingText } from '../utils/voiceShoppingParser';

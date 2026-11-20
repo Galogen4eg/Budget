@@ -401,11 +401,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
   const handleToggleComplete = async (item: ShoppingItem) => {
     const updated = { ...item, completed: !item.completed };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     try {
-      if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     } catch (error) {
-      setItems(prev => prev.map(i => i.id === item.id && i.completed === updated.completed ? item : i));
       toast.error('Не удалось сохранить статус покупки');
       return;
     }
@@ -426,14 +426,18 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const newAmount = Math.max(0.5, Math.round((currentAmount + delta) * 10) / 10);
     const updated = { ...item, amount: String(newAmount) };
     
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { amount: String(newAmount) });
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', item.id, { amount: String(newAmount) });
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    } catch (error) { toast.error('Не удалось обновить количество'); }
   };
 
   const handleDeleteItem = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      if (familyId) await deleteItem(familyId, 'shopping', id);
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItem(familyId, 'shopping', id);
       setItems(prev => prev.filter(i => i.id !== id));
       toast.info('Товар удалён из списка');
     } catch (error) {
@@ -449,7 +453,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     }
 
     try {
-      if (familyId) await deleteItemsBatch(familyId, 'shopping', completedIds);
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItemsBatch(familyId, 'shopping', completedIds);
       setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
       toast.success(`Удалено ${completedIds.length} купленных товаров`);
     } catch (error) {

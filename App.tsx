@@ -291,13 +291,17 @@ export default function App() {
   }, []);
 
   const handleAddCategory = async (newCategory: Category) => {
-    setCategories(prev => {
-      if (prev.some(c => c.id === newCategory.id)) return prev;
-      return [...prev, newCategory];
-    });
+    // Never claim that a newly created category exists until Firestore accepted it.
+    // The picker awaits this promise before assigning the operation to the new ID.
     if (familyId) {
       await addItem(familyId, 'categories', newCategory);
     }
+    setCategories(prev => {
+      const index = prev.findIndex(c => c.id === newCategory.id);
+      if (index === -1) return [...prev, newCategory];
+      // Also support moving an existing subcategory to another parent.
+      return prev.map(c => c.id === newCategory.id ? newCategory : c);
+    });
   };
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {

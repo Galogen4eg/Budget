@@ -23,7 +23,9 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   onNavigateHome,
   onOpenSettings
 }) => {
-  const [activeService, setActiveService] = useState<ServiceType>(() => (initialService as ServiceType) || 'menu');
+  const isValidService = (value: string | null | undefined): value is ServiceType =>
+    value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
+  const [activeService, setActiveService] = useState<ServiceType>(() => isValidService(initialService) ? initialService : 'menu');
   const { 
     settings, 
     debts, setDebts,
@@ -32,8 +34,8 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   } = useData();
 
   useEffect(() => {
-    if (initialService && initialService !== activeService) {
-      setActiveService(initialService as ServiceType);
+    if (isValidService(initialService) && initialService !== activeService) {
+      setActiveService(initialService);
     }
     if (initialService && onClearService) {
       onClearService();
@@ -132,10 +134,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
-                <article
+                <button
+                  type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-3 sm:p-5 shadow-[0_2px_8px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.98] cursor-pointer flex flex-col justify-between group min-h-[110px] sm:min-h-[135px]"
+                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-3 sm:p-5 shadow-[0_2px_8px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.98] cursor-pointer flex flex-col text-left justify-between group min-h-[110px] sm:min-h-[135px]"
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}
@@ -152,7 +155,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
 
                     {/* Title and Description */}
                     <div>
-                      <h2 className="text-xs sm:text-base font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors truncate">
+                      <h2 className="text-xs sm:text-base font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors break-words">
                         {app.label}
                       </h2>
                       <p className="text-[10.5px] sm:text-xs text-stone-500 dark:text-stone-400 mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed line-clamp-2">
@@ -160,7 +163,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                       </p>
                     </div>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
             {/* END: Services Grid */}
@@ -172,7 +175,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
-                  className="px-3.5 py-1.5 bg-white dark:bg-[#1C1C1E] hover:bg-stone-50 dark:hover:bg-[#2C2C2E] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[#1C1C1E] hover:bg-stone-50 dark:hover:bg-[#2C2C2E] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Ко всем сервисам</span>

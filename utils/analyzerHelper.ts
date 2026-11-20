@@ -176,8 +176,10 @@ export function analyzeTransaction(
 
   // 1. Check existing Learned Rules first
   for (const rule of learnedRules) {
-    if (rule.keyword && lowerFull.includes(rule.keyword.toLowerCase())) {
-      const matchCat = categories.find(c => c.id === rule.categoryId) ? rule.categoryId : 'other';
+    const keywords = rule.keywords?.length ? rule.keywords : [rule.keyword];
+    if (rule.categoryId !== 'other' && categories.some(c => c.id === rule.categoryId) &&
+        keywords.some(keyword => keyword?.trim() && lowerFull.includes(keyword.toLowerCase().trim()))) {
+      const matchCat = rule.categoryId;
       return {
         suggestedCategoryId: matchCat,
         confidence: 100,
@@ -192,6 +194,23 @@ export function analyzeTransaction(
   // Extract clean candidate keyword for saving a new rule
   const candidateKeyword = extractCleanRuleKeyword(rawNote, note);
   const cleanName = cleanMerchantName(fullText, learnedRules);
+
+  // Own-account transfers have a specific meaning; never classify them as
+  // shopping or arbitrary income merely because MCC is absent.
+  if (/между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(fullText)) {
+    const target = categories.find(c => c.id === 'transfer_self')
+      || categories.find(c => c.id === 'transfer');
+    if (target) {
+      return {
+        suggestedCategoryId: target.id,
+        confidence: 98,
+        reason: 'Перевод между собственными счетами',
+        cleanName: 'Перевод себе',
+        ruleKeyword: candidateKeyword,
+        source: 'keyword'
+      };
+    }
+  }
 
   // 2. Check SBP / Transfer
   if (lowerFull.includes('сбп') || lowerFull.includes('sbp') || lowerFull.includes('перевод') || lowerFull.includes('transfer')) {

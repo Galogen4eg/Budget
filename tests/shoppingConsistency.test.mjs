@@ -45,3 +45,15 @@ test('new duplicate incoming products produce a single final Firestore addition'
   assert.equal(result.itemsToAddInDb.length,1);
   assert.equal(result.itemsToAddInDb[0].amount,'3');
 });
+
+test('merges the active product rather than restoring a second completed card',()=>{
+  const existing=[
+    item('old','Хлеб','1','шт',true),
+    item('active','Хлеб','2','шт',false)
+  ];
+  const result=mergeOrRestoreShoppingItems(existing,[incoming('Хлеб','1','шт')],'person-b');
+  assert.equal(result.itemsToUpdateInDb.length,1);
+  assert.equal(result.itemsToUpdateInDb[0].id,'active');
+  assert.equal(result.itemsToUpdateInDb[0].amount,'3');
+  assert.equal(result.updatedList.find(x=>x.id==='old').completed,true);
+});

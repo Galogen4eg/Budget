@@ -18,6 +18,7 @@ import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 import { missingIncomeCategories } from '../utils/categoryCatalog';
+import { filterByBudgetOwner } from '../utils/budgetOwnerFilter';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -533,13 +534,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPantryState(newData);
   };
 
-  const filteredTransactions = useMemo(() => {
-      if (budgetMode === 'family') return transactions;
-      const currentUserId = user?.uid;
-      const myMemberId = members.find(m => m.userId === currentUserId)?.id;
-      if (!myMemberId) return transactions;
-      return transactions.filter(t => t.memberId === myMemberId);
-  }, [transactions, budgetMode, members, user]);
+  const filteredTransactions = useMemo(
+    () => filterByBudgetOwner(transactions, budgetMode, members, user?.uid),
+    [transactions, budgetMode, members, user?.uid]
+  );
 
   const parseLocalDate = (dateStr: string) => {
     if (!dateStr) return new Date();

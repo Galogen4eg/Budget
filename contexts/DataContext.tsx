@@ -73,6 +73,7 @@ interface DataContextType {
   setMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>;
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+  importSourcesReady: boolean;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   aiKnowledge: AIKnowledgeItem[];
@@ -144,6 +145,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [transactionsReady, setTransactionsReady] = useState(false);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -223,6 +226,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- Subscriptions ---
   useEffect(() => {
+    setTransactionsReady(false);
+    setCatalogReady(false);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
     const cachedRules = localStorage.getItem('local_rules');
     if (cachedRules) {
@@ -317,6 +322,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'transactions', (data) => {
         const list = Array.isArray(data) ? data.map(sanitizeTransaction) : [];
         setTransactions(list);
+        setTransactionsReady(true);
       }),
       subscribeToCollection(familyId, 'shopping', (data) => {
         const uniqueMap = new Map<string, ShoppingItem>();
@@ -342,11 +348,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const missing = [...missingMerchantCategories(INITIAL_CATEGORIES, saved), ...missingIncomeCategories(INITIAL_CATEGORIES, saved)];
               if (missing.length > 0) {
                   void createCategoriesIfMissing(familyId, missing)
+                      .then(() => setCatalogReady(true))
                       .catch(error => {
                           merchantCatalogSyncAttempted.current.delete(familyId);
-                          console.error('Could not restore merchant subcategories:', error);
-                          toast.error('Не удалось восстановить подкатегории магазинов в Firebase. Проверьте подключение и доступ.');
+                          console.error('Could not restore bank categories:', error);
+                          toast.error('Не удалось синхронизировать категории с Firebase. Автоимпорт приостановлен.');
                       });
+              } else {
+                  setCatalogReady(true);
               }
           }
       }),
@@ -583,6 +592,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
+    importSourcesReady: transactionsReady && catalogReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings, setSettings, updateSettings, // Expose unified updater

@@ -325,12 +325,11 @@ export default function App() {
       );
     }
 
-    // Commit both documents before showing the operation as saved.
-    if (familyId) {
-      await saveTransactionWithGoal(
-        familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
-      );
-    }
+    // Never report a saved operation without an acknowledged family write.
+    if (!familyId) throw new Error('Family is not ready: transaction was not saved');
+    await saveTransactionWithGoal(
+      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+    );
 
     if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
     if (editing) {

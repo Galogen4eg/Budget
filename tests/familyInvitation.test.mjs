@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin } from '../utils/familyInvitation.ts';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable } from '../utils/familyInvitation.ts';
 
 const member = { id: 'member-2', name: 'Анна', email: '  Anna@Example.com ', color: '#007AFF' };
 
@@ -52,4 +52,11 @@ test('new account requires a matching email invitation with a placeholder', () =
     { existingMember: false, placeholderMemberId: 'member-2' }
   );
   assert.throws(() => resolveFamilyJoin(['owner'], 'uid-2', { placeholderMemberId: '' }), /некорректн/i);
+});
+
+test('new invitation cannot overwrite a pending invite of another family', () => {
+  assert.doesNotThrow(() => assertInvitationAvailable(null));
+  assert.throws(() => assertInvitationAvailable({
+    familyId: 'other-family', placeholderMemberId: 'other'
+  }), /приглашение/);
 });

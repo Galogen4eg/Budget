@@ -12,7 +12,7 @@ import { RippleButton } from './RippleButton';
 import AddTransactionModal from './AddTransactionModal';
 import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
-import { extractCleanRuleKeyword, analyzeTransaction } from '../utils/analyzerHelper';
+import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from '../utils/analyzerHelper';
 import { toast } from 'sonner';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
@@ -309,8 +309,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // only previously unassigned, unverified rows. Never overwrite user choices.
   useEffect(() => {
     const updated = items.map(item => {
-      if (item.isVerified || (item.category && item.category !== 'other' &&
-          categories.some(category => category.id === item.category))) return item;
+      if (item.isVerified) return item;
+      const merchant = item.type === 'expense'
+        ? matchMerchantBrand(item.rawNote || item.note, categories)
+        : undefined;
+      const hasValidCategory = Boolean(item.category && item.category !== 'other' &&
+        categories.some(category => category.id === item.category));
+      // A temporary parent category can be upgraded to the named store once
+      // its subcategory arrives from Firestore. Never override a manual edit.
+      if (hasValidCategory && !(merchant?.isSubcategory && merchant.categoryId !== item.category)) return item;
       const analysis = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories);
       if (analysis.source === 'fallback' || analysis.confidence < 92 ||
           analysis.suggestedCategoryId === 'other' ||

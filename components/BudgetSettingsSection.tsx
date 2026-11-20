@@ -59,7 +59,7 @@ export interface BudgetSettingsSectionProps {
   setSavingsRate: (rate: number) => void;
   transactions?: Transaction[];
   onOpenDuplicates?: () => void;
-  onDeleteTransactionsByPeriod?: (start: string, end: string) => void;
+  onDeleteTransactionsByPeriod?: (start: string, end: string) => Promise<void>;
 }
 
 /**
@@ -88,6 +88,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
   const [archiveStart, setArchiveStart] = useState('2023-01-01');
   const [archiveEnd, setArchiveEnd] = useState('2023-12-31');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeletingPeriod, setIsDeletingPeriod] = useState(false);
 
   const handleDecrementSavings = useCallback(() => {
     if (savingsRate > MIN_SAVINGS_PERCENT) {
@@ -132,15 +133,23 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
     toast.success(`Архивировано операций: ${filtered.length}`);
   }, [archiveStart, archiveEnd, transactions]);
 
-  const handleDeletePeriod = useCallback(() => {
+  const handleDeletePeriod = useCallback(async () => {
+    if (isDeletingPeriod) return;
     if (!archiveStart || !archiveEnd) {
       toast.error('Укажите диапазон дат');
       return;
     }
-    onDeleteTransactionsByPeriod?.(archiveStart, archiveEnd);
-    setIsConfirmingDelete(false);
-    toast.success('История за выбранный период очищена');
-  }, [archiveStart, archiveEnd, onDeleteTransactionsByPeriod]);
+    if (!onDeleteTransactionsByPeriod) return;
+    setIsDeletingPeriod(true);
+    try {
+      await onDeleteTransactionsByPeriod(archiveStart, archiveEnd);
+      setIsConfirmingDelete(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить историю операций');
+    } finally {
+      setIsDeletingPeriod(false);
+    }
+  }, [archiveStart, archiveEnd, onDeleteTransactionsByPeriod, isDeletingPeriod]);
 
   return (
     <div className="flex flex-col w-full pb-2 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
@@ -464,11 +473,12 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleDeletePeriod}
+                  onClick={() => void handleDeletePeriod()}
+                  disabled={isDeletingPeriod}
                   className="flex-1 py-3 px-4 rounded-xl bg-[#b83230] text-white font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-sm"
                 >
                   <DeleteSweep size={18} />
-                  <span>Удалить {matchedCount > 0 ? `(${matchedCount})` : ''}?</span>
+                  <span>{isDeletingPeriod ? 'Удаление...' : `Удалить ${matchedCount > 0 ? `(${matchedCount})` : ''}?`}</span>
                 </button>
                 <button
                   type="button"

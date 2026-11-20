@@ -40,12 +40,13 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   onOpenAIChat
 }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] items-center gap-3 md:gap-4 pb-2 select-none w-full">
+    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-2 w-full min-w-0">
       {/* Mode Selector (Family / Personal) */}
-      <div className="w-full md:w-auto grid grid-cols-2 md:grid-flow-col md:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start">
+      <div className="w-full sm:w-auto grid grid-cols-2 sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start">
         <button
           type="button"
           onClick={() => setBudgetMode('family')}
+          aria-pressed={budgetMode === 'family'}
           className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             budgetMode === 'family'
               ? 'bg-[#4A7C59] text-white shadow-xs'
@@ -58,6 +59,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={() => setBudgetMode('personal')}
+          aria-pressed={budgetMode === 'personal'}
           className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             budgetMode === 'personal'
               ? 'bg-[#4A7C59] text-white shadow-xs'
@@ -73,13 +75,15 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
       </div>
 
       {/* Toolbar Controls Subgrid: Auto-flowing columns pinned to the right edge */}
-      <div className="grid grid-flow-col auto-cols-max items-center justify-end gap-2 sm:gap-2.5 w-full md:w-auto md:justify-self-end">
+      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full lg:w-auto min-w-0">
         {/* Month Picker Dropdown */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setIsMonthPickerOpen(prev => !prev)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-xs font-bold text-graphite dark:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
+            aria-expanded={isMonthPickerOpen}
+            aria-label={`Выбрать месяц. Сейчас: ${currentMonthName}`}
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl min-h-[44px] bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-xs font-bold text-graphite dark:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
           >
             <Calendar size={14} className="text-[#4A7C59]" />
             <span className="capitalize">{currentMonthName}</span>
@@ -123,8 +127,10 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={() => updateSettings({ privacyMode: !settings.privacyMode })}
-          className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
+          className="p-3 rounded-2xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
           title={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
+          aria-label={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
+          aria-pressed={settings.privacyMode}
         >
           {settings.privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
@@ -135,6 +141,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           onClick={onOpenAIChat}
           className="p-2.5 rounded-2xl bg-[#EAE6DD] dark:bg-[#2C2C2E] text-graphite dark:text-white hover:bg-[#DFD9CB] dark:hover:bg-[#3A3A3C] transition cursor-pointer"
           title="Спросить ИИ-помощника"
+          aria-label="Спросить ИИ-помощника"
         >
           <Sparkles size={16} className="text-[#4A7C59]" />
         </button>
@@ -143,7 +150,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={onOpenAddModal}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold shadow-sm active:scale-95 transition cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-2xl min-h-[44px] bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold shadow-sm active:scale-95 transition cursor-pointer"
         >
           <Plus size={16} />
           <span>Запись</span>

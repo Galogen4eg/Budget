@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
+import { prepareFamilyMemberInvitation } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -164,6 +165,30 @@ export const createInvitation = async (familyId: string, email: string, memberId
         email: cleanEmail,
         createdAt: new Date().toISOString()
     });
+};
+
+/**
+ * Create the member profile and its email invitation atomically.
+ * No local success state should be shown until the batch is acknowledged.
+ */
+export const createFamilyMemberWithInvitation = async (
+  familyId: string,
+  member: FamilyMember,
+  existingMembers: readonly FamilyMember[]
+): Promise<void> => {
+  const prepared = prepareFamilyMemberInvitation(familyId, member, existingMembers);
+  const batch = writeBatch(db);
+  batch.set(
+    doc(db, 'families', familyId, 'members', prepared.member.id),
+    cleanForFirestore(prepared.member)
+  );
+  if (prepared.invitation) {
+    batch.set(
+      doc(db, 'invitations', prepared.invitation.email),
+      { ...prepared.invitation, createdAt: new Date().toISOString() }
+    );
+  }
+  await batch.commit();
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {

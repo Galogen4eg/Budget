@@ -11,6 +11,8 @@ interface Props {
  events: FamilyEvent[];
  members: FamilyMember[];
  payments: MandatoryExpense[];
+ paidByMonth?: Record<string,string[]>;
+ onOpenBudget?: () => void;
  onOpenEvent:(event?:FamilyEvent|null,prefill?:Record<string,unknown>)=>void;
  onToggleTask:(event:FamilyEvent)=>Promise<void>;
  onEnableReminders:()=>void;
@@ -18,7 +20,7 @@ interface Props {
 }
 type View='today'|'week'|'month'|'tasks';
 export const FamilyAgendaPanel:React.FC<Props>=({
- events,members,payments,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled
+ events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled
 })=>{
  const [view,setView]=useState<View>('week');
  const [savingId,setSavingId]=useState<string|null>(null);
@@ -33,10 +35,11 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   }
   const end=new Date();end.setDate(end.getDate()+count-1);
   const last=formatLocalCalendarDate(end);
-  const all=[...raw,...candidates.filter(x=>x.date>=today&&x.date<=last)];
+  const all=[...raw,...candidates.filter(x=>x.date>=today&&x.date<=last &&
+    !((paidByMonth?.[x.date.slice(0,7)]||[]).includes(x.linkedExpenseId||'')))];
   return all.filter(x=>view==='tasks'?x.kind==='task':true)
    .sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time)).slice(0,60);
- },[events,payments,today,view]);
+ },[events,payments,paidByMonth,today,view]);
  const exportICS=()=>{
   const ics=makeCalendarICS(events);
   const url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
@@ -93,12 +96,13 @@ export const FamilyAgendaPanel:React.FC<Props>=({
       </button>:
       event.linkedExpenseId?<Wallet size={17} className="text-[#4A7C59] shrink-0"/>:
       <CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}
-    <button type="button" disabled={Boolean(event.linkedExpenseId)}
-     onClick={()=>onOpenEvent(event)} className="text-left min-w-0 flex-1 disabled:cursor-default">
+    <button type="button" disabled={Boolean(event.linkedExpenseId&&!onOpenBudget)}
+     onClick={()=>event.linkedExpenseId?onOpenBudget?.():onOpenEvent(event)}
+     className="text-left min-w-0 flex-1 disabled:cursor-default">
      <div className="text-xs sm:text-sm font-semibold dark:text-white truncate">{event.title}
       {event.recurrence&&event.recurrence!=='none'&&<Repeat2 size={12} className="inline ml-1 text-stone-400"/>}
      </div>
-     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {memberNames(event)}</div>
+     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {event.linkedExpenseId?'Открыть обязательные платежи':memberNames(event)}</div>
     </button>
    </div>)}
   </div>

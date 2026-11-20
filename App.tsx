@@ -49,7 +49,7 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
-  addItem, updateItem, deleteItem, 
+  addItem, updateItem, deleteItem, saveTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
 } from './utils/db';
 
@@ -307,54 +307,37 @@ export default function App() {
   };
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
-    if (selectedTx) {
-      // Edit
-      const updatedTx = { ...txData, id: selectedTx.id };
-      
-      // Check if savings transfer changed
-      const wasSavings = isSavingsTransfer(selectedTx);
-      const isSavingsNow = isSavingsTransfer(updatedTx);
-      if (wasSavings !== isSavingsNow || (isSavingsNow && selectedTx.amount !== updatedTx.amount)) {
-        const delta = isSavingsNow ? (wasSavings ? updatedTx.amount - selectedTx.amount : updatedTx.amount) : -selectedTx.amount;
-        if (delta !== 0) {
-          const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, Math.abs(delta), delta > 0);
-          setGoals(updatedGoals);
-          if (familyId) await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-        }
-      }
+    const editing = selectedTx;
+    const transaction: Transaction = editing
+      ? { ...txData, id: editing.id }
+      : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-      // Update Local State Immediately
-      setTransactions(prev => prev.map(t => t.id === selectedTx.id ? updatedTx : t));
-      
-      // Update DB if available
-      if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, txData);
-      
+    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
+    const savingsContribution = (tx: Transaction) =>
+      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
+    const previousContribution = editing ? savingsContribution(editing) : 0;
+    const delta = savingsContribution(transaction) - previousContribution;
+
+    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
+    if (delta !== 0) {
+      goalAdjustment = applySavingsTransferToGoals(
+        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
+      );
+    }
+
+    // Commit both documents before showing the operation as saved.
+    if (familyId) {
+      await saveTransactionWithGoal(
+        familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+      );
+    }
+
+    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    if (editing) {
+      setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
     } else {
-      // Create
-      const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-      const newTx = { ...txData, id };
-      
-      // If it's a transfer to savings account, automatically credit the savings goal!
-      if (isSavingsTransfer(newTx)) {
-        const isAddition = newTx.type === 'expense';
-        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, newTx.amount, isAddition);
-        setGoals(updatedGoals);
-        if (familyId) {
-          if (goals.some(g => g.id === affectedGoal.id)) {
-            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-          } else {
-            await addItem(familyId, 'goals', affectedGoal);
-          }
-        }
-        toast.success(`Переведено на накопительный счет: +${newTx.amount.toLocaleString('ru-RU')} ₽`);
-      }
-
-      // Update Local State Immediately
-      setTransactions(prev => [newTx, ...prev]);
-      
-      // Update DB if available
-      if (familyId) await addItem(familyId, 'transactions', newTx);
+      setTransactions(prev => [transaction, ...prev]);
     }
   };
 

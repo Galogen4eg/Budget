@@ -371,7 +371,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
              d.getFullYear() === prevMonthDate.getFullYear();
     }).reduce((sum, t) => sum + t.amount, 0);
 
-    if (prevMonthExpenses <= 0) return { text: '+8.4%', isPositive: true };
+    if (prevMonthExpenses <= 0) return { text: 'Нет данных', isPositive: null };
     const diff = ((displayMonthSpent - prevMonthExpenses) / prevMonthExpenses) * 100;
     const isPositive = diff <= 0; // Less spending is positive for savings
     const sign = diff >= 0 ? '+' : '';
@@ -1367,7 +1367,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
@@ -1379,20 +1379,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight whitespace-nowrap inline-flex items-baseline gap-1.5">
+              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
                 {formatAmount(totalBalance)} <span className="text-2xl font-light text-primary">₽</span>
               </span>
             </div>
             <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
-                {lastMonthComparison.isPositive ? (
-                  <TrendingUp size={14} className="mr-0.5" />
-                ) : (
+                {lastMonthComparison.isPositive === true ? (
                   <TrendingDown size={14} className="mr-0.5" />
-                )}
+                ) : lastMonthComparison.isPositive === false ? (
+                  <TrendingUp size={14} className="mr-0.5" />
+                ) : null}
                 {lastMonthComparison.text}
               </span>
-              <span className="text-[11px]">к прошлому месяцу</span>
+              <span className="text-[11px]">расходы к прошлому месяцу</span>
             </div>
           </div>
 
@@ -1418,7 +1418,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight whitespace-nowrap inline-flex items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#9A3412] dark:text-orange-400' : 'text-graphite dark:text-white'
               }`}>
                 {formatAmount(dailyLimit)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
@@ -1448,7 +1448,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <span className="text-[10px] text-graphite-muted dark:text-gray-400">Сегодня</span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight whitespace-nowrap inline-flex items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#B25E41]' : 'text-graphite dark:text-white'
               }`}>
                 {formatAmount(spentToday)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>

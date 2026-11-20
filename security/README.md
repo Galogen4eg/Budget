@@ -65,3 +65,7 @@ The Settings UI previously copied *all* family collections, including linked mem
 6. Merge the code PR only when rules rollout and app version are compatible.
 
 Do not paste the draft directly into Firebase Console until these blockers are resolved.
+
+## Family chat compatibility — 2026-11-20
+
+The explicit shared-collection allowlist originally omitted `chat`, which would have broken messages under restricted rules. Added `chat` to the allowed family collections. Real Firebase Emulator CI on commit `23f36964413fc2816284643e6d45b9a15fae9857`, run `44821913149` / job `136584635329`: **18/18 passed**, including member read/write and outsider denial for chat. Regular app CI on the same commit passed tests, TypeScript and build. **These are draft rules only, not deployed.**

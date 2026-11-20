@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, X, Plus, ChevronDown, Check, ArrowRight, FolderOutput 
 } from 'lucide-react';
-import { Category, Transaction } from '../types';
+import { Category, Transaction, TransactionType } from '../types';
+import { categoriesForType } from '../utils/categoryCatalog';
 import { getIconById } from '../constants';
 import { toast } from 'sonner';
 import useModalBackHandler from '../hooks/useModalBackHandler';
@@ -17,6 +18,7 @@ export interface DesktopCategoryPickerModalProps {
   onSelectCategory: (categoryId: string) => void;
   onAddCategory?: (category: Category) => void | Promise<void>;
   categoryUsage?: Record<string, number>;
+  transactionType?: TransactionType;
   transactions?: Transaction[];
 }
 
@@ -31,6 +33,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   onSelectCategory,
   onAddCategory,
   categoryUsage,
+  transactionType,
   transactions = []
 }) => {
   useModalBackHandler(isOpen, onClose);
@@ -82,7 +85,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
   // Organize categories into parents and child map
   const { parentCategories, subcategoriesByParent } = useMemo(() => {
-    const ordered = categoryUsage ? sortCategoriesByPopularity(categories, categoryUsage) : categories;
+    const filtered = categoriesForType(categories, transactionType);
+    const ordered = categoryUsage ? sortCategoriesByPopularity(filtered, categoryUsage) : filtered;
     const parents = ordered.filter(c => !c.parentId && c.id !== 'other');
     const subMap = new Map<string, Category[]>();
 
@@ -95,7 +99,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     });
 
     return { parentCategories: parents, subcategoriesByParent: subMap };
-  }, [categories, categoryUsage]);
+  }, [categories, categoryUsage, transactionType]);
 
   // Filter categories and auto-expand when searching
   const filteredParents = useMemo(() => {
@@ -218,13 +222,14 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     setIsConfirming(true);
     try {
       const existingParent = categories.find(c =>
-        !c.parentId && c.label.trim().toLocaleLowerCase('ru-RU') === trimmedName.toLocaleLowerCase('ru-RU')
+        !c.parentId && (!transactionType || categoriesForType([c], transactionType).length > 0) && c.label.trim().toLocaleLowerCase('ru-RU') === trimmedName.toLocaleLowerCase('ru-RU')
       );
       const parentToUse: Category = existingParent || {
         id: `cat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         label: trimmedName,
         color: '#3E6543',
-        icon: 'Folder'
+        icon: 'Folder',
+        ...(transactionType === 'income' ? { transactionType: 'income' as const } : {})
       };
       if (!existingParent) await onAddCategory(parentToUse);
 
@@ -246,7 +251,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           parentId: parentToUse.id,
           color: parentToUse.color,
           icon: parentToUse.icon,
-          isCustom: true
+          isCustom: true,
+          ...(transactionType === 'income' ? { transactionType: 'income' as const } : {})
         };
         await onAddCategory(subObj);
         if (createdCount === 0) selectedId = subObj.id;

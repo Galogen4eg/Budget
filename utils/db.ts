@@ -233,6 +233,14 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
     ? inviteSnap.data() : null;
 
+  // An arbitrary family ID is not an invitation. Existing members may rejoin;
+  // new members must have an invitation addressed to their signed-in email.
+  const isExistingMember = Array.isArray(familySnap.data().members) &&
+    familySnap.data().members.includes(user.uid);
+  if (!invitation && !isExistingMember) {
+    throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
+  }
+
   // Reuse the placeholder created when the invitation was issued.
   const memberId = invitation?.placeholderMemberId || user.uid;
   const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);

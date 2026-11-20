@@ -18,6 +18,16 @@ function addOccurrence(start: Date, interval: number, kind: PlanRecurrence): Dat
   return base;
 }
 
+function initialOccurrenceIndex(start:Date,from:Date,repeat:PlanRecurrence):number {
+  if(repeat==='none')return 0;
+  const days=(Date.UTC(from.getFullYear(),from.getMonth(),from.getDate())-
+    Date.UTC(start.getFullYear(),start.getMonth(),start.getDate()))/86400000;
+  if(repeat==='daily')return Math.max(0,Math.floor(days)-1);
+  if(repeat==='weekly')return Math.max(0,Math.floor(days/7)-1);
+  const months=(from.getFullYear()-start.getFullYear())*12+from.getMonth()-start.getMonth();
+  return Math.max(0,repeat==='monthly'?months-1:Math.floor(months/12)-1);
+}
+
 export function buildCalendarOccurrences(
   events: readonly FamilyEvent[],from:string,to:string
 ): FamilyEvent[] {
@@ -29,9 +39,10 @@ export function buildCalendarOccurrences(
     try{ start=parseLocalCalendarDate(event.date); }catch{continue;}
     const repeat=event.recurrence||'none';
     const maxDate=event.recurrenceUntil ? parseLocalCalendarDate(event.recurrenceUntil).getTime() : last;
-    const count=repeat==='none'?1:Math.min(2000,Math.ceil((last-start.getTime())/86400000)+2);
+    const fromIndex=initialOccurrenceIndex(start,new Date(first),repeat);
+    const count=repeat==='none'?1:fromIndex+2000;
     const skipped=new Set(event.recurrenceExceptions||[]);
-    for(let n=0;n<count;n++){
+    for(let n=fromIndex;n<count;n++){
       const date=repeat==='none'?start:addOccurrence(start,n,repeat);
       const time=date.getTime();
       if(time>last || time>maxDate)break;

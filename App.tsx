@@ -1246,9 +1246,13 @@ export default function App() {
                       toast.success(`Импортировано ${prepared.length} операций`); 
                     }
 
-                    // Sync to Firestore if in family mode
-                    if (familyId) {
+                    // Emit an acknowledgment only after the Firestore batch has committed.
+                    // No durable-import acknowledgment is sent for offline/demo mode.
+                    if (familyId && !isOfflineMode) {
                       await addItemsBatch(familyId, 'transactions', prepared);
+                      window.dispatchEvent(new CustomEvent('budget:import-committed', {
+                        detail: { count: prepared.length }
+                      }));
                     }
                   } catch (err: any) {
                     console.error("Import error:", err);

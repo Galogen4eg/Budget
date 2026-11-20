@@ -343,20 +343,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Older families were initialized before named store subcategories
           // existed. The Firestore snapshot must not permanently erase them.
           // Create only missing built-ins; existing customized docs stay intact.
-          if (!merchantCatalogSyncAttempted.current.has(familyId)) {
+          // New families need the complete default catalog; existing families
+          // retain their custom deletions except essential income/merchant IDs.
+          const missing = saved.length === 0 ? INITIAL_CATEGORIES :
+              [...missingMerchantCategories(INITIAL_CATEGORIES, saved), ...missingIncomeCategories(INITIAL_CATEGORIES, saved)];
+          if (missing.length === 0) setCatalogReady(true);
+          if (missing.length > 0 && !merchantCatalogSyncAttempted.current.has(familyId)) {
               merchantCatalogSyncAttempted.current.add(familyId);
-              const missing = [...missingMerchantCategories(INITIAL_CATEGORIES, saved), ...missingIncomeCategories(INITIAL_CATEGORIES, saved)];
-              if (missing.length > 0) {
-                  void createCategoriesIfMissing(familyId, missing)
-                      .then(() => setCatalogReady(true))
-                      .catch(error => {
-                          merchantCatalogSyncAttempted.current.delete(familyId);
-                          console.error('Could not restore bank categories:', error);
-                          toast.error('Не удалось синхронизировать категории с Firebase. Автоимпорт приостановлен.');
-                      });
-              } else {
-                  setCatalogReady(true);
-              }
+              void createCategoriesIfMissing(familyId, missing)
+                  .catch(error => {
+                      merchantCatalogSyncAttempted.current.delete(familyId);
+                      console.error('Could not restore bank categories:', error);
+                      toast.error('Не удалось синхронизировать категории с Firebase. Автоимпорт приостановлен.');
+                  });
           }
       }),
       subscribeToCollection(familyId, 'rules', async (data) => {

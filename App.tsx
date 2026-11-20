@@ -49,7 +49,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, 
-  addItemsBatch, addAlfaItemsIdempotent, updateItemsBatch, deleteItemsBatch, joinFamily 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -457,8 +457,27 @@ export default function App() {
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
-    } catch (err: any) { toast.error(err.message || "Ошибка чтения"); }
-    finally { setIsImporting(false); }
+    } catch (err: any) {
+        if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
+          try {
+            const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
+            const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+            const allRows = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, []);
+            if (await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id))) {
+              const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+              const fileSha256 = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+              window.dispatchEvent(new CustomEvent('budget:import-committed', {
+                detail: { count: 0, requested: allRows.length, fileSha256 }
+              }));
+              toast.info('Все операции этой выписки уже сохранены');
+              return;
+            }
+          } catch (verificationError) {
+            console.error('Alfa statement verification failed:', verificationError);
+          }
+        }
+        toast.error(err.message || "Ошибка чтения");
+    } finally { setIsImporting(false); }
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {

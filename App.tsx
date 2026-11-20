@@ -1247,8 +1247,8 @@ export default function App() {
                     }
 
                     // Emit an acknowledgment only after the Firestore batch has committed.
-                    // No durable-import acknowledgment is sent for offline/demo mode.
-                    if (familyId && !isOfflineMode) {
+                    // Acknowledgment requires an active familyId and successful Firestore write.
+                    if (familyId) {
                       await addItemsBatch(familyId, 'transactions', prepared);
                       window.dispatchEvent(new CustomEvent('budget:import-committed', {
                         detail: { count: prepared.length }

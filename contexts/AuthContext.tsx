@@ -12,7 +12,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { getOrInitUserFamily, joinFamily } from '../utils/db';
+import { getOrInitUserFamily, getPendingFamilyInvitation, joinFamily } from '../utils/db';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -71,12 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribe: (() => void) | undefined;
     let isMounted = true;
 
-    // Guaranteed safety fallback: never hang more than 3 seconds on loading screen
-    const safetyTimer = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }, 3000);
+    // Never expose a guessed family while Firestore membership is unresolved.
+    // The loading state is cleared only after the auth callback finishes.
 
     // Run getRedirectResult in background without blocking onAuthStateChanged
     getRedirectResult(auth).catch((e) => {
@@ -90,40 +86,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           setUser(currentUser);
           
-          // Check for pending family join
+          // A pending family ID is a request, not permission to join.
           const pendingFid = localStorage.getItem('pending_join_family');
           if (pendingFid) {
-            try {
-              await joinFamily(currentUser, pendingFid);
-              toast.success('Вы успешно вошли и присоединились к семье!');
-            } catch (e: any) {
-              console.error("Failed to join pending family:", e);
-              toast.error(`Не удалось присоединиться: ${e.message}`);
-            } finally {
+            const accepted = window.confirm('Присоединиться к указанному семейному пространству? Для доступа требуется приглашение на email вашего аккаунта.');
+            if (!accepted) {
               localStorage.removeItem('pending_join_family');
+            } else {
+              try {
+                await joinFamily(currentUser, pendingFid);
+                localStorage.removeItem('pending_join_family');
+                toast.success('Вы присоединились к семейному пространству');
+              } catch (e: any) {
+                console.error('Failed to join pending family:', e);
+                toast.error(`Не удалось присоединиться: ${e.message}`);
+              }
             }
           }
 
-          const cachedFid = localStorage.getItem('cached_familyId');
           try {
-            // Guard family initialization with 2.5s timeout
-            const familyInitPromise = getOrInitUserFamily(currentUser);
-            const timeoutPromise = new Promise<string>((_, reject) => 
-              setTimeout(() => reject(new Error('Family init timeout')), 2500)
-            );
-
-            const fid = await Promise.race([familyInitPromise, timeoutPromise]);
+            // An email invitation is only an offer. Never move an existing
+            // account to another family without the user's explicit consent.
+            try {
+              const invitation = await getPendingFamilyInvitation(currentUser);
+              if (invitation && !pendingFid) {
+                const dismissedKey = `dismissed_family_invite_${currentUser.uid}_${invitation.familyId}`;
+                if (sessionStorage.getItem(dismissedKey) !== '1') {
+                  const accepted = window.confirm('Вас пригласили в общее семейное пространство. Присоединиться? Ваши прежние данные не будут перенесены автоматически.');
+                  if (accepted) {
+                    await joinFamily(currentUser, invitation.familyId);
+                    toast.success('Вы присоединились к общему семейному пространству');
+                  } else {
+                    sessionStorage.setItem(dismissedKey, '1');
+                  }
+                }
+              }
+            } catch (inviteError) {
+              // An invitation lookup/join failure must not block the user's
+              // existing family from loading.
+              console.error('Unable to process family invitation:', inviteError);
+              toast.error('Не удалось обработать приглашение. Ваше текущее пространство сохранено.');
+            }
+            const fid = await getOrInitUserFamily(currentUser);
             if (fid && isMounted) {
               setFamilyId(fid);
               localStorage.setItem('cached_familyId', fid);
               setIsOfflineMode(false);
             }
           } catch (e) {
-            console.warn("Using fallback family ID due to network/auth delay:", e);
+            console.error("Family initialization failed; refusing to use an unverified family ID:", e);
             if (isMounted) {
-              const fallbackFid = cachedFid || currentUser.uid;
-              setFamilyId(fallbackFid);
-              setIsOfflineMode(true);
+              setFamilyId(null);
+              setIsOfflineMode(false);
+              toast.error('Не удалось загрузить семейное пространство. Проверьте соединение и повторите вход.');
             }
           }
         } else {
@@ -135,7 +150,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (isMounted) {
-          clearTimeout(safetyTimer);
           setLoading(false);
         }
       });
@@ -148,7 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
-      clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };
   }, []); 
@@ -197,8 +210,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithEmailAndPassword(auth, email, pass);
           toast.success('С возвращением!');
       } catch (e: any) {
-          toast.error('Неверный логин или пароль');
           setLoading(false);
+          throw e;
       }
   };
 
@@ -220,8 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let msg = 'Ошибка при регистрации';
           if (e.code === 'auth/email-already-in-use') msg = 'Этот email уже занят';
           if (e.code === 'auth/weak-password') msg = 'Слишком слабый пароль (мин. 6 симв.)';
-          toast.error(msg);
           setLoading(false);
+          throw new Error(msg);
       }
   };
 

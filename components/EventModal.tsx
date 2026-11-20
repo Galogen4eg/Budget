@@ -8,6 +8,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
 import { toast } from 'sonner';
+import { formatLocalCalendarDate, parseLocalCalendarDate } from '../utils/calendarDates';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -71,14 +72,14 @@ export const EventModal: React.FC<EventModalProps> = ({
   allEvents = [] 
 }) => {
   const currentUserMemberId = useMemo(() => {
-    return members.find(m => m.userId === auth.currentUser?.uid)?.id || members[0]?.id;
+    return members.find(m => m.userId && m.userId === auth.currentUser?.uid)?.id;
   }, [members]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
-  const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(event?.date || prefill?.date || formatLocalCalendarDate(new Date()));
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
   const [dur, setDur] = useState<string | number>(event?.duration || 1);
   
@@ -126,7 +127,7 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Short weekday for date badge
   const shortWeekday = useMemo(() => {
-    const d = new Date(date);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? parseLocalCalendarDate(date) : new Date(NaN);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('ru-RU', { weekday: 'short' });
   }, [date]);
@@ -296,6 +297,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       toast.error('Введите название события');
       return;
     }
+    try {
+      parseLocalCalendarDate(date);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Некорректное время');
+    } catch {
+      toast.error('Проверьте дату и время события');
+      return;
+    }
+
 
     const finalDuration = parseFloat(String(dur)) || 1;
     const newEventData: FamilyEvent = {

@@ -717,32 +717,32 @@ export default function App() {
       }
 
       const ids = toDelete.map(t => t.id);
-      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);
   };
 
   const handleBatchDelete = async (ids: string[]) => {
-      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} записей`);
   };
 
   const handleGoalSave = async (goal: any) => {
       if (editingGoal) {
-          setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
           if (familyId) await updateItem(familyId, 'goals', goal.id, goal);
+          setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
       } else {
-          setGoals(prev => [...prev, goal]);
           if (familyId) await addItem(familyId, 'goals', goal);
+          setGoals(prev => [...prev, goal]);
       }
       setIsGoalModalOpen(false);
       setEditingGoal(null);
   };
 
   const handleGoalDelete = async (id: string) => {
-      setGoals(prev => prev.filter(g => g.id !== id));
       if (familyId) await deleteItem(familyId, 'goals', id);
+      setGoals(prev => prev.filter(g => g.id !== id));
       setIsGoalModalOpen(false);
       setEditingGoal(null);
       toast.success('Цель удалена');

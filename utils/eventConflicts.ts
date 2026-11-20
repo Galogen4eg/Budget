@@ -1,5 +1,5 @@
 import type { FamilyEvent } from '../types';
-import { eventDateTime } from './calendarDates';
+import { eventDateTime } from './calendarDates.ts';
 
 /**
  * Two events conflict when their actual local time intervals overlap

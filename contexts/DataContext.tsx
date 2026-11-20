@@ -17,6 +17,7 @@ import {
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
+import { missingIncomeCategories } from '../utils/categoryCatalog';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -338,7 +339,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Create only missing built-ins; existing customized docs stay intact.
           if (!merchantCatalogSyncAttempted.current.has(familyId)) {
               merchantCatalogSyncAttempted.current.add(familyId);
-              const missing = missingMerchantCategories(INITIAL_CATEGORIES, saved);
+              const missing = [...missingMerchantCategories(INITIAL_CATEGORIES, saved), ...missingIncomeCategories(INITIAL_CATEGORIES, saved)];
               if (missing.length > 0) {
                   void createCategoriesIfMissing(familyId, missing)
                       .catch(error => {

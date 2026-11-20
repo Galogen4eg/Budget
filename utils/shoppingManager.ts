@@ -1,5 +1,5 @@
-import { ShoppingItem } from '../types';
-import { recordPurchaseEvent } from './frequentPurchases';
+import type { ShoppingItem } from '../types';
+import { recordPurchaseEvent } from './frequentPurchases.ts';
 
 export interface ProcessShoppingItemsResult {
   updatedList: ShoppingItem[];

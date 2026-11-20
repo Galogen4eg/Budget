@@ -74,8 +74,8 @@ service cloud.firestore {
            get(invitePath(request.auth.token.email.lower())).data.placeholderMemberId == memberId);
         allow list: if memberOf(familyId);
         allow create: if ownerAfter(familyId) &&
-          (request.resource.data.userId == null ||
-           request.resource.data.userId == request.auth.uid);
+          (request.resource.data.get('userId', null) == null ||
+           request.resource.data.get('userId', null) == request.auth.uid);
         allow update: if (
           memberOf(familyId) &&
           request.resource.data.diff(resource.data).affectedKeys()

@@ -716,23 +716,27 @@ export default function App() {
       }
 
       const ids = toDelete.map(t => t.id);
-      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);
   };
 
   const handleBatchDelete = async (ids: string[]) => {
-      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
+      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} записей`);
   };
 
   const handleGoalSave = async (goal: any) => {
       if (editingGoal) {
-          if (familyId) await updateItem(familyId, 'goals', goal.id, goal);
+          if (!familyId) throw new Error('Family is not ready: goal was not saved');
+          await updateItem(familyId, 'goals', goal.id, goal);
           setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
       } else {
-          if (familyId) await addItem(familyId, 'goals', goal);
+          if (!familyId) throw new Error('Family is not ready: goal was not saved');
+          await addItem(familyId, 'goals', goal);
           setGoals(prev => [...prev, goal]);
       }
       setIsGoalModalOpen(false);
@@ -740,7 +744,8 @@ export default function App() {
   };
 
   const handleGoalDelete = async (id: string) => {
-      if (familyId) await deleteItem(familyId, 'goals', id);
+      if (!familyId) throw new Error('Family is not ready: goal was not deleted');
+      await deleteItem(familyId, 'goals', id);
       setGoals(prev => prev.filter(g => g.id !== id));
       setIsGoalModalOpen(false);
       setEditingGoal(null);
@@ -1163,9 +1168,8 @@ export default function App() {
                       transactionToDelete.linkedGoalId
                     );
                   }
-                  if (familyId) {
-                    await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
-                  }
+                  if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
+                  await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
                   if (updatedSavings) setGoals(updatedSavings.updatedGoals);
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);

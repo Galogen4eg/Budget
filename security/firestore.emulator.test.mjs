@@ -69,8 +69,7 @@ test('owner can create invitation with placeholder in same batch', async () => {
   await assertFails(setDoc(doc(user(), 'invitations', 'guest@example.com'), { email: 'guest@example.com', familyId: family }));
 });
 
-test('verified invitee joins and consumes the invitation transactionally', async () => {
-  await createInvite();
+const acceptInvite = async () => {
   const db = invited();
   await assertSucceeds(runTransaction(db, async tx => {
     const familyRef = doc(db, 'families', family);
@@ -86,6 +85,12 @@ test('verified invitee joins and consumes the invitation transactionally', async
     tx.set(memberRef, { userId: 'invited1', isAdmin: false }, { merge: true });
     tx.delete(inviteRef);
   }));
+  return db;
+};
+
+test('verified invitee joins and consumes the invitation transactionally', async () => {
+  await createInvite();
+  const db = await acceptInvite();
   await assertSucceeds(getDoc(doc(db, 'families', family, 'transactions', 't1')));
   await assertFails(getDoc(doc(stranger(), 'families', family, 'transactions', 't1')));
 });
@@ -101,4 +106,47 @@ test('unverified recipient cannot claim membership with matching email', async (
 test('legacy owner without verified email can keep using existing family', async () => {
   const db = auth('owner1', 'old@family.local', false);
   await assertSucceeds(getDoc(doc(db, 'families', family, 'transactions', 't1')));
+});
+
+test('owner can cancel pending invitation; recipient cannot join afterwards', async () => {
+  await createInvite();
+  const db = user();
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'families', family, 'members', 'pending'));
+  batch.delete(doc(db, 'invitations', 'guest@example.com'));
+  await assertSucceeds(batch.commit());
+  const inviteeDb = invited();
+  await assertFails(getDoc(doc(inviteeDb, 'families', family)));
+  await assertSucceeds(getDoc(doc(db, 'families', family, 'transactions', 't1')));
+});
+
+test('removed user loses family data even if their users document still points to family', async () => {
+  await createInvite();
+  const inviteeDb = await acceptInvite();
+  await assertSucceeds(getDoc(doc(inviteeDb, 'families', family, 'transactions', 't1')));
+  await assertSucceeds(setDoc(doc(user(), 'families', family), { members: ['owner1'] }, { merge: true }));
+  await assertSucceeds(getDoc(doc(inviteeDb, 'users', 'invited1')));
+  await assertFails(getDoc(doc(inviteeDb, 'families', family, 'transactions', 't1')));
+});
+
+test('new user can create their personal family and initial documents in a batch', async () => {
+  const db = auth('newowner', 'newowner@example.com', false);
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'users', 'newowner'), { email: 'newowner@example.com', familyId: 'newowner' });
+  batch.set(doc(db, 'families', 'newowner'), {
+    ownerId: 'newowner', name: 'My family', members: ['newowner']
+  });
+  batch.set(doc(db, 'families', 'newowner', 'members', 'newowner'), {
+    id: 'newowner', userId: 'newowner', name: 'New', isAdmin: true, color: '#111'
+  });
+  batch.set(doc(db, 'families', 'newowner', 'config', 'settings'), {
+    familyName: 'My family', currency: '₽'
+  });
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(db, 'families', 'newowner')));
+});
+
+test('global learned rule collection is readable but cannot be changed by a member', async () => {
+  await assertSucceeds(getDoc(doc(user(), 'global_rules', 'any')));
+  await assertFails(setDoc(doc(user(), 'global_rules', 'any'), { keyword: 'poison' }));
 });

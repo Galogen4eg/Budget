@@ -480,7 +480,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
-      if (familyId) {
+      if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
+    {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
         }
@@ -526,10 +527,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       priority: 'medium'
     }], targetMemberId);
 
-    setItems(updatedList);
-    setFrequentTrigger(prev => prev + 1);
-
-    if (familyId) {
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
       for (const item of itemsToUpdateInDb) {
         await updateItem(familyId, 'shopping', item.id, item);
       }
@@ -538,7 +537,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       }
     }
 
+    setItems(updatedList);
+    setFrequentTrigger(prev => prev + 1);
     toast.success(summaryMessage);
+    } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
   const handleSaveModal = async (shouldMerge = false) => {
@@ -558,8 +560,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         estimatedPrice: itemEstimatedPrice
       };
 
+      if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+      try { await updateItem(familyId, 'shopping', editingItem.id, updated); }
+      catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       toast.success('Товар обновлен');
     } else {
       // Check if this item is in completed or active list without creating duplicate
@@ -578,10 +582,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         estimatedPrice: itemEstimatedPrice
       }], targetMemberId);
 
-      setItems(updatedList);
-      setFrequentTrigger(prev => prev + 1);
-
-      if (familyId) {
+      if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+      try {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
         }
@@ -590,6 +592,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         }
       }
 
+      } catch (error) { toast.error('Не удалось сохранить товар'); return; }
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     }
 

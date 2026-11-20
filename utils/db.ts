@@ -350,6 +350,32 @@ export const cleanForFirestore = <T = any>(obj: T): T => {
   return obj;
 };
 
+/**
+ * Persist a transaction and its savings-goal adjustment in one Firestore batch.
+ * Both documents commit together; the caller updates local UI only on success.
+ */
+export const saveTransactionWithGoal = async (
+  familyId: string,
+  transaction: Transaction,
+  isEdit: boolean,
+  goal?: SavingsGoal
+) => {
+  if (!familyId) throw new Error('No family ID');
+  const batch = writeBatch(db);
+  const txRef = doc(db, 'families', familyId, 'transactions', transaction.id);
+  if (isEdit) {
+    const { id: _id, ...updates } = transaction;
+    batch.update(txRef, cleanForFirestore(updates));
+  } else {
+    batch.set(txRef, cleanForFirestore(transaction));
+  }
+  if (goal) {
+    const goalRef = doc(db, 'families', familyId, 'goals', goal.id);
+    batch.set(goalRef, cleanForFirestore(goal), { merge: true });
+  }
+  await batch.commit();
+};
+
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();

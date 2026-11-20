@@ -10,7 +10,7 @@ import { FamilyMember, Transaction } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
-import { deleteItem, createInvitation } from '../utils/db';
+import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
 export const MAX_MEMBER_NAME_LENGTH = 40;
@@ -258,25 +258,28 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       color: inviteColor,
     };
 
-    onUpdateMembers([...members, newMember]);
-    toast.success(`Участник «${inviteName}» добавлен в семейный контур!`);
-
-    if (currentFamilyId && inviteEmail.trim()) {
-      setIsSendingInvite(true);
-      try {
-        await createInvitation(currentFamilyId, inviteEmail.trim(), newId);
-        toast.success('Приглашение сохранено. Пользователь увидит предложение присоединиться при входе с этим email. Письмо не отправляется.');
-      } catch (err) {
-        console.error('Invite error:', err);
-      } finally {
-        setIsSendingInvite(false);
-      }
+    if (!currentFamilyId) {
+      toast.error('Для приглашения нужен активный семейный аккаунт');
+      return;
     }
 
-    setIsInviteModalOpen(false);
-    setInviteName('');
-    setInviteEmail('');
-    setEditingMemberId(newId);
+    setIsSendingInvite(true);
+    try {
+      await createFamilyMemberWithInvitation(currentFamilyId, newMember, members);
+      // Firestore subscription updates the shared member list on both devices.
+      toast.success(inviteEmail.trim()
+        ? 'Участник и приглашение сохранены. Второй пользователь увидит его при входе с указанным email; письмо не отправляется.'
+        : 'Профиль участника сохранён в семье');
+      setIsInviteModalOpen(false);
+      setInviteName('');
+      setInviteEmail('');
+      setEditingMemberId(newId);
+    } catch (err) {
+      console.error('Failed to create family member invitation:', err);
+      toast.error(err instanceof Error ? err.message : 'Не удалось сохранить участника и приглашение');
+    } finally {
+      setIsSendingInvite(false);
+    }
   };
 
   return (

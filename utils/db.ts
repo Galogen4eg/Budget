@@ -435,6 +435,36 @@ export const createCategoriesIfMissing = async (familyId: string, categories: Ca
   return created;
 };
 
+/**
+ * Commit the complete shopping merge in one Firestore batch.
+ * Reject oversized lists instead of silently committing a partial update.
+ * Repeated changes to one item are collapsed to its final value.
+ */
+export const saveShoppingMerge = async (
+  familyId: string,
+  updates: ShoppingItem[],
+  additions: ShoppingItem[]
+): Promise<void> => {
+  if (!familyId) throw new Error('No family ID');
+  const uniqueUpdates = new Map(updates.map(item => [item.id, item]));
+  const uniqueAdditions = new Map(additions.map(item => [item.id, item]));
+  for (const id of uniqueAdditions.keys()) uniqueUpdates.delete(id);
+  const total = uniqueUpdates.size + uniqueAdditions.size;
+  if (total === 0) return;
+  // Firestore batch limit is 500 writes. Bound this operation to preserve all-or-nothing.
+  if (total > 400) throw new Error('Слишком много товаров для одной операции (максимум 400)');
+  const batch = writeBatch(db);
+  for (const item of uniqueUpdates.values()) {
+    if (!item.id) throw new Error('Shopping item has no ID');
+    batch.update(doc(db, 'families', familyId, 'shopping', item.id), cleanForFirestore(item));
+  }
+  for (const item of uniqueAdditions.values()) {
+    if (!item.id) throw new Error('Shopping item has no ID');
+    batch.set(doc(db, 'families', familyId, 'shopping', item.id), cleanForFirestore(item));
+  }
+  await batch.commit();
+};
+
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
   if (!familyId || items.length === 0) return [];
   const chunkSize = 400;

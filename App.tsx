@@ -1337,6 +1337,7 @@ export default function App() {
                 onLearnRule={handleLearnRule} 
                 learnedRules={learnedRules}
                 onAddCategory={handleAddCategory} 
+                transactions={transactions}
                 members={members} 
               />
             )}

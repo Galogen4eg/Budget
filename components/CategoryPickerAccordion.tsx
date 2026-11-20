@@ -121,7 +121,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         isCustom: true,
       };
     } else {
-      const parentCat = parentCategories.find(p => p.id === selectedParentId || p.id === initialParentCategoryId) || parentCategories[0];
+      const parentCat = parentCategories.find(p => p.id === (selectedParentId || initialParentCategoryId)) || parentCategories[0];
       if (!parentCat) return;
       newCategory = {
         id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,

@@ -2,34 +2,7 @@
 import * as XLSX from 'xlsx';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
-
-/**
- * Alfa exports positive amounts for both debits and credits.
- * Determine direction from the explicit "Тип" column, never from amount sign alone.
- * Unknown directions must stop import rather than corrupt the budget.
- */
-export const classifyAlfaDirection = (
-  rawType: unknown,
-  amount: number,
-  amountHeader: string,
-  hasTypeColumn: boolean
-): 'income' | 'expense' => {
-  const type = String(rawType ?? '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  const header = amountHeader.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-
-  const expense = /(?:^|[\\s,;:/()_-])(расход(?:ы|ная)?|списани[ея]|списано|покупк[аиуы]?|оплат[аы]|сняти[ея]|выдач[аеи]|debit|expense|outgoing)(?=$|[\\s,;:/()_-])/iu;
-  const income = /(?:^|[\\s,;:/()_-])(доход(?:ы)?|приход|зачислени[ея]|пополнени[ея]|поступлени[ея]|возврат|кешбек|cashback|credit|income|incoming)(?=$|[\\s,;:/()_-])/iu;
-
-  const isExpense = expense.test(type);
-  const isIncome = income.test(type);
-  if (isExpense !== isIncome) return isExpense ? 'expense' : 'income';
-  if (hasTypeColumn) throw new Error('Неизвестное или неоднозначное значение столбца «Тип». Импорт остановлен.');
-
-  if (amount < 0) return 'expense';
-  if (/расход|списан/.test(header)) return 'expense';
-  if (/приход|зачислен/.test(header)) return 'income';
-  throw new Error('Не удалось определить направление операции: нет столбца «Тип». Импорт остановлен.');
-};
+import { classifyAlfaDirection } from './alfaDirection';
 
 export const parseAlfaStatement = (
   file: File, 

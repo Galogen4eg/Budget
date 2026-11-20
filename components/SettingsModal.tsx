@@ -203,6 +203,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             unit,
             category,
             completed: false,
+            memberId: members[0]?.id || 'user',
+            priority: 'medium' as const,
             createdAt: new Date().toISOString()
           };
           setShoppingItems(prev => [newItem, ...prev]);

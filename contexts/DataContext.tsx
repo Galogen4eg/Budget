@@ -340,7 +340,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const missing = missingMerchantCategories(INITIAL_CATEGORIES, saved);
               if (missing.length > 0) {
                   void createCategoriesIfMissing(familyId, missing)
-                      .catch(error => console.error('Could not restore merchant subcategories:', error));
+                      .catch(error => {
+                          merchantCatalogSyncAttempted.current.delete(familyId);
+                          console.error('Could not restore merchant subcategories:', error);
+                      });
               }
           }
       }),

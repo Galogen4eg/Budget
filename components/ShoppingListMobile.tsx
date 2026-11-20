@@ -340,8 +340,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
-      setItems(updatedList);
-
       if (familyId) {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
@@ -352,11 +350,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
         }
       }
-
+      setItems(updatedList);
       setQuickAddText('');
       setTimeout(() => {
         quickInputRef.current?.focus();
       }, 20);
+    } catch (error) {
+      console.error('Quick add error:', error);
+      toast.error('Не удалось сохранить покупки. Повторите попытку.');
     } finally {
       setIsSubmittingQuick(false);
       setTimeout(() => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planSavingsGoalChanges, assertFinancialVersion } from '../utils/savingsSync.ts';
+import { planSavingsGoalChanges, assertFinancialVersion, assertSafeBulkDelete } from '../utils/savingsSync.ts';
 
 const goals = [
   { id: 'a', title: 'Копилка А', targetAmount: 5000, currentAmount: 600, icon: 'PiggyBank', color: '#111' },
@@ -55,4 +55,14 @@ test('rejects editing stale financial transaction data changed on another device
   const serverVersion = { ...old, amount: 130 };
   assert.throws(() => assertFinancialVersion(old, serverVersion), /изменен/);
   assert.doesNotThrow(() => assertFinancialVersion(old, { ...old, payee: 'New display name' }));
+});
+
+test('bulk deletion of ordinary expenses remains allowed', () => {
+  const ordinary = { ...tx(30,'a'), category:'food', linkedGoalId:undefined, note:'Обед' };
+  assert.doesNotThrow(() => assertSafeBulkDelete([ordinary], [ordinary.id]));
+});
+
+test('bulk deletion containing a savings transfer is blocked instead of leaving a wrong goal balance', () => {
+  assert.throws(() => assertSafeBulkDelete([tx(100,'a')], ['tx-1']), /накоплен/);
+  assert.doesNotThrow(() => assertSafeBulkDelete([tx(100,'a')], ['unrelated']));
 });

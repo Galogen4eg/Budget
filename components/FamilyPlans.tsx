@@ -273,6 +273,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   const handleUpdateEvent=async (next:FamilyEvent)=>{
     if(!familyId)throw new Error('Семейный аккаунт недоступен');
+    if(next.seriesId){
+      const parent=events.find(e=>e.id===next.seriesId);
+      if(!parent)throw new Error('Серия удалена');
+      await saveFamilyPlanOccurrence(familyId,parent,next.occurrenceDate||next.date,next);
+      return;
+    }
     const old=events.find(e=>e.id===next.id)||null;
     await saveFamilyPlanEvent(familyId,next,old);
   };
@@ -315,13 +321,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   return (
-    <>
+    <div className="flex h-full min-h-0 w-full flex-col">
       <FamilyAgendaPanel events={events} members={members}
         payments={settings.mandatoryExpenses||[]}
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
         onEnableReminders={()=>void enableReminders()}
         remindersEnabled={remindersEnabled}/>
+        <div className="flex-1 min-h-0 overflow-hidden">
         {isDesktop ? (
             <FamilyPlansDesktop 
                 {...commonProps} 
@@ -332,6 +339,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
                 groupedListEvents={groupedListEvents}
             />
         )}
+        </div>
 
         <AnimatePresence>
             {activeEvent && (
@@ -349,7 +357,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
             />
             )}
         </AnimatePresence>
-    </>
+    </div>
   );
 };
 

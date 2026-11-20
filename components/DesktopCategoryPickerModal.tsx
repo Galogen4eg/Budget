@@ -7,6 +7,7 @@ import { Category, Transaction } from '../types';
 import { getIconById } from '../constants';
 import { toast } from 'sonner';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import { sortCategoriesByPopularity } from '../utils/categoryPopularity';
 
 export interface DesktopCategoryPickerModalProps {
   isOpen: boolean;
@@ -14,7 +15,8 @@ export interface DesktopCategoryPickerModalProps {
   categories: Category[];
   selectedCategoryId?: string | null;
   onSelectCategory: (categoryId: string) => void;
-  onAddCategory?: (category: Category) => void;
+  onAddCategory?: (category: Category) => void | Promise<void>;
+  categoryUsage?: Record<string, number>;
   transactions?: Transaction[];
 }
 
@@ -28,6 +30,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   selectedCategoryId,
   onSelectCategory,
   onAddCategory,
+  categoryUsage,
   transactions = []
 }) => {
   useModalBackHandler(isOpen, onClose);
@@ -38,7 +41,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSubcategoryInput, setNewSubcategoryInput] = useState('');
-  const [subcategoryTags, setSubcategoryTags] = useState<string[]>(['Корм и питание', 'Ветклиника']);
+  const [subcategoryTags, setSubcategoryTags] = useState<string[]>([]);
   const newCatNameInputRef = useRef<HTMLInputElement>(null);
   const newSubcatInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,10 +82,11 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
   // Organize categories into parents and child map
   const { parentCategories, subcategoriesByParent } = useMemo(() => {
-    const parents = categories.filter(c => !c.parentId && c.id !== 'other');
+    const ordered = categoryUsage ? sortCategoriesByPopularity(categories, categoryUsage) : categories;
+    const parents = ordered.filter(c => !c.parentId && c.id !== 'other');
     const subMap = new Map<string, Category[]>();
 
-    categories.forEach(c => {
+    ordered.forEach(c => {
       if (c.parentId) {
         const current = subMap.get(c.parentId) || [];
         current.push(c);
@@ -91,7 +95,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     });
 
     return { parentCategories: parents, subcategoriesByParent: subMap };
-  }, [categories]);
+  }, [categories, categoryUsage]);
 
   // Filter categories and auto-expand when searching
   const filteredParents = useMemo(() => {
@@ -178,6 +182,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   const handleQuickAddSubcategoryForParent = (parentName: string) => {
     setIsCreatePanelOpen(true);
     setNewCategoryName(parentName);
+    setSubcategoryTags([]);
+    setNewSubcategoryInput('');
     setTimeout(() => {
       newSubcatInputRef.current?.focus();
     }, 150);
@@ -200,9 +206,9 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     setMovingSubcategory(null);
   };
 
-  // Save new category and subcategories bundle
-  const handleSaveCategoryBundle = () => {
-    if (isConfirming) return;
+  // Persist only the category and subcategories the user explicitly entered.
+  const handleSaveCategoryBundle = async () => {
+    if (isConfirming || !onAddCategory) return;
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) {
       newCatNameInputRef.current?.focus();
@@ -210,46 +216,57 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
     }
 
     setIsConfirming(true);
-    const timestamp = Date.now();
-    const uniqueSuffix = Math.random().toString(36).substring(2, 6);
-    const parentId = `cat-${timestamp}-${uniqueSuffix}`;
-
-    let existingParent = categories.find(c => c.label.toLowerCase() === trimmedName.toLowerCase() && !c.parentId);
-    const parentToUse = existingParent || {
-      id: parentId,
-      label: trimmedName,
-      color: '#3E6543',
-      icon: 'Folder'
-    };
-
-    if (!existingParent && onAddCategory) {
-      onAddCategory(parentToUse);
-    }
-
-    const subcatsToCreate = subcategoryTags.length > 0 ? subcategoryTags : ['Основное'];
-    let firstCreatedSubId = parentToUse.id;
-
-    subcatsToCreate.forEach((subLabel, idx) => {
-      const subObj: Category = {
-        id: `sub-${timestamp}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-        label: subLabel,
-        parentId: parentToUse.id,
-        color: parentToUse.color,
-        icon: 'Tag'
+    try {
+      const existingParent = categories.find(c =>
+        !c.parentId && c.label.trim().toLocaleLowerCase('ru-RU') === trimmedName.toLocaleLowerCase('ru-RU')
+      );
+      const parentToUse: Category = existingParent || {
+        id: `cat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        label: trimmedName,
+        color: '#3E6543',
+        icon: 'Folder'
       };
-      if (idx === 0) firstCreatedSubId = subObj.id;
-      if (onAddCategory) {
-        onAddCategory(subObj);
-      }
-    });
+      if (!existingParent) await onAddCategory(parentToUse);
 
-    toast.success(`Создана категория "${trimmedName}"`);
-    setActiveSelectedId(firstCreatedSubId);
-    setExpandedCatIds(prev => ({ ...prev, [parentToUse.id]: true }));
-    setIsCreatePanelOpen(false);
-    setNewCategoryName('');
-    setSubcategoryTags(['Корм и питание', 'Ветклиника']);
-    setIsConfirming(false);
+      let selectedId = parentToUse.id;
+      let createdCount = 0;
+      const pendingNames = [...subcategoryTags, newSubcategoryInput.trim()]
+        .map(name => name.trim()).filter(Boolean);
+      const uniqueNames = [...new Map(pendingNames.map(name => [name.toLocaleLowerCase('ru-RU'), name])).values()];
+      for (const subLabel of uniqueNames) {
+        const existingSub = categories.find(c => c.parentId === parentToUse.id &&
+          c.label.trim().toLocaleLowerCase('ru-RU') === subLabel.toLocaleLowerCase('ru-RU'));
+        if (existingSub) {
+          if (createdCount === 0) selectedId = existingSub.id;
+          continue;
+        }
+        const subObj: Category = {
+          id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+          label: subLabel,
+          parentId: parentToUse.id,
+          color: parentToUse.color,
+          icon: parentToUse.icon,
+          isCustom: true
+        };
+        await onAddCategory(subObj);
+        if (createdCount === 0) selectedId = subObj.id;
+        createdCount++;
+      }
+
+      toast.success(createdCount ? `Создано подкатегорий: ${createdCount}` :
+        existingParent ? 'Категория уже существует' : `Создана категория «${trimmedName}»`);
+      setActiveSelectedId(selectedId);
+      setExpandedCatIds(prev => ({ ...prev, [parentToUse.id]: true }));
+      setIsCreatePanelOpen(false);
+      setNewCategoryName('');
+      setNewSubcategoryInput('');
+      setSubcategoryTags([]);
+    } catch (error) {
+      console.error('Could not save category bundle:', error);
+      toast.error('Не удалось сохранить категорию в Firebase');
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const handleSelect = (id: string) => {

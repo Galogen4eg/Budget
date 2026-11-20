@@ -27,6 +27,18 @@ const seed = async () => {
   });
 };
 
+const createInvite = async () => {
+  const db = user();
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'families', family, 'members', 'pending'), {
+    id: 'pending', name: 'Guest', color: '#222', email: 'guest@example.com'
+  });
+  batch.set(doc(db, 'invitations', 'guest@example.com'), {
+    familyId: family, placeholderMemberId: 'pending', email: 'guest@example.com', createdAt: 'now'
+  });
+  await assertSucceeds(batch.commit());
+};
+
 before(async () => {
   env = await initializeTestEnvironment({ projectId, firestore: { rules } });
 });
@@ -49,15 +61,7 @@ test('outsider may not forge a new family member in a family document', async ()
 });
 
 test('owner can create invitation with placeholder in same batch', async () => {
-  const db = user();
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'families', family, 'members', 'pending'), {
-    id: 'pending', name: 'Guest', color: '#222', email: 'guest@example.com'
-  });
-  batch.set(doc(db, 'invitations', 'guest@example.com'), {
-    familyId: family, placeholderMemberId: 'pending', email: 'guest@example.com', createdAt: 'now'
-  });
-  await assertSucceeds(batch.commit());
+  await createInvite();
   await assertSucceeds(getDoc(doc(invited(), 'invitations', 'guest@example.com')));
   await assertFails(getDoc(doc(invited(false), 'invitations', 'guest@example.com')));
   await assertFails(getDoc(doc(stranger(), 'invitations', 'guest@example.com')));
@@ -66,14 +70,7 @@ test('owner can create invitation with placeholder in same batch', async () => {
 });
 
 test('verified invitee joins and consumes the invitation transactionally', async () => {
-  await env.withSecurityRulesDisabled(async ctx => {
-    await setDoc(doc(ctx.firestore(), 'families', family, 'members', 'pending'), {
-      id: 'pending', name: 'Guest', color: '#222', email: 'guest@example.com'
-    });
-    await setDoc(doc(ctx.firestore(), 'invitations', 'guest@example.com'), {
-      familyId: family, placeholderMemberId: 'pending', email: 'guest@example.com'
-    });
-  });
+  await createInvite();
   const db = invited();
   await assertSucceeds(runTransaction(db, async tx => {
     const familyRef = doc(db, 'families', family);
@@ -94,11 +91,7 @@ test('verified invitee joins and consumes the invitation transactionally', async
 });
 
 test('unverified recipient cannot claim membership with matching email', async () => {
-  await env.withSecurityRulesDisabled(async ctx => {
-    await setDoc(doc(ctx.firestore(), 'invitations', 'guest@example.com'), {
-      familyId: family, placeholderMemberId: 'pending', email: 'guest@example.com'
-    });
-  });
+  await createInvite();
   await assertFails(getDoc(doc(invited(false), 'families', family)));
   await assertFails(setDoc(doc(invited(false), 'families', family), {
     members: arrayUnion('invited1')

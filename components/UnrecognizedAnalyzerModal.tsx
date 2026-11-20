@@ -279,7 +279,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                 const chosen = chosenCategory(item);
                 const open = openPickerId === item.id;
                 const confident = analysis?.source !== 'fallback' && (analysis?.confidence || 0) >= 88 &&
-                  isUsableCategory(analysis?.suggestedCategoryId, categories);
+                  isUsableCategory(analysis?.suggestedCategoryId, categories, item.type);
                 return (
                   <article key={item.id} className="bg-white dark:bg-[#252528] border border-stone-200 dark:border-white/10 rounded-2xl p-4 space-y-3">
                     <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">

@@ -475,9 +475,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
-      setItems(updatedList);
-      setFrequentTrigger(prev => prev + 1);
-
       if (familyId) {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
@@ -488,7 +485,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
         }
       }
-
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
       setQuickInputText('');
       // Keep autofocus for rapid consecutive item additions

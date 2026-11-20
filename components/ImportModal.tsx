@@ -15,6 +15,7 @@ import { CategoryPickerAccordion } from './CategoryPickerAccordion';
 import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from '../utils/analyzerHelper';
 import { toast } from 'sonner';
 import { countCategoryUsage } from '../utils/categoryPopularity';
+import { isCategoryForType } from '../utils/categoryCatalog';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -323,7 +324,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       // A temporary parent category can be upgraded to the named store once
       // its subcategory arrives from Firestore. Never override a manual edit.
       if (hasValidCategory && !(merchant?.isSubcategory && merchant.categoryId !== item.category)) return item;
-      const analysis = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories);
+      const analysis = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories, item.type);
       if (analysis.source === 'fallback' || analysis.confidence < 92 ||
           analysis.suggestedCategoryId === 'other' ||
           !categories.some(category => category.id === analysis.suggestedCategoryId)) return item;
@@ -355,6 +356,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Выбор категории для карточки
   const handleSelectCategory = (tempId: string, catId: string) => {
     const item = items.find(i => i.tempId === tempId);
+    if (item && !isCategoryForType(catId, categories, item.type)) return;
     let updated = items.map(i => i.tempId === tempId ? { ...i, category: catId, isVerified: true } : i);
 
     if (item?.rememberRule && item.rawNote) {
@@ -460,12 +462,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Массовое назначение категории нераспознанным
   const handleBatchAssignCategory = (catId: string) => {
     const updated = items.map(i => {
-      if (i.category === 'other' || !i.category || !categories.some(c => c.id === i.category)) {
+      if (isCategoryForType(catId, categories, i.type) &&
+          (i.category === 'other' || !i.category || !categories.some(c => c.id === i.category))) {
         return { ...i, category: catId, isVerified: true };
       }
       return i;
     });
+    const assigned = updated.filter((item, index) => item !== items[index]).length;
     syncToParent(updated);
+    toast.info(`Назначено операций: ${assigned}. Операции другого типа не изменены.`);
     setIsBatchCategoryOpen(false);
   };
 
@@ -897,6 +902,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                           <CategoryPickerAccordion
                             key={item.tempId}
                             categories={categories}
+                            transactionType={item.type}
                             selectedCategoryId={item.category}
                             onAddCategory={onAddCategory}
                             maxHeightClass="max-h-[320px]"

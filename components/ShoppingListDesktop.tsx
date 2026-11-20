@@ -750,10 +750,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
 
-      setItems(updatedList);
-      setFrequentTrigger(prev => prev + 1);
-
-      if (familyId) {
+      if (!familyId) throw new Error('Family is not ready');
+      {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
         }
@@ -763,6 +761,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
         }
       }
+
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
 
       toast.success(summaryMessage);
       setIsVoiceModalOpen(false);

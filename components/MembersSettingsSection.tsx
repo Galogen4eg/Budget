@@ -265,7 +265,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       setIsSendingInvite(true);
       try {
         await createInvitation(currentFamilyId, inviteEmail.trim(), newId);
-        toast.success(`Приглашение отправлено на адрес ${inviteEmail}`);
+        toast.success('Приглашение сохранено. Пользователь увидит предложение присоединиться при входе с этим email. Письмо не отправляется.');
       } catch (err) {
         console.error('Invite error:', err);
       } finally {

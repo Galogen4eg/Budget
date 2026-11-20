@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import test, { before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, writeBatch, runTransaction, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch, runTransaction, arrayUnion, collection, getDocs } from 'firebase/firestore';
 
 const projectId = 'demo-budget-security';
 const family = 'owner1';
@@ -149,4 +149,44 @@ test('new user can create their personal family and initial documents in a batch
 test('global learned rule collection is readable but cannot be changed by a member', async () => {
   await assertSucceeds(getDoc(doc(user(), 'global_rules', 'any')));
   await assertFails(setDoc(doc(user(), 'global_rules', 'any'), { keyword: 'poison' }));
+});
+
+test('new account can read its absent personal family document before initialization', async () => {
+  const db = auth('brandnew', 'brandnew@example.com', false);
+  const snapshot = await assertSucceeds(getDoc(doc(db, 'families', 'brandnew')));
+  assert.equal(snapshot.exists(), false);
+});
+
+test('member can edit shared accounts, goals, transactions, and shopping but outsider cannot', async () => {
+  for (const collectionName of ['transactions', 'goals', 'shopping', 'accounts', 'debts', 'events', 'pantry']) {
+    const path = ['families', family, collectionName, 'entry'];
+    await assertSucceeds(setDoc(doc(user(), ...path), { amount: 10 }));
+    await assertFails(getDoc(doc(stranger(), ...path)));
+    await assertFails(setDoc(doc(stranger(), ...path), { amount: 900 }));
+  }
+});
+
+test('member personal settings are private, shared settings are available to family', async () => {
+  const memberConfig = ['families', family, 'members', 'owner1', 'config', 'settings'];
+  const sharedConfig = ['families', family, 'config', 'settings'];
+  await assertSucceeds(setDoc(doc(user(), ...memberConfig), { theme: 'dark' }));
+  await assertSucceeds(setDoc(doc(user(), ...sharedConfig), { currency: '₽' }));
+  await assertFails(getDoc(doc(stranger(), ...memberConfig)));
+  await assertFails(getDoc(doc(stranger(), ...sharedConfig)));
+});
+
+test('a stranger cannot read member profiles nor enumerate family invitations', async () => {
+  await assertFails(getDocs(collection(stranger(), 'families', family, 'members')));
+  await assertFails(getDocs(collection(stranger(), 'invitations')));
+});
+
+test('family member cannot overwrite or delete an unrelated family account', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'families', 'otherfamily'), {
+      ownerId: 'otherowner', members: ['otherowner']
+    });
+    await setDoc(doc(ctx.firestore(), 'families', 'otherfamily', 'accounts', 'a1'), { balance: 1000 });
+  });
+  await assertFails(getDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1')));
+  await assertFails(setDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1'), { balance: 0 }));
 });

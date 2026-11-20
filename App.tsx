@@ -100,6 +100,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
+    importSourcesReady,
     settings, updateSettings, 
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -113,13 +114,13 @@ export default function App() {
   // Local Playwright automation may run only against this explicitly compatible,
   // authenticated version of Budget. Older deployed builds lack this marker.
   useEffect(() => {
-    if (familyId && members.length > 0 && !isAuthLoading) {
+    if (familyId && members.length > 0 && !isAuthLoading && importSourcesReady) {
       (window as any).__budgetAlfaSyncProtocol = 2;
     } else {
       delete (window as any).__budgetAlfaSyncProtocol;
     }
     return () => { delete (window as any).__budgetAlfaSyncProtocol; };
-  }, [familyId, members.length, isAuthLoading]);
+  }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [targetService, setTargetService] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planSavingsGoalChanges } from '../utils/savingsSync.ts';
+import { planSavingsGoalChanges, assertFinancialVersion } from '../utils/savingsSync.ts';
 
 const goals = [
   { id: 'a', title: 'Копилка А', targetAmount: 5000, currentAmount: 600, icon: 'PiggyBank', color: '#111' },
@@ -42,4 +42,17 @@ test('normal transaction edits do not touch savings goals', () => {
   const ordinary={...tx(100,'a'),category:'food',linkedGoalId:undefined,note:'Магазин'};
   const plan=planSavingsGoalChanges(goals, ordinary,{...ordinary,amount:200});
   assert.deepEqual(plan.changedGoals, []);
+});
+
+test('uses latest goal balance instead of stale UI balance when applying a transfer', () => {
+  const live = goals.map(g => g.id === 'a' ? { ...g, currentAmount: 850 } : g);
+  const plan = planSavingsGoalChanges(live, null, tx(100,'a'));
+  assert.equal(plan.updatedGoals.find(g => g.id === 'a').currentAmount, 950);
+});
+
+test('rejects editing stale financial transaction data changed on another device', () => {
+  const old = tx(100, 'a');
+  const serverVersion = { ...old, amount: 130 };
+  assert.throws(() => assertFinancialVersion(old, serverVersion), /изменен/);
+  assert.doesNotThrow(() => assertFinancialVersion(old, { ...old, payee: 'New display name' }));
 });

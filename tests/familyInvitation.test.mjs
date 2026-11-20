@@ -42,6 +42,7 @@ test('never delete an active or admin family member', () => {
 
 test('rejoining an existing family without an invitation reuses membership rather than creating a new profile', () => {
   assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', null), { existingMember: true, placeholderMemberId: null });
+  assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', { placeholderMemberId: 'stale-invite' }), { existingMember: true, placeholderMemberId: null });
 });
 
 test('new account requires a matching email invitation with a placeholder', () => {

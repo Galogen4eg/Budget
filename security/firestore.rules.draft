@@ -23,8 +23,8 @@ service cloud.firestore {
     }
     function memberOf(familyId) {
       return signedIn() && exists(familyPath(familyId)) &&
-        get(familyPath(familyId)).data.members is list &&
-        request.auth.uid in get(familyPath(familyId)).data.members;
+        get(familyPath(familyId)).data.get('members', []) is list &&
+        request.auth.uid in get(familyPath(familyId)).data.get('members', []);
     }
     function ownerOf(familyId) {
       return signedIn() && exists(familyPath(familyId)) &&

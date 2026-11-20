@@ -448,11 +448,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       return;
     }
 
-    setItems(prev => prev.filter(i => !i.completed));
-    if (familyId) {
-      await deleteItemsBatch(familyId, 'shopping', completedIds);
+    try {
+      if (familyId) await deleteItemsBatch(familyId, 'shopping', completedIds);
+      setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
+      toast.success(`Удалено ${completedIds.length} купленных товаров`);
+    } catch (error) {
+      toast.error('Не удалось очистить купленные товары');
     }
-    toast.success(`Удалено ${completedIds.length} купленных товаров`);
   };
 
   const handleQuickAddSubmit = async (e: React.FormEvent) => {

@@ -400,8 +400,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       for (const item of itemsToAddInDb) {
         await addItem(familyId, 'shopping', item);
       }
-    }
-    setItems(updatedList);
+      setItems(updatedList);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 

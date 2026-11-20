@@ -1,4 +1,5 @@
-import { Category, LearnedRule } from '../types';
+import { Category, LearnedRule, TransactionType } from '../types';
+import { isCategoryForType } from './categoryCatalog';
 import { cleanMerchantName } from './categorizer';
 import { matchMerchantBrand } from './merchantCategoryCatalog';
 export { matchMerchantBrand } from './merchantCategoryCatalog';
@@ -100,7 +101,8 @@ export function analyzeTransaction(
   note: string = '',
   mcc: string | undefined,
   learnedRules: LearnedRule[] = [],
-  categories: Category[] = []
+  categories: Category[] = [],
+  transactionType?: TransactionType
 ): AnalysisResult {
   const fullText = `${rawNote} ${note}`.trim();
   const lowerFull = fullText.toLowerCase();
@@ -109,6 +111,7 @@ export function analyzeTransaction(
   for (const rule of learnedRules) {
     const keywords = rule.keywords?.length ? rule.keywords : [rule.keyword];
     if (rule.categoryId !== 'other' && categories.some(c => c.id === rule.categoryId) &&
+        (!transactionType || isCategoryForType(rule.categoryId, categories, transactionType)) &&
         keywords.some(keyword => keyword?.trim() && lowerFull.includes(keyword.toLowerCase().trim()))) {
       const matchCat = rule.categoryId;
       return {
@@ -120,6 +123,36 @@ export function analyzeTransaction(
         source: 'learned_rule'
       };
     }
+  }
+
+  // Income cannot be categorized by expense MCC or shop-name heuristics.
+  // Specific payout keywords are safe; generic incoming transfers remain reviewable.
+  if (transactionType === 'income') {
+    const payoutRules: Array<[string, RegExp]> = [
+      ['benefits', /больничн|пособи|социальн.{0,12}выплат|осфр|социальн.{0,12}фонд/i],
+      ['salary', /зарплат|оплат[аы] труда|аванс по зарплате/i],
+      ['income_cashback', /к[еэ]шб[еэ]к|cashback/i],
+      ['income_interest', /процент[ыов]{0,3} по вкладу|начислен.{0,15}процент/i],
+      ['income_refund', /возврат средств|возврат покупки|возмещени/i]
+    ];
+    for (const [id, pattern] of payoutRules) {
+      if (pattern.test(fullText) && categories.some(c => c.id === id)) {
+        return { suggestedCategoryId: id, confidence: 96,
+          reason: 'Распознано назначение поступления', cleanName: note || rawNote,
+          ruleKeyword: '', source: 'keyword' };
+      }
+    }
+    if (/между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(fullText) &&
+        categories.some(c => c.id === 'transfer_self')) {
+      return { suggestedCategoryId: 'transfer_self', confidence: 98,
+        reason: 'Перевод между собственными счетами', cleanName: note || rawNote,
+        ruleKeyword: '', source: 'keyword' };
+    }
+    const target = /сбп|sbp|перевод/i.test(fullText) && categories.some(c => c.id === 'transfer')
+      ? 'transfer' : 'income_other';
+    return { suggestedCategoryId: categories.some(c => c.id === target) ? target : 'other',
+      confidence: 55, reason: 'Поступление требует проверки назначения',
+      cleanName: note || rawNote, ruleKeyword: '', source: 'fallback' };
   }
 
   // Extract clean candidate keyword for saving a new rule

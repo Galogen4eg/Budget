@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarDays, Check, CheckCheck, ChevronDown,
-  ChevronLeft, ChevronRight, Edit3, Grid2X2, List, Search, ShieldCheck,
+  ChevronLeft, ChevronRight, Edit3, FolderPlus, Grid2X2, List, Search, ShieldCheck,
   Sparkles, Tag, X
 } from 'lucide-react';
 import { Category, LearnedRule } from '../types';
@@ -53,6 +53,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   const [viewMode, setViewMode] = useState<'single' | 'list'>('list');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openPickerId, setOpenPickerId] = useState<string | null>(null);
+  const [quickCreateId, setQuickCreateId] = useState<string | null>(null);
   const [chosenCategories, setChosenCategories] = useState<Record<string, string>>({});
   const [editedNames, setEditedNames] = useState<Record<string, string>>({});
   const [editedKeywords, setEditedKeywords] = useState<Record<string, string>>({});
@@ -156,6 +157,17 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     onApplyAllSuggestions(results);
   };
 
+  const suggestedParent = (item: UnrecognizedAnalyzerItem): string => {
+    const suggestedId = analyses.get(item.id)?.suggestedCategoryId;
+    const selected = categories.find(category => category.id === suggestedId);
+    return selected?.parentId || (selected && !selected.parentId ? selected.id : '');
+  };
+
+  const suggestedSubcategoryName = (item: UnrecognizedAnalyzerItem): string => {
+    const analysis = analyses.get(item.id);
+    return analysis?.source === 'brand' ? analysis.cleanName : '';
+  };
+
   const categoryName = (id?: string): string =>
     categories.find(category => category.id === id)?.label || 'Не выбрана';
 
@@ -198,7 +210,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     <div className="fixed inset-0 z-[3000] bg-stone-950/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-5"
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-label="Разбор операций"
-        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] text-stone-900 dark:text-white w-full max-w-6xl h-[100dvh] sm:h-auto sm:max-h-[92dvh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] text-stone-900 dark:text-white w-full max-w-6xl h-[100dvh] sm:h-[88dvh] sm:max-h-[820px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         <header className="bg-white dark:bg-[#252528] border-b border-stone-200 dark:border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="font-headline text-lg sm:text-xl font-bold flex items-center gap-2">
@@ -219,12 +231,12 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
         <div className="px-4 sm:px-6 py-3 bg-[#F4F0E8] dark:bg-[#222225] border-b border-stone-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="inline-flex bg-white dark:bg-[#333336] border border-stone-200 dark:border-white/10 rounded-xl p-1">
-              <button type="button" onClick={() => { setViewMode('list'); setOpenPickerId(null); }}
+              <button type="button" onClick={() => { setViewMode('list'); setOpenPickerId(null); setQuickCreateId(null); }}
                 aria-pressed={viewMode === 'list'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${viewMode === 'list' ? 'bg-[#4A7C59] text-white' : 'text-stone-600 dark:text-stone-200'}`}>
                 <List size={15} /> Списком
               </button>
-              <button type="button" onClick={() => { setViewMode('single'); setOpenPickerId(null); }}
+              <button type="button" onClick={() => { setViewMode('single'); setOpenPickerId(null); setQuickCreateId(null); }}
                 aria-pressed={viewMode === 'single'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${viewMode === 'single' ? 'bg-[#4A7C59] text-white' : 'text-stone-600 dark:text-stone-200'}`}>
                 <Grid2X2 size={15} /> По одной
@@ -243,7 +255,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
           </button>
         </div>
 
-        <main className="overflow-y-auto flex-1 px-4 sm:px-6 py-5">
+        <main className="overflow-y-auto [scrollbar-gutter:stable] min-h-0 flex-1 px-4 sm:px-6 py-5">
           {viewMode === 'list' ? (
             <div className="space-y-3">
               <div className="relative">
@@ -277,17 +289,33 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                         {dateAndAmount(item)}
                         {confident && <p className="text-xs text-[#4A7C59]">Предложение: {categoryName(analysis?.suggestedCategoryId)}</p>}
                       </div>
-                      <button type="button" onClick={() => setOpenPickerId(open ? null : item.id)}
-                        aria-expanded={open}
-                        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-[#4A7C59]/40 text-[#2F6240] dark:text-green-300 font-semibold text-sm min-w-[185px] hover:bg-[#EAF2EC] dark:hover:bg-green-950/30">
-                        <span className="flex items-center gap-2"><Tag size={16} /> {chosen ? categoryName(chosen) : 'Выбрать категорию'}</span>
-                        <ChevronDown size={16} />
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {onAddCategory && (
+                          <button type="button"
+                            onClick={() => { setQuickCreateId(item.id); setOpenPickerId(item.id); }}
+                            title="Создать подкатегорию для этой операции"
+                            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-200 text-xs font-semibold hover:border-[#4A7C59]">
+                            <FolderPlus size={16} /> Новая подкатегория
+                          </button>
+                        )}
+                        <button type="button"
+                          onClick={() => { setOpenPickerId(open ? null : item.id); setQuickCreateId(null); }}
+                          aria-expanded={open}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-[#4A7C59]/40 text-[#2F6240] dark:text-green-300 font-semibold text-sm min-w-[185px] hover:bg-[#EAF2EC] dark:hover:bg-green-950/30">
+                          <span className="flex items-center gap-2"><Tag size={16} /> {chosen ? categoryName(chosen) : 'Выбрать категорию'}</span>
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
                     </div>
                     {open && (
                       <div className="border-t border-stone-200 dark:border-white/10 pt-3">
-                        <CategoryPickerAccordion key={item.id} categories={categories} selectedCategoryId={chosen}
+                        <CategoryPickerAccordion
+                          key={`${item.id}-${quickCreateId === item.id ? 'create' : 'choose'}`}
+                          categories={categories} selectedCategoryId={chosen}
                           onAddCategory={onAddCategory} maxHeightClass="max-h-[360px]"
+                          startCreateSubcategory={quickCreateId === item.id}
+                          initialNewSubcategoryName={suggestedSubcategoryName(item)}
+                          initialParentCategoryId={suggestedParent(item)}
                           onSelectCategory={id => assignCategory(item, id)} />
                       </div>
                     )}
@@ -340,14 +368,34 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                 <section className="bg-white dark:bg-[#252528] border border-stone-200 dark:border-white/10 rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-semibold text-sm">Выберите категорию или подкатегорию</h3>
-                    {chosenCategory(activeItem) && <span className="text-xs text-[#4A7C59] font-semibold">
-                      {categoryName(chosenCategory(activeItem))}
-                    </span>}
+                    <div className="flex items-center flex-wrap gap-2">
+                      {chosenCategory(activeItem) && <span className="text-xs text-[#4A7C59] font-semibold">
+                        {categoryName(chosenCategory(activeItem))}
+                      </span>}
+                      {onAddCategory && (
+                        <button type="button"
+                          onClick={() => setQuickCreateId(current => current === activeItem.id ? null : activeItem.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#EAF2EC] dark:bg-green-950/30 text-[#2F6240] dark:text-green-300 text-xs font-semibold">
+                          <FolderPlus size={15} /> Новая подкатегория
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <CategoryPickerAccordion key={activeItem.id} categories={categories}
-                    selectedCategoryId={chosenCategory(activeItem)}
+                  <CategoryPickerAccordion
+                    key={`${activeItem.id}-${quickCreateId === activeItem.id ? 'create' : 'choose'}`}
+                    categories={categories} selectedCategoryId={chosenCategory(activeItem)}
                     onAddCategory={onAddCategory} maxHeightClass="max-h-[310px]"
-                    onSelectCategory={id => setChosenCategories(prev => ({ ...prev, [activeItem.id]: id }))} />
+                    startCreateSubcategory={quickCreateId === activeItem.id}
+                    initialNewSubcategoryName={suggestedSubcategoryName(activeItem)}
+                    initialParentCategoryId={suggestedParent(activeItem)}
+                    onSelectCategory={id => {
+                      if (quickCreateId === activeItem.id) {
+                        assignCategory(activeItem, id);
+                        setQuickCreateId(null);
+                      } else {
+                        setChosenCategories(prev => ({ ...prev, [activeItem.id]: id }));
+                      }
+                    }} />
                   <button type="button" disabled={!isUsableCategory(chosenCategory(activeItem), categories)}
                     onClick={() => {
                       const categoryId = chosenCategory(activeItem);

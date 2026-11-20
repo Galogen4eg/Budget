@@ -91,12 +91,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (pendingFid) {
             try {
               await joinFamily(currentUser, pendingFid);
+              localStorage.removeItem('pending_join_family');
               toast.success('Вы успешно вошли и присоединились к семье!');
             } catch (e: any) {
               console.error("Failed to join pending family:", e);
               toast.error(`Не удалось присоединиться: ${e.message}`);
             } finally {
-              localStorage.removeItem('pending_join_family');
+              // Keep a failed invitation pending so the user can retry joining.
+              // Only a successful join should consume it.
             }
           }
 

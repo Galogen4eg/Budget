@@ -186,3 +186,29 @@ test('family member cannot overwrite or delete an unrelated family account', asy
   await assertFails(getDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1')));
   await assertFails(setDoc(doc(user(), 'families', 'otherfamily', 'accounts', 'a1'), { balance: 0 }));
 });
+
+test('bulk Alfa import with 450 operations stays available to family member', async () => {
+  const db = user();
+  const batch = writeBatch(db);
+  for (let i = 0; i < 450; i++) {
+    batch.set(doc(db, 'families', family, 'transactions', 'alfa_test_' + i), {
+      type: 'expense', amount: i + 1, date: '2026-11-20'
+    });
+  }
+  await assertSucceeds(batch.commit());
+  const snapshot = await assertSucceeds(getDocs(collection(db, 'families', family, 'transactions')));
+  assert.equal(snapshot.size, 451);
+});
+
+test('legacy family without members list denies its owner access to existing transactions', async () => {
+  const legacyId = 'legacy-custom-family';
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'families', legacyId), {
+      ownerId: 'owner1', name: 'Old family'
+    });
+    await setDoc(doc(db, 'families', legacyId, 'transactions', 'legacy-tx'), { amount: 350 });
+  });
+  await assertSucceeds(getDoc(doc(user(), 'families', legacyId)));
+  await assertFails(getDoc(doc(user(), 'families', legacyId, 'transactions', 'legacy-tx')));
+});

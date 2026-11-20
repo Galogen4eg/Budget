@@ -84,6 +84,7 @@ export default function App() {
   const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
   const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
   const importFileDigestRef = useRef<string | null>(null);
+  const importFileRef = useRef<File | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
@@ -461,6 +462,7 @@ export default function App() {
   const handleImport = async (file: File) => {
     setIsImporting(true);
     importFileDigestRef.current = null;
+    importFileRef.current = file;
     try {
         const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
         const memberId = currentUserMember ? currentUserMember.id : 'unknown';
@@ -1287,15 +1289,27 @@ export default function App() {
                     else if (totalImportedSavings > 0) toast.success(`Импортировано ${created.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
                     else toast.success(`Импортировано ${created.length} операций`);
 
-                    // Acknowledgment is tied to the exact XLSX bytes and sent only after commit.
-                    if (familyId && importFileDigestRef.current) {
-                      window.dispatchEvent(new CustomEvent('budget:import-committed', {
-                        detail: {
-                          count: created.length,
-                          requested: prepared.length,
-                          fileSha256: importFileDigestRef.current
-                        }
-                      }));
+                    // Never acknowledge deletion until every operation in the
+                    // original XLSX exists on the Firestore server. The preview
+                    // can omit legacy duplicates, so checking only prepared is unsafe.
+                    if (familyId && importFileDigestRef.current && importFileRef.current) {
+                      const memberId = prepared[0]?.memberId || 'unknown';
+                      const allRows = await parseAlfaStatement(
+                        importFileRef.current, settings.alfaMapping, memberId,
+                        learnedRules, categories, []
+                      );
+                      const allSaved = await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id));
+                      if (allSaved) {
+                        window.dispatchEvent(new CustomEvent('budget:import-committed', {
+                          detail: {
+                            count: created.length,
+                            requested: allRows.length,
+                            fileSha256: importFileDigestRef.current
+                          }
+                        }));
+                      } else {
+                        toast.warning('Операции сохранены, но не вся выписка подтверждена на сервере. XLSX оставлен для проверки.');
+                      }
                     }
                   } catch (err: any) {
                     console.error("Import error:", err);

@@ -41,13 +41,15 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   ];
 
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>(() => {
-    // Auto-expand parent of selected category
-    if (!selectedCategoryId) return {};
-    const selected = categories.find(c => c.id === selectedCategoryId);
-    if (selected?.parentId) {
-      return { [selected.parentId]: true };
+    // Keep named stores visible in the analyzer without changing the family
+    // catalog or silently choosing a category for an ambiguous operation.
+    const defaults: Record<string, boolean> = {};
+    for (const parentId of ['food', 'restaurants']) {
+      if (categories.some(c => c.parentId === parentId)) defaults[parentId] = true;
     }
-    return {};
+    const selected = categories.find(c => c.id === selectedCategoryId);
+    if (selected?.parentId) defaults[selected.parentId] = true;
+    return defaults;
   });
 
   // Filter out 'other' from main list or keep it at end
@@ -55,11 +57,10 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     return categories.filter(c => c.id !== 'other');
   }, [categories]);
 
-  // Separate parents and subcategories, sorted A-Z
+  // Preserve the exact family catalog order used by DesktopCategoryPickerModal.
+  // Alphabetical sorting here made the same categories look like a different list.
   const parentCategories = useMemo(() => {
-    return validCategories
-      .filter(c => !c.parentId)
-      .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+    return validCategories.filter(c => !c.parentId);
   }, [validCategories]);
 
   const childrenByParent = useMemo(() => {
@@ -71,10 +72,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         map.set(c.parentId, existing);
       }
     });
-    // Sort each list A-Z
-    map.forEach((list, key) => {
-      map.set(key, list.sort((a, b) => a.label.localeCompare(b.label, 'ru')));
-    });
+    // Child order also matches the main category picker.
     return map;
   }, [validCategories]);
 

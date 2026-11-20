@@ -8,7 +8,7 @@ export function dueCalendarNotifications(
  const start=now.getTime();
  return events.flatMap(event=>{
    if(event.kind==='task'&&event.completed)return [];
-   if(memberId && event.memberIds?.length && !event.memberIds.includes(memberId))return [];
+   if(event.memberIds?.length && (!memberId || !event.memberIds.includes(memberId)))return [];
    let time:number;
    try{time=eventDateTime(event.date,event.time||'00:00').getTime();}catch{return [];}
    return (event.reminders||[]).filter(lead=>Number.isFinite(lead)&&lead>=0)

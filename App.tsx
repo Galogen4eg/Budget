@@ -48,7 +48,7 @@ import { filterMandatoryByBudgetOwner } from './utils/budgetOwnerFilter';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
-import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
+import { isSavingsTransfer, applySavingsTransferToGoals, planSavingsGoalChanges } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
@@ -297,26 +297,16 @@ export default function App() {
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
-    const savingsContribution = (tx: Transaction) =>
-      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
-    const previousContribution = editing ? savingsContribution(editing) : 0;
-    const delta = savingsContribution(transaction) - previousContribution;
+    // Reverse the previous goal contribution before applying the new one.
+    // Editing the linked goal must move money even when the amount is unchanged.
+    const goalAdjustment = planSavingsGoalChanges(goals, editing, transaction);
 
-    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-    if (delta !== 0) {
-      goalAdjustment = applySavingsTransferToGoals(
-        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
-      );
-    }
-
-    // Never report a saved operation without an acknowledged family write.
     if (!familyId) throw new Error('Family is not ready: transaction was not saved');
     await saveTransactionWithGoal(
-      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+      familyId, transaction, Boolean(editing), goalAdjustment.changedGoals
     );
 
-    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    if (goalAdjustment.changedGoals.length) setGoals(goalAdjustment.updatedGoals);
     if (editing) {
       setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
@@ -1141,18 +1131,10 @@ export default function App() {
                 transactions={transactions} 
                 onDelete={async (id) => { 
                   const transactionToDelete = transactions.find(t => t.id === id);
-                  let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-                  if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
-                    updatedSavings = applySavingsTransferToGoals(
-                      goals,
-                      transactionToDelete.amount,
-                      transactionToDelete.type !== 'expense',
-                      transactionToDelete.linkedGoalId
-                    );
-                  }
+                  const updatedSavings = planSavingsGoalChanges(goals, transactionToDelete || null, null);
                   if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
-                  await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
-                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
+                  await deleteTransactionWithGoal(familyId, id, updatedSavings.changedGoals);
+                  if (updatedSavings.changedGoals.length) setGoals(updatedSavings.updatedGoals);
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);

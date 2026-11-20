@@ -372,7 +372,7 @@ export const saveTransactionWithGoal = async (
   familyId: string,
   transaction: Transaction,
   isEdit: boolean,
-  goal?: SavingsGoal
+  goals?: SavingsGoal | readonly SavingsGoal[]
 ) => {
   if (!familyId) throw new Error('No family ID');
   const batch = writeBatch(db);
@@ -383,9 +383,8 @@ export const saveTransactionWithGoal = async (
   } else {
     batch.set(txRef, cleanForFirestore(transaction));
   }
-  if (goal) {
-    const goalRef = doc(db, 'families', familyId, 'goals', goal.id);
-    batch.set(goalRef, cleanForFirestore(goal), { merge: true });
+  for (const goal of goals ? (Array.isArray(goals) ? goals : [goals]) : []) {
+    batch.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
   }
   await batch.commit();
 };
@@ -394,12 +393,12 @@ export const saveTransactionWithGoal = async (
 export const deleteTransactionWithGoal = async (
   familyId: string,
   transactionId: string,
-  goal?: SavingsGoal
+  goals?: SavingsGoal | readonly SavingsGoal[]
 ) => {
   if (!familyId) throw new Error('No family ID');
   const batch = writeBatch(db);
   batch.delete(doc(db, 'families', familyId, 'transactions', transactionId));
-  if (goal) {
+  for (const goal of goals ? (Array.isArray(goals) ? goals : [goals]) : []) {
     batch.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
   }
   await batch.commit();

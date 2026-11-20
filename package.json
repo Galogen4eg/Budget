@@ -11,7 +11,8 @@
     "cap:android": "npx cap open android",
     "scrape:entertainment": "node scripts/scrape-entertainment.js",
     "scrape:pikabu": "node scripts/scrape-pikabu.js",
-    "scrape:threads": "node scripts/scrape-threads.js"
+    "scrape:threads": "node scripts/scrape-threads.js",
+    "prebuild": "node --test tests/alfaDirection.test.mjs tests/alfaIdentity.test.mjs tests/alfaBankCategory.test.mjs tests/merchantCategoryCatalog.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

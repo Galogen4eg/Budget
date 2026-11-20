@@ -49,7 +49,7 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
-  addItem, updateItem, deleteItem, saveTransactionWithGoal, 
+  addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
 } from './utils/db';
 
@@ -1154,7 +1154,20 @@ export default function App() {
                 onAddCategory={handleAddCategory} 
                 transactions={transactions} 
                 onDelete={async (id) => { 
-                  if (familyId) await deleteItem(familyId, 'transactions', id);
+                  const transactionToDelete = transactions.find(t => t.id === id);
+                  let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
+                  if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
+                    updatedSavings = applySavingsTransferToGoals(
+                      goals,
+                      transactionToDelete.amount,
+                      transactionToDelete.type !== 'expense',
+                      transactionToDelete.linkedGoalId
+                    );
+                  }
+                  if (familyId) {
+                    await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
+                  }
+                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);

@@ -63,8 +63,9 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   // All three views (single, list, and the category catalog) receive exactly
   // the same live family categories. No hardcoded fallback category is used.
   const remaining = useMemo(
-    () => items.filter(item => !item.category || item.category === 'other'),
-    [items]
+    () => items.filter(item => !item.category || item.category === 'other' ||
+      !categories.some(category => category.id === item.category)),
+    [items, categories]
   );
   const analyses = useMemo(() => new Map<string, AnalysisResult>(
     remaining.map(item => [

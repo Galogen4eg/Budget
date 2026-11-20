@@ -1,4 +1,4 @@
-import { SavingsGoal, Transaction } from '../types';
+import type { SavingsGoal, Transaction } from '../types';
 
 /**
  * Проверяет, является ли операция переводом на накопительный счет / сбережения

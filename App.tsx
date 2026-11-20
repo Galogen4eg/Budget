@@ -108,6 +108,17 @@ export default function App() {
     notifications
   } = useData();
 
+  // Local Playwright automation may run only against this explicitly compatible,
+  // authenticated version of Budget. Older deployed builds lack this marker.
+  useEffect(() => {
+    if (familyId && members.length > 0 && !isAuthLoading) {
+      (window as any).__budgetAlfaSyncProtocol = 2;
+    } else {
+      delete (window as any).__budgetAlfaSyncProtocol;
+    }
+    return () => { delete (window as any).__budgetAlfaSyncProtocol; };
+  }, [familyId, members.length, isAuthLoading]);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

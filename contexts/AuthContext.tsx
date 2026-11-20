@@ -12,7 +12,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { getOrInitUserFamily, joinFamily } from '../utils/db';
+import { getOrInitUserFamily, getPendingFamilyInvitation, joinFamily } from '../utils/db';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -100,6 +100,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           try {
+            // An email invitation is only an offer. Never move an existing
+            // account to another family without the user's explicit consent.
+            const invitation = await getPendingFamilyInvitation(currentUser);
+            if (invitation && !pendingFid) {
+              const dismissedKey = `dismissed_family_invite_${currentUser.uid}_${invitation.familyId}`;
+              if (sessionStorage.getItem(dismissedKey) !== '1') {
+                const accepted = window.confirm('Вас пригласили в общее семейное пространство. Присоединиться? Ваши прежние данные не будут перенесены автоматически.');
+                if (accepted) {
+                  await joinFamily(currentUser, invitation.familyId);
+                  toast.success('Вы присоединились к общему семейному пространству');
+                } else {
+                  sessionStorage.setItem(dismissedKey, '1');
+                }
+              }
+            }
             const fid = await getOrInitUserFamily(currentUser);
             if (fid && isMounted) {
               setFamilyId(fid);

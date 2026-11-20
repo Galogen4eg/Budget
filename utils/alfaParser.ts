@@ -4,6 +4,7 @@ import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
 import { classifyAlfaDirection } from './alfaDirection';
 import { alfaOperationId } from './alfaIdentity';
+import { analyzeTransaction } from './analyzerHelper';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -91,6 +92,8 @@ export const parseAlfaStatement = (
           const colCard = headers.findIndex(h => h === 'номер карты');
           const colAccount = headers.findIndex(h => h === 'номер счета' || h === 'номер счёта');
           const colCurrency = headers.findIndex(h => h === 'валюта');
+          const colMcc = headers.findIndex(h => h === 'mcc код' || h === 'mcc-код' || h === 'mcc');
+          const colBankCategory = headers.findIndex(h => h === 'категория' || h === 'категория операции');
 
           // If note column not found, find the widest text column as fallback
           let effectiveColNote = colNote;
@@ -196,7 +199,21 @@ export const parseAlfaStatement = (
 
             const absAmount = Math.abs(amount);
             const note = cleanMerchantName(rawNote, learnedRules);
-            const categoryId = getSmartCategory(rawNote, learnedRules, categories);
+            // Alfa XLSX provides both bank category and MCC: use them before
+            // falling back to the existing analyzer. Never accept its generic
+            // "shopping" fallback as a confident automatic classification.
+            const rawMcc = colMcc >= 0 ? String(row[colMcc] ?? '').trim() : '';
+            const mcc = rawMcc.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
+            const bankCategory = colBankCategory >= 0 ? String(row[colBankCategory] ?? '').trim() : '';
+            let categoryId = getSmartCategory(rawNote, learnedRules, categories, mcc, bankCategory);
+            if (!categories.some(category => category.id === categoryId)) categoryId = 'other';
+            if (categoryId === 'other') {
+              const suggestion = analyzeTransaction(rawNote, note, mcc, learnedRules, categories);
+              if (suggestion.source !== 'fallback' && suggestion.confidence >= 88 &&
+                  categories.some(category => category.id === suggestion.suggestedCategoryId)) {
+                categoryId = suggestion.suggestedCategoryId;
+              }
+            }
 
             const sourceFields = [
               dateStr, Number(absAmount.toFixed(2)), type, rawNote,

@@ -55,3 +55,10 @@ export function resolveFamilyJoin(
   if (!existingMember) throw new Error('Для присоединения требуется приглашение на email этого аккаунта');
   return { existingMember: true, placeholderMemberId: null };
 }
+
+/** Prevent a global email invitation from being silently overwritten by another family. */
+export function assertInvitationAvailable(
+  existing: { familyId?: string; placeholderMemberId?: string } | null
+): void {
+  if (existing) throw new Error('На этот email уже существует приглашение. Сначала отмените предыдущее.');
+}

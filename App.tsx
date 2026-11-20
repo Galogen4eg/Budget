@@ -44,6 +44,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
@@ -383,7 +384,7 @@ export default function App() {
 
         const raw = (tx.rawNote || tx.note || '').toLowerCase();
         
-        if (raw.includes(keyword)) {
+        if (raw.includes(keyword) && isCategoryForType(rule.categoryId, categories, tx.type)) {
           count++;
           if (rule.categoryId === 'savings' || isSavingsTransfer({ category: rule.categoryId, note: rule.cleanName, rawNote: raw })) {
             totalSavingsDelta += tx.amount;
@@ -1266,7 +1267,7 @@ export default function App() {
                     }
                     if (unattended && prepared.some(t =>
                       !t.category || t.category === 'other' ||
-                      !categories.some(category => category.id === t.category)
+                      !isCategoryForType(t.category, categories, t.type)
                     )) {
                       throw new Error('В выписке остались операции без надёжной категории. Импорт отложен для ручной проверки, XLSX сохранён.');
                     }

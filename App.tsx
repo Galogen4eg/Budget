@@ -44,10 +44,11 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { filterMandatoryByBudgetOwner } from './utils/budgetOwnerFilter';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
-import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
+import { isSavingsTransfer, applySavingsTransferToGoals, assertSafeBulkDelete } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
@@ -248,28 +249,12 @@ export default function App() {
   }, [budgetTransactions, selectedDate, currentMonth]);
 
   // Filter Mandatory Expenses based on Member Filter & Budget Mode
-  const filteredMandatoryExpenses = useMemo(() => {
-      const allExpenses = settings.mandatoryExpenses || [];
-      const safeMembers = members || [];
-      
-      // 1. Strict Member Filter from UI (Higher priority)
-      if (memberFilter !== 'all') {
-          // STRICT MODE: Only show items explicitly assigned to this member.
-          // Shared items (where memberId is undefined/null) are hidden to reduce noise.
-          return allExpenses.filter(e => e.memberId === memberFilter);
-      }
-
-      // 2. Budget Mode Logic (Fallback when 'All' is selected in filter)
-      if (budgetMode === 'family') {
-          // Show all expenses in Family mode when filter is 'All'
-          return allExpenses;
-      } else {
-          // Personal mode: show expenses assigned to current user OR unassigned (legacy/shared)
-          const myMemberId = safeMembers.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return allExpenses; 
-          return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
-      }
-  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
+  const filteredMandatoryExpenses = useMemo(
+    () => filterMandatoryByBudgetOwner(
+      settings.mandatoryExpenses || [], budgetMode, members || [], user?.uid, memberFilter
+    ),
+    [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]
+  );
 
   useEffect(() => {
     if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {
@@ -312,26 +297,14 @@ export default function App() {
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
-    const savingsContribution = (tx: Transaction) =>
-      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
-    const previousContribution = editing ? savingsContribution(editing) : 0;
-    const delta = savingsContribution(transaction) - previousContribution;
-
-    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-    if (delta !== 0) {
-      goalAdjustment = applySavingsTransferToGoals(
-        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
-      );
-    }
-
-    // Never report a saved operation without an acknowledged family write.
+    // Reverse the previous goal contribution before applying the new one.
+    // Editing the linked goal must move money even when the amount is unchanged.
     if (!familyId) throw new Error('Family is not ready: transaction was not saved');
     await saveTransactionWithGoal(
-      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+      familyId, transaction, Boolean(editing), goals, editing
     );
-
-    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    // Firestore snapshots supply the latest goal balances after commit.
+    // Never overwrite a newer balance with a stale local calculation.
     if (editing) {
       setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
@@ -713,6 +686,7 @@ export default function App() {
       }
 
       const ids = toDelete.map(t => t.id);
+      assertSafeBulkDelete(transactions, ids);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
@@ -720,6 +694,7 @@ export default function App() {
   };
 
   const handleBatchDelete = async (ids: string[]) => {
+      assertSafeBulkDelete(transactions, ids);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
@@ -1156,18 +1131,9 @@ export default function App() {
                 transactions={transactions} 
                 onDelete={async (id) => { 
                   const transactionToDelete = transactions.find(t => t.id === id);
-                  let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-                  if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
-                    updatedSavings = applySavingsTransferToGoals(
-                      goals,
-                      transactionToDelete.amount,
-                      transactionToDelete.type !== 'expense',
-                      transactionToDelete.linkedGoalId
-                    );
-                  }
                   if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
-                  await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
-                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
+                  await deleteTransactionWithGoal(familyId, id, goals, transactionToDelete || null);
+                  // Updated savings are delivered through the Firestore subscription.
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);

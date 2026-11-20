@@ -1,4 +1,4 @@
-import { SavingsGoal, Transaction } from '../types';
+import type { SavingsGoal, Transaction } from '../types';
 
 /**
  * Проверяет, является ли операция переводом на накопительный счет / сбережения
@@ -92,3 +92,63 @@ export const applySavingsTransferToGoals = (
     affectedGoal: updatedGoal
   };
 };
+
+/**
+ * Recalculate savings side effects when a transaction is created, edited or
+ * deleted. Reverses the old contribution before applying the new one, so
+ * changing a goal with an unchanged amount still moves the money.
+ */
+export function planSavingsGoalChanges(
+  goals: SavingsGoal[],
+  previous: Transaction | null,
+  next: Transaction | null
+): { updatedGoals: SavingsGoal[]; changedGoals: SavingsGoal[] } {
+  let updatedGoals = goals;
+  const apply = (tx: Transaction, reverse: boolean) => {
+    if (!isSavingsTransfer(tx)) return;
+    if (!Number.isFinite(tx.amount) || tx.amount < 0) {
+      throw new Error('Некорректная сумма перевода в накопления');
+    }
+    if (tx.linkedGoalId && !updatedGoals.some(goal => goal.id === tx.linkedGoalId)) {
+      throw new Error('Связанная цель накопления не найдена. Выберите существующую цель');
+    }
+    // An expense to savings increases the goal; an income/withdrawal decreases it.
+    const isAddition = (tx.type === 'expense') !== reverse;
+    updatedGoals = applySavingsTransferToGoals(
+      updatedGoals, tx.amount, isAddition, tx.linkedGoalId
+    ).updatedGoals;
+  };
+  if (previous) apply(previous, true);
+  if (next) apply(next, false);
+  const previousById = new Map(goals.map(goal => [goal.id, goal]));
+  const changedGoals = updatedGoals.filter(goal => {
+    const before = previousById.get(goal.id);
+    return !before || before.currentAmount !== goal.currentAmount;
+  });
+  return { updatedGoals, changedGoals };
+}
+
+/** Detect a concurrent edit before applying savings side effects again. */
+export function assertFinancialVersion(
+  expected: Transaction,
+  actual: Transaction
+): void {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  if ([...keys].some(key =>
+    ((expected as unknown as Record<string, unknown>)[key] ?? null) !==
+    ((actual as unknown as Record<string, unknown>)[key] ?? null)
+  )) {
+    throw new Error('Операция изменена на другом устройстве. Обновите список перед сохранением');
+  }
+}
+
+/** Refuse bulk deletion of savings transfers until balances can be recalculated atomically. */
+export function assertSafeBulkDelete(
+  transactions: readonly Transaction[],
+  ids: readonly string[]
+): void {
+  const deleting = new Set(ids);
+  if (transactions.some(tx => deleting.has(tx.id) && isSavingsTransfer(tx))) {
+    throw new Error('Выбранные операции содержат переводы в накопления. Удалите их по одной, чтобы правильно пересчитать остаток цели.');
+  }
+}

@@ -48,7 +48,7 @@ interface SettingsModalProps {
   onLogout: () => void;
   installPrompt?: any;
   transactions?: Transaction[];
-  onDeleteTransactionsByPeriod?: (startDate: string, endDate: string) => void;
+  onDeleteTransactionsByPeriod?: (startDate: string, endDate: string) => Promise<void>;
   onUpdateTransactions?: (transactions: Transaction[]) => void;
   onOpenDuplicates?: () => void;
 }

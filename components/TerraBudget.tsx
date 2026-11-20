@@ -14,6 +14,9 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import { useAuth } from '../contexts/AuthContext';
+import { resolveQuickExpenseMember } from '../utils/quickExpenseMember';
+import { toast } from 'sonner';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -58,6 +61,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onSelectCategory,
   onOpenSettings
 }) => {
+  const { user } = useAuth();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
@@ -198,17 +202,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
     setIsQuickSaving(true);
     try {
-      const memberId = selectedMember !== 'all' ? selectedMember : (members[0]?.id || '1');
+      const memberId = resolveQuickExpenseMember(members, user?.uid, selectedMember);
       const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
       if (!saved) return;
       setQuickTitle('');
       setQuickAmount('');
       setQuickAddedSuccess(true);
       setTimeout(() => setQuickAddedSuccess(false), 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось добавить операцию');
     } finally {
       setIsQuickSaving(false);
     }
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate, isQuickSaving]);
+  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, user?.uid, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();

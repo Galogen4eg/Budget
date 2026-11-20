@@ -214,7 +214,9 @@ export const parseAlfaStatement = (
             }
             // Explicit saved rules win. Known merchant chains then override
             // broad bank categories/MCC; otherwise retain existing classification.
-            let categoryId = suggestion.source === 'learned_rule'
+            const ownAccountTransfer = /между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(rawNote);
+            let categoryId = suggestion.source === 'learned_rule' ||
+                (ownAccountTransfer && suggestion.suggestedCategoryId !== 'other')
               ? suggestion.suggestedCategoryId
               : (merchant?.categoryId ?? getSmartCategory(rawNote, learnedRules, categories, mcc, bankCategory));
             if (!categories.some(category => category.id === categoryId)) categoryId = 'other';

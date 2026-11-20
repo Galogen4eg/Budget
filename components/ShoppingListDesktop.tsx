@@ -535,11 +535,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       for (const item of itemsToAddInDb) {
         await addItem(familyId, 'shopping', item);
       }
-    }
-
-    setItems(updatedList);
-    setFrequentTrigger(prev => prev + 1);
-    toast.success(summaryMessage);
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
+      toast.success(summaryMessage);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
@@ -590,8 +588,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         for (const item of itemsToAddInDb) {
           await addItem(familyId, 'shopping', item);
         }
-      }
-
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);

@@ -139,7 +139,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
   const handleBindProfile = useCallback(async (targetMemberId: string) => {
     try {
-      const updated = bindFamilyProfile(members, currentUserId, targetMemberId);
+      const updated = bindFamilyProfile(members, currentUserId, targetMemberId, user?.email);
       await onUpdateMembers(updated);
       triggerHaptic();
       if (targetMemberId === GUEST_MODE_ID) {
@@ -151,7 +151,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось сохранить привязку профиля');
     }
-  }, [members, currentUserId, onUpdateMembers]);
+  }, [members, currentUserId, user?.email, onUpdateMembers]);
 
   // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {

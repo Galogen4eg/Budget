@@ -55,7 +55,7 @@ service cloud.firestore {
 
     match /families/{familyId} {
       // An invitee may read just the family document needed for joining.
-      allow get: if memberOf(familyId) || invitedTo(familyId);
+      allow get: if (signedIn() && familyId == request.auth.uid) || memberOf(familyId) || invitedTo(familyId);
       allow list: if false;
       allow create: if signedIn() &&
         familyId == request.auth.uid &&

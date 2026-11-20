@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable } from '../utils/familyInvitation.ts';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable, mayReadInvitation } from '../utils/familyInvitation.ts';
 
 const member = { id: 'member-2', name: 'Анна', email: '  Anna@Example.com ', color: '#007AFF' };
 
@@ -59,4 +59,17 @@ test('new invitation cannot overwrite a pending invite of another family', () =>
   assert.throws(() => assertInvitationAvailable({
     familyId: 'other-family', placeholderMemberId: 'other'
   }), /приглашение/);
+});
+
+test('unverified email accounts cannot read or consume invitations', () => {
+  assert.equal(mayReadInvitation({ email: 'person@example.com', emailVerified: false }), false);
+  assert.equal(mayReadInvitation({ email: 'person@example.com', emailVerified: true }), true);
+  assert.equal(mayReadInvitation({ email: 'User@family.local', emailVerified: true }), false);
+  assert.equal(mayReadInvitation({ email: null, emailVerified: true }), false);
+});
+
+test('existing legacy family members may remain signed in without email verification', () => {
+  assert.deepEqual(resolveFamilyJoin(['uid-2'], 'uid-2', null), {
+    existingMember: true, placeholderMemberId: null
+  });
 });

@@ -13,6 +13,10 @@ export function missingMerchantCategories(defaults: Category[], saved: Category[
   const missing: Category[] = [];
   for (const category of wanted) {
     if (seen.has(category.id)) continue;
+    // Respect a previously created equivalent subcategory with a custom ID.
+    if (category.parentId && saved.some(existing =>
+      existing.parentId === category.parentId &&
+      normalizeMerchant(existing.label) === normalizeMerchant(category.label))) continue;
     if (category.parentId && !seen.has(category.parentId)) continue;
     missing.push(category);
     seen.add(category.id);

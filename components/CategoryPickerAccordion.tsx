@@ -110,6 +110,22 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const handleSaveCategory = () => {
     if (!newCatName.trim() || !onAddCategory) return;
 
+    const parentId = createType === 'subcategory'
+      ? (parentCategories.find(p => p.id === (selectedParentId || initialParentCategoryId)) || parentCategories[0])?.id
+      : undefined;
+    if (createType === 'subcategory' && !parentId) return;
+    const duplicate = categories.find(category =>
+      (category.parentId || undefined) === parentId &&
+      category.label.trim().toLocaleLowerCase('ru-RU') === newCatName.trim().toLocaleLowerCase('ru-RU')
+    );
+    if (duplicate) {
+      onSelectCategory(duplicate.id);
+      setIsAddingCategory(false);
+      setNewCatName('');
+      setSearchQuery('');
+      return;
+    }
+
     let newCategory: Category;
     if (createType === 'category') {
       const newId = `cat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;

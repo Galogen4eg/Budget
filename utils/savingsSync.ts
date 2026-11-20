@@ -138,3 +138,14 @@ export function assertFinancialVersion(
     throw new Error('Операция изменена на другом устройстве. Обновите список перед сохранением');
   }
 }
+
+/** Refuse bulk deletion of savings transfers until balances can be recalculated atomically. */
+export function assertSafeBulkDelete(
+  transactions: readonly Transaction[],
+  ids: readonly string[]
+): void {
+  const deleting = new Set(ids);
+  if (transactions.some(tx => deleting.has(tx.id) && isSavingsTransfer(tx))) {
+    throw new Error('Выбранные операции содержат переводы в накопления. Удалите их по одной, чтобы правильно пересчитать остаток цели.');
+  }
+}

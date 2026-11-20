@@ -50,7 +50,8 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
+  saveFamilyPlanEvent, deleteFamilyPlanEvent 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -442,8 +443,10 @@ export default function App() {
 
   const handleDeleteEvent = async (id: string) => {
       if (!familyId) throw new Error('Family is not ready: event was not deleted');
-      await deleteItem(familyId, 'events', id);
-      setEvents(prev => prev.filter(ev => ev.id !== id));
+      const old = events.find(ev=>ev.id===id);
+      if (!old) throw new Error('Событие уже удалено');
+      await deleteFamilyPlanEvent(familyId,id,old);
+      // The Firestore subscription supplies authoritative shared events.
   };
 
   const handleImport = async (file: File) => {
@@ -678,15 +681,8 @@ export default function App() {
 
   const handleSaveEvent = async (e: FamilyEvent) => {
       if (!familyId) throw new Error('Family is not ready: event was not saved');
-      const exists = events.some(ev => ev.id === e.id);
-      if (exists) await updateItem(familyId, 'events', e.id, e);
-      else await addItem(familyId, 'events', e);
-      setEvents(prev => {
-          const existingIndex = prev.findIndex(ev => ev.id === e.id);
-          return existingIndex >= 0
-              ? prev.map(ev => ev.id === e.id ? e : ev)
-              : [...prev, e];
-      });
+      await saveFamilyPlanEvent(familyId,e,events.find(ev=>ev.id===e.id)||null);
+      // Firestore subscription updates the list only after server acknowledgement.
       setIsAddEventModalOpen(false);
       if (settings.autoSendEventsToTelegram) void handleSendEventToTelegram(e);
       toast.success('Событие сохранено');

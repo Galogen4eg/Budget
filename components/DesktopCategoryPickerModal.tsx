@@ -67,7 +67,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         setExpandedCatIds({});
       }
     }
-  }, [isOpen, selectedCategoryId, categories]);
+  // A Firestore category snapshot must not erase the category just created/selected.
+  }, [isOpen, selectedCategoryId]);
 
   // Compute transaction counts for display
   const transactionStats = useMemo(() => {

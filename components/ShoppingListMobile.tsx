@@ -345,7 +345,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
-      if (familyId) {
+      if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
+    {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
         }
@@ -391,8 +392,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       memberId: targetMemberId
     }], targetMemberId);
 
-    setItems(updatedList);
-    if (familyId) {
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
       for (const item of itemsToUpdateInDb) {
         await updateItem(familyId, 'shopping', item.id, item);
       }
@@ -400,6 +401,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         await addItem(familyId, 'shopping', item);
       }
     }
+    setItems(updatedList);
+    } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
   // Voice Input with Gemini or fallback
@@ -466,8 +469,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               itemsToAddInDb
             } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
 
-            setItems(updatedList);
-            if (familyId) {
+            if (!familyId) throw new Error('Family is not ready');
+            {
               for (const item of itemsToUpdateInDb) {
                 await updateItem(familyId, 'shopping', item.id, item);
               }
@@ -477,6 +480,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
               }
             }
+            setItems(updatedList);
           }
         } catch {
           toast.error('Ошибка при обработке голоса');

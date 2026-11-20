@@ -29,3 +29,9 @@ test('unlinked account receives only family-wide reminders, not another member p
  assert.equal(dueCalendarNotifications([event],now,undefined).length,0);
  assert.equal(dueCalendarNotifications([{...event,memberIds:[]}],now,undefined).length,1);
 });
+
+test('paid mandatory bills do not appear in reminders or upcoming agenda',()=>{
+  const payments=[{id:'paid',name:'Связь',amount:800,day:21,remind:true}];
+  assert.equal(paymentAgenda(payments,new Date(2026,10,1),{'2026-11':['paid']}).length,0);
+  assert.equal(paymentAgenda(payments,new Date(2026,10,1),{'2026-11':[]}).length,1);
+});

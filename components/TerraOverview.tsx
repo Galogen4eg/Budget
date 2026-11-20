@@ -653,60 +653,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const totalMonthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 50540);
 
-  const displayShoppingItems = useMemo(() => {
-    if (activeShoppingItems.length > 0) {
-      return activeShoppingItems;
-    }
-    return [
-      { id: 'demo-shop-1', title: 'Тёшка к чаю', amount: 1, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-      { id: 'demo-shop-2', title: 'Кошачий корм', amount: 2, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-      { id: 'demo-shop-3', title: 'Подсолнечное масло', amount: 1, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-    ];
-  }, [activeShoppingItems, currentMember.id]);
-
-  const recentMobileTransactions = useMemo(() => {
-    if (filteredTransactions.length > 0) {
-      return filteredTransactions.slice(0, 4);
-    }
-    return [
-      {
-        id: 'demo-tx-1',
-        type: 'expense' as const,
-        amount: 1260,
-        category: 'groceries',
-        note: 'Магнит',
-        date: new Date(now.getFullYear(), now.getMonth(), 12).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-2',
-        type: 'expense' as const,
-        amount: 1131,
-        category: 'cafe',
-        note: 'Додо Пицца',
-        date: new Date(now.getFullYear(), now.getMonth(), 11).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-3',
-        type: 'expense' as const,
-        amount: 299,
-        category: 'subscriptions',
-        note: 'Телеграм премиум',
-        date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-4',
-        type: 'expense' as const,
-        amount: 448,
-        category: 'telecom',
-        note: 'Yota',
-        date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString(),
-        memberId: currentMember.id
-      }
-    ];
-  }, [filteredTransactions, now, currentMember.id]);
+  // Never substitute invented financial records for an empty account.
+  const displayShoppingItems = activeShoppingItems;
+  const recentMobileTransactions = filteredTransactions.slice(0, 4);
 
   const mobileCategories = useMemo(() => {
     if (categoryBreakdown.items.length > 0 && categoryBreakdown.total > 0) {
@@ -725,14 +674,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       });
     }
 
-    const defaultCats = [
-      { id: 'food', name: 'Продукты', percent: 40, amount: 1260, barColor: '#4A7C59', bg: '#4A7C591A', color: '#4A7C59', icon: getIconById('ShoppingBasket', 13) },
-      { id: 'restaurants', name: 'Кафе и пицца', percent: 36, amount: 1131, barColor: '#E07A5F', bg: '#E07A5F1A', color: '#E07A5F', icon: getIconById('Utensils', 13) },
-      { id: 'telecom', name: 'Мобильная связь', percent: 14, amount: 448, barColor: '#457B9D', bg: '#457B9D1A', color: '#457B9D', icon: getIconById('Smartphone', 13) },
-      { id: 'subscriptions', name: 'Подписки', percent: 10, amount: 299, barColor: '#9A5A88', bg: '#9A5A881A', color: '#9A5A88', icon: getIconById('Tag', 13) }
-    ];
-
-    return defaultCats;
+    return [];
   }, [categoryBreakdown, categories]);
 
   const mobileChartData = useMemo(() => {

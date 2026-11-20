@@ -16,10 +16,12 @@ export function dueCalendarNotifications(
      .map(lead=>({id:`${event.id}:${event.date}:${lead}`,title:event.title,date:event.date,leadMinutes:lead}));
  });
 }
-export function paymentAgenda(payments:readonly MandatoryExpense[],month:Date):FamilyEvent[]{
+export function paymentAgenda(payments:readonly MandatoryExpense[],month:Date,paidByMonth:Record<string,string[]>={}):FamilyEvent[]{
  const year=month.getFullYear(),m=month.getMonth();
  const days=new Date(year,m+1,0).getDate();
- return payments.filter(p=>Number.isFinite(p.day)&&p.day>0).map(p=>({
+ const monthKey=`${year}-${String(m+1).padStart(2,'0')}`;
+ const paid=new Set(paidByMonth[monthKey]||[]);
+ return payments.filter(p=>Number.isFinite(p.day)&&p.day>0&&!paid.has(p.id)).map(p=>({
   id:`mandatory:${p.id}:${year}:${m+1}`,date:formatLocalCalendarDate(new Date(year,m,Math.min(p.day,days))),
   title:`Оплатить: ${p.name}`,description:`Плановый платёж: ${p.amount} ₽`,
   time:'09:00',duration:0.25,memberIds:p.memberId?[p.memberId]:[],

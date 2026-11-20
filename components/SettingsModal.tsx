@@ -129,7 +129,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
-  const [shouldMigrate, setShouldMigrate] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
   // Account & Password Management State
@@ -470,7 +469,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleUpdateFamilyId = async () => {
     let targetId: string;
     try {
-      targetId = validateFamilySwitch(currentFamilyId, newFamilyId, shouldMigrate);
+      targetId = validateFamilySwitch(currentFamilyId, newFamilyId, false);
     } catch (error: any) {
       toast.error(error.message);
       return;
@@ -878,15 +877,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {currentFamilyId && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer pt-1">
-                    <input 
-                      type="checkbox"
-                      checked={shouldMigrate}
-                      onChange={e => setShouldMigrate(e.target.checked)}
-                      className="rounded border-gray-300 text-[#2D5A43] focus:ring-[#2D5A43]"
-                    />
-                    <span>Перенести существующие записи из текущего пространства в новое</span>
-                  </label>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 pt-1">
+                    Перенос старых операций временно отключён: он может нарушить общий бюджет другой семьи. Присоединение по приглашению не переносит прежние данные.
+                  </p>
                 )}
               </div>
             </section>

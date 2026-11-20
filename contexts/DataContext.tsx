@@ -15,6 +15,7 @@ import {
   addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettings, subscribeToAppSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
+import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 
 // Default Settings
@@ -343,6 +344,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       .catch(error => {
                           merchantCatalogSyncAttempted.current.delete(familyId);
                           console.error('Could not restore merchant subcategories:', error);
+                          toast.error('Не удалось восстановить подкатегории магазинов в Firebase. Проверьте подключение и доступ.');
                       });
               }
           }

@@ -307,7 +307,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       id: isSingle ? `${seriesId}::${event?.occurrenceDate||event?.date}` : (seriesId||Date.now().toString()),
       title: title.trim(),
       description: desc,
-      date,
+      date:!isSingle&&event?.seriesId&&baseSeries?baseSeries.date:date,
       time,
       duration: finalDuration,
       memberIds: mIds,
@@ -321,9 +321,6 @@ export const EventModal: React.FC<EventModalProps> = ({
       ...(isSingle?{seriesId,occurrenceDate:event?.occurrenceDate||event?.date}:{ }),
       linkedExpenseId:event?.linkedExpenseId,
       userId: auth.currentUser?.uid,
-      // Updating all series occurrences must not shift the series start date
-      // simply because an individual instance was opened.
-      date:!isSingle&&event?.seriesId&&baseSeries?baseSeries.date:date
     };
 
     if (conflict) {

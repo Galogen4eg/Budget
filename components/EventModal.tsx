@@ -8,6 +8,8 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
 import { toast } from 'sonner';
+import { formatLocalCalendarDate, parseLocalCalendarDate, eventDateTime } from '../utils/calendarDates';
+import { findEventConflicts } from '../utils/eventConflicts';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -71,21 +73,21 @@ export const EventModal: React.FC<EventModalProps> = ({
   allEvents = [] 
 }) => {
   const currentUserMemberId = useMemo(() => {
-    return members.find(m => m.userId === auth.currentUser?.uid)?.id || members[0]?.id;
+    return members.find(m => m.userId && m.userId === auth.currentUser?.uid)?.id;
   }, [members]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
-  const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(event?.date || prefill?.date || formatLocalCalendarDate(new Date()));
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
   const [dur, setDur] = useState<string | number>(event?.duration || 1);
   
   const [mIds, setMIds] = useState<string[]>(
     event?.memberIds || 
     prefill?.memberIds || 
-    (currentUserMemberId ? [currentUserMemberId] : members.map(m => m.id))
+    (currentUserMemberId ? [currentUserMemberId] : [])
   );
 
   const [isT, setIsT] = useState(event?.isTemplate || false);
@@ -126,7 +128,9 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Short weekday for date badge
   const shortWeekday = useMemo(() => {
-    const d = new Date(date);
+    let d: Date;
+    try { d = parseLocalCalendarDate(date); }
+    catch { return ''; }
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('ru-RU', { weekday: 'short' });
   }, [date]);
@@ -138,61 +142,43 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Conflict detection
   const conflict = useMemo(() => {
-    const [currH, currM] = (time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const durationHours = parseFloat(String(dur)) || 1;
-    const currStart = currH * 60 + currM;
-    const currEnd = currStart + (durationHours * 60);
-
-    for (const existing of allEvents) {
-      if (existing.id === event?.id) continue;
-      if (existing.date !== date) continue;
-
-      const curMembers = mIds || [];
-      const exMembers = existing.memberIds || [];
-      
-      let isMemberConflict = false;
-      if (curMembers.length > 0 && exMembers.length > 0) {
-        isMemberConflict = curMembers.some(mid => exMembers.includes(mid));
-      } else {
-        isMemberConflict = true;
-      }
-      
-      if (!isMemberConflict) continue;
-
-      const [exH, exM] = (existing.time || '00:00').split(':').map(t => parseInt(t, 10) || 0);
-      const exStart = exH * 60 + exM;
-      const exEnd = exStart + ((existing.duration || 1) * 60);
-
-      if (currStart < exEnd && currEnd > exStart) {
-        return existing;
-      }
-    }
-    return null;
+    const candidate: FamilyEvent = {
+      id: event?.id || '__calendar_pending__',
+      title,
+      description: desc,
+      date,
+      time,
+      duration: parseFloat(String(dur)) || 1,
+      memberIds: mIds
+    };
+    const rest = allEvents.filter(existing => existing.id !== event?.id);
+    const pair = findEventConflicts([...rest, candidate]).conflictPairs.find(
+      entry => entry.eventA.id === candidate.id || entry.eventB.id === candidate.id
+    );
+    return pair ? (pair.eventA.id === candidate.id ? pair.eventB : pair.eventA) : null;
   }, [date, time, dur, mIds, allEvents, event?.id]);
+
 
   // Suggested conflict-free slot
   const suggestedSlot = useMemo(() => {
     if (!conflict) return null;
-    const [cStartH, cStartM] = (conflict.time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const conflictEndMinutes = cStartH * 60 + cStartM + ((conflict.duration || 1) * 60);
-    const slotH = Math.floor(conflictEndMinutes / 60) % 24;
-    const slotM = conflictEndMinutes % 60;
-    const suggestedTime = `${String(slotH).padStart(2, '0')}:${String(slotM).padStart(2, '0')}`;
-    const durationHours = parseFloat(String(dur)) || 1;
-    const suggestedEndMinutes = slotH * 60 + slotM + Math.round(durationHours * 60);
-    const suggestedEndH = Math.floor(suggestedEndMinutes / 60) % 24;
-    const suggestedEndM = suggestedEndMinutes % 60;
-    const suggestedEndTime = `${String(suggestedEndH).padStart(2, '0')}:${String(suggestedEndM).padStart(2, '0')}`;
-
-    return {
-      startTime: suggestedTime,
-      endTime: suggestedEndTime,
-      label: `${suggestedTime} – ${suggestedEndTime}`
-    };
+    try {
+      const conflictEnd = eventDateTime(conflict.date, conflict.time || '00:00');
+      conflictEnd.setMinutes(conflictEnd.getMinutes() + Math.round((conflict.duration || 1) * 60));
+      const slotDate = formatLocalCalendarDate(conflictEnd);
+      const suggestedTime = `${String(conflictEnd.getHours()).padStart(2, '0')}:${String(conflictEnd.getMinutes()).padStart(2, '0')}`;
+      const end = new Date(conflictEnd);
+      end.setMinutes(end.getMinutes() + Math.round((parseFloat(String(dur)) || 1) * 60));
+      const endTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      return { date: slotDate, startTime: suggestedTime, endTime, label: `${suggestedTime} – ${endTime}` };
+    } catch {
+      return null;
+    }
   }, [conflict, dur]);
 
   const applySuggestedSlot = () => {
     if (suggestedSlot) {
+      setDate(suggestedSlot.date);
       setTime(suggestedSlot.startTime);
     }
   };
@@ -296,6 +282,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       toast.error('Введите название события');
       return;
     }
+    try {
+      parseLocalCalendarDate(date);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Некорректное время');
+    } catch {
+      toast.error('Проверьте дату и время события');
+      return;
+    }
+
 
     const finalDuration = parseFloat(String(dur)) || 1;
     const newEventData: FamilyEvent = {

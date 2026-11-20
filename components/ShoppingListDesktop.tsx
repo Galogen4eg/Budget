@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { saveShoppingMerge, addItem, addItemsBatch, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
+import { saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';

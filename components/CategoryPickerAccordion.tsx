@@ -3,12 +3,15 @@ import { Search, X, ChevronDown, ChevronRight, Check, Plus, Tag, FolderPlus, Max
 import { Category } from '../types';
 import { getIconById } from '../constants';
 import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
+import { sortCategoriesByPopularity } from '../utils/categoryPopularity';
+import { toast } from 'sonner';
 
 interface CategoryPickerAccordionProps {
   categories: Category[];
   selectedCategoryId?: string;
   onSelectCategory: (categoryId: string) => void;
-  onAddCategory?: (category: Category) => void;
+  onAddCategory?: (category: Category) => void | Promise<void>;
+  categoryUsage?: Record<string, number>;
   placeholder?: string;
   maxHeightClass?: string;
   startCreateSubcategory?: boolean;
@@ -21,6 +24,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   selectedCategoryId,
   onSelectCategory,
   onAddCategory,
+  categoryUsage,
   placeholder = "Поиск категории или подкатегории...",
   maxHeightClass = "max-h-72",
   startCreateSubcategory = false,
@@ -34,6 +38,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const [newCatColor, setNewCatColor] = useState('#4A7C59');
   const [selectedParentId, setSelectedParentId] = useState<string>(initialParentCategoryId);
   const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
 
   const PRESET_COLORS = [
     '#4A7C59', '#3D6B4C', '#D95C48', '#C4A66A', '#2D5540',
@@ -57,15 +62,17 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     return categories.filter(c => c.id !== 'other');
   }, [categories]);
 
-  // Preserve the exact family catalog order used by DesktopCategoryPickerModal.
-  // Alphabetical sorting here made the same categories look like a different list.
+  // Only the analyzer passes usage counts. Other pickers keep the shared catalog order.
+  const orderedCategories = useMemo(() => categoryUsage
+    ? sortCategoriesByPopularity(validCategories, categoryUsage)
+    : validCategories, [validCategories, categoryUsage]);
   const parentCategories = useMemo(() => {
-    return validCategories.filter(c => !c.parentId);
-  }, [validCategories]);
+    return orderedCategories.filter(c => !c.parentId);
+  }, [orderedCategories]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Category[]>();
-    validCategories.forEach(c => {
+    orderedCategories.forEach(c => {
       if (c.parentId) {
         const existing = map.get(c.parentId) || [];
         existing.push(c);
@@ -74,15 +81,15 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     });
     // Child order also matches the main category picker.
     return map;
-  }, [validCategories]);
+  }, [orderedCategories]);
 
   // Search filter logic
   const isSearching = searchQuery.trim().length > 0;
   const filteredSearchList = useMemo(() => {
     if (!isSearching) return null;
     const q = searchQuery.trim().toLowerCase();
-    return validCategories.filter(c => c.label.toLowerCase().includes(q));
-  }, [validCategories, isSearching, searchQuery]);
+    return orderedCategories.filter(c => c.label.toLowerCase().includes(q));
+  }, [orderedCategories, isSearching, searchQuery]);
 
   const toggleExpand = (parentId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -97,7 +104,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
     setCreateType(type);
     setNewCatName(initialName);
-    setSelectedParentId(defaultParentId || initialParentCategoryId || parentCategories[0]?.id || '');
+    setSelectedParentId(defaultParentId || initialParentCategoryId || '');
     setIsAddingCategory(true);
   };
 
@@ -105,13 +112,16 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     handleStartAddCategory('subcategory', initialName, defaultParentId);
   };
 
-  const handleSaveCategory = () => {
-    if (!newCatName.trim() || !onAddCategory) return;
+  const handleSaveCategory = async () => {
+    if (!newCatName.trim() || !onAddCategory || isSavingCategory) return;
 
     const parentId = createType === 'subcategory'
-      ? (parentCategories.find(p => p.id === (selectedParentId || initialParentCategoryId)) || parentCategories[0])?.id
+      ? parentCategories.find(p => p.id === selectedParentId)?.id
       : undefined;
-    if (createType === 'subcategory' && !parentId) return;
+    if (createType === 'subcategory' && !parentId) {
+      toast.error('Сначала выберите родительскую категорию');
+      return;
+    }
     const duplicate = categories.find(category =>
       (category.parentId || undefined) === parentId &&
       category.label.trim().toLocaleLowerCase('ru-RU') === newCatName.trim().toLocaleLowerCase('ru-RU')
@@ -135,7 +145,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         isCustom: true,
       };
     } else {
-      const parentCat = parentCategories.find(p => p.id === (selectedParentId || initialParentCategoryId)) || parentCategories[0];
+      const parentCat = parentCategories.find(p => p.id === parentId);
       if (!parentCat) return;
       newCategory = {
         id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
@@ -147,11 +157,20 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
       };
     }
 
-    onAddCategory(newCategory);
-    onSelectCategory(newCategory.id);
-    setIsAddingCategory(false);
-    setNewCatName('');
-    setSearchQuery('');
+    setIsSavingCategory(true);
+    try {
+      await onAddCategory(newCategory);
+      // Assign only after the new category was persisted successfully.
+      onSelectCategory(newCategory.id);
+      setIsAddingCategory(false);
+      setNewCatName('');
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Category creation failed:', error);
+      toast.error('Не удалось сохранить категорию. Попробуйте ещё раз.');
+    } finally {
+      setIsSavingCategory(false);
+    }
   };
 
   return (
@@ -274,10 +293,11 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
                   Родительская категория:
                 </label>
                 <select
-                  value={selectedParentId || initialParentCategoryId || parentCategories[0]?.id || ''}
+                  value={selectedParentId}
                   onChange={(e) => setSelectedParentId(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
                 >
+                  <option value="">Выберите родительскую категорию</option>
                   {parentCategories.map(p => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
@@ -315,10 +335,10 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
               <button
                 type="button"
                 onClick={handleSaveCategory}
-                disabled={!newCatName.trim() || !onAddCategory || (createType === 'subcategory' && parentCategories.length === 0)}
+                disabled={isSavingCategory || !newCatName.trim() || !onAddCategory || (createType === 'subcategory' && !parentCategories.some(p => p.id === selectedParentId))}
                 className="px-3 py-1 rounded-lg bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold transition disabled:opacity-50"
               >
-                Сохранить
+                {isSavingCategory ? 'Сохраняется…' : 'Создать и назначить'}
               </button>
             </div>
           </div>
@@ -503,6 +523,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           isOpen={isDesktopModalOpen}
           onClose={() => setIsDesktopModalOpen(false)}
           categories={categories}
+          categoryUsage={categoryUsage}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={(catId) => {
             onSelectCategory(catId);

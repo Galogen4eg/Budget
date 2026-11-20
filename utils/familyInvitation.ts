@@ -25,3 +25,16 @@ export function prepareFamilyMemberInvitation(
     invitation: email ? { familyId, placeholderMemberId: member.id, email } : null
   };
 }
+
+/** Ensures cancelling an unclaimed invitation never revokes or silently deletes an active account. */
+export function validateUnclaimedMemberRemoval(
+  familyId: string,
+  member: FamilyMember,
+  invitation: { familyId?: string; placeholderMemberId?: string } | null
+): boolean {
+  if (member.userId) throw new Error('Нельзя удалить профиль, привязанный к аккаунту');
+  if (member.isAdmin) throw new Error('Нельзя удалить профиль администратора');
+  return Boolean(invitation &&
+    invitation.familyId === familyId &&
+    invitation.placeholderMemberId === member.id);
+}

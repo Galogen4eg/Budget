@@ -49,7 +49,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, 
-  addItemsBatch, updateItemsBatch, deleteItemsBatch, joinFamily 
+  addItemsBatch, addAlfaItemsIdempotent, updateItemsBatch, deleteItemsBatch, joinFamily 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -83,6 +83,7 @@ const pageVariants = {
 export default function App() {
   const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
   const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
+  const importFileDigestRef = useRef<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
@@ -448,10 +449,13 @@ export default function App() {
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
+    importFileDigestRef.current = null;
     try {
         const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
         const memberId = currentUserMember ? currentUserMember.id : 'unknown';
         const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
     } catch (err: any) { toast.error(err.message || "Ошибка чтения"); }
     finally { setIsImporting(false); }
@@ -1198,7 +1202,7 @@ export default function App() {
                 key="import-modal"
                 preview={importPreview} 
                 onCancel={() => setImportPreview(null)} 
-                onConfirm={async (finalItems) => { 
+                onConfirm={async (finalItems) => {
                   try {
                     const itemsToImport = finalItems || importPreview;
                     if (!itemsToImport || itemsToImport.length === 0) {
@@ -1206,7 +1210,6 @@ export default function App() {
                       toast.info("Импорт отменен (нет операций)");
                       return;
                     }
-
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);
@@ -1219,21 +1222,26 @@ export default function App() {
                         id: clean.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
                       };
                     });
-                    
-                    // Immediately close preview modal & update local transactions
-                    setImportPreview(null); 
-                    setTransactions(prev => [...prepared, ...prev]);
 
-                    // Check for savings transfers in imported items
-                    const savingsTransfers = prepared.filter(t => isSavingsTransfer(t));
+                    // Savings transfers have side effects on goals; never process them unattended.
+                    const unattended = window.sessionStorage.getItem('alfaSyncUnattended') === '1';
+                    if (unattended && prepared.some(t => isSavingsTransfer(t))) {
+                      throw new Error('Найдены переводы в накопления: требуется ручная проверка.');
+                    }
+                    // No success toast or local mutation before a durable Firestore write.
+                    const created = familyId
+                      ? prepared.every(t => /^alfa_[a-f0-9]{40}$/.test(t.id))
+                        ? await addAlfaItemsIdempotent(familyId, prepared)
+                        : await addItemsBatch(familyId, 'transactions', prepared)
+                      : prepared;
+
+                    const savingsTransfers = created.filter(t => isSavingsTransfer(t));
                     let totalImportedSavings = 0;
                     savingsTransfers.forEach(t => {
                       totalImportedSavings += (t.type === 'expense' ? t.amount : -t.amount);
                     });
-
                     if (totalImportedSavings > 0) {
                       const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalImportedSavings, true);
-                      setGoals(updatedGoals);
                       if (familyId) {
                         if (goals.some(g => g.id === affectedGoal.id)) {
                           await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
@@ -1241,25 +1249,29 @@ export default function App() {
                           await addItem(familyId, 'goals', affectedGoal);
                         }
                       }
-                      toast.success(`Импортировано ${prepared.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
-                    } else {
-                      toast.success(`Импортировано ${prepared.length} операций`); 
+                      setGoals(updatedGoals);
                     }
+                    setImportPreview(null);
+                    setTransactions(prev => [...created.filter(t => !prev.some(ex => ex.id === t.id)), ...prev]);
+                    if (created.length === 0) toast.info('Все операции уже сохранены');
+                    else if (totalImportedSavings > 0) toast.success(`Импортировано ${created.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
+                    else toast.success(`Импортировано ${created.length} операций`);
 
-                    // Emit an acknowledgment only after the Firestore batch has committed.
-                    // Acknowledgment requires an active familyId and successful Firestore write.
-                    if (familyId) {
-                      await addItemsBatch(familyId, 'transactions', prepared);
+                    // Acknowledgment is tied to the exact XLSX bytes and sent only after commit.
+                    if (familyId && importFileDigestRef.current) {
                       window.dispatchEvent(new CustomEvent('budget:import-committed', {
-                        detail: { count: prepared.length }
+                        detail: {
+                          count: created.length,
+                          requested: prepared.length,
+                          fileSha256: importFileDigestRef.current
+                        }
                       }));
                     }
                   } catch (err: any) {
                     console.error("Import error:", err);
-                    setImportPreview(null);
                     toast.error("Ошибка сохранения: " + (err.message || String(err)));
                   }
-                }} 
+                }}
                 settings={settings} 
                 categories={categories} 
                 onUpdateItem={(idx, updates) => { 

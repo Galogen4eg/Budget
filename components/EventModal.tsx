@@ -17,7 +17,7 @@ interface EventModalProps {
   members: FamilyMember[];
   onClose: () => void;
   onSave: (e: FamilyEvent) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
+  onDelete?: (id: string, scope?: 'single'|'series') => Promise<void>;
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   templates: FamilyEvent[];
   settings: AppSettings;
@@ -94,6 +94,11 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || [60]);
+  const [kind,setKind]=useState<'event'|'task'>(event?.kind||prefill?.kind||'event');
+  const [recurrence,setRecurrence]=useState<NonNullable<FamilyEvent['recurrence']>>(event?.recurrence||'none');
+  const [recurrenceUntil,setRecurrenceUntil]=useState(event?.recurrenceUntil||'');
+  const [completed,setCompleted]=useState(Boolean(event?.completed));
+  const [editScope,setEditScope]=useState<'single'|'series'>(event?.seriesId?'single':'series');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -292,8 +297,14 @@ export const EventModal: React.FC<EventModalProps> = ({
 
 
     const finalDuration = parseFloat(String(dur)) || 1;
+    if(recurrenceUntil&&recurrenceUntil<date&&recurrence!=='none'){
+      toast.error('Конец повторения не может быть раньше начала события');return;
+    }
+    const seriesId=event?.seriesId||event?.id;
+    const isSingle=Boolean(event && seriesId && (event?.seriesId||event.recurrence&&event.recurrence!=='none') && editScope==='single');
+    const baseSeries=allEvents.find(e=>e.id===seriesId);
     const newEventData: FamilyEvent = {
-      id: event?.id || Date.now().toString(),
+      id: isSingle ? `${seriesId}::${event?.occurrenceDate||event?.date}` : (seriesId||Date.now().toString()),
       title: title.trim(),
       description: desc,
       date,
@@ -303,7 +314,16 @@ export const EventModal: React.FC<EventModalProps> = ({
       isTemplate: isT,
       checklist,
       reminders,
-      userId: auth.currentUser?.uid
+      kind,
+      completed:kind==='task'?completed:false,
+      recurrence:isSingle?'none':recurrence,
+      ...(recurrence!=='none'&&!isSingle&&recurrenceUntil?{recurrenceUntil}:{}),
+      ...(isSingle?{seriesId,occurrenceDate:event?.occurrenceDate||event?.date}:{ }),
+      linkedExpenseId:event?.linkedExpenseId,
+      userId: auth.currentUser?.uid,
+      // Updating all series occurrences must not shift the series start date
+      // simply because an individual instance was opened.
+      date:!isSingle&&event?.seriesId&&baseSeries?baseSeries.date:date
     };
 
     if (conflict) {
@@ -349,7 +369,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <CalendarIcon size={18} strokeWidth={2.2} />
               </div>
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#2C2723] dark:text-white leading-tight">
-                {event ? 'Редактировать событие' : 'Новое событие'}
+                {event ? 'Редактировать план' : 'Новый план'}
               </h1>
             </div>
 
@@ -419,6 +439,41 @@ export const EventModal: React.FC<EventModalProps> = ({
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
         <div className="flex-1 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar">
           
+          <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label className="text-xs font-semibold dark:text-white">Тип
+                <select value={kind} onChange={e=>setKind(e.target.value as 'event'|'task')}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  <option value="event">Событие</option><option value="task">Совместная задача</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold dark:text-white">Повторять
+                <select value={recurrence} onChange={e=>setRecurrence(e.target.value as NonNullable<FamilyEvent['recurrence']>)}
+                  disabled={editScope==='single'&&Boolean(event)}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  <option value="none">Не повторять</option>
+                  <option value="daily">Ежедневно</option><option value="weekly">Еженедельно</option>
+                  <option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option>
+                </select>
+              </label>
+            </div>
+            {recurrence!=='none'&&editScope!=='single'&&
+              <label className="block text-xs font-semibold dark:text-white">Повторять до (необязательно)
+                <input type="date" value={recurrenceUntil} onChange={e=>setRecurrenceUntil(e.target.value)}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white"/>
+              </label>}
+            {event&&(Boolean(event.seriesId)||Boolean(event.recurrence&&event.recurrence!=='none'))&&
+              <fieldset className="flex flex-wrap gap-3 text-xs dark:text-white">
+                <legend className="font-semibold mb-1">Что изменить?</legend>
+                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='single'} onChange={()=>setEditScope('single')}/>Только этот раз</label>
+                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='series'} onChange={()=>setEditScope('series')}/>Всю серию</label>
+              </fieldset>}
+            {kind==='task'&&
+              <label className="flex items-center gap-2 text-xs font-medium dark:text-white">
+                <input type="checkbox" checked={completed} onChange={e=>setCompleted(e.target.checked)}/>
+                Задача выполнена
+              </label>}
+          </section>
           {/* Conflict Warning Banner (if any) */}
           {conflict && (
             <div className="rounded-xl p-2.5 bg-[#FEF7EC] dark:bg-amber-950/40 border border-[#F3D5A5] dark:border-amber-800/40 flex items-center justify-between gap-2">
@@ -791,7 +846,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                       setIsSaving(true);
                       setSaveError(null);
                       try {
-                        await onDelete(event.id);
+                        await onDelete(event.id,editScope);
                         onClose();
                       } catch (error) {
                         console.error('Event delete failed:', error);

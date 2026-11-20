@@ -34,6 +34,14 @@ Commit `add51adf89e37ce409a15c388efb44c7c2803b73`, Firestore Emulator run `44818
 
 This confirms **draft-rule behavior only in an isolated emulator**. It does not inspect real Firebase documents or change deployed rules. Before production rollout, audit actual legacy membership records, transaction import batches, full UI storage paths and the real invitation flow on two accounts. No live Firestore access was available.
 
+## Legacy-data and bank import verification — 2026-11-20
+
+Commit `4ec09ba73d583e810171b5b2b9375784a89d9812`, GitHub Actions run `44819332145`: **17/17 Firestore Emulator checks passed** (job `136575820746`). The newest checks performed a real 450-document transaction import and verified access for the recorded `ownerId` of an existing family missing the `members` field, while a stranger was denied. GitHub Actions app checks run `44819332080` also passed regression tests, TypeScript and production build.
+
+The legacy test exposed a rule-evaluation failure on missing `members`. We fixed `memberOf()` to use a safe default `data.get('members', [])` and allow the recorded owner access. **Do not mistake this for verification of the real database.** Historical `ownerId` fields may themselves be inaccurate under the previously permissive deployed rules; back up and audit them before applying this rule.
+
+The Settings UI previously copied *all* family collections, including linked member profiles, **before** joining another family. This unsafe pre-join migration option was disabled; users can still accept invitations without automatically copying old transactions. Restoring migration requires explicit authorization and a conflict-safe process that does not overwrite member identities or existing financial records.
+
 ## Remaining emulator test matrix (not yet completed)
 - Normal multi-section imports and settings writes with realistic batch sizes and access-call limits: ALLOW.
 - Concurrent attempt to create an invitation with the same email from two separate families: only one commits.

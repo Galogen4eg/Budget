@@ -3,6 +3,34 @@ import * as XLSX from 'xlsx';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
 
+/**
+ * Alfa exports positive amounts for both debits and credits.
+ * Determine direction from the explicit "Тип" column, never from amount sign alone.
+ * Unknown directions must stop import rather than corrupt the budget.
+ */
+export const classifyAlfaDirection = (
+  rawType: unknown,
+  amount: number,
+  amountHeader: string,
+  hasTypeColumn: boolean
+): 'income' | 'expense' => {
+  const type = String(rawType ?? '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const header = amountHeader.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+
+  const expense = /(?:^|[\\s,;:/()_-])(расход(?:ы|ная)?|списани[ея]|списано|покупк[аиуы]?|оплат[аы]|сняти[ея]|выдач[аеи]|debit|expense|outgoing)(?=$|[\\s,;:/()_-])/iu;
+  const income = /(?:^|[\\s,;:/()_-])(доход(?:ы)?|приход|зачислени[ея]|пополнени[ея]|поступлени[ея]|возврат|кешбек|cashback|credit|income|incoming)(?=$|[\\s,;:/()_-])/iu;
+
+  const isExpense = expense.test(type);
+  const isIncome = income.test(type);
+  if (isExpense !== isIncome) return isExpense ? 'expense' : 'income';
+  if (hasTypeColumn) throw new Error('Неизвестное или неоднозначное значение столбца «Тип». Импорт остановлен.');
+
+  if (amount < 0) return 'expense';
+  if (/расход|списан/.test(header)) return 'expense';
+  if (/приход|зачислен/.test(header)) return 'income';
+  throw new Error('Не удалось определить направление операции: нет столбца «Тип». Импорт остановлен.');
+};
+
 export const parseAlfaStatement = (
   file: File, 
   mapping: AppSettings['alfaMapping'],
@@ -84,6 +112,7 @@ export const parseAlfaStatement = (
           const colTime = findCol(mapping.time, keywords.time);
           const colAmount = findCol(mapping.amount, keywords.amount);
           const colNote = findCol(mapping.note, keywords.note);
+          const colType = headers.findIndex(h => h === 'тип' || h === 'тип операции' || h === 'направление операции');
 
           // If note column not found, find the widest text column as fallback
           let effectiveColNote = colNote;
@@ -180,12 +209,12 @@ export const parseAlfaStatement = (
 
             const rawNote = effectiveColNote !== -1 ? String(row[effectiveColNote] || '').trim() : "Операция";
             
-            let type: 'income' | 'expense' = amount > 0 ? 'income' : 'expense';
-            const headerName = headers[colAmount];
-            
-            if (amount < 0) type = 'expense';
-            else if (headerName.includes('расход') || headerName.includes('списан')) type = 'expense';
-            else if (headerName.includes('приход') || headerName.includes('зачислен')) type = 'income';
+            const type = classifyAlfaDirection(
+              colType >= 0 ? row[colType] : '',
+              amount,
+              headers[colAmount],
+              colType >= 0
+            );
 
             const absAmount = Math.abs(amount);
             const note = cleanMerchantName(rawNote, learnedRules);

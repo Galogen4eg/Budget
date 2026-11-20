@@ -15,6 +15,7 @@ export interface Transaction {
   date: string;
   rawNote?: string;
   projectId?: string; // Link to a project
+  linkedGoalId?: string; // Explicit link to a savings goal
   linkedExpenseId?: string; // Explicit link to a mandatory expense
   linkedDebtId?: string; // Explicit link to a debt item
 }
@@ -30,6 +31,7 @@ export interface LearnedRule {
   payee?: string;
   pattern?: string;
   confidence?: number;
+  exactMatch?: boolean;
 }
 
 export interface AIKnowledgeItem {
@@ -282,6 +284,7 @@ export interface AppSettings {
   initialBalance: number;
   initialBalanceDate?: string;
   targetMonthlyBudget?: number;
+  categoryBudgets?: Record<string, number>;
   salaryDates: number[];
   mandatoryExpenses: MandatoryExpense[];
   enableSmartReserve?: boolean; // Toggle for deducting mandatory expenses from budget

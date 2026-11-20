@@ -716,7 +716,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {/* Transactions List */}
             <div className="flex flex-col gap-2 pt-1">
               {displayTransactions.map(tx => {
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья' };
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья', color: '#4A7C59' };
                 const isIncome = tx.type === 'income';
                 const cat = categories.find(c => c.id === tx.category);
                 const catLabel = cat?.label || (isIncome ? 'Доход' : 'Расход');

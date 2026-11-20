@@ -516,7 +516,7 @@ export default function App() {
       parseMode: 'Markdown',
     });
 
-    if (!result.success && (result.code === 'NETWORK_TIMEOUT' || result.code === 'NETWORK_BLOCKED')) {
+    if ('code' in result && (result.code === 'NETWORK_TIMEOUT' || result.code === 'NETWORK_BLOCKED')) {
       if (config.botToken && config.chatId) {
         await enqueueTelegramMessage({ config, text, messageIdToEdit, tag, parseMode: 'Markdown' });
         toast.info('Сбой сети. Сообщение добавлено в очередь и будет отправлено при появлении связи.');
@@ -561,7 +561,7 @@ export default function App() {
       toast.dismiss(loadingToast);
       
       if (result.success) {
-          const finalMessageId = result.messageId || messageIdToEdit;
+          const finalMessageId = ('messageId' in result ? result.messageId : null) || messageIdToEdit;
           if (messageIdToEdit && finalMessageId === messageIdToEdit) {
             toast.success("Список покупок в Telegram обновлен!");
           } else {
@@ -584,7 +584,7 @@ export default function App() {
           }
           return true;
       } else {
-          toast.error(result.error || "Не удалось отправить список в Telegram.");
+          toast.error(('error' in result ? result.error : null) || "Не удалось отправить список в Telegram.");
           return false;
       }
   };
@@ -671,7 +671,7 @@ export default function App() {
           toast.success("Событие отправлено в Telegram!");
           return true;
       } else {
-          toast.error(result.error || "Не удалось отправить событие в Telegram.");
+          toast.error(('error' in result ? result.error : null) || "Не удалось отправить событие в Telegram.");
           return false;
       }
   };
@@ -1405,13 +1405,12 @@ export default function App() {
                         setIsAddEventModalOpen(false);
                         setSelectedEvent(null);
                     }}
-                    onSave={(e) => {
-                        handleSaveEvent(e);
-                        setIsAddEventModalOpen(false);
+                    onSave={async (e) => {
+                        await handleSaveEvent(e);
                         setSelectedEvent(null);
                     }}
-                    onDelete={(id) => {
-                        handleDeleteEvent(id);
+                    onDelete={async (id) => {
+                        await handleDeleteEvent(id);
                         setIsAddEventModalOpen(false);
                         setSelectedEvent(null);
                     }}

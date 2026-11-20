@@ -66,7 +66,7 @@ export const OverviewRecentTransactions: React.FC<OverviewRecentTransactionsProp
       ) : (
         <div className="divide-y divide-[#EAE6DD] dark:divide-white/10">
           {recentList.map(tx => {
-            const displayTitle = tx.merchantName || tx.description || tx.category || 'Операция';
+            const displayTitle = tx.payee || tx.note || tx.rawNote || tx.category || 'Операция';
             const catObj = categories.find(c => c.id === tx.category || c.label === tx.category);
             const catLabel = catObj?.label || tx.category || 'Без категории';
             const brandKey = getMerchantBrandKey(displayTitle);
@@ -83,7 +83,7 @@ export const OverviewRecentTransactions: React.FC<OverviewRecentTransactionsProp
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                    <BrandIcon name={displayTitle} brandKey={brandKey} category={tx.category} size="sm" className="w-10 h-10 rounded-full" />
+                    <BrandIcon name={displayTitle} brandKey={brandKey} category={catObj} size="sm" className="w-10 h-10 rounded-full" />
                   </div>
                   <div className="min-w-0">
                     <h4 className="text-xs font-bold text-graphite dark:text-white truncate">

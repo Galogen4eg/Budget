@@ -353,7 +353,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       const hasEvents = dayEvents.length > 0;
 
       // Participant member colors for this day
-      const dayMemberIds = Array.from(new Set(dayEvents.flatMap(e => (e.memberIds && e.memberIds.length > 0) ? e.memberIds : [e.memberId || 'all'])));
+      const dayMemberIds = Array.from(new Set(dayEvents.flatMap(e => (e.memberIds && e.memberIds.length > 0) ? e.memberIds : ['all'])));
       const dayMemberColors: string[] = [];
       dayMemberIds.forEach(id => {
         const mem = members.find(m => m.id === id);

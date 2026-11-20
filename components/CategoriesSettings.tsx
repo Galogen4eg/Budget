@@ -202,7 +202,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       label: 'Новая категория',
       icon: 'shopping_basket',
       color: '#3E6B4E',
-      type: 'expense',
+      transactionType: 'expense',
     };
 
     onUpdateCategories([...categories, newCat]);
@@ -219,7 +219,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       parentId: selectedCat.id,
       icon: 'storefront',
       color: selectedCat.color,
-      type: selectedCat.type || 'expense',
+      transactionType: selectedCat.transactionType || 'expense',
     };
 
     onUpdateCategories([...categories, newSub]);

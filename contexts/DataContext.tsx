@@ -12,9 +12,10 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, saveAppSettings, subscribeToAppSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettings, subscribeToAppSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
+import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -183,6 +184,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
 
   const isInitialLoad = useRef(true);
+  const merchantCatalogSyncAttempted = useRef(new Set<string>());
 
   // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
@@ -327,8 +329,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'members', (data) => { 
           if (data.length > 0) setMembers(data as FamilyMember[]);
       }),
-      subscribeToCollection(familyId, 'categories', (data) => { 
-          if (data.length > 0) setCategories(data as Category[]);
+      subscribeToCollection(familyId, 'categories', (data) => {
+          const saved = data as Category[];
+          if (saved.length > 0) setCategories(saved);
+          // Older families were initialized before named store subcategories
+          // existed. The Firestore snapshot must not permanently erase them.
+          // Create only missing built-ins; existing customized docs stay intact.
+          if (!merchantCatalogSyncAttempted.current.has(familyId)) {
+              merchantCatalogSyncAttempted.current.add(familyId);
+              const missing = missingMerchantCategories(INITIAL_CATEGORIES, saved);
+              if (missing.length > 0) {
+                  void createCategoriesIfMissing(familyId, missing)
+                      .catch(error => console.error('Could not restore merchant subcategories:', error));
+              }
+          }
       }),
       subscribeToCollection(familyId, 'rules', async (data) => {
           const list = (data as LearnedRule[]) || [];

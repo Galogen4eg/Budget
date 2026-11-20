@@ -8,7 +8,7 @@ export const alfaBankCategoryToCanonicalId = (raw: string): string | undefined =
   if (!value) return undefined;
   const groups: Array<[string, RegExp]> = [
     ['savings', /накопительн|копилк|сберегательн|вклад/],
-    ['transfer', /перевод|\bсбп\b|\bsbp\b|между счетами/],
+    ['transfer', /перевод|(?:^|[^а-яa-z0-9])сбп(?:$|[^а-яa-z0-9])|\bsbp\b|между счетами/],
     ['salary', /зарплат|оплат[аы] труда|заработн[а-я]* плат/],
     ['food', /супермаркет|продукт|бакале|гипермаркет/],
     ['restaurants', /ресторан|кафе|фастфуд|столов|общепит|закусочн|кофейн|бар[ы ]|паб[ы ]/],

@@ -1,6 +1,6 @@
 
 import { 
-  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
+  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
   onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -399,6 +399,22 @@ export const addAlfaItemsIdempotent = async (familyId: string, items: Transactio
     if (wasCreated) created.push(item);
   }
   return created;
+};
+
+/** Verify an all-duplicate statement against the server before acknowledging cleanup. */
+export const areAlfaItemsSavedOnServer = async (familyId: string, ids: string[]): Promise<boolean> => {
+  if (!familyId || ids.length === 0) return false;
+  for (const id of ids) {
+    if (!/^alfa_[a-f0-9]{40}$/.test(id)) return false;
+  }
+  for (let i = 0; i < ids.length; i += 12) {
+    const chunk = ids.slice(i, i + 12);
+    const snapshots = await Promise.all(chunk.map(id =>
+      getDocFromServer(doc(db, 'families', familyId, 'transactions', id))
+    ));
+    if (snapshots.some(snapshot => !snapshot.exists())) return false;
+  }
+  return true;
 };
 
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {

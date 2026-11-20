@@ -10,6 +10,7 @@ import { addItem, updateItem, deleteItem } from '../utils/db';
 import { toast } from 'sonner';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
+import { filterEventsForCalendarMonth, parseLocalCalendarDate } from '../utils/calendarDates';
 
 interface FamilyPlansProps {
   events: FamilyEvent[];
@@ -164,34 +165,14 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       return dayEvents.sort((a, b) => a.time.localeCompare(b.time));
   }, [selectedDate, events]);
 
-  const filteredListEvents = useMemo(() => {
-    const now = new Date();
-    const curYear = currentDate.getFullYear();
-    const curMonth = currentDate.getMonth();
-    
-    return events.filter(e => {
-        // Учитываем в рамках текущего выбранного месяца
-        const [y, m] = (e.date || '').split('-').map(Number);
-        if (y !== curYear || (m - 1) !== curMonth) {
-            return false;
-        }
-
-        const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
-        if (listTab === 'upcoming') {
-            return eDate >= now;
-        } else {
-            return eDate < now;
-        }
-    }).sort((a, b) => {
-        const da = new Date(`${a.date}T${a.time || '00:00'}`);
-        const db = new Date(`${b.date}T${b.time || '00:00'}`);
-        return listTab === 'upcoming' ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
-    });
-  }, [events, listTab, currentDate]);
+  const filteredListEvents = useMemo(
+    () => filterEventsForCalendarMonth(events, currentDate, listTab),
+    [events, listTab, currentDate]
+  );
 
   const groupedListEvents = useMemo(() => {
     return filteredListEvents.reduce((groups, event) => {
-        const d = new Date(event.date);
+        const d = parseLocalCalendarDate(event.date);
         const dateKey = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
         if (!groups[dateKey]) groups[dateKey] = [];
         groups[dateKey].push(event);

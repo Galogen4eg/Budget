@@ -10,7 +10,7 @@ import {
 import TerraMobileHeader from './TerraMobileHeader';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, updateItem, deleteItem, addItemsBatch, deleteItemsBatch } from '../utils/db';
+import { saveShoppingMerge, addItem, updateItem, deleteItem, addItemsBatch, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
 import { parseVoiceShoppingText } from '../utils/voiceShoppingParser';
@@ -233,12 +233,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
       if (!familyId) throw new Error('Family is not ready');
       {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        for (const item of itemsToAddInDb) {
-          await addItem(familyId, 'shopping', item);
-        }
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       }
       setItems(updatedList);
 
@@ -352,14 +347,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
       if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
     {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       }
       setItems(updatedList);
       setQuickAddText('');
@@ -399,12 +387,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
-      for (const item of itemsToUpdateInDb) {
-        await updateItem(familyId, 'shopping', item.id, item);
-      }
-      for (const item of itemsToAddInDb) {
-        await addItem(familyId, 'shopping', item);
-      }
+      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       setItems(updatedList);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
@@ -475,14 +458,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
             if (!familyId) throw new Error('Family is not ready');
             {
-              for (const item of itemsToUpdateInDb) {
-                await updateItem(familyId, 'shopping', item.id, item);
-              }
-              if (itemsToAddInDb.length === 1) {
-                await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-              } else if (itemsToAddInDb.length > 1) {
-                await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-              }
+              await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
             }
             setItems(updatedList);
           }

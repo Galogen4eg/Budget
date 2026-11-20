@@ -27,7 +27,7 @@ test('one-off overrides do not show duplicate series occurrence',()=>{
  const original=e({recurrence:'weekly',recurrenceExceptions:['2026-11-09']});
  const replacement=e({id:'event-1::2026-11-09',date:'2026-11-10',recurrence:'none'});
  const result=buildCalendarOccurrences([original,replacement],'2026-11-01','2026-11-16');
- assert.deepEqual(result.map(x=>x.date),['2026-11-02','2026-11-10']);
+ assert.deepEqual(result.map(x=>x.date),['2026-11-02','2026-11-10','2026-11-16']);
 });
 test('two-account stale edits are rejected without clobbering another member changes',()=>{
  const original=e();

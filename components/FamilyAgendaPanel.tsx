@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CircleCheck, Circle, Download, Bell, Plus, Repeat2, Wallet, ListTodo } from 'lucide-react';
 import { toast } from 'sonner';
 import type { FamilyEvent, MandatoryExpense, FamilyMember } from '../types';

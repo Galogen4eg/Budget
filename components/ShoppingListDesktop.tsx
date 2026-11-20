@@ -402,7 +402,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleToggleComplete = async (item: ShoppingItem) => {
     const updated = { ...item, completed: !item.completed };
     setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+    try {
+      if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+    } catch (error) {
+      setItems(prev => prev.map(i => i.id === item.id && i.completed === updated.completed ? item : i));
+      toast.error('Не удалось сохранить статус покупки');
+      return;
+    }
     
     // Record event in frequent purchases engine
     recordPurchaseEvent(
@@ -426,9 +432,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
   const handleDeleteItem = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setItems(prev => prev.filter(i => i.id !== id));
-    if (familyId) await deleteItem(familyId, 'shopping', id);
-    toast.info('Товар удален из списка');
+    try {
+      if (familyId) await deleteItem(familyId, 'shopping', id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.info('Товар удалён из списка');
+    } catch (error) {
+      toast.error('Не удалось удалить покупку');
+    }
   };
 
   const handleClearCompleted = async () => {

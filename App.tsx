@@ -48,7 +48,7 @@ import { filterMandatoryByBudgetOwner } from './utils/budgetOwnerFilter';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
-import { isSavingsTransfer, applySavingsTransferToGoals, planSavingsGoalChanges } from './utils/savingsSync';
+import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
@@ -299,14 +299,12 @@ export default function App() {
 
     // Reverse the previous goal contribution before applying the new one.
     // Editing the linked goal must move money even when the amount is unchanged.
-    const goalAdjustment = planSavingsGoalChanges(goals, editing, transaction);
-
     if (!familyId) throw new Error('Family is not ready: transaction was not saved');
     await saveTransactionWithGoal(
-      familyId, transaction, Boolean(editing), goalAdjustment.changedGoals
+      familyId, transaction, Boolean(editing), goals, editing
     );
-
-    if (goalAdjustment.changedGoals.length) setGoals(goalAdjustment.updatedGoals);
+    // Firestore snapshots supply the latest goal balances after commit.
+    // Never overwrite a newer balance with a stale local calculation.
     if (editing) {
       setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
@@ -1131,10 +1129,9 @@ export default function App() {
                 transactions={transactions} 
                 onDelete={async (id) => { 
                   const transactionToDelete = transactions.find(t => t.id === id);
-                  const updatedSavings = planSavingsGoalChanges(goals, transactionToDelete || null, null);
                   if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
-                  await deleteTransactionWithGoal(familyId, id, updatedSavings.changedGoals);
-                  if (updatedSavings.changedGoals.length) setGoals(updatedSavings.updatedGoals);
+                  await deleteTransactionWithGoal(familyId, id, goals, transactionToDelete || null);
+                  // Updated savings are delivered through the Firestore subscription.
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);

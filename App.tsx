@@ -1186,12 +1186,7 @@ export default function App() {
                 onUpdateMembers={async (m) => {
                   if (!familyId) throw new Error('Семейный аккаунт недоступен');
                   await updateFamilyMemberProfiles(familyId, members, m, user?.uid || null, user?.email);
-                  setMembers(m);
-                  try {
-                    localStorage.setItem('local_members', JSON.stringify(m));
-                  } catch (storageErr) {
-                    console.warn('Failed to save members to localStorage:', storageErr);
-                  }
+                  // The Firestore subscription is authoritative; do not replace it with a stale whole-list snapshot.
                 }} 
                 categories={categories} 
                 onUpdateCategories={async (c) => { if (familyId) await updateItemsBatch(familyId, 'categories', c); }} 

@@ -124,7 +124,7 @@ service cloud.firestore {
             'transactions', 'shopping', 'pantry', 'events', 'goals',
             'categories', 'rules', 'knowledge', 'debts', 'projects',
             'loyalty', 'wishlist', 'accounts', 'subscriptions',
-            'notifications', 'mandatoryExpenses'
+            'notifications', 'mandatoryExpenses', 'chat'
           ];
       }
     }

@@ -11,6 +11,9 @@ interface CategoryPickerAccordionProps {
   onAddCategory?: (category: Category) => void;
   placeholder?: string;
   maxHeightClass?: string;
+  startCreateSubcategory?: boolean;
+  initialNewSubcategoryName?: string;
+  initialParentCategoryId?: string;
 }
 
 export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = ({
@@ -20,13 +23,16 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   onAddCategory,
   placeholder = "Поиск категории или подкатегории...",
   maxHeightClass = "max-h-72",
+  startCreateSubcategory = false,
+  initialNewSubcategoryName = "",
+  initialParentCategoryId = "",
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(startCreateSubcategory);
   const [createType, setCreateType] = useState<'category' | 'subcategory'>('subcategory');
-  const [newCatName, setNewCatName] = useState('');
+  const [newCatName, setNewCatName] = useState(initialNewSubcategoryName);
   const [newCatColor, setNewCatColor] = useState('#4A7C59');
-  const [selectedParentId, setSelectedParentId] = useState<string>('');
+  const [selectedParentId, setSelectedParentId] = useState<string>(initialParentCategoryId);
   const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
 
   const PRESET_COLORS = [
@@ -93,7 +99,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
     setCreateType(type);
     setNewCatName(initialName);
-    setSelectedParentId(defaultParentId || parentCategories[0]?.id || 'shopping');
+    setSelectedParentId(defaultParentId || initialParentCategoryId || parentCategories[0]?.id || '');
     setIsAddingCategory(true);
   };
 
@@ -102,7 +108,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   };
 
   const handleSaveCategory = () => {
-    if (!newCatName.trim()) return;
+    if (!newCatName.trim() || !onAddCategory) return;
 
     let newCategory: Category;
     if (createType === 'category') {
@@ -115,7 +121,8 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         isCustom: true,
       };
     } else {
-      const parentCat = parentCategories.find(p => p.id === selectedParentId) || parentCategories[0];
+      const parentCat = parentCategories.find(p => p.id === selectedParentId || p.id === initialParentCategoryId) || parentCategories[0];
+      if (!parentCat) return;
       newCategory = {
         id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
         label: newCatName.trim(),
@@ -126,9 +133,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
       };
     }
 
-    if (onAddCategory) {
-      onAddCategory(newCategory);
-    }
+    onAddCategory(newCategory);
     onSelectCategory(newCategory.id);
     setIsAddingCategory(false);
     setNewCatName('');
@@ -164,6 +169,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
             <button
               type="button"
               onClick={() => handleStartAddCategory('category', searchQuery)}
+              disabled={!onAddCategory}
               className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white text-[#2E5A39] dark:text-green-300 text-xs font-bold transition cursor-pointer"
               title="Создать новую категорию"
             >
@@ -174,6 +180,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
             <button
               type="button"
               onClick={() => handleStartAddCategory('subcategory', searchQuery)}
+              disabled={!onAddCategory}
               className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-200 text-xs font-bold transition cursor-pointer"
               title="Создать новую подкатегорию"
             >
@@ -253,7 +260,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
                   Родительская категория:
                 </label>
                 <select
-                  value={selectedParentId}
+                  value={selectedParentId || initialParentCategoryId || parentCategories[0]?.id || ''}
                   onChange={(e) => setSelectedParentId(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
                 >
@@ -294,7 +301,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
               <button
                 type="button"
                 onClick={handleSaveCategory}
-                disabled={!newCatName.trim()}
+                disabled={!newCatName.trim() || !onAddCategory || (createType === 'subcategory' && parentCategories.length === 0)}
                 className="px-3 py-1 rounded-lg bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold transition disabled:opacity-50"
               >
                 Сохранить

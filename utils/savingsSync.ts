@@ -133,8 +133,11 @@ export function assertFinancialVersion(
   expected: Transaction,
   actual: Transaction
 ): void {
-  const keys = ['amount', 'type', 'category', 'linkedGoalId', 'note', 'rawNote'] as const;
-  if (keys.some(key => (expected[key] ?? null) !== (actual[key] ?? null))) {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  if ([...keys].some(key =>
+    ((expected as unknown as Record<string, unknown>)[key] ?? null) !==
+    ((actual as unknown as Record<string, unknown>)[key] ?? null)
+  )) {
     throw new Error('Операция изменена на другом устройстве. Обновите список перед сохранением');
   }
 }

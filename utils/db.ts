@@ -179,23 +179,8 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
   const userSnap = await getDoc(userRef);
   const existingFamilyId = userSnap.exists() ? userSnap.data().familyId as string | undefined : undefined;
 
-  // Invitations must be considered even when the invited person already has an account.
-  if (user.email) {
-    const cleanEmail = user.email.toLowerCase().trim();
-    const inviteRef = doc(db, 'invitations', cleanEmail);
-    const inviteSnap = await getDoc(inviteRef);
-    if (inviteSnap.exists()) {
-      const invitedFamilyId = inviteSnap.data().familyId as string | undefined;
-      if (!invitedFamilyId) throw new Error('Приглашение не содержит семейного пространства');
-      if (invitedFamilyId !== existingFamilyId) {
-        // joinFamily updates membership and user profile in one atomic batch.
-        await joinFamily(user, invitedFamilyId);
-      } else {
-        await deleteDoc(inviteRef);
-      }
-      return invitedFamilyId;
-    }
-  }
+  // Do not switch families merely because someone created an invitation.
+  // AuthContext asks the signed-in user for explicit consent before joining.
 
   if (existingFamilyId) return existingFamilyId;
 

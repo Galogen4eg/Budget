@@ -50,7 +50,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -481,10 +481,11 @@ export default function App() {
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {
-      const pantryItem: PantryItem = { id: Date.now().toString(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() };
+      if (!familyId) throw new Error('Family is not ready: item was not moved');
+      const pantryItem: PantryItem = { id: generateUniqueId(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() };
+      await moveShoppingToPantry(familyId, item.id, pantryItem);
       setShoppingItems(prev => prev.filter(i => i.id !== item.id));
-      await setPantry(prev => [...prev, pantryItem]);
-      if (familyId) await deleteItem(familyId, 'shopping', item.id);
+      // Pantry is updated through the Firestore subscription after the batch commits.
   };
 
   // Robust Telegram Sender with Offline Queueing support

@@ -12,7 +12,7 @@
     "scrape:entertainment": "node scripts/scrape-entertainment.js",
     "scrape:pikabu": "node scripts/scrape-pikabu.js",
     "scrape:threads": "node scripts/scrape-threads.js",
-    "prebuild": "node --experimental-strip-types --test tests/alfaDirection.test.mjs tests/alfaIdentity.test.mjs tests/alfaBankCategory.test.mjs tests/merchantCategoryCatalog.test.mjs tests/categoryPopularity.test.mjs tests/categoryCatalog.test.mjs tests/shoppingAmount.test.mjs tests/shoppingManager.test.mjs tests/familyInvitation.test.mjs tests/budgetOwnerFilter.test.mjs tests/savingsGoalChanges.test.mjs"
+    "prebuild": "node --experimental-strip-types --test tests/alfaDirection.test.mjs tests/alfaIdentity.test.mjs tests/alfaBankCategory.test.mjs tests/merchantCategoryCatalog.test.mjs tests/categoryPopularity.test.mjs tests/categoryCatalog.test.mjs tests/shoppingAmount.test.mjs tests/shoppingManager.test.mjs tests/familyInvitation.test.mjs tests/budgetOwnerFilter.test.mjs tests/savingsGoalChanges.test.mjs tests/quickExpenseMember.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

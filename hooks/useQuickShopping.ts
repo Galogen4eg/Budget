@@ -65,7 +65,10 @@ export function useQuickShopping({
 
     try {
       setIsAddingShopping(true);
-      const targetMemberId = currentMemberId || 'user';
+      if (!currentMemberId || currentMemberId === 'all') {
+        throw new Error('Ваш аккаунт не привязан к семейному профилю. Выберите свой профиль в настройках.');
+      }
+      const targetMemberId = currentMemberId;
       const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
@@ -84,7 +87,7 @@ export function useQuickShopping({
       toast.success('Покупка успешно добавлена!');
     } catch (err) {
       console.error('Failed to add shopping item inline:', err);
-      toast.error('Ошибка добавления покупок');
+      toast.error(err instanceof Error ? err.message : 'Ошибка добавления покупок');
     } finally {
       setIsAddingShopping(false);
     }

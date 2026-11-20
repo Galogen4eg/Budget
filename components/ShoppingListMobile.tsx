@@ -18,7 +18,7 @@ import {
   parseQuickShoppingInput, 
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
 import { 
   recordPurchaseEvent, 
   getTopFrequentPurchases,
@@ -220,6 +220,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       // Check if item is in completed or active list without creating duplicate
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, [{
@@ -234,6 +235,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (!familyId) throw new Error('Family is not ready');
       {
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
       setItems(updatedList);
 
@@ -338,6 +340,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
@@ -345,6 +348,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
     {
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
       setItems(updatedList);
       setQuickAddText('');
@@ -371,6 +375,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
     const {
       updatedList,
+        purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb
     } = mergeOrRestoreShoppingItems(items, [{
@@ -385,6 +390,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+      recordCommittedShoppingEvents(purchaseEvents);
       setItems(updatedList);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
@@ -449,6 +455,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
             const {
               updatedList,
+        purchaseEvents,
               itemsToUpdateInDb,
               itemsToAddInDb
             } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
@@ -456,6 +463,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             if (!familyId) throw new Error('Family is not ready');
             {
               await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+              recordCommittedShoppingEvents(purchaseEvents);
             }
             setItems(updatedList);
           }

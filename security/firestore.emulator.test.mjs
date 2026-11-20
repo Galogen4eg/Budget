@@ -200,7 +200,7 @@ test('bulk Alfa import with 450 operations stays available to family member', as
   assert.equal(snapshot.size, 451);
 });
 
-test('legacy family without members list denies its owner access to existing transactions', async () => {
+test('legacy family owner can access its old records while strangers remain excluded', async () => {
   const legacyId = 'legacy-custom-family';
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
@@ -210,5 +210,6 @@ test('legacy family without members list denies its owner access to existing tra
     await setDoc(doc(db, 'families', legacyId, 'transactions', 'legacy-tx'), { amount: 350 });
   });
   await assertSucceeds(getDoc(doc(user(), 'families', legacyId)));
-  await assertFails(getDoc(doc(user(), 'families', legacyId, 'transactions', 'legacy-tx')));
+  await assertSucceeds(getDoc(doc(user(), 'families', legacyId, 'transactions', 'legacy-tx')));
+  await assertFails(getDoc(doc(stranger(), 'families', legacyId, 'transactions', 'legacy-tx')));
 });

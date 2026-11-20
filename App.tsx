@@ -143,7 +143,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   
   // Offline / Network Status
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -909,9 +909,9 @@ export default function App() {
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id);
-                      setIsSidebarExpanded(false);
                     }}
                     title={tab.label}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`w-full flex items-center ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
                         ? 'bg-primary text-white font-bold shadow-[0_2px_10px_rgba(74,124,89,0.3)]' 
@@ -1118,12 +1118,14 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
          {TAB_CONFIG.map(tab => {
              const isActive = activeTab === tab.id;
              return (
                 <button 
                   key={tab.id} 
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => {
                     triggerHaptic('light');
                     if (tab.id === 'services') {
@@ -1131,7 +1133,7 @@ export default function App() {
                     }
                     setActiveTab(tab.id);
                   }} 
-                  className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+                  className={`relative flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-all ${
                     isActive ? 'text-[#4A7C59] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
                   }`}
                 >

@@ -125,17 +125,11 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
   // Find currently mapped member
   const mappedMember = useMemo(() => {
-    if (!members || members.length === 0) return null;
-    if (currentUserId) {
-      const byUserId = members.find(m => m.userId === currentUserId);
-      if (byUserId) return byUserId;
-    }
-    if (user?.email) {
-      const byEmail = members.find(m => m.email?.toLowerCase() === user.email?.toLowerCase());
-      if (byEmail) return byEmail;
-    }
-    return null;
-  }, [members, currentUserId, user?.email]);
+    // Email may belong to an invited but unclaimed placeholder.
+    // Only the persisted account UID establishes an active profile binding.
+    if (!currentUserId) return null;
+    return members.find(m => m.userId === currentUserId) || null;
+  }, [members, currentUserId]);
 
   const handleBindProfile = useCallback(async (targetMemberId: string) => {
     try {

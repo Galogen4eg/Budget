@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
+import { preparePantryMove } from './pantryMove';
 import { prepareFamilyMemberInvitation } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -430,11 +431,21 @@ export const adjustShoppingAmount = async (
 export const moveShoppingToPantry = async (
   familyId: string, shoppingId: string, pantryItem: PantryItem
 ): Promise<void> => {
-  if (!familyId) throw new Error('No family ID');
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'families', familyId, 'pantry', pantryItem.id), cleanForFirestore(pantryItem));
-  batch.delete(doc(db, 'families', familyId, 'shopping', shoppingId));
-  await batch.commit();
+  if (!familyId || !shoppingId) throw new Error('Семья или товар не найдены');
+  const shoppingRef = doc(db, 'families', familyId, 'shopping', shoppingId);
+  const pantryRef = doc(db, 'families', familyId, 'pantry', pantryItem.id);
+  await runTransaction(db, async tx => {
+    const [shoppingSnap, pantrySnap] = await Promise.all([
+      tx.get(shoppingRef), tx.get(pantryRef)
+    ]);
+    if (pantrySnap.exists()) throw new Error('Запись кладовой уже существует');
+    const actual = preparePantryMove(
+      shoppingSnap.exists() ? { ...shoppingSnap.data(), id: shoppingSnap.id } as ShoppingItem : null,
+      pantryItem
+    );
+    tx.set(pantryRef, cleanForFirestore(actual));
+    tx.delete(shoppingRef);
+  });
 };
 
 export const addItem = async (familyId: string, collectionName: string, item: any) => {

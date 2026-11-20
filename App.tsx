@@ -44,6 +44,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { filterMandatoryByBudgetOwner } from './utils/budgetOwnerFilter';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
@@ -248,28 +249,12 @@ export default function App() {
   }, [budgetTransactions, selectedDate, currentMonth]);
 
   // Filter Mandatory Expenses based on Member Filter & Budget Mode
-  const filteredMandatoryExpenses = useMemo(() => {
-      const allExpenses = settings.mandatoryExpenses || [];
-      const safeMembers = members || [];
-      
-      // 1. Strict Member Filter from UI (Higher priority)
-      if (memberFilter !== 'all') {
-          // STRICT MODE: Only show items explicitly assigned to this member.
-          // Shared items (where memberId is undefined/null) are hidden to reduce noise.
-          return allExpenses.filter(e => e.memberId === memberFilter);
-      }
-
-      // 2. Budget Mode Logic (Fallback when 'All' is selected in filter)
-      if (budgetMode === 'family') {
-          // Show all expenses in Family mode when filter is 'All'
-          return allExpenses;
-      } else {
-          // Personal mode: show expenses assigned to current user OR unassigned (legacy/shared)
-          const myMemberId = safeMembers.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return allExpenses; 
-          return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
-      }
-  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
+  const filteredMandatoryExpenses = useMemo(
+    () => filterMandatoryByBudgetOwner(
+      settings.mandatoryExpenses || [], budgetMode, members || [], user?.uid, memberFilter
+    ),
+    [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]
+  );
 
   useEffect(() => {
     if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {

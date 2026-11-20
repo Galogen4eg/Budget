@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
+import { parseLocalCalendarDate } from '../utils/calendarDates';
 import TerraMobileHeader from './TerraMobileHeader';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
@@ -552,7 +553,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               {weekAllEvents.map(e => {
                 const primaryMemberId = e.memberIds && e.memberIds[0];
                 const memberMeta = primaryMemberId ? getMemberMeta(primaryMemberId) : null;
-                const d = new Date(e.date);
+                const d = parseLocalCalendarDate(e.date);
                 const dayNum = d.getDate();
                 const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
                 const dayOfWeekLabel = dayOfWeekNames[d.getDay()];
@@ -561,7 +562,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   <div
                     key={e.id}
                     onClick={() => {
-                      setSelectedDate(new Date(e.date));
+                      setSelectedDate(parseLocalCalendarDate(e.date));
                       onOpenEvent(e);
                     }}
                     className="bg-[#F5F2EB] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DE] dark:hover:bg-white/10 transition-colors cursor-pointer"
@@ -666,7 +667,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             listEvents.map(e => {
               const primaryMemberId = e.memberIds && e.memberIds[0];
               const memberMeta = primaryMemberId ? getMemberMeta(primaryMemberId) : null;
-              const d = new Date(e.date);
+              const d = parseLocalCalendarDate(e.date);
               const dayNum = d.getDate();
               const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
               const dayOfWeekLabel = dayOfWeekNames[d.getDay()];
@@ -675,7 +676,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 <div
                   key={e.id}
                   onClick={() => {
-                    setSelectedDate(new Date(e.date));
+                    setSelectedDate(parseLocalCalendarDate(e.date));
                     onOpenEvent(e);
                   }}
                   className="bg-[#F5F2EB] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DE] dark:hover:bg-white/10 transition cursor-pointer"

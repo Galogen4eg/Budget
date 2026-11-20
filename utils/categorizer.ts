@@ -563,14 +563,17 @@ export const getSmartCategory = (
       const cleanKw = kw.trim().toLowerCase();
       if (!cleanKw) continue;
 
+      if (rule.categoryId === 'other') continue;
       if (cleanNote.includes(cleanKw)) {
-        return resolveTargetCategoryId(rule.categoryId, categories);
+        const resolved = resolveTargetCategoryId(rule.categoryId, categories);
+        if (categories.some(category => category.id === resolved)) return resolved;
       }
 
       // Smart phone matching
       const kwPhone = extractPhoneDigits(cleanKw);
       if (kwPhone && notePhone && (notePhone === kwPhone || notePhone.includes(kwPhone) || kwPhone.includes(notePhone))) {
-        return resolveTargetCategoryId(rule.categoryId, categories);
+        const resolved = resolveTargetCategoryId(rule.categoryId, categories);
+        if (categories.some(category => category.id === resolved)) return resolved;
       }
     }
   }
@@ -629,7 +632,8 @@ export const getSmartCategory = (
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some(k => cleanNote.includes(k))) {
-      return resolveTargetCategoryId(catId, categories);
+      const resolved = resolveTargetCategoryId(catId, categories);
+      if (categories.some(category => category.id === resolved)) return resolved;
     }
   }
 
@@ -638,7 +642,8 @@ export const getSmartCategory = (
     const cleanMcc = mcc.trim();
     const mappedByMcc = MCC_MAP[cleanMcc];
     if (mappedByMcc) {
-      return resolveTargetCategoryId(mappedByMcc, categories);
+      const resolved = resolveTargetCategoryId(mappedByMcc, categories);
+      if (categories.some(category => category.id === resolved)) return resolved;
     }
   }
 

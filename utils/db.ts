@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { prepareFamilyMemberInvitation } from './familyInvitation';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval } from './familyInvitation';
 import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -570,6 +570,28 @@ export const updateItem = async (familyId: string, collectionName: string, id: s
  * Persist only changed family-member fields against fresh Firestore snapshots.
  * A conflicting same-field edit or concurrent account claim aborts the whole transaction.
  */
+/**
+ * Remove an unclaimed profile together with its pending email invitation.
+ * Rechecks the actual member document to avoid deleting a profile claimed on another device.
+ */
+export const deleteUnclaimedFamilyMember = async (familyId: string, memberId: string): Promise<void> => {
+  if (!familyId || !memberId) throw new Error('Семья или участник не определены');
+  await runTransaction(db, async transaction => {
+    const memberRef = doc(db, 'families', familyId, 'members', memberId);
+    const memberSnap = await transaction.get(memberRef);
+    if (!memberSnap.exists()) throw new Error('Профиль участника уже удалён');
+    const member = { ...memberSnap.data(), id: memberSnap.id } as FamilyMember;
+    const inviteEmail = member.email?.trim().toLowerCase();
+    const inviteRef = inviteEmail ? doc(db, 'invitations', inviteEmail) : null;
+    const inviteSnap = inviteRef ? await transaction.get(inviteRef) : null;
+    const deleteInvite = validateUnclaimedMemberRemoval(
+      familyId, member, inviteSnap?.exists() ? inviteSnap.data() : null
+    );
+    transaction.delete(memberRef);
+    if (deleteInvite && inviteRef) transaction.delete(inviteRef);
+  });
+};
+
 export const updateFamilyMemberProfiles = async (
   familyId: string,
   previous: readonly FamilyMember[],

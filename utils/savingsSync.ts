@@ -127,3 +127,14 @@ export function planSavingsGoalChanges(
   });
   return { updatedGoals, changedGoals };
 }
+
+/** Detect a concurrent edit before applying savings side effects again. */
+export function assertFinancialVersion(
+  expected: Transaction,
+  actual: Transaction
+): void {
+  const keys = ['amount', 'type', 'category', 'linkedGoalId', 'note', 'rawNote'] as const;
+  if (keys.some(key => (expected[key] ?? null) !== (actual[key] ?? null))) {
+    throw new Error('Операция изменена на другом устройстве. Обновите список перед сохранением');
+  }
+}

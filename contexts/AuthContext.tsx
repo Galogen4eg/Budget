@@ -96,9 +96,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (e: any) {
               console.error("Failed to join pending family:", e);
               toast.error(`Не удалось присоединиться: ${e.message}`);
-            } finally {
-              // Keep a failed invitation pending so the user can retry joining.
-              // Only a successful join should consume it.
             }
           }
 
@@ -186,8 +183,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithEmailAndPassword(auth, email, pass);
           toast.success('С возвращением!');
       } catch (e: any) {
-          toast.error('Неверный логин или пароль');
           setLoading(false);
+          throw e;
       }
   };
 
@@ -209,8 +206,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let msg = 'Ошибка при регистрации';
           if (e.code === 'auth/email-already-in-use') msg = 'Этот email уже занят';
           if (e.code === 'auth/weak-password') msg = 'Слишком слабый пароль (мин. 6 симв.)';
-          toast.error(msg);
           setLoading(false);
+          throw new Error(msg);
       }
   };
 

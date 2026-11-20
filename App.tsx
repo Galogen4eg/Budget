@@ -48,7 +48,7 @@ import { filterMandatoryByBudgetOwner } from './utils/budgetOwnerFilter';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
-import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
+import { isSavingsTransfer, applySavingsTransferToGoals, assertSafeBulkDelete } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
@@ -686,6 +686,7 @@ export default function App() {
       }
 
       const ids = toDelete.map(t => t.id);
+      assertSafeBulkDelete(transactions, ids);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
@@ -693,6 +694,7 @@ export default function App() {
   };
 
   const handleBatchDelete = async (ids: string[]) => {
+      assertSafeBulkDelete(transactions, ids);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));

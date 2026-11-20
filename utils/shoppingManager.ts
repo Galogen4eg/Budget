@@ -65,7 +65,7 @@ export function mergeOrRestoreShoppingItems(
     // Check for existing card in active list
     const activeIdx = resultList.findIndex(i => !i.completed && sameProduct(i));
 
-    if (completedIdx !== -1) {
+    if (completedIdx !== -1 && activeIdx === -1) {
       // CASE 1: Item is in "completed" -> Restore to active list, update amount & record stats
       const existing = resultList[completedIdx];
       const restoredItem: ShoppingItem = {

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { parseLocalCalendarDate, formatLocalCalendarDate, eventDateTime, filterEventsForCalendarMonth } from '../utils/calendarDates.ts';
 
 test('parses a YYYY-MM-DD calendar day as local midnight, not UTC',()=>{
@@ -34,4 +35,17 @@ test('upcoming/past month lists do not shift dates and preserve event order',()=
   const now=new Date(2026,10,21,12,0);
   assert.deepEqual(filterEventsForCalendarMonth(events,new Date(2026,10,1),'upcoming',now).map(e=>e.id),['now','soon']);
   assert.deepEqual(filterEventsForCalendarMonth(events,new Date(2026,10,1),'past',now).map(e=>e.id),['old']);
+});
+
+test('calendar remains on the same date in a UTC-negative browser timezone',()=>{
+  const source = [
+    "import {parseLocalCalendarDate,formatLocalCalendarDate} from './utils/calendarDates.ts';",
+    "const date=parseLocalCalendarDate('2026-11-21');",
+    "if(date.getDate()!==21 || date.getHours()!==0 || formatLocalCalendarDate(date)!=='2026-11-21') process.exit(1);"
+  ].join('\n');
+  const output=execFileSync(process.execPath,['--experimental-strip-types','--input-type=module','-e',source],{
+    cwd:process.cwd(),
+    env:{...process.env,TZ:'America/Los_Angeles'}
+  });
+  assert.equal(output.length,0);
 });

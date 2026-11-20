@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Trash2, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Transaction, AppSettings } from '../types';
 import { toast } from 'sonner';
+import { arePotentialDuplicates } from '../utils/duplicateCandidate';
 
 interface DuplicatesModalProps {
   transactions: Transaction[];
@@ -42,15 +43,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             // but strict check on other fields
             if (timeDiff > 24 * 60 * 60 * 1000) break; 
 
-            // Strict amount check
-            const isSameAmount = Math.abs(current.amount - next.amount) < 0.01;
-            const isSameType = current.type === next.type;
-            
-            // Fuzzy description match
-            const noteSim = (current.note || '').toLowerCase().trim() === (next.note || '').toLowerCase().trim();
-            const rawSim = (current.rawNote || '').toLowerCase().trim() === (next.rawNote || '').toLowerCase().trim();
-
-            if (isSameAmount && isSameType && (noteSim || rawSim)) {
+            if (arePotentialDuplicates(current, next)) {
                 // Check if this pair is ignored
                 const pairKey = [current.id, next.id].sort().join('_');
                 if (!ignoredPairs.includes(pairKey)) {

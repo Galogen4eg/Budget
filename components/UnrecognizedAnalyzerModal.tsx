@@ -1,17 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Check, X, Sparkles, ChevronRight, ChevronLeft, ArrowRight, 
-  CheckCheck, Wand2, ShieldCheck, Tag, Info, List, Grid, Edit3, HelpCircle, Search, ChevronDown
+import {
+  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCheck, ChevronDown,
+  ChevronLeft, ChevronRight, Edit3, Grid2X2, List, Search, ShieldCheck,
+  Sparkles, Tag, X
 } from 'lucide-react';
-import { Category, LearnedRule, Transaction } from '../types';
-import { analyzeTransaction, AnalysisResult } from '../utils/analyzerHelper';
-import { getIconById } from '../constants';
-import { RippleButton } from './RippleButton';
+import { Category, LearnedRule } from '../types';
+import { analyzeTransaction } from '../utils/analyzerHelper';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
 
 export interface UnrecognizedAnalyzerItem {
-  id: string; // tempId or transaction id
+  id: string;
   note: string;
   rawNote?: string;
   amount: number;
@@ -34,686 +33,338 @@ interface UnrecognizedAnalyzerModalProps {
   onEditItem?: (item: UnrecognizedAnalyzerItem) => void;
 }
 
+const formatDate = (value: string): string => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? (value || 'Дата не указана')
+    : date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatAmount = (item: UnrecognizedAnalyzerItem): string =>
+  `${item.type === 'income' ? '+' : '−'}${Math.abs(item.amount).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`;
+
+const isUsableCategory = (id: string | undefined, categories: Category[]): id is string =>
+  Boolean(id && id !== 'other' && categories.some(category => category.id === id));
+
 export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps> = ({
-  isOpen,
-  onClose,
-  items,
-  categories,
-  learnedRules,
-  onApplyCategoryWithRule,
-  onApplyAllSuggestions,
-  onAddCategory,
-  onEditItem,
+  isOpen, onClose, items, categories, learnedRules,
+  onApplyCategoryWithRule, onApplyAllSuggestions, onAddCategory, onEditItem
 }) => {
+  const [viewMode, setViewMode] = useState<'single' | 'list'>('list');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'single' | 'list'>('single');
-  const [saveRuleChecked, setSaveRuleChecked] = useState(true);
-  const [manualPickerOpenForId, setManualPickerOpenForId] = useState<string | null>(null);
-  const [selectedCatOverrideMap, setSelectedCatOverrideMap] = useState<Record<string, string>>({});
-  const [customCleanNameMap, setCustomCleanNameMap] = useState<Record<string, string>>({});
-  const [customRuleKeywordMap, setCustomRuleKeywordMap] = useState<Record<string, string>>({});
+  const [openPickerId, setOpenPickerId] = useState<string | null>(null);
+  const [chosenCategories, setChosenCategories] = useState<Record<string, string>>({});
+  const [editedNames, setEditedNames] = useState<Record<string, string>>({});
+  const [editedKeywords, setEditedKeywords] = useState<Record<string, string>>({});
+  const [rememberRules, setRememberRules] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter only unrecognized items (category is 'other' or missing)
-  const unrecognizedItems = useMemo(() => {
-    return items.filter(i => !i.category || i.category === 'other');
-  }, [items]);
+  // All three views (single, list, and the category catalog) receive exactly
+  // the same live family categories. No hardcoded fallback category is used.
+  const remaining = useMemo(
+    () => items.filter(item => !item.category || item.category === 'other'),
+    [items]
+  );
+  const analyses = useMemo(() => new Map(
+    remaining.map(item => [
+      item.id,
+      analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories)
+    ])
+  ), [remaining, learnedRules, categories]);
 
-  // Sorted categories for select dropdowns (Parents A-Z, Children A-Z)
-  const sortedSelectCategories = useMemo(() => {
-    const parents = categories.filter(c => !c.parentId && c.id !== 'other').sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-    const result: Array<{ id: string; label: string; isChild?: boolean }> = [];
-    parents.forEach(p => {
-      result.push({ id: p.id, label: p.label, isChild: false });
-      const children = categories.filter(c => c.parentId === p.id).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-      children.forEach(ch => {
-        result.push({ id: ch.id, label: `└ ${ch.label}`, isChild: true });
-      });
-    });
-    return result;
-  }, [categories]);
+  const suggested = useMemo(() => remaining.filter(item => {
+    const result = analyses.get(item.id);
+    return Boolean(result && result.source !== 'fallback' && result.confidence >= 88 &&
+      isUsableCategory(result.suggestedCategoryId, categories));
+  }), [remaining, analyses, categories]);
 
-  // Pre-analyze all unrecognized items
-  const analyzedMap = useMemo(() => {
-    const map = new Map<string, AnalysisResult>();
-    unrecognizedItems.forEach(item => {
-      const res = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories);
-      map.set(item.id, res);
-    });
-    return map;
-  }, [unrecognizedItems, learnedRules, categories]);
+  const visible = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase('ru-RU');
+    if (!query) return remaining;
+    return remaining.filter(item =>
+      (item.note + ' ' + (item.rawNote || '') + ' ' + formatDate(item.date) +
+        ' ' + (item.mcc || '')).toLocaleLowerCase('ru-RU').includes(query)
+    );
+  }, [remaining, searchQuery]);
 
-  // Keep index within bounds when items are categorized/removed
+  const safeIndex = Math.min(currentIndex, Math.max(0, remaining.length - 1));
+  const activeItem = remaining[safeIndex];
+  const activeAnalysis = activeItem ? analyses.get(activeItem.id) : undefined;
+
   useEffect(() => {
-    if (currentIndex >= unrecognizedItems.length && unrecognizedItems.length > 0) {
-      setCurrentIndex(unrecognizedItems.length - 1);
+    if (currentIndex >= remaining.length && remaining.length > 0) {
+      setCurrentIndex(remaining.length - 1);
     }
-  }, [unrecognizedItems.length, currentIndex]);
+  }, [currentIndex, remaining.length]);
 
-  const safeIndex = Math.min(currentIndex, Math.max(0, unrecognizedItems.length - 1));
-  const activeItem = unrecognizedItems[safeIndex] || unrecognizedItems[0];
-  const activeAnalysis = activeItem ? analyzedMap.get(activeItem.id) : null;
-  const effectiveCategoryId = (activeItem && selectedCatOverrideMap[activeItem.id]) || activeAnalysis?.suggestedCategoryId || 'other';
-  const activeCategory = categories.find(c => c.id === effectiveCategoryId);
-  const effectiveCleanName = (activeItem && customCleanNameMap[activeItem.id]) !== undefined 
-    ? customCleanNameMap[activeItem.id] 
-    : (activeAnalysis?.cleanName || activeItem?.note || '');
-  const effectiveRuleKeyword = (activeItem && customRuleKeywordMap[activeItem.id]) !== undefined
-    ? customRuleKeywordMap[activeItem.id]
-    : (activeAnalysis?.ruleKeyword || activeItem?.note || '');
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [role="dialog"] [contenteditable]')) return;
+      if (event.key === 'Escape') {
+        if (openPickerId) setOpenPickerId(null);
+        else onClose();
+      }
+      if (viewMode !== 'single' || openPickerId) return;
+      if (event.key === 'ArrowLeft') setCurrentIndex(index => Math.max(0, index - 1));
+      if (event.key === 'ArrowRight') setCurrentIndex(index => Math.min(remaining.length - 1, index + 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, viewMode, openPickerId, onClose, remaining.length]);
 
-  const progressPercent = Math.round(((items.length - unrecognizedItems.length) / (items.length || 1)) * 100);
-
-  // Confirm single item
-  const handleConfirmSingle = (targetCatId?: string) => {
-    if (!activeItem) return;
-    const catIdToUse = targetCatId || effectiveCategoryId;
-
-    let ruleToLearn: LearnedRule | undefined = undefined;
-    const ruleKeywordToSave = effectiveRuleKeyword.trim();
-    if (saveRuleChecked && ruleKeywordToSave && catIdToUse !== 'other') {
-      ruleToLearn = {
-        id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        keyword: ruleKeywordToSave,
-        cleanName: effectiveCleanName || activeItem.note,
-        categoryId: catIdToUse
-      };
+  const chosenCategory = (item: UnrecognizedAnalyzerItem): string | undefined => {
+    if (chosenCategories[item.id]) return chosenCategories[item.id];
+    const analysis = analyses.get(item.id);
+    if (analysis?.source !== 'fallback' && analysis && analysis.confidence >= 88 &&
+        isUsableCategory(analysis.suggestedCategoryId, categories)) {
+      return analysis.suggestedCategoryId;
     }
-
-    onApplyCategoryWithRule(activeItem.id, catIdToUse, ruleToLearn);
-    setManualPickerOpenForId(null);
-
-    if (safeIndex >= unrecognizedItems.length - 1) {
-      setCurrentIndex(0);
-    }
+    return undefined;
   };
 
-  // Keyboard navigation (ArrowLeft / ArrowRight to navigate, Enter to confirm, Escape to close)
-  useEffect(() => {
-    if (!isOpen || unrecognizedItems.length === 0) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
-        if (e.key === 'Escape') {
-          target.blur();
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setCurrentIndex(prev => Math.max(0, prev - 1));
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setCurrentIndex(prev => Math.min(unrecognizedItems.length - 1, prev + 1));
-      } else if (e.key === 'Enter') {
-        if (viewMode === 'single' && !manualPickerOpenForId) {
-          e.preventDefault();
-          handleConfirmSingle();
-        }
-      } else if (e.key === 'Escape') {
-        if (manualPickerOpenForId) {
-          setManualPickerOpenForId(null);
-        } else {
-          onClose();
-        }
-      }
+  const buildRule = (item: UnrecognizedAnalyzerItem, categoryId: string): LearnedRule | undefined => {
+    if (!rememberRules) return undefined;
+    const analysis = analyses.get(item.id);
+    const keyword = (editedKeywords[item.id] ?? analysis?.ruleKeyword ?? '').trim();
+    // A rule must be based on an explicit nontrivial merchant keyword, never
+    // on a generic analyzer fallback or an empty match.
+    if (keyword.length < 4 || /^(покупки|прочее|оплата|перевод)$/i.test(keyword)) return undefined;
+    return {
+      id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      keyword,
+      cleanName: editedNames[item.id] ?? analysis?.cleanName ?? item.note,
+      categoryId
     };
+  };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, unrecognizedItems.length, viewMode, manualPickerOpenForId, safeIndex, activeItem, activeAnalysis, saveRuleChecked]);
+  const assignCategory = (item: UnrecognizedAnalyzerItem, categoryId: string) => {
+    if (!isUsableCategory(categoryId, categories)) return;
+    onApplyCategoryWithRule(item.id, categoryId, buildRule(item, categoryId));
+    setOpenPickerId(null);
+  };
 
+  const acceptConfident = () => {
+    if (!suggested.length) return;
+    const results = suggested.map(item => {
+      const categoryId = analyses.get(item.id)!.suggestedCategoryId;
+      return { itemId: item.id, categoryId, ruleToLearn: buildRule(item, categoryId) };
+    });
+    onApplyAllSuggestions(results);
+  };
+
+  const categoryName = (id?: string): string =>
+    categories.find(category => category.id === id)?.label || 'Не выбрана';
+
+  const dateAndAmount = (item: UnrecognizedAnalyzerItem) => (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <span className="inline-flex items-center gap-1.5 text-stone-600 dark:text-stone-300 font-medium">
+        <CalendarDays size={15} aria-hidden="true" />
+        {formatDate(item.date)}
+      </span>
+      <span className={`font-bold tabular-nums ${item.type === 'income' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+        {formatAmount(item)}
+      </span>
+      <span className="text-xs text-stone-400">{item.type === 'income' ? 'Доход' : 'Расход'}</span>
+      {item.mcc && <span className="text-xs text-stone-500">MCC {item.mcc}</span>}
+      {item.accountMask && <span className="text-xs text-stone-500">{item.accountMask}</span>}
+    </div>
+  );
+
+  // No hooks below these returns: opening and closing never changes hook order.
   if (!isOpen) return null;
 
-  // Show Completion Screen when all unrecognized items are resolved
-  if (unrecognizedItems.length === 0) {
+  if (!remaining.length) {
     return createPortal(
-      <div 
-        onClick={(e) => {
-          e.stopPropagation();
-          if (e.target === e.currentTarget) {
-            onClose();
-          }
-        }}
-        className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 transition-all select-none"
-      >
-        <div 
-          onClick={(e) => e.stopPropagation()}
-          className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col p-6 sm:p-8 text-center items-center gap-5 animate-in fade-in zoom-in-95 duration-200"
-          role="dialog"
-        >
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#4A7C59] to-[#2D5540] text-white flex items-center justify-center shadow-lg">
-            <CheckCheck size={32} strokeWidth={2.5} />
-          </div>
-          <div className="space-y-1.5">
-            <h3 className="text-xl font-bold font-headline text-stone-900 dark:text-white">
-              Все операции разобраны!
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-gray-400 max-w-sm mx-auto">
-              Категории успешно назначены, а обученные правила сохранены. Теперь можно подтвердить импорт в основной список.
-            </p>
-          </div>
-          <RippleButton
-            onClick={onClose}
-            className="w-full py-3 px-6 rounded-2xl bg-[#4A7C59] hover:bg-[#3B6447] text-white font-bold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span>Вернуться к выписке</span>
-            <ArrowRight size={16} />
-          </RippleButton>
+      <div className="fixed inset-0 z-[3000] bg-stone-950/60 flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Разбор завершён"
+          className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-7 max-w-md w-full text-center space-y-4 shadow-2xl">
+          <CheckCheck className="mx-auto text-[#4A7C59]" size={38} />
+          <h2 className="text-xl font-bold text-stone-900 dark:text-white">Все категории назначены</h2>
+          <p className="text-sm text-stone-500 dark:text-stone-300">
+            Изменения применены к предварительному просмотру. Сам импорт ещё нужно подтвердить отдельно.
+          </p>
+          <button type="button" onClick={onClose}
+            className="w-full bg-[#4A7C59] text-white font-semibold rounded-xl py-3">Вернуться к выписке</button>
         </div>
-      </div>,
-      document.body
+      </div>, document.body
     );
   }
 
-  // Only high-confidence non-fallback suggestions may be accepted in bulk.
-  // Never silently label an unknown operation as Shopping.
-  const eligibleAutoSuggestions = unrecognizedItems.filter(item => {
-    const result = analyzedMap.get(item.id);
-    return Boolean(result && result.source !== 'fallback' &&
-      result.confidence >= 88 && result.suggestedCategoryId !== 'other' &&
-      categories.some(c => c.id === result.suggestedCategoryId));
-  });
-
-  const handleConfirmAllSuggestions = () => {
-    if (eligibleAutoSuggestions.length === 0) return;
-    const results = eligibleAutoSuggestions.map(item => {
-      const analysis = analyzedMap.get(item.id)!;
-      const catId = analysis.suggestedCategoryId;
-      let rule: LearnedRule | undefined;
-      if (saveRuleChecked && analysis.ruleKeyword && analysis.source !== 'mcc') {
-        rule = {
-          id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          keyword: analysis.ruleKeyword,
-          cleanName: analysis.cleanName || item.note,
-          categoryId: catId
-        };
-      }
-      return { itemId: item.id, categoryId: catId, ruleToLearn: rule };
-    });
-
-    onApplyAllSuggestions(results);
-    onClose();
-  };
-
   return createPortal(
-    <div 
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-      className="fixed inset-0 z-[3000] bg-stone-950/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-all select-none"
-    >
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] w-full max-w-4xl lg:max-w-5xl rounded-t-3xl sm:rounded-3xl shadow-2xl border-0 sm:border border-[#ECE6DE] dark:border-white/10 overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
-        role="dialog"
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-5 bg-white dark:bg-[#252528] border-b border-[#ECE6DE] dark:border-white/10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#4A7C59] to-[#2D5540] text-white flex items-center justify-center shadow-md shrink-0">
-              <Sparkles size={22} className="animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-nowrap">
-                <h3 className="text-base sm:text-lg font-bold font-headline text-stone-900 dark:text-white tracking-tight truncate">
-                  Анализатор нераспознанных операций
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E09F3E]/20 text-[#B87008] dark:text-amber-300 text-xs font-bold whitespace-nowrap shrink-0">
-                  {unrecognizedItems.length} осталось
-                </span>
-              </div>
-              <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5 truncate">
-                Авто-определение категорий, обучение правил для будущего импорта
-              </p>
-            </div>
+    <div className="fixed inset-0 z-[3000] bg-stone-950/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-5"
+      onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div role="dialog" aria-modal="true" aria-label="Разбор операций"
+        className="bg-[#FAF8F5] dark:bg-[#1C1C1E] text-stone-900 dark:text-white w-full max-w-6xl h-[100dvh] sm:h-auto sm:max-h-[92dvh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        <header className="bg-white dark:bg-[#252528] border-b border-stone-200 dark:border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-headline text-lg sm:text-xl font-bold flex items-center gap-2">
+              <Sparkles size={21} className="text-[#4A7C59] shrink-0" />
+              Разбор операций
+              <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-1 rounded-lg whitespace-nowrap">
+                {remaining.length} осталось
+              </span>
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+              Единый каталог категорий. Изменения применяются к предварительному просмотру.
+            </p>
           </div>
+          <button type="button" onClick={onClose} aria-label="Закрыть анализатор"
+            className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 shrink-0"><X size={20} /></button>
+        </header>
 
+        <div className="px-4 sm:px-6 py-3 bg-[#F4F0E8] dark:bg-[#222225] border-b border-stone-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-[#F4EFE7] dark:bg-white/5 rounded-xl p-1 border border-[#ECE6DE] dark:border-white/10">
-              <button
-                type="button"
-                onClick={() => setViewMode('single')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                  viewMode === 'single'
-                    ? 'bg-white dark:bg-[#323236] text-stone-900 dark:text-white shadow-xs'
-                    : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
-                }`}
-              >
-                <Grid size={14} />
-                <span className="hidden sm:inline">По одной</span>
+            <div className="inline-flex bg-white dark:bg-[#333336] border border-stone-200 dark:border-white/10 rounded-xl p-1">
+              <button type="button" onClick={() => { setViewMode('list'); setOpenPickerId(null); }}
+                aria-pressed={viewMode === 'list'}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${viewMode === 'list' ? 'bg-[#4A7C59] text-white' : 'text-stone-600 dark:text-stone-200'}`}>
+                <List size={15} /> Списком
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                  viewMode === 'list'
-                    ? 'bg-white dark:bg-[#323236] text-stone-900 dark:text-white shadow-xs'
-                    : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
-                }`}
-              >
-                <List size={14} />
-                <span className="hidden sm:inline">Списком</span>
+              <button type="button" onClick={() => { setViewMode('single'); setOpenPickerId(null); }}
+                aria-pressed={viewMode === 'single'}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${viewMode === 'single' ? 'bg-[#4A7C59] text-white' : 'text-stone-600 dark:text-stone-200'}`}>
+                <Grid2X2 size={15} /> По одной
               </button>
             </div>
-
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/20 text-stone-500 dark:text-gray-300 flex items-center justify-center transition"
-            >
-              <X size={18} />
-            </button>
+            <label className="flex items-center gap-2 text-xs text-stone-700 dark:text-stone-200 cursor-pointer">
+              <input type="checkbox" checked={rememberRules} onChange={event => setRememberRules(event.target.checked)}
+                className="accent-[#4A7C59] w-4 h-4" />
+              <ShieldCheck size={15} />
+              Запоминать правило
+            </label>
           </div>
-        </div>
-
-        {/* Global Action Bar */}
-        <div className="px-6 py-2.5 bg-[#F5F0E6] dark:bg-[#222225] border-b border-[#ECE6DE] dark:border-white/10 flex items-center justify-between text-xs gap-3">
-          <div className="flex items-center gap-2 text-stone-600 dark:text-gray-300 font-semibold">
-            <Wand2 size={15} className="text-[#4A7C59] dark:text-green-400" />
-            <span>Уверенных предложений: {eligibleAutoSuggestions.length} из {unrecognizedItems.length}. Остальные требуют проверки.</span>
-          </div>
-          <RippleButton
-            onClick={handleConfirmAllSuggestions}
-            disabled={eligibleAutoSuggestions.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold shadow-sm transition"
-          >
-            <CheckCheck size={15} />
-            <span>Принять уверенные ({eligibleAutoSuggestions.length})</span>
-          </RippleButton>
-        </div>
-
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-
-          {/* MODE 1: SINGLE CARD FOCUS */}
-          {viewMode === 'single' && activeItem && activeAnalysis && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-
-              {/* Progress counter */}
-              <div className="flex items-center justify-between text-xs font-bold text-stone-500 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  <span>Разбор операции {safeIndex + 1} из {unrecognizedItems.length}</span>
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-stone-400 dark:text-stone-500 font-mono bg-stone-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-stone-200 dark:border-white/10">
-                    <kbd className="font-semibold">←</kbd> <kbd className="font-semibold">→</kbd> листание
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    disabled={safeIndex === 0}
-                    onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                    title="Предыдущая операция (Стрелка влево ←)"
-                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition cursor-pointer"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button
-                    disabled={safeIndex >= unrecognizedItems.length - 1}
-                    onClick={() => setCurrentIndex(prev => Math.min(unrecognizedItems.length - 1, prev + 1))}
-                    title="Следующая операция (Стрелка вправо →)"
-                    className="p-1 rounded-lg border border-[#E0D8CE] dark:border-white/10 disabled:opacity-30 hover:bg-white dark:hover:bg-white/5 transition cursor-pointer"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Main Source Item Card */}
-              <div 
-                className="bg-white dark:bg-[#252528] rounded-2xl p-5 border border-[#ECE6DE] dark:border-white/10 shadow-sm space-y-3 transition-all"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold font-mono text-stone-400 dark:text-gray-500 uppercase tracking-wider">
-                        Исходная запись банковской выписки:
-                      </span>
-                      {onEditItem && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditItem(activeItem);
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#4A7C59] bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white px-2 py-0.5 rounded-md transition cursor-pointer"
-                        >
-                          <Edit3 size={12} />
-                          Изменить название
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-base font-headline font-bold text-stone-900 dark:text-white break-words">
-                      {activeItem.rawNote || activeItem.note}
-                    </div>
-                    <div className="text-xs text-stone-600 dark:text-gray-300 bg-[#F5F0E6] dark:bg-white/5 p-2.5 rounded-xl border border-[#E5DEC3] dark:border-white/10 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="shrink-0 font-semibold text-stone-600 dark:text-stone-300">Очищенное название для истории:</span>
-                      <input 
-                        type="text"
-                        value={effectiveCleanName}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomCleanNameMap(prev => ({ ...prev, [activeItem.id]: val }));
-                        }}
-                        placeholder="Название операции в истории..."
-                        className="font-bold text-stone-900 dark:text-white bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-lg border border-stone-300 dark:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none text-xs w-full max-w-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xl font-bold font-mono text-[#D95D39] dark:text-red-400 tabular-nums">
-                      -{Math.round(activeItem.amount).toLocaleString('ru-RU')} ₽
-                    </div>
-                    <div className="text-[11px] font-semibold text-stone-400 dark:text-gray-400 mt-0.5">
-                      {activeItem.date} {activeItem.accountMask && `(${activeItem.accountMask})`}
-                    </div>
-                  </div>
-                </div>
-
-                {activeItem.mcc && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F5F0E6] dark:bg-white/5 border border-[#E5DEC3] dark:border-white/10 text-xs font-mono font-bold text-stone-700 dark:text-gray-300">
-                    <Tag size={13} className="text-[#4A7C59]" />
-                    <span>MCC: {activeItem.mcc}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* AI PROPOSED CATEGORY CARD */}
-              <div className="bg-gradient-to-br from-[#F4FAF6] to-[#FAF8F5] dark:from-[#1E2B22] dark:to-[#1C1C1E] rounded-2xl p-5 border-2 border-[#4A7C59]/40 dark:border-green-500/30 shadow-md space-y-4">
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#3B6447] dark:text-green-400">
-                    Предложенная категория:
-                  </span>
-                  {activeAnalysis && (
-                    <div className="text-xs font-bold font-mono text-[#4A7C59] dark:text-green-400 bg-white/80 dark:bg-black/30 px-2.5 py-1 rounded-lg border border-[#4A7C59]/20">
-                      🎯 Уверенность: {activeAnalysis.confidence}%
-                    </div>
-                  )}
-                </div>
-
-                {/* Category Display Banner */}
-                <div className="flex items-center justify-between bg-white dark:bg-[#252528] rounded-xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs">
-                  <div className="flex items-center gap-3.5">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm font-bold shrink-0"
-                      style={{ backgroundColor: activeCategory?.color || '#4A7C59' }}
-                    >
-                      {getIconById(activeCategory?.icon || 'ShoppingBag', 22)}
-                    </div>
-                    <div>
-                      <h4 className="text-base font-bold text-stone-900 dark:text-white font-headline">
-                        {activeCategory?.label || 'Покупки'}
-                      </h4>
-                      <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
-                        <Info size={13} className="text-[#4A7C59] shrink-0" />
-                        <span>{activeAnalysis?.reason || 'Выбрано вручную'}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setManualPickerOpenForId(manualPickerOpenForId === activeItem.id ? null : activeItem.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4EFE7] dark:bg-white/10 hover:bg-[#EAE4DA] dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-bold transition cursor-pointer"
-                  >
-                    <Edit3 size={14} />
-                    <span>{manualPickerOpenForId === activeItem.id ? 'Скрыть выбор' : 'Изменить категорию...'}</span>
-                  </button>
-                </div>
-
-                {/* Manual Category Picker Accordion if open */}
-                {manualPickerOpenForId === activeItem.id && (
-                  <div className="bg-white dark:bg-[#252528] rounded-2xl p-4 sm:p-5 border border-[#ECE6DE] dark:border-white/10 space-y-3.5 animate-in fade-in duration-150 shadow-md">
-                    <div className="text-xs font-bold text-stone-700 dark:text-gray-300 flex items-center justify-between">
-                      <span className="text-sm font-headline">Выберите подходящую категорию или подкатегорию:</span>
-                      <button 
-                        type="button" 
-                        onClick={() => setManualPickerOpenForId(null)}
-                        className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/5 cursor-pointer"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <CategoryPickerAccordion
-                      categories={categories}
-                      selectedCategoryId={effectiveCategoryId}
-                      maxHeightClass="max-h-[460px]"
-                      onSelectCategory={(catId) => {
-                        setSelectedCatOverrideMap(prev => ({ ...prev, [activeItem.id]: catId }));
-                        setManualPickerOpenForId(null);
-                      }}
-                      onAddCategory={onAddCategory}
-                    />
-                  </div>
-                )}
-
-                {/* Rule Learning Card with Editable Keyword */}
-                <div className="bg-white/90 dark:bg-black/20 rounded-2xl p-4 border border-[#4A7C59]/30 space-y-2.5 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2.5 text-xs font-bold text-stone-800 dark:text-gray-200 cursor-pointer select-none">
-                      <input 
-                        type="checkbox"
-                        checked={saveRuleChecked}
-                        onChange={e => setSaveRuleChecked(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-[#4A7C59] focus:ring-[#4A7C59] cursor-pointer"
-                      />
-                      <ShieldCheck size={16} className="text-[#4A7C59]" />
-                      <span>Запомнить как автоправило для будущих выписок</span>
-                    </label>
-                  </div>
-
-                  {saveRuleChecked && (
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 pt-1 pl-6">
-                      <span className="text-xs font-semibold text-stone-500 dark:text-gray-400 shrink-0">
-                        Запоминаемое ключевое слово:
-                      </span>
-                      <div className="relative flex-1">
-                        <input 
-                          type="text"
-                          value={effectiveRuleKeyword}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomRuleKeywordMap(prev => ({ ...prev, [activeItem.id]: val }));
-                          }}
-                          placeholder="например: ВкусВилл, Яндекс, Магнит..."
-                          className="w-full font-bold font-mono text-xs text-stone-900 dark:text-white bg-stone-50 dark:bg-[#1C1C1E] px-3 py-1.5 rounded-xl border border-[#4A7C59]/50 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Confirm Button */}
-                <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-                  <RippleButton
-                    onClick={() => handleConfirmSingle()}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-[#4A7C59] hover:bg-[#3B6447] text-white font-bold text-sm shadow-md transition cursor-pointer"
-                  >
-                    <Check size={18} strokeWidth={3} />
-                    <span>Подтвердить категорию «{activeCategory?.label || 'Сохранить'}»</span>
-                    <kbd className="hidden sm:inline-flex items-center text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.5 rounded ml-1">
-                      Enter ↵
-                    </kbd>
-                  </RippleButton>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* MODE 2: BATCH LIST */}
-          {viewMode === 'list' && (
-            <div className="space-y-3">
-              {unrecognizedItems.map(item => {
-                const analysis = analyzedMap.get(item.id);
-                const category = analysis ? categories.find(c => c.id === analysis.suggestedCategoryId) : null;
-                const newCleanName = analysis?.cleanName || item.note;
-                const rawNoteText = item.rawNote || item.note;
-
-                const isPickerOpen = manualPickerOpenForId === item.id;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-[#252528] rounded-2xl p-4 border border-[#ECE6DE] dark:border-white/10 shadow-xs flex flex-col gap-3 transition-all"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 font-bold"
-                          style={{ backgroundColor: category?.color || '#4A7C59' }}
-                        >
-                          {getIconById(category?.icon || 'ShoppingBag', 18)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          {/* Очищенное название */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-stone-900 dark:text-white text-base truncate">
-                              {newCleanName}
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#4A7C59] bg-[#EAF2EC] dark:bg-green-950/40 px-2 py-0.5 rounded-md">
-                              <Sparkles size={10} />
-                              Новое название
-                            </span>
-                            {onEditItem && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onEditItem(item);
-                                }}
-                                className="text-gray-400 hover:text-[#4A7C59] transition p-0.5 cursor-pointer ml-auto sm:ml-0"
-                                title="Редактировать название и параметры"
-                              >
-                                <Edit3 size={14} />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Исходная сырая строка */}
-                          {rawNoteText && rawNoteText !== newCleanName && (
-                            <div className="text-xs text-stone-500 dark:text-gray-400 font-mono mt-0.5 truncate">
-                              Исходная: {rawNoteText}
-                            </div>
-                          )}
-
-                          <div className="text-xs text-stone-400 mt-1 flex items-center gap-2 flex-wrap">
-                            <span>Категория: <b className="text-stone-800 dark:text-gray-200">{category?.label}</b></span>
-                            <span>•</span>
-                            <span>-{Math.round(item.amount).toLocaleString('ru-RU')} ₽</span>
-                            {analysis && (
-                              <span className="text-[10px] font-bold text-[#4A7C59] bg-[#EAF2EC] dark:bg-green-950/40 px-1.5 py-0.5 rounded">
-                                {analysis.reason}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div 
-                        className="flex items-center gap-2 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setManualPickerOpenForId(isPickerOpen ? null : item.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#ECE6DE] dark:border-white/10 hover:border-[#4A7C59] text-xs font-bold text-stone-800 dark:text-white transition cursor-pointer"
-                        >
-                          <Tag size={13} className="text-[#4A7C59]" />
-                          <span>{category?.label || 'Категория'}</span>
-                          <ChevronDown size={14} className="text-stone-400" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const catId = analysis?.suggestedCategoryId || 'shopping';
-                            let rule: LearnedRule | undefined = undefined;
-                            if (saveRuleChecked && analysis?.ruleKeyword) {
-                              rule = {
-                                id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-                                keyword: analysis.ruleKeyword,
-                                cleanName: newCleanName,
-                                categoryId: catId
-                              };
-                            }
-                            onApplyCategoryWithRule(item.id, catId, rule);
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold transition cursor-pointer"
-                        >
-                          <Check size={14} strokeWidth={3} />
-                          <span>ОК</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Accordion Category Picker for this item in List View */}
-                    {isPickerOpen && (
-                      <div 
-                        className="mt-2 pt-2 border-t border-[#ECE6DE] dark:border-white/10 animate-in fade-in duration-150"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="text-xs font-bold text-stone-700 dark:text-gray-300 mb-2 flex items-center justify-between">
-                          <span>Поиск и выбор категории (A-Z) для «{newCleanName}»:</span>
-                          <button 
-                            type="button"
-                            onClick={() => setManualPickerOpenForId(null)}
-                            className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                        <CategoryPickerAccordion
-                          categories={categories}
-                          selectedCategoryId={analysis?.suggestedCategoryId}
-                          onAddCategory={onAddCategory}
-                          onSelectCategory={(catId) => {
-                            let rule: LearnedRule | undefined = undefined;
-                            if (saveRuleChecked && analysis?.ruleKeyword) {
-                              rule = {
-                                id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-                                keyword: analysis.ruleKeyword,
-                                cleanName: newCleanName,
-                                categoryId: catId
-                              };
-                            }
-                            onApplyCategoryWithRule(item.id, catId, rule);
-                            setManualPickerOpenForId(null);
-                          }}
-                        />
-                      </div>
-                    )}
-
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 bg-white dark:bg-[#252528] border-t border-[#ECE6DE] dark:border-white/10 flex items-center justify-between text-xs">
-          <span className="text-stone-500 dark:text-gray-400 font-semibold">
-            Все подтвержденные правила сохраняются во встроенную базу знаний и автоприменяются при следующих импортах.
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/20 text-stone-700 dark:text-gray-300 font-bold transition"
-          >
-            Закрыть
+          <button type="button" onClick={acceptConfident} disabled={!suggested.length}
+            className="px-3 py-2 bg-[#4A7C59] disabled:bg-stone-300 disabled:text-stone-600 dark:disabled:bg-stone-700 dark:disabled:text-stone-400 text-white rounded-xl text-xs font-semibold flex items-center gap-2">
+            <CheckCheck size={16} /> Принять уверенные ({suggested.length})
           </button>
         </div>
 
+        <main className="overflow-y-auto flex-1 px-4 sm:px-6 py-5">
+          {viewMode === 'list' ? (
+            <div className="space-y-3">
+              <div className="relative">
+                <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
+                  placeholder="Найти операцию по названию, дате или MCC"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#252528] text-sm outline-none focus:ring-2 focus:ring-[#4A7C59]" />
+              </div>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Выберите категорию — она назначится сразу. Для следующей операции не нужно нажимать «ОК».
+              </p>
+              {visible.map(item => {
+                const analysis = analyses.get(item.id);
+                const chosen = chosenCategory(item);
+                const open = openPickerId === item.id;
+                const confident = analysis?.source !== 'fallback' && (analysis?.confidence || 0) >= 88 &&
+                  isUsableCategory(analysis?.suggestedCategoryId, categories);
+                return (
+                  <article key={item.id} className="bg-white dark:bg-[#252528] border border-stone-200 dark:border-white/10 rounded-2xl p-4 space-y-3">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-sm sm:text-base break-words">{item.note}</h3>
+                          {onEditItem && (
+                            <button type="button" onClick={() => onEditItem(item)} title="Изменить операцию"
+                              className="text-stone-400 hover:text-[#4A7C59]"><Edit3 size={15} /></button>
+                          )}
+                        </div>
+                        {item.rawNote && item.rawNote !== item.note &&
+                          <p className="text-xs text-stone-500 dark:text-stone-400 break-words">Из выписки: {item.rawNote}</p>}
+                        {dateAndAmount(item)}
+                        {confident && <p className="text-xs text-[#4A7C59]">Предложение: {categoryName(analysis?.suggestedCategoryId)}</p>}
+                      </div>
+                      <button type="button" onClick={() => setOpenPickerId(open ? null : item.id)}
+                        aria-expanded={open}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-[#4A7C59]/40 text-[#2F6240] dark:text-green-300 font-semibold text-sm min-w-[185px] hover:bg-[#EAF2EC] dark:hover:bg-green-950/30">
+                        <span className="flex items-center gap-2"><Tag size={16} /> {chosen ? categoryName(chosen) : 'Выбрать категорию'}</span>
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+                    {open && (
+                      <div className="border-t border-stone-200 dark:border-white/10 pt-3">
+                        <CategoryPickerAccordion key={item.id} categories={categories} selectedCategoryId={chosen}
+                          onAddCategory={onAddCategory} maxHeightClass="max-h-[360px]"
+                          onSelectCategory={id => assignCategory(item, id)} />
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {!visible.length && <p className="text-center text-sm text-stone-500 py-8">Ничего не найдено</p>}
+            </div>
+          ) : activeItem ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm text-stone-500 dark:text-stone-300">
+                <span>Операция {safeIndex + 1} из {remaining.length}</span>
+                <div className="flex gap-2">
+                  <button type="button" disabled={safeIndex === 0} aria-label="Предыдущая операция"
+                    onClick={() => { setCurrentIndex(i => Math.max(0, i - 1)); setOpenPickerId(null); }}
+                    className="p-2 rounded-lg border border-stone-200 dark:border-white/10 disabled:opacity-30"><ChevronLeft size={18} /></button>
+                  <button type="button" disabled={safeIndex >= remaining.length - 1} aria-label="Следующая операция"
+                    onClick={() => { setCurrentIndex(i => Math.min(remaining.length - 1, i + 1)); setOpenPickerId(null); }}
+                    className="p-2 rounded-lg border border-stone-200 dark:border-white/10 disabled:opacity-30"><ChevronRight size={18} /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-4">
+                <section className="bg-white dark:bg-[#252528] border border-stone-200 dark:border-white/10 rounded-2xl p-5 space-y-4">
+                  <div>
+                    <p className="text-xs text-stone-500 mb-2">Операция из банковской выписки</p>
+                    <h3 className="text-lg font-bold break-words">{activeItem.note}</h3>
+                    {activeItem.rawNote && activeItem.rawNote !== activeItem.note &&
+                      <p className="text-sm text-stone-500 mt-2 break-words">{activeItem.rawNote}</p>}
+                  </div>
+                  {dateAndAmount(activeItem)}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-500 mb-1.5">Название в истории</label>
+                    <input value={editedNames[activeItem.id] ?? activeAnalysis?.cleanName ?? activeItem.note}
+                      onChange={event => setEditedNames(prev => ({ ...prev, [activeItem.id]: event.target.value }))}
+                      className="w-full border border-stone-200 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-xl px-3 py-2.5 text-sm" />
+                  </div>
+                  {rememberRules && (
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-500 mb-1.5">Ключевое слово для будущих выписок</label>
+                      <input value={editedKeywords[activeItem.id] ?? activeAnalysis?.ruleKeyword ?? ''}
+                        onChange={event => setEditedKeywords(prev => ({ ...prev, [activeItem.id]: event.target.value }))}
+                        placeholder="Уникальное название магазина или получателя"
+                        className="w-full border border-stone-200 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-xl px-3 py-2.5 text-sm" />
+                      <p className="text-xs text-stone-500 mt-1">Не используйте общие слова вроде «оплата» или «перевод».</p>
+                    </div>
+                  )}
+                  {onEditItem && <button type="button" onClick={() => onEditItem(activeItem)}
+                    className="inline-flex items-center gap-2 text-sm text-[#4A7C59] font-semibold"><Edit3 size={15} /> Изменить данные операции</button>}
+                </section>
+                <section className="bg-white dark:bg-[#252528] border border-stone-200 dark:border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold text-sm">Выберите категорию или подкатегорию</h3>
+                    {chosenCategory(activeItem) && <span className="text-xs text-[#4A7C59] font-semibold">
+                      {categoryName(chosenCategory(activeItem))}
+                    </span>}
+                  </div>
+                  <CategoryPickerAccordion key={activeItem.id} categories={categories}
+                    selectedCategoryId={chosenCategory(activeItem)}
+                    onAddCategory={onAddCategory} maxHeightClass="max-h-[310px]"
+                    onSelectCategory={id => setChosenCategories(prev => ({ ...prev, [activeItem.id]: id }))} />
+                  <button type="button" disabled={!isUsableCategory(chosenCategory(activeItem), categories)}
+                    onClick={() => {
+                      const categoryId = chosenCategory(activeItem);
+                      if (categoryId) assignCategory(activeItem, categoryId);
+                    }}
+                    className="w-full bg-[#4A7C59] text-white font-semibold rounded-xl py-3 disabled:opacity-40 flex items-center justify-center gap-2">
+                    <Check size={18} /> Назначить категорию
+                  </button>
+                </section>
+              </div>
+            </div>
+          ) : null}
+        </main>
+
+        <footer className="bg-white dark:bg-[#252528] border-t border-stone-200 dark:border-white/10 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
+          <span>Правила сохраняются только при включённом «Запоминать правило». Импорт подтверждается отдельно.</span>
+          <button type="button" onClick={onClose} className="rounded-xl bg-stone-100 dark:bg-white/10 px-4 py-2 text-stone-800 dark:text-white font-semibold">Закрыть</button>
+        </footer>
       </div>
-    </div>,
-    document.body
+    </div>, document.body
   );
 };

@@ -44,6 +44,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { resolveImportMemberId } from './utils/importMemberIdentity';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
@@ -451,8 +452,7 @@ export default function App() {
     importFileDigestRef.current = null;
     importFileRef.current = file;
     try {
-        const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
-        const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+        const memberId = resolveImportMemberId(members, user?.uid);
         const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
@@ -460,8 +460,7 @@ export default function App() {
     } catch (err: any) {
         if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
           try {
-            const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
-            const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+            const memberId = resolveImportMemberId(members, user?.uid);
             const allRows = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, []);
             if (await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id))) {
               const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
@@ -1251,6 +1250,12 @@ export default function App() {
                       setImportPreview(null);
                       toast.info("Импорт отменен (нет операций)");
                       return;
+                    }
+                    if (familyId) {
+                      const memberId = resolveImportMemberId(members, user?.uid);
+                      if (itemsToImport.some(item => item.memberId !== memberId)) {
+                        throw new Error('В выписке указан другой участник семьи. Повторно откройте файл после выбора своего профиля.');
+                      }
                     }
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;

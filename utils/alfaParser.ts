@@ -198,7 +198,7 @@ export const parseAlfaStatement = (
             );
 
             const absAmount = Math.abs(amount);
-            const note = cleanMerchantName(rawNote, learnedRules);
+            let note = cleanMerchantName(rawNote, learnedRules);
             // Alfa XLSX provides both bank category and MCC: use them before
             // falling back to the existing analyzer. Never accept its generic
             // "shopping" fallback as a confident automatic classification.
@@ -207,6 +207,11 @@ export const parseAlfaStatement = (
             const bankCategory = colBankCategory >= 0 ? String(row[colBankCategory] ?? '').trim() : '';
             const suggestion = analyzeTransaction(rawNote, note, mcc, learnedRules, categories);
             const merchant = matchMerchantBrand(rawNote, categories);
+            // Preserve an explicit user's chosen display name. Otherwise use
+            // the canonical shop name so recognition is visible in the preview.
+            if (merchant && suggestion.source !== 'learned_rule') {
+              note = merchant.brandName;
+            }
             // Explicit saved rules win. Known merchant chains then override
             // broad bank categories/MCC; otherwise retain existing classification.
             let categoryId = suggestion.source === 'learned_rule'

@@ -156,7 +156,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     shoppingItems,
     setShoppingItems,
     familyId,
-    currentMemberId: currentMember?.id || 'user',
+    // Empty means no linked profile; never attribute a purchase to another member.
+    currentMemberId: members.find(m => m.userId && m.userId === firebaseUser?.uid)?.id || '',
   });
 
   const memberInitial = (currentMember.name || 'П').charAt(0).toUpperCase();

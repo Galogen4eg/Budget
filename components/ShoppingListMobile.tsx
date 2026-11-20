@@ -25,6 +25,7 @@ import {
   FrequentItemStat
 } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
+import { resolveShoppingMemberId } from '../utils/shoppingMember';
 
 export interface ShoppingListMobileProps {
   items: ShoppingItem[];
@@ -171,15 +172,26 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     return parseQuickShoppingInput(quickAddText);
   }, [quickAddText]);
 
+  const getShoppingMember = (selected: string = 'all'): string | null => {
+    try {
+      return resolveShoppingMemberId(members, user?.uid, selected);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Выберите профиль семьи');
+      return null;
+    }
+  };
+
   // Handlers
   const handleOpenAdd = () => {
+    const memberId = getShoppingMember();
+    if (!memberId) return;
     setEditingItem(null);
     setNewItemTitle('');
     setNewItemAmount('1');
     setNewItemUnit('шт');
     setNewItemPriority('medium');
     setSelectedAisle('dairy');
-    setNewItemMemberId(user?.uid || members[0]?.id || 'user');
+    setNewItemMemberId(memberId);
     setJustAddedTitle(null);
     setIsAddModalOpen(true);
   };
@@ -191,7 +203,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     setNewItemUnit((item.unit as any) || 'шт');
     setNewItemPriority(item.priority || 'medium');
     setSelectedAisle(item.category || 'dairy');
-    setNewItemMemberId(item.memberId || user?.uid || 'user');
+    setNewItemMemberId(item.memberId || getShoppingMember() || '');
     setJustAddedTitle(null);
     setIsAddModalOpen(true);
   };
@@ -201,6 +213,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     const title = newItemTitle.trim();
     if (!title) return;
     try {
+    const validMemberId = getShoppingMember(newItemMemberId);
+    if (!validMemberId) return;
 
     if (editingItem) {
       const updated: ShoppingItem = {
@@ -210,7 +224,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
-        memberId: newItemMemberId
+        memberId: validMemberId
       };
       if (!familyId) throw new Error('Family is not ready');
       await updateItem(familyId, 'shopping', editingItem.id, updated);
@@ -229,8 +243,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
-        memberId: newItemMemberId
-      }], newItemMemberId);
+        memberId: validMemberId
+      }], validMemberId);
 
       if (!familyId) throw new Error('Family is not ready');
       {
@@ -334,7 +348,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
     try {
       setIsSubmittingQuick(true);
-      const targetMemberId = user?.uid || 'user';
+      const targetMemberId = getShoppingMember();
+      if (!targetMemberId) return;
       const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
@@ -371,7 +386,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     const amount = typeof stat === 'string' ? '1' : (stat.amount || '1');
     const unit = typeof stat === 'string' ? 'шт' : (stat.unit || 'шт');
     const category = typeof stat === 'string' ? detectProductCategory(title) : (stat.category || 'other');
-    const targetMemberId = user?.uid || 'user';
+    const targetMemberId = getShoppingMember();
+      if (!targetMemberId) return;
 
     const {
       updatedList,
@@ -422,7 +438,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (text) {
         setIsListening(false);
         setIsProcessingAI(true);
-        const targetMemberId = user?.uid || 'user';
+        const targetMemberId = getShoppingMember();
+        if (!targetMemberId) { setIsProcessingAI(false); return; }
         try {
           let rawParsedItems: { title: string; amount?: string; unit?: string; category?: string }[] = [];
           if (apiKey) {
@@ -1065,7 +1082,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 interface SwipeableCompletedItemProps {
   item: ShoppingItem;
   onToggle: (item: ShoppingItem) => void;
-  onMoveToPantry: (item: ShoppingItem) => void;
+  onMoveToPantry: (item: ShoppingItem) => Promise<void>;
   onDelete: (id: string) => void;
 }
 
@@ -1131,7 +1148,11 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button 
             type="button"
-            onClick={() => onMoveToPantry(item)}
+            onClick={() => {
+              void onMoveToPantry(item).catch(error => {
+                toast.error(error instanceof Error ? error.message : 'Не удалось переместить товар в кладовую');
+              });
+            }}
             className="p-1 text-[#68736A] hover:text-[#4A7C59] transition cursor-pointer"
             title="В кладовку"
           >

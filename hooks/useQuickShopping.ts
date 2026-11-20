@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { ShoppingItem } from '../types';
 import { parseSingleQuickShoppingText, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../utils/shoppingManager';
 import { recordPurchaseEvent } from '../utils/frequentPurchases';
-import { addItem, addItemsBatch, updateItem } from '../utils/db';
+import { saveShoppingMerge, updateItem } from '../utils/db';
 import { toast } from 'sonner';
 
 export interface UseQuickShoppingInput {
@@ -42,12 +42,11 @@ export function useQuickShopping({
   const handleToggleShopping = useCallback(async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
     const updated = { ...item, completed: nextCompleted };
-    setShoppingItems(prev => prev.map(i => i.id === item.id ? updated : i));
 
     try {
-      if (familyId) {
-        await updateItem(familyId, 'shopping', item.id, updated);
-      }
+      if (!familyId) throw new Error('Семейный аккаунт недоступен');
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      setShoppingItems(prev => prev.map(i => i.id === item.id ? { ...i, completed: nextCompleted } : i));
       recordPurchaseEvent(
         item.title,
         nextCompleted ? 'completed' : 'restored',
@@ -66,33 +65,29 @@ export function useQuickShopping({
 
     try {
       setIsAddingShopping(true);
-      const targetMemberId = currentMemberId || 'user';
+      if (!currentMemberId || currentMemberId === 'all') {
+        throw new Error('Ваш аккаунт не привязан к семейному профилю. Выберите свой профиль в настройках.');
+      }
+      const targetMemberId = currentMemberId;
       const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
       const {
         updatedList,
         itemsToUpdateInDb,
-        itemsToAddInDb
+        itemsToAddInDb,
+        purchaseEvents
       } = mergeOrRestoreShoppingItems(shoppingItems, parsedItems, targetMemberId);
 
+      if (!familyId) throw new Error('Семейный аккаунт недоступен');
+      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+      recordCommittedShoppingEvents(purchaseEvents);
       setShoppingItems(updatedList);
       setNewShoppingTitle('');
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
-      }
       toast.success('Покупка успешно добавлена!');
     } catch (err) {
       console.error('Failed to add shopping item inline:', err);
-      toast.error('Ошибка добавления покупок');
+      toast.error(err instanceof Error ? err.message : 'Ошибка добавления покупок');
     } finally {
       setIsAddingShopping(false);
     }

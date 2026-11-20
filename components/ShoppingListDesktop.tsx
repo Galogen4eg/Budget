@@ -45,6 +45,7 @@ import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQ
 import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
+import { resolveShoppingMemberId } from '../utils/shoppingMember';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -376,13 +377,24 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const totalItemsCount = items.length;
   const completedCount = items.filter(i => i.completed).length;
 
+  const getShoppingMember = (selected: string = 'all'): string | null => {
+    try {
+      return resolveShoppingMemberId(members, user?.uid, selected);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Выберите профиль семьи');
+      return null;
+    }
+  };
+
   const openAddModal = (initialTitle = '') => {
     setEditingItem(null);
     setItemName(initialTitle);
     setItemAmount(1);
     setItemUnit('шт');
     setItemCategory('dairy');
-    setItemMemberId(members[0]?.id || 'all');
+    const memberId = getShoppingMember();
+    if (!memberId) return;
+    setItemMemberId(memberId);
     setIsUrgent(false);
     setItemEstimatedPrice(120);
     setIsModalOpen(true);
@@ -466,7 +478,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     try {
       setIsSubmittingQuick(true);
-      const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
+      const targetMemberId = getShoppingMember(filterMemberId);
+      if (!targetMemberId) return;
       const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
 
@@ -503,7 +516,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleQuickAddFavorite = async (fav: FrequentItemStat) => {
-    const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
+    const targetMemberId = getShoppingMember(filterMemberId);
+    if (!targetMemberId) return;
     const {
       updatedList,
         purchaseEvents,
@@ -533,7 +547,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleSaveModal = async (shouldMerge = false) => {
     if (!itemName.trim()) return;
     const cleanName = itemName.trim();
-    const targetMemberId = itemMemberId === 'all' ? (members[0]?.id || 'user') : itemMemberId;
+    const targetMemberId = getShoppingMember(itemMemberId);
+    if (!targetMemberId) return;
 
     if (editingItem) {
       const updated: ShoppingItem = {
@@ -718,7 +733,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     setIsVoiceProcessing(true);
     try {
-      const targetMemberId = filterMemberId !== 'all' ? filterMemberId : (members[0]?.id || user?.uid || 'user');
+      const targetMemberId = getShoppingMember(filterMemberId);
+      if (!targetMemberId) return;
       const incoming = parsedVoiceItems.map(p => ({
         title: p.title,
         amount: p.amount,

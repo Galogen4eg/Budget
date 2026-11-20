@@ -21,6 +21,9 @@ export const normalizeProductTitle = (title: string): string => {
     .toLowerCase()
     .replace(/\s+/g, ' ');
 };
+/** Two products with identical names but different measurement units are distinct items. */
+const comparableUnit = (unit: string | undefined): string => (unit || 'шт').trim().toLowerCase();
+
 
 /**
  * Core engine for adding or restoring shopping items without duplicate cards.
@@ -54,16 +57,15 @@ export function mergeOrRestoreShoppingItems(
     const incomingQty = parseFloat(String(incoming.amount || '1').replace(',', '.')) || 1;
 
     // Check for existing card in completed list
-    const completedIdx = resultList.findIndex(
-      i => i.completed && normalizeProductTitle(i.title) === normalized
-    );
+    const incomingUnit = comparableUnit(incoming.unit);
+    const sameProduct = (i: ShoppingItem) =>
+      normalizeProductTitle(i.title) === normalized && comparableUnit(i.unit) === incomingUnit;
+    const completedIdx = resultList.findIndex(i => i.completed && sameProduct(i));
 
     // Check for existing card in active list
-    const activeIdx = resultList.findIndex(
-      i => !i.completed && normalizeProductTitle(i.title) === normalized
-    );
+    const activeIdx = resultList.findIndex(i => !i.completed && sameProduct(i));
 
-    if (completedIdx !== -1) {
+    if (completedIdx !== -1 && activeIdx === -1) {
       // CASE 1: Item is in "completed" -> Restore to active list, update amount & record stats
       const existing = resultList[completedIdx];
       const restoredItem: ShoppingItem = {
@@ -142,6 +144,13 @@ export function mergeOrRestoreShoppingItems(
     }
   }
 
+  // One document must be written only once per batch. Repeated incoming
+  // products may update the same card more than once; keep the final value.
+  const finalItemsById = new Map(resultList.map(item => [item.id, item]));
+  const finalAdditions = new Map(itemsToAddInDb.map(item => [item.id, finalItemsById.get(item.id)!]));
+  const finalUpdates = new Map(itemsToUpdateInDb.map(item => [item.id, finalItemsById.get(item.id)!]));
+  for (const id of finalAdditions.keys()) finalUpdates.delete(id);
+
   // Generate clear user notification
   let summaryMessage = '';
   if (restoredCount > 0 && addedCount === 0 && mergedCount === 0) {
@@ -163,8 +172,8 @@ export function mergeOrRestoreShoppingItems(
 
   return {
     updatedList: resultList,
-    itemsToUpdateInDb,
-    itemsToAddInDb,
+    itemsToUpdateInDb: [...finalUpdates.values()],
+    itemsToAddInDb: [...finalAdditions.values()],
     restoredCount,
     mergedCount,
     addedCount,

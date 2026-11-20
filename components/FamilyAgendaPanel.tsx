@@ -3,7 +3,7 @@ import { CalendarDays, CircleCheck, Circle, Download, Bell, Plus, Repeat2, Walle
 import { toast } from 'sonner';
 import type { FamilyEvent, MandatoryExpense, FamilyMember } from '../types';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
-import { upcomingAgenda } from '../utils/familyPlanEngine';
+import { upcomingAgenda, buildCalendarOccurrences } from '../utils/familyPlanEngine';
 import { paymentAgenda } from '../utils/calendarReminders';
 import { makeCalendarICS } from '../utils/calendarExport';
 
@@ -35,6 +35,12 @@ export const FamilyAgendaPanel:React.FC<Props>=({
  const agenda=useMemo(()=>{
   const count=view==='today'?1:view==='week'?7:30;
   const raw=upcomingAgenda(events,today,count);
+  // Keep overdue tasks visible in the Tasks tab instead of losing them at midnight.
+  const pastFrom=new Date();pastFrom.setDate(pastFrom.getDate()-30);
+  const overdue=view==='tasks'
+    ?buildCalendarOccurrences(events,formatLocalCalendarDate(pastFrom),formatLocalCalendarDate(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()-1)))
+      .filter(e=>e.kind==='task'&&!e.completed)
+    :[];
   const dates=new Date();const candidates:FamilyEvent[]=[];
   for(let i=0;i<3;i++){
    const month=new Date(dates.getFullYear(),dates.getMonth()+i,1);
@@ -42,7 +48,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   }
   const end=new Date();end.setDate(end.getDate()+count-1);
   const last=formatLocalCalendarDate(end);
-  const all=[...raw,...candidates.filter(x=>x.date>=today&&x.date<=last &&
+  const all=[...overdue,...raw,...candidates.filter(x=>x.date>=today&&x.date<=last &&
     !((paidByMonth?.[x.date.slice(0,7)]||[]).includes(x.linkedExpenseId||'')))];
   return all.filter(x=>view==='tasks'?x.kind==='task':true)
    .sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time)).slice(0,60);
@@ -110,7 +116,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
      <div className="text-xs sm:text-sm font-semibold dark:text-white truncate">{event.title}
       {event.recurrence&&event.recurrence!=='none'&&<Repeat2 size={12} className="inline ml-1 text-stone-400"/>}
      </div>
-     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {event.linkedExpenseId?'Открыть обязательные платежи':memberNames(event)}</div>
+     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {event.linkedExpenseId?'Открыть обязательные платежи':memberNames(event)} {event.kind==='task'&&!event.completed&&event.date<today?'· Просрочено':''}</div>
     </button>
    </div>)}
   </div>

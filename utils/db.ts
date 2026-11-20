@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin } from './familyInvitation';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable } from './familyInvitation';
 import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -178,18 +178,20 @@ export const createFamilyMemberWithInvitation = async (
   existingMembers: readonly FamilyMember[]
 ): Promise<void> => {
   const prepared = prepareFamilyMemberInvitation(familyId, member, existingMembers);
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, 'families', familyId, 'members', prepared.member.id),
-    cleanForFirestore(prepared.member)
-  );
-  if (prepared.invitation) {
-    batch.set(
-      doc(db, 'invitations', prepared.invitation.email),
-      { ...prepared.invitation, createdAt: new Date().toISOString() }
-    );
-  }
-  await batch.commit();
+  const memberRef = doc(db, 'families', familyId, 'members', prepared.member.id);
+  const inviteRef = prepared.invitation
+    ? doc(db, 'invitations', prepared.invitation.email)
+    : null;
+  await runTransaction(db, async transaction => {
+    const existingMember = await transaction.get(memberRef);
+    const existingInvite = inviteRef ? await transaction.get(inviteRef) : null;
+    if (existingMember.exists()) throw new Error('Такой профиль уже существует. Обновите список участников');
+    assertInvitationAvailable(existingInvite?.exists() ? existingInvite.data() : null);
+    transaction.set(memberRef, cleanForFirestore(prepared.member));
+    if (inviteRef && prepared.invitation) {
+      transaction.set(inviteRef, { ...prepared.invitation, createdAt: new Date().toISOString() });
+    }
+  });
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {

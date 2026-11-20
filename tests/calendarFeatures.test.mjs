@@ -35,3 +35,10 @@ test('paid mandatory bills do not appear in reminders or upcoming agenda',()=>{
   assert.equal(paymentAgenda(payments,new Date(2026,10,1),{'2026-11':['paid']}).length,0);
   assert.equal(paymentAgenda(payments,new Date(2026,10,1),{'2026-11':[]}).length,1);
 });
+
+test('ICS exports reminder alarms for native phone calendar apps',()=>{
+ const ics=makeCalendarICS([event],new Date(2026,10,21,9,0));
+ assert.match(ics,/BEGIN:VALARM/);
+ assert.match(ics,/TRIGGER:-PT15M/);
+ assert.match(ics,/ACTION:DISPLAY/);
+});

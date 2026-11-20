@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, assertInvitationAvailable } from './familyInvitation';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin, mayReadInvitation } from './familyInvitation';
 import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -178,25 +178,26 @@ export const createFamilyMemberWithInvitation = async (
   existingMembers: readonly FamilyMember[]
 ): Promise<void> => {
   const prepared = prepareFamilyMemberInvitation(familyId, member, existingMembers);
-  const memberRef = doc(db, 'families', familyId, 'members', prepared.member.id);
-  const inviteRef = prepared.invitation
-    ? doc(db, 'invitations', prepared.invitation.email)
-    : null;
-  await runTransaction(db, async transaction => {
-    const existingMember = await transaction.get(memberRef);
-    const existingInvite = inviteRef ? await transaction.get(inviteRef) : null;
-    if (existingMember.exists()) throw new Error('Такой профиль уже существует. Обновите список участников');
-    assertInvitationAvailable(existingInvite?.exists() ? existingInvite.data() : null);
-    transaction.set(memberRef, cleanForFirestore(prepared.member));
-    if (inviteRef && prepared.invitation) {
-      transaction.set(inviteRef, { ...prepared.invitation, createdAt: new Date().toISOString() });
-    }
-  });
+  // Use a batch, not a read-before-write transaction. The inviting owner
+  // cannot read an invitation that does not exist under the restricted rules.
+  // Invitation updates are denied in rules: if the email is already invited,
+  // this entire batch is rejected and the placeholder is not created.
+  const batch = writeBatch(db);
+  batch.set(
+    doc(db, 'families', familyId, 'members', prepared.member.id),
+    cleanForFirestore(prepared.member)
+  );
+  if (prepared.invitation) {
+    batch.set(doc(db, 'invitations', prepared.invitation.email), {
+      ...prepared.invitation, createdAt: new Date().toISOString()
+    });
+  }
+  await batch.commit();
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
-  if (!user.email) return null;
-  const email = user.email.trim().toLowerCase();
+  if (!mayReadInvitation(user)) return null;
+  const email = user.email!.trim().toLowerCase();
   const invitation = await getDoc(doc(db, 'invitations', email));
   if (!invitation.exists()) return null;
   const familyId = invitation.data().familyId;
@@ -263,7 +264,12 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
       const familySnap = await transaction.get(familyRef);
       if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
 
-      const inviteSnap = inviteRef ? await transaction.get(inviteRef) : null;
+      const alreadyMember = Array.isArray(familySnap.data().members) &&
+        familySnap.data().members.includes(user.uid);
+      if (!alreadyMember && !mayReadInvitation(user)) {
+        throw new Error('Для принятия приглашения нужен подтверждённый email. Проверьте почту и повторите вход.');
+      }
+      const inviteSnap = inviteRef && mayReadInvitation(user) ? await transaction.get(inviteRef) : null;
       const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
         ? inviteSnap.data() : null;
       const joinPlan = resolveFamilyJoin(familySnap.data().members, user.uid, invitation);

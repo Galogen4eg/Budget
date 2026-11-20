@@ -211,8 +211,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         category: selectedAisle,
         memberId: newItemMemberId
       };
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', editingItem.id, updated);
       setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       setIsAddModalOpen(false);
     } else {
       // Check if item is in completed or active list without creating duplicate
@@ -229,8 +230,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         memberId: newItemMemberId
       }], newItemMemberId);
 
-      setItems(updatedList);
-      if (familyId) {
+      if (!familyId) throw new Error('Family is not ready');
+      {
         for (const item of itemsToUpdateInDb) {
           await updateItem(familyId, 'shopping', item.id, item);
         }
@@ -238,6 +239,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           await addItem(familyId, 'shopping', item);
         }
       }
+      setItems(updatedList);
 
       if (closeAfterSave) {
         setIsAddModalOpen(false);
@@ -257,11 +259,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const handleToggle = async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
     const updated = { ...item, completed: nextCompleted };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     try {
-      if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     } catch (error) {
-      setItems(prev => prev.map(i => i.id === item.id && i.completed === nextCompleted ? item : i));
       toast.error('Не удалось сохранить статус покупки');
       return;
     }
@@ -278,15 +280,17 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     const current = parseFloat(item.amount || '1') || 1;
     const next = Math.max(1, Math.round((current + delta) * 10) / 10);
     const updated = { ...item, amount: String(next) };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) {
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
       await updateItem(familyId, 'shopping', item.id, { amount: String(next) });
-    }
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    } catch (error) { toast.error('Не удалось обновить количество'); }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      if (familyId) await deleteItem(familyId, 'shopping', id);
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItem(familyId, 'shopping', id);
       setItems(prev => prev.filter(i => i.id !== id));
       if (editingItem?.id === id) setIsAddModalOpen(false);
     } catch (error) {
@@ -298,7 +302,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     if (completedItems.length === 0) return;
     const idsToDelete = completedItems.map(i => i.id);
     try {
-      if (familyId) await deleteItemsBatch(familyId, 'shopping', idsToDelete);
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItemsBatch(familyId, 'shopping', idsToDelete);
       setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');

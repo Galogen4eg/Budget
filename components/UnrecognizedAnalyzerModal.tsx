@@ -209,12 +209,12 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
 
   // Only high-confidence non-fallback suggestions may be accepted in bulk.
   // Never silently label an unknown operation as Shopping.
-  const eligibleAutoSuggestions = useMemo(() => unrecognizedItems.filter(item => {
+  const eligibleAutoSuggestions = unrecognizedItems.filter(item => {
     const result = analyzedMap.get(item.id);
     return Boolean(result && result.source !== 'fallback' &&
       result.confidence >= 88 && result.suggestedCategoryId !== 'other' &&
       categories.some(c => c.id === result.suggestedCategoryId));
-  }), [unrecognizedItems, analyzedMap, categories]);
+  });
 
   const handleConfirmAllSuggestions = () => {
     if (eligibleAutoSuggestions.length === 0) return;

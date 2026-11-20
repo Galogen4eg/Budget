@@ -8,6 +8,9 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
 import { toast } from 'sonner';
+import { formatLocalCalendarDate, parseLocalCalendarDate, eventDateTime } from '../utils/calendarDates';
+import { findEventConflicts } from '../utils/eventConflicts';
+import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -15,7 +18,7 @@ interface EventModalProps {
   members: FamilyMember[];
   onClose: () => void;
   onSave: (e: FamilyEvent) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
+  onDelete?: (id: string, scope?: 'single'|'series') => Promise<void>;
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   templates: FamilyEvent[];
   settings: AppSettings;
@@ -71,27 +74,32 @@ export const EventModal: React.FC<EventModalProps> = ({
   allEvents = [] 
 }) => {
   const currentUserMemberId = useMemo(() => {
-    return members.find(m => m.userId === auth.currentUser?.uid)?.id || members[0]?.id;
+    return members.find(m => m.userId && m.userId === auth.currentUser?.uid)?.id;
   }, [members]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
-  const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(event?.date || prefill?.date || formatLocalCalendarDate(new Date()));
   const [time, setTime] = useState(event?.time || prefill?.time || '12:00');
   const [dur, setDur] = useState<string | number>(event?.duration || 1);
   
   const [mIds, setMIds] = useState<string[]>(
     event?.memberIds || 
     prefill?.memberIds || 
-    (currentUserMemberId ? [currentUserMemberId] : members.map(m => m.id))
+    (currentUserMemberId ? [currentUserMemberId] : [])
   );
 
   const [isT, setIsT] = useState(event?.isTemplate || false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event?.checklist || []);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [reminders, setReminders] = useState<number[]>(event?.reminders || [60]);
+  const [kind,setKind]=useState<'event'|'task'>(event?.kind||prefill?.kind||'event');
+  const [recurrence,setRecurrence]=useState<NonNullable<FamilyEvent['recurrence']>>(event?.recurrence||'none');
+  const [recurrenceUntil,setRecurrenceUntil]=useState(event?.recurrenceUntil||'');
+  const [completed,setCompleted]=useState(Boolean(event?.completed));
+  const [editScope,setEditScope]=useState<'single'|'series'>(event?.seriesId?'single':'series');
   
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -126,7 +134,9 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Short weekday for date badge
   const shortWeekday = useMemo(() => {
-    const d = new Date(date);
+    let d: Date;
+    try { d = parseLocalCalendarDate(date); }
+    catch { return ''; }
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('ru-RU', { weekday: 'short' });
   }, [date]);
@@ -136,63 +146,51 @@ export const EventModal: React.FC<EventModalProps> = ({
     return calculateEndTime(time, parseFloat(String(dur)) || 1);
   }, [time, dur]);
 
-  // Conflict detection
+  // Expand recurring events around the date being edited before checking conflicts.
   const conflict = useMemo(() => {
-    const [currH, currM] = (time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const durationHours = parseFloat(String(dur)) || 1;
-    const currStart = currH * 60 + currM;
-    const currEnd = currStart + (durationHours * 60);
+    let around:FamilyEvent[];
+    try{
+      const startDate=parseLocalCalendarDate(date);
+      startDate.setDate(startDate.getDate()-1);
+      const endDate=parseLocalCalendarDate(date);
+      endDate.setDate(endDate.getDate()+2);
+      around=buildCalendarOccurrences(allEvents,formatLocalCalendarDate(startDate),formatLocalCalendarDate(endDate));
+    }catch{return null;}
+    const seriesId=event?.seriesId||event?.id;
+    const rest=around.filter(existing=>
+      existing.id!==event?.id && (!seriesId || (existing.seriesId||existing.id)!==seriesId)
+    );
+    const candidate:FamilyEvent={
+      id:event?.id||'__calendar_pending__',title,description:desc,date,time,
+      duration:parseFloat(String(dur))||1,memberIds:mIds
+    };
+    const pair=findEventConflicts([...rest,candidate]).conflictPairs.find(
+      entry=>entry.eventA.id===candidate.id||entry.eventB.id===candidate.id
+    );
+    return pair?(pair.eventA.id===candidate.id?pair.eventB:pair.eventA):null;
+  },[date,time,dur,mIds,allEvents,event?.id,event?.seriesId]);
 
-    for (const existing of allEvents) {
-      if (existing.id === event?.id) continue;
-      if (existing.date !== date) continue;
-
-      const curMembers = mIds || [];
-      const exMembers = existing.memberIds || [];
-      
-      let isMemberConflict = false;
-      if (curMembers.length > 0 && exMembers.length > 0) {
-        isMemberConflict = curMembers.some(mid => exMembers.includes(mid));
-      } else {
-        isMemberConflict = true;
-      }
-      
-      if (!isMemberConflict) continue;
-
-      const [exH, exM] = (existing.time || '00:00').split(':').map(t => parseInt(t, 10) || 0);
-      const exStart = exH * 60 + exM;
-      const exEnd = exStart + ((existing.duration || 1) * 60);
-
-      if (currStart < exEnd && currEnd > exStart) {
-        return existing;
-      }
-    }
-    return null;
-  }, [date, time, dur, mIds, allEvents, event?.id]);
 
   // Suggested conflict-free slot
   const suggestedSlot = useMemo(() => {
     if (!conflict) return null;
-    const [cStartH, cStartM] = (conflict.time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const conflictEndMinutes = cStartH * 60 + cStartM + ((conflict.duration || 1) * 60);
-    const slotH = Math.floor(conflictEndMinutes / 60) % 24;
-    const slotM = conflictEndMinutes % 60;
-    const suggestedTime = `${String(slotH).padStart(2, '0')}:${String(slotM).padStart(2, '0')}`;
-    const durationHours = parseFloat(String(dur)) || 1;
-    const suggestedEndMinutes = slotH * 60 + slotM + Math.round(durationHours * 60);
-    const suggestedEndH = Math.floor(suggestedEndMinutes / 60) % 24;
-    const suggestedEndM = suggestedEndMinutes % 60;
-    const suggestedEndTime = `${String(suggestedEndH).padStart(2, '0')}:${String(suggestedEndM).padStart(2, '0')}`;
-
-    return {
-      startTime: suggestedTime,
-      endTime: suggestedEndTime,
-      label: `${suggestedTime} – ${suggestedEndTime}`
-    };
+    try {
+      const conflictEnd = eventDateTime(conflict.date, conflict.time || '00:00');
+      conflictEnd.setMinutes(conflictEnd.getMinutes() + Math.round((conflict.duration || 1) * 60));
+      const slotDate = formatLocalCalendarDate(conflictEnd);
+      const suggestedTime = `${String(conflictEnd.getHours()).padStart(2, '0')}:${String(conflictEnd.getMinutes()).padStart(2, '0')}`;
+      const end = new Date(conflictEnd);
+      end.setMinutes(end.getMinutes() + Math.round((parseFloat(String(dur)) || 1) * 60));
+      const endTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      return { date: slotDate, startTime: suggestedTime, endTime, label: `${suggestedTime} – ${endTime}` };
+    } catch {
+      return null;
+    }
   }, [conflict, dur]);
 
   const applySuggestedSlot = () => {
     if (suggestedSlot) {
+      setDate(suggestedSlot.date);
       setTime(suggestedSlot.startTime);
     }
   };
@@ -296,20 +294,40 @@ export const EventModal: React.FC<EventModalProps> = ({
       toast.error('Введите название события');
       return;
     }
+    try {
+      parseLocalCalendarDate(date);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Некорректное время');
+    } catch {
+      toast.error('Проверьте дату и время события');
+      return;
+    }
+
 
     const finalDuration = parseFloat(String(dur)) || 1;
+    if(recurrenceUntil&&recurrenceUntil<date&&recurrence!=='none'){
+      toast.error('Конец повторения не может быть раньше начала события');return;
+    }
+    const seriesId=event?.seriesId||event?.id;
+    const isSingle=Boolean(event && seriesId && (event?.seriesId||event.recurrence&&event.recurrence!=='none') && editScope==='single');
+    const baseSeries=allEvents.find(e=>e.id===seriesId);
     const newEventData: FamilyEvent = {
-      id: event?.id || Date.now().toString(),
+      id: isSingle ? `${seriesId}::${event?.occurrenceDate||event?.date}` : (seriesId||Date.now().toString()),
       title: title.trim(),
       description: desc,
-      date,
+      date:!isSingle&&event?.seriesId&&baseSeries?baseSeries.date:date,
       time,
       duration: finalDuration,
       memberIds: mIds,
       isTemplate: isT,
       checklist,
       reminders,
-      userId: auth.currentUser?.uid
+      kind,
+      completed:kind==='task'?completed:false,
+      recurrence:isSingle?'none':recurrence,
+      ...(recurrence!=='none'&&!isSingle&&recurrenceUntil?{recurrenceUntil}:{}),
+      ...(isSingle?{seriesId,occurrenceDate:event?.occurrenceDate||event?.date}:{ }),
+      linkedExpenseId:event?.linkedExpenseId,
+      userId: auth.currentUser?.uid,
     };
 
     if (conflict) {
@@ -355,7 +373,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <CalendarIcon size={18} strokeWidth={2.2} />
               </div>
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#2C2723] dark:text-white leading-tight">
-                {event ? 'Редактировать событие' : 'Новое событие'}
+                {event ? 'Редактировать план' : 'Новый план'}
               </h1>
             </div>
 
@@ -425,6 +443,41 @@ export const EventModal: React.FC<EventModalProps> = ({
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
         <div className="flex-1 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar">
           
+          <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label className="text-xs font-semibold dark:text-white">Тип
+                <select value={kind} onChange={e=>setKind(e.target.value as 'event'|'task')}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  <option value="event">Событие</option><option value="task">Совместная задача</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold dark:text-white">Повторять
+                <select value={recurrence} onChange={e=>setRecurrence(e.target.value as NonNullable<FamilyEvent['recurrence']>)}
+                  disabled={editScope==='single'&&Boolean(event)}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  <option value="none">Не повторять</option>
+                  <option value="daily">Ежедневно</option><option value="weekly">Еженедельно</option>
+                  <option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option>
+                </select>
+              </label>
+            </div>
+            {recurrence!=='none'&&editScope!=='single'&&
+              <label className="block text-xs font-semibold dark:text-white">Повторять до (необязательно)
+                <input type="date" value={recurrenceUntil} onChange={e=>setRecurrenceUntil(e.target.value)}
+                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white"/>
+              </label>}
+            {event&&(Boolean(event.seriesId)||Boolean(event.recurrence&&event.recurrence!=='none'))&&
+              <fieldset className="flex flex-wrap gap-3 text-xs dark:text-white">
+                <legend className="font-semibold mb-1">Что изменить?</legend>
+                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='single'} onChange={()=>setEditScope('single')}/>Только этот раз</label>
+                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='series'} onChange={()=>setEditScope('series')}/>Всю серию</label>
+              </fieldset>}
+            {kind==='task'&&
+              <label className="flex items-center gap-2 text-xs font-medium dark:text-white">
+                <input type="checkbox" checked={completed} onChange={e=>setCompleted(e.target.checked)}/>
+                Задача выполнена
+              </label>}
+          </section>
           {/* Conflict Warning Banner (if any) */}
           {conflict && (
             <div className="rounded-xl p-2.5 bg-[#FEF7EC] dark:bg-amber-950/40 border border-[#F3D5A5] dark:border-amber-800/40 flex items-center justify-between gap-2">
@@ -797,7 +850,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                       setIsSaving(true);
                       setSaveError(null);
                       try {
-                        await onDelete(event.id);
+                        await onDelete(event.id,editScope);
                         onClose();
                       } catch (error) {
                         console.error('Event delete failed:', error);

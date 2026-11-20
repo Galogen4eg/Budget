@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
+import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
 import { prepareFamilyMemberInvitation } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
@@ -637,3 +638,51 @@ export const executeAtomicTransfer = async (
   await batch.commit();
   return { ...cleanTx, id: txId };
 };
+
+/** Serialized event writes prevent one device overwriting another device's edits. */
+export async function saveFamilyPlanEvent(
+  familyId: string, next: FamilyEvent, expected: FamilyEvent | null
+): Promise<void> {
+  if(!familyId) throw new Error('Семейный аккаунт недоступен');
+  const ref=doc(db,'families',familyId,'events',next.id);
+  await runTransaction(db,async tx=>{
+    const current=await tx.get(ref);
+    const existing=current.exists()?{...current.data(),id:current.id} as FamilyEvent:null;
+    assertCalendarVersion(expected,existing);
+    tx.set(ref,cleanForFirestore(next));
+  });
+}
+
+export async function deleteFamilyPlanEvent(
+  familyId:string,id:string,expected:FamilyEvent|null
+):Promise<void>{
+  if(!familyId)throw new Error('Семейный аккаунт недоступен');
+  const ref=doc(db,'families',familyId,'events',id);
+  await runTransaction(db,async tx=>{
+    const snap=await tx.get(ref);
+    const current=snap.exists()?{...snap.data(),id:snap.id} as FamilyEvent:null;
+    assertCalendarVersion(expected,current);
+    if(!current)throw new Error('Событие уже удалено');
+    tx.delete(ref);
+  });
+}
+
+/** Detach just one occurrence while keeping the rest of the series intact. */
+export async function saveFamilyPlanOccurrence(
+  familyId:string,parent:FamilyEvent,sourceDate:string,replacement:FamilyEvent|null
+):Promise<void>{
+  const parentRef=doc(db,'families',familyId,'events',parent.id);
+  const overrideRef=replacement?doc(db,'families',familyId,'events',`${parent.id}::${sourceDate}`):null;
+  await runTransaction(db,async tx=>{
+    const parentSnap=await tx.get(parentRef);
+    const stored=parentSnap.exists()?{...parentSnap.data(),id:parentSnap.id} as FamilyEvent:null;
+    assertCalendarVersion(parent,stored);
+    if(!stored)throw new Error('Серия событий удалена');
+    const existingOverride=overrideRef?await tx.get(overrideRef):null;
+    if(existingOverride?.exists())throw new Error('Этот экземпляр уже изменён на другом устройстве');
+    tx.update(parentRef,{recurrenceExceptions:markOccurrenceSkipped(stored,sourceDate).recurrenceExceptions});
+    if(replacement&&overrideRef)tx.set(overrideRef,cleanForFirestore({
+      ...replacement,id:overrideRef.id,seriesId:undefined,occurrenceDate:undefined,recurrence:'none'
+    }));
+  });
+}

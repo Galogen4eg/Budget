@@ -50,7 +50,8 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
+  saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -440,10 +441,19 @@ export default function App() {
     toast.success("Настройки сброшены к значениям по умолчанию");
   };
 
-  const handleDeleteEvent = async (id: string) => {
+  const handleDeleteEvent = async (id: string, scope: 'single'|'series' = 'series') => {
       if (!familyId) throw new Error('Family is not ready: event was not deleted');
-      await deleteItem(familyId, 'events', id);
-      setEvents(prev => prev.filter(ev => ev.id !== id));
+      const source = selectedEvent || events.find(ev=>ev.id===id);
+      const baseId = source?.seriesId || source?.id || id;
+      if(scope==='single' && source && (source.seriesId || source.recurrence && source.recurrence!=='none')){
+          const parent=events.find(ev=>ev.id===baseId);
+          if(!parent) throw new Error('Серия уже удалена');
+          await saveFamilyPlanOccurrence(familyId,parent,source.occurrenceDate||source.date,null);
+      } else {
+          const old=events.find(ev=>ev.id===baseId);
+          if(!old) throw new Error('Событие уже удалено');
+          await deleteFamilyPlanEvent(familyId,old.id,old);
+      }
   };
 
   const handleImport = async (file: File) => {
@@ -678,15 +688,14 @@ export default function App() {
 
   const handleSaveEvent = async (e: FamilyEvent) => {
       if (!familyId) throw new Error('Family is not ready: event was not saved');
-      const exists = events.some(ev => ev.id === e.id);
-      if (exists) await updateItem(familyId, 'events', e.id, e);
-      else await addItem(familyId, 'events', e);
-      setEvents(prev => {
-          const existingIndex = prev.findIndex(ev => ev.id === e.id);
-          return existingIndex >= 0
-              ? prev.map(ev => ev.id === e.id ? e : ev)
-              : [...prev, e];
-      });
+      if(e.seriesId){
+          const parent=events.find(ev=>ev.id===e.seriesId);
+          if(!parent)throw new Error('Серия удалена');
+          await saveFamilyPlanOccurrence(familyId,parent,e.occurrenceDate||e.date,e);
+      }else{
+          await saveFamilyPlanEvent(familyId,e,events.find(ev=>ev.id===e.id)||null);
+      }
+      // Firestore subscription updates the list only after server acknowledgement.
       setIsAddEventModalOpen(false);
       if (settings.autoSendEventsToTelegram) void handleSendEventToTelegram(e);
       toast.success('Событие сохранено');
@@ -1077,6 +1086,7 @@ export default function App() {
                 onDeleteEvent={handleDeleteEvent}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
+                onOpenBudget={() => setActiveTab('budget')}
               />
             </div>
 
@@ -1409,8 +1419,8 @@ export default function App() {
                         await handleSaveEvent(e);
                         setSelectedEvent(null);
                     }}
-                    onDelete={async (id) => {
-                        await handleDeleteEvent(id);
+                    onDelete={async (id, scope) => {
+                        await handleDeleteEvent(id,scope);
                         setIsAddEventModalOpen(false);
                         setSelectedEvent(null);
                     }}

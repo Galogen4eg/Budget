@@ -115,6 +115,16 @@ export interface FamilyEvent {
   isTemplate?: boolean;
   checklist?: ChecklistItem[];
   reminders?: number[];
+  kind?: 'event' | 'task';
+  completed?: boolean;
+  completedAt?: string;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceUntil?: string;
+  recurrenceExceptions?: string[];
+  /** Derived occurrence fields; normal saved series should omit these. */
+  seriesId?: string;
+  occurrenceDate?: string;
+  linkedExpenseId?: string;
 }
 
 export interface Reminder {

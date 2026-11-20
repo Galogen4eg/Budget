@@ -426,7 +426,14 @@ const commitFinancialTransaction = async (
     } else txn.delete(txRef);
 
     for (const goal of recalculated.changedGoals) {
-      txn.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
+      const index = proposedGoalIds.indexOf(goal.id);
+      if (index < 0) throw new Error('Неизвестная цель накопления');
+      if (snaps[index].exists()) {
+        // Avoid clobbering a concurrent edit of the goal's name or target.
+        txn.update(refs[index], { currentAmount: goal.currentAmount });
+      } else {
+        txn.set(refs[index], cleanForFirestore(goal));
+      }
     }
   });
 };

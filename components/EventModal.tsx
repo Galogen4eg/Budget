@@ -86,7 +86,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [mIds, setMIds] = useState<string[]>(
     event?.memberIds || 
     prefill?.memberIds || 
-    (currentUserMemberId ? [currentUserMemberId] : members.map(m => m.id))
+    (currentUserMemberId ? [currentUserMemberId] : [])
   );
 
   const [isT, setIsT] = useState(event?.isTemplate || false);
@@ -127,7 +127,9 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Short weekday for date badge
   const shortWeekday = useMemo(() => {
-    const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? parseLocalCalendarDate(date) : new Date(NaN);
+    let d: Date;
+    try { d = parseLocalCalendarDate(date); }
+    catch { return ''; }
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('ru-RU', { weekday: 'short' });
   }, [date]);

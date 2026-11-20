@@ -12,9 +12,12 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, saveAppSettings, subscribeToAppSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettings, subscribeToAppSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
+import { toast } from 'sonner';
+import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
+import { missingIncomeCategories } from '../utils/categoryCatalog';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -70,6 +73,7 @@ interface DataContextType {
   setMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>;
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+  importSourcesReady: boolean;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   aiKnowledge: AIKnowledgeItem[];
@@ -141,6 +145,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [transactionsReady, setTransactionsReady] = useState(false);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -183,6 +189,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
 
   const isInitialLoad = useRef(true);
+  const merchantCatalogSyncAttempted = useRef(new Set<string>());
 
   // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
@@ -219,6 +226,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- Subscriptions ---
   useEffect(() => {
+    setTransactionsReady(false);
+    setCatalogReady(false);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
     const cachedRules = localStorage.getItem('local_rules');
     if (cachedRules) {
@@ -313,6 +322,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'transactions', (data) => {
         const list = Array.isArray(data) ? data.map(sanitizeTransaction) : [];
         setTransactions(list);
+        setTransactionsReady(true);
       }),
       subscribeToCollection(familyId, 'shopping', (data) => {
         const uniqueMap = new Map<string, ShoppingItem>();
@@ -327,8 +337,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscribeToCollection(familyId, 'members', (data) => { 
           if (data.length > 0) setMembers(data as FamilyMember[]);
       }),
-      subscribeToCollection(familyId, 'categories', (data) => { 
-          if (data.length > 0) setCategories(data as Category[]);
+      subscribeToCollection(familyId, 'categories', (data) => {
+          const saved = data as Category[];
+          if (saved.length > 0) setCategories(saved);
+          // Older families were initialized before named store subcategories
+          // existed. The Firestore snapshot must not permanently erase them.
+          // Create only missing built-ins; existing customized docs stay intact.
+          // New families need the complete default catalog; existing families
+          // retain their custom deletions except essential income/merchant IDs.
+          const missing = saved.length === 0 ? INITIAL_CATEGORIES :
+              [...missingMerchantCategories(INITIAL_CATEGORIES, saved), ...missingIncomeCategories(INITIAL_CATEGORIES, saved)];
+          if (missing.length === 0) setCatalogReady(true);
+          if (missing.length > 0 && !merchantCatalogSyncAttempted.current.has(familyId)) {
+              merchantCatalogSyncAttempted.current.add(familyId);
+              void createCategoriesIfMissing(familyId, missing)
+                  .catch(error => {
+                      merchantCatalogSyncAttempted.current.delete(familyId);
+                      console.error('Could not restore bank categories:', error);
+                      toast.error('Не удалось синхронизировать категории с Firebase. Автоимпорт приостановлен.');
+                  });
+          }
       }),
       subscribeToCollection(familyId, 'rules', async (data) => {
           const list = (data as LearnedRule[]) || [];
@@ -563,6 +591,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
+    importSourcesReady: transactionsReady && catalogReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings, setSettings, updateSettings, // Expose unified updater

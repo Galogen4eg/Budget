@@ -15,6 +15,7 @@ import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import { isCategoryForType } from '../utils/categoryCatalog';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -28,7 +29,7 @@ interface AddTransactionModalProps {
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   transactions: Transaction[];
   onDelete?: (id: string) => Promise<void>;
-  onAddCategory?: (category: Category) => void;
+  onAddCategory?: (category: Category) => void | Promise<void>;
 }
 
 /**
@@ -106,7 +107,14 @@ export default function AddTransactionModal({
   }, [learnedRules, initialTransaction, note, renamedTitle]); 
   
   // Selection State
-  const [categoryId, setCategoryId] = useState(() => initialTransaction ? initialTransaction.category : (categories[0]?.id || 'other'));
+  const [categoryId, setCategoryId] = useState(() => initialTransaction ? initialTransaction.category : (categories.find(c => c.id === 'food')?.id || categories[0]?.id || 'other'));
+  const changeTransactionType = (next: 'income' | 'expense') => {
+    setType(next);
+    if (!isCategoryForType(categoryId, categories, next)) {
+      setCategoryId(next === 'income' ? (categories.find(c => c.id === 'income')?.id || 'other') :
+        (categories.find(c => c.id === 'food')?.id || 'other'));
+    }
+  };
   const [memberId, setMemberId] = useState(() => {
     if (initialTransaction) return initialTransaction.memberId;
     const myMember = members.find(m => m.userId === auth.currentUser?.uid);
@@ -384,7 +392,7 @@ export default function AddTransactionModal({
                   <div className="md:col-span-5 p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1 border border-surface-border/60 dark:border-white/5">
                     <button 
                       type="button"
-                      onClick={() => setType('expense')}
+                      onClick={() => changeTransactionType('expense')}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'expense' 
                           ? 'bg-[#D95C48] text-white shadow-sm' 
@@ -396,7 +404,7 @@ export default function AddTransactionModal({
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setType('income')}
+                      onClick={() => changeTransactionType('income')}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'income' 
                           ? 'bg-primary text-white shadow-sm' 
@@ -971,6 +979,7 @@ export default function AddTransactionModal({
             isOpen={isDesktopCategoryPickerOpen}
             onClose={() => setIsDesktopCategoryPickerOpen(false)}
             categories={categories}
+            transactionType={type}
             selectedCategoryId={categoryId}
             onSelectCategory={(id) => {
               setCategoryId(id);
@@ -992,6 +1001,7 @@ export default function AddTransactionModal({
             isOpen={isMobileCategoryPickerOpen}
             onClose={() => setIsMobileCategoryPickerOpen(false)}
             categories={categories}
+            transactionType={type}
             selectedCategoryId={categoryId}
             onSelectCategory={(id) => {
               setCategoryId(id);

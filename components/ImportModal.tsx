@@ -11,8 +11,11 @@ import { useClickAway } from 'react-use';
 import { RippleButton } from './RippleButton';
 import AddTransactionModal from './AddTransactionModal';
 import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
-import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
+import { CategoryPickerAccordion } from './CategoryPickerAccordion';
+import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from '../utils/analyzerHelper';
 import { toast } from 'sonner';
+import { countCategoryUsage } from '../utils/categoryPopularity';
+import { isCategoryForType } from '../utils/categoryCatalog';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -32,7 +35,8 @@ interface ImportModalProps {
   onLearnRule: (rule: LearnedRule) => void;
   learnedRules?: LearnedRule[];
   categories: Category[];
-  onAddCategory: (category: Category) => void;
+  onAddCategory: (category: Category) => void | Promise<void>;
+  transactions: Transaction[];
   members: FamilyMember[];
 }
 
@@ -74,9 +78,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   learnedRules = [],
   categories, 
   onAddCategory, 
+  transactions,
   members 
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  // Snapshot of saved family history, not the changing preview, keeps ranking stable.
+  const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
   // Локальный список операций с уникальными стабильными ключами
   const [items, setItems] = useState<ImportItem[]>(() => {
     return preview.map((p, idx) => ({
@@ -84,7 +91,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       tempId: `import-${idx}-${Date.now()}`,
       isVerified: false,
       rememberRule: false,
-      mcc: extractMcc(p.rawNote || p.note),
+      mcc: (p as typeof p & { mcc?: string }).mcc || extractMcc(p.rawNote || p.note),
       accountMask: extractAccountMask(p.rawNote || p.note) || '••3271'
     }));
   });
@@ -205,7 +212,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const cleanRaw = extractCleanRuleKeyword(item.rawNote, item.note).toLowerCase();
 
         for (const rule of rulesToApply) {
-          if (!rule.keyword) continue;
+          if (!rule.keyword || rule.categoryId === 'other' || !isCategoryForType(rule.categoryId, categories, item.type)) continue;
           const kwLower = rule.keyword.toLowerCase().trim();
           if (!kwLower) continue;
 
@@ -304,6 +311,34 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     onUpdateAll(cleanItems);
   };
 
+  // When the Firestore catalog is restored after the XLSX was parsed, resolve
+  // only previously unassigned, unverified rows. Never overwrite user choices.
+  useEffect(() => {
+    const updated = items.map(item => {
+      if (item.isVerified) return item;
+      const merchant = item.type === 'expense'
+        ? matchMerchantBrand(item.rawNote || item.note, categories)
+        : undefined;
+      const hasValidCategory = Boolean(item.category && item.category !== 'other' &&
+        categories.some(category => category.id === item.category));
+      // A temporary parent category can be upgraded to the named store once
+      // its subcategory arrives from Firestore. Never override a manual edit.
+      if (hasValidCategory && !(merchant?.isSubcategory && merchant.categoryId !== item.category)) return item;
+      const analysis = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories, item.type);
+      if (analysis.source === 'fallback' || analysis.confidence < 92 ||
+          analysis.suggestedCategoryId === 'other' ||
+          !categories.some(category => category.id === analysis.suggestedCategoryId)) return item;
+      return {
+        ...item,
+        category: analysis.suggestedCategoryId,
+        note: analysis.source === 'brand' ? analysis.cleanName : item.note
+      };
+    });
+    if (updated.some((item, index) => item !== items[index])) syncToParent(updated);
+  // Reconcile only when the catalog changes; user edits must not be replayed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
+
   // Назначение автора для всех операций
   const handleSetGlobalMember = (memberId: string) => {
     setGlobalMemberId(memberId);
@@ -321,9 +356,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Выбор категории для карточки
   const handleSelectCategory = (tempId: string, catId: string) => {
     const item = items.find(i => i.tempId === tempId);
+    if (item && !isCategoryForType(catId, categories, item.type)) return;
     let updated = items.map(i => i.tempId === tempId ? { ...i, category: catId, isVerified: true } : i);
 
-    if (item && item.rawNote) {
+    if (item?.rememberRule && item.rawNote) {
       const keyword = extractCleanRuleKeyword(item.rawNote, item.note);
       if (keyword.length > 2) {
         const newRule: LearnedRule = {
@@ -426,12 +462,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Массовое назначение категории нераспознанным
   const handleBatchAssignCategory = (catId: string) => {
     const updated = items.map(i => {
-      if (i.category === 'other' || !i.category) {
+      if (isCategoryForType(catId, categories, i.type) &&
+          (i.category === 'other' || !i.category || !categories.some(c => c.id === i.category))) {
         return { ...i, category: catId, isVerified: true };
       }
       return i;
     });
+    const assigned = updated.filter((item, index) => item !== items[index]).length;
     syncToParent(updated);
+    toast.info(`Назначено операций: ${assigned}. Операции другого типа не изменены.`);
     setIsBatchCategoryOpen(false);
   };
 
@@ -439,7 +478,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const handleConfirm = () => {
     // Автоматическое сохранение правил для элементов с чекбоксом запомнить
     items.forEach(item => {
-      if (item.rememberRule && item.category && item.category !== 'other' && item.rawNote) {
+      if (item.rememberRule && item.category && item.category !== 'other' &&
+          categories.some(c => c.id === item.category) && item.rawNote) {
         onLearnRule({
           id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
           keyword: extractCleanRuleKeyword(item.rawNote, item.note),
@@ -463,8 +503,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   }, [items]);
 
   const unassignedCount = useMemo(() => {
-    return items.filter(t => t.category === 'other' || !t.category).length;
-  }, [items]);
+    return items.filter(t => t.category === 'other' || !t.category || !categories.some(c => c.id === t.category)).length;
+  }, [items, categories]);
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
@@ -480,7 +520,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтрация элементов
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      if (filterTab === 'unrecognized' && item.category !== 'other' && item.category) return false;
+      if (filterTab === 'unrecognized' && item.category && item.category !== 'other' &&
+          categories.some(c => c.id === item.category)) return false;
       if (filterTab === 'income' && item.type !== 'income') return false;
       if (filterTab === 'expense' && item.type !== 'expense') return false;
 
@@ -495,7 +536,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
       return true;
     });
-  }, [items, filterTab, searchQuery]);
+  }, [items, filterTab, searchQuery, categories]);
 
   return (
     <div 
@@ -734,7 +775,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           ) : (
             filteredItems.map(item => {
               const category = categories.find(c => c.id === item.category);
-              const isUnrecognized = !item.category || item.category === 'other';
+              const isUnrecognized = !item.category || item.category === 'other' || !category;
               const isExpense = item.type === 'expense';
               const isDropdownOpen = activeCategoryDropdown === item.tempId;
 
@@ -851,163 +892,22 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         }`}
                       >
                         <Tag size={14} />
-                        <span className="uppercase tracking-wider">{category ? category.label : 'ПРОЧЕЕ'}</span>
+                        <span className="uppercase tracking-wider">{isUnrecognized ? 'ВЫБРАТЬ КАТЕГОРИЮ' : category!.label}</span>
                         <ChevronDown size={14} strokeWidth={2.5} />
                       </button>
 
                       {isDropdownOpen && (
-                        <div 
-                          ref={dropdownRef}
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 p-3 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
-                        >
-                          {creatingCategoryFor === item.tempId ? (
-                            <div className="space-y-2.5 p-1">
-                              <div className="flex items-center justify-between text-xs font-bold text-stone-900 dark:text-white">
-                                <div className="flex items-center gap-1 bg-stone-100 dark:bg-white/10 p-1 rounded-xl text-xs">
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setCreateCatType('category')}
-                                    className={`px-3 py-1 rounded-lg transition font-bold ${createCatType === 'category' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'}`}
-                                  >
-                                    Категория
-                                  </button>
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setCreateCatType('subcategory')}
-                                    className={`px-3 py-1 rounded-lg transition font-bold ${createCatType === 'subcategory' ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'}`}
-                                  >
-                                    Подкатегория
-                                  </button>
-                                </div>
-                                <button type="button" onClick={() => setCreatingCategoryFor(null)} className="p-1 rounded-lg text-stone-400 hover:text-stone-800 dark:hover:text-stone-200">
-                                  <X size={16} />
-                                </button>
-                              </div>
-
-                              <input 
-                                type="text"
-                                autoFocus
-                                value={newCatName}
-                                onChange={e => setNewCatName(e.target.value)}
-                                placeholder={createCatType === 'category' ? "Название категории..." : "Название подкатегории..."}
-                                className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none focus:border-[#4A7C59]"
-                              />
-
-                              {createCatType === 'subcategory' ? (
-                                <div>
-                                  <label className="text-[10px] font-bold text-stone-400 uppercase block mb-1">
-                                    Родительская категория:
-                                  </label>
-                                  <select
-                                    value={selectedParentIdForNewCat}
-                                    onChange={e => setSelectedParentIdForNewCat(e.target.value)}
-                                    className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none"
-                                  >
-                                    {categories.filter(c => !c.parentId && c.id !== 'other').map(p => (
-                                      <option key={p.id} value={p.id}>{p.label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              ) : (
-                                <div>
-                                  <label className="text-[10px] font-bold text-stone-400 uppercase block mb-1">
-                                    Цвет категории:
-                                  </label>
-                                  <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar">
-                                    {PRESET_COLORS.map(c => (
-                                      <button 
-                                        key={c}
-                                        type="button"
-                                        onClick={() => setNewCatColor(c)}
-                                        className={`w-6 h-6 rounded-full shrink-0 transition ${newCatColor === c ? 'ring-2 ring-[#4A7C59] ring-offset-2 scale-110' : 'hover:scale-105'}`}
-                                        style={{ backgroundColor: c }}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              <button 
-                                type="button" 
-                                onClick={() => handleCreateCategory(item.tempId)}
-                                className="w-full py-2 bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition cursor-pointer"
-                              >
-                                Создать и применить
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              {/* Поиск категории */}
-                              <div className="relative">
-                                <Search size={14} className="text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input 
-                                  type="text"
-                                  autoFocus
-                                  value={categoryDropdownSearch}
-                                  onChange={e => setCategoryDropdownSearch(e.target.value)}
-                                  placeholder="Поиск категории или подкатегории..."
-                                  className="w-full pl-8 pr-3 py-2 text-xs bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
-                                />
-                              </div>
-
-                              <button 
-                                type="button" 
-                                onClick={() => setCreatingCategoryFor(item.tempId)}
-                                className="w-full py-2 px-3 rounded-xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-300 text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 cursor-pointer"
-                              >
-                                <Plus size={15} />
-                                <span>Создать новую категорию</span>
-                              </button>
-
-                              {/* Иерархический список категорий и подкатегорий */}
-                              <div className="max-h-72 sm:max-h-80 overflow-y-auto no-scrollbar space-y-1 pt-1">
-                                {filteredCategoryTree.length === 0 ? (
-                                  <div className="text-center py-6 text-xs text-stone-400 italic">
-                                    Категория не найдена
-                                  </div>
-                                ) : (
-                                  filteredCategoryTree.map(({ parent, subcategories }) => (
-                                    <div key={parent.id} className="space-y-0.5">
-                                      {/* Родительская категория */}
-                                      <button 
-                                        type="button" 
-                                        onClick={() => handleSelectCategory(item.tempId, parent.id)}
-                                        className="w-full flex items-center justify-between p-2 rounded-xl text-left hover:bg-stone-100 dark:hover:bg-white/10 transition group cursor-pointer"
-                                      >
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                          <span style={{ color: parent.color }} className="shrink-0">{getIconById(parent.icon, 16)}</span>
-                                          <span className="text-xs font-bold text-stone-900 dark:text-white truncate">{parent.label}</span>
-                                        </div>
-                                        {subcategories.length > 0 && (
-                                          <span className="text-[10px] text-stone-400 dark:text-stone-500 font-semibold px-1.5 py-0.5 rounded bg-stone-100 dark:bg-white/5">
-                                            {subcategories.length} подкат.
-                                          </span>
-                                        )}
-                                      </button>
-
-                                      {/* Подкатегории */}
-                                      {subcategories.length > 0 && (
-                                        <div className="pl-4 space-y-0.5 border-l-2 border-stone-200 dark:border-white/10 ml-3">
-                                          {subcategories.map(sub => (
-                                            <button
-                                              key={sub.id}
-                                              type="button"
-                                              onClick={() => handleSelectCategory(item.tempId, sub.id)}
-                                              className="w-full flex items-center gap-2.5 p-1.5 rounded-lg text-left hover:bg-emerald-50 dark:hover:bg-primary/10 text-stone-700 dark:text-stone-300 transition cursor-pointer"
-                                            >
-                                              <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] shrink-0" />
-                                              <span className="text-xs font-semibold truncate">{sub.label}</span>
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </>
-                          )}
+                        <div ref={dropdownRef} onClick={event => event.stopPropagation()}
+                          className="absolute right-0 top-full mt-2 w-[min(90vw,390px)] z-50 rounded-2xl shadow-2xl">
+                          <CategoryPickerAccordion
+                            key={item.tempId}
+                            categories={categories}
+                            transactionType={item.type}
+                            selectedCategoryId={item.category}
+                            onAddCategory={onAddCategory}
+                            maxHeightClass="max-h-[320px]"
+                            onSelectCategory={categoryId => handleSelectCategory(item.tempId, categoryId)}
+                          />
                         </div>
                       )}
                     </div>
@@ -1101,25 +1001,20 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Tag size={14} className="text-[#4A7C59]" />
-                  <span>Назначить выбранным</span>
+                  <span>Назначить всем без категории</span>
                 </button>
 
                 {isBatchCategoryOpen && (
-                  <div 
-                    ref={batchDropdownRef}
-                    className="absolute right-0 bottom-full mb-2 w-56 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl border border-stone-200 dark:border-white/10 p-2 z-50 max-h-52 overflow-y-auto no-scrollbar grid grid-cols-1 gap-1"
-                  >
-                    {sortedCategories.map(cat => (
-                      <button 
-                        key={cat.id}
-                        type="button"
-                        onClick={() => handleBatchAssignCategory(cat.id)}
-                        className="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-stone-50 dark:hover:bg-white/5 transition"
-                      >
-                        <span style={{ color: cat.color }}>{getIconById(cat.icon, 14)}</span>
-                        <span className="text-xs font-bold text-stone-900 dark:text-white">{cat.label}</span>
-                      </button>
-                    ))}
+                  <div ref={batchDropdownRef} className="absolute right-0 bottom-full mb-2 w-[min(90vw,390px)] z-50 rounded-2xl shadow-xl">
+                    <p className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 text-xs rounded-t-xl">
+                      Внимание: категория назначится всем {unassignedCount} операциям без категории.
+                    </p>
+                    <CategoryPickerAccordion
+                      categories={categories}
+                      onAddCategory={onAddCategory}
+                      maxHeightClass="max-h-[240px]"
+                      onSelectCategory={handleBatchAssignCategory}
+                    />
                   </div>
                 )}
               </div>
@@ -1210,12 +1105,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           accountMask: i.accountMask
         }))}
         categories={categories}
+        categoryUsage={categoryUsage}
         learnedRules={learnedRules}
         onAddCategory={onAddCategory}
         onEditItem={(analyzerItem) => {
           const matched = items.find(i => i.tempId === analyzerItem.id);
           if (matched) {
-            setEditingItem(matched);
+            setIsAnalyzerOpen(false);
+            handleOpenEditModal(matched);
           }
         }}
         onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {
@@ -1285,7 +1182,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             toast.success(`Автоправила дополнительно распознали еще ${totalAutoMatched} неразобранных операций!`);
           }
           syncToParent(updated);
-          setIsAnalyzerOpen(false);
+          // Stay in the analyzer; only its explicit Close button returns to the preview.
         }}
       />
     </div>

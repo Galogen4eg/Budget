@@ -1,5 +1,8 @@
-import { Category, LearnedRule } from '../types';
+import { Category, LearnedRule, TransactionType } from '../types';
+import { isCategoryForType } from './categoryCatalog';
 import { cleanMerchantName } from './categorizer';
+import { matchMerchantBrand } from './merchantCategoryCatalog';
+export { matchMerchantBrand } from './merchantCategoryCatalog';
 
 export interface AnalysisResult {
   suggestedCategoryId: string;
@@ -92,20 +95,25 @@ export function extractCleanRuleKeyword(rawNote: string = '', note: string = '')
   return cleanName.length >= 3 ? cleanName : fullText;
 }
 
+
 export function analyzeTransaction(
   rawNote: string = '',
   note: string = '',
   mcc: string | undefined,
   learnedRules: LearnedRule[] = [],
-  categories: Category[] = []
+  categories: Category[] = [],
+  transactionType?: TransactionType
 ): AnalysisResult {
   const fullText = `${rawNote} ${note}`.trim();
   const lowerFull = fullText.toLowerCase();
 
   // 1. Check existing Learned Rules first
   for (const rule of learnedRules) {
-    if (rule.keyword && lowerFull.includes(rule.keyword.toLowerCase())) {
-      const matchCat = categories.find(c => c.id === rule.categoryId) ? rule.categoryId : 'other';
+    const keywords = rule.keywords?.length ? rule.keywords : [rule.keyword];
+    if (rule.categoryId !== 'other' && categories.some(c => c.id === rule.categoryId) &&
+        (!transactionType || isCategoryForType(rule.categoryId, categories, transactionType)) &&
+        keywords.some(keyword => keyword?.trim() && lowerFull.includes(keyword.toLowerCase().trim()))) {
+      const matchCat = rule.categoryId;
       return {
         suggestedCategoryId: matchCat,
         confidence: 100,
@@ -117,9 +125,56 @@ export function analyzeTransaction(
     }
   }
 
+  // Income cannot be categorized by expense MCC or shop-name heuristics.
+  // Specific payout keywords are safe; generic incoming transfers remain reviewable.
+  if (transactionType === 'income') {
+    const payoutRules: Array<[string, RegExp]> = [
+      ['benefits', /больничн|пособи|социальн.{0,12}выплат|осфр|социальн.{0,12}фонд/i],
+      ['salary', /зарплат|оплат[аы] труда|аванс по зарплате/i],
+      ['income_cashback', /к[еэ]шб[еэ]к|cashback/i],
+      ['income_interest', /процент[ыов]{0,3} по вкладу|начислен.{0,15}процент/i],
+      ['income_refund', /возврат средств|возврат покупки|возмещени/i]
+    ];
+    for (const [id, pattern] of payoutRules) {
+      if (pattern.test(fullText) && categories.some(c => c.id === id)) {
+        return { suggestedCategoryId: id, confidence: 96,
+          reason: 'Распознано назначение поступления', cleanName: note || rawNote,
+          ruleKeyword: '', source: 'keyword' };
+      }
+    }
+    if (/между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(fullText) &&
+        categories.some(c => c.id === 'transfer_self')) {
+      return { suggestedCategoryId: 'transfer_self', confidence: 98,
+        reason: 'Перевод между собственными счетами', cleanName: note || rawNote,
+        ruleKeyword: '', source: 'keyword' };
+    }
+    const target = /сбп|sbp|перевод/i.test(fullText) && categories.some(c => c.id === 'transfer')
+      ? 'transfer' : 'income_other';
+    return { suggestedCategoryId: categories.some(c => c.id === target) ? target : 'other',
+      confidence: 55, reason: 'Поступление требует проверки назначения',
+      cleanName: note || rawNote, ruleKeyword: '', source: 'fallback' };
+  }
+
   // Extract clean candidate keyword for saving a new rule
   const candidateKeyword = extractCleanRuleKeyword(rawNote, note);
   const cleanName = cleanMerchantName(fullText, learnedRules);
+
+  // Own-account transfers have a specific meaning; never classify them as
+  // shopping or arbitrary income merely because MCC is absent.
+  if (/между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(fullText)) {
+    const target = categories.find(c => c.id === 'transfer_self')
+      || categories.find(c => c.id === 'transfer');
+    if (target) {
+      return {
+        suggestedCategoryId: target.id,
+        confidence: 98,
+        reason: 'Перевод между собственными счетами',
+        cleanName: 'Перевод себе',
+        ruleKeyword: candidateKeyword,
+        source: 'keyword'
+      };
+    }
+  }
 
   // 2. Check SBP / Transfer
   if (lowerFull.includes('сбп') || lowerFull.includes('sbp') || lowerFull.includes('перевод') || lowerFull.includes('transfer')) {
@@ -134,69 +189,38 @@ export function analyzeTransaction(
     };
   }
 
+  // Known merchant beats the generic MCC/bank group. User rules still win.
+  const knownMerchant = matchMerchantBrand(fullText, categories);
+  if (knownMerchant) {
+    return {
+      suggestedCategoryId: knownMerchant.categoryId,
+      confidence: 97,
+      reason: knownMerchant.isSubcategory
+        ? `Распознана подкатегория «${knownMerchant.brandName}»`
+        : `Распознана сеть «${knownMerchant.brandName}»; можно создать подкатегорию`,
+      cleanName: knownMerchant.brandName,
+      ruleKeyword: candidateKeyword,
+      source: 'brand'
+    };
+  }
+
   // 3. Check MCC Code if present
   if (mcc) {
     const cleanMcc = mcc.trim();
     if (MCC_MAP[cleanMcc]) {
       const mapped = MCC_MAP[cleanMcc];
-      const targetCat = categories.find(c => c.id === mapped.categoryId) ? mapped.categoryId : 'shopping';
-      return {
-        suggestedCategoryId: targetCat,
-        confidence: 92,
-        reason: `Определено по MCC-коду ${cleanMcc} (${mapped.label})`,
-        cleanName,
-        ruleKeyword: candidateKeyword,
-        source: 'mcc'
-      };
-    }
-  }
-
-  // 4. Check Specific Brand Networks & Subcategories
-  const BRAND_SUBCATEGORIES: Array<{ keywords: string[]; subCategoryId: string; parentCategoryId: string; brandName: string }> = [
-    // Grocery chains
-    { keywords: ['пятерочка', 'pyaterochka'], subCategoryId: 'grocery_pyaterochka', parentCategoryId: 'food', brandName: 'Пятерочка' },
-    { keywords: ['магнит', 'magnit'], subCategoryId: 'grocery_magnit', parentCategoryId: 'food', brandName: 'Магнит' },
-    { keywords: ['перекресток', 'perekrestok'], subCategoryId: 'grocery_perekrestok', parentCategoryId: 'food', brandName: 'Перекресток' },
-    { keywords: ['вкусвилл', 'vkusvill'], subCategoryId: 'grocery_vkusvill', parentCategoryId: 'food', brandName: 'ВкусВилл' },
-    { keywords: ['лента', 'lenta'], subCategoryId: 'grocery_lenta', parentCategoryId: 'food', brandName: 'Лента' },
-    { keywords: ['самокат', 'samokat'], subCategoryId: 'grocery_samokat', parentCategoryId: 'food', brandName: 'Самокат' },
-    { keywords: ['ашан', 'auchan'], subCategoryId: 'grocery_ashan', parentCategoryId: 'food', brandName: 'Ашан' },
-    { keywords: ['глобус', 'globus'], subCategoryId: 'grocery_globus', parentCategoryId: 'food', brandName: 'Глобус' },
-    { keywords: ['чижик', 'chizhik'], subCategoryId: 'grocery_chizhik', parentCategoryId: 'food', brandName: 'Чижик' },
-    { keywords: ['дикси', 'dixy'], subCategoryId: 'grocery_dixy', parentCategoryId: 'food', brandName: 'Дикси' },
-    { keywords: ['спар', 'spar'], subCategoryId: 'grocery_spar', parentCategoryId: 'food', brandName: 'Спар' },
-    { keywords: ['светофор', 'svetoform'], subCategoryId: 'grocery_svetoform', parentCategoryId: 'food', brandName: 'Светофор' },
-    { keywords: ['высшая лига'], subCategoryId: 'grocery_vysshaya_liga', parentCategoryId: 'food', brandName: 'Высшая Лига' },
-
-    // Fast Food chains
-    { keywords: ['вкусно и точка', 'vnoit', 'mcdonalds', 'макдоналдс'], subCategoryId: 'fastfood_vnoit', parentCategoryId: 'restaurants', brandName: 'Вкусно и точка' },
-    { keywords: ['бургер кинг', 'burger king'], subCategoryId: 'fastfood_bk', parentCategoryId: 'restaurants', brandName: 'Бургер Кинг' },
-    { keywords: ['rostics', 'ростикс', 'kfc'], subCategoryId: 'fastfood_rostics', parentCategoryId: 'restaurants', brandName: 'Ростикс / KFC' },
-    { keywords: ['додо', 'dodo'], subCategoryId: 'fastfood_dodo', parentCategoryId: 'restaurants', brandName: 'Додо Пицца' },
-    { keywords: ['pizzafabrika', 'пиццафабрика'], subCategoryId: 'fastfood_pizzafabrika', parentCategoryId: 'restaurants', brandName: 'ПиццаФабрика' },
-    { keywords: ['теремок', 'teremok'], subCategoryId: 'fastfood_teremok', parentCategoryId: 'restaurants', brandName: 'Теремок' },
-    { keywords: ['крошка картошка'], subCategoryId: 'fastfood_kroshka', parentCategoryId: 'restaurants', brandName: 'Крошка Картошка' },
-    { keywords: ['шоколадница'], subCategoryId: 'fastfood_shokoladnitsa', parentCategoryId: 'restaurants', brandName: 'Шоколадница' },
-    { keywords: ['cofix', 'кофикс'], subCategoryId: 'fastfood_cofix', parentCategoryId: 'restaurants', brandName: 'Cofix' },
-  ];
-
-  for (const brand of BRAND_SUBCATEGORIES) {
-    if (brand.keywords.some(k => lowerFull.includes(k))) {
-      const subExists = categories.some(c => c.id === brand.subCategoryId);
-      const targetCat = subExists 
-        ? brand.subCategoryId 
-        : (categories.some(c => c.id === brand.parentCategoryId) ? brand.parentCategoryId : 'food');
-      
-      return {
-        suggestedCategoryId: targetCat,
-        confidence: 95,
-        reason: subExists
-          ? `Определена подкатегория «${brand.brandName}»`
-          : `Распознана сеть «${brand.brandName}»`,
-        cleanName: brand.brandName || cleanName,
-        ruleKeyword: candidateKeyword,
-        source: 'brand'
-      };
+      // Never silently substitute "shopping" when a canonical category
+      // is missing from this family's configured category list.
+      if (categories.some(c => c.id === mapped.categoryId)) {
+        return {
+          suggestedCategoryId: mapped.categoryId,
+          confidence: 92,
+          reason: `Определено по MCC-коду ${cleanMcc} (${mapped.label})`,
+          cleanName,
+          ruleKeyword: candidateKeyword,
+          source: 'mcc'
+        };
+      }
     }
   }
 
@@ -212,8 +236,9 @@ export function analyzeTransaction(
   ];
 
   for (const brand of BRAND_RULES) {
-    if (brand.keywords.some(k => lowerFull.includes(k))) {
-      const matchCat = categories.find(c => c.id === brand.categoryId) ? brand.categoryId : 'shopping';
+    if (brand.keywords.some(k => lowerFull.includes(k)) &&
+        categories.some(c => c.id === brand.categoryId)) {
+      const matchCat = brand.categoryId;
       return {
         suggestedCategoryId: matchCat,
         confidence: 88,

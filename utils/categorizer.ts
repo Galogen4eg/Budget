@@ -1,5 +1,6 @@
 
 import { Category, LearnedRule } from '../types';
+import { alfaBankCategoryToCanonicalId } from './alfaBankCategory';
 
 export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
   // Продукты и супермаркеты (Центр, Северо-Запад, Поволжье, Урал, Сибирь, Юг)
@@ -480,6 +481,9 @@ const MCC_MAP: Record<string, string> = {
   '5311': 'shopping', '5331': 'shopping', '5611': 'shopping', '5621': 'shopping', '5651': 'shopping',
   '5661': 'shopping', '5691': 'shopping', '5941': 'shopping', '5942': 'shopping', '5977': 'shopping',
   '5722': 'shopping', '5732': 'shopping', '5200': 'shopping', '5211': 'shopping',
+  '5251': 'shopping', // Hardware stores
+  '5921': 'alcohol', // Beer, wine and liquor
+  '5992': 'gifts', // Florists
   // Развлечения и кино
   '7832': 'entertainment', '7922': 'entertainment', '7991': 'entertainment', '7996': 'entertainment', '7999': 'entertainment'
 };
@@ -508,7 +512,14 @@ const resolveTargetCategoryId = (canonicalId: string, categories: Category[]): s
     'entertainment': 'развлечен',
     'subscriptions': 'подписк',
     'savings': 'накоплен',
-    'transfer': 'перевод'
+    'transfer': 'перевод',
+    'salary': 'зарплат',
+    'clothes': 'одежд',
+    'electronics': 'электроник',
+    'alcohol': 'алкогол',
+    'gifts': 'подарк',
+    'taxes': 'налог',
+    'sport': 'спорт'
   };
 
   const needle = LABEL_MAP[canonicalId];
@@ -552,14 +563,17 @@ export const getSmartCategory = (
       const cleanKw = kw.trim().toLowerCase();
       if (!cleanKw) continue;
 
+      if (rule.categoryId === 'other') continue;
       if (cleanNote.includes(cleanKw)) {
-        return resolveTargetCategoryId(rule.categoryId, categories);
+        const resolved = resolveTargetCategoryId(rule.categoryId, categories);
+        if (categories.some(category => category.id === resolved)) return resolved;
       }
 
       // Smart phone matching
       const kwPhone = extractPhoneDigits(cleanKw);
       if (kwPhone && notePhone && (notePhone === kwPhone || notePhone.includes(kwPhone) || kwPhone.includes(notePhone))) {
-        return resolveTargetCategoryId(rule.categoryId, categories);
+        const resolved = resolveTargetCategoryId(rule.categoryId, categories);
+        if (categories.some(category => category.id === resolved)) return resolved;
       }
     }
   }
@@ -585,7 +599,17 @@ export const getSmartCategory = (
     return resolveTargetCategoryId('transfer', categories);
   }
 
-  // 4. Анализ ключевых слов мерчанта
+  // 4. Use specific Alfa-Bank categories before noisy merchant keywords.
+  // Generic bank labels are deliberately ignored; explicit user rules win.
+  if (bankCategory) {
+    const canonical = alfaBankCategoryToCanonicalId(bankCategory);
+    if (canonical) {
+      const resolved = resolveTargetCategoryId(canonical, categories);
+      if (categories.some(category => category.id === resolved)) return resolved;
+    }
+  }
+
+  // 5. Анализ ключевых слов мерчанта
   const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'fastfood': [
       'вкусно и точка', 'vkusno i tochka', 'vkusnoitochka', 'vkusno-i-tochka', 'vkusno_i_tochka', 'вкусноitoчка', 
@@ -608,7 +632,8 @@ export const getSmartCategory = (
 
   for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some(k => cleanNote.includes(k))) {
-      return resolveTargetCategoryId(catId, categories);
+      const resolved = resolveTargetCategoryId(catId, categories);
+      if (categories.some(category => category.id === resolved)) return resolved;
     }
   }
 
@@ -617,21 +642,11 @@ export const getSmartCategory = (
     const cleanMcc = mcc.trim();
     const mappedByMcc = MCC_MAP[cleanMcc];
     if (mappedByMcc) {
-      return resolveTargetCategoryId(mappedByMcc, categories);
+      const resolved = resolveTargetCategoryId(mappedByMcc, categories);
+      if (categories.some(category => category.id === resolved)) return resolved;
     }
   }
 
-  // 6. Определение по строковой категории из банковской выписки
-  if (bankCategory) {
-    const bCat = bankCategory.toLowerCase();
-    if (bCat.match(/супермаркет|продукт|бакалея/)) return resolveTargetCategoryId('food', categories);
-    if (bCat.match(/ресторан|кафе|фастфуд|столов|общепит/)) return resolveTargetCategoryId('restaurants', categories);
-    if (bCat.match(/азс|авто|бензин|топливо|парковк/)) return resolveTargetCategoryId('auto', categories);
-    if (bCat.match(/такси|транспорт|каршеринг|метро|поезд/)) return resolveTargetCategoryId('transport', categories);
-    if (bCat.match(/аптек|медицин|здоров|стоматолог/)) return resolveTargetCategoryId('health', categories);
-    if (bCat.match(/одежд|обув|электроник|техник|дом|ремонт|покупк/)) return resolveTargetCategoryId('shopping', categories);
-    if (bCat.match(/развлечен|кино|театр|спорт|фитнес/)) return resolveTargetCategoryId('entertainment', categories);
-  }
 
   return 'other';
 };

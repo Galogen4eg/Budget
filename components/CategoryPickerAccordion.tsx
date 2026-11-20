@@ -1,16 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X, ChevronDown, ChevronRight, Check, Plus, Tag, FolderPlus, Maximize2 } from 'lucide-react';
-import { Category } from '../types';
+import { Category, TransactionType } from '../types';
+import { categoriesForType } from '../utils/categoryCatalog';
 import { getIconById } from '../constants';
 import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
+import { sortCategoriesByPopularity } from '../utils/categoryPopularity';
+import { toast } from 'sonner';
 
 interface CategoryPickerAccordionProps {
   categories: Category[];
   selectedCategoryId?: string;
   onSelectCategory: (categoryId: string) => void;
-  onAddCategory?: (category: Category) => void;
+  onAddCategory?: (category: Category) => void | Promise<void>;
+  categoryUsage?: Record<string, number>;
+  transactionType?: TransactionType;
   placeholder?: string;
   maxHeightClass?: string;
+  startCreateSubcategory?: boolean;
+  initialNewSubcategoryName?: string;
+  initialParentCategoryId?: string;
 }
 
 export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = ({
@@ -18,16 +26,22 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   selectedCategoryId,
   onSelectCategory,
   onAddCategory,
+  categoryUsage,
+  transactionType,
   placeholder = "Поиск категории или подкатегории...",
   maxHeightClass = "max-h-72",
+  startCreateSubcategory = false,
+  initialNewSubcategoryName = "",
+  initialParentCategoryId = "",
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(startCreateSubcategory);
   const [createType, setCreateType] = useState<'category' | 'subcategory'>('subcategory');
-  const [newCatName, setNewCatName] = useState('');
+  const [newCatName, setNewCatName] = useState(initialNewSubcategoryName);
   const [newCatColor, setNewCatColor] = useState('#4A7C59');
-  const [selectedParentId, setSelectedParentId] = useState<string>('');
+  const [selectedParentId, setSelectedParentId] = useState<string>(initialParentCategoryId || (transactionType === 'income' ? 'income' : ''));
   const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
 
   const PRESET_COLORS = [
     '#4A7C59', '#3D6B4C', '#D95C48', '#C4A66A', '#2D5540',
@@ -35,50 +49,50 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   ];
 
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>(() => {
-    // Auto-expand parent of selected category
-    if (!selectedCategoryId) return {};
-    const selected = categories.find(c => c.id === selectedCategoryId);
-    if (selected?.parentId) {
-      return { [selected.parentId]: true };
+    // Keep named stores visible in the analyzer without changing the family
+    // catalog or silently choosing a category for an ambiguous operation.
+    const defaults: Record<string, boolean> = {};
+    for (const parentId of ['food', 'restaurants']) {
+      if (categories.some(c => c.parentId === parentId)) defaults[parentId] = true;
     }
-    return {};
+    const selected = categories.find(c => c.id === selectedCategoryId);
+    if (selected?.parentId) defaults[selected.parentId] = true;
+    return defaults;
   });
 
   // Filter out 'other' from main list or keep it at end
   const validCategories = useMemo(() => {
-    return categories.filter(c => c.id !== 'other');
-  }, [categories]);
+    return categoriesForType(categories, transactionType).filter(c => c.id !== 'other');
+  }, [categories, transactionType]);
 
-  // Separate parents and subcategories, sorted A-Z
+  // Only the analyzer passes usage counts. Other pickers keep the shared catalog order.
+  const orderedCategories = useMemo(() => categoryUsage
+    ? sortCategoriesByPopularity(validCategories, categoryUsage)
+    : validCategories, [validCategories, categoryUsage]);
   const parentCategories = useMemo(() => {
-    return validCategories
-      .filter(c => !c.parentId)
-      .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-  }, [validCategories]);
+    return orderedCategories.filter(c => !c.parentId);
+  }, [orderedCategories]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Category[]>();
-    validCategories.forEach(c => {
+    orderedCategories.forEach(c => {
       if (c.parentId) {
         const existing = map.get(c.parentId) || [];
         existing.push(c);
         map.set(c.parentId, existing);
       }
     });
-    // Sort each list A-Z
-    map.forEach((list, key) => {
-      map.set(key, list.sort((a, b) => a.label.localeCompare(b.label, 'ru')));
-    });
+    // Child order also matches the main category picker.
     return map;
-  }, [validCategories]);
+  }, [orderedCategories]);
 
   // Search filter logic
   const isSearching = searchQuery.trim().length > 0;
   const filteredSearchList = useMemo(() => {
     if (!isSearching) return null;
     const q = searchQuery.trim().toLowerCase();
-    return validCategories.filter(c => c.label.toLowerCase().includes(q));
-  }, [validCategories, isSearching, searchQuery]);
+    return orderedCategories.filter(c => c.label.toLowerCase().includes(q));
+  }, [orderedCategories, isSearching, searchQuery]);
 
   const toggleExpand = (parentId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -93,7 +107,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
     setCreateType(type);
     setNewCatName(initialName);
-    setSelectedParentId(defaultParentId || parentCategories[0]?.id || 'shopping');
+    setSelectedParentId(defaultParentId || initialParentCategoryId || (transactionType === 'income' ? 'income' : ''));
     setIsAddingCategory(true);
   };
 
@@ -101,8 +115,27 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
     handleStartAddCategory('subcategory', initialName, defaultParentId);
   };
 
-  const handleSaveCategory = () => {
-    if (!newCatName.trim()) return;
+  const handleSaveCategory = async () => {
+    if (!newCatName.trim() || !onAddCategory || isSavingCategory) return;
+
+    const parentId = createType === 'subcategory'
+      ? parentCategories.find(p => p.id === selectedParentId)?.id
+      : undefined;
+    if (createType === 'subcategory' && !parentId) {
+      toast.error('Сначала выберите родительскую категорию');
+      return;
+    }
+    const duplicate = categories.find(category =>
+      (category.parentId || undefined) === parentId &&
+      category.label.trim().toLocaleLowerCase('ru-RU') === newCatName.trim().toLocaleLowerCase('ru-RU')
+    );
+    if (duplicate) {
+      onSelectCategory(duplicate.id);
+      setIsAddingCategory(false);
+      setNewCatName('');
+      setSearchQuery('');
+      return;
+    }
 
     let newCategory: Category;
     if (createType === 'category') {
@@ -113,9 +146,11 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         color: newCatColor,
         icon: 'Folder',
         isCustom: true,
+        ...(transactionType === 'income' ? { transactionType: 'income' as const } : {}),
       };
     } else {
-      const parentCat = parentCategories.find(p => p.id === selectedParentId) || parentCategories[0];
+      const parentCat = parentCategories.find(p => p.id === parentId);
+      if (!parentCat) return;
       newCategory = {
         id: `subcat_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
         label: newCatName.trim(),
@@ -123,16 +158,24 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         icon: parentCat ? parentCat.icon : 'Tag',
         color: parentCat ? parentCat.color : '#4A7C59',
         isCustom: true,
+        ...(transactionType === 'income' ? { transactionType: 'income' as const } : {}),
       };
     }
 
-    if (onAddCategory) {
-      onAddCategory(newCategory);
+    setIsSavingCategory(true);
+    try {
+      await onAddCategory(newCategory);
+      // Assign only after the new category was persisted successfully.
+      onSelectCategory(newCategory.id);
+      setIsAddingCategory(false);
+      setNewCatName('');
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Category creation failed:', error);
+      toast.error('Не удалось сохранить категорию. Попробуйте ещё раз.');
+    } finally {
+      setIsSavingCategory(false);
     }
-    onSelectCategory(newCategory.id);
-    setIsAddingCategory(false);
-    setNewCatName('');
-    setSearchQuery('');
   };
 
   return (
@@ -164,6 +207,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
             <button
               type="button"
               onClick={() => handleStartAddCategory('category', searchQuery)}
+              disabled={!onAddCategory}
               className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#EAF2EC] dark:bg-green-950/40 hover:bg-[#4A7C59] hover:text-white text-[#2E5A39] dark:text-green-300 text-xs font-bold transition cursor-pointer"
               title="Создать новую категорию"
             >
@@ -174,6 +218,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
             <button
               type="button"
               onClick={() => handleStartAddCategory('subcategory', searchQuery)}
+              disabled={!onAddCategory}
               className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-200 text-xs font-bold transition cursor-pointer"
               title="Создать новую подкатегорию"
             >
@@ -257,6 +302,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
                   onChange={(e) => setSelectedParentId(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#252528] border border-[#ECE6DE] dark:border-white/10 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
                 >
+                  <option value="">Выберите родительскую категорию</option>
                   {parentCategories.map(p => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
@@ -294,10 +340,10 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
               <button
                 type="button"
                 onClick={handleSaveCategory}
-                disabled={!newCatName.trim()}
+                disabled={isSavingCategory || !newCatName.trim() || !onAddCategory || (createType === 'subcategory' && !parentCategories.some(p => p.id === selectedParentId))}
                 className="px-3 py-1 rounded-lg bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold transition disabled:opacity-50"
               >
-                Сохранить
+                {isSavingCategory ? 'Сохраняется…' : 'Создать и назначить'}
               </button>
             </div>
           </div>
@@ -482,6 +528,8 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           isOpen={isDesktopModalOpen}
           onClose={() => setIsDesktopModalOpen(false)}
           categories={categories}
+          categoryUsage={categoryUsage}
+          transactionType={transactionType}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={(catId) => {
             onSelectCategory(catId);

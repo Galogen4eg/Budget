@@ -2,6 +2,10 @@
 import * as XLSX from 'xlsx';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
+import { classifyAlfaDirection } from './alfaDirection';
+import { alfaOperationId } from './alfaIdentity';
+import { analyzeTransaction, matchMerchantBrand } from './analyzerHelper';
+import { isCategoryForType } from './categoryCatalog';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -10,11 +14,11 @@ export const parseAlfaStatement = (
   learnedRules: LearnedRule[] = [],
   categories: Category[],
   existingTransactions: Transaction[] = []
-): Promise<Omit<Transaction, 'id'>[]> => {
+): Promise<Transaction[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result;
         if (!data) throw new Error("Не удалось прочитать файл");
@@ -27,7 +31,8 @@ export const parseAlfaStatement = (
           cellNF: true
         });
 
-        let allParsedTransactions: Omit<Transaction, 'id'>[] = [];
+        let allParsedTransactions: Transaction[] = [];
+        const occurrenceBySignature = new Map<string, number>();
 
         for (const sheetName of workbook.SheetNames) {
           const sheet = workbook.Sheets[sheetName];
@@ -84,6 +89,12 @@ export const parseAlfaStatement = (
           const colTime = findCol(mapping.time, keywords.time);
           const colAmount = findCol(mapping.amount, keywords.amount);
           const colNote = findCol(mapping.note, keywords.note);
+          const colType = headers.findIndex(h => h === 'тип' || h === 'тип операции' || h === 'направление операции');
+          const colCard = headers.findIndex(h => h === 'номер карты');
+          const colAccount = headers.findIndex(h => h === 'номер счета' || h === 'номер счёта');
+          const colCurrency = headers.findIndex(h => h === 'валюта');
+          const colMcc = headers.findIndex(h => h === 'mcc код' || h === 'mcc-код' || h === 'mcc');
+          const colBankCategory = headers.findIndex(h => h === 'категория' || h === 'категория операции');
 
           // If note column not found, find the widest text column as fallback
           let effectiveColNote = colNote;
@@ -180,35 +191,75 @@ export const parseAlfaStatement = (
 
             const rawNote = effectiveColNote !== -1 ? String(row[effectiveColNote] || '').trim() : "Операция";
             
-            let type: 'income' | 'expense' = amount > 0 ? 'income' : 'expense';
-            const headerName = headers[colAmount];
-            
-            if (amount < 0) type = 'expense';
-            else if (headerName.includes('расход') || headerName.includes('списан')) type = 'expense';
-            else if (headerName.includes('приход') || headerName.includes('зачислен')) type = 'income';
+            const type = classifyAlfaDirection(
+              colType >= 0 ? row[colType] : '',
+              amount,
+              headers[colAmount],
+              colType >= 0
+            );
 
             const absAmount = Math.abs(amount);
-            const note = cleanMerchantName(rawNote, learnedRules);
-            const categoryId = getSmartCategory(rawNote, learnedRules, categories);
+            let note = cleanMerchantName(rawNote, learnedRules);
+            // Alfa XLSX provides both bank category and MCC: use them before
+            // falling back to the existing analyzer. Never accept its generic
+            // "shopping" fallback as a confident automatic classification.
+            const rawMcc = colMcc >= 0 ? String(row[colMcc] ?? '').trim() : '';
+            const mcc = rawMcc.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
+            const bankCategory = colBankCategory >= 0 ? String(row[colBankCategory] ?? '').trim() : '';
+            const suggestion = analyzeTransaction(rawNote, note, mcc, learnedRules, categories, type);
+            const merchant = type === 'expense' ? matchMerchantBrand(rawNote, categories) : undefined;
+            // Preserve an explicit user's chosen display name. Otherwise use
+            // the canonical shop name so recognition is visible in the preview.
+            if (merchant && suggestion.source !== 'learned_rule') {
+              note = merchant.brandName;
+            }
+            // Explicit saved rules win. Known merchant chains then override
+            // broad bank categories/MCC; otherwise retain existing classification.
+            const ownAccountTransfer = /между своими счетами|перевод себе|на свой сч[её]т|между собственными счетами/i.test(rawNote);
+            let categoryId = suggestion.source === 'learned_rule' ||
+                (ownAccountTransfer && suggestion.suggestedCategoryId !== 'other')
+              ? suggestion.suggestedCategoryId
+              : (merchant?.categoryId ?? getSmartCategory(rawNote, learnedRules, categories, mcc, bankCategory));
+            if (!isCategoryForType(categoryId, categories, type)) categoryId = 'other';
+            if (categoryId === 'other' && suggestion.source !== 'fallback' &&
+                suggestion.confidence >= 88 &&
+                isCategoryForType(suggestion.suggestedCategoryId, categories, type)) {
+              categoryId = suggestion.suggestedCategoryId;
+            }
+
+            const sourceFields = [
+              dateStr, Number(absAmount.toFixed(2)), type, rawNote,
+              colCard >= 0 ? String(row[colCard] ?? '') : '',
+              colAccount >= 0 ? String(row[colAccount] ?? '') : '',
+              colCurrency >= 0 ? String(row[colCurrency] ?? '') : ''
+            ];
+            const signature = JSON.stringify(sourceFields);
+            const occurrence = (occurrenceBySignature.get(signature) || 0) + 1;
+            occurrenceBySignature.set(signature, occurrence);
+            const id = await alfaOperationId(sourceFields, occurrence);
 
             const isDuplicate = existingTransactions.some(ex => {
+              if (ex.id === id) return true;
               const d1 = new Date(ex.date).getTime();
               const d2 = new Date(dateStr).getTime();
-              return Math.abs(d1 - d2) < 2000 && 
-                     Math.abs(ex.amount - absAmount) < 0.01 && 
+              return Math.abs(d1 - d2) < 2000 &&
+                     Math.abs(ex.amount - absAmount) < 0.01 &&
                      ex.type === type &&
                      (ex.rawNote === rawNote || ex.note === note);
             });
 
             if (!isDuplicate) {
               allParsedTransactions.push({
+                id,
                 amount: absAmount,
                 type,
                 category: categoryId,
                 memberId: defaultMemberId,
                 note,
                 date: dateStr,
-                rawNote: rawNote
+                rawNote: rawNote,
+                // Preview-only metadata: stripped by ImportModal before persistence.
+                ...(mcc ? { mcc } : {})
               });
             }
           }

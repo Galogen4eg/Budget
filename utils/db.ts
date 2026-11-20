@@ -1,7 +1,7 @@
 
 import { 
-  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
-  onSnapshot, query, orderBy, where, getDocs, writeBatch, arrayUnion 
+  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
+  onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
@@ -359,6 +359,30 @@ export const addItem = async (familyId: string, collectionName: string, item: an
   return savedItem;
 };
 
+/**
+ * Restore missing built-in merchant categories without ever replacing an
+ * existing family's customized category document. Safe under concurrent tabs.
+ */
+export const createCategoriesIfMissing = async (familyId: string, categories: Category[]): Promise<number> => {
+  if (!familyId || categories.length === 0) return 0;
+  let created = 0;
+  // Keep Firestore traffic bounded on initial login.
+  for (let i = 0; i < categories.length; i += 5) {
+    const batch = categories.slice(i, i + 5);
+    const results = await Promise.all(batch.map(category =>
+      runTransaction(db, async tx => {
+        const ref = doc(db, 'families', familyId, 'categories', category.id);
+        const snapshot = await tx.get(ref);
+        if (snapshot.exists()) return false;
+        tx.set(ref, cleanForFirestore(category));
+        return true;
+      })
+    ));
+    created += results.filter(Boolean).length;
+  }
+  return created;
+};
+
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
   if (!familyId || items.length === 0) return [];
   const chunkSize = 400;
@@ -377,6 +401,44 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
     await batch.commit();
   }
   return savedItems;
+};
+
+/**
+ * Firestore transactions provide atomic create-if-absent semantics for AlfaSync.
+ * A retry never overwrites a previously categorized transaction.
+ * Each document is committed independently so a partial failure can be retried.
+ */
+export const addAlfaItemsIdempotent = async (familyId: string, items: Transaction[]): Promise<Transaction[]> => {
+  if (!familyId) throw new Error('No family ID');
+  const created: Transaction[] = [];
+  for (const item of items) {
+    if (!/^alfa_[a-f0-9]{40}$/.test(item.id)) throw new Error('Invalid Alfa transaction ID');
+    const ref = doc(db, 'families', familyId, 'transactions', item.id);
+    const wasCreated = await runTransaction(db, async tx => {
+      const existing = await tx.get(ref);
+      if (existing.exists()) return false;
+      tx.set(ref, cleanForFirestore(item));
+      return true;
+    });
+    if (wasCreated) created.push(item);
+  }
+  return created;
+};
+
+/** Verify an all-duplicate statement against the server before acknowledging cleanup. */
+export const areAlfaItemsSavedOnServer = async (familyId: string, ids: string[]): Promise<boolean> => {
+  if (!familyId || ids.length === 0) return false;
+  for (const id of ids) {
+    if (!/^alfa_[a-f0-9]{40}$/.test(id)) return false;
+  }
+  for (let i = 0; i < ids.length; i += 12) {
+    const chunk = ids.slice(i, i + 12);
+    const snapshots = await Promise.all(chunk.map(id =>
+      getDocFromServer(doc(db, 'families', familyId, 'transactions', id))
+    ));
+    if (snapshots.some(snapshot => !snapshot.exists())) return false;
+  }
+  return true;
 };
 
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {

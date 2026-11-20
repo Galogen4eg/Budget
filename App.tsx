@@ -44,12 +44,13 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
   addItem, updateItem, deleteItem, 
-  addItemsBatch, updateItemsBatch, deleteItemsBatch, joinFamily 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -83,6 +84,8 @@ const pageVariants = {
 export default function App() {
   const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
   const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
+  const importFileDigestRef = useRef<string | null>(null);
+  const importFileRef = useRef<File | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
@@ -97,6 +100,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
+    importSourcesReady,
     settings, updateSettings, 
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -106,6 +110,17 @@ export default function App() {
     budgetMode, setBudgetMode,
     notifications
   } = useData();
+
+  // Local Playwright automation may run only against this explicitly compatible,
+  // authenticated version of Budget. Older deployed builds lack this marker.
+  useEffect(() => {
+    if (familyId && members.length > 0 && !isAuthLoading && importSourcesReady) {
+      (window as any).__budgetAlfaSyncProtocol = 2;
+    } else {
+      delete (window as any).__budgetAlfaSyncProtocol;
+    }
+    return () => { delete (window as any).__budgetAlfaSyncProtocol; };
+  }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [targetService, setTargetService] = useState<string | null>(null);
@@ -278,13 +293,17 @@ export default function App() {
   }, []);
 
   const handleAddCategory = async (newCategory: Category) => {
-    setCategories(prev => {
-      if (prev.some(c => c.id === newCategory.id)) return prev;
-      return [...prev, newCategory];
-    });
+    // Never claim that a newly created category exists until Firestore accepted it.
+    // The picker awaits this promise before assigning the operation to the new ID.
     if (familyId) {
       await addItem(familyId, 'categories', newCategory);
     }
+    setCategories(prev => {
+      const index = prev.findIndex(c => c.id === newCategory.id);
+      if (index === -1) return [...prev, newCategory];
+      // Also support moving an existing subcategory to another parent.
+      return prev.map(c => c.id === newCategory.id ? newCategory : c);
+    });
   };
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
@@ -366,7 +385,7 @@ export default function App() {
 
         const raw = (tx.rawNote || tx.note || '').toLowerCase();
         
-        if (raw.includes(keyword)) {
+        if (raw.includes(keyword) && isCategoryForType(rule.categoryId, categories, tx.type)) {
           count++;
           if (rule.categoryId === 'savings' || isSavingsTransfer({ category: rule.categoryId, note: rule.cleanName, rawNote: raw })) {
             totalSavingsDelta += tx.amount;
@@ -448,13 +467,36 @@ export default function App() {
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
+    importFileDigestRef.current = null;
+    importFileRef.current = file;
     try {
         const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
         const memberId = currentUserMember ? currentUserMember.id : 'unknown';
         const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
-    } catch (err: any) { toast.error(err.message || "Ошибка чтения"); }
-    finally { setIsImporting(false); }
+    } catch (err: any) {
+        if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
+          try {
+            const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
+            const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+            const allRows = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, []);
+            if (await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id))) {
+              const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+              const fileSha256 = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+              window.dispatchEvent(new CustomEvent('budget:import-committed', {
+                detail: { count: 0, requested: allRows.length, fileSha256 }
+              }));
+              toast.info('Все операции этой выписки уже сохранены');
+              return;
+            }
+          } catch (verificationError) {
+            console.error('Alfa statement verification failed:', verificationError);
+          }
+        }
+        toast.error(err.message || "Ошибка чтения");
+    } finally { setIsImporting(false); }
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {
@@ -1198,7 +1240,7 @@ export default function App() {
                 key="import-modal"
                 preview={importPreview} 
                 onCancel={() => setImportPreview(null)} 
-                onConfirm={async (finalItems) => { 
+                onConfirm={async (finalItems) => {
                   try {
                     const itemsToImport = finalItems || importPreview;
                     if (!itemsToImport || itemsToImport.length === 0) {
@@ -1206,7 +1248,6 @@ export default function App() {
                       toast.info("Импорт отменен (нет операций)");
                       return;
                     }
-
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);
@@ -1219,21 +1260,32 @@ export default function App() {
                         id: clean.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7))
                       };
                     });
-                    
-                    // Immediately close preview modal & update local transactions
-                    setImportPreview(null); 
-                    setTransactions(prev => [...prepared, ...prev]);
 
-                    // Check for savings transfers in imported items
-                    const savingsTransfers = prepared.filter(t => isSavingsTransfer(t));
+                    // Savings transfers have side effects on goals; never process them unattended.
+                    const unattended = window.sessionStorage.getItem('alfaSyncUnattended') === '1';
+                    if (unattended && prepared.some(t => isSavingsTransfer(t))) {
+                      throw new Error('Найдены переводы в накопления: требуется ручная проверка.');
+                    }
+                    if (unattended && prepared.some(t =>
+                      !t.category || t.category === 'other' ||
+                      !isCategoryForType(t.category, categories, t.type)
+                    )) {
+                      throw new Error('В выписке остались операции без надёжной категории. Импорт отложен для ручной проверки, XLSX сохранён.');
+                    }
+                    // No success toast or local mutation before a durable Firestore write.
+                    const created = familyId
+                      ? prepared.every(t => /^alfa_[a-f0-9]{40}$/.test(t.id))
+                        ? await addAlfaItemsIdempotent(familyId, prepared)
+                        : await addItemsBatch(familyId, 'transactions', prepared)
+                      : prepared;
+
+                    const savingsTransfers = created.filter(t => isSavingsTransfer(t));
                     let totalImportedSavings = 0;
                     savingsTransfers.forEach(t => {
                       totalImportedSavings += (t.type === 'expense' ? t.amount : -t.amount);
                     });
-
                     if (totalImportedSavings > 0) {
                       const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalImportedSavings, true);
-                      setGoals(updatedGoals);
                       if (familyId) {
                         if (goals.some(g => g.id === affectedGoal.id)) {
                           await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
@@ -1241,21 +1293,41 @@ export default function App() {
                           await addItem(familyId, 'goals', affectedGoal);
                         }
                       }
-                      toast.success(`Импортировано ${prepared.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
-                    } else {
-                      toast.success(`Импортировано ${prepared.length} операций`); 
+                      setGoals(updatedGoals);
                     }
+                    setImportPreview(null);
+                    setTransactions(prev => [...created.filter(t => !prev.some(ex => ex.id === t.id)), ...prev]);
+                    if (created.length === 0) toast.info('Все операции уже сохранены');
+                    else if (totalImportedSavings > 0) toast.success(`Импортировано ${created.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
+                    else toast.success(`Импортировано ${created.length} операций`);
 
-                    // Sync to Firestore if in family mode
-                    if (familyId) {
-                      await addItemsBatch(familyId, 'transactions', prepared);
+                    // Never acknowledge deletion until every operation in the
+                    // original XLSX exists on the Firestore server. The preview
+                    // can omit legacy duplicates, so checking only prepared is unsafe.
+                    if (familyId && importFileDigestRef.current && importFileRef.current) {
+                      const memberId = prepared[0]?.memberId || 'unknown';
+                      const allRows = await parseAlfaStatement(
+                        importFileRef.current, settings.alfaMapping, memberId,
+                        learnedRules, categories, []
+                      );
+                      const allSaved = await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id));
+                      if (allSaved) {
+                        window.dispatchEvent(new CustomEvent('budget:import-committed', {
+                          detail: {
+                            count: created.length,
+                            requested: allRows.length,
+                            fileSha256: importFileDigestRef.current
+                          }
+                        }));
+                      } else {
+                        toast.warning('Операции сохранены, но не вся выписка подтверждена на сервере. XLSX оставлен для проверки.');
+                      }
                     }
                   } catch (err: any) {
                     console.error("Import error:", err);
-                    setImportPreview(null);
                     toast.error("Ошибка сохранения: " + (err.message || String(err)));
                   }
-                }} 
+                }}
                 settings={settings} 
                 categories={categories} 
                 onUpdateItem={(idx, updates) => { 
@@ -1267,6 +1339,7 @@ export default function App() {
                 onLearnRule={handleLearnRule} 
                 learnedRules={learnedRules}
                 onAddCategory={handleAddCategory} 
+                transactions={transactions}
                 members={members} 
               />
             )}

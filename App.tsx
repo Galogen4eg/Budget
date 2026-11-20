@@ -441,10 +441,9 @@ export default function App() {
   };
 
   const handleDeleteEvent = async (id: string) => {
+      if (!familyId) throw new Error('Family is not ready: event was not deleted');
+      await deleteItem(familyId, 'events', id);
       setEvents(prev => prev.filter(ev => ev.id !== id));
-      if (familyId) {
-        await deleteItem(familyId, 'events', id);
-      }
   };
 
   const handleImport = async (file: File) => {
@@ -677,21 +676,18 @@ export default function App() {
   };
 
   const handleSaveEvent = async (e: FamilyEvent) => {
+      if (!familyId) throw new Error('Family is not ready: event was not saved');
+      const exists = events.some(ev => ev.id === e.id);
+      if (exists) await updateItem(familyId, 'events', e.id, e);
+      else await addItem(familyId, 'events', e);
       setEvents(prev => {
-          const updated = [...prev];
-          const existingIndex = updated.findIndex(ev => ev.id === e.id);
-          if (existingIndex > -1) updated[existingIndex] = e;
-          else updated.push(e);
-          return updated;
+          const existingIndex = prev.findIndex(ev => ev.id === e.id);
+          return existingIndex >= 0
+              ? prev.map(ev => ev.id === e.id ? e : ev)
+              : [...prev, e];
       });
       setIsAddEventModalOpen(false);
-
-      if (familyId) {
-          const exists = events.some(ev => ev.id === e.id);
-          if (exists) await updateItem(familyId, 'events', e.id, e);
-          else await addItem(familyId, 'events', e);
-      }
-      if (settings.autoSendEventsToTelegram) handleSendEventToTelegram(e);
+      if (settings.autoSendEventsToTelegram) void handleSendEventToTelegram(e);
       toast.success('Событие сохранено');
   };
 

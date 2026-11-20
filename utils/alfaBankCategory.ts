@@ -7,7 +7,7 @@ export const alfaBankCategoryToCanonicalId = (raw: string): string | undefined =
   const value = (raw || '').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
   if (!value) return undefined;
   const groups: Array<[string, RegExp]> = [
-    ['savings', /накопительн|копилк|сберегательн|вклад/],
+    ['savings', /накопительн|копилк|сберегательн|^вклад[ыа]?$|^депозит[ыа]?$/],
     ['transfer', /перевод|(?:^|[^а-яa-z0-9])сбп(?:$|[^а-яa-z0-9])|\bsbp\b|между счетами/],
     ['salary', /зарплат|оплат[аы] труда|заработн[а-я]* плат/],
     ['benefits', /больничн|пособи|осфр|социальн[а-я ]*выплат/],

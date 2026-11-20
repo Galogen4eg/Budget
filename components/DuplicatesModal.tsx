@@ -4,17 +4,19 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Trash2, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Transaction, AppSettings } from '../types';
+import { toast } from 'sonner';
 
 interface DuplicatesModalProps {
   transactions: Transaction[];
   onClose: () => void;
-  onDelete: (ids: string[]) => void;
+  onDelete: (ids: string[]) => Promise<void>;
   onIgnore?: (pairIds: string[]) => void; // New prop for ignoring
   ignoredPairs?: string[];
 }
 
 const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose, onDelete, onIgnore, ignoredPairs = [] }) => {
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Find duplicates logic with improved smart matching
   const duplicateGroups = useMemo(() => {
@@ -84,9 +86,17 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
       setSelectedToDelete(newSet);
   };
 
-  const handleExecute = () => {
-      onDelete(Array.from(selectedToDelete));
-      onClose();
+  const handleExecute = async () => {
+      if (isDeleting || selectedToDelete.size === 0) return;
+      setIsDeleting(true);
+      try {
+        await onDelete(Array.from(selectedToDelete));
+        onClose();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось удалить операции');
+      } finally {
+        setIsDeleting(false);
+      }
   };
 
   const handleIgnoreGroup = (groupItems: Transaction[]) => {
@@ -210,11 +220,11 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5">
                 <button 
                     onClick={handleExecute} 
-                    disabled={selectedToDelete.size === 0}
+                    disabled={selectedToDelete.size === 0 || isDeleting}
                     className="w-full py-4 bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                     <Trash2 size={16} />
-                    Удалить выбранные ({selectedToDelete.size})
+                    {isDeleting ? 'Удаление...' : `Удалить выбранные (${selectedToDelete.size})`}
                 </button>
             </div>
         )}

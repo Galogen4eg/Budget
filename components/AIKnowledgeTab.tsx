@@ -7,7 +7,7 @@ export interface AIKnowledgeTabProps {
   newFact: string;
   onNewFactChange: (val: string) => void;
   onAddFact: () => Promise<void>;
-  onDeleteFact: (id: string) => Promise<void>;
+  onDeleteFact: (id: string) => void | Promise<void>;
 }
 
 export const AIKnowledgeTab: React.FC<AIKnowledgeTabProps> = ({

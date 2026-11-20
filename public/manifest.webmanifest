@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Terra — Семейный бюджет",
+  "short_name": "Terra",
+  "description": "Семейный бюджет и общие финансовые планы",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#EBEFF5",
+  "theme_color": "#4A7C59",
+  "icons": [
+    {
+      "src": "/icons/terra-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

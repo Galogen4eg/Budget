@@ -17,8 +17,15 @@ export function makeCalendarICS(events:readonly FamilyEvent[], now:Date=new Date
    const endAt=new Date(startAt.getTime()+Math.round((e.duration||1)*3600000));
    result.push('BEGIN:VEVENT',`UID:${escapeICS(e.id)}@budget`,`DTSTAMP:${timestamp(now)}`,
      `DTSTART:${timestamp(startAt)}`,`DTEND:${timestamp(endAt)}`,
-     `SUMMARY:${escapeICS(e.title)}`,`DESCRIPTION:${escapeICS(e.description)}`,
-     'END:VEVENT');
+     `SUMMARY:${escapeICS(e.title)}`,`DESCRIPTION:${escapeICS(e.description)}`);
+   for(const minutes of e.reminders||[]){
+     if(!Number.isFinite(minutes)||minutes<0||minutes>43200)continue;
+     result.push('BEGIN:VALARM','ACTION:DISPLAY',
+       `DESCRIPTION:${escapeICS(e.title)}`,
+       minutes===0?'TRIGGER:PT0M':`TRIGGER:-PT${Math.round(minutes)}M`,
+       'END:VALARM');
+   }
+   result.push('END:VEVENT');
  }
  result.push('END:VCALENDAR');
  return result.join('\r\n')+'\r\n';

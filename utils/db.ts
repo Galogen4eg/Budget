@@ -165,6 +165,18 @@ export const createInvitation = async (familyId: string, email: string, memberId
     });
 };
 
+export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
+  if (!user.email) return null;
+  const email = user.email.trim().toLowerCase();
+  const invitation = await getDoc(doc(db, 'invitations', email));
+  if (!invitation.exists()) return null;
+  const familyId = invitation.data().familyId;
+  if (typeof familyId !== 'string' || !familyId.trim()) {
+    throw new Error('Некорректное приглашение в семейное пространство');
+  }
+  return { familyId: familyId.trim() };
+};
+
 export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
     if (!familyId) return false;
     const famRef = doc(db, 'families', familyId);

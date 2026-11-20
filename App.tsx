@@ -1073,6 +1073,7 @@ export default function App() {
                 onDeleteEvent={handleDeleteEvent}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
+                onOpenBudget={() => setActiveTab('budget')}
               />
             </div>
 

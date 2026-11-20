@@ -1056,9 +1056,11 @@ export default function App() {
                                 date: dateStr
                             });
                             toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                            return true;
                         } catch (error) {
                             console.error('Quick transaction save failed:', error);
                             toast.error('Не удалось сохранить операцию');
+                            return false;
                         }
                     }}
                 />
@@ -1152,10 +1154,9 @@ export default function App() {
                 onAddCategory={handleAddCategory} 
                 transactions={transactions} 
                 onDelete={async (id) => { 
-                  // Optimistic delete
+                  if (familyId) await deleteItem(familyId, 'transactions', id);
                   setTransactions(prev => prev.filter(t => t.id !== id));
-                  if (familyId) await deleteItem(familyId, 'transactions', id); 
-                  setIsAddModalOpen(false); 
+                  setIsAddModalOpen(false);
                   setSelectedTx(null);
                   toast.success('Операция удалена');
                 }} 

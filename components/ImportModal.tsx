@@ -206,7 +206,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const cleanRaw = extractCleanRuleKeyword(item.rawNote, item.note).toLowerCase();
 
         for (const rule of rulesToApply) {
-          if (!rule.keyword) continue;
+          if (!rule.keyword || rule.categoryId === 'other' || !categories.some(c => c.id === rule.categoryId)) continue;
           const kwLower = rule.keyword.toLowerCase().trim();
           if (!kwLower) continue;
 
@@ -455,7 +455,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Массовое назначение категории нераспознанным
   const handleBatchAssignCategory = (catId: string) => {
     const updated = items.map(i => {
-      if (i.category === 'other' || !i.category) {
+      if (i.category === 'other' || !i.category || !categories.some(c => c.id === i.category)) {
         return { ...i, category: catId, isVerified: true };
       }
       return i;
@@ -468,7 +468,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const handleConfirm = () => {
     // Автоматическое сохранение правил для элементов с чекбоксом запомнить
     items.forEach(item => {
-      if (item.rememberRule && item.category && item.category !== 'other' && item.rawNote) {
+      if (item.rememberRule && item.category && item.category !== 'other' &&
+          categories.some(c => c.id === item.category) && item.rawNote) {
         onLearnRule({
           id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
           keyword: extractCleanRuleKeyword(item.rawNote, item.note),
@@ -509,7 +510,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтрация элементов
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      if (filterTab === 'unrecognized' && item.category !== 'other' && item.category) return false;
+      if (filterTab === 'unrecognized' && item.category && item.category !== 'other' &&
+          categories.some(c => c.id === item.category)) return false;
       if (filterTab === 'income' && item.type !== 'income') return false;
       if (filterTab === 'expense' && item.type !== 'expense') return false;
 
@@ -524,7 +526,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
       return true;
     });
-  }, [items, filterTab, searchQuery]);
+  }, [items, filterTab, searchQuery, categories]);
 
   return (
     <div 

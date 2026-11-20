@@ -6,7 +6,11 @@ import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import EventModal from './EventModal';
 import { GoogleGenAI } from "@google/genai";
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, updateItem, deleteItem } from '../utils/db';
+import { saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence } from '../utils/db';
+import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
+import { formatLocalCalendarDate } from '../utils/calendarDates';
+import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
+import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
@@ -46,7 +50,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const { familyId } = useAuth();
+  const { familyId, user } = useAuth();
+  const [remindersEnabled,setRemindersEnabled]=useState(false);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
@@ -118,6 +123,59 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     } catch (e) { toast.error('Ошибка микрофона'); }
   };
 
+  // Recurring instances are view-only projections of saved family events.
+  const visibleEvents = useMemo(() => {
+    const first=new Date(currentDate.getFullYear(),currentDate.getMonth()-1,1);
+    const last=new Date(currentDate.getFullYear(),currentDate.getMonth()+3,0);
+    return buildCalendarOccurrences(events,formatLocalCalendarDate(first),formatLocalCalendarDate(last));
+  },[events,currentDate]);
+
+  const ownProfileId = members.find(member=>member.userId && member.userId===user?.uid)?.id;
+  const reminderKey=`budget:foreground-reminders:${familyId||'none'}:${user?.uid||'none'}`;
+  useEffect(()=>{
+    setRemindersEnabled(localStorage.getItem(reminderKey)==='enabled');
+  },[reminderKey]);
+
+  const enableReminders=async()=>{
+    if(typeof Notification!=='undefined'&&Notification.permission==='default'){
+      try{await Notification.requestPermission();}catch(error){console.warn('Notification permission unavailable',error);}
+    }
+    localStorage.setItem(reminderKey,'enabled');
+    setRemindersEnabled(true);
+    toast.info('Напоминания включены при открытом Budget. Фоновые push пока не настроены.');
+  };
+
+  useEffect(()=>{
+    if(!remindersEnabled||!familyId||!user)return;
+    const tick=()=>{
+      const now=new Date(),today=formatLocalCalendarDate(now);
+      const end=new Date(now);end.setDate(end.getDate()+40);
+      const future=buildCalendarOccurrences(events,today,formatLocalCalendarDate(end));
+      const monthly=Array.from({length:3},(_,i)=>paymentAgenda(
+        settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1)
+      ));
+      const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId);
+      const key=`${reminderKey}:seen`;
+      let seen:string[]=[];
+      try{const saved=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(saved))seen=saved;}catch{}
+      const newItems=due.filter(item=>!seen.includes(item.id));
+      if(newItems.length===0)return;
+      for(const entry of newItems){
+        try{
+          if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+            new Notification('Budget: напоминание',{body:entry.title,tag:entry.id});
+          }else toast.info('Напоминание: '+entry.title);
+        }catch{toast.info('Напоминание: '+entry.title);}
+      }
+      localStorage.setItem(key,JSON.stringify([...seen,...newItems.map(item=>item.id)].slice(-250)));
+    };
+    tick();
+    const interval=window.setInterval(tick,30000);
+    const onFocus=()=>tick();
+    window.addEventListener('focus',onFocus);
+    return ()=>{window.clearInterval(interval);window.removeEventListener('focus',onFocus);};
+  },[events,remindersEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses]);
+
   // --- Calendar Data ---
   const calendarData = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -156,18 +214,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   // --- Filtered Data ---
   const getEventsForDate = (d: Date) => {
       const dateStr = getLocalDateString(d);
-      return events.filter(e => e.date === dateStr);
+      return visibleEvents.filter(e => e.date === dateStr);
   };
 
   const selectedDayEvents = useMemo(() => {
       const dayEvents = getEventsForDate(selectedDate);
       // Sort events by time ascending (08:00 before 12:00)
       return dayEvents.sort((a, b) => a.time.localeCompare(b.time));
-  }, [selectedDate, events]);
+  }, [selectedDate, visibleEvents]);
 
   const filteredListEvents = useMemo(
-    () => filterEventsForCalendarMonth(events, currentDate, listTab),
-    [events, listTab, currentDate]
+    () => filterEventsForCalendarMonth(visibleEvents, currentDate, listTab),
+    [visibleEvents, listTab, currentDate]
   );
 
   const groupedListEvents = useMemo(() => {
@@ -181,42 +239,59 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   }, [filteredListEvents]);
 
   // --- Actions ---
-  const handleSaveEvent = async (e: FamilyEvent) => {
-      if (!familyId) throw new Error('Family is not ready: event was not saved');
-      const exists = events.some(ev => ev.id === e.id);
-      if (exists) await updateItem(familyId, 'events', e.id, e);
-      else await addItem(familyId, 'events', e);
-      setEvents(prev => {
-        const existingIndex = prev.findIndex(ev => ev.id === e.id);
-        return existingIndex >= 0
-          ? prev.map(ev => ev.id === e.id ? e : ev)
-          : [...prev, e];
-      });
-      setActiveEvent(null);
-      toast.success('Событие сохранено');
-      if (settings.autoSendEventsToTelegram) void onSendToTelegram(e);
+  const handleSaveEvent=async (next:FamilyEvent)=>{
+    if(!familyId)throw new Error('Семейный аккаунт недоступен');
+    if(next.seriesId){
+      const parent=events.find(e=>e.id===next.seriesId);
+      if(!parent)throw new Error('Повторяющаяся серия удалена');
+      await saveFamilyPlanOccurrence(familyId,parent,next.occurrenceDate||next.date,next);
+    }else{
+      const old=events.find(e=>e.id===next.id)||null;
+      await saveFamilyPlanEvent(familyId,next,old);
+    }
+    setActiveEvent(null);
+    toast.success('План сохранён');
+    if(settings.autoSendEventsToTelegram)void onSendToTelegram(next);
   };
 
-  const handleDeleteEvent = async (id: string) => {
-      if (onDeleteEvent) {
-        await onDeleteEvent(id);
-      } else {
-        if (!familyId) throw new Error('Family is not ready: event was not deleted');
-        await deleteItem(familyId, 'events', id);
-        setEvents(prev => prev.filter(e => e.id !== id));
-      }
-      setActiveEvent(null);
-      toast.success('Событие удалено');
+  const handleDeleteEvent=async (id:string,scope:'single'|'series'='series')=>{
+    if(!familyId)throw new Error('Семейный аккаунт недоступен');
+    const source=activeEvent?.event;
+    const parentId=source?.seriesId||source?.id;
+    if(source&&(source.seriesId||source.recurrence&&source.recurrence!=='none')&&scope==='single'&&parentId){
+      const parent=events.find(e=>e.id===parentId);
+      if(!parent)throw new Error('Серия уже удалена');
+      await saveFamilyPlanOccurrence(familyId,parent,source.occurrenceDate||source.date,null);
+    }else{
+      const target=events.find(e=>e.id===(scope==='series'&&parentId?parentId:id));
+      if(!target)throw new Error('Событие уже удалено');
+      await deleteFamilyPlanEvent(familyId,target.id,target);
+    }
+    setActiveEvent(null);
+    toast.success('Событие удалено');
   };
 
-  const handleUpdateEvent = async (e: FamilyEvent) => {
-      if (!familyId) throw new Error('Family is not ready: event was not updated');
-      await updateItem(familyId, 'events', e.id, e);
-      setEvents(prev => prev.map(ev => ev.id === e.id ? e : ev));
+  const handleUpdateEvent=async (next:FamilyEvent)=>{
+    if(!familyId)throw new Error('Семейный аккаунт недоступен');
+    const old=events.find(e=>e.id===next.id)||null;
+    await saveFamilyPlanEvent(familyId,next,old);
+  };
+
+  const handleToggleTask=async (task:FamilyEvent)=>{
+    if(!familyId)throw new Error('Семейный аккаунт недоступен');
+    const updated={...task,completed:!task.completed,completedAt:!task.completed?new Date().toISOString():undefined};
+    if(task.seriesId||task.recurrence&&task.recurrence!=='none'){
+      const baseId=task.seriesId||task.id;
+      const base=events.find(e=>e.id===baseId);
+      if(!base)throw new Error('Серия удалена');
+      await saveFamilyPlanOccurrence(familyId,base,task.occurrenceDate||task.date,updated);
+    }else{
+      await saveFamilyPlanEvent(familyId,updated,events.find(e=>e.id===task.id)||null);
+    }
   };
 
   const commonProps = {
-      events,
+      events:visibleEvents,
       members,
       settings,
       currentDate,
@@ -241,6 +316,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   return (
     <>
+      <FamilyAgendaPanel events={events} members={members}
+        payments={settings.mandatoryExpenses||[]}
+        onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
+        onToggleTask={handleToggleTask}
+        onEnableReminders={()=>void enableReminders()}
+        remindersEnabled={remindersEnabled}/>
         {isDesktop ? (
             <FamilyPlansDesktop 
                 {...commonProps} 

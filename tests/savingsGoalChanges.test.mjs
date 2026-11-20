@@ -54,7 +54,7 @@ test('rejects editing stale financial transaction data changed on another device
   const old = tx(100, 'a');
   const serverVersion = { ...old, amount: 130 };
   assert.throws(() => assertFinancialVersion(old, serverVersion), /изменен/);
-  assert.doesNotThrow(() => assertFinancialVersion(old, { ...old, payee: 'New display name' }));
+  assert.throws(() => assertFinancialVersion(old, { ...old, payee: 'Другое название' }), /изменен/);
 });
 
 test('bulk deletion of ordinary expenses remains allowed', () => {

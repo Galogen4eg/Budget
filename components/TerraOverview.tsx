@@ -1045,6 +1045,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-3">
+              {mobileCategories.length === 0 && (
+                <p className="text-sm text-graphite-muted dark:text-gray-400 py-3">
+                  За выбранный период пока нет расходов по категориям.
+                </p>
+              )}
               {mobileCategories.map((cat, idx) => (
                 <div 
                   key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
@@ -1189,9 +1194,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-2">
+              {recentMobileTransactions.length === 0 && (
+                <div className="py-4 text-center space-y-2">
+                  <p className="text-sm text-graphite-muted dark:text-gray-400">Операций пока нет.</p>
+                  <button type="button" onClick={onOpenAddModal} className="text-sm font-semibold text-primary hover:underline">
+                    Добавить первую операцию
+                  </button>
+                </div>
+              )}
               {recentMobileTransactions.map((tx, idx) => {
                 const isExpense = tx.type === 'expense';
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Гена' };
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник' };
                 const cat = categories.find(c => c.id === tx.category);
                 const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
                 const displayTitle = tx.note || catLabel;

@@ -323,7 +323,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold shadow-sm transition"
           >
             <CheckCheck size={15} />
-            <span>Принять всё ({unrecognizedItems.length})</span>
+            <span>Принять уверенные ({eligibleAutoSuggestions.length})</span>
           </RippleButton>
         </div>
 

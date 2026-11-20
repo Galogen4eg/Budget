@@ -620,7 +620,7 @@ export const updateFamilyMemberProfiles = async (
       if (!snapshot.exists()) throw new Error('Профиль больше не существует. Обновите список участников');
       const live = { ...snapshot.data(), id: snapshot.id } as FamilyMember;
       const fields = validateMemberMutation(change, live, requesterUid, requesterEmail);
-      transaction.update(refs[index], cleanForFirestore(fields));
+      transaction.update(refs[index], { ...cleanForFirestore(fields) });
     });
   });
 };

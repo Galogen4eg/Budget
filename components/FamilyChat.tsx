@@ -35,115 +35,10 @@ export interface TopicItem {
 }
 
 const INITIAL_TOPICS: TopicItem[] = [
-  {
-    id: 'general',
-    title: 'Общий семейный чат',
-    subtitle: 'Папа (онлайн), Мама (14:35)',
-    icon: 'СБ',
-    time: '14:38',
-    lastMessage: 'Папа: Внёс счёт за садик в бюджет'
-  },
-  {
-    id: 'shopping',
-    title: 'Покупки и список',
-    subtitle: 'Папа, Мама (онлайн)',
-    icon: '🛒',
-    time: '11:05',
-    lastMessage: 'Мама: Купила сыр и творог'
-  },
-  {
-    id: 'weekend',
-    title: 'Выходные и поездки',
-    subtitle: 'Папа, Мама, Бабушка',
-    icon: '📅',
-    time: 'Вчера',
-    lastMessage: 'В субботу дача в 10:00'
-  }
+  { id: 'general', title: 'Общий семейный чат', subtitle: 'Сообщения семьи', icon: 'СБ', time: '', lastMessage: 'Пока нет сообщений' }
 ];
 
-const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = {
-  general: [
-    {
-      id: 'm1',
-      topicId: 'general',
-      text: 'Привет! Я заехала в аптеку и купила витамины. Прикрепила чек сюда, чтобы не забыть внести в бюджет.',
-      userId: 'mom',
-      userName: 'Мама',
-      timestamp: Date.now() - 3600000 * 1.2,
-      type: 'text',
-      reactions: { '❤️': 1 },
-      userReacted: { '❤️': false }
-    },
-    {
-      id: 'm2',
-      topicId: 'general',
-      text: 'Трата внесена в бюджет',
-      userId: 'mom',
-      userName: 'Мама',
-      timestamp: Date.now() - 3600000 * 1.1,
-      type: 'receipt',
-      receiptData: {
-        amount: 1420,
-        category: 'Аптека и здоровье',
-        merchant: 'Аптека «Здоровье»',
-        date: 'Сегодня, 13:38',
-        items: [
-          { name: 'Витамин D3 2000 ME (капли)', price: 640 },
-          { name: 'Омега-3 концентрат 1000мг', price: 780 }
-        ]
-      }
-    },
-    {
-      id: 'm3',
-      topicId: 'general',
-      text: 'Отлично, увидел в расходах. Я сейчас оплатил квитанцию за садик (4 200 ₽), всё синхронизировалось. Заеду за хлебом после работы.',
-      userId: 'dad',
-      userName: 'Вы',
-      timestamp: Date.now() - 1200000,
-      type: 'text'
-    }
-  ],
-  shopping: [
-    {
-      id: 's1',
-      topicId: 'shopping',
-      text: 'Купила фермерский сыр и творог на сырники! Список на ужин закрыт.',
-      userId: 'mom',
-      userName: 'Мама',
-      timestamp: Date.now() - 3600000 * 3,
-      type: 'text'
-    },
-    {
-      id: 's2',
-      topicId: 'shopping',
-      text: 'Супер! Я докуплю оливковое масло и зелень.',
-      userId: 'dad',
-      userName: 'Вы',
-      timestamp: Date.now() - 3600000 * 2.8,
-      type: 'text'
-    }
-  ],
-  weekend: [
-    {
-      id: 'w1',
-      topicId: 'weekend',
-      text: 'В субботу жду всех на даче к 10:00! Яблоки поспели, испечем пирог.',
-      userId: 'granny',
-      userName: 'Бабушка',
-      timestamp: Date.now() - 86400000,
-      type: 'text'
-    },
-    {
-      id: 'w2',
-      topicId: 'weekend',
-      text: 'Договорились! Заедем за вами в 9:20 утра.',
-      userId: 'dad',
-      userName: 'Вы',
-      timestamp: Date.now() - 86000000,
-      type: 'text'
-    }
-  ]
-};
+const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = { general: [] };
 
 export default function FamilyChat() {
   const { user, familyId } = useAuth();
@@ -152,6 +47,7 @@ export default function FamilyChat() {
   const [topics, setTopics] = useState<TopicItem[]>(INITIAL_TOPICS);
   const [activeTopicId, setActiveTopicId] = useState<string>('general');
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES_MAP);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   // UI states
   const [inputText, setInputText] = useState('');
@@ -177,22 +73,27 @@ export default function FamilyChat() {
     }
   }, [activeTopicId, currentMessages.length, mobileView]);
 
-  // Handle Realtime Firestore subscription if familyId exists
+  // Keep each message in its own topic. Empty snapshots must clear stale messages.
   useEffect(() => {
-    if (!familyId) return;
-
+    if (!familyId) {
+      setMessagesMap({ general: [] });
+      return;
+    }
     const unsub = subscribeToCollection(familyId, 'chat', (data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        const sorted = [...data].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        setMessagesMap(prev => ({
-          ...prev,
-          [activeTopicId]: sorted as ChatMessage[]
-        }));
+      const grouped: Record<string, ChatMessage[]> = { general: [] };
+      if (Array.isArray(data)) {
+        for (const message of data as ChatMessage[]) {
+          const topicId = message.topicId || 'general';
+          (grouped[topicId] ||= []).push(message);
+        }
       }
+      for (const messages of Object.values(grouped)) {
+        messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      }
+      setMessagesMap(grouped);
     });
-
     return () => unsub();
-  }, [familyId, activeTopicId]);
+  }, [familyId]);
 
   // Topic Switcher
   const handleSelectTopic = (topicId: string) => {
@@ -211,10 +112,10 @@ export default function FamilyChat() {
       const newTopic: TopicItem = {
         id: newTopicId,
         title: topicTitle.trim(),
-        subtitle: 'Папа, Мама, Бабушка',
+        subtitle: 'Сообщения темы',
         icon: '📋',
         time: 'Только что',
-        lastMessage: 'Чат создан'
+        lastMessage: 'Пока нет сообщений'
       };
 
       setTopics(prev => [newTopic, ...prev]);
@@ -235,54 +136,45 @@ export default function FamilyChat() {
 
       setActiveTopicId(newTopicId);
       setMobileView('chat');
-      toast.success(`Тема «${topicTitle}» успешно создана`);
+      toast.info('Тема создана на этом устройстве. Синхронизация тем пока не поддерживается.');
     }
   };
 
-  // Send Message Handler
+  // Send only confirmed messages; retain the draft when saving fails.
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text) return;
+    if (!text || isSendingMessage) return;
+    if (!familyId || !user) {
+      toast.error('Для отправки сообщений войдите в семейное пространство');
+      return;
+    }
 
-    triggerHaptic('medium');
-
+    setIsSendingMessage(true);
+    const topicId = activeTopicId;
     const newMsg: ChatMessage = {
-      id: `msg_${Date.now()}`,
-      topicId: activeTopicId,
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      topicId,
       text,
-      userId: user?.uid || 'current_user',
-      userName: user?.displayName || 'Вы',
+      userId: user.uid,
+      userName: user.displayName || 'Вы',
       timestamp: Date.now(),
       type: 'text'
     };
-
-    // Optimistic Update
-    setMessagesMap(prev => ({
-      ...prev,
-      [activeTopicId]: [...(prev[activeTopicId] || []), newMsg]
-    }));
-
-    // Update Topic Last Message
-    setTopics(prev => prev.map(t => {
-      if (t.id === activeTopicId) {
-        return {
-          ...t,
-          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-          lastMessage: `Вы: ${text}`
-        };
-      }
-      return t;
-    }));
-
-    setInputText('');
-
-    if (familyId) {
-      try {
-        await addItem(familyId, 'chat', newMsg);
-      } catch (err) {
-        console.error("Failed to send chat message:", err);
-      }
+    try {
+      await addItem(familyId, 'chat', newMsg);
+      triggerHaptic('medium');
+      setInputText(prev => prev === text ? '' : prev);
+      setTopics(prev => prev.map(t => t.id === topicId ? {
+        ...t,
+        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        lastMessage: `Вы: ${text}`
+      } : t));
+    } catch (err) {
+      console.error('Failed to send chat message:', err);
+      toast.error('Сообщение не отправлено. Повторите попытку.');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -341,8 +233,8 @@ export default function FamilyChat() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      toast.success(`Чек "${file.name}" прикреплен к сообщению 📎`);
-      setInputText(prev => prev ? `${prev} [Чек: ${file.name}]` : `Чек: ${file.name}`);
+      toast.warning('Отправка файлов в чате пока не поддерживается. Файл не прикреплён.');
+      e.target.value = '';
     }
   };
 
@@ -376,7 +268,7 @@ export default function FamilyChat() {
             <h1 className="font-headline font-bold text-base text-on-surface dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block animate-pulse"></span>
-              <span>{members.length || 3} участника онлайн</span>
+              <span>{members.length} участников семьи</span>
             </p>
           </div>
           <button 

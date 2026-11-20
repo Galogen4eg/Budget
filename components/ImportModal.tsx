@@ -14,6 +14,7 @@ import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
 import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from '../utils/analyzerHelper';
 import { toast } from 'sonner';
+import { countCategoryUsage } from '../utils/categoryPopularity';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -33,7 +34,8 @@ interface ImportModalProps {
   onLearnRule: (rule: LearnedRule) => void;
   learnedRules?: LearnedRule[];
   categories: Category[];
-  onAddCategory: (category: Category) => void;
+  onAddCategory: (category: Category) => void | Promise<void>;
+  transactions: Transaction[];
   members: FamilyMember[];
 }
 
@@ -75,9 +77,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   learnedRules = [],
   categories, 
   onAddCategory, 
+  transactions,
   members 
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  // Snapshot of saved family history, not the changing preview, keeps ranking stable.
+  const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
   // Локальный список операций с уникальными стабильными ключами
   const [items, setItems] = useState<ImportItem[]>(() => {
     return preview.map((p, idx) => ({
@@ -1094,6 +1099,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           accountMask: i.accountMask
         }))}
         categories={categories}
+        categoryUsage={categoryUsage}
         learnedRules={learnedRules}
         onAddCategory={onAddCategory}
         onEditItem={(analyzerItem) => {
@@ -1170,7 +1176,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             toast.success(`Автоправила дополнительно распознали еще ${totalAutoMatched} неразобранных операций!`);
           }
           syncToParent(updated);
-          setIsAnalyzerOpen(false);
+          // Stay in the analyzer; only its explicit Close button returns to the preview.
         }}
       />
     </div>

@@ -66,3 +66,12 @@ test('uses existing custom named subcategory without duplicating it', () => {
 test('unknown merchants are not assigned arbitrary categories', () => {
   assert.equal(matchMerchantBrand('C2C TRANSFER UNKNOWN', defaults), undefined);
 });
+
+test('does not recreate a shop subcategory when user already named it', () => {
+  const saved = [
+    { id: 'food', label: 'Продукты' },
+    { id: 'restaurants', label: 'Рестораны' },
+    { id: 'custom_magnit', label: 'Магнит', parentId: 'food' }
+  ];
+  assert.equal(missingMerchantCategories(defaults, saved).some(c => c.id === 'grocery_magnit'), false);
+});

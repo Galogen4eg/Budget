@@ -200,6 +200,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     e.preventDefault();
     const title = newItemTitle.trim();
     if (!title) return;
+    try {
 
     if (editingItem) {
       const updated: ShoppingItem = {
@@ -253,6 +254,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           modalTitleInputRef.current?.focus();
         }, 50);
       }
+    }
+    } catch (error) {
+      console.error('Shopping item save failed:', error);
+      toast.error('Не удалось сохранить товар. Повторите попытку.');
     }
   };
 

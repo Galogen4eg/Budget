@@ -297,9 +297,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const handleClearCompleted = async () => {
     if (completedItems.length === 0) return;
     const idsToDelete = completedItems.map(i => i.id);
-    setItems(prev => prev.filter(i => !i.completed));
-    if (familyId) {
-      await deleteItemsBatch(familyId, 'shopping', idsToDelete);
+    try {
+      if (familyId) await deleteItemsBatch(familyId, 'shopping', idsToDelete);
+      setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+    } catch (error) {
+      toast.error('Не удалось очистить купленные товары');
     }
   };
 

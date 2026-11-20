@@ -72,14 +72,13 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 
   // Compute transaction counts for display
   const transactionStats = useMemo(() => {
+    if (categoryUsage) return categoryUsage;
     const countMap: Record<string, number> = {};
     transactions.forEach(tx => {
-      if (tx.category) {
-        countMap[tx.category] = (countMap[tx.category] || 0) + 1;
-      }
+      if (tx.category) countMap[tx.category] = (countMap[tx.category] || 0) + 1;
     });
     return countMap;
-  }, [transactions]);
+  }, [transactions, categoryUsage]);
 
   // Organize categories into parents and child map
   const { parentCategories, subcategoriesByParent } = useMemo(() => {

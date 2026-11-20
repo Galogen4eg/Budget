@@ -8,6 +8,7 @@ import {
 import { Category, LearnedRule } from '../types';
 import { analyzeTransaction, AnalysisResult } from '../utils/analyzerHelper';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
+import { isCategoryForType } from '../utils/categoryCatalog';
 
 export interface UnrecognizedAnalyzerItem {
   id: string;
@@ -44,8 +45,8 @@ const formatDate = (value: string): string => {
 const formatAmount = (item: UnrecognizedAnalyzerItem): string =>
   `${item.type === 'income' ? '+' : '−'}${Math.abs(item.amount).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`;
 
-const isUsableCategory = (id: string | undefined, categories: Category[]): id is string =>
-  Boolean(id && id !== 'other' && categories.some(category => category.id === id));
+const isUsableCategory = (id: string | undefined, categories: Category[], type: 'income' | 'expense'): id is string =>
+  Boolean(id && id !== 'other' && isCategoryForType(id, categories, type));
 
 export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps> = ({
   isOpen, onClose, items, categories, categoryUsage, learnedRules,
@@ -71,14 +72,14 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   const analyses = useMemo(() => new Map<string, AnalysisResult>(
     remaining.map(item => [
       item.id,
-      analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories)
+      analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories, item.type)
     ])
   ), [remaining, learnedRules, categories]);
 
   const suggested = useMemo(() => remaining.filter(item => {
     const result = analyses.get(item.id);
     return Boolean(result && result.source !== 'fallback' && result.confidence >= 88 &&
-      isUsableCategory(result.suggestedCategoryId, categories));
+      isUsableCategory(result.suggestedCategoryId, categories, item.type));
   }), [remaining, analyses, categories]);
 
   const visible = useMemo(() => {
@@ -121,7 +122,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     if (chosenCategories[item.id]) return chosenCategories[item.id];
     const analysis = analyses.get(item.id);
     if (analysis?.source !== 'fallback' && analysis && analysis.confidence >= 88 &&
-        isUsableCategory(analysis.suggestedCategoryId, categories)) {
+        isUsableCategory(analysis.suggestedCategoryId, categories, item.type)) {
       return analysis.suggestedCategoryId;
     }
     return undefined;
@@ -162,6 +163,10 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   const suggestedParent = (item: UnrecognizedAnalyzerItem): string => {
     const suggestedId = analyses.get(item.id)?.suggestedCategoryId;
     const selected = categories.find(category => category.id === suggestedId);
+    if (item.type === 'income') {
+      return selected && isCategoryForType(selected.id, categories, 'income')
+        ? (selected.parentId || selected.id) : 'income';
+    }
     return selected?.parentId || (selected && !selected.parentId ? selected.id : '');
   };
 
@@ -313,7 +318,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       <div className="border-t border-stone-200 dark:border-white/10 pt-3">
                         <CategoryPickerAccordion
                           key={`${item.id}-${quickCreateId === item.id ? 'create' : 'choose'}`}
-                          categories={categories} categoryUsage={categoryUsage} selectedCategoryId={chosen}
+                          categories={categories} categoryUsage={categoryUsage} transactionType={item.type} selectedCategoryId={chosen}
                           onAddCategory={onAddCategory} maxHeightClass="max-h-[360px]"
                           startCreateSubcategory={quickCreateId === item.id}
                           initialNewSubcategoryName={suggestedSubcategoryName(item)}
@@ -385,7 +390,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                   </div>
                   <CategoryPickerAccordion
                     key={`${activeItem.id}-${quickCreateId === activeItem.id ? 'create' : 'choose'}`}
-                    categories={categories} categoryUsage={categoryUsage} selectedCategoryId={chosenCategory(activeItem)}
+                    categories={categories} categoryUsage={categoryUsage} transactionType={activeItem.type} selectedCategoryId={chosenCategory(activeItem)}
                     onAddCategory={onAddCategory} maxHeightClass="max-h-[310px]"
                     startCreateSubcategory={quickCreateId === activeItem.id}
                     initialNewSubcategoryName={suggestedSubcategoryName(activeItem)}
@@ -398,7 +403,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                         setChosenCategories(prev => ({ ...prev, [activeItem.id]: id }));
                       }
                     }} />
-                  <button type="button" disabled={!isUsableCategory(chosenCategory(activeItem), categories)}
+                  <button type="button" disabled={!isUsableCategory(chosenCategory(activeItem), categories, activeItem.type)}
                     onClick={() => {
                       const categoryId = chosenCategory(activeItem);
                       if (categoryId) assignCategory(activeItem, categoryId);

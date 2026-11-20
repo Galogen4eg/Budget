@@ -1260,6 +1260,12 @@ export default function App() {
                     if (unattended && prepared.some(t => isSavingsTransfer(t))) {
                       throw new Error('Найдены переводы в накопления: требуется ручная проверка.');
                     }
+                    if (unattended && prepared.some(t =>
+                      !t.category || t.category === 'other' ||
+                      !categories.some(category => category.id === t.category)
+                    )) {
+                      throw new Error('В выписке остались операции без надёжной категории. Импорт отложен для ручной проверки, XLSX сохранён.');
+                    }
                     // No success toast or local mutation before a durable Firestore write.
                     const created = familyId
                       ? prepared.every(t => /^alfa_[a-f0-9]{40}$/.test(t.id))

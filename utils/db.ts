@@ -391,6 +391,17 @@ export const deleteTransactionWithGoal = async (
   await batch.commit();
 };
 
+/** Move an item into the pantry atomically, avoiding duplicate or lost items on failure. */
+export const moveShoppingToPantry = async (
+  familyId: string, shoppingId: string, pantryItem: PantryItem
+): Promise<void> => {
+  if (!familyId) throw new Error('No family ID');
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'families', familyId, 'pantry', pantryItem.id), cleanForFirestore(pantryItem));
+  batch.delete(doc(db, 'families', familyId, 'shopping', shoppingId));
+  await batch.commit();
+};
+
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();

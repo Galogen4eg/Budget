@@ -317,8 +317,14 @@ export default function AddTransactionModal({
       setIsConfirmingDelete(true);
       return;
     }
-    await onDelete(initialTransaction.id);
-    onClose(); 
+    try {
+      await onDelete(initialTransaction.id);
+      onClose();
+    } catch (error) {
+      console.error('Delete transaction error:', error);
+      setValidationError('Не удалось удалить операцию. Повторите попытку.');
+      setIsConfirmingDelete(false);
+    }
   };
 
   return createPortal(

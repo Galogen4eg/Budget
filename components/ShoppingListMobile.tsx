@@ -1082,7 +1082,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 interface SwipeableCompletedItemProps {
   item: ShoppingItem;
   onToggle: (item: ShoppingItem) => void;
-  onMoveToPantry: (item: ShoppingItem) => void;
+  onMoveToPantry: (item: ShoppingItem) => Promise<void>;
   onDelete: (id: string) => void;
 }
 
@@ -1148,7 +1148,11 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button 
             type="button"
-            onClick={() => onMoveToPantry(item)}
+            onClick={() => {
+              void onMoveToPantry(item).catch(error => {
+                toast.error(error instanceof Error ? error.message : 'Не удалось переместить товар в кладовую');
+              });
+            }}
             className="p-1 text-[#68736A] hover:text-[#4A7C59] transition cursor-pointer"
             title="В кладовку"
           >

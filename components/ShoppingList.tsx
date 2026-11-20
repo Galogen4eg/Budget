@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import ShoppingListDesktop from './ShoppingListDesktop';
 import ShoppingListMobile from './ShoppingListMobile';
+import ShoppingQuickListsPanel from './ShoppingQuickListsPanel';
 
 export interface ShoppingListProps {
   items: ShoppingItem[];
@@ -29,11 +30,14 @@ export const ShoppingList: React.FC<ShoppingListProps> = (props) => {
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
-  if (isDesktop) {
-    return <ShoppingListDesktop {...props} />;
-  }
-
-  return <ShoppingListMobile {...props} />;
+  return (
+    <div className="h-full min-h-0 flex flex-col">
+      <ShoppingQuickListsPanel items={props.items} members={props.members} />
+      <div className="flex-1 min-h-0">
+        {isDesktop ? <ShoppingListDesktop {...props}/> : <ShoppingListMobile {...props}/>}
+      </div>
+    </div>
+  );
 };
 
 export default ShoppingList;

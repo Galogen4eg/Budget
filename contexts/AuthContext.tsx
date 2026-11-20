@@ -71,12 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribe: (() => void) | undefined;
     let isMounted = true;
 
-    // Guaranteed safety fallback: never hang more than 3 seconds on loading screen
-    const safetyTimer = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }, 3000);
+    // Never expose a guessed family while Firestore membership is unresolved.
+    // The loading state is cleared only after the auth callback finishes.
 
     // Run getRedirectResult in background without blocking onAuthStateChanged
     getRedirectResult(auth).catch((e) => {
@@ -104,26 +100,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
-          const cachedFid = localStorage.getItem('cached_familyId');
           try {
-            // Guard family initialization with 2.5s timeout
-            const familyInitPromise = getOrInitUserFamily(currentUser);
-            const timeoutPromise = new Promise<string>((_, reject) => 
-              setTimeout(() => reject(new Error('Family init timeout')), 2500)
-            );
-
-            const fid = await Promise.race([familyInitPromise, timeoutPromise]);
+            const fid = await getOrInitUserFamily(currentUser);
             if (fid && isMounted) {
               setFamilyId(fid);
               localStorage.setItem('cached_familyId', fid);
               setIsOfflineMode(false);
             }
           } catch (e) {
-            console.warn("Using fallback family ID due to network/auth delay:", e);
+            console.error("Family initialization failed; refusing to use an unverified family ID:", e);
             if (isMounted) {
-              const fallbackFid = cachedFid || currentUser.uid;
-              setFamilyId(fallbackFid);
-              setIsOfflineMode(true);
+              setFamilyId(null);
+              setIsOfflineMode(false);
+              toast.error('Не удалось загрузить семейное пространство. Проверьте соединение и повторите вход.');
             }
           }
         } else {
@@ -135,7 +124,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (isMounted) {
-          clearTimeout(safetyTimer);
           setLoading(false);
         }
       });
@@ -148,7 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
-      clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };
   }, []); 

@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
 import { prepareFamilyMemberInvitation } from './familyInvitation';
+import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -563,6 +564,34 @@ export const updateItem = async (familyId: string, collectionName: string, id: s
   const docRef = doc(db, 'families', familyId, collectionName, id);
   const cleanUpdates = cleanForFirestore(updates);
   await updateDoc(docRef, cleanUpdates);
+};
+
+/**
+ * Persist only changed family-member fields against fresh Firestore snapshots.
+ * A conflicting same-field edit or concurrent account claim aborts the whole transaction.
+ */
+export const updateFamilyMemberProfiles = async (
+  familyId: string,
+  previous: readonly FamilyMember[],
+  updated: readonly FamilyMember[],
+  requesterUid: string | null,
+  requesterEmail?: string | null
+): Promise<void> => {
+  if (!familyId || !requesterUid) throw new Error('Семейный аккаунт недоступен');
+  const changes = planMemberMutations(previous, updated);
+  if (!changes.length) return;
+  await runTransaction(db, async transaction => {
+    const refs = changes.map(change => doc(db, 'families', familyId, 'members', change.id));
+    // Firestore requires all reads to complete before any write.
+    const snapshots = await Promise.all(refs.map(ref => transaction.get(ref)));
+    changes.forEach((change, index) => {
+      const snapshot = snapshots[index];
+      if (!snapshot.exists()) throw new Error('Профиль больше не существует. Обновите список участников');
+      const live = { ...snapshot.data(), id: snapshot.id } as FamilyMember;
+      const fields = validateMemberMutation(change, live, requesterUid, requesterEmail);
+      transaction.update(refs[index], cleanForFirestore(fields));
+    });
+  });
 };
 
 export const updateItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {

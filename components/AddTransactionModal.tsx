@@ -1001,6 +1001,7 @@ export default function AddTransactionModal({
             isOpen={isMobileCategoryPickerOpen}
             onClose={() => setIsMobileCategoryPickerOpen(false)}
             categories={categories}
+            transactionType={type}
             selectedCategoryId={categoryId}
             onSelectCategory={(id) => {
               setCategoryId(id);

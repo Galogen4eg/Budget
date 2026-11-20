@@ -1069,7 +1069,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         onEditItem={(analyzerItem) => {
           const matched = items.find(i => i.tempId === analyzerItem.id);
           if (matched) {
-            setEditingItem(matched);
+            setIsAnalyzerOpen(false);
+            handleOpenEditModal(matched);
           }
         }}
         onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {

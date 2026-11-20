@@ -37,7 +37,7 @@ interface SettingsModalProps {
   savingsRate: number;
   setSavingsRate: (val: number) => void;
   members: FamilyMember[];
-  onUpdateMembers: (members: FamilyMember[]) => void;
+  onUpdateMembers: (members: FamilyMember[]) => Promise<void>;
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
   onDeleteCategory?: (id: string) => void;
@@ -315,7 +315,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             ? { ...m, name: cleanLogin } 
             : m
         );
-        onUpdateMembers(updatedMembers);
+        await onUpdateMembers(updatedMembers);
       }
 
       const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;

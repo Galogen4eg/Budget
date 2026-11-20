@@ -1061,17 +1061,22 @@ export default function App() {
                         setSelectedMandatoryExpense(expense);
                         setIsMandatoryModalOpen(true);
                     }}
-                    onQuickAddTransaction={(title, amount, date, memberId) => {
+                    onQuickAddTransaction={async (title, amount, date, memberId) => {
                         const dateStr = date.toISOString().split('T')[0];
-                        handleTransactionSubmit({
-                            amount,
-                            type: 'expense',
-                            category: 'other',
-                            memberId,
-                            note: title,
-                            date: dateStr
-                        });
-                        toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                        try {
+                            await handleTransactionSubmit({
+                                amount,
+                                type: 'expense',
+                                category: 'other',
+                                memberId,
+                                note: title,
+                                date: dateStr
+                            });
+                            toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                        } catch (error) {
+                            console.error('Quick transaction save failed:', error);
+                            toast.error('Не удалось сохранить операцию');
+                        }
                     }}
                 />
             </div>

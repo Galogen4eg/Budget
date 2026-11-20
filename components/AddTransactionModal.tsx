@@ -283,6 +283,7 @@ export default function AddTransactionModal({
         onLearnRule(rule);
       }
 
+      await onSubmit(txData);
       // Optional Telegram notification
       if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
         const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
@@ -302,7 +303,6 @@ export default function AddTransactionModal({
         });
       }
 
-      await onSubmit(txData);
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);

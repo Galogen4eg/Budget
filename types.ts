@@ -314,6 +314,7 @@ export interface Category {
   color: string;
   isCustom?: boolean;
   parentId?: string;
+  transactionType?: TransactionType;
 }
 
 export enum Type {

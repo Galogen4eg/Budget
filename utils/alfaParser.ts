@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
 import { classifyAlfaDirection } from './alfaDirection';
+import { alfaOperationId } from './alfaIdentity';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -11,11 +12,11 @@ export const parseAlfaStatement = (
   learnedRules: LearnedRule[] = [],
   categories: Category[],
   existingTransactions: Transaction[] = []
-): Promise<Omit<Transaction, 'id'>[]> => {
+): Promise<Transaction[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result;
         if (!data) throw new Error("Не удалось прочитать файл");
@@ -28,7 +29,8 @@ export const parseAlfaStatement = (
           cellNF: true
         });
 
-        let allParsedTransactions: Omit<Transaction, 'id'>[] = [];
+        let allParsedTransactions: Transaction[] = [];
+        const occurrenceBySignature = new Map<string, number>();
 
         for (const sheetName of workbook.SheetNames) {
           const sheet = workbook.Sheets[sheetName];
@@ -86,6 +88,9 @@ export const parseAlfaStatement = (
           const colAmount = findCol(mapping.amount, keywords.amount);
           const colNote = findCol(mapping.note, keywords.note);
           const colType = headers.findIndex(h => h === 'тип' || h === 'тип операции' || h === 'направление операции');
+          const colCard = headers.findIndex(h => h === 'номер карты');
+          const colAccount = headers.findIndex(h => h === 'номер счета' || h === 'номер счёта');
+          const colCurrency = headers.findIndex(h => h === 'валюта');
 
           // If note column not found, find the widest text column as fallback
           let effectiveColNote = colNote;
@@ -193,17 +198,30 @@ export const parseAlfaStatement = (
             const note = cleanMerchantName(rawNote, learnedRules);
             const categoryId = getSmartCategory(rawNote, learnedRules, categories);
 
+            const sourceFields = [
+              dateStr, Number(absAmount.toFixed(2)), type, rawNote,
+              colCard >= 0 ? String(row[colCard] ?? '') : '',
+              colAccount >= 0 ? String(row[colAccount] ?? '') : '',
+              colCurrency >= 0 ? String(row[colCurrency] ?? '') : ''
+            ];
+            const signature = JSON.stringify(sourceFields);
+            const occurrence = (occurrenceBySignature.get(signature) || 0) + 1;
+            occurrenceBySignature.set(signature, occurrence);
+            const id = await alfaOperationId(sourceFields, occurrence);
+
             const isDuplicate = existingTransactions.some(ex => {
+              if (ex.id === id) return true;
               const d1 = new Date(ex.date).getTime();
               const d2 = new Date(dateStr).getTime();
-              return Math.abs(d1 - d2) < 2000 && 
-                     Math.abs(ex.amount - absAmount) < 0.01 && 
+              return Math.abs(d1 - d2) < 2000 &&
+                     Math.abs(ex.amount - absAmount) < 0.01 &&
                      ex.type === type &&
                      (ex.rawNote === rawNote || ex.note === note);
             });
 
             if (!isDuplicate) {
               allParsedTransactions.push({
+                id,
                 amount: absAmount,
                 type,
                 category: categoryId,

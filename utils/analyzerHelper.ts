@@ -139,15 +139,18 @@ export function analyzeTransaction(
     const cleanMcc = mcc.trim();
     if (MCC_MAP[cleanMcc]) {
       const mapped = MCC_MAP[cleanMcc];
-      const targetCat = categories.find(c => c.id === mapped.categoryId) ? mapped.categoryId : 'shopping';
-      return {
-        suggestedCategoryId: targetCat,
-        confidence: 92,
-        reason: `Определено по MCC-коду ${cleanMcc} (${mapped.label})`,
-        cleanName,
-        ruleKeyword: candidateKeyword,
-        source: 'mcc'
-      };
+      // Never silently substitute "shopping" when a canonical category
+      // is missing from this family's configured category list.
+      if (categories.some(c => c.id === mapped.categoryId)) {
+        return {
+          suggestedCategoryId: mapped.categoryId,
+          confidence: 92,
+          reason: `Определено по MCC-коду ${cleanMcc} (${mapped.label})`,
+          cleanName,
+          ruleKeyword: candidateKeyword,
+          source: 'mcc'
+        };
+      }
     }
   }
 

@@ -46,6 +46,7 @@ export function resolveFamilyJoin(
   invitation: { placeholderMemberId?: string } | null
 ): { existingMember: boolean; placeholderMemberId: string | null } {
   const existingMember = Array.isArray(existingMemberIds) && existingMemberIds.includes(uid);
+  if (existingMember) return { existingMember: true, placeholderMemberId: null };
   if (invitation) {
     const placeholderMemberId = invitation.placeholderMemberId?.trim();
     if (!placeholderMemberId) throw new Error('Некорректное приглашение: профиль участника не указан');

@@ -44,7 +44,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   const dates=new Date();const candidates:FamilyEvent[]=[];
   for(let i=0;i<3;i++){
    const month=new Date(dates.getFullYear(),dates.getMonth()+i,1);
-   candidates.push(...paymentAgenda(payments,month));
+   candidates.push(...paymentAgenda(payments,month,paidByMonth||{}));
   }
   const end=new Date();end.setDate(end.getDate()+count-1);
   const last=formatLocalCalendarDate(end);

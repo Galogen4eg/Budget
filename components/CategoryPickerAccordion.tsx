@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X, ChevronDown, ChevronRight, Check, Plus, Tag, FolderPlus, Maximize2 } from 'lucide-react';
-import { Category } from '../types';
+import { Category, TransactionType } from '../types';
+import { categoriesForType } from '../utils/categoryCatalog';
 import { getIconById } from '../constants';
 import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 import { sortCategoriesByPopularity } from '../utils/categoryPopularity';
@@ -12,6 +13,7 @@ interface CategoryPickerAccordionProps {
   onSelectCategory: (categoryId: string) => void;
   onAddCategory?: (category: Category) => void | Promise<void>;
   categoryUsage?: Record<string, number>;
+  transactionType?: TransactionType;
   placeholder?: string;
   maxHeightClass?: string;
   startCreateSubcategory?: boolean;
@@ -25,6 +27,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   onSelectCategory,
   onAddCategory,
   categoryUsage,
+  transactionType,
   placeholder = "Поиск категории или подкатегории...",
   maxHeightClass = "max-h-72",
   startCreateSubcategory = false,
@@ -36,7 +39,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const [createType, setCreateType] = useState<'category' | 'subcategory'>('subcategory');
   const [newCatName, setNewCatName] = useState(initialNewSubcategoryName);
   const [newCatColor, setNewCatColor] = useState('#4A7C59');
-  const [selectedParentId, setSelectedParentId] = useState<string>(initialParentCategoryId);
+  const [selectedParentId, setSelectedParentId] = useState<string>(initialParentCategoryId || (transactionType === 'income' ? 'income' : ''));
   const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
 
@@ -59,8 +62,8 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
 
   // Filter out 'other' from main list or keep it at end
   const validCategories = useMemo(() => {
-    return categories.filter(c => c.id !== 'other');
-  }, [categories]);
+    return categoriesForType(categories, transactionType).filter(c => c.id !== 'other');
+  }, [categories, transactionType]);
 
   // Only the analyzer passes usage counts. Other pickers keep the shared catalog order.
   const orderedCategories = useMemo(() => categoryUsage
@@ -104,7 +107,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
   const handleStartAddCategory = (type: 'category' | 'subcategory', initialName: string = '', defaultParentId?: string) => {
     setCreateType(type);
     setNewCatName(initialName);
-    setSelectedParentId(defaultParentId || initialParentCategoryId || '');
+    setSelectedParentId(defaultParentId || initialParentCategoryId || (transactionType === 'income' ? 'income' : ''));
     setIsAddingCategory(true);
   };
 
@@ -143,6 +146,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         color: newCatColor,
         icon: 'Folder',
         isCustom: true,
+        ...(transactionType === 'income' ? { transactionType: 'income' as const } : {}),
       };
     } else {
       const parentCat = parentCategories.find(p => p.id === parentId);
@@ -154,6 +158,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
         icon: parentCat ? parentCat.icon : 'Tag',
         color: parentCat ? parentCat.color : '#4A7C59',
         isCustom: true,
+        ...(transactionType === 'income' ? { transactionType: 'income' as const } : {}),
       };
     }
 
@@ -524,6 +529,7 @@ export const CategoryPickerAccordion: React.FC<CategoryPickerAccordionProps> = (
           onClose={() => setIsDesktopModalOpen(false)}
           categories={categories}
           categoryUsage={categoryUsage}
+          transactionType={transactionType}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={(catId) => {
             onSelectCategory(catId);

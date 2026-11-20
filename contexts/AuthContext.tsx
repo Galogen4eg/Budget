@@ -86,16 +86,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           setUser(currentUser);
           
-          // Check for pending family join
+          // A pending family ID is a request, not permission to join.
           const pendingFid = localStorage.getItem('pending_join_family');
           if (pendingFid) {
-            try {
-              await joinFamily(currentUser, pendingFid);
+            const accepted = window.confirm('Присоединиться к указанному семейному пространству? Для доступа требуется приглашение на email вашего аккаунта.');
+            if (!accepted) {
               localStorage.removeItem('pending_join_family');
-              toast.success('Вы успешно вошли и присоединились к семье!');
-            } catch (e: any) {
-              console.error("Failed to join pending family:", e);
-              toast.error(`Не удалось присоединиться: ${e.message}`);
+            } else {
+              try {
+                await joinFamily(currentUser, pendingFid);
+                localStorage.removeItem('pending_join_family');
+                toast.success('Вы присоединились к семейному пространству');
+              } catch (e: any) {
+                console.error('Failed to join pending family:', e);
+                toast.error(`Не удалось присоединиться: ${e.message}`);
+              }
             }
           }
 

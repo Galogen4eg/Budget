@@ -1,7 +1,7 @@
 
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
-  onSnapshot, query, orderBy, where, getDocs, writeBatch, arrayUnion 
+  onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
@@ -377,6 +377,28 @@ export const addItemsBatch = async (familyId: string, collectionName: string, it
     await batch.commit();
   }
   return savedItems;
+};
+
+/**
+ * Firestore transactions provide atomic create-if-absent semantics for AlfaSync.
+ * A retry never overwrites a previously categorized transaction.
+ * Each document is committed independently so a partial failure can be retried.
+ */
+export const addAlfaItemsIdempotent = async (familyId: string, items: Transaction[]): Promise<Transaction[]> => {
+  if (!familyId) throw new Error('No family ID');
+  const created: Transaction[] = [];
+  for (const item of items) {
+    if (!/^alfa_[a-f0-9]{40}$/.test(item.id)) throw new Error('Invalid Alfa transaction ID');
+    const ref = doc(db, 'families', familyId, 'transactions', item.id);
+    const wasCreated = await runTransaction(db, async tx => {
+      const existing = await tx.get(ref);
+      if (existing.exists()) return false;
+      tx.set(ref, cleanForFirestore(item));
+      return true;
+    });
+    if (wasCreated) created.push(item);
+  }
+  return created;
 };
 
 export const updateItem = async (familyId: string, collectionName: string, id: string, updates: any) => {

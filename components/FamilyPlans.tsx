@@ -160,7 +160,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const end=new Date(now);end.setDate(end.getDate()+40);
       const future=buildCalendarOccurrences(events,today,formatLocalCalendarDate(end));
       const monthly=Array.from({length:3},(_,i)=>paymentAgenda(
-        settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1)
+        settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1),settings.manualPaidExpenses||{}
       ));
       const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId);
       const key=`${reminderKey}:seen`;
@@ -182,7 +182,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     const onFocus=()=>tick();
     window.addEventListener('focus',onFocus);
     return ()=>{window.clearInterval(interval);window.removeEventListener('focus',onFocus);};
-  },[events,remindersEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses]);
+  },[events,remindersEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses,settings.manualPaidExpenses]);
 
   // --- Calendar Data ---
   const calendarData = useMemo(() => {

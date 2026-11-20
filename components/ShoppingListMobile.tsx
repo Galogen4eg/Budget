@@ -10,7 +10,7 @@ import {
 import TerraMobileHeader from './TerraMobileHeader';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, updateItem, deleteItem, addItemsBatch, deleteItemsBatch } from '../utils/db';
+import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
 import { parseVoiceShoppingText } from '../utils/voiceShoppingParser';
@@ -18,7 +18,7 @@ import {
   parseQuickShoppingInput, 
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
 import { 
   recordPurchaseEvent, 
   getTopFrequentPurchases,
@@ -200,6 +200,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     e.preventDefault();
     const title = newItemTitle.trim();
     if (!title) return;
+    try {
 
     if (editingItem) {
       const updated: ShoppingItem = {
@@ -211,13 +212,15 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         category: selectedAisle,
         memberId: newItemMemberId
       };
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', editingItem.id, updated);
       setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       setIsAddModalOpen(false);
     } else {
       // Check if item is in completed or active list without creating duplicate
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, [{
@@ -229,15 +232,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         memberId: newItemMemberId
       }], newItemMemberId);
 
-      setItems(updatedList);
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        for (const item of itemsToAddInDb) {
-          await addItem(familyId, 'shopping', item);
-        }
+      if (!familyId) throw new Error('Family is not ready');
+      {
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
+      setItems(updatedList);
 
       if (closeAfterSave) {
         setIsAddModalOpen(false);
@@ -252,13 +252,23 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         }, 50);
       }
     }
+    } catch (error) {
+      console.error('Shopping item save failed:', error);
+      toast.error('Не удалось сохранить товар. Повторите попытку.');
+    }
   };
 
   const handleToggle = async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
     const updated = { ...item, completed: nextCompleted };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    } catch (error) {
+      toast.error('Не удалось сохранить статус покупки');
+      return;
+    }
 
     recordPurchaseEvent(item.title, nextCompleted ? 'completed' : 'restored', {
       category: item.category,
@@ -269,27 +279,33 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleAdjustAmount = async (item: ShoppingItem, delta: number) => {
-    const current = parseFloat(item.amount || '1') || 1;
-    const next = Math.max(1, Math.round((current + delta) * 10) / 10);
-    const updated = { ...item, amount: String(next) };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) {
-      await updateItem(familyId, 'shopping', item.id, { amount: String(next) });
-    }
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
+      const amount = await adjustShoppingAmount(familyId, item.id, delta, 1);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
+    } catch (error) { toast.error('Не удалось обновить количество'); }
   };
 
   const handleDelete = async (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-    if (familyId) await deleteItem(familyId, 'shopping', id);
-    if (editingItem?.id === id) setIsAddModalOpen(false);
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItem(familyId, 'shopping', id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      if (editingItem?.id === id) setIsAddModalOpen(false);
+    } catch (error) {
+      toast.error('Не удалось удалить покупку');
+    }
   };
 
   const handleClearCompleted = async () => {
     if (completedItems.length === 0) return;
     const idsToDelete = completedItems.map(i => i.id);
-    setItems(prev => prev.filter(i => !i.completed));
-    if (familyId) {
+    try {
+      if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', idsToDelete);
+      setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+    } catch (error) {
+      toast.error('Не удалось очистить купленные товары');
     }
   };
 
@@ -324,27 +340,24 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
-      setItems(updatedList);
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
+      if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
+    {
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
-
+      setItems(updatedList);
       setQuickAddText('');
       setTimeout(() => {
         quickInputRef.current?.focus();
       }, 20);
+    } catch (error) {
+      console.error('Quick add error:', error);
+      toast.error('Не удалось сохранить покупки. Повторите попытку.');
     } finally {
       setIsSubmittingQuick(false);
       setTimeout(() => {
@@ -362,6 +375,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
     const {
       updatedList,
+        purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb
     } = mergeOrRestoreShoppingItems(items, [{
@@ -373,15 +387,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       memberId: targetMemberId
     }], targetMemberId);
 
-    setItems(updatedList);
-    if (familyId) {
-      for (const item of itemsToUpdateInDb) {
-        await updateItem(familyId, 'shopping', item.id, item);
-      }
-      for (const item of itemsToAddInDb) {
-        await addItem(familyId, 'shopping', item);
-      }
-    }
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
+      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+      recordCommittedShoppingEvents(purchaseEvents);
+      setItems(updatedList);
+    } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
   // Voice Input with Gemini or fallback
@@ -444,21 +455,17 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
             const {
               updatedList,
+        purchaseEvents,
               itemsToUpdateInDb,
               itemsToAddInDb
             } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
 
-            setItems(updatedList);
-            if (familyId) {
-              for (const item of itemsToUpdateInDb) {
-                await updateItem(familyId, 'shopping', item.id, item);
-              }
-              if (itemsToAddInDb.length === 1) {
-                await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-              } else if (itemsToAddInDb.length > 1) {
-                await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-              }
+            if (!familyId) throw new Error('Family is not ready');
+            {
+              await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+              recordCommittedShoppingEvents(purchaseEvents);
             }
+            setItems(updatedList);
           }
         } catch {
           toast.error('Ошибка при обработке голоса');

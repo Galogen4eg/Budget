@@ -4,6 +4,7 @@ import {
   onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { nextShoppingAmount } from './shoppingAmount';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -165,6 +166,18 @@ export const createInvitation = async (familyId: string, email: string, memberId
     });
 };
 
+export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
+  if (!user.email) return null;
+  const email = user.email.trim().toLowerCase();
+  const invitation = await getDoc(doc(db, 'invitations', email));
+  if (!invitation.exists()) return null;
+  const familyId = invitation.data().familyId;
+  if (typeof familyId !== 'string' || !familyId.trim()) {
+    throw new Error('Некорректное приглашение в семейное пространство');
+  }
+  return { familyId: familyId.trim() };
+};
+
 export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
     if (!familyId) return false;
     const famRef = doc(db, 'families', familyId);
@@ -174,116 +187,92 @@ export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   await logDebug(user, 'getOrInitUserFamily_START', { email: user.email });
-  
+
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
-  
-  if (userSnap.exists()) {
-      const data = userSnap.data();
-      if (data.familyId) return data.familyId;
-  }
+  const existingFamilyId = userSnap.exists() ? userSnap.data().familyId as string | undefined : undefined;
 
-  if (user.email) {
-      const cleanEmail = user.email.toLowerCase().trim();
-      try {
-          const inviteRef = doc(db, 'invitations', cleanEmail);
-          const inviteSnap = await getDoc(inviteRef);
-          
-          if (inviteSnap.exists()) {
-              const inviteData = inviteSnap.data();
-              const batch = writeBatch(db);
-              batch.set(userRef, { email: user.email, familyId: inviteData.familyId, updatedAt: new Date().toISOString() }, { merge: true });
-              if (inviteData.placeholderMemberId) {
-                  const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
-                  batch.set(memberRef, { userId: user.uid, avatar: user.photoURL || null }, { merge: true });
-              }
-              const famRef = doc(db, 'families', inviteData.familyId);
-              batch.update(famRef, { members: arrayUnion(user.uid) });
-              batch.delete(inviteRef);
-              await batch.commit();
-              return inviteData.familyId;
-          }
-      } catch (e: any) {
-          console.error("Invite processing failed", e);
-      }
-  }
+  // Do not switch families merely because someone created an invitation.
+  // AuthContext asks the signed-in user for explicit consent before joining.
+
+  if (existingFamilyId) return existingFamilyId;
 
   const defaultFamilyId = user.uid;
-  await setDoc(userRef, {
-      email: user.email,
-      familyId: defaultFamilyId,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
-  }, { merge: true });
-
   const familyRef = doc(db, 'families', defaultFamilyId);
   const famSnap = await getDoc(familyRef);
+  const batch = writeBatch(db);
+  batch.set(userRef, {
+    email: user.email,
+    familyId: defaultFamilyId,
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString()
+  }, { merge: true });
   if (!famSnap.exists()) {
-      const batch = writeBatch(db);
-      batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
-      const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
-      batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
-      // Initialize shared settings for new family
-      batch.set(doc(db, 'families', defaultFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Моя семья' });
-      await batch.commit();
+    batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
+    const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
+    batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
+    batch.set(doc(db, 'families', defaultFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Моя семья' });
   }
-
+  await batch.commit();
   return defaultFamilyId;
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error("ID семьи или пользователь не определены");
-  
-  const cleanFamilyId = targetFamilyId.trim();
-  const userRef = doc(db, 'users', user.uid);
-  const familyRef = doc(db, 'families', cleanFamilyId);
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
+  if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
 
-  // 1. Сначала пробуем обновить профиль пользователя (на это обычно есть права)
-  try {
-    await setDoc(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
-  } catch (e: any) {
-    console.error("Failed to update user profile familyId:", e);
-    throw new Error("Не удалось обновить ваш профиль. Проверьте права доступа.");
+  const cleanFamilyId = targetFamilyId.trim();
+  const familyRef = doc(db, 'families', cleanFamilyId);
+  const userRef = doc(db, 'users', user.uid);
+
+  // Do not silently create a new empty family when a join code is mistyped.
+  const familySnap = await getDoc(familyRef);
+  if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
+
+  const cleanEmail = user.email?.toLowerCase().trim();
+  const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
+  const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
+  const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
+    ? inviteSnap.data() : null;
+
+  // An arbitrary family ID is not an invitation. Existing members may rejoin;
+  // new members must have an invitation addressed to their signed-in email.
+  const isExistingMember = Array.isArray(familySnap.data().members) &&
+    familySnap.data().members.includes(user.uid);
+  if (!invitation && !isExistingMember) {
+    throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
   }
 
-  // 2. Затем пробуем обновить документ семьи и добавить участника
+  // Reuse the placeholder created when the invitation was issued.
+  const memberId = invitation?.placeholderMemberId || user.uid;
+  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
+  const memberSnap = await getDoc(memberRef);
+  const batch = writeBatch(db);
+
+  batch.update(familyRef, { members: arrayUnion(user.uid) });
+  batch.set(userRef, {
+    email: user.email,
+    familyId: cleanFamilyId,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+
+  const member: FamilyMember = {
+    id: memberId,
+    userId: user.uid,
+    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
+    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
+    isAdmin: false
+  };
+  if (user.photoURL) member.avatar = user.photoURL;
+  batch.set(memberRef, member, { merge: true });
+  if (invitation && inviteRef) batch.delete(inviteRef);
+
   try {
-    const familySnap = await getDoc(familyRef);
-    const batch = writeBatch(db);
-
-    if (!familySnap.exists()) {
-        // Если семьи нет, создаем её (пользователь становится владельцем)
-        batch.set(familyRef, { 
-            ownerId: user.uid, 
-            name: 'Семья ' + cleanFamilyId, 
-            createdAt: new Date().toISOString(), 
-            members: [user.uid] 
-        });
-        // Init default shared settings
-        batch.set(doc(db, 'families', cleanFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Семья' });
-    } else {
-        // Если есть, просто добавляем в список ID участников
-        batch.update(familyRef, { members: arrayUnion(user.uid) });
-    }
-
-    // Создаем запись в подколлекции участников
-    const newMember: FamilyMember = {
-        id: user.uid,
-        userId: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'Участник',
-        color: '#34C759', 
-        isAdmin: !familySnap.exists()
-    };
-    if (user.photoURL) newMember.avatar = user.photoURL;
-    
-    batch.set(memberRef, newMember, { merge: true });
-
+    // All membership writes succeed together, or none is applied.
     await batch.commit();
   } catch (e: any) {
-    console.error("Firestore permission error in joinFamily:", e);
+    console.error('Family join failed:', e);
     if (e.code === 'permission-denied') {
-        throw new Error("Доступ запрещен. Попросите администратора семьи проверить настройки доступа (Firestore Rules).");
+      throw new Error('Доступ к семье запрещён правилами Firestore. Проверьте приглашение и права доступа.');
     }
     throw e;
   }
@@ -350,6 +339,79 @@ export const cleanForFirestore = <T = any>(obj: T): T => {
   return obj;
 };
 
+/**
+ * Persist a transaction and its savings-goal adjustment in one Firestore batch.
+ * Both documents commit together; the caller updates local UI only on success.
+ */
+export const saveTransactionWithGoal = async (
+  familyId: string,
+  transaction: Transaction,
+  isEdit: boolean,
+  goal?: SavingsGoal
+) => {
+  if (!familyId) throw new Error('No family ID');
+  const batch = writeBatch(db);
+  const txRef = doc(db, 'families', familyId, 'transactions', transaction.id);
+  if (isEdit) {
+    const { id: _id, ...updates } = transaction;
+    batch.update(txRef, cleanForFirestore(updates));
+  } else {
+    batch.set(txRef, cleanForFirestore(transaction));
+  }
+  if (goal) {
+    const goalRef = doc(db, 'families', familyId, 'goals', goal.id);
+    batch.set(goalRef, cleanForFirestore(goal), { merge: true });
+  }
+  await batch.commit();
+};
+
+/** Delete a transaction and reverse its savings adjustment in one batch. */
+export const deleteTransactionWithGoal = async (
+  familyId: string,
+  transactionId: string,
+  goal?: SavingsGoal
+) => {
+  if (!familyId) throw new Error('No family ID');
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'families', familyId, 'transactions', transactionId));
+  if (goal) {
+    batch.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
+  }
+  await batch.commit();
+};
+
+/**
+ * Apply a relative shopping amount change against the latest server document.
+ * Firestore retries the transaction if another family member changed it meanwhile.
+ */
+export const adjustShoppingAmount = async (
+  familyId: string,
+  itemId: string,
+  delta: number,
+  minimum = 1
+): Promise<string> => {
+  if (!familyId || !itemId) throw new Error('No family or shopping item ID');
+  return runTransaction(db, async transaction => {
+    const ref = doc(db, 'families', familyId, 'shopping', itemId);
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error('Shopping item no longer exists');
+    const amount = nextShoppingAmount(snapshot.data().amount, delta, minimum);
+    transaction.update(ref, { amount });
+    return amount;
+  });
+};
+
+/** Move an item into the pantry atomically, avoiding duplicate or lost items on failure. */
+export const moveShoppingToPantry = async (
+  familyId: string, shoppingId: string, pantryItem: PantryItem
+): Promise<void> => {
+  if (!familyId) throw new Error('No family ID');
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'families', familyId, 'pantry', pantryItem.id), cleanForFirestore(pantryItem));
+  batch.delete(doc(db, 'families', familyId, 'shopping', shoppingId));
+  await batch.commit();
+};
+
 export const addItem = async (familyId: string, collectionName: string, item: any) => {
   if (!familyId) throw new Error("No family ID");
   const id = item.id || generateUniqueId();
@@ -381,6 +443,36 @@ export const createCategoriesIfMissing = async (familyId: string, categories: Ca
     created += results.filter(Boolean).length;
   }
   return created;
+};
+
+/**
+ * Commit the complete shopping merge in one Firestore batch.
+ * Reject oversized lists instead of silently committing a partial update.
+ * Repeated changes to one item are collapsed to its final value.
+ */
+export const saveShoppingMerge = async (
+  familyId: string,
+  updates: ShoppingItem[],
+  additions: ShoppingItem[]
+): Promise<void> => {
+  if (!familyId) throw new Error('No family ID');
+  const uniqueUpdates = new Map(updates.map(item => [item.id, item]));
+  const uniqueAdditions = new Map(additions.map(item => [item.id, item]));
+  for (const id of uniqueAdditions.keys()) uniqueUpdates.delete(id);
+  const total = uniqueUpdates.size + uniqueAdditions.size;
+  if (total === 0) return;
+  // Firestore batch limit is 500 writes. Bound this operation to preserve all-or-nothing.
+  if (total > 400) throw new Error('Слишком много товаров для одной операции (максимум 400)');
+  const batch = writeBatch(db);
+  for (const item of uniqueUpdates.values()) {
+    if (!item.id) throw new Error('Shopping item has no ID');
+    batch.update(doc(db, 'families', familyId, 'shopping', item.id), cleanForFirestore(item));
+  }
+  for (const item of uniqueAdditions.values()) {
+    if (!item.id) throw new Error('Shopping item has no ID');
+    batch.set(doc(db, 'families', familyId, 'shopping', item.id), cleanForFirestore(item));
+  }
+  await batch.commit();
 };
 
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {

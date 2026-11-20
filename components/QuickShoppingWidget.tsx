@@ -46,6 +46,9 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
       </div>
 
       <div className="space-y-2">
+        {displayShoppingItems.length === 0 && (
+          <p className="text-sm text-graphite-muted dark:text-gray-400 py-2">Список пуст. Добавьте покупку ниже.</p>
+        )}
         {displayShoppingItems.map((item, idx) => (
           <div 
             key={item.id ? `mob-shop-${item.id}` : `mob-shop-idx-${idx}`}
@@ -55,6 +58,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleShopping(item as any)}
+                aria-label={`Отметить покупку «${item.title}» как ${item.completed ? 'невыполненную' : 'выполненную'}`}
                 className="relative w-5 h-5 rounded-md border-2 border-[#C5BFB4] dark:border-white/20 flex items-center justify-center hover:border-[#4A7C59] transition cursor-pointer after:absolute after:inset-[-10px] after:content-['']"
               >
                 {item.completed && <Check size={13} className="text-[#4A7C59]" />}
@@ -80,11 +84,13 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           value={newShoppingTitle}
           onChange={(e) => setNewShoppingTitle(e.target.value)}
           placeholder="Быстро добавить в список..."
-          className="text-xs bg-transparent flex-1 text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 outline-none border-0"
+          aria-label="Название новой покупки"
+          className="text-xs bg-transparent min-w-0 flex-1 text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 outline-none border-0"
         />
         <button
           type="submit"
           disabled={!newShoppingTitle.trim() || isAddingShopping}
+          aria-label="Добавить покупку"
           className="w-9 h-9 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] active:scale-95 disabled:opacity-50 text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer transition animate-press"
         >
           <Plus size={18} strokeWidth={2.4} />

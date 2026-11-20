@@ -17,7 +17,7 @@ interface FamilyPlansProps {
   settings: AppSettings;
   members: FamilyMember[];
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
-  onDeleteEvent?: (id: string) => void;
+  onDeleteEvent?: (id: string) => Promise<void>;
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
 }
@@ -201,43 +201,37 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   // --- Actions ---
   const handleSaveEvent = async (e: FamilyEvent) => {
+      if (!familyId) throw new Error('Family is not ready: event was not saved');
+      const exists = events.some(ev => ev.id === e.id);
+      if (exists) await updateItem(familyId, 'events', e.id, e);
+      else await addItem(familyId, 'events', e);
       setEvents(prev => {
-        const updated = [...prev];
-        const existingIndex = updated.findIndex(ev => ev.id === e.id);
-        if (existingIndex > -1) updated[existingIndex] = e;
-        else updated.push(e);
-        return updated;
-      }); 
-      setActiveEvent(null); 
-      
-      if (familyId) {
-          const exists = events.some(ev => ev.id === e.id);
-          if (exists) await updateItem(familyId, 'events', e.id, e);
-          else await addItem(familyId, 'events', e);
-      }
-      if (settings.autoSendEventsToTelegram) onSendToTelegram(e);
+        const existingIndex = prev.findIndex(ev => ev.id === e.id);
+        return existingIndex >= 0
+          ? prev.map(ev => ev.id === e.id ? e : ev)
+          : [...prev, e];
+      });
+      setActiveEvent(null);
+      toast.success('Событие сохранено');
+      if (settings.autoSendEventsToTelegram) void onSendToTelegram(e);
   };
 
   const handleDeleteEvent = async (id: string) => {
-      setEvents(prev => prev.filter(e => e.id !== id));
-      if (familyId) await deleteItem(familyId, 'events', id);
-      if (onDeleteEvent) onDeleteEvent(id); 
+      if (onDeleteEvent) {
+        await onDeleteEvent(id);
+      } else {
+        if (!familyId) throw new Error('Family is not ready: event was not deleted');
+        await deleteItem(familyId, 'events', id);
+        setEvents(prev => prev.filter(e => e.id !== id));
+      }
       setActiveEvent(null);
       toast.success('Событие удалено');
   };
 
   const handleUpdateEvent = async (e: FamilyEvent) => {
-      setEvents(prev => {
-        const updated = [...prev];
-        const existingIndex = updated.findIndex(ev => ev.id === e.id);
-        if (existingIndex > -1) updated[existingIndex] = e;
-        else updated.push(e);
-        return updated;
-      });
-
-      if (familyId) {
-        await updateItem(familyId, 'events', e.id, e);
-      }
+      if (!familyId) throw new Error('Family is not ready: event was not updated');
+      await updateItem(familyId, 'events', e.id, e);
+      setEvents(prev => prev.map(ev => ev.id === e.id ? e : ev));
   };
 
   const commonProps = {

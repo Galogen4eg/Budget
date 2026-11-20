@@ -36,12 +36,12 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, addItemsBatch, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
+import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 
@@ -401,8 +401,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
   const handleToggleComplete = async (item: ShoppingItem) => {
     const updated = { ...item, completed: !item.completed };
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    } catch (error) {
+      toast.error('Не удалось сохранить статус покупки');
+      return;
+    }
     
     // Record event in frequent purchases engine
     recordPurchaseEvent(
@@ -416,19 +422,23 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleUpdateAmount = async (item: ShoppingItem, delta: number) => {
-    const currentAmount = parseFloat(item.amount || '1') || 1;
-    const newAmount = Math.max(0.5, Math.round((currentAmount + delta) * 10) / 10);
-    const updated = { ...item, amount: String(newAmount) };
-    
-    setItems(prev => prev.map(i => i.id === item.id ? updated : i));
-    if (familyId) await updateItem(familyId, 'shopping', item.id, { amount: String(newAmount) });
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      const amount = await adjustShoppingAmount(familyId, item.id, delta, 0.5);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
+    } catch (error) { toast.error('Не удалось обновить количество'); }
   };
 
   const handleDeleteItem = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setItems(prev => prev.filter(i => i.id !== id));
-    if (familyId) await deleteItem(familyId, 'shopping', id);
-    toast.info('Товар удален из списка');
+    try {
+      if (!familyId) throw new Error('Family is not ready');
+      await deleteItem(familyId, 'shopping', id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.info('Товар удалён из списка');
+    } catch (error) {
+      toast.error('Не удалось удалить покупку');
+    }
   };
 
   const handleClearCompleted = async () => {
@@ -438,11 +448,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       return;
     }
 
-    setItems(prev => prev.filter(i => !i.completed));
-    if (familyId) {
+    try {
+      if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', completedIds);
+      setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
+      toast.success(`Удалено ${completedIds.length} купленных товаров`);
+    } catch (error) {
+      toast.error('Не удалось очистить купленные товары');
     }
-    toast.success(`Удалено ${completedIds.length} купленных товаров`);
   };
 
   const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -458,25 +471,19 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, parsedItems, targetMemberId);
 
+      if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
+    {
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
+      }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
-      }
-
       toast.success(summaryMessage);
       setQuickInputText('');
       // Keep autofocus for rapid consecutive item additions
@@ -498,6 +505,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
     const {
       updatedList,
+        purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb,
       summaryMessage
@@ -511,19 +519,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       priority: 'medium'
     }], targetMemberId);
 
-    setItems(updatedList);
-    setFrequentTrigger(prev => prev + 1);
-
-    if (familyId) {
-      for (const item of itemsToUpdateInDb) {
-        await updateItem(familyId, 'shopping', item.id, item);
-      }
-      for (const item of itemsToAddInDb) {
-        await addItem(familyId, 'shopping', item);
-      }
-    }
-
-    toast.success(summaryMessage);
+    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+    try {
+      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+      recordCommittedShoppingEvents(purchaseEvents);
+      setItems(updatedList);
+      setFrequentTrigger(prev => prev + 1);
+      toast.success(summaryMessage);
+    } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
   const handleSaveModal = async (shouldMerge = false) => {
@@ -543,13 +546,16 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         estimatedPrice: itemEstimatedPrice
       };
 
+      if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+      try { await updateItem(familyId, 'shopping', editingItem.id, updated); }
+      catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
-      if (familyId) await updateItem(familyId, 'shopping', editingItem.id, updated);
       toast.success('Товар обновлен');
     } else {
       // Check if this item is in completed or active list without creating duplicate
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
@@ -563,18 +569,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         estimatedPrice: itemEstimatedPrice
       }], targetMemberId);
 
+      if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
+      try {
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
+      } catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        for (const item of itemsToAddInDb) {
-          await addItem(familyId, 'shopping', item);
-        }
-      }
-
       toast.success(summaryMessage);
     }
 
@@ -729,24 +730,20 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, incoming, targetMemberId);
 
+      if (!familyId) throw new Error('Family is not ready');
+      {
+        await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
+      }
+
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
-
-      if (familyId) {
-        for (const item of itemsToUpdateInDb) {
-          await updateItem(familyId, 'shopping', item.id, item);
-        }
-        if (itemsToAddInDb.length === 1) {
-          await addItem(familyId, 'shopping', itemsToAddInDb[0]);
-        } else if (itemsToAddInDb.length > 1) {
-          await addItemsBatch(familyId, 'shopping', itemsToAddInDb);
-        }
-      }
 
       toast.success(summaryMessage);
       setIsVoiceModalOpen(false);

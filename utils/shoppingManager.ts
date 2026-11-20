@@ -1,5 +1,5 @@
-import { ShoppingItem } from '../types';
-import { recordPurchaseEvent } from './frequentPurchases';
+import type { ShoppingItem } from '../types';
+import { recordPurchaseEvent } from './frequentPurchases.ts';
 
 export interface ProcessShoppingItemsResult {
   updatedList: ShoppingItem[];
@@ -9,6 +9,7 @@ export interface ProcessShoppingItemsResult {
   mergedCount: number;
   addedCount: number;
   summaryMessage: string;
+  purchaseEvents: Array<Parameters<typeof recordPurchaseEvent>>;
 }
 
 /**
@@ -28,7 +29,7 @@ export const normalizeProductTitle = (title: string): string => {
  * 1. If an item is in "completed" (куплено), reactivate it (completed: false) and update amount.
  * 2. If an item is already active in shopping list, increment/merge its quantity.
  * 3. If it's a new item, create a new card.
- * 4. Records purchase events for stats.
+ * 4. Collects purchase events; caller records them only after durable save.
  */
 export function mergeOrRestoreShoppingItems(
   currentList: ShoppingItem[],
@@ -43,6 +44,7 @@ export function mergeOrRestoreShoppingItems(
   let mergedCount = 0;
   let addedCount = 0;
   const processedTitles: string[] = [];
+  const purchaseEvents: Array<Parameters<typeof recordPurchaseEvent>> = [];
 
   for (const incoming of incomingItems) {
     const cleanTitle = (incoming.title || '').trim();
@@ -80,16 +82,16 @@ export function mergeOrRestoreShoppingItems(
       restoredCount += 1;
       processedTitles.push(cleanTitle);
 
-      recordPurchaseEvent(cleanTitle, 'restored', {
+      purchaseEvents.push([cleanTitle, 'restored', {
         category: restoredItem.category,
         amount: restoredItem.amount,
         unit: restoredItem.unit
-      });
-      recordPurchaseEvent(cleanTitle, 'added', {
+      }]);
+      purchaseEvents.push([cleanTitle, 'added', {
         category: restoredItem.category,
         amount: restoredItem.amount,
         unit: restoredItem.unit
-      });
+      }]);
     } else if (activeIdx !== -1) {
       // CASE 2: Item already in active list -> Merge quantities
       const existing = resultList[activeIdx];
@@ -107,11 +109,11 @@ export function mergeOrRestoreShoppingItems(
       mergedCount += 1;
       processedTitles.push(cleanTitle);
 
-      recordPurchaseEvent(cleanTitle, 'added', {
+      purchaseEvents.push([cleanTitle, 'added', {
         category: mergedItem.category,
         amount: String(incomingQty),
         unit: mergedItem.unit
-      });
+      }]);
     } else {
       // CASE 3: Brand new item -> Add new card
       const newItem: ShoppingItem = {
@@ -132,11 +134,11 @@ export function mergeOrRestoreShoppingItems(
       addedCount += 1;
       processedTitles.push(cleanTitle);
 
-      recordPurchaseEvent(cleanTitle, 'added', {
+      purchaseEvents.push([cleanTitle, 'added', {
         category: newItem.category,
         amount: newItem.amount,
         unit: newItem.unit
-      });
+      }]);
     }
   }
 
@@ -166,6 +168,12 @@ export function mergeOrRestoreShoppingItems(
     restoredCount,
     mergedCount,
     addedCount,
-    summaryMessage
+    summaryMessage,
+    purchaseEvents
   };
+}
+
+/** Update local suggestions only after the shopping changes were committed. */
+export function recordCommittedShoppingEvents(events: Array<Parameters<typeof recordPurchaseEvent>>): void {
+  for (const [title, event, options] of events) recordPurchaseEvent(title, event, options);
 }

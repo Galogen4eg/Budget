@@ -270,18 +270,19 @@ export default function AddTransactionModal({
         linkedExpenseId: finalLinkedExpenseId || undefined
       };
 
-      if (isLearningEnabled && cleanKeyword.trim()) {
-        const rule: LearnedRule = {
-          id: Date.now().toString(),
-          keyword: cleanKeyword.trim(),
-          cleanName: finalDisplayName,
-          categoryId: categoryId,
-          subcategory: parentOfSelected ? selectedCategory.label : undefined,
-          payee: finalDisplayName,
-          pattern: cleanKeyword.trim().toUpperCase()
-        };
-        onLearnRule(rule);
-      }
+      const learnedRule: LearnedRule | null = isLearningEnabled && cleanKeyword.trim() ? {
+        id: Date.now().toString(),
+        keyword: cleanKeyword.trim(),
+        cleanName: finalDisplayName,
+        categoryId: categoryId,
+        subcategory: parentOfSelected ? selectedCategory.label : undefined,
+        payee: finalDisplayName,
+        pattern: cleanKeyword.trim().toUpperCase()
+      } : null;
+
+      await onSubmit(txData);
+      // A failed transaction must not create a learned merchant rule.
+      if (learnedRule) onLearnRule(learnedRule);
 
       // Optional Telegram notification
       if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
@@ -302,7 +303,6 @@ export default function AddTransactionModal({
         });
       }
 
-      await onSubmit(txData);
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);
@@ -317,8 +317,14 @@ export default function AddTransactionModal({
       setIsConfirmingDelete(true);
       return;
     }
-    await onDelete(initialTransaction.id);
-    onClose(); 
+    try {
+      await onDelete(initialTransaction.id);
+      onClose();
+    } catch (error) {
+      console.error('Delete transaction error:', error);
+      setValidationError('Не удалось удалить операцию. Повторите попытку.');
+      setIsConfirmingDelete(false);
+    }
   };
 
   return createPortal(

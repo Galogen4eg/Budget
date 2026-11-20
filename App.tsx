@@ -49,8 +49,8 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { 
-  addItem, updateItem, deleteItem, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily 
+  addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
+  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId 
 } from './utils/db';
 
 import { useAuth } from './contexts/AuthContext';
@@ -143,7 +143,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   
   // Offline / Network Status
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -307,54 +307,36 @@ export default function App() {
   };
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
-    if (selectedTx) {
-      // Edit
-      const updatedTx = { ...txData, id: selectedTx.id };
-      
-      // Check if savings transfer changed
-      const wasSavings = isSavingsTransfer(selectedTx);
-      const isSavingsNow = isSavingsTransfer(updatedTx);
-      if (wasSavings !== isSavingsNow || (isSavingsNow && selectedTx.amount !== updatedTx.amount)) {
-        const delta = isSavingsNow ? (wasSavings ? updatedTx.amount - selectedTx.amount : updatedTx.amount) : -selectedTx.amount;
-        if (delta !== 0) {
-          const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, Math.abs(delta), delta > 0);
-          setGoals(updatedGoals);
-          if (familyId) await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-        }
-      }
+    const editing = selectedTx;
+    const transaction: Transaction = editing
+      ? { ...txData, id: editing.id }
+      : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-      // Update Local State Immediately
-      setTransactions(prev => prev.map(t => t.id === selectedTx.id ? updatedTx : t));
-      
-      // Update DB if available
-      if (familyId) await updateItem(familyId, 'transactions', selectedTx.id, txData);
-      
+    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
+    const savingsContribution = (tx: Transaction) =>
+      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
+    const previousContribution = editing ? savingsContribution(editing) : 0;
+    const delta = savingsContribution(transaction) - previousContribution;
+
+    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
+    if (delta !== 0) {
+      goalAdjustment = applySavingsTransferToGoals(
+        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
+      );
+    }
+
+    // Never report a saved operation without an acknowledged family write.
+    if (!familyId) throw new Error('Family is not ready: transaction was not saved');
+    await saveTransactionWithGoal(
+      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+    );
+
+    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    if (editing) {
+      setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
     } else {
-      // Create
-      const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-      const newTx = { ...txData, id };
-      
-      // If it's a transfer to savings account, automatically credit the savings goal!
-      if (isSavingsTransfer(newTx)) {
-        const isAddition = newTx.type === 'expense';
-        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, newTx.amount, isAddition);
-        setGoals(updatedGoals);
-        if (familyId) {
-          if (goals.some(g => g.id === affectedGoal.id)) {
-            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-          } else {
-            await addItem(familyId, 'goals', affectedGoal);
-          }
-        }
-        toast.success(`Переведено на накопительный счет: +${newTx.amount.toLocaleString('ru-RU')} ₽`);
-      }
-
-      // Update Local State Immediately
-      setTransactions(prev => [newTx, ...prev]);
-      
-      // Update DB if available
-      if (familyId) await addItem(familyId, 'transactions', newTx);
+      setTransactions(prev => [transaction, ...prev]);
     }
   };
 
@@ -459,10 +441,9 @@ export default function App() {
   };
 
   const handleDeleteEvent = async (id: string) => {
+      if (!familyId) throw new Error('Family is not ready: event was not deleted');
+      await deleteItem(familyId, 'events', id);
       setEvents(prev => prev.filter(ev => ev.id !== id));
-      if (familyId) {
-        await deleteItem(familyId, 'events', id);
-      }
   };
 
   const handleImport = async (file: File) => {
@@ -500,10 +481,11 @@ export default function App() {
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {
-      const pantryItem: PantryItem = { id: Date.now().toString(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() };
+      if (!familyId) throw new Error('Family is not ready: item was not moved');
+      const pantryItem: PantryItem = { id: generateUniqueId(), title: item.title, amount: item.amount || '1', unit: item.unit, category: item.category, addedDate: new Date().toISOString() };
+      await moveShoppingToPantry(familyId, item.id, pantryItem);
       setShoppingItems(prev => prev.filter(i => i.id !== item.id));
-      await setPantry(prev => [...prev, pantryItem]);
-      if (familyId) await deleteItem(familyId, 'shopping', item.id);
+      // Pantry is updated through the Firestore subscription after the batch commits.
   };
 
   // Robust Telegram Sender with Offline Queueing support
@@ -695,21 +677,18 @@ export default function App() {
   };
 
   const handleSaveEvent = async (e: FamilyEvent) => {
+      if (!familyId) throw new Error('Family is not ready: event was not saved');
+      const exists = events.some(ev => ev.id === e.id);
+      if (exists) await updateItem(familyId, 'events', e.id, e);
+      else await addItem(familyId, 'events', e);
       setEvents(prev => {
-          const updated = [...prev];
-          const existingIndex = updated.findIndex(ev => ev.id === e.id);
-          if (existingIndex > -1) updated[existingIndex] = e;
-          else updated.push(e);
-          return updated;
+          const existingIndex = prev.findIndex(ev => ev.id === e.id);
+          return existingIndex >= 0
+              ? prev.map(ev => ev.id === e.id ? e : ev)
+              : [...prev, e];
       });
       setIsAddEventModalOpen(false);
-
-      if (familyId) {
-          const exists = events.some(ev => ev.id === e.id);
-          if (exists) await updateItem(familyId, 'events', e.id, e);
-          else await addItem(familyId, 'events', e);
-      }
-      if (settings.autoSendEventsToTelegram) handleSendEventToTelegram(e);
+      if (settings.autoSendEventsToTelegram) void handleSendEventToTelegram(e);
       toast.success('Событие сохранено');
   };
 
@@ -734,32 +713,37 @@ export default function App() {
       }
 
       const ids = toDelete.map(t => t.id);
+      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
-      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
       toast.success(`Удалено ${ids.length} операций`);
   };
 
   const handleBatchDelete = async (ids: string[]) => {
+      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
-      if (familyId) await deleteItemsBatch(familyId, 'transactions', ids);
       toast.success(`Удалено ${ids.length} записей`);
   };
 
   const handleGoalSave = async (goal: any) => {
       if (editingGoal) {
+          if (!familyId) throw new Error('Family is not ready: goal was not saved');
+          await updateItem(familyId, 'goals', goal.id, goal);
           setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
-          if (familyId) await updateItem(familyId, 'goals', goal.id, goal);
       } else {
+          if (!familyId) throw new Error('Family is not ready: goal was not saved');
+          await addItem(familyId, 'goals', goal);
           setGoals(prev => [...prev, goal]);
-          if (familyId) await addItem(familyId, 'goals', goal);
       }
       setIsGoalModalOpen(false);
       setEditingGoal(null);
   };
 
   const handleGoalDelete = async (id: string) => {
+      if (!familyId) throw new Error('Family is not ready: goal was not deleted');
+      await deleteItem(familyId, 'goals', id);
       setGoals(prev => prev.filter(g => g.id !== id));
-      if (familyId) await deleteItem(familyId, 'goals', id);
       setIsGoalModalOpen(false);
       setEditingGoal(null);
       toast.success('Цель удалена');
@@ -909,9 +893,9 @@ export default function App() {
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id);
-                      setIsSidebarExpanded(false);
                     }}
                     title={tab.label}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`w-full flex items-center ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
                         ? 'bg-primary text-white font-bold shadow-[0_2px_10px_rgba(74,124,89,0.3)]' 
@@ -1061,17 +1045,24 @@ export default function App() {
                         setSelectedMandatoryExpense(expense);
                         setIsMandatoryModalOpen(true);
                     }}
-                    onQuickAddTransaction={(title, amount, date, memberId) => {
-                        const dateStr = date.toISOString().split('T')[0];
-                        handleTransactionSubmit({
-                            amount,
-                            type: 'expense',
-                            category: 'other',
-                            memberId,
-                            note: title,
-                            date: dateStr
-                        });
-                        toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                    onQuickAddTransaction={async (title, amount, date, memberId) => {
+                        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                        try {
+                            await handleTransactionSubmit({
+                                amount,
+                                type: 'expense',
+                                category: 'other',
+                                memberId,
+                                note: title,
+                                date: dateStr
+                            });
+                            toast.success(`Операция "${title}" добавлена на ${amount.toLocaleString('ru-RU')} ₽`);
+                            return true;
+                        } catch (error) {
+                            console.error('Quick transaction save failed:', error);
+                            toast.error('Не удалось сохранить операцию');
+                            return false;
+                        }
                     }}
                 />
             </div>
@@ -1118,12 +1109,14 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
          {TAB_CONFIG.map(tab => {
              const isActive = activeTab === tab.id;
              return (
                 <button 
                   key={tab.id} 
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => {
                     triggerHaptic('light');
                     if (tab.id === 'services') {
@@ -1131,7 +1124,7 @@ export default function App() {
                     }
                     setActiveTab(tab.id);
                   }} 
-                  className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+                  className={`relative flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-all ${
                     isActive ? 'text-[#4A7C59] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
                   }`}
                 >
@@ -1162,10 +1155,21 @@ export default function App() {
                 onAddCategory={handleAddCategory} 
                 transactions={transactions} 
                 onDelete={async (id) => { 
-                  // Optimistic delete
+                  const transactionToDelete = transactions.find(t => t.id === id);
+                  let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
+                  if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
+                    updatedSavings = applySavingsTransferToGoals(
+                      goals,
+                      transactionToDelete.amount,
+                      transactionToDelete.type !== 'expense',
+                      transactionToDelete.linkedGoalId
+                    );
+                  }
+                  if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
+                  await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
+                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
                   setTransactions(prev => prev.filter(t => t.id !== id));
-                  if (familyId) await deleteItem(familyId, 'transactions', id); 
-                  setIsAddModalOpen(false); 
+                  setIsAddModalOpen(false);
                   setSelectedTx(null);
                   toast.success('Операция удалена');
                 }} 

@@ -371,7 +371,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
              d.getFullYear() === prevMonthDate.getFullYear();
     }).reduce((sum, t) => sum + t.amount, 0);
 
-    if (prevMonthExpenses <= 0) return { text: '+8.4%', isPositive: true };
+    if (prevMonthExpenses <= 0) return { text: 'Нет данных', isPositive: null };
     const diff = ((displayMonthSpent - prevMonthExpenses) / prevMonthExpenses) * 100;
     const isPositive = diff <= 0; // Less spending is positive for savings
     const sign = diff >= 0 ? '+' : '';
@@ -653,60 +653,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const totalMonthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 50540);
 
-  const displayShoppingItems = useMemo(() => {
-    if (activeShoppingItems.length > 0) {
-      return activeShoppingItems;
-    }
-    return [
-      { id: 'demo-shop-1', title: 'Тёшка к чаю', amount: 1, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-      { id: 'demo-shop-2', title: 'Кошачий корм', amount: 2, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-      { id: 'demo-shop-3', title: 'Подсолнечное масло', amount: 1, unit: 'шт', completed: false, memberId: currentMember.id || 'user', createdAt: new Date().toISOString() },
-    ];
-  }, [activeShoppingItems, currentMember.id]);
-
-  const recentMobileTransactions = useMemo(() => {
-    if (filteredTransactions.length > 0) {
-      return filteredTransactions.slice(0, 4);
-    }
-    return [
-      {
-        id: 'demo-tx-1',
-        type: 'expense' as const,
-        amount: 1260,
-        category: 'groceries',
-        note: 'Магнит',
-        date: new Date(now.getFullYear(), now.getMonth(), 12).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-2',
-        type: 'expense' as const,
-        amount: 1131,
-        category: 'cafe',
-        note: 'Додо Пицца',
-        date: new Date(now.getFullYear(), now.getMonth(), 11).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-3',
-        type: 'expense' as const,
-        amount: 299,
-        category: 'subscriptions',
-        note: 'Телеграм премиум',
-        date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString(),
-        memberId: currentMember.id
-      },
-      {
-        id: 'demo-tx-4',
-        type: 'expense' as const,
-        amount: 448,
-        category: 'telecom',
-        note: 'Yota',
-        date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString(),
-        memberId: currentMember.id
-      }
-    ];
-  }, [filteredTransactions, now, currentMember.id]);
+  // Never substitute invented financial records for an empty account.
+  const displayShoppingItems = activeShoppingItems;
+  const recentMobileTransactions = filteredTransactions.slice(0, 4);
 
   const mobileCategories = useMemo(() => {
     if (categoryBreakdown.items.length > 0 && categoryBreakdown.total > 0) {
@@ -725,14 +674,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       });
     }
 
-    const defaultCats = [
-      { id: 'food', name: 'Продукты', percent: 40, amount: 1260, barColor: '#4A7C59', bg: '#4A7C591A', color: '#4A7C59', icon: getIconById('ShoppingBasket', 13) },
-      { id: 'restaurants', name: 'Кафе и пицца', percent: 36, amount: 1131, barColor: '#E07A5F', bg: '#E07A5F1A', color: '#E07A5F', icon: getIconById('Utensils', 13) },
-      { id: 'telecom', name: 'Мобильная связь', percent: 14, amount: 448, barColor: '#457B9D', bg: '#457B9D1A', color: '#457B9D', icon: getIconById('Smartphone', 13) },
-      { id: 'subscriptions', name: 'Подписки', percent: 10, amount: 299, barColor: '#9A5A88', bg: '#9A5A881A', color: '#9A5A88', icon: getIconById('Tag', 13) }
-    ];
-
-    return defaultCats;
+    return [];
   }, [categoryBreakdown, categories]);
 
   const mobileChartData = useMemo(() => {
@@ -1103,6 +1045,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-3">
+              {mobileCategories.length === 0 && (
+                <p className="text-sm text-graphite-muted dark:text-gray-400 py-3">
+                  За выбранный период пока нет расходов по категориям.
+                </p>
+              )}
               {mobileCategories.map((cat, idx) => (
                 <div 
                   key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
@@ -1247,9 +1194,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-2">
+              {recentMobileTransactions.length === 0 && (
+                <div className="py-4 text-center space-y-2">
+                  <p className="text-sm text-graphite-muted dark:text-gray-400">Операций пока нет.</p>
+                  <button type="button" onClick={onOpenAddModal} className="text-sm font-semibold text-primary hover:underline">
+                    Добавить первую операцию
+                  </button>
+                </div>
+              )}
               {recentMobileTransactions.map((tx, idx) => {
                 const isExpense = tx.type === 'expense';
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Гена' };
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник' };
                 const cat = categories.find(c => c.id === tx.category);
                 const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
                 const displayTitle = tx.note || catLabel;
@@ -1367,7 +1322,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
@@ -1379,20 +1334,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight whitespace-nowrap inline-flex items-baseline gap-1.5">
+              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
                 {formatAmount(totalBalance)} <span className="text-2xl font-light text-primary">₽</span>
               </span>
             </div>
             <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
-                {lastMonthComparison.isPositive ? (
-                  <TrendingUp size={14} className="mr-0.5" />
-                ) : (
+                {lastMonthComparison.isPositive === true ? (
                   <TrendingDown size={14} className="mr-0.5" />
-                )}
+                ) : lastMonthComparison.isPositive === false ? (
+                  <TrendingUp size={14} className="mr-0.5" />
+                ) : null}
                 {lastMonthComparison.text}
               </span>
-              <span className="text-[11px]">к прошлому месяцу</span>
+              <span className="text-[11px]">расходы к прошлому месяцу</span>
             </div>
           </div>
 
@@ -1418,7 +1373,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight whitespace-nowrap inline-flex items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#9A3412] dark:text-orange-400' : 'text-graphite dark:text-white'
               }`}>
                 {formatAmount(dailyLimit)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
@@ -1448,7 +1403,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <span className="text-[10px] text-graphite-muted dark:text-gray-400">Сегодня</span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight whitespace-nowrap inline-flex items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#B25E41]' : 'text-graphite dark:text-white'
               }`}>
                 {formatAmount(spentToday)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>

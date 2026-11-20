@@ -28,12 +28,14 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
   dailyBudgetRemaining,
   setIsReserveModalOpen
 }) => {
-  const percentSpent = Math.min(100, Math.round((displayMonthSpent / (totalMonthlyLimit || 1)) * 100));
+  const hasMonthlyLimit = totalMonthlyLimit > 0;
+  const percentSpent = hasMonthlyLimit ? Math.max(0, Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100))) : 0;
+  const isOverLimit = hasMonthlyLimit && displayMonthSpent > totalMonthlyLimit;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
       {/* 1. Общий баланс и израсходовано от лимита */}
-      <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
+      <section className="min-w-0 bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-4 md:p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
             Общий баланс
@@ -44,32 +46,32 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
         </div>
 
         <div>
-          <div className="text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl break-words font-extrabold font-headline text-graphite dark:text-white tracking-tight">
             {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
           </div>
           <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-            Доступно до конца {activeMonth.toLocaleString('ru-RU', { month: 'short' })}, к прошлому месяцу рост
+            Суммарный баланс по учтённым счетам
           </p>
         </div>
 
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs gap-2 min-w-0">
-            <span className="text-graphite-muted dark:text-gray-400 truncate">Израсходовано от лимита</span>
-            <span className="font-bold text-graphite dark:text-white font-headline truncate shrink-0">
-              {settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`}
+            <span className="text-graphite-muted dark:text-gray-400">{hasMonthlyLimit ? 'Израсходовано от лимита' : 'Расходы за месяц'}</span>
+            <span className="font-bold text-graphite dark:text-white font-headline text-right break-words min-w-0">
+              {settings.privacyMode ? '•••' : hasMonthlyLimit ? `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽` : `${formatAmount(displayMonthSpent)} ₽`}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
+          {hasMonthlyLimit && <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
             <div 
-              className="h-full rounded-full bg-[#4A7C59] transition-all duration-500"
+              className={`h-full rounded-full transition-all duration-500 ${isOverLimit ? 'bg-[#B25E41]' : 'bg-[#4A7C59]'}`}
               style={{ width: `${percentSpent}%` }}
             />
-          </div>
+          </div>}
         </div>
       </section>
 
       {/* 2. Свободный остаток до аванса/зарплаты */}
-      <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
+      <section className="min-w-0 bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-4 md:p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
             Свободный остаток
@@ -101,27 +103,27 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
       </section>
 
       {/* 3. Финансовая норма и темп трат */}
-      <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between">
+      <section className="min-w-0 bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-4 md:p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
             Темп расходов
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#4A7C59]/10 text-[#4A7C59]">
-            В норме
+            {hasMonthlyLimit ? (isOverLimit ? 'Лимит превышен' : 'В пределах лимита') : 'Без лимита'}
           </span>
         </div>
 
         <div>
           <div className="text-2xl font-bold font-headline text-graphite dark:text-white">
-            {percentSpent <= 80 ? 'Оптимальный темп' : 'Умеренный расход'}
+            {!hasMonthlyLimit ? 'Лимит не задан' : isOverLimit ? 'Перерасход' : `${percentSpent}% лимита использовано`}
           </div>
           <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-            Осталось {100 - percentSpent}% месячного фонда
+            {hasMonthlyLimit ? (isOverLimit ? `Превышение: ${settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent - totalMonthlyLimit)} ₽`}` : `Осталось ${100 - percentSpent}% месячного лимита`) : 'Установите месячный лимит, чтобы отслеживать расходы'}
           </p>
         </div>
 
         <div className="text-xs text-graphite-muted dark:text-gray-400 pt-1">
-          Все обязательные платежи учтены и зарезервированы.
+          Сводка основана на текущих расходах и заданном месячном лимите.
         </div>
       </section>
     </div>

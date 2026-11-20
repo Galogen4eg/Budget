@@ -29,7 +29,7 @@ interface TerraBudgetProps {
   onOpenTrainModal?: () => void;
   onImportClick?: () => void;
   onToggleMandatoryPaid?: (expenseId: string) => void;
-  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => void;
+  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => Promise<boolean>;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
   onSelectCategory?: (categoryId: string) => void;
   onOpenSettings?: () => void;
@@ -82,6 +82,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [quickTitle, setQuickTitle] = useState('');
   const [quickAmount, setQuickAmount] = useState('');
   const [quickAddedSuccess, setQuickAddedSuccess] = useState(false);
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
 
   // Filter transactions by selected family member
   const memberFilteredTransactions = useMemo(() => {
@@ -189,22 +190,25 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     onMonthChange(next);
   }, [currentMonth, onMonthChange]);
 
-  // Quick Add submit
-  const handleQuickAdd = useCallback(() => {
+  // Only clear the form and show success after the save is confirmed.
+  const handleQuickAdd = useCallback(async () => {
     const title = quickTitle.trim();
     const amount = parseFloat(quickAmount.replace(',', '.'));
-    if (!title || isNaN(amount) || amount <= 0) return;
+    if (!title || !Number.isFinite(amount) || amount <= 0 || isQuickSaving || !onQuickAddTransaction) return;
 
-    if (onQuickAddTransaction) {
+    setIsQuickSaving(true);
+    try {
       const memberId = selectedMember !== 'all' ? selectedMember : (members[0]?.id || '1');
-      onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
+      const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
+      if (!saved) return;
+      setQuickTitle('');
+      setQuickAmount('');
+      setQuickAddedSuccess(true);
+      setTimeout(() => setQuickAddedSuccess(false), 2000);
+    } finally {
+      setIsQuickSaving(false);
     }
-
-    setQuickTitle('');
-    setQuickAmount('');
-    setQuickAddedSuccess(true);
-    setTimeout(() => setQuickAddedSuccess(false), 2000);
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate]);
+  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -1406,12 +1410,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 />
                 <button 
                   onClick={handleQuickAdd}
+                  disabled={isQuickSaving}
                   className={`w-full sm:w-auto px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-all ${
                     quickAddedSuccess ? 'bg-emerald-700' : 'bg-primary hover:bg-primary-dark active:scale-95'
                   }`}
                   type="button"
                 >
-                  {quickAddedSuccess ? '✓ Записано' : '+ Записать'}
+                  {isQuickSaving ? 'Сохранение…' : quickAddedSuccess ? '✓ Записано' : '+ Записать'}
                 </button>
               </div>
             </div>

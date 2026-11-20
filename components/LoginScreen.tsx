@@ -83,7 +83,6 @@ export const LoginScreen: React.FC = () => {
         await loginWithEmail(formattedLogin, password);
       } else {
         await registerWithEmail(formattedLogin, password);
-        toast.success('Аккаунт успешно создан!');
       }
     } catch (err: any) {
       if (mode === 'register' && err?.code === 'auth/email-already-in-use') {

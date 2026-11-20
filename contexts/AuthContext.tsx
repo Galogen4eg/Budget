@@ -102,18 +102,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             // An email invitation is only an offer. Never move an existing
             // account to another family without the user's explicit consent.
-            const invitation = await getPendingFamilyInvitation(currentUser);
-            if (invitation && !pendingFid) {
-              const dismissedKey = `dismissed_family_invite_${currentUser.uid}_${invitation.familyId}`;
-              if (sessionStorage.getItem(dismissedKey) !== '1') {
-                const accepted = window.confirm('Вас пригласили в общее семейное пространство. Присоединиться? Ваши прежние данные не будут перенесены автоматически.');
-                if (accepted) {
-                  await joinFamily(currentUser, invitation.familyId);
-                  toast.success('Вы присоединились к общему семейному пространству');
-                } else {
-                  sessionStorage.setItem(dismissedKey, '1');
+            try {
+              const invitation = await getPendingFamilyInvitation(currentUser);
+              if (invitation && !pendingFid) {
+                const dismissedKey = `dismissed_family_invite_${currentUser.uid}_${invitation.familyId}`;
+                if (sessionStorage.getItem(dismissedKey) !== '1') {
+                  const accepted = window.confirm('Вас пригласили в общее семейное пространство. Присоединиться? Ваши прежние данные не будут перенесены автоматически.');
+                  if (accepted) {
+                    await joinFamily(currentUser, invitation.familyId);
+                    toast.success('Вы присоединились к общему семейному пространству');
+                  } else {
+                    sessionStorage.setItem(dismissedKey, '1');
+                  }
                 }
               }
+            } catch (inviteError) {
+              // An invitation lookup/join failure must not block the user's
+              // existing family from loading.
+              console.error('Unable to process family invitation:', inviteError);
+              toast.error('Не удалось обработать приглашение. Ваше текущее пространство сохранено.');
             }
             const fid = await getOrInitUserFamily(currentUser);
             if (fid && isMounted) {

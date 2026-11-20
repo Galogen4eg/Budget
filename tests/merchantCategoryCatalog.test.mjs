@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { missingMerchantCategories } from '../utils/merchantCategoryCatalog.ts';
+import { missingMerchantCategories, matchMerchantBrand } from '../utils/merchantCategoryCatalog.ts';
 
 const defaults = [
   { id: 'food', label: 'Продукты', icon: 'Basket', color: '#000' },
@@ -34,4 +34,35 @@ test('idempotent when family catalog is complete', () => {
 });
 test('does not restore unrelated deleted user categories', () => {
   assert.equal(missingMerchantCategories(defaults, []).some(c => c.id === 'custom' || c.id === 'other'), false);
+});
+
+test('recognizes raw Alfa Magnit delivery and in-store strings', () => {
+  for (const raw of ['Krasnodar/MAGNIT DOSTAVKA_YM', 'Yaroslavl/MAGNIT MM IPOZHUKA']) {
+    assert.deepEqual(matchMerchantBrand(raw, defaults), {
+      categoryId: 'grocery_magnit',
+      brandName: 'Магнит',
+      isSubcategory: true,
+      parentCategoryId: 'food'
+    });
+  }
+});
+test('recognizes Pyaterochka and PizzaFabrika with separators and case', () => {
+  assert.equal(matchMerchantBrand('Yaroslavl/PYATEROCHKA', defaults)?.categoryId, 'grocery_pyaterochka');
+  assert.equal(matchMerchantBrand('PIZZA FABRIKA.RU', defaults)?.categoryId, 'fastfood_pizzafabrika');
+  assert.equal(matchMerchantBrand('Пицца-Фабрика', defaults)?.categoryId, 'fastfood_pizzafabrika');
+});
+test('before migration brand falls back to its parent, never Other', () => {
+  const saved = defaults.filter(c => c.id === 'food' || c.id === 'restaurants' || c.id === 'other');
+  assert.equal(matchMerchantBrand('MAGNIT MM', saved)?.categoryId, 'food');
+  assert.equal(matchMerchantBrand('PIZZAFABRIKA', saved)?.categoryId, 'restaurants');
+});
+test('uses existing custom named subcategory without duplicating it', () => {
+  const saved = [
+    { id: 'food', label: 'Продукты' },
+    { id: 'my_magnit', label: 'Магнит', parentId: 'food' }
+  ];
+  assert.equal(matchMerchantBrand('MAGNIT DOSTAVKA', saved)?.categoryId, 'my_magnit');
+});
+test('unknown merchants are not assigned arbitrary categories', () => {
+  assert.equal(matchMerchantBrand('C2C TRANSFER UNKNOWN', defaults), undefined);
 });

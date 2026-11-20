@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCheck, ChevronDown,
+  CalendarDays, Check, CheckCheck, ChevronDown,
   ChevronLeft, ChevronRight, Edit3, Grid2X2, List, Search, ShieldCheck,
   Sparkles, Tag, X
 } from 'lucide-react';
 import { Category, LearnedRule } from '../types';
-import { analyzeTransaction } from '../utils/analyzerHelper';
+import { analyzeTransaction, AnalysisResult } from '../utils/analyzerHelper';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
 
 export interface UnrecognizedAnalyzerItem {
@@ -65,7 +65,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     () => items.filter(item => !item.category || item.category === 'other'),
     [items]
   );
-  const analyses = useMemo(() => new Map(
+  const analyses = useMemo(() => new Map<string, AnalysisResult>(
     remaining.map(item => [
       item.id,
       analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories)

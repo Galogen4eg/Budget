@@ -8,7 +8,8 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { auth } from '../firebase';
 import { toast } from 'sonner';
-import { formatLocalCalendarDate, parseLocalCalendarDate } from '../utils/calendarDates';
+import { formatLocalCalendarDate, parseLocalCalendarDate, eventDateTime } from '../utils/calendarDates';
+import { findEventConflicts } from '../utils/eventConflicts';
 
 interface EventModalProps {
   event: FamilyEvent | null;
@@ -141,61 +142,43 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Conflict detection
   const conflict = useMemo(() => {
-    const [currH, currM] = (time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const durationHours = parseFloat(String(dur)) || 1;
-    const currStart = currH * 60 + currM;
-    const currEnd = currStart + (durationHours * 60);
-
-    for (const existing of allEvents) {
-      if (existing.id === event?.id) continue;
-      if (existing.date !== date) continue;
-
-      const curMembers = mIds || [];
-      const exMembers = existing.memberIds || [];
-      
-      let isMemberConflict = false;
-      if (curMembers.length > 0 && exMembers.length > 0) {
-        isMemberConflict = curMembers.some(mid => exMembers.includes(mid));
-      } else {
-        isMemberConflict = true;
-      }
-      
-      if (!isMemberConflict) continue;
-
-      const [exH, exM] = (existing.time || '00:00').split(':').map(t => parseInt(t, 10) || 0);
-      const exStart = exH * 60 + exM;
-      const exEnd = exStart + ((existing.duration || 1) * 60);
-
-      if (currStart < exEnd && currEnd > exStart) {
-        return existing;
-      }
-    }
-    return null;
+    const candidate: FamilyEvent = {
+      id: event?.id || '__calendar_pending__',
+      title,
+      description: desc,
+      date,
+      time,
+      duration: parseFloat(String(dur)) || 1,
+      memberIds: mIds
+    };
+    const rest = allEvents.filter(existing => existing.id !== event?.id);
+    const pair = findEventConflicts([...rest, candidate]).conflictPairs.find(
+      entry => entry.eventA.id === candidate.id || entry.eventB.id === candidate.id
+    );
+    return pair ? (pair.eventA.id === candidate.id ? pair.eventB : pair.eventA) : null;
   }, [date, time, dur, mIds, allEvents, event?.id]);
+
 
   // Suggested conflict-free slot
   const suggestedSlot = useMemo(() => {
     if (!conflict) return null;
-    const [cStartH, cStartM] = (conflict.time || '12:00').split(':').map(t => parseInt(t, 10) || 0);
-    const conflictEndMinutes = cStartH * 60 + cStartM + ((conflict.duration || 1) * 60);
-    const slotH = Math.floor(conflictEndMinutes / 60) % 24;
-    const slotM = conflictEndMinutes % 60;
-    const suggestedTime = `${String(slotH).padStart(2, '0')}:${String(slotM).padStart(2, '0')}`;
-    const durationHours = parseFloat(String(dur)) || 1;
-    const suggestedEndMinutes = slotH * 60 + slotM + Math.round(durationHours * 60);
-    const suggestedEndH = Math.floor(suggestedEndMinutes / 60) % 24;
-    const suggestedEndM = suggestedEndMinutes % 60;
-    const suggestedEndTime = `${String(suggestedEndH).padStart(2, '0')}:${String(suggestedEndM).padStart(2, '0')}`;
-
-    return {
-      startTime: suggestedTime,
-      endTime: suggestedEndTime,
-      label: `${suggestedTime} – ${suggestedEndTime}`
-    };
+    try {
+      const conflictEnd = eventDateTime(conflict.date, conflict.time || '00:00');
+      conflictEnd.setMinutes(conflictEnd.getMinutes() + Math.round((conflict.duration || 1) * 60));
+      const slotDate = formatLocalCalendarDate(conflictEnd);
+      const suggestedTime = `${String(conflictEnd.getHours()).padStart(2, '0')}:${String(conflictEnd.getMinutes()).padStart(2, '0')}`;
+      const end = new Date(conflictEnd);
+      end.setMinutes(end.getMinutes() + Math.round((parseFloat(String(dur)) || 1) * 60));
+      const endTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      return { date: slotDate, startTime: suggestedTime, endTime, label: `${suggestedTime} – ${endTime}` };
+    } catch {
+      return null;
+    }
   }, [conflict, dur]);
 
   const applySuggestedSlot = () => {
     if (suggestedSlot) {
+      setDate(suggestedSlot.date);
       setTime(suggestedSlot.startTime);
     }
   };

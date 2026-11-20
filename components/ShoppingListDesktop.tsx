@@ -41,7 +41,7 @@ import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 
@@ -471,6 +471,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
@@ -479,6 +480,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (!familyId) throw new Error('Семейный аккаунт пока недоступен');
     {
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
@@ -503,6 +505,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const targetMemberId = filterMemberId === 'all' ? (members[0]?.id || user?.uid || 'user') : filterMemberId;
     const {
       updatedList,
+        purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb,
       summaryMessage
@@ -519,6 +522,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+      recordCommittedShoppingEvents(purchaseEvents);
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
@@ -551,6 +555,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       // Check if this item is in completed or active list without creating duplicate
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
@@ -567,6 +572,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
       try {
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(updatedList);
       setFrequentTrigger(prev => prev + 1);
@@ -724,6 +730,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       const {
         updatedList,
+        purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
@@ -732,6 +739,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (!familyId) throw new Error('Family is not ready');
       {
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
+        recordCommittedShoppingEvents(purchaseEvents);
       }
 
       setItems(updatedList);

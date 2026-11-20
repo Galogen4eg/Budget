@@ -12,7 +12,7 @@ import { RippleButton } from './RippleButton';
 import AddTransactionModal from './AddTransactionModal';
 import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
-import { extractCleanRuleKeyword } from '../utils/analyzerHelper';
+import { extractCleanRuleKeyword, analyzeTransaction } from '../utils/analyzerHelper';
 import { toast } from 'sonner';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
@@ -305,6 +305,27 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     onUpdateAll(cleanItems);
   };
 
+  // When the Firestore catalog is restored after the XLSX was parsed, resolve
+  // only previously unassigned, unverified rows. Never overwrite user choices.
+  useEffect(() => {
+    const updated = items.map(item => {
+      if (item.isVerified || (item.category && item.category !== 'other' &&
+          categories.some(category => category.id === item.category))) return item;
+      const analysis = analyzeTransaction(item.rawNote || '', item.note, item.mcc, learnedRules, categories);
+      if (analysis.source === 'fallback' || analysis.confidence < 92 ||
+          analysis.suggestedCategoryId === 'other' ||
+          !categories.some(category => category.id === analysis.suggestedCategoryId)) return item;
+      return {
+        ...item,
+        category: analysis.suggestedCategoryId,
+        note: analysis.source === 'brand' ? analysis.cleanName : item.note
+      };
+    });
+    if (updated.some((item, index) => item !== items[index])) syncToParent(updated);
+  // Reconcile only when the catalog changes; user edits must not be replayed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
+
   // Назначение автора для всех операций
   const handleSetGlobalMember = (memberId: string) => {
     setGlobalMemberId(memberId);
@@ -464,8 +485,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   }, [items]);
 
   const unassignedCount = useMemo(() => {
-    return items.filter(t => t.category === 'other' || !t.category).length;
-  }, [items]);
+    return items.filter(t => t.category === 'other' || !t.category || !categories.some(c => c.id === t.category)).length;
+  }, [items, categories]);
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
@@ -735,7 +756,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           ) : (
             filteredItems.map(item => {
               const category = categories.find(c => c.id === item.category);
-              const isUnrecognized = !item.category || item.category === 'other';
+              const isUnrecognized = !item.category || item.category === 'other' || !category;
               const isExpense = item.type === 'expense';
               const isDropdownOpen = activeCategoryDropdown === item.tempId;
 
@@ -852,7 +873,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         }`}
                       >
                         <Tag size={14} />
-                        <span className="uppercase tracking-wider">{category ? category.label : 'ПРОЧЕЕ'}</span>
+                        <span className="uppercase tracking-wider">{isUnrecognized ? 'ВЫБРАТЬ КАТЕГОРИЮ' : category!.label}</span>
                         <ChevronDown size={14} strokeWidth={2.5} />
                       </button>
 

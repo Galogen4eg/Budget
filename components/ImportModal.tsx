@@ -212,7 +212,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const cleanRaw = extractCleanRuleKeyword(item.rawNote, item.note).toLowerCase();
 
         for (const rule of rulesToApply) {
-          if (!rule.keyword || rule.categoryId === 'other' || !categories.some(c => c.id === rule.categoryId)) continue;
+          if (!rule.keyword || rule.categoryId === 'other' || !isCategoryForType(rule.categoryId, categories, item.type)) continue;
           const kwLower = rule.keyword.toLowerCase().trim();
           if (!kwLower) continue;
 

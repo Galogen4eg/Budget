@@ -1,6 +1,6 @@
 # Firestore rules audit — Budget (2026-11-20)
 
-Status: **DRAFT, NOT VALIDATED OR DEPLOYED**. The current live rules pasted in chat grant every signed-in account full access to all family subcollections and invitations.
+Status: **DRAFT, EMULATOR-PARTIALLY-VALIDATED, NOT DEPLOYED**. The current live rules pasted in chat grant every signed-in account full access to all family subcollections and invitations.
 
 ## Confirmed P0 issues in live rules
 1. `/families/{familyId}`: `allow read, create, update: if request.auth != null` enables any signed-in user to inspect families, replace owner/member fields, or write a forged membership list.
@@ -9,11 +9,11 @@ Status: **DRAFT, NOT VALIDATED OR DEPLOYED**. The current live rules pasted in c
 4. Rules contain no trusted check of recipient email verification; an unverified email/password account could register an address matching an invitation and claim it.
 
 ## Prepared artifact
-`security/firestore.rules.draft` is a **proposal**, not an accepted replacement. It restricts family data to members and treats invitation acceptance as a special transaction. Uses `getAfter` to validate multi-document operations. Its Firestore syntax, actual permission outcomes, access-call quotas and compatibility with current flows **have NOT been tested in the Firebase Emulator**.
+`security/firestore.rules.draft` is a **proposal**, not an accepted replacement. It restricts family data to members and treats invitation acceptance as a special transaction. Uses `getAfter` to validate multi-document operations. Firestore Emulator checks now cover 10 important paths, and all 10 passed on PR #16. This is **not** a full audit of app queries, security rules, access-call quotas, existing data, or real-account workflows.
 
 ## Known blockers before rule deployment
-- **Invitation creation:** `createFamilyMemberWithInvitation` currently reads `invitations/{email}` before writing it. The draft's invitation `get` grants access only to an invitee or the owner of an *existing* invitation. It will reject the lookup of an absent invitation. Must redesign the new-invitation write and test coexistence with existing invitations before deploying.
-- **Unverified or synthetic email logins:** `LoginScreen` supports `name@family.local`. Such addresses cannot receive verification mail. The proposal requires `email_verified` for claiming invitations; registration, account migration and verification/re-login UX must be implemented first.
+- **Invitation creation — FIXED & EMULATOR-TESTED:** The application now uses a write batch with no read of an absent invitation. The draft rules allow creation by the family owner with a matching placeholder and reject updates to an existing email-keyed invitation atomically.
+- **Email verification — PARTLY IMPLEMENTED:** New real-email registrations receive a verification email; Account settings can resend and refresh verification. The rules reject unverified invitees, while legacy `name@family.local` accounts can continue in an existing family. Real two-account UX, email delivery and migration for a legacy username wishing to join another family are **not yet end-to-end tested**.
 - **Member update privileges:** test both normal profile edits and invited placeholder claim against emulator, including whether an extra member field blocks the transaction. Owner changes of member email while invitation is pending must not create a stale invitation.
 - **Legacy data:** verify `families/{id}.members` contains all authorized UIDs and that `users/{uid}.familyId` points to the correct family before tightening access.
 - **Family join:** rules must allow the invitee to read the family + placeholder before becoming a member, yet not expose another family's data.
@@ -22,19 +22,25 @@ Status: **DRAFT, NOT VALIDATED OR DEPLOYED**. The current live rules pasted in c
 - **Live removal:** deleting a linked member document alone must never be mistaken for revoking access. Revoke the UID from `families/{id}.members` and invalidate/repair `users/{uid}.familyId` in a privileged, validated workflow; the UI currently blocks this scenario.
 - **Global rules:** new proposal prevents globally writable learned rules. Confirm impacts of `addGlobalRule` before rollout.
 
-## Firestore Emulator test matrix (required, real tests—not textual checks)
-- Owner creates family, own member, shared settings in existing batch: ALLOW.
-- Owner creates pending placeholder + one invitation, then tries same email twice: first ALLOW, second DENY with no partial writes.
-- Recipient with *verified* matching email reads invite and joins family in one transaction: ALLOW; two users see identical transactions.
-- Unverified matching email and another signed-in user: DENY read and join.
-- Another family's member reads/updates family expenses, goals and member settings: DENY.
-- Any signed-in user cannot append another UID to an arbitrary family: DENY.
+## Verified in GitHub Actions, PR #16
+
+On 2026-11-20, commit `8f571bc7fa8dc8579e13f5040e26bbbcffb9285f`, the dedicated **Firestore Emulator** workflow passed all 10 integration checks (job `136569581549`). The regular Budget checks passed regression tests, `tsc --noEmit`, and Vite production build (job `136569581950`). Neither workflow deploys the draft rules to Firebase.
+
+Emulator-passed scenarios: member data access vs outsider, forged family membership rejection, owner invitation batch, verified invitation acceptance, unverified denial, legacy member access, invitation cancellation, revoked-user denial, first-family creation, and global rule write denial.
+
+## Remaining emulator test matrix (not yet completed)
+- Normal multi-section imports and settings writes with realistic batch sizes and access-call limits: ALLOW.
+- Concurrent attempt to create an invitation with the same email from two separate families: only one commits.
+- Full two-device syncing of expenses, shopping and savings after accepted invite.
+- Existing family profile migration and joining when the account already owns a separate personal family.
+- Comprehensive read/write permissions across every Budget collection and nested subcollection.
+- Concurrent conflicting updates to the same member profile, and owner editing an invitation's pending email.
 - Invitee and owner race accept/cancel invitation: exactly one commits, no dangling membership.
-- Owner cancels pending member; invitee cannot join afterwards.
-- Existing member can reauthenticate, read shared data and update only permitted member fields.
-- Remove linked user's membership: they immediately lose all access even if `users/{uid}.familyId` remains stale.
-- Normal imports, shared settings, user settings and write batches work within access-call quota.
-- Existing unverified legacy logins remain usable until an explicit migration plan.
+- Browser-level registration, email verification, invite acceptance and re-login.
+- Existing member can reauthenticate and edit precisely permitted member fields.
+- Design and test privileged linked-user removal workflow; UI currently prevents deleting active profiles.
+- Verify access-call quotas for large writes, imports and joined-family subscriptions.
+- Data audit: all legacy families contain correctly populated `members` UID lists before rules rollout.
 
 ## Publish sequence
 1. Correct code and verify auth-flow UX with two separate test accounts.

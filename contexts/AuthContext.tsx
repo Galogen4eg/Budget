@@ -9,7 +9,8 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { getOrInitUserFamily, getPendingFamilyInvitation, joinFamily } from '../utils/db';
@@ -219,13 +220,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       try {
           const res = await createUserWithEmailAndPassword(auth, email, pass);
-          if (targetFamilyId && targetFamilyId.trim()) {
+          // An unverified email/password account cannot claim an invitation.
+          // Existing local username accounts keep their single-family access.
+          if (res.user.email && !res.user.email.endsWith('@family.local')) {
               try {
-                  await joinFamily(res.user, targetFamilyId.trim());
-                  toast.success('Аккаунт создан, вы добавлены в семью!');
-              } catch (joinErr: any) {
-                  toast.error(`Аккаунт создан, но войти в семью не удалось: ${joinErr.message}`);
+                  await sendEmailVerification(res.user);
+                  toast.info('На почту отправлено подтверждение. Откройте письмо перед присоединением к семье.');
+              } catch (verificationError) {
+                  console.warn('Could not send email verification:', verificationError);
+                  toast.error('Аккаунт создан, но письмо подтверждения отправить не удалось. Повторите из настроек.');
               }
+          }
+          if (targetFamilyId && targetFamilyId.trim()) {
+              localStorage.setItem('pending_join_family', targetFamilyId.trim());
+              toast.info('После подтверждения почты войдите снова, чтобы принять приглашение.');
           } else {
               toast.success('Добро пожаловать!');
           }

@@ -10,7 +10,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   CartesianGrid, ReferenceLine 
 } from 'recharts';
-import { Transaction, AppSettings, Category, FamilyMember, ShoppingItem, MandatoryExpense } from '../types';
+import { Transaction, AppSettings, Category, FamilyMember, ShoppingItem, MandatoryExpense, FamilyEvent } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import useQuickShopping from '../hooks/useQuickShopping';
@@ -141,7 +141,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Current Member Identification
   const currentMember = useMemo(() => {
-    return members.find(m => m.userId === firebaseUser?.uid) || members[0] || { name: 'Пользователь' };
+    return members.find(m => m.userId === firebaseUser?.uid) || members[0] || { id: 'all', name: 'Пользователь', color: '#4A7C59' };
   }, [members, firebaseUser]);
 
   // Quick Shopping Management (Managed via Custom Hook)
@@ -1204,7 +1204,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               )}
               {recentMobileTransactions.map((tx, idx) => {
                 const isExpense = tx.type === 'expense';
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник' };
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник', color: '#4A7C59' };
                 const cat = categories.find(c => c.id === tx.category);
                 const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
                 const displayTitle = tx.note || catLabel;

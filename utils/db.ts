@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval } from './familyInvitation';
+import { prepareFamilyMemberInvitation, validateUnclaimedMemberRemoval, resolveFamilyJoin } from './familyInvitation';
 import { planMemberMutations, validateMemberMutation } from './memberMutations';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -244,63 +244,72 @@ export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> =
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
+  if (!targetFamilyId?.trim() || !user) throw new Error('ID семьи или пользователь не определены');
 
   const cleanFamilyId = targetFamilyId.trim();
   const familyRef = doc(db, 'families', cleanFamilyId);
   const userRef = doc(db, 'users', user.uid);
-
-  // Do not silently create a new empty family when a join code is mistyped.
-  const familySnap = await getDoc(familyRef);
-  if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
-
-  const cleanEmail = user.email?.toLowerCase().trim();
+  const cleanEmail = user.email?.trim().toLowerCase();
   const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
-  const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
-  const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
-    ? inviteSnap.data() : null;
-
-  // An arbitrary family ID is not an invitation. Existing members may rejoin;
-  // new members must have an invitation addressed to their signed-in email.
-  const isExistingMember = Array.isArray(familySnap.data().members) &&
-    familySnap.data().members.includes(user.uid);
-  if (!invitation && !isExistingMember) {
-    throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
-  }
-
-  // Reuse the placeholder created when the invitation was issued.
-  const memberId = invitation?.placeholderMemberId || user.uid;
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
-  const memberSnap = await getDoc(memberRef);
-  const batch = writeBatch(db);
-
-  batch.update(familyRef, { members: arrayUnion(user.uid) });
-  batch.set(userRef, {
-    email: user.email,
-    familyId: cleanFamilyId,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
-
-  const member: FamilyMember = {
-    id: memberId,
-    userId: user.uid,
-    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
-    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
-    isAdmin: false
-  };
-  if (user.photoURL) member.avatar = user.photoURL;
-  batch.set(memberRef, member, { merge: true });
-  if (invitation && inviteRef) batch.delete(inviteRef);
 
   try {
-    // All membership writes succeed together, or none is applied.
-    await batch.commit();
-  } catch (e: any) {
-    console.error('Family join failed:', e);
-    if (e.code === 'permission-denied') {
+    // Read the invitation, member profile and family document in the same
+    // transaction that consumes the invitation and grants membership.
+    // Cancelling the invitation concurrently forces a retry and cannot grant
+    // access based on a stale invitation snapshot.
+    await runTransaction(db, async transaction => {
+      const familySnap = await transaction.get(familyRef);
+      if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
+
+      const inviteSnap = inviteRef ? await transaction.get(inviteRef) : null;
+      const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
+        ? inviteSnap.data() : null;
+      const joinPlan = resolveFamilyJoin(familySnap.data().members, user.uid, invitation);
+      const userSnap = await transaction.get(userRef);
+
+      const memberRef = joinPlan.placeholderMemberId
+        ? doc(db, 'families', cleanFamilyId, 'members', joinPlan.placeholderMemberId)
+        : null;
+      const memberSnap = memberRef ? await transaction.get(memberRef) : null;
+      if (memberRef && !memberSnap?.exists()) {
+        throw new Error('Приглашённый профиль удалён. Попросите повторное приглашение');
+      }
+      if (memberSnap?.exists() && memberSnap.data().userId &&
+          memberSnap.data().userId !== user.uid) {
+        throw new Error('Приглашённый профиль уже занят другим аккаунтом');
+      }
+
+      // No new profile is created when the UID is already a family member.
+      if (joinPlan.existingMember && userSnap.exists() &&
+          userSnap.data().familyId === cleanFamilyId && !invitation) return;
+
+      transaction.update(familyRef, { members: arrayUnion(user.uid) });
+      transaction.set(userRef, {
+        email: user.email,
+        familyId: cleanFamilyId,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      if (memberRef && memberSnap?.exists()) {
+        const existing = memberSnap.data();
+        const member: FamilyMember = {
+          id: memberRef.id,
+          userId: user.uid,
+          name: existing.name || user.displayName || user.email?.split('@')[0] || 'Участник',
+          color: existing.color || '#34C759',
+          isAdmin: false
+        };
+        if (user.photoURL) member.avatar = user.photoURL;
+        transaction.set(memberRef, member, { merge: true });
+      }
+      if (invitation && inviteRef) transaction.delete(inviteRef);
+    });
+  } catch (error: any) {
+    console.error('Family join failed:', error);
+    if (error?.code === 'permission-denied') {
       throw new Error('Доступ к семье запрещён правилами Firestore. Проверьте приглашение и права доступа.');
     }
-    throw e;
+    throw error;
   }
 };
 

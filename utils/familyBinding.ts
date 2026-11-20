@@ -4,7 +4,8 @@ import type { FamilyMember } from '../types';
 export function bindFamilyProfile(
   members: readonly FamilyMember[],
   userId: string | null,
-  targetMemberId: string
+  targetMemberId: string,
+  userEmail?: string | null
 ): FamilyMember[] {
   if (!userId) throw new Error('Войдите в аккаунт, чтобы выбрать профиль');
   if (targetMemberId === 'guest') {
@@ -12,6 +13,9 @@ export function bindFamilyProfile(
   }
   const target = members.find(m => m.id === targetMemberId);
   if (!target) throw new Error('Профиль участника не найден');
+  if (target.email && target.email.trim().toLowerCase() !== userEmail?.trim().toLowerCase()) {
+    throw new Error('Этот профиль зарезервирован для приглашённого пользователя');
+  }
   if (target.userId && target.userId !== userId) {
     throw new Error('Этот профиль уже принадлежит другому пользователю');
   }

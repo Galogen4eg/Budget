@@ -20,6 +20,13 @@ test('current user can bind their own profile and an unclaimed profile', () => {
   assert.equal(result.find(m => m.id === 'partner').userId, 'uid-partner');
 });
 
+test('placeholder invited by email cannot be claimed by a different account', () => {
+  const reserved = [...members, { id: 'invited', email: 'partner@example.com', name: 'Приглашённый', color: '#abc' }];
+  assert.throws(() => bindFamilyProfile(reserved, 'uid-owner', 'invited', 'owner@example.com'), /зарезервирован/);
+  const updated = bindFamilyProfile(reserved, 'uid-new', 'invited', 'PARTNER@example.com');
+  assert.equal(updated.find(m => m.id === 'invited').userId, 'uid-new');
+});
+
 test('guest mode clears only the current user mapping', () => {
   const result = bindFamilyProfile(members, 'uid-owner', 'guest');
   assert.equal(result.find(m => m.id === 'owner').userId, null);

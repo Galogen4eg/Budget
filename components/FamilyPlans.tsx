@@ -139,6 +139,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   },[reminderKey]);
 
   const enableReminders=async()=>{
+    if(remindersEnabled){
+      localStorage.removeItem(reminderKey);
+      setRemindersEnabled(false);
+      toast.info('Напоминания календаря отключены на этом устройстве.');
+      return;
+    }
     if(typeof Notification!=='undefined'&&Notification.permission==='default'){
       try{await Notification.requestPermission();}catch(error){console.warn('Notification permission unavailable',error);}
     }

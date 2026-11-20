@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
+import { parseLocalCalendarDate } from '../utils/calendarDates';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansDesktopProps {
@@ -711,14 +712,14 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 {(listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).length > 0 ? (
                   (listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents).map(evt => {
                     const badgeStyle = getEventBadgeStyle(evt);
-                    const dateObj = new Date(evt.date);
+                    const dateObj = parseLocalCalendarDate(evt.date);
                     const formattedDate = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
 
                     return (
                       <div 
                         key={evt.id}
                         onClick={() => {
-                          setSelectedDate(new Date(evt.date));
+                          setSelectedDate(parseLocalCalendarDate(evt.date));
                           onOpenEvent(evt);
                         }}
                         className="p-4 bg-[#F6F3EE] dark:bg-[#252528] rounded-2xl border border-[#ECE5DB] dark:border-white/5 hover:border-[#2D5A46] transition flex items-center justify-between cursor-pointer group"
@@ -944,7 +945,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
             <div className="space-y-2">
               {upcomingEvents.map(evt => {
-                const dateObj = new Date(evt.date);
+                const dateObj = parseLocalCalendarDate(evt.date);
                 const dayStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
                 const assignedMember = members.find(m => evt.memberIds?.includes(m.id));
                 const meta = getEventCategoryMeta(evt.title, assignedMember);

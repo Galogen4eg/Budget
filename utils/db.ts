@@ -359,6 +359,30 @@ export const addItem = async (familyId: string, collectionName: string, item: an
   return savedItem;
 };
 
+/**
+ * Restore missing built-in merchant categories without ever replacing an
+ * existing family's customized category document. Safe under concurrent tabs.
+ */
+export const createCategoriesIfMissing = async (familyId: string, categories: Category[]): Promise<number> => {
+  if (!familyId || categories.length === 0) return 0;
+  let created = 0;
+  // Keep Firestore traffic bounded on initial login.
+  for (let i = 0; i < categories.length; i += 5) {
+    const batch = categories.slice(i, i + 5);
+    const results = await Promise.all(batch.map(category =>
+      runTransaction(db, async tx => {
+        const ref = doc(db, 'families', familyId, 'categories', category.id);
+        const snapshot = await tx.get(ref);
+        if (snapshot.exists()) return false;
+        tx.set(ref, cleanForFirestore(category));
+        return true;
+      })
+    ));
+    created += results.filter(Boolean).length;
+  }
+  return created;
+};
+
 export const addItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
   if (!familyId || items.length === 0) return [];
   const chunkSize = 400;

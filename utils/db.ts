@@ -174,116 +174,99 @@ export const checkFamilyExists = async (familyId: string): Promise<boolean> => {
 
 export const getOrInitUserFamily = async (user: FirebaseUser): Promise<string> => {
   await logDebug(user, 'getOrInitUserFamily_START', { email: user.email });
-  
+
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
-  
-  if (userSnap.exists()) {
-      const data = userSnap.data();
-      if (data.familyId) return data.familyId;
+  const existingFamilyId = userSnap.exists() ? userSnap.data().familyId as string | undefined : undefined;
+
+  // Invitations must be considered even when the invited person already has an account.
+  if (user.email) {
+    const cleanEmail = user.email.toLowerCase().trim();
+    const inviteRef = doc(db, 'invitations', cleanEmail);
+    const inviteSnap = await getDoc(inviteRef);
+    if (inviteSnap.exists()) {
+      const invitedFamilyId = inviteSnap.data().familyId as string | undefined;
+      if (!invitedFamilyId) throw new Error('Приглашение не содержит семейного пространства');
+      if (invitedFamilyId !== existingFamilyId) {
+        // joinFamily updates membership and user profile in one atomic batch.
+        await joinFamily(user, invitedFamilyId);
+      } else {
+        await deleteDoc(inviteRef);
+      }
+      return invitedFamilyId;
+    }
   }
 
-  if (user.email) {
-      const cleanEmail = user.email.toLowerCase().trim();
-      try {
-          const inviteRef = doc(db, 'invitations', cleanEmail);
-          const inviteSnap = await getDoc(inviteRef);
-          
-          if (inviteSnap.exists()) {
-              const inviteData = inviteSnap.data();
-              const batch = writeBatch(db);
-              batch.set(userRef, { email: user.email, familyId: inviteData.familyId, updatedAt: new Date().toISOString() }, { merge: true });
-              if (inviteData.placeholderMemberId) {
-                  const memberRef = doc(db, 'families', inviteData.familyId, 'members', inviteData.placeholderMemberId);
-                  batch.set(memberRef, { userId: user.uid, avatar: user.photoURL || null }, { merge: true });
-              }
-              const famRef = doc(db, 'families', inviteData.familyId);
-              batch.update(famRef, { members: arrayUnion(user.uid) });
-              batch.delete(inviteRef);
-              await batch.commit();
-              return inviteData.familyId;
-          }
-      } catch (e: any) {
-          console.error("Invite processing failed", e);
-      }
-  }
+  if (existingFamilyId) return existingFamilyId;
 
   const defaultFamilyId = user.uid;
-  await setDoc(userRef, {
-      email: user.email,
-      familyId: defaultFamilyId,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
-  }, { merge: true });
-
   const familyRef = doc(db, 'families', defaultFamilyId);
   const famSnap = await getDoc(familyRef);
+  const batch = writeBatch(db);
+  batch.set(userRef, {
+    email: user.email,
+    familyId: defaultFamilyId,
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString()
+  }, { merge: true });
   if (!famSnap.exists()) {
-      const batch = writeBatch(db);
-      batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
-      const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
-      batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
-      // Initialize shared settings for new family
-      batch.set(doc(db, 'families', defaultFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Моя семья' });
-      await batch.commit();
+    batch.set(familyRef, { ownerId: user.uid, name: 'Моя семья', createdAt: new Date().toISOString(), members: [user.uid] });
+    const newMember: FamilyMember = { id: user.uid, userId: user.uid, name: user.displayName || 'Пользователь', color: '#007AFF', avatar: user.photoURL || undefined, isAdmin: true };
+    batch.set(doc(db, 'families', defaultFamilyId, 'members', user.uid), newMember);
+    batch.set(doc(db, 'families', defaultFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Моя семья' });
   }
-
+  await batch.commit();
   return defaultFamilyId;
 };
 
 export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => {
-  if (!targetFamilyId || !user) throw new Error("ID семьи или пользователь не определены");
-  
+  if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
+
   const cleanFamilyId = targetFamilyId.trim();
-  const userRef = doc(db, 'users', user.uid);
   const familyRef = doc(db, 'families', cleanFamilyId);
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', user.uid);
+  const userRef = doc(db, 'users', user.uid);
 
-  // 1. Сначала пробуем обновить профиль пользователя (на это обычно есть права)
+  // Do not silently create a new empty family when a join code is mistyped.
+  const familySnap = await getDoc(familyRef);
+  if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
+
+  const cleanEmail = user.email?.toLowerCase().trim();
+  const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
+  const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
+  const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
+    ? inviteSnap.data() : null;
+
+  // Reuse the placeholder created when the invitation was issued.
+  const memberId = invitation?.placeholderMemberId || user.uid;
+  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
+  const memberSnap = await getDoc(memberRef);
+  const batch = writeBatch(db);
+
+  batch.update(familyRef, { members: arrayUnion(user.uid) });
+  batch.set(userRef, {
+    email: user.email,
+    familyId: cleanFamilyId,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+
+  const member: FamilyMember = {
+    id: memberId,
+    userId: user.uid,
+    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
+    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
+    isAdmin: false
+  };
+  if (user.photoURL) member.avatar = user.photoURL;
+  batch.set(memberRef, member, { merge: true });
+  if (invitation && inviteRef) batch.delete(inviteRef);
+
   try {
-    await setDoc(userRef, { familyId: cleanFamilyId, updatedAt: new Date().toISOString() }, { merge: true });
-  } catch (e: any) {
-    console.error("Failed to update user profile familyId:", e);
-    throw new Error("Не удалось обновить ваш профиль. Проверьте права доступа.");
-  }
-
-  // 2. Затем пробуем обновить документ семьи и добавить участника
-  try {
-    const familySnap = await getDoc(familyRef);
-    const batch = writeBatch(db);
-
-    if (!familySnap.exists()) {
-        // Если семьи нет, создаем её (пользователь становится владельцем)
-        batch.set(familyRef, { 
-            ownerId: user.uid, 
-            name: 'Семья ' + cleanFamilyId, 
-            createdAt: new Date().toISOString(), 
-            members: [user.uid] 
-        });
-        // Init default shared settings
-        batch.set(doc(db, 'families', cleanFamilyId, 'config', 'settings'), { currency: '₽', familyName: 'Семья' });
-    } else {
-        // Если есть, просто добавляем в список ID участников
-        batch.update(familyRef, { members: arrayUnion(user.uid) });
-    }
-
-    // Создаем запись в подколлекции участников
-    const newMember: FamilyMember = {
-        id: user.uid,
-        userId: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'Участник',
-        color: '#34C759', 
-        isAdmin: !familySnap.exists()
-    };
-    if (user.photoURL) newMember.avatar = user.photoURL;
-    
-    batch.set(memberRef, newMember, { merge: true });
-
+    // All membership writes succeed together, or none is applied.
     await batch.commit();
   } catch (e: any) {
-    console.error("Firestore permission error in joinFamily:", e);
+    console.error('Family join failed:', e);
     if (e.code === 'permission-denied') {
-        throw new Error("Доступ запрещен. Попросите администратора семьи проверить настройки доступа (Firestore Rules).");
+      throw new Error('Доступ к семье запрещён правилами Firestore. Проверьте приглашение и права доступа.');
     }
     throw e;
   }

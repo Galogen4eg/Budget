@@ -38,3 +38,19 @@ export function validateUnclaimedMemberRemoval(
     invitation.familyId === familyId &&
     invitation.placeholderMemberId === member.id);
 }
+
+/** A rejoining member already has a profile: do not create another one. */
+export function resolveFamilyJoin(
+  existingMemberIds: readonly string[] | unknown,
+  uid: string,
+  invitation: { placeholderMemberId?: string } | null
+): { existingMember: boolean; placeholderMemberId: string | null } {
+  const existingMember = Array.isArray(existingMemberIds) && existingMemberIds.includes(uid);
+  if (invitation) {
+    const placeholderMemberId = invitation.placeholderMemberId?.trim();
+    if (!placeholderMemberId) throw new Error('Некорректное приглашение: профиль участника не указан');
+    return { existingMember, placeholderMemberId };
+  }
+  if (!existingMember) throw new Error('Для присоединения требуется приглашение на email этого аккаунта');
+  return { existingMember: true, placeholderMemberId: null };
+}

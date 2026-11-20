@@ -24,7 +24,14 @@ export const FamilyAgendaPanel:React.FC<Props>=({
 })=>{
  const [view,setView]=useState<View>('week');
  const [savingId,setSavingId]=useState<string|null>(null);
- const today=formatLocalCalendarDate(new Date());
+ const [today,setToday]=useState(()=>formatLocalCalendarDate(new Date()));
+ useEffect(()=>{
+   const id=window.setInterval(()=>{
+     const current=formatLocalCalendarDate(new Date());
+     setToday(previous=>previous===current?previous:current);
+   },60000);
+   return ()=>window.clearInterval(id);
+ },[]);
  const agenda=useMemo(()=>{
   const count=view==='today'?1:view==='week'?7:30;
   const raw=upcomingAgenda(events,today,count);
@@ -44,7 +51,8 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   const ics=makeCalendarICS(events);
   const url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
   const a=document.createElement('a');
-  a.href=url;a.download='budget-family-calendar.ics';a.click();
+  a.href=url;a.download='budget-family-calendar.ics';
+  document.body.appendChild(a);a.click();a.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),1000);
  };
  const memberNames=(event:FamilyEvent)=>event.memberIds.length

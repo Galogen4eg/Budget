@@ -1183,19 +1183,14 @@ export default function App() {
                 savingsRate={savingsRate} 
                 setSavingsRate={setSavingsRate} 
                 members={members} 
-                onUpdateMembers={async (m) => { 
+                onUpdateMembers={async (m) => {
+                  if (!familyId) throw new Error('Семейный аккаунт недоступен');
+                  await updateItemsBatch(familyId, 'members', m);
                   setMembers(m);
                   try {
                     localStorage.setItem('local_members', JSON.stringify(m));
                   } catch (storageErr) {
                     console.warn('Failed to save members to localStorage:', storageErr);
-                  }
-                  if (familyId) {
-                    try {
-                      await updateItemsBatch(familyId, 'members', m);
-                    } catch (cloudErr) {
-                      console.error('Failed to sync members to cloud:', cloudErr);
-                    }
                   }
                 }} 
                 categories={categories} 

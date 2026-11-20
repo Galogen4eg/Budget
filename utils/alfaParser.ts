@@ -245,7 +245,9 @@ export const parseAlfaStatement = (
                 memberId: defaultMemberId,
                 note,
                 date: dateStr,
-                rawNote: rawNote
+                rawNote: rawNote,
+                // Preview-only metadata: stripped by ImportModal before persistence.
+                ...(mcc ? { mcc } : {})
               });
             }
           }

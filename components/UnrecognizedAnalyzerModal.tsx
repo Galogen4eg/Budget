@@ -26,10 +26,11 @@ interface UnrecognizedAnalyzerModalProps {
   onClose: () => void;
   items: UnrecognizedAnalyzerItem[];
   categories: Category[];
+  categoryUsage?: Record<string, number>;
   learnedRules: LearnedRule[];
   onApplyCategoryWithRule: (itemId: string, categoryId: string, ruleToLearn?: LearnedRule) => void;
   onApplyAllSuggestions: (results: Array<{ itemId: string; categoryId: string; ruleToLearn?: LearnedRule }>) => void;
-  onAddCategory?: (category: Category) => void;
+  onAddCategory?: (category: Category) => void | Promise<void>;
   onEditItem?: (item: UnrecognizedAnalyzerItem) => void;
 }
 
@@ -47,7 +48,7 @@ const isUsableCategory = (id: string | undefined, categories: Category[]): id is
   Boolean(id && id !== 'other' && categories.some(category => category.id === id));
 
 export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps> = ({
-  isOpen, onClose, items, categories, learnedRules,
+  isOpen, onClose, items, categories, categoryUsage, learnedRules,
   onApplyCategoryWithRule, onApplyAllSuggestions, onAddCategory, onEditItem
 }) => {
   const [viewMode, setViewMode] = useState<'single' | 'list'>('list');
@@ -194,7 +195,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     return createPortal(
       <div className="fixed inset-0 z-[3000] bg-stone-950/60 flex items-center justify-center p-4">
         <div role="dialog" aria-modal="true" aria-label="Разбор завершён"
-          className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-7 max-w-md w-full text-center space-y-4 shadow-2xl">
+          className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-7 max-w-6xl w-full h-[88dvh] max-h-[820px] flex flex-col items-center justify-center text-center gap-4 shadow-2xl">
           <CheckCheck className="mx-auto text-[#4A7C59]" size={38} />
           <h2 className="text-xl font-bold text-stone-900 dark:text-white">Все категории назначены</h2>
           <p className="text-sm text-stone-500 dark:text-stone-300">
@@ -312,7 +313,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                       <div className="border-t border-stone-200 dark:border-white/10 pt-3">
                         <CategoryPickerAccordion
                           key={`${item.id}-${quickCreateId === item.id ? 'create' : 'choose'}`}
-                          categories={categories} selectedCategoryId={chosen}
+                          categories={categories} categoryUsage={categoryUsage} selectedCategoryId={chosen}
                           onAddCategory={onAddCategory} maxHeightClass="max-h-[360px]"
                           startCreateSubcategory={quickCreateId === item.id}
                           initialNewSubcategoryName={suggestedSubcategoryName(item)}
@@ -384,7 +385,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
                   </div>
                   <CategoryPickerAccordion
                     key={`${activeItem.id}-${quickCreateId === activeItem.id ? 'create' : 'choose'}`}
-                    categories={categories} selectedCategoryId={chosenCategory(activeItem)}
+                    categories={categories} categoryUsage={categoryUsage} selectedCategoryId={chosenCategory(activeItem)}
                     onAddCategory={onAddCategory} maxHeightClass="max-h-[310px]"
                     startCreateSubcategory={quickCreateId === activeItem.id}
                     initialNewSubcategoryName={suggestedSubcategoryName(activeItem)}

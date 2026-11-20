@@ -14,8 +14,8 @@ interface EventModalProps {
   prefill?: any;
   members: FamilyMember[];
   onClose: () => void;
-  onSave: (e: FamilyEvent) => void;
-  onDelete?: (id: string) => void;
+  onSave: (e: FamilyEvent) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   onSendToTelegram: (e: FamilyEvent) => Promise<boolean>;
   templates: FamilyEvent[];
   settings: AppSettings;
@@ -74,6 +74,8 @@ export const EventModal: React.FC<EventModalProps> = ({
     return members.find(m => m.userId === auth.currentUser?.uid)?.id || members[0]?.id;
   }, [members]);
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
   const [date, setDate] = useState(event?.date || prefill?.date || new Date().toISOString().split('T')[0]);
@@ -274,6 +276,21 @@ export const EventModal: React.FC<EventModalProps> = ({
     toast.success(`Шаблон «${t.title}» применён`);
   };
 
+  const persistEvent = async (data: FamilyEvent) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(data);
+      onClose();
+    } catch (error) {
+      console.error('Event save failed:', error);
+      setSaveError('Не удалось сохранить событие. Проверьте подключение и повторите попытку.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       toast.error('Введите название события');
@@ -303,15 +320,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       return;
     }
 
-    onSave(newEventData);
-    onClose();
+    void persistEvent(newEventData);
   };
 
   const handleConfirmConflictSave = () => {
     if (conflictToConfirm) {
-      onSave(conflictToConfirm.eventData);
+      const data = conflictToConfirm.eventData;
       setConflictToConfirm(null);
-      onClose();
+      void persistEvent(data);
     }
   };
 
@@ -775,7 +791,21 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => onDelete(event.id)}
+                    disabled={isSaving}
+                    onClick={async () => {
+                      if (isSaving) return;
+                      setIsSaving(true);
+                      setSaveError(null);
+                      try {
+                        await onDelete(event.id);
+                        onClose();
+                      } catch (error) {
+                        console.error('Event delete failed:', error);
+                        setSaveError('Не удалось удалить событие. Повторите попытку.');
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}
                     className="px-2 py-1 rounded bg-red-600 text-white text-[11px] font-bold cursor-pointer"
                   >
                     Да, удалить
@@ -802,14 +832,17 @@ export const EventModal: React.FC<EventModalProps> = ({
             </button>
             <button 
               type="button"
+              disabled={isSaving}
               onClick={handleSave}
               className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
             >
               <Check size={14} strokeWidth={2.8} />
-              <span>{event ? 'Сохранить' : 'Создать'}</span>
+              <span>{isSaving ? 'Сохранение…' : event ? 'Сохранить' : 'Создать'}</span>
             </button>
           </div>
         </footer>
+
+        {saveError && <p role="alert" className="px-4 pb-2 text-xs text-red-600 dark:text-red-400">{saveError}</p>}
 
         {/* Conflict Confirmation Modal */}
         {conflictToConfirm && (

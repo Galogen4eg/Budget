@@ -270,20 +270,20 @@ export default function AddTransactionModal({
         linkedExpenseId: finalLinkedExpenseId || undefined
       };
 
-      if (isLearningEnabled && cleanKeyword.trim()) {
-        const rule: LearnedRule = {
-          id: Date.now().toString(),
-          keyword: cleanKeyword.trim(),
-          cleanName: finalDisplayName,
-          categoryId: categoryId,
-          subcategory: parentOfSelected ? selectedCategory.label : undefined,
-          payee: finalDisplayName,
-          pattern: cleanKeyword.trim().toUpperCase()
-        };
-        onLearnRule(rule);
-      }
+      const learnedRule: LearnedRule | null = isLearningEnabled && cleanKeyword.trim() ? {
+        id: Date.now().toString(),
+        keyword: cleanKeyword.trim(),
+        cleanName: finalDisplayName,
+        categoryId: categoryId,
+        subcategory: parentOfSelected ? selectedCategory.label : undefined,
+        payee: finalDisplayName,
+        pattern: cleanKeyword.trim().toUpperCase()
+      } : null;
 
       await onSubmit(txData);
+      // A failed transaction must not create a learned merchant rule.
+      if (learnedRule) onLearnRule(learnedRule);
+
       // Optional Telegram notification
       if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
         const typeLabel = type === 'expense' ? 'Расход' : 'Доход';

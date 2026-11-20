@@ -4,7 +4,7 @@ import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
 import { classifyAlfaDirection } from './alfaDirection';
 import { alfaOperationId } from './alfaIdentity';
-import { analyzeTransaction } from './analyzerHelper';
+import { analyzeTransaction, matchMerchantBrand } from './analyzerHelper';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -205,14 +205,18 @@ export const parseAlfaStatement = (
             const rawMcc = colMcc >= 0 ? String(row[colMcc] ?? '').trim() : '';
             const mcc = rawMcc.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
             const bankCategory = colBankCategory >= 0 ? String(row[colBankCategory] ?? '').trim() : '';
-            let categoryId = getSmartCategory(rawNote, learnedRules, categories, mcc, bankCategory);
+            const suggestion = analyzeTransaction(rawNote, note, mcc, learnedRules, categories);
+            const merchant = matchMerchantBrand(rawNote, categories);
+            // Explicit saved rules win. Known merchant chains then override
+            // broad bank categories/MCC; otherwise retain existing classification.
+            let categoryId = suggestion.source === 'learned_rule'
+              ? suggestion.suggestedCategoryId
+              : (merchant?.categoryId ?? getSmartCategory(rawNote, learnedRules, categories, mcc, bankCategory));
             if (!categories.some(category => category.id === categoryId)) categoryId = 'other';
-            if (categoryId === 'other') {
-              const suggestion = analyzeTransaction(rawNote, note, mcc, learnedRules, categories);
-              if (suggestion.source !== 'fallback' && suggestion.confidence >= 88 &&
-                  categories.some(category => category.id === suggestion.suggestedCategoryId)) {
-                categoryId = suggestion.suggestedCategoryId;
-              }
+            if (categoryId === 'other' && suggestion.source !== 'fallback' &&
+                suggestion.confidence >= 88 &&
+                categories.some(category => category.id === suggestion.suggestedCategoryId)) {
+              categoryId = suggestion.suggestedCategoryId;
             }
 
             const sourceFields = [

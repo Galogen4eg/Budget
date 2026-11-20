@@ -41,3 +41,15 @@ test('task is included in agenda until completed, and sorting is stable',()=>{
  const output=upcomingAgenda([done,pending,e()],'2026-11-01',20);
  assert.deepEqual(output.map(x=>x.id),['todo','event-1']);
 });
+
+test('old recurring daily series still appears this month after many years',()=>{
+ const old=e({date:'2018-01-01',recurrence:'daily'});
+ const result=buildCalendarOccurrences([old],'2026-11-21','2026-11-23');
+ assert.deepEqual(result.map(x=>x.date),['2026-11-21','2026-11-22','2026-11-23']);
+});
+
+test('old recurring weekly series still appears this month after many years',()=>{
+ const old=e({date:'2018-01-01',recurrence:'weekly'});
+ const result=buildCalendarOccurrences([old],'2026-11-16','2026-11-30');
+ assert.deepEqual(result.map(x=>x.date),['2026-11-16','2026-11-23','2026-11-30']);
+});

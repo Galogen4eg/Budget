@@ -62,3 +62,15 @@ export function assertInvitationAvailable(
 ): void {
   if (existing) throw new Error('На этот email уже существует приглашение. Сначала отмените предыдущее.');
 }
+
+/**
+ * Rules allow reading email-keyed invitations only for a verified address.
+ * Local synthetic usernames remain valid for their existing family, not for accepting invites.
+ */
+export function mayReadInvitation(user: {
+  email?: string | null;
+  emailVerified?: boolean;
+}): boolean {
+  const email = user.email?.trim().toLowerCase() || '';
+  return Boolean(user.emailVerified && email && !email.endsWith('@family.local'));
+}

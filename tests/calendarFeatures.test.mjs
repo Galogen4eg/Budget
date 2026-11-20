@@ -23,3 +23,9 @@ test('mandatory payment preview clamps month day without creating expenses',()=>
  assert.equal(preview[0].date,'2027-02-28');
  assert.equal(preview[0].linkedExpenseId,'p1');
 });
+
+test('unlinked account receives only family-wide reminders, not another member private plans',()=>{
+ const now=new Date(2026,10,21,11,45,0);
+ assert.equal(dueCalendarNotifications([event],now,undefined).length,0);
+ assert.equal(dueCalendarNotifications([{...event,memberIds:[]}],now,undefined).length,1);
+});

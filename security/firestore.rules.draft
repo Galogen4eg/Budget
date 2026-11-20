@@ -55,7 +55,7 @@ service cloud.firestore {
 
     match /families/{familyId} {
       // An invitee may read just the family document needed for joining.
-      allow get: if (signedIn() && familyId == request.auth.uid) || memberOf(familyId) || invitedTo(familyId);
+      allow get: if (signedIn() && familyId == request.auth.uid) || memberOf(familyId) || ownerOf(familyId) || invitedTo(familyId);
       allow list: if false;
       allow create: if signedIn() &&
         familyId == request.auth.uid &&
@@ -69,10 +69,10 @@ service cloud.firestore {
       allow delete: if false;
 
       match /members/{memberId} {
-        allow get: if memberOf(familyId) ||
+        allow get: if memberOf(familyId) || ownerOf(familyId) ||
           (invitedTo(familyId) &&
            get(invitePath(request.auth.token.email.lower())).data.placeholderMemberId == memberId);
-        allow list: if memberOf(familyId);
+        allow list: if memberOf(familyId) || ownerOf(familyId);
         allow create: if ownerAfter(familyId) &&
           (request.resource.data.get('userId', null) == null ||
            request.resource.data.get('userId', null) == request.auth.uid);
@@ -113,13 +113,13 @@ service cloud.firestore {
       }
 
       match /config/{configId} {
-        allow read, write: if memberOf(familyId) || ownerAfter(familyId);
+        allow read, write: if memberOf(familyId) || ownerOf(familyId) || ownerAfter(familyId);
       }
 
       // Explicit allowlist prevents the members/config paths above from being
       // accidentally reopened by a permissive recursive wildcard.
       match /{collectionName}/{docId} {
-        allow read, write: if memberOf(familyId) &&
+        allow read, write: if (memberOf(familyId) || ownerOf(familyId)) &&
           collectionName in [
             'transactions', 'shopping', 'pantry', 'events', 'goals',
             'categories', 'rules', 'knowledge', 'debts', 'projects',

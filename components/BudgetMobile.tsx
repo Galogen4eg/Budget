@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Transaction, FamilyMember, Category } from '../types';
 import BrandIcon from './BrandIcon';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { groupBudgetTransactions } from '../utils/budgetUi';
 import { getMerchantBrandKey, getTransferDetails } from '../utils/categorizer';
 
 interface BudgetMobileProps {
@@ -20,30 +22,7 @@ interface BudgetMobileProps {
 const BudgetMobile: React.FC<BudgetMobileProps> = ({ 
   transactions, categories, members, onEdit, privacyMode, onCategoryChange 
 }) => {
-  const groupedTransactions = useMemo(() => {
-    const groups: Record<string, Transaction[]> = {};
-    transactions.forEach(tx => {
-      const dateKey = new Date(tx.date).toDateString();
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(tx);
-    });
-    
-    const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-    
-    return sortedDates.map(date => {
-      const dayTxs = groups[date];
-      dayTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const dayIncome = Math.round(dayTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
-      const dayExpense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
-      return {
-        date,
-        transactions: dayTxs,
-        dayIncome,
-        dayExpense,
-        net: Math.round(dayIncome - dayExpense)
-      };
-    });
-  }, [transactions]);
+  const groupedTransactions = useMemo(() => groupBudgetTransactions(transactions), [transactions]);
 
   return (
     <div className="space-y-4 pb-12">
@@ -59,14 +38,14 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
               {/* Sticky Day Header */}
               <div className="flex items-center justify-between px-1 py-1 sticky top-0 z-30 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md rounded-lg">
                 <span className="text-[11px] font-mono font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  {new Date(group.date).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}
+                  {new Date(`${group.date}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}
                 </span>
                 <span className={`text-[10px] font-headline font-bold px-2 py-0.5 rounded-md ${
                   isPositiveDay 
                     ? 'text-[#4A7C59] bg-[#EAF2EC] dark:bg-[#4A7C59]/15 dark:text-green-400' 
                     : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5'
                 }`}>
-                  {privacyMode ? '•••' : `${isPositiveDay ? '+' : ''}${Math.round(group.net).toLocaleString('ru-RU')}`}
+                  {privacyMode ? '•••' : `${isPositiveDay ? '+' : ''}${formatBudgetMoney(group.net)}`}
                 </span>
               </div>
 
@@ -83,6 +62,9 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                     <motion.div 
                       key={tx.id}
                       onClick={() => onEdit(tx)}
+                       role="button" tabIndex={0}
+                       aria-label={`Редактировать операцию ${displayTitle}`}
+                       onKeyDown={(e) => { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();onEdit(tx);} }}
                       whileTap={{ scale: 0.98 }}
                       className="flex items-center justify-between p-3 rounded-2xl border border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] shadow-2xs cursor-pointer active:bg-gray-50 dark:active:bg-[#2C2C2E]"
                     >
@@ -112,6 +94,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                                 <select
                                   value={tx.category}
                                   onChange={(e) => onCategoryChange(tx.id, e.target.value)}
+                                  aria-label={`Категория операции: ${displayTitle}`}
                                   className="bg-[#F5F1EA] dark:bg-[#353538] hover:bg-[#EBE6DC] dark:hover:bg-[#404044] text-graphite dark:text-white px-2 py-0.5 rounded-lg text-xs font-bold border border-surface-border/60 dark:border-white/10 outline-none cursor-pointer transition-colors shadow-xs"
                                 >
                                   {categories.map(c => (
@@ -144,7 +127,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                             ? 'text-[#4A7C59] dark:text-green-400' 
                             : 'text-graphite dark:text-white'
                         }`}>
-                          {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${Math.round(tx.amount).toLocaleString('ru-RU')}`}
+                          {privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${formatBudgetMoney(tx.amount)}`}
                         </span>
                       </div>
                     </motion.div>

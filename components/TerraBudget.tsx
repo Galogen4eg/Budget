@@ -14,6 +14,10 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import { useData } from '../contexts/DataContext';
+import { clampBudgetDay } from '../utils/budgetUi';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -58,6 +62,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onSelectCategory,
   onOpenSettings
 }) => {
+  const { goals } = useData();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
@@ -66,13 +71,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
   // Selected day for interactive calendar detail (defaults to today in current month or 1st)
-  const [selectedDay, setSelectedDay] = useState<number>(() => {
+  const [requestedDay, setSelectedDay] = useState<number>(() => {
     const today = new Date();
     if (today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear()) {
       return today.getDate();
     }
     return 1;
   });
+
+  // Keep the selected day valid when switching from a 31-day month to February.
+  const selectedDay = clampBudgetDay(currentMonth, requestedDay);
 
   // Modals state
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
@@ -100,42 +108,61 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [memberFilteredTransactions, currentMonth]);
 
-  // Income, Expense, Balance calculations
-  const monthIncome = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
-  }, [monthTransactions]);
+  // Money is summed in integer kopecks; full ledger balance carries income
+  // and expenses from preceding months rather than resetting on the 1st.
+  const {income: monthIncome, expense: monthExpense, net: monthBalance} =
+    useMemo(() => monthlyMoneyTotals(monthTransactions), [monthTransactions]);
 
-  const monthExpense = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
-  }, [monthTransactions]);
-
-  const monthBalance = Math.round(monthIncome - monthExpense);
-
-  // Remaining days in month calculation
   const totalDaysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const today = new Date();
   const isCurrentMonthView = today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
   const currentDayNum = isCurrentMonthView ? today.getDate() : 1;
-  const remainingDays = Math.max(1, totalDaysInMonth - currentDayNum + 1);
+  const configuredSalaryDays = settings.salaryDates?.length
+    ? settings.salaryDates : [settings.startOfMonthDay || 1];
+  const remainingDays = isCurrentMonthView
+    ? daysUntilNextSalary(today, configuredSalaryDays) : 0;
 
-  // Safe daily limit (remaining balance / remaining days)
-  const safeDailyLimit = Math.max(0, monthBalance > 0 ? Math.round(monthBalance / remainingDays) : 0);
+  const monthlyPaymentStates = useMemo(() => mandatoryPaymentStates(
+    mandatoryExpenses.filter(bill => selectedMember === 'all' || !bill.memberId || bill.memberId === selectedMember),
+    monthTransactions,
+    settings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`] || []
+  ), [mandatoryExpenses, monthTransactions, settings.manualPaidExpenses, selectedMember, currentMonth]);
+  const mandatoryReserve = (settings.enableSmartReserve ?? true)
+    ? sumMoney(monthlyPaymentStates.map(item => item.amountNeeded)) : 0;
+  const monthlySalary = useMemo(() => sumMoney(monthTransactions.filter(tx => {
+    const label=categories.find(category=>category.id===tx.category)?.label.toLowerCase() || '';
+    return tx.type==='income' && (tx.category==='salary'||label.includes('зарплата')||label.includes('salary'));
+  }).map(tx=>tx.amount)), [monthTransactions,categories]);
+  const savingsReserve = sumMoney([monthlySalary * ((settings.savingsRate || 0)/100)]);
+  const manualReserve = typeof settings.manualReservedAmount==='number'
+    ? settings.manualReservedAmount : sumMoney(goals.map(goal=>goal.currentAmount||0));
+  const reservedAmount = sumMoney([mandatoryReserve,savingsReserve,manualReserve]);
+  // Opening balance belongs to the family ledger. An individual member has
+  // no assigned share of it, so never invent one for the member filter.
+  const ledger = useMemo(() => ledgerBalance(
+    memberFilteredTransactions,
+    selectedMember==='all' ? settings.initialBalance : 0,
+    settings.initialBalanceDate
+  ), [memberFilteredTransactions, selectedMember, settings.initialBalance, settings.initialBalanceDate]);
+  const availableBalance = Math.max(0,sumMoney([ledger,-reservedAmount]));
+  const safeDailyLimit = isCurrentMonthView
+    ? budgetDailyLimit(ledger,reservedAmount,remainingDays) : 0;
 
   // Today's spend
   const todaySpent = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => {
+    return sumMoney(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === currentDayNum && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0));
+    }).map(t => t.amount));
   }, [monthTransactions, currentDayNum]);
 
   // Yesterday's spend
   const yesterdaySpent = useMemo(() => {
     if (currentDayNum <= 1) return 0;
-    return Math.round(monthTransactions.filter(t => {
+    return sumMoney(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0));
+    }).map(t => t.amount));
   }, [monthTransactions, currentDayNum]);
 
   const todayReserve = safeDailyLimit - todaySpent;
@@ -154,9 +181,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [monthTransactions, selectedDay]);
 
   const selectedDayNet = useMemo(() => {
-    const inc = selectedDayTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const exp = selectedDayTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    return Math.round(inc - exp);
+    return monthlyMoneyTotals(selectedDayTransactions).net;
   }, [selectedDayTransactions]);
 
   // Category donut chart computation
@@ -252,13 +277,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [settings.manualPaidExpenses, currentMonthKey]);
 
   // Helper to check if a mandatory expense is paid
-  const checkMandatoryPaid = (exp: MandatoryExpense): boolean => {
-    if (manuallyPaidIds.includes(exp.id)) return true;
-    return monthTransactions.some(t => t.type === 'expense' && (
-      t.linkedExpenseId === exp.id || 
-      (exp.keywords && exp.keywords.some(k => (t.note || '').toLowerCase().includes((k || '').toLowerCase())))
-    ));
-  };
+  const checkMandatoryPaid = (exp: MandatoryExpense): boolean =>
+    monthlyPaymentStates.find(state=>state.id===exp.id)?.isPaid ?? false;
 
   // Previous month trailing days
   const prevMonthDaysCount = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
@@ -298,12 +318,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [currentMonth, selectedDay]);
 
   // Display transactions for the selected day card
-  const displayTransactions = useMemo(() => {
-    if (selectedDayTransactions.length > 0) {
-      return selectedDayTransactions;
-    }
-    return monthTransactions.slice(0, 3);
-  }, [selectedDayTransactions, monthTransactions]);
+  const displayTransactions = selectedDayTransactions;
 
   // Display mandatory expenses
   const displayMandatoryExpenses = useMemo(() => {
@@ -435,15 +450,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between">
               <div className="flex flex-col">
-                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">Безопасный лимит в день</span>
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">{isCurrentMonthView ? 'Безопасный лимит в день' : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
-                    {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
+                    {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
                   </span>
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Остаток на {remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${(monthBalance > 0 ? monthBalance : 0).toLocaleString('ru-RU')} ₽`}</strong>
+                  Доступно до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs ${
@@ -452,7 +467,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
               }`}>
                 <Sprout size={15} />
-                <span>{safeDailyLimit > 0 ? 'В темпе' : 'Превышен'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}</span>
               </div>
             </div>
 
@@ -583,6 +598,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     <div 
                       key={`day-${dayNum}`}
                       onClick={() => setSelectedDay(dayNum)}
+                      role="button" tabIndex={0} aria-pressed={isSelected}
+                      aria-label={`Выбрать ${dayNum} ${mobileMonthName}`}
+                      onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
                       } ${
@@ -636,9 +654,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   return (
                     <div 
                       key={`week-day-${dayNum}-${date.getMonth()}`}
-                      onClick={() => {
-                        if (inMonth) setSelectedDay(dayNum);
-                      }}
+                      onClick={() => { if (inMonth) setSelectedDay(dayNum); }}
+                      role={inMonth?'button':undefined} tabIndex={inMonth?0:-1}
+                      aria-pressed={inMonth?isSelected:undefined}
+                      aria-label={inMonth?`Выбрать ${dayNum} ${mobileMonthName}`:undefined}
+                      onKeyDown={(e) => { if(inMonth&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-14 rounded-lg p-1.5 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
                       } ${
@@ -700,7 +720,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   )}
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Баланс дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${selectedDayNet.toLocaleString('ru-RU')} ₽`}</strong> • {selectedDayNet >= 0 || Math.abs(selectedDayNet) <= safeDailyLimit ? 'Без перерасхода' : 'Превышение'}
+                  Баланс дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${formatBudgetMoney(selectedDayNet)} ₽`}</strong> • {selectedDayNet >= 0 || Math.abs(selectedDayNet) <= safeDailyLimit ? 'Без перерасхода' : 'Превышение'}
                 </span>
               </div>
               <button 
@@ -708,13 +728,18 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 onClick={() => setIsDayModalOpen(true)}
                 className="text-xs font-semibold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5 hover:underline cursor-pointer"
               >
-                <span>Все дни</span>
+                <span>Операции за день</span>
                 <ChevronRight size={16} />
               </button>
             </div>
 
             {/* Transactions List */}
             <div className="flex flex-col gap-2 pt-1">
+              {displayTransactions.length===0 && (
+                <div className="rounded-xl border border-dashed border-[#EAE6DE] dark:border-white/10 p-4 text-center text-xs text-[#6B6358] dark:text-gray-400">
+                  В выбранный день операций нет
+                </div>
+              )}
               {displayTransactions.map(tx => {
                 const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья', color: '#4A7C59' };
                 const isIncome = tx.type === 'income';
@@ -826,7 +851,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">Топ категорий трат</span>
               <span className="text-xs text-[#6B6358] dark:text-gray-400">
-                {settings.privacyMode ? '•••' : `${Math.round(monthExpense).toLocaleString('ru-RU')} ₽ всего`}
+                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽ всего`}
               </span>
             </div>
 
@@ -844,7 +869,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     </span>
                     <div className="flex items-center gap-1.5 font-bold tabular-nums">
                       <span className="text-[#2E3230] dark:text-white">
-                        {settings.privacyMode ? '•••' : `${Math.round(cat.sum).toLocaleString('ru-RU')} ₽`}
+                        {settings.privacyMode ? '•••' : `${formatBudgetMoney(cat.sum)} ₽`}
                       </span>
                       <span className="text-[#6B6358] dark:text-gray-400 text-[11px] font-normal">
                         ({cat.percent}%)
@@ -1013,7 +1038,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </span>
             </div>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
-              {remainingDays} дней ост.
+              {isCurrentMonthView ? `${remainingDays} дн. до зарплаты` : 'Архив'}
             </span>
           </div>
 
@@ -1025,19 +1050,20 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
             </div>
             <p className="text-[10px] text-graphite-muted dark:text-gray-400 mt-0.5">
-              Расчёт: {settings.privacyMode ? '•••' : `${monthBalance.toLocaleString('ru-RU')} ₽`} остатка ÷ {remainingDays} оставшихся дней
+              Расчёт: {settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`} доступно ÷ {remainingDays} оставшихся дней
             </p>
           </div>
 
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Рекомендация ритма:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {safeDailyLimit > 0 ? 'Идеальный темп' : 'Бюджет исчерпан'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}
             </span>
           </div>
         </div>
 
-        {/* Card 2: Индикатор трат сегодня */}
+        {/* Current-day metrics do not apply to historical months. */}
+        {isCurrentMonthView ? (
         <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
@@ -1077,8 +1103,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </span>
           </div>
         </div>
+        ) : (
+          <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">Расходы выбранного месяца</span>
+            <span className="text-2xl font-bold text-graphite dark:text-white tabular-nums">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</span>
+            <p className="text-xs text-graphite-muted dark:text-gray-400">Показатели «сегодня» и «вчера» доступны в текущем месяце</p>
+          </div>
+        )}
 
-        {/* Card 3: Месячный прогресс бюджета */}
+                {/* Card 3: Месячный прогресс бюджета */}
         <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
@@ -1182,19 +1215,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {/* Day cells */}
               {daysArray.map(dayNum => {
                 const dayTxs = monthTransactions.filter(t => new Date(t.date).getDate() === dayNum);
-                const dayExpense = Math.round(dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
-                const dayIncome = Math.round(dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
-                const dayNet = Math.round(dayIncome - dayExpense);
+                const {income:dayIncome,expense:dayExpense,net:dayNet}=monthlyMoneyTotals(dayTxs);
                 const hasTransactions = dayTxs.length > 0;
 
                 // Mandatory payment on this day - only mark after fact of payment
-                const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
-                const paidMandatory = mandatoryExpenses.find(e => {
-                  if ((e.day ?? (e as any).dayOfMonth) !== dayNum) return false;
-                  return manuallyPaidIds.includes(e.id) || 
-                    monthTransactions.some(t => t.type === 'expense' && (t.linkedExpenseId === e.id || (e.keywords && e.keywords.some(k => (t.note || '').toLowerCase().includes((k || '').toLowerCase())))));
-                });
+                const paidMandatory = mandatoryExpenses.find(e => (e.day ?? (e as any).dayOfMonth) === dayNum && checkMandatoryPaid(e));
 
                 const isSelected = selectedDay === dayNum;
                 const isCurrentToday = isCurrentMonthView && today.getDate() === dayNum;
@@ -1237,6 +1262,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <div 
                     key={dayNum}
                     onClick={() => setSelectedDay(dayNum)}
+                    role="button" tabIndex={0} aria-pressed={isSelected}
+                    aria-label={`Выбрать ${dayNum} ${monthTitle}`}
+                    onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                     className={`h-14 sm:h-16 p-1 sm:p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${dayBgClass} ${dayBorderClass}`}
                   >
                     <div className="flex justify-between items-start min-w-0">

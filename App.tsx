@@ -267,7 +267,7 @@ export default function App() {
       } else {
           // Personal mode: show expenses assigned to current user OR unassigned (legacy/shared)
           const myMemberId = safeMembers.find(m => m.userId === user?.uid)?.id;
-          if (!myMemberId) return allExpenses; 
+          if (!myMemberId) return []; // Unlinked profile must not inherit another member's payments.
           return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
       }
   }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);

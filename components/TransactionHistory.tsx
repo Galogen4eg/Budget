@@ -6,6 +6,13 @@ import BudgetMobile from './BudgetMobile';
 import BudgetDesktop from './BudgetDesktop';
 import { useClickAway } from 'react-use';
 import { RippleButton } from './RippleButton';
+import { useAuth } from '../contexts/AuthContext';
+import { updateItem } from '../utils/db';
+import { isSavingsTransfer } from '../utils/savingsSync';
+import { isCategoryForType } from '../utils/categoryCatalog';
+import { toast } from 'sonner';
+import { filterBudgetPeriod, visibleBudgetTransactions } from '../utils/budgetUi';
+import { monthlyMoneyTotals, formatBudgetMoney } from '../utils/budgetFinancialMath';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -50,6 +57,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     hideFilters = false, onLearnRule, onApplyRuleToExisting, onAddCategory, hideActiveFilterBadge
 }) => {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const { familyId } = useAuth();
+  const pendingCategoryUpdates = useRef(new Set<string>());
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('context');
   
@@ -99,55 +108,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
             });
         }
     } else {
-        // Override with internal period presets
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        switch (periodFilter) {
-            case 'current_month':
-                result = result.filter(tx => {
-                    const d = new Date(tx.date);
-                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                });
-                break;
-            case 'last_month':
-                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                result = result.filter(tx => {
-                    const d = new Date(tx.date);
-                    return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
-                });
-                break;
-            case '7_days': {
-                const limit = new Date(today);
-                limit.setDate(limit.getDate() - 7);
-                result = result.filter(tx => new Date(tx.date) >= limit);
-                break; 
-            }
-            case '30_days': {
-                const limit = new Date(today);
-                limit.setDate(limit.getDate() - 30);
-                result = result.filter(tx => new Date(tx.date) >= limit);
-                break;
-            }
-            case 'custom': {
-                if (customStartDate && customEndDate) {
-                    const start = new Date(customStartDate);
-                    start.setHours(0,0,0,0);
-                    const end = new Date(customEndDate);
-                    end.setHours(23,59,59,999);
-                    
-                    result = result.filter(tx => {
-                        const tDate = new Date(tx.date);
-                        return tDate >= start && tDate <= end;
-                    });
-                }
-                break;
-            }
-            case 'all':
-            default:
-                // No date filtering
-                break;
-        }
+        result = filterBudgetPeriod(result,periodFilter,new Date(),customStartDate,customEndDate);
     }
 
     // 2. Category Filtering
@@ -197,42 +158,53 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   }, [transactions, searchQuery, categories, selectedCategoryId, selectedMerchantName, selectedDate, currentMonth, filterMode, typeFilter, periodFilter, customStartDate, customEndDate]);
 
   // Calculate stats for the filtered result
-  const stats = useMemo(() => {
-      const income = searchedTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const expense = searchedTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-      return { income, expense, net: income - expense };
-  }, [searchedTransactions]);
+  const stats = useMemo(() => monthlyMoneyTotals(searchedTransactions), [searchedTransactions]);
 
-  // Limit items for initial view on mobile unless Show All is clicked or filtering is active
-  const visibleTransactions = useMemo(() => {
-    if (isDesktop || searchQuery.trim() || filterMode === 'day' || showAll || selectedCategoryId || selectedDate || typeFilter !== 'all' || periodFilter !== 'context') {
-      return searchedTransactions;
+  const hasActiveFilters = Boolean(searchQuery.trim() || filterMode==='day' ||
+    (selectedCategoryId && selectedCategoryId!=='all') || selectedMerchantName ||
+    selectedDate || typeFilter!=='all' || periodFilter!=='context');
+  const visibleTransactions=useMemo(() => visibleBudgetTransactions(
+    searchedTransactions,isDesktop,showAll,hasActiveFilters
+  ),[searchedTransactions,isDesktop,showAll,hasActiveFilters]);
+  const hasMoreMobile = !isDesktop && !showAll && !hasActiveFilters
+    && searchedTransactions.length>visibleTransactions.length;
+
+  const handleCategoryChange = async (txId: string, newCategoryId: string) => {
+    if (!setTransactions || pendingCategoryUpdates.current.has(txId)) return;
+    const original = transactions.find(t => t.id === txId);
+    if (!original || original.category === newCategoryId) return;
+    if (!isCategoryForType(newCategoryId, categories, original.type)) {
+      toast.error('Выбранная категория не подходит к типу операции');
+      return;
     }
-    // Sort and slice for mobile initial view
-    return [...searchedTransactions]
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 15);
-  }, [searchedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate, isDesktop, typeFilter, periodFilter]);
-
-  const handleCategoryChange = (txId: string, newCategoryId: string) => {
-    if (!setTransactions) return;
-    setTransactions(prev => prev.map(t => {
-      if (t.id === txId) {
-        const updated = { ...t, category: newCategoryId };
-        const merchantKey = t.note || t.rawNote || '';
-        if (merchantKey && onLearnRule) {
-          onLearnRule({
-            id: 'rule-' + Date.now(),
-            keyword: merchantKey,
-            pattern: merchantKey,
-            categoryId: newCategoryId,
-            exactMatch: false
-          });
-        }
-        return updated;
-      }
-      return t;
-    }));
+    const updated = { ...original, category: newCategoryId };
+    // Savings transfers alter another Firestore document: use the full edit flow
+    // rather than changing one field and leaving goal balances inconsistent.
+    if (isSavingsTransfer(original) || isSavingsTransfer(updated)) {
+      toast.info('Для перевода в накопления откройте редактирование операции');
+      onEditTransaction?.(original);
+      return;
+    }
+    pendingCategoryUpdates.current.add(txId);
+    try {
+      if (familyId) await updateItem(familyId, 'transactions', txId, { category: newCategoryId });
+      setTransactions(prev => prev.map(t => t.id === txId ? { ...t, category: newCategoryId } : t));
+      // Retain the existing learned-rule behavior, but only after the
+      // transaction is durably saved, never inside a React state updater.
+      const merchantKey = original.note || original.rawNote || '';
+      if (merchantKey && onLearnRule) onLearnRule({
+        id: 'rule-' + Date.now(),
+        keyword: merchantKey,
+        pattern: merchantKey,
+        categoryId: newCategoryId,
+        exactMatch: false
+      });
+    } catch (error) {
+      console.error('Could not save transaction category',error);
+      toast.error('Категория не сохранена. Попробуйте снова.');
+    } finally {
+      pendingCategoryUpdates.current.delete(txId);
+    }
   };
 
   const FilterControls = (
@@ -241,6 +213,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           <div className="relative" ref={filterMenuRef}>
               <button 
                   onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                   aria-expanded={isFilterMenuOpen}
+                   aria-label={`Период: ${PERIOD_LABELS[periodFilter]}`}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider transition-all border ${
                     isFilterMenuOpen || periodFilter !== 'context' 
                       ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent shadow-sm' 
@@ -295,7 +269,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                                       <input 
                                           ref={startDateInputRef}
                                           type="date" 
-                                          value={customStartDate} 
+                                          value={customStartDate} aria-label="Начало периода" 
                                           onChange={(e) => setCustomStartDate(e.target.value)}
                                           onClick={(e) => {
                                               try {
@@ -309,7 +283,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                                   <div className="flex-1">
                                       <input 
                                           type="date" 
-                                          value={customEndDate} 
+                                          value={customEndDate} aria-label="Конец периода" 
                                           onChange={(e) => setCustomEndDate(e.target.value)}
                                           onClick={(e) => {
                                               try {
@@ -378,7 +352,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   </span>
               </div>
               <span className="text-xs sm:text-base md:text-xl font-headline font-bold text-[#4A7C59] dark:text-green-400 truncate block">
-                  {settings.privacyMode ? '•••' : `+${stats.income.toLocaleString('ru-RU')}`}
+                  {settings.privacyMode ? '•••' : `+${formatBudgetMoney(stats.income)}`}
               </span>
           </div>
 
@@ -391,7 +365,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   </span>
               </div>
               <span className="text-xs sm:text-base md:text-xl font-headline font-bold text-[#E05252] dark:text-red-400 truncate block">
-                  {settings.privacyMode ? '•••' : `-${stats.expense.toLocaleString('ru-RU')}`}
+                  {settings.privacyMode ? '•••' : `-${formatBudgetMoney(stats.expense)}`}
               </span>
           </div>
 
@@ -405,7 +379,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               <span className={`text-xs sm:text-base md:text-xl font-headline font-bold truncate block ${
                 stats.net > 0 ? 'text-[#4A7C59] dark:text-green-400' : stats.net < 0 ? 'text-[#E05252] dark:text-red-400' : 'text-graphite dark:text-white'
               }`}>
-                  {settings.privacyMode ? '•••' : `${stats.net > 0 ? '+' : ''}${stats.net.toLocaleString('ru-RU')}`}
+                  {settings.privacyMode ? '•••' : `${stats.net > 0 ? '+' : ''}${formatBudgetMoney(stats.net)}`}
               </span>
           </div>
       </div>
@@ -457,13 +431,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         type="text" 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по названию или сумме..."
+                        aria-label="Поиск операций по названию, категории или сумме" placeholder="Поиск по названию или сумме..."
                         className="w-full p-3 pl-10 rounded-2xl text-sm font-semibold outline-none text-graphite dark:text-white placeholder:text-gray-400 focus:border-primary transition-colors shadow-sm bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10"
                         autoFocus={false}
                       />
                       <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
                       {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3.5 text-gray-400 hover:text-red-500 transition-colors">
+                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-3.5 top-3.5 text-gray-400 hover:text-red-500 transition-colors">
                               <X size={16} />
                           </button>
                       )}
@@ -516,13 +490,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         type="text" 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по названию или сумме..."
+                        aria-label="Поиск операций по названию, категории или сумме" placeholder="Поиск по названию или сумме..."
                         className="w-full p-3 pl-10 rounded-2xl text-sm font-semibold outline-none text-graphite dark:text-white placeholder:text-gray-400 focus:border-primary transition-colors shadow-sm bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10"
                         autoFocus={false}
                       />
                       <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
                       {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3.5 text-gray-400 hover:text-red-500 transition-colors">
+                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-3.5 top-3.5 text-gray-400 hover:text-red-500 transition-colors">
                               <X size={16} />
                           </button>
                       )}
@@ -543,13 +517,25 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                     <div className="text-center py-12 text-gray-400 font-bold text-sm">Ничего не найдено</div>
                   ) : (
                     <BudgetMobile 
-                        transactions={searchedTransactions}
+                        transactions={visibleTransactions}
                         categories={categories}
                         members={members}
                         onEdit={(tx) => onEditTransaction && onEditTransaction(tx)}
                         privacyMode={settings.privacyMode}
                         onCategoryChange={setTransactions ? handleCategoryChange : undefined}
                     />
+                  )}
+                  {hasMoreMobile && (
+                    <button type="button" onClick={() => setShowAll(true)}
+                      className="w-full mt-3 mb-5 rounded-xl border border-surface-border dark:border-white/10 bg-white dark:bg-[#252528] px-4 py-3 min-h-[44px] text-sm font-semibold text-primary dark:text-green-400">
+                      Показать остальные ({searchedTransactions.length-visibleTransactions.length})
+                    </button>
+                  )}
+                  {!hasMoreMobile && showAll && !hasActiveFilters && searchedTransactions.length>15 && (
+                    <button type="button" onClick={() => setShowAll(false)}
+                      className="w-full mt-3 mb-5 rounded-xl px-4 py-3 min-h-[44px] text-sm text-graphite-muted dark:text-gray-400">
+                      Свернуть список
+                    </button>
                   )}
               </div>
           </div>

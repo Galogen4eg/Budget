@@ -4,6 +4,7 @@ import { Transaction, AppSettings, LearnedRule, Category } from '../types';
 import { getSmartCategory, cleanMerchantName } from './categorizer';
 import { classifyAlfaDirection } from './alfaDirection';
 import { alfaOperationId } from './alfaIdentity';
+import { isAlfaOperationDuplicate } from './alfaDuplicates';
 import { analyzeTransaction, matchMerchantBrand } from './analyzerHelper';
 import { isCategoryForType } from './categoryCatalog';
 
@@ -238,14 +239,8 @@ export const parseAlfaStatement = (
             occurrenceBySignature.set(signature, occurrence);
             const id = await alfaOperationId(sourceFields, occurrence);
 
-            const isDuplicate = existingTransactions.some(ex => {
-              if (ex.id === id) return true;
-              const d1 = new Date(ex.date).getTime();
-              const d2 = new Date(dateStr).getTime();
-              return Math.abs(d1 - d2) < 2000 &&
-                     Math.abs(ex.amount - absAmount) < 0.01 &&
-                     ex.type === type &&
-                     (ex.rawNote === rawNote || ex.note === note);
+            const isDuplicate = isAlfaOperationDuplicate(existingTransactions, {
+              id, date: dateStr, amount: absAmount, type, rawNote, note
             });
 
             if (!isDuplicate) {

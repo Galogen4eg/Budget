@@ -1,11 +1,14 @@
 import type { Transaction } from '../types';
 
-type Candidate = Pick<Transaction,'id'|'date'|'amount'|'type'|'note'|'rawNote'>;
+type Candidate = Pick<Transaction,'id'|'date'|'amount'|'type'|'note'|'rawNote'|'memberId'>;
 const stableAlfaId=(id:string)=>/^alfa_[a-f0-9]{40}$/i.test(id);
 const clean=(value?:string)=>(value||'').trim().toLocaleLowerCase('ru-RU');
 /** Candidate ONLY: never proof of duplication or permission to delete. */
 export function isPotentialDuplicate(left:Candidate,right:Candidate):boolean{
   if(left.id===right.id)return false;
+  // Household members can make indistinguishable purchases; never suggest
+  // deleting one person's transaction as a duplicate of another's.
+  if(!left.memberId?.trim()||!right.memberId?.trim()||left.memberId!==right.memberId)return false;
   // Stable bank identifiers have priority over fuzzy matching: these are
   // two distinct purchases even if they share an amount and timestamp.
   if(stableAlfaId(left.id)&&stableAlfaId(right.id))return false;

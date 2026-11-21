@@ -150,10 +150,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Today's spend
   const todaySpent = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => {
+    return sumMoney(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === currentDayNum && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0));
+    }).map(t => t.amount));
   }, [monthTransactions, currentDayNum]);
 
   // Yesterday's spend
@@ -162,7 +162,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     return Math.round(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
-    }).reduce((sum, t) => sum + t.amount, 0));
+    }).map(t => t.amount));
   }, [monthTransactions, currentDayNum]);
 
   const todayReserve = safeDailyLimit - todaySpent;
@@ -598,6 +598,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     <div 
                       key={`day-${dayNum}`}
                       onClick={() => setSelectedDay(dayNum)}
+                      role="button" tabIndex={0} aria-pressed={isSelected}
+                      aria-label={`Выбрать ${dayNum} ${mobileMonthName}`}
+                      onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
                       } ${
@@ -651,9 +654,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   return (
                     <div 
                       key={`week-day-${dayNum}-${date.getMonth()}`}
-                      onClick={() => {
-                        if (inMonth) setSelectedDay(dayNum);
-                      }}
+                      onClick={() => { if (inMonth) setSelectedDay(dayNum); }}
+                      role={inMonth?'button':undefined} tabIndex={inMonth?0:-1}
+                      aria-pressed={inMonth?isSelected:undefined}
+                      aria-label={inMonth?`Выбрать ${dayNum} ${mobileMonthName}`:undefined}
+                      onKeyDown={(e) => { if(inMonth&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-14 rounded-lg p-1.5 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
                       } ${
@@ -1249,6 +1254,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <div 
                     key={dayNum}
                     onClick={() => setSelectedDay(dayNum)}
+                    role="button" tabIndex={0} aria-pressed={isSelected}
+                    aria-label={`Выбрать ${dayNum} ${monthTitle}`}
+                    onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                     className={`h-14 sm:h-16 p-1 sm:p-1.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] select-none relative ${dayBgClass} ${dayBorderClass}`}
                   >
                     <div className="flex justify-between items-start min-w-0">

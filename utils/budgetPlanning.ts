@@ -2,7 +2,7 @@ import { cents, money, sumMoney } from './budgetFinancialMath.ts';
 import { isSavingsTransfer } from './savingsSync.ts';
 
 type CategoryLike={id:string;label:string;parentId?:string};
-type ExpenseLike={type:string;category:string;amount:number;date:string;id:string;note?:string;rawNote?:string;linkedGoalId?:string};
+type ExpenseLike={type:string;category:string;amount:number;date:string;id:string;note?:string;rawNote?:string;linkedGoalId?:string;linkedExpenseId?:string;linkedDebtId?:string};
 
 export type CategoryBudgetRow={
  categoryId:string;label:string;spent:number;limit:number;remaining:number;percentage:number;overLimit:boolean;

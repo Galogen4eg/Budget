@@ -428,7 +428,6 @@ export default function App() {
       : [...monthIds, expenseId];
 
     updateSettings({
-      ...settings,
       manualPaidExpenses: {
         ...currentManuals,
         [currentMonthKey]: newMonthIds
@@ -588,7 +587,6 @@ export default function App() {
             } catch {}
 
             await updateSettings({
-              ...settings,
               telegramState: newState
             });
           }
@@ -769,7 +767,7 @@ export default function App() {
   const renderWidget = (id: string) => {
       switch (id) {
           case 'balance':
-              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} className="shrink-0" />;
+              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
           case 'month_chart':
               return (
                   <div className="flex-1 h-[280px] lg:h-auto min-h-[250px]">
@@ -1379,7 +1377,7 @@ export default function App() {
                         } else {
                             updated = [...(settings.mandatoryExpenses || []), { ...e, id: e.id || Date.now().toString() }];
                         }
-                        await updateSettings({ ...settings, mandatoryExpenses: updated }); 
+                        await updateSettings({ mandatoryExpenses: updated }); 
                         setIsMandatoryModalOpen(false); 
                         setSelectedMandatoryExpense(null);
                     } catch (error: any) {
@@ -1392,7 +1390,7 @@ export default function App() {
                             if (selectedMandatoryExpense && ex === selectedMandatoryExpense) return false;
                             return ex.id !== id;
                         });
-                        await updateSettings({ ...settings, mandatoryExpenses: updated });
+                        await updateSettings({ mandatoryExpenses: updated });
                         setIsMandatoryModalOpen(false);
                         setSelectedMandatoryExpense(null);
                     } catch (error: any) {
@@ -1401,7 +1399,7 @@ export default function App() {
                 }}
             />}
             
-            {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
+            {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
             {isAddEventModalOpen && (
                 <EventModal 

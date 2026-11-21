@@ -1,9 +1,15 @@
 {
   "version": 2,
   "functions": {
-    "api/*.js": {
+    "api/calendar-telegram-run.js": {
       "maxDuration": 30,
-      "memory": 1024
+      "memory": 1024,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "budget-calendar-telegram-reminders"
+        }
+      ]
     }
   },
   "rewrites": [

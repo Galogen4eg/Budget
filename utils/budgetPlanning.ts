@@ -72,7 +72,7 @@ export function forecastUntilSalary(input:{
  const end=new Date(today);end.setDate(end.getDate()+1);
  const costs=transactions.filter(tx=>{
    const date=new Date(tx.date);
-   return tx.type==='expense'&&!isSavingsTransfer(tx)&&Number.isFinite(date.getTime())
+   return tx.type==='expense'&&!isSavingsTransfer(tx)&&!tx.linkedExpenseId&&!tx.linkedDebtId&&Number.isFinite(date.getTime())
      &&date>=start&&date<end;
  });
  const observedDays=14;

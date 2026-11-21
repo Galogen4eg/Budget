@@ -127,3 +127,22 @@ export function formatBudgetMoney(value: number): string {
     minimumFractionDigits:hasKopecks?2:0, maximumFractionDigits:2
   }).format(money(wholeKopecks));
 }
+
+/** Calendar-day distance to next salary (DST-independent). */
+export function daysUntilNextSalary(today: Date, configuredDays: readonly number[]): number {
+  const days=[...new Set(configuredDays.filter(day=>Number.isInteger(day)&&day>=1&&day<=31))]
+    .sort((a,b)=>a-b);
+  if(!days.length) days.push(1);
+  const todayUtc=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
+  for(let monthOffset=0;monthOffset<14;monthOffset++){
+    const year=today.getFullYear();
+    const month=today.getMonth()+monthOffset;
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    for(const day of days){
+      const candidate=new Date(year,month,Math.min(day,daysInMonth));
+      const candidateUtc=Date.UTC(candidate.getFullYear(),candidate.getMonth(),candidate.getDate());
+      if(candidateUtc>todayUtc)return Math.max(1,Math.round((candidateUtc-todayUtc)/86400000));
+    }
+  }
+  return 1;
+}

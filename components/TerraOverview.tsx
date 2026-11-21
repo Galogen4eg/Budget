@@ -251,10 +251,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
 
     await updateSettings({
-      manualPaidExpenses: {
-        ...(settings.manualPaidExpenses || {}),
-        [currentMonthKey]: updated
-      }
+      manualPaidExpenses: { [currentMonthKey]: updated }
     });
   }, [settings, currentMonthKey, currentMonthTransactions, updateSettings]);
 
@@ -262,10 +259,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
     const updated = Array.from(new Set([...existing, ...expenseIds]));
     await updateSettings({
-      manualPaidExpenses: {
-        ...(settings.manualPaidExpenses || {}),
-        [currentMonthKey]: updated
-      }
+      manualPaidExpenses: { [currentMonthKey]: updated }
     });
   }, [settings, currentMonthKey, updateSettings]);
 

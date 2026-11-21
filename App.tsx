@@ -694,14 +694,21 @@ export default function App() {
       toast.success(`Удалено ${ids.length} операций`);
   };
 
-  const handleBatchDelete = async (ids: string[]) => {
-      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
-      // Deleting a savings transfer without adjusting its goal would corrupt balances.
-      try { assertBulkDeleteSafe(transactions,ids); }
-      catch(error){toast.error((error as Error).message);return;}
-      await deleteItemsBatch(familyId, 'transactions', ids);
-      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
-      toast.success(`Удалено ${ids.length} записей`);
+  const handleBatchDelete = async (ids: string[]): Promise<boolean> => {
+      if (!familyId) {
+        toast.error('Семья ещё не подключена');
+        return false;
+      }
+      try {
+        assertBulkDeleteSafe(transactions,ids);
+        await deleteItemsBatch(familyId, 'transactions', ids);
+        setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+        toast.success(`Удалено ${ids.length} записей`);
+        return true;
+      } catch(error) {
+        toast.error(error instanceof Error ? error.message : 'Удаление не выполнено');
+        return false;
+      }
   };
 
   const handleGoalSave = async (goal: any) => {

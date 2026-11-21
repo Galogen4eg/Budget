@@ -428,10 +428,7 @@ export default function App() {
       : [...monthIds, expenseId];
 
     updateSettings({
-      manualPaidExpenses: {
-        ...currentManuals,
-        [currentMonthKey]: newMonthIds
-      }
+      manualPaidExpenses: { [currentMonthKey]: newMonthIds }
     });
   };
 

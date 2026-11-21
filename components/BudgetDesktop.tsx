@@ -62,6 +62,9 @@ const BudgetDesktop: React.FC<BudgetDesktopProps> = ({
                     <div 
                       key={tx.id}
                       onClick={() => onEdit(tx)}
+                       role="button" tabIndex={0}
+                       aria-label={`Редактировать операцию ${displayTitle}`}
+                       onKeyDown={(e) => { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();onEdit(tx);} }}
                       className="group flex items-center justify-between p-3.5 rounded-2xl border border-surface-border dark:border-white/5 transition-all cursor-pointer hover:border-gray-300 dark:hover:border-white/15 bg-white dark:bg-[#252528] shadow-xs hover:shadow active:scale-[0.99]"
                     >
                       <div className="flex items-center gap-3.5 overflow-hidden flex-1 min-w-0">

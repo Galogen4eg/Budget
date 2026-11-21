@@ -39,7 +39,7 @@ export interface BudgetBill {
   name: string;
   amount: number;
   keywords?: string[];
-  linkedDebtId?: string;
+  linkedDebtId?: string | null;
 }
 
 export interface BudgetPayment {
@@ -49,7 +49,7 @@ export interface BudgetPayment {
   note?: string;
   rawNote?: string;
   linkedExpenseId?: string;
-  linkedDebtId?: string;
+  linkedDebtId?: string | null;
 }
 
 export interface MandatoryPaymentState {

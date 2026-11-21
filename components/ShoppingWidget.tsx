@@ -13,9 +13,10 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
   const displayItems = activeItems.slice(0, 4);
 
   return (
-    <div 
+    <button type="button"
         onClick={onClick}
-        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full h-full flex flex-col cursor-pointer group relative overflow-hidden transition-all hover:scale-[1.01] active:scale-[0.99]"
+        aria-label="Открыть список покупок"
+        className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[2.2rem] border border-white dark:border-white/5 shadow-soft dark:shadow-none w-full h-full flex flex-col text-left cursor-pointer group relative overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hover:scale-[1.01] active:scale-[0.99]"
     >
         {/* Header */}
         <div className="flex justify-between items-center mb-4 relative z-10 shrink-0">
@@ -64,7 +65,7 @@ const ShoppingWidget: React.FC<ShoppingWidgetProps> = ({ items, onClick }) => {
         </div>
         
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/10 rounded-full blur-[60px] -mr-10 -mt-10 pointer-events-none opacity-60" />
-    </div>
+    </button>
   );
 };
 

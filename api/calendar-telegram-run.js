@@ -1,4 +1,4 @@
-import {handleCallback} from '@vercel/queue';
+import {QueueClient} from '@vercel/queue';
 import {redis} from '../lib/redis.js';
 import {decryptSecret,userKey,familyKey,deliveryKey} from '../lib/calendarTelegramBackend.js';
 import {getSlot,syncOneUser} from '../lib/calendarScheduleManager.js';
@@ -16,7 +16,8 @@ async function sendTelegram(botToken,chatId,text){
  }finally{clearTimeout(timer);}
 }
 
-export const POST=handleCallback(async(message)=>{
+const queue=new QueueClient({region:'fra1'});
+export default queue.handleNodeCallback(async(message)=>{
  const {uid,slot,when}=message.payload||{};
  if(typeof uid!=='string'||typeof slot!=='string'||!Number.isFinite(when))return;
  const [subscription,record]=await Promise.all([

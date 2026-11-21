@@ -507,9 +507,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     return items.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   }, [items]);
 
-  const unassignedCount = useMemo(() => {
-    return items.filter(t => t.category === 'other' || !t.category || !categories.some(c => c.id === t.category)).length;
-  }, [items, categories]);
+  const unassignedCount = useMemo(() =>
+    splitImportReview(items, categories).needsReview.length,
+    [items, categories]
+  );
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {

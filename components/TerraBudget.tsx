@@ -99,6 +99,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     return transactions.filter(t => t.memberId === selectedMember);
   }, [transactions, selectedMember]);
 
+  // Category limits are shared family-wide, regardless of member filter.
+  const familyMonthTransactions = useMemo(() => transactions.filter(t => {
+    const date = new Date(t.date);
+    return date.getMonth() === currentMonth.getMonth()
+      && date.getFullYear() === currentMonth.getFullYear();
+  }), [transactions, currentMonth]);
+
   // Current month transactions - sorted chronologically descending (from current/newest to past)
   const monthTransactions = useMemo(() => {
     return memberFilteredTransactions
@@ -911,8 +918,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </section>
           <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
-            transactions={memberFilteredTransactions} monthTransactions={monthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
+            transactions={transactions} monthTransactions={familyMonthTransactions}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
         </div>
       </div>
@@ -1541,8 +1548,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </div>
 
 <BudgetPlanningPanel settings={settings} categories={categories}
-            transactions={memberFilteredTransactions} monthTransactions={monthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
+            transactions={transactions} monthTransactions={familyMonthTransactions}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}

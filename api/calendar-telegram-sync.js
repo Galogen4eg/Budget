@@ -1,11 +1,11 @@
 import {redis} from '../lib/redis.js';
-import {verifyFirebaseToken,verifyFamilyMembership,validateCalendarSnapshot,encryptSecret,
+import {verifyFirebaseToken,verifyFamilyMembership,validateCalendarSnapshot,validateTelegramCredentials,encryptSecret,
   SUBSCRIBERS,userKey,familyKey} from '../lib/calendarTelegramBackend.js';
 import {syncOneUser,disableOneUser} from '../lib/calendarScheduleManager.js';
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
-  if(!['POST','DELETE','GET'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
+  if(!['POST','PUT','DELETE','GET'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
   try{
     const authorization=req.headers.authorization||'';
     if(!authorization.startsWith('Bearer '))return res.status(401).json({error:'Sign in to Budget'});
@@ -25,16 +25,18 @@ export default async function handler(req,res){
     if(!raw||JSON.stringify(raw).length>450000)return res.status(413).json({error:'Calendar snapshot too large'});
     const snapshot=validateCalendarSnapshot(raw);
     await verifyFamilyMembership(identity,raw.familyId);
-    const token=raw.botToken.trim().replace(/^bot/i,'');
-    const chatId=raw.chatId.trim();
+    if(req.method==='POST')validateTelegramCredentials(raw);
+    const token=req.method==='POST'?raw.botToken.trim().replace(/^bot/i,''):null;
+    const chatId=req.method==='POST'?raw.chatId.trim():null;
     await redis.set(familyKey(raw.familyId),{
       events:snapshot.events,members:snapshot.members,payments:snapshot.payments,
       paid:snapshot.paid,updatedAt:Date.now()
     });
-    const subscription={familyId:raw.familyId,uid:identity.uid,chatId,timeZone:raw.timeZone,
-      encryptedToken:encryptSecret(token),updatedAt:Date.now()};
-    await redis.set(key,subscription);
-    await redis.sadd(SUBSCRIBERS,identity.uid);
+    const subscription=req.method==='POST'?{
+      familyId:raw.familyId,uid:identity.uid,chatId,timeZone:raw.timeZone,
+      encryptedToken:encryptSecret(token),updatedAt:Date.now()
+    }:null;
+    if(subscription){await redis.set(key,subscription);await redis.sadd(SUBSCRIBERS,identity.uid);}
     // Both family members must receive new/edited events even if one has
     // closed their app. The shared snapshot is refreshed by either user.
     const subscribedUids=await redis.smembers(SUBSCRIBERS);
@@ -45,7 +47,7 @@ export default async function handler(req,res){
       const outcome=await syncOneUser(uid,person.timeZone,snapshot);
       scheduled+=outcome.count;
     }
-    return res.status(200).json({enabled:true,scheduled});
+    return res.status(200).json({enabled:Boolean(subscription),scheduled});
   }catch(error){
     console.warn('Calendar Telegram registration failed:',error.message);
     return res.status(401).json({error:'Не удалось подтвердить аккаунт или сохранить расписание'});

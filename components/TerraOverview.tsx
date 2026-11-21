@@ -26,6 +26,7 @@ import { OverviewRecentTransactions } from './overview/OverviewRecentTransaction
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
+import { toast } from 'sonner';
 
 interface TerraOverviewProps {
   onOpenAddModal: () => void;
@@ -283,14 +284,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
 
     if (!isPaid) {
-      setTransactions(prev => prev.map(t => {
-        const d = new Date(t.date);
-        const txMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (txMonthKey === currentMonthKey && t.linkedExpenseId === expenseId) {
-          return { ...t, linkedExpenseId: undefined };
-        }
-        return t;
-      }));
+      // An existing payment cannot be undone by changing local state only:
+      // it would still exist in Firestore and be counted as paid on reload.
+      const recorded = currentMonthTransactions.some(t =>
+        t.type === 'expense' && t.linkedExpenseId === expenseId
+      );
+      if (recorded) {
+        toast.info('Платёж привязан к операции. Измените или удалите саму операцию, чтобы отметить платёж неоплаченным.');
+        return;
+      }
     }
 
     await updateSettings({
@@ -300,7 +302,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         [currentMonthKey]: updated
       }
     });
-  }, [settings, currentMonthKey, setTransactions, updateSettings]);
+  }, [settings, currentMonthKey, currentMonthTransactions, updateSettings]);
 
   const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];

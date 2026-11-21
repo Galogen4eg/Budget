@@ -60,3 +60,16 @@ test('forecast does not double-subtract bank transfers to goals',()=>{
  assert.equal(value.hasHistory,false);
  assert.equal(value.availableToday,60000);
 });
+
+test('fixed paid bills linked to mandatory expenses are not projected again as variable spending',()=>{
+ const result=forecastUntilSalary({
+  transactions:[
+   {type:'expense',category:'housing',amount:25000,linkedExpenseId:'rent',id:'rent',date:'2026-11-20T10:00:00'},
+   {type:'expense',category:'food',amount:1400,id:'food',date:'2026-11-18T10:00:00'}
+  ],
+  now:new Date(2026,10,21),daysRemaining:5,totalBalance:50000,reservedAmount:10000
+ });
+ assert.equal(result.averageDaily,100);
+ assert.equal(result.projectedSpending,500);
+ assert.equal(result.projectedFreeBalance,39500);
+});

@@ -4,6 +4,15 @@
     "api/*.js": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/calendar-telegram-run.js": {
+      "maxDuration": 30,
+      "memory": 1024,
+      "experimentalTriggers": [
+        {
+          "type": "schedule/v1beta"
+        }
+      ]
     }
   },
   "rewrites": [
@@ -11,5 +20,12 @@
       "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "schedules": {
+    "calendar-telegram-every-10m": {
+      "schedule": "*/10 * * * *",
+      "function": "api/calendar-telegram-run.js",
+      "timezone": "Etc/UTC"
+    }
+  }
 }

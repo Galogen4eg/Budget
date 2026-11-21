@@ -1,7 +1,7 @@
 import {QueueClient} from '@vercel/queue';
-import {redis} from '../lib/redis.js';
-import {decryptSecret,userKey,familyKey,deliveryKey} from '../lib/calendarTelegramBackend.js';
-import {getSlot,syncOneUser} from '../lib/calendarScheduleManager.js';
+import {redis} from '../../lib/redis.js';
+import {decryptSecret,userKey,familyKey,deliveryKey} from '../../lib/calendarTelegramBackend.js';
+import {getSlot,syncOneUser} from '../../lib/calendarScheduleManager.js';
 
 async function sendTelegram(botToken,chatId,text){
  const controller=new AbortController();
@@ -18,7 +18,7 @@ async function sendTelegram(botToken,chatId,text){
 
 const queue=new QueueClient({region:process.env.VERCEL_REGION||'iad1'});
 export default queue.handleNodeCallback(async(message)=>{
- const {uid,slot,when}=message.payload||{};
+ const {uid,slot,when}=message?.payload??message??{};
  if(typeof uid!=='string'||typeof slot!=='string'||!Number.isFinite(when))return;
  const [subscription,record]=await Promise.all([
   redis.get(userKey(uid)),getSlot(uid,slot)

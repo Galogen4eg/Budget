@@ -52,3 +52,15 @@ export async function refreshFamilyTelegramSchedules(input:{
  });
  if(!response.ok)throw new Error('Не удалось обновить общее Telegram-расписание');
 }
+
+/** The server, not localStorage, owns the subscription across devices. */
+export async function getTelegramScheduleStatus():Promise<{enabled:boolean;chatId:string|null}>{
+ const user=auth.currentUser;
+ if(!user)throw new Error('Необходимо войти в Budget');
+ const response=await fetch('/api/calendar-telegram-sync',{
+  method:'GET',headers:{Authorization:`Bearer ${await user.getIdToken()}`}
+ });
+ if(!response.ok)throw new Error('Не удалось получить статус Telegram-напоминаний');
+ const data=await response.json();
+ return {enabled:data.enabled===true,chatId:typeof data.chatId==='string'?data.chatId:null};
+}

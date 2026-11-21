@@ -4,6 +4,15 @@
     "api/*.js": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/queue/*.js": {
+      "maxDuration": 30,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "budget-calendar-telegram-reminders"
+        }
+      ]
     }
   },
   "rewrites": [

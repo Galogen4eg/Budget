@@ -12,12 +12,13 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettings, subscribeToAppSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, subscribeToAppSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 import { missingIncomeCategories } from '../utils/categoryCatalog';
+import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -81,7 +82,7 @@ interface DataContextType {
   deleteAIKnowledge: (id: string) => Promise<void>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-  updateSettings: (newSettings: AppSettings) => Promise<void>; // New unified method
+  updateSettings: (newSettings: Partial<AppSettings>) => Promise<void>; // Patch only modified fields
   debts: Debt[];
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   loyaltyCards: LoyaltyCard[];
@@ -181,6 +182,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [localRules, globalRules]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
   
   const [debts, setDebts] = useState<Debt[]>([]);
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
@@ -193,16 +196,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
-      const newSettings = { ...settings, savingsRate: rate };
-      setSettings(newSettings);
-      if (familyId && user) await saveAppSettings(familyId, user.uid, newSettings);
+      await updateSettings({ savingsRate: rate });
   };
 
-  // Unified update function exposed to consumers
-  const updateSettings = async (newSettings: AppSettings) => {
-      setSettings(newSettings);
+  // Persist only modified keys; a stale client must not rewrite unrelated
+  // family fields belonging to another person's settings change.
+  const updateSettings = async (newSettings: Partial<AppSettings>) => {
+      const current = settingsRef.current;
+      const patch = diffSettings(current, newSettings);
+      if (!Object.keys(patch).length) return;
+      const merged = { ...current, ...patch };
+      settingsRef.current = merged;
+      setSettings(merged);
       if (familyId && user) {
-          await saveAppSettings(familyId, user.uid, newSettings);
+          try {
+              await saveAppSettingsPatch(familyId, user.uid, patch);
+          } catch (error) {
+              // Firestore subscription is authoritative; do not claim success.
+              settingsRef.current = current;
+              setSettings(current);
+              throw error;
+          }
       }
   };
 
@@ -534,11 +548,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const filteredTransactions = useMemo(() => {
-      if (budgetMode === 'family') return transactions;
       const currentUserId = user?.uid;
-      const myMemberId = members.find(m => m.userId === currentUserId)?.id;
-      if (!myMemberId) return transactions;
-      return transactions.filter(t => t.memberId === myMemberId);
+      const myMemberId = members.find(m => m.userId && m.userId === currentUserId)?.id;
+      return personalTransactions(transactions, budgetMode, myMemberId);
   }, [transactions, budgetMode, members, user]);
 
   const parseLocalDate = (dateStr: string) => {

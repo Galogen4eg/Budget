@@ -33,10 +33,19 @@ export default async function handler(req,res){
     });
     const subscription={familyId:raw.familyId,uid:identity.uid,chatId,timeZone:raw.timeZone,
       encryptedToken:encryptSecret(token),updatedAt:Date.now()};
-    const result=await syncOneUser(identity.uid,raw.timeZone,snapshot);
     await redis.set(key,subscription);
     await redis.sadd(SUBSCRIBERS,identity.uid);
-    return res.status(200).json({enabled:true,scheduled:result.count});
+    // Both family members must receive new/edited events even if one has
+    // closed their app. The shared snapshot is refreshed by either user.
+    const subscribedUids=await redis.smembers(SUBSCRIBERS);
+    let scheduled=0;
+    for(const uid of subscribedUids){
+      const person=uid===identity.uid?subscription:await redis.get(userKey(uid));
+      if(person?.familyId!==raw.familyId)continue;
+      const outcome=await syncOneUser(uid,person.timeZone,snapshot);
+      scheduled+=outcome.count;
+    }
+    return res.status(200).json({enabled:true,scheduled});
   }catch(error){
     console.warn('Calendar Telegram registration failed:',error.message);
     return res.status(401).json({error:'Не удалось подтвердить аккаунт или сохранить расписание'});

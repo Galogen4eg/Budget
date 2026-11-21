@@ -129,6 +129,30 @@ export const saveAppSettings = async (familyId: string, userId: string, settings
   await batch.commit();
 };
 
+/**
+ * Commit only changed setting keys. Never resend the entire shared settings
+ * document from a potentially stale family member snapshot.
+ */
+export const saveAppSettingsPatch = async (
+  familyId: string, userId: string, changes: Partial<AppSettings>
+) => {
+  if (!familyId || !userId) throw new Error('Family or user ID is missing');
+  const sharedPart: Record<string, unknown> = {};
+  const userPart: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === undefined) continue;
+    (USER_SPECIFIC_KEYS.includes(key as keyof AppSettings) ? userPart : sharedPart)[key] = value;
+  }
+  const batch = writeBatch(db);
+  if (Object.keys(sharedPart).length) {
+    batch.set(doc(db,'families',familyId,'config','settings'),cleanForFirestore(sharedPart),{merge:true});
+  }
+  if (Object.keys(userPart).length) {
+    batch.set(doc(db,'families',familyId,'members',userId,'config','settings'),cleanForFirestore(userPart),{merge:true});
+  }
+  if (Object.keys(sharedPart).length || Object.keys(userPart).length) await batch.commit();
+};
+
 // Legacy support wrapper (deprecated for direct use in components)
 export const saveSettings = async (familyId: string, settings: AppSettings) => {
     // This function assumes it receives the FULL settings object but doesn't know the USER ID context for splitting properly if called directly without userId.

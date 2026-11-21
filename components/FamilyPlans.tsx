@@ -162,7 +162,15 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const monthly=Array.from({length:3},(_,i)=>paymentAgenda(
         settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1),settings.manualPaidExpenses||{}
       ));
-      const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId);
+      // Browser timers can pause while the tab is in the background. Resume from
+      // the last check, but avoid replaying notifications older than one hour.
+      const checkedKey=`${reminderKey}:last-checked`;
+      const previous=Number(localStorage.getItem(checkedKey));
+      const since=Number.isFinite(previous)&&previous>0&&previous<=now.getTime()
+        ?new Date(Math.max(previous,now.getTime()-3600000))
+        :new Date(now.getTime()-120000);
+      const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId,since);
+      localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;
       let seen:string[]=[];
       try{const saved=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(saved))seen=saved;}catch{}

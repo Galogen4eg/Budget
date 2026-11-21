@@ -66,7 +66,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                        aria-label={`Редактировать операцию ${displayTitle}`}
                        onKeyDown={(e) => { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();onEdit(tx);} }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex items-center justify-between p-3 rounded-2xl border border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] shadow-2xs cursor-pointer active:bg-gray-50 dark:active:bg-[#2C2C2E]"
+                      className="flex min-h-[56px] items-center justify-between p-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 border border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] shadow-2xs cursor-pointer active:bg-gray-50 dark:active:bg-[#2C2C2E]"
                     >
                       <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0 pr-2">
                         <div className="shrink-0">
@@ -75,7 +75,7 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                         
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-sm text-graphite dark:text-white truncate">
+                            <span className="block max-w-full font-semibold text-sm leading-snug text-graphite dark:text-white break-words">
                               {displayTitle}
                             </span>
                             {transferDetails.isTransfer && (
@@ -121,8 +121,8 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                         </div>
                       </div>
                       
-                      <div className="text-right whitespace-nowrap pl-2 shrink-0">
-                        <span className={`text-base font-headline font-bold tabular-nums ${
+                      <div className="text-right whitespace-nowrap pl-2 shrink-0 max-w-[45%]">
+                        <span className={`block text-sm sm:text-base font-headline font-bold tabular-nums truncate ${
                           tx.type === 'income' 
                             ? 'text-[#4A7C59] dark:text-green-400' 
                             : 'text-graphite dark:text-white'

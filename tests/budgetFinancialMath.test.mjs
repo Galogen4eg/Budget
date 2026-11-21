@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cents, money, sumMoney, budgetDailyLimit, monthlyMoneyTotals,
-  mandatoryPaymentStates
+  mandatoryPaymentStates, ledgerBalance, formatBudgetMoney
 } from '../utils/budgetFinancialMath.ts';
 
 test('money arithmetic keeps kopecks and avoids binary floating point drift', () => {
@@ -72,4 +72,18 @@ test('manual-paid status suppresses remaining amount without inventing a bank pa
   assert.equal(states[0].isPaid,true);
   assert.equal(states[0].paidAmount,0);
   assert.equal(states[0].amountNeeded,0);
+});
+
+test('opening balance carries across months and starts at selected date',()=>{
+ const rows=[
+  {date:'2026-10-30T09:00:00.000Z',type:'income',amount:500},
+  {date:'2026-11-03T09:00:00.000Z',type:'expense',amount:100.15}
+ ];
+ assert.equal(ledgerBalance(rows,1000),1399.85);
+ assert.equal(ledgerBalance(rows,1000,'2026-11-01'),899.85);
+});
+test('kopecks display consistently on desktop and mobile',()=>{
+ assert.equal(formatBudgetMoney(10),'10');
+ assert.equal(formatBudgetMoney(10.5),'10,50');
+ assert.equal(formatBudgetMoney(10.05),'10,05');
 });

@@ -7,6 +7,9 @@ const overview = readFileSync(new URL('../components/TerraOverview.tsx', import.
 test('mobile balance never presents a fabricated percentage or unverified month-on-month growth', () => {
   assert.doesNotMatch(overview, /\+8\.4%/);
   assert.doesNotMatch(overview, /к прошлому месяцу рост/);
+  assert.doesNotMatch(overview, /dynamicsData\.avg\s*\|\|\s*1420/);
+  assert.doesNotMatch(overview, /dynamicsData\.max\s*\|\|\s*3150/);
+  assert.doesNotMatch(overview, /dailyLimit\s*\*\s*30\s*:\s*50540/);
   assert.doesNotMatch(overview, /Доступно до конца\s*\{/);
 });
 test('mobile overview supports safe-area insets and long balance values', () => {

@@ -1,4 +1,4 @@
-import { isSavingsTransfer } from './savingsSync';
+import { isSavingsTransfer } from './savingsSync.ts';
 
 type SavingsLike = {
   id:string;

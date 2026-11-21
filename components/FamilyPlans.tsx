@@ -12,6 +12,9 @@ import { formatLocalCalendarDate } from '../utils/calendarDates';
 import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
+import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
+import { messaging } from '../firebase';
+import { onMessage } from 'firebase/messaging';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
 import { filterEventsForCalendarMonth, parseLocalCalendarDate } from '../utils/calendarDates';
@@ -54,6 +57,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const recognitionRef = useRef<any>(null);
   const { familyId, user } = useAuth();
   const [remindersEnabled,setRemindersEnabled]=useState(false);
+  const [pushEnabled,setPushEnabled]=useState(false);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
@@ -136,13 +140,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const reminderKey=`budget:foreground-reminders:${familyId||'none'}:${user?.uid||'none'}`;
   useEffect(()=>{
     setRemindersEnabled(localStorage.getItem(reminderKey)==='enabled');
+    setPushEnabled(user?.uid ? isCalendarPushRegisteredLocally(user.uid) : false);
   },[reminderKey]);
 
   const enableReminders=async()=>{
     if(remindersEnabled){
       localStorage.removeItem(reminderKey);
       setRemindersEnabled(false);
-      toast.info('Напоминания календаря отключены на этом устройстве.');
+      if(user?.uid){
+        try{await disableCalendarPush(user.uid);setPushEnabled(false);}
+        catch(error){toast.error('Не удалось отключить фоновые push на сервере. Проверьте подключение и повторите.');}
+      }
+      toast.info('Локальные напоминания отключены.');
       return;
     }
     if(typeof Notification!=='undefined'&&Notification.permission==='default'){
@@ -150,8 +159,28 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     }
     localStorage.setItem(reminderKey,'enabled');
     setRemindersEnabled(true);
-    toast.info('Напоминания включены при открытом Budget. Фоновые push пока не настроены.');
+    if(!user?.uid) {
+      toast.info('Напоминания включены при открытом Budget.');
+      return;
+    }
+    try{
+      const result=await enableCalendarPush(user.uid);
+      setPushEnabled(result==='enabled');
+      if(result==='enabled')toast.success('Фоновые push подключены на этом устройстве.');
+      else if(result==='not-configured')toast.info('Локальные напоминания включены. Для push нужен VAPID-ключ Firebase.');
+      else toast.info('Локальные напоминания включены. Фоновые push недоступны в этом браузере или запрещены.');
+    }catch(error){
+      console.warn('FCM device registration failed',error);
+      toast.error('Локальные напоминания работают, но регистрацию push не удалось завершить.');
+    }
   };
+
+  useEffect(()=>{
+    if(!messaging||!remindersEnabled)return;
+    // Background data messages are handled by the service worker; while the
+    // page is open the existing foreground scheduler owns notification display.
+    return onMessage(messaging,()=>{});
+  },[remindersEnabled]);
 
   useEffect(()=>{
     if(!remindersEnabled||!familyId||!user)return;
@@ -345,7 +374,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
         onEnableReminders={()=>void enableReminders()}
-        remindersEnabled={remindersEnabled}/>
+        remindersEnabled={remindersEnabled}
+        pushEnabled={pushEnabled}/>
         <div className="flex-1 min-h-0 overflow-hidden">
         {isDesktop ? (
             <FamilyPlansDesktop 

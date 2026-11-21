@@ -177,7 +177,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       telegramSendingRef.current=true;
       try{
         const now=new Date();
-        const today=formatLocalCalendarDate(now);
         // Include earlier occurrences so suspended tabs can catch up.
         const first=new Date(now);first.setDate(first.getDate()-8);
         const until=new Date(now);until.setDate(until.getDate()+8);
@@ -216,9 +215,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         telegramSendingRef.current=false;
       }
     };
-    void check();
-    const timer=window.setInterval(()=>void check(),30000);
-    const onFocus=()=>void check();
+    const runCheck=()=>{void check().catch(error=>console.warn('Telegram reminder check failed',error));};
+    runCheck();
+    const timer=window.setInterval(runCheck,30000);
+    const onFocus=runCheck;
     window.addEventListener('focus',onFocus);
     return ()=>{cancelled=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);};
   },[telegramRemindersEnabled,telegramConfigured,telegramKey,telegramChatId,settings.telegramBotToken,settings.telegramApiUrl,settings.mandatoryExpenses,settings.manualPaidExpenses,events,ownProfileId,familyId,user?.uid]);

@@ -601,7 +601,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return Math.round(num).toLocaleString('ru-RU');
   };
 
-  const totalMonthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 50540);
+  const totalMonthlyLimit = settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0);
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
@@ -663,31 +663,34 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [events]);
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-12 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 text-graphite dark:text-gray-100 transition-colors">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
       <div className="md:hidden flex flex-col min-w-0 w-full">
         {/* Top Header Bar */}
-        <header className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-[#F4F1EA]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
+        <header className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-2 sticky top-0 bg-[#F4F1EA]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
           {/* Left: Circle Settings Button */}
           <button
             type="button"
             onClick={onOpenSettings}
+            aria-label="Настройки"
             title="Настройки"
-            className="w-10 h-10 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+            className="w-11 h-11 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
           >
             <Settings size={19} strokeWidth={2.2} />
           </button>
 
           {/* Center: Month Dropdown Pill */}
-          <div className="relative">
+          <div className="relative min-w-0">
             <button
               type="button"
               onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-              className="px-4 py-2 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-graphite dark:text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-[#E2DDD3] active:scale-95 transition cursor-pointer"
+              aria-label={`Выбрать месяц: ${currentMonthName}`}
+              aria-expanded={isMonthPickerOpen}
+              className="max-w-full min-h-[44px] px-3 sm:px-4 py-2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#EAE6DD] dark:bg-[#252528] text-graphite dark:text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-[#E2DDD3] active:scale-95 transition cursor-pointer"
             >
-              <span>{currentMonthName}</span>
+              <span className="block truncate">{currentMonthName}</span>
               <ChevronDown size={14} className="text-graphite-muted dark:text-gray-400" />
             </button>
             {isMonthPickerOpen && (
@@ -696,7 +699,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setIsMonthPickerOpen(false)} 
                 />
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-2.5 z-50 min-w-[210px] space-y-2">
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-[min(17rem,calc(100vw-2rem))] bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-2.5 z-50 min-w-[210px] space-y-2">
                   <div className="flex items-center justify-between px-1">
                     <button
                       type="button"
@@ -766,21 +769,22 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* Right: AI Assistant & Circle Plus Button */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={onOpenAIChat}
               title="AI Ассистент (Gemini)"
               aria-label="AI Ассистент"
-              className="w-10 h-10 rounded-full bg-emerald-100/80 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+              className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-emerald-100/80 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
             >
               <Sparkles size={19} />
             </button>
             <button
               type="button"
               onClick={onOpenAddModal}
+              aria-label="Добавить операцию"
               title="Добавить операцию"
-              className="w-10 h-10 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
+              className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6849] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
             >
               <Plus size={22} strokeWidth={2.4} />
             </button>
@@ -793,7 +797,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <button
               type="button"
               onClick={() => setBudgetMode('family')}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              aria-pressed={budgetMode === 'family'}
+              className={`min-h-[44px] py-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
                   ? 'bg-[#4A7C59] text-white shadow-xs'
                   : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
@@ -805,6 +810,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <button
               type="button"
               onClick={() => setBudgetMode('personal')}
+              aria-pressed={budgetMode === 'personal'}
               className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'personal'
                   ? 'bg-[#4A7C59] text-white shadow-xs'
@@ -825,18 +831,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
                 {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#D4EDDA] dark:bg-emerald-950/50 text-[#28A745] dark:text-emerald-400 text-xs font-bold">
-                <TrendingUp size={13} strokeWidth={2.4} />
-                +8.4%
-              </span>
+              <span className="text-xs text-graphite-muted dark:text-gray-400">{currentMonthName}</span>
             </div>
 
             <div>
-              <div className="text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight">
+              <div className="text-2xl sm:text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight break-words tabular-nums">
                 {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Доступно до конца {activeMonth.toLocaleString('ru-RU', { month: 'short' })}, к прошлому месяцу рост
+                Баланс в выбранном режиме учёта. Расходы за месяц показаны ниже.
               </p>
             </div>
 
@@ -844,13 +847,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div className="flex justify-between items-center text-xs">
                 <span className="text-graphite-muted dark:text-gray-400">Израсходовано от лимита</span>
                 <span className="font-bold text-graphite dark:text-white font-headline">
-                  {settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`}
+                  {settings.privacyMode ? '•••' : totalMonthlyLimit > 0
+                    ? `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`
+                    : `${formatAmount(displayMonthSpent)} ₽ · лимит не задан`}
                 </span>
               </div>
               <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-[#4A7C59] transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((displayMonthSpent / (totalMonthlyLimit || 1)) * 100))}%` }}
+                  style={{ width: `${totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
                 />
               </div>
             </div>
@@ -858,7 +863,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* 2. Динамика расходов Card */}
           <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
                   Динамика расходов
@@ -869,7 +874,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               {/* Filter tabs: День / Неделя / Месяц */}
-              <div className="bg-[#EAE6DD] dark:bg-[#2C2C2E] p-0.5 rounded-xl flex items-center text-xs">
+              <div role="group" aria-label="Период динамики расходов" className="bg-[#EAE6DD] dark:bg-[#2C2C2E] p-0.5 rounded-xl flex items-center text-xs">
                 {(['day', 'week', 'month'] as const).map(scale => {
                   const labels: Record<string, string> = { day: 'День', week: 'Неделя', month: 'Месяц' };
                   const isCurrent = chartScale === scale;
@@ -878,7 +883,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       key={scale}
                       type="button"
                       onClick={() => setChartScale(scale)}
-                      className={`px-3.5 py-2 rounded-lg text-xs transition ${
+                      aria-pressed={isCurrent}
+                      className={`min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs transition ${
                         isCurrent
                           ? 'bg-white dark:bg-[#1C1C1E] text-graphite dark:text-white font-bold shadow-xs'
                           : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
@@ -895,11 +901,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <div className="flex items-center gap-4 text-xs font-medium text-graphite dark:text-gray-300">
               <span className="inline-flex items-center gap-1">
                 <span className="text-graphite-muted dark:text-gray-400">Средний:</span>
-                <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg || 1420)} ₽</span>
+                <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg ?? 0)} ₽</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="text-graphite-muted dark:text-gray-400">Пик:</span>
-                <span className="font-bold font-headline text-[#7D5A44] dark:text-amber-400">{formatAmount(dynamicsData.max || 3150)} ₽</span>
+                <span className="font-bold font-headline text-[#7D5A44] dark:text-amber-400">{formatAmount(dynamicsData.max ?? 0)} ₽</span>
               </span>
             </div>
 

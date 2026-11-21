@@ -49,9 +49,10 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
+import { learnedRuleChangesSavings } from './utils/importSafety';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
+  addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
   saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence 
 } from './utils/db';
 
@@ -344,75 +345,41 @@ export default function App() {
 
   const handleLearnRule = async (rule: LearnedRule) => {
     try {
-      // Optimistic update for UI
-      setLearnedRules(prev => [...prev, rule]);
-      
-      // Save to Firestore if online
-      if (familyId) {
-        try {
-          await addItem(familyId, 'rules', rule);
-        } catch (e) {
-          console.warn("Could not save rule to Firestore:", e);
+      if (!familyId) throw new Error('Семья ещё не готова');
+      if (!rule.keyword?.trim()) throw new Error('Нельзя сохранить пустое правило');
+      // Do not report a learned rule as saved when Firestore rejected it.
+      await addItem(familyId, 'rules', rule);
+      setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
+
+      const keyword = rule.keyword.trim().toLowerCase();
+      let needsIndividualReview = 0;
+      const changed: Transaction[] = [];
+      for (const original of transactions) {
+        const raw = (original.rawNote || original.note || '').toLowerCase();
+        if (!raw.includes(keyword) || !isCategoryForType(rule.categoryId, categories, original.type)) continue;
+        const updated = {...original,category:rule.categoryId,note:rule.cleanName || original.note};
+        if (updated.category === original.category && updated.note === original.note) continue;
+        // Reclassification must never secretly create, move or reverse a savings
+        // transfer. Individual editing uses Firestore transaction+goal handling.
+        if (isSavingsTransfer(original) || isSavingsTransfer(updated) ||
+            learnedRuleChangesSavings(original, updated)) {
+          needsIndividualReview++;
+          continue;
         }
+        changed.push(updated);
       }
-
-      // Automatically apply the new rule to existing transactions
-      const keyword = rule.keyword.toLowerCase();
-      let count = 0;
-      let totalSavingsDelta = 0;
-      
-      const updatedTransactions = transactions.map(tx => {
-        // Skip if already in the target category (unless we want to enforce renaming)
-        if (tx.category === rule.categoryId && (!rule.cleanName || tx.note === rule.cleanName)) {
-          return tx;
-        }
-
-        const raw = (tx.rawNote || tx.note || '').toLowerCase();
-        
-        if (raw.includes(keyword) && isCategoryForType(rule.categoryId, categories, tx.type)) {
-          count++;
-          if (rule.categoryId === 'savings' || isSavingsTransfer({ category: rule.categoryId, note: rule.cleanName, rawNote: raw })) {
-            totalSavingsDelta += tx.amount;
-          }
-          return { 
-            ...tx, 
-            category: rule.categoryId,
-            note: rule.cleanName || tx.note // Update clean name if available
-          };
-        }
-        return tx;
-      });
-
-      if (totalSavingsDelta > 0) {
-        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalSavingsDelta, true);
-        setGoals(updatedGoals);
-        if (familyId) {
-          if (goals.some(g => g.id === affectedGoal.id)) {
-            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-          } else {
-            await addItem(familyId, 'goals', affectedGoal);
-          }
-        }
+      if (changed.length) {
+        await updateItemsBatch(familyId, 'transactions', changed);
+        const ids = new Map(changed.map(tx=>[tx.id,tx]));
+        setTransactions(prev=>prev.map(tx=>ids.get(tx.id)||tx));
       }
-
-      if (count > 0) {
-        setTransactions(updatedTransactions);
-        if (familyId) {
-          try {
-            const changed = updatedTransactions.filter((tx, i) => tx !== transactions[i]);
-            if (changed.length > 0) {
-              await updateItemsBatch(familyId, 'transactions', changed);
-            }
-          } catch (e) {
-            console.warn("Could not sync updated transactions:", e);
-          }
-        }
-        toast.success(`Правило сохранено. Обновлено операций: ${count}${totalSavingsDelta > 0 ? ` (в копилку: +${totalSavingsDelta.toLocaleString('ru-RU')} ₽)` : ''}`);
-      } else {
-        toast.success("Правило сохранено");
-      }
-    } catch (err) {
-      console.error("Error in handleLearnRule:", err);
+      if (needsIndividualReview) toast.warning(
+        `Правило сохранено. ${needsIndividualReview} переводов в накопления оставлены для отдельного редактирования.`
+      );
+      toast.success(`Правило сохранено. Обновлено обычных операций: ${changed.length}`);
+    } catch (error) {
+      console.error('Failed to learn bank category rule',error);
+      toast.error('Правило не сохранено полностью. Проверьте соединение и повторите.');
     }
   };
 
@@ -1288,33 +1255,41 @@ export default function App() {
                     )) {
                       throw new Error('В выписке остались операции без надёжной категории. Импорт отложен для ручной проверки, XLSX сохранён.');
                     }
-                    // No success toast or local mutation before a durable Firestore write.
-                    const created = familyId
-                      ? prepared.every(t => /^alfa_[a-f0-9]{40}$/.test(t.id))
-                        ? await addAlfaItemsIdempotent(familyId, prepared)
-                        : await addItemsBatch(familyId, 'transactions', prepared)
-                      : prepared;
-
-                    const savingsTransfers = created.filter(t => isSavingsTransfer(t));
-                    let totalImportedSavings = 0;
-                    savingsTransfers.forEach(t => {
-                      totalImportedSavings += (t.type === 'expense' ? t.amount : -t.amount);
-                    });
-                    if (totalImportedSavings > 0) {
-                      const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalImportedSavings, true);
-                      if (familyId) {
-                        if (goals.some(g => g.id === affectedGoal.id)) {
-                          await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-                        } else {
-                          await addItem(familyId, 'goals', affectedGoal);
-                        }
-                      }
-                      setGoals(updatedGoals);
+                    // A bank transfer and its savings account must commit together.
+                    // Known Alfa IDs are idempotent on retry; no speculative local
+                    // goal balance updates and no extra post-import Firestore write.
+                    if (!familyId) throw new Error('Семья не подключена. Импорт не выполнен.');
+                    const normalRows = prepared.filter(t=>!isSavingsTransfer(t));
+                    const savingsRows = prepared.filter(t=>isSavingsTransfer(t));
+                    const created: Transaction[] = [];
+                    if(normalRows.length) {
+                      const ordinary = normalRows.every(t=>/^alfa_[a-f0-9]{40}$/.test(t.id))
+                        ? await addAlfaItemsIdempotent(familyId,normalRows)
+                        : await addItemsBatch(familyId,'transactions',normalRows);
+                      created.push(...ordinary);
                     }
+                    // The same goal ID is reused for all transfers when this
+                    // family has no existing savings goal yet.
+                    const defaultGoal = savingsRows.length
+                      ? applySavingsTransferToGoals(goals,0,true).affectedGoal : undefined;
+                    for (const row of savingsRows) {
+                      const goal = row.linkedGoalId
+                        ? goals.find(g=>g.id===row.linkedGoalId) || (defaultGoal?.id===row.linkedGoalId?defaultGoal:undefined)
+                        : defaultGoal;
+                      if (!goal) throw new Error('Накопительная цель перевода не найдена. Исправьте её в предпросмотре.');
+                      const linkedRow={...row,linkedGoalId:goal.id};
+                      if(await addImportedSavingsItemIdempotent(familyId,linkedRow,goal))
+                        created.push(linkedRow);
+                    }
+                    const totalImportedSavings = created
+                      .filter(t=>isSavingsTransfer(t))
+                      .reduce((sum,t)=>sum+(t.type==='expense'?t.amount:-t.amount),0);
                     setImportPreview(null);
-                    setTransactions(prev => [...created.filter(t => !prev.some(ex => ex.id === t.id)), ...prev]);
+                    setTransactions(prev=>[...created.filter(t=>!prev.some(ex=>ex.id===t.id)),...prev]);
                     if (created.length === 0) toast.info('Все операции уже сохранены');
-                    else if (totalImportedSavings > 0) toast.success(`Импортировано ${created.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
+                    else if (totalImportedSavings !== 0) toast.success(
+                      `Импортировано ${created.length} операций, изменение накоплений: ${totalImportedSavings.toLocaleString('ru-RU')} ₽`
+                    );
                     else toast.success(`Импортировано ${created.length} операций`);
 
                     // Never acknowledge deletion until every operation in the

@@ -13,7 +13,7 @@ import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarRemind
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { telegramReminderKey } from '../utils/calendarTelegram';
-import { updateTelegramSchedule, disableTelegramSchedule, refreshFamilyTelegramSchedules } from '../utils/calendarTelegramServer';
+import { updateTelegramSchedule, disableTelegramSchedule, refreshFamilyTelegramSchedules, getTelegramScheduleStatus } from '../utils/calendarTelegramServer';
 import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
@@ -150,8 +150,18 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const telegramConfigured=Boolean(settings.telegramBotToken?.trim()&&telegramChatId);
   const telegramKey=telegramReminderKey(familyId||'none',user?.uid||'none',telegramChatId||'none');
   useEffect(()=>{
-    setTelegramRemindersEnabled(telegramConfigured&&localStorage.getItem(telegramKey)==='enabled');
-  },[telegramKey,telegramConfigured]);
+    if(!user?.uid||!familyId)return;
+    let cancelled=false;
+    void getTelegramScheduleStatus().then(status=>{
+      if(cancelled)return;
+      setTelegramRemindersEnabled(status.enabled);
+      if(status.enabled)localStorage.setItem(telegramKey,'enabled');
+      else localStorage.removeItem(telegramKey);
+    }).catch(error=>{
+      if(!cancelled)console.warn('Telegram schedule status unavailable',error);
+    });
+    return ()=>{cancelled=true;};
+  },[familyId,user?.uid,telegramKey]);
 
   const toggleTelegramReminders=async()=>{
     if(telegramRemindersEnabled){

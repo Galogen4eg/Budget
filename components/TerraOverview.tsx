@@ -142,7 +142,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Current Member Identification
   const currentMember = useMemo(() => {
-    return members.find(m => m.userId === firebaseUser?.uid) || members[0] || { id: 'all', name: 'Пользователь', color: '#4A7C59' };
+    // Never present another family member as the current user.
+    return members.find(m => m.userId && m.userId === firebaseUser?.uid)
+      || { id: 'unlinked', name: 'Профиль не привязан', color: '#4A7C59' };
   }, [members, firebaseUser]);
 
   // Quick Shopping Management (Managed via Custom Hook)
@@ -200,7 +202,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const myMemberId = currentMember.id;
   const relevantMandatoryExpenses = useMemo(() => {
     const all = settings.mandatoryExpenses || [];
-    if (budgetMode === 'personal' && myMemberId) {
+    if (budgetMode === 'personal') {
+      if (myMemberId === 'unlinked') return [];
       return all.filter(e => !e.memberId || e.memberId === myMemberId);
     }
     return all;

@@ -34,9 +34,13 @@ export async function disableCalendarPush(uid:string):Promise<void> {
   const unregister=httpsCallable<{token:string},{enabled:boolean}>(functions,'unregisterCalendarPush');
   await unregister({token});
   localStorage.removeItem(tokenKey(uid));
-  if (await isSupported()) {
-    // Prevent receiving notifications on this browser after the user opts out.
-    await deleteToken(getMessaging());
+  try {
+    if (await isSupported()) {
+      // Server-side unsubscribe is already confirmed; local cleanup is best effort.
+      await deleteToken(getMessaging());
+    }
+  } catch (error) {
+    console.warn('Local FCM token cleanup failed after server unregistration', error);
   }
 }
 

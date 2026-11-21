@@ -50,3 +50,21 @@ test('unrelated settings survive partial toggle from a stale second-device snaps
   const patch=diffSettings(latest,{privacyMode:!staleDevice.privacyMode});
   assert.deepEqual({...latest,...patch},{privacyMode:true,manualReservedAmount:7000,savingsRate:15});
 });
+
+test('a payment change in November cannot overwrite another user October changes',()=>{
+ const snapshot={manualPaidExpenses:{'2026-10':['rent'], '2026-11':['internet']}};
+ const patch=diffSettings(snapshot,{manualPaidExpenses:{'2026-11':['internet','water']}});
+ assert.deepEqual(patch,{manualPaidExpenses:{'2026-11':['internet','water']}});
+ const committed={...snapshot,manualPaidExpenses:{...snapshot.manualPaidExpenses,...patch.manualPaidExpenses}};
+ assert.deepEqual(committed.manualPaidExpenses,{
+   '2026-10':['rent'],'2026-11':['internet','water']
+ });
+});
+
+test('payment handlers submit only month patches, not stale full month maps',()=>{
+ const files=['App.tsx','components/TerraOverview.tsx','components/MandatoryExpensesList.tsx'];
+ for(const path of files){
+   const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+   assert.doesNotMatch(source,/manualPaidExpenses:\s*\{\s*\.\.\.(settings\.manualPaidExpenses|currentManuals)/,path);
+ }
+});

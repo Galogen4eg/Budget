@@ -6,6 +6,7 @@ import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { formatMoney } from '../utils/formatters';
+import { monthlyMoneyTotals, formatBudgetMoney } from '../utils/budgetFinancialMath';
 
 interface DayDetailModalProps {
   isOpen: boolean;
@@ -47,9 +48,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
            d.getFullYear() === date.getFullYear();
   });
 
-  const income = Math.round(dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
-  const expense = Math.round(dayTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
-  const net = Math.round(income - expense);
+  const { income, expense, net } = monthlyMoneyTotals(dayTransactions);
 
   const dayNumber = date.getDate();
   const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -147,7 +146,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
           <div className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Дневной лимит: <b className="text-graphite dark:text-white">{Math.round(dailySafeLimit).toLocaleString('ru-RU')} ₽/дн</b></span>
+            <span>Дневной лимит: <b className="text-graphite dark:text-white">{formatBudgetMoney(dailySafeLimit)} ₽/дн</b></span>
           </div>
         </div>
 

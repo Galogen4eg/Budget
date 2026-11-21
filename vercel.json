@@ -10,7 +10,8 @@
       "memory": 1024,
       "experimentalTriggers": [
         {
-          "type": "schedule/v1beta"
+          "type": "queue/v2beta",
+          "topic": "budget-calendar-telegram-reminders"
         }
       ]
     }
@@ -20,12 +21,5 @@
       "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
     }
-  ],
-  "schedules": {
-    "calendar-telegram-every-10m": {
-      "schedule": "*/10 * * * *",
-      "function": "api/calendar-telegram-run.js",
-      "timezone": "Etc/UTC"
-    }
-  }
+  ]
 }

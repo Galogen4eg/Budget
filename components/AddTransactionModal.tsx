@@ -118,7 +118,7 @@ export default function AddTransactionModal({
   const [memberId, setMemberId] = useState(() => {
     if (initialTransaction) return initialTransaction.memberId;
     const myMember = members.find(m => m.userId === auth.currentUser?.uid);
-    return myMember ? myMember.id : (members[0]?.id || '');
+    return myMember?.id || '';
   });
   const [boundExpenseId, setBoundExpenseId] = useState<string>(() => initialTransaction ? (initialTransaction.linkedExpenseId || '') : '');
   
@@ -148,7 +148,7 @@ export default function AddTransactionModal({
   // Derived Data
   const selectedCategory = categories.find(c => c.id === categoryId) || categories[0] || { id: 'other', label: 'Другое', color: '#4A7C59', icon: 'tag' };
   const parentOfSelected = selectedCategory?.parentId ? categories.find(c => c.id === selectedCategory.parentId) : null;
-  const selectedMember = members.find(m => m.id === memberId) || members[0] || { id: 'default', name: 'Гена', color: '#4A7C59' };
+  const selectedMember = members.find(m => m.id === memberId) || { id: '', name: 'Выберите участника', color: '#4A7C59' };
   const boundExpense = settings.mandatoryExpenses?.find(e => e.id === boundExpenseId);
   const mandatoryExpenses = settings.mandatoryExpenses || [];
 
@@ -189,6 +189,11 @@ export default function AddTransactionModal({
     if (isSubmitting) return;
     setIsSubmitting(true);
     setValidationError(null);
+    if (!members.some(m => m.id === memberId)) {
+      setValidationError('Выберите участника семьи, для которого сохраняется операция.');
+      setIsSubmitting(false);
+      return;
+    }
     
     // Evaluate if it's a mathematical expression, otherwise parse as standard float
     let finalAmount = parseFloat(amount.replace(/\s/g, '').replace(',', '.'));
@@ -353,7 +358,7 @@ export default function AddTransactionModal({
             onClose();
           }
         }}
-        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[620px] max-h-[100dvh] sm:max-h-[88vh] min-h-[580px] bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
+        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
         {/* Mobile Drag Indicator Handle */}
@@ -363,7 +368,7 @@ export default function AddTransactionModal({
           {currentView === 'main' && (
             <div 
               key="main"
-              className="flex flex-col h-full overflow-hidden"
+              className="flex flex-col h-full min-h-0 overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-3.5 border-b border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
@@ -374,7 +379,7 @@ export default function AddTransactionModal({
                 <button 
                   type="button"
                   onClick={onClose} 
-                  className="w-8 h-8 rounded-xl bg-[#F5F1EA] hover:bg-[#EAE6DE] dark:bg-[#2C2C2E] dark:hover:bg-[#3A3A3C] text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white flex items-center justify-center transition border border-surface-border/60 dark:border-white/5 active:scale-95 cursor-pointer"
+                  className="w-11 h-11 shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F5F1EA] hover:bg-[#EAE6DE] dark:bg-[#2C2C2E] dark:hover:bg-[#3A3A3C] text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white flex items-center justify-center transition border border-surface-border/60 dark:border-white/5 active:scale-95 cursor-pointer"
                   aria-label="Закрыть модальное окно"
                 >
                   <X size={16} strokeWidth={2.2} />
@@ -390,7 +395,7 @@ export default function AddTransactionModal({
               )}
 
               {/* Modal Body */}
-              <div className="p-4 sm:p-5 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
+              <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
                 
                 {/* Top Row: Segmented Toggle & Sum Card */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
@@ -399,7 +404,8 @@ export default function AddTransactionModal({
                     <button 
                       type="button"
                       onClick={() => changeTransactionType('expense')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
+                      aria-pressed={type === 'expense'}
+                      className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'expense' 
                           ? 'bg-[#D95C48] text-white shadow-sm' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
@@ -411,7 +417,8 @@ export default function AddTransactionModal({
                     <button 
                       type="button"
                       onClick={() => changeTransactionType('income')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
+                      aria-pressed={type === 'income'}
+                      className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'income' 
                           ? 'bg-primary text-white shadow-sm' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
@@ -433,6 +440,7 @@ export default function AddTransactionModal({
                           <input 
                             type="text" 
                             inputMode="decimal"
+                            aria-label="Сумма операции"
                             value={amount}
                             onChange={(e) => setAmount(formatAmountInput(e.target.value))}
                             onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
@@ -759,9 +767,10 @@ export default function AddTransactionModal({
                         </div>
                         <input 
                           type="date"
+                          aria-label="Дата операции"
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 focus-visible:opacity-20 focus-visible:ring-2 focus-visible:ring-primary"
                           required
                         />
                       </div>
@@ -804,7 +813,7 @@ export default function AddTransactionModal({
               </div>
 
               {/* Bottom Actions Footer */}
-              <div className="px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex items-center justify-between gap-3 shrink-0">
+              <div className="px-3 sm:px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex flex-wrap items-center justify-between gap-2 shrink-0">
                 {/* Left Side: Compact Destructive Action */}
                 <div>
                   {initialTransaction && onDelete && (
@@ -840,11 +849,11 @@ export default function AddTransactionModal({
                 </div>
 
                 {/* Right Side: Compact Action Buttons (Cancel + Save) */}
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center justify-end gap-2 ml-auto min-w-0 flex-wrap">
                   <button 
                     type="button"
                     onClick={onClose}
-                    className="px-3.5 py-1.5 text-xs font-semibold text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 text-xs font-semibold text-graphite-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
                   >
                     Отмена
                   </button>
@@ -853,7 +862,7 @@ export default function AddTransactionModal({
                     type="button"
                     onClick={handleSave}
                     disabled={isSubmitting}
-                    className="px-4 py-1.5 text-xs font-bold text-white bg-[#4A7C59] hover:bg-[#3D6649] active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    className="min-h-[44px] px-4 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6649] active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {isSubmitting ? (
                       <>

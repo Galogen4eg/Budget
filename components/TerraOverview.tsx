@@ -26,7 +26,7 @@ import { OverviewRecentTransactions } from './overview/OverviewRecentTransaction
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
-import { mandatoryPaymentStates, budgetDailyLimit, sumMoney } from '../utils/budgetFinancialMath';
+import { mandatoryPaymentStates, budgetDailyLimit, sumMoney, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 import { toast } from 'sonner';
 
 interface TerraOverviewProps {
@@ -171,19 +171,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     ? settings.salaryDates 
     : [settings.startOfMonthDay || 1];
 
-  const sortedDates = [...salaryDates].sort((a, b) => a - b);
-  let nextSalaryDate: Date | null = null;
-  for (const day of sortedDates) {
-    if (day > currentDay) {
-      nextSalaryDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day);
-      break;
-    }
-  }
-  if (!nextSalaryDate) {
-    nextSalaryDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, sortedDates[0]);
-  }
-  const diffTime = Math.abs(nextSalaryDate.getTime() - realToday.getTime());
-  const daysRemaining = isCurrentCalendarMonth ? Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))) : 0;
+  const daysRemaining = isCurrentCalendarMonth
+    ? daysUntilNextSalary(realToday, salaryDates) : 0;
 
   // Transactions this month
   const currentMonthTransactions = useMemo(() => {

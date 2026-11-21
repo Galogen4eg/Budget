@@ -3,7 +3,8 @@ import { Check, AlertCircle, DollarSign, Edit2, Plus, Home, CreditCard, Link2 } 
 import { MandatoryExpense, Transaction, AppSettings, FamilyMember, Debt } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { saveSettings, updateItem } from '../utils/db';
+import { updateItem } from '../utils/db';
+import { mandatoryPaymentStates, sumMoney } from '../utils/budgetFinancialMath';
 import { MemberMarker } from '../constants';
 import { 
   findLinkedDebtForExpense, 
@@ -38,7 +39,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
   onAdd 
 }) => {
   const [filterType, setFilterType] = useState<ExpenseFilterType>('all');
-  const { setSettings, debts, setDebts } = useData();
+  const { updateSettings, debts, setDebts } = useData();
   const { familyId } = useAuth();
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -71,8 +72,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
       }
     };
 
-    setSettings(newSettings);
-    if (familyId) await saveSettings(familyId, newSettings);
+    await updateSettings({manualPaidExpenses:newSettings.manualPaidExpenses});
 
     // Синхронизация с карточкой долга, если платёж привязан
     const targetExpense = (expenses || []).find(ex => ex.id === expenseId);
@@ -99,44 +99,24 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
       return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
     });
 
+    const linkedExpenses = (expenses || []).map(expense => {
+      const debt=findLinkedDebtForExpense(expense,debts);
+      return {...expense, linkedDebtId: expense.linkedDebtId || debt?.id};
+    });
+    const allocation = mandatoryPaymentStates(
+      linkedExpenses, monthTransactions, settings.manualPaidExpenses?.[currentMonthKey] || []
+    );
+    const byId = new Map(allocation.map(status => [status.id,status]));
     const processed = (expenses || []).map(expense => {
       const isDebt = isDebtExpense(expense);
       const linkedDebt = findLinkedDebtForExpense(expense, debts);
-      const keywords = expense.keywords || [];
-      const debtNameLower = linkedDebt?.name ? linkedDebt.name.toLowerCase() : '';
-
-      const matches = monthTransactions.filter(tx => {
-        // Прямая привязка к расходу
-        if (tx.linkedExpenseId === expense.id) return true;
-
-        // Прямая привязка к связанному долгу
-        if (linkedDebt && tx.linkedDebtId === linkedDebt.id) return true;
-
-        const noteLower = (tx.note || '').toLowerCase();
-        const rawLower = (tx.rawNote || '').toLowerCase();
-
-        // Совпадение по ключевым словам
-        if (keywords.length > 0) {
-          const matched = keywords.some(k => 
-            k.trim() && (noteLower.includes(k.toLowerCase()) || rawLower.includes(k.toLowerCase()))
-          );
-          if (matched) return true;
-        }
-
-        // Совпадение по имени долга в категории долгов
-        if (isDebt && debtNameLower && tx.category === DEBT_TRANSACTION_CATEGORY) {
-          return noteLower.includes(debtNameLower) || rawLower.includes(debtNameLower);
-        }
-
-        return false;
-      });
-
-      const paidAmount = matches.reduce((sum, tx) => sum + tx.amount, 0);
+      const status = byId.get(expense.id)!;
+      const paidAmount = status.paidAmount;
       const isAutoPaid = expense.amount > 0 && paidAmount >= (expense.amount * PAYMENT_MATCH_THRESHOLD);
-      const isManuallyPaid = (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id);
+      const isManuallyPaid = status.isManuallyPaid;
       const isPaidViaLinkedDebt = Boolean(linkedDebt?.paidThisMonth);
       const isPaid = isAutoPaid || isManuallyPaid || isPaidViaLinkedDebt;
-      
+
       const progress = expense.amount > 0 ? Math.min(100, (paidAmount / expense.amount) * 100) : 0;
       const today = new Date();
       const isOverdue = !isPaid && isCurrentMonthNow && today.getDate() > (expense.day || 1);
@@ -181,12 +161,12 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
 
     return { 
       processedExpenses: processed, 
-      totalPaid: paidSum, 
-      totalBudget: budgetSum,
-      regularBudget: regBudget,
-      debtBudget: dBudget,
-      regularPaid: regPaid,
-      debtPaid: dPaid
+      totalPaid: sumMoney([paidSum]),
+      totalBudget: sumMoney([budgetSum]),
+      regularBudget: sumMoney([regBudget]),
+      debtBudget: sumMoney([dBudget]),
+      regularPaid: sumMoney([regPaid]),
+      debtPaid: sumMoney([dPaid])
     };
   }, [expenses, transactions, currentMonth, settings.manualPaidExpenses, currentMonthKey, debts, isCurrentMonthNow]);
 

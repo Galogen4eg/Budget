@@ -13,7 +13,7 @@ import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarRemind
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { telegramReminderKey } from '../utils/calendarTelegram';
-import { updateTelegramSchedule, disableTelegramSchedule } from '../utils/calendarTelegramServer';
+import { updateTelegramSchedule, disableTelegramSchedule, refreshFamilyTelegramSchedules } from '../utils/calendarTelegramServer';
 import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
@@ -60,6 +60,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [pushEnabled,setPushEnabled]=useState(false);
   const [telegramRemindersEnabled,setTelegramRemindersEnabled]=useState(false);
   const telegramSyncRef=useRef(false);
+  const telegramPendingRef=useRef<null|(()=>Promise<void>)>(null);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
@@ -181,15 +182,26 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   useEffect(()=>{
-    if(!telegramRemindersEnabled||!telegramConfigured||!familyId||!user?.uid)return;
-    // Calendar and shared settings are subscribed to Firestore; update the
-    // server only on actual content changes, never at a fixed time interval.
-    if(telegramSyncRef.current)return;
-    const timer=window.setTimeout(async()=>{
-      telegramSyncRef.current=true;
-      try{await updateTelegramSchedule({familyId,events,members,settings});}
-      catch(error){console.warn('Telegram schedule synchronization failed',error);}
-      finally{telegramSyncRef.current=false;}
+    if(!familyId||!user?.uid)return;
+    // A second family member can edit shared plans while the first is offline.
+    // Send a snapshot only when Firestore data changes; do not poll.
+    const timer=window.setTimeout(()=>{
+      telegramPendingRef.current=()=>telegramRemindersEnabled&&telegramConfigured
+        ?updateTelegramSchedule({familyId,events,members,settings})
+        :refreshFamilyTelegramSchedules({familyId,events,members,settings});
+      if(telegramSyncRef.current)return;
+      const drain=async()=>{
+        telegramSyncRef.current=true;
+        try{
+          while(telegramPendingRef.current){
+            const send=telegramPendingRef.current;
+            telegramPendingRef.current=null;
+            try{await send();}
+            catch(error){console.warn('Telegram schedule synchronization failed',error);}
+          }
+        }finally{telegramSyncRef.current=false;}
+      };
+      void drain();
     },1200);
     return ()=>window.clearTimeout(timer);
   },[telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,

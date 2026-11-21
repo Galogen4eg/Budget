@@ -12,8 +12,8 @@ import { formatLocalCalendarDate } from '../utils/calendarDates';
 import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
-import { telegramReminderKey } from '../utils/calendarTelegram';
-import { updateTelegramSchedule, disableTelegramSchedule, refreshFamilyTelegramSchedules } from '../utils/calendarTelegramServer';
+import { sendTelegramMessage } from '../utils/telegram';
+import { telegramReminderKey, telegramReminderText, telegramReminderSince } from '../utils/calendarTelegram';
 import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
@@ -59,8 +59,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [remindersEnabled,setRemindersEnabled]=useState(false);
   const [pushEnabled,setPushEnabled]=useState(false);
   const [telegramRemindersEnabled,setTelegramRemindersEnabled]=useState(false);
-  const telegramSyncRef=useRef(false);
-  const telegramPendingRef=useRef<null|(()=>Promise<void>)>(null);
+  const telegramSendingRef=useRef(false);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
@@ -153,59 +152,76 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     setTelegramRemindersEnabled(telegramConfigured&&localStorage.getItem(telegramKey)==='enabled');
   },[telegramKey,telegramConfigured]);
 
-  const toggleTelegramReminders=async()=>{
+  const toggleTelegramReminders=()=>{
     if(telegramRemindersEnabled){
-      try{
-        await disableTelegramSchedule();
-        localStorage.removeItem(telegramKey);
-        setTelegramRemindersEnabled(false);
-        toast.info('Фоновые напоминания Telegram отключены.');
-      }catch(error){
-        toast.error(error instanceof Error?error.message:'Не удалось отключить расписание');
-      }
+      localStorage.removeItem(telegramKey);
+      setTelegramRemindersEnabled(false);
+      toast.info('Напоминания в Telegram отключены на этом устройстве.');
       return;
     }
     if(!telegramConfigured){
-      toast.error('Сначала настройте Telegram-бота и Chat ID.');
+      toast.error('Сначала укажите токен Telegram-бота и Chat ID в настройках.');
       onOpenSettings?.();
       return;
     }
-    if(!familyId||!user?.uid)return;
-    try{
-      await updateTelegramSchedule({familyId,events,members,settings});
-      localStorage.setItem(telegramKey,'enabled');
-      setTelegramRemindersEnabled(true);
-      toast.success('Напоминания Telegram сохранены на сервере, Budget можно закрывать.');
-    }catch(error){
-      toast.error(error instanceof Error?error.message:'Не удалось создать расписание');
-    }
+    localStorage.setItem(telegramKey,'enabled');
+    setTelegramRemindersEnabled(true);
+    toast.info('Telegram-напоминания включены, пока открыт Budget. При закрытом приложении отправка не работает.');
   };
 
   useEffect(()=>{
-    if(!familyId||!user?.uid)return;
-    // A second family member can edit shared plans while the first is offline.
-    // Send a snapshot only when Firestore data changes; do not poll.
-    const timer=window.setTimeout(()=>{
-      telegramPendingRef.current=()=>telegramRemindersEnabled&&telegramConfigured
-        ?updateTelegramSchedule({familyId,events,members,settings})
-        :refreshFamilyTelegramSchedules({familyId,events,members,settings});
-      if(telegramSyncRef.current)return;
-      const drain=async()=>{
-        telegramSyncRef.current=true;
+    if(!telegramRemindersEnabled||!telegramConfigured||!familyId||!user?.uid)return;
+    let cancelled=false;
+    const check=async()=>{
+      if(cancelled||telegramSendingRef.current||!navigator.onLine)return;
+      telegramSendingRef.current=true;
+      try{
+        const now=new Date();
+        // Include earlier occurrences so suspended tabs can catch up.
+        const first=new Date(now);first.setDate(first.getDate()-8);
+        const until=new Date(now);until.setDate(until.getDate()+8);
+        const occurrences=buildCalendarOccurrences(events,formatLocalCalendarDate(first),formatLocalCalendarDate(until));
+        const months=[-1,0,1].map(offset=>paymentAgenda(
+          settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+offset,1),
+          settings.manualPaidExpenses||{}
+        ));
+        const checkedKey=`${telegramKey}:last-checked`;
+        const raw=localStorage.getItem(checkedKey);
+        const since=telegramReminderSince(now,raw===null?null:Number(raw));
+        const due=dueCalendarNotifications([...occurrences,...months.flat()],now,ownProfileId,since);
+        const historyKey=`${telegramKey}:sent`;
+        let sent:string[]=[];
         try{
-          while(telegramPendingRef.current){
-            const send=telegramPendingRef.current;
-            telegramPendingRef.current=null;
-            try{await send();}
-            catch(error){console.warn('Telegram schedule synchronization failed',error);}
+          const saved=JSON.parse(localStorage.getItem(historyKey)||'[]');
+          if(Array.isArray(saved))sent=saved.filter((id):id is string=>typeof id==='string');
+        }catch{}
+        for(const reminder of due.filter(item=>!sent.includes(item.id))){
+          if(cancelled)break;
+          const result=await sendTelegramMessage({
+            config:{botToken:settings.telegramBotToken,chatId:telegramChatId,apiUrl:settings.telegramApiUrl},
+            text:telegramReminderText(reminder)
+          });
+          if(!result.success){
+            console.warn('Telegram calendar reminder delivery failed','code' in result ? result.code : 'unknown');
+            // Keep the failed reminder in the catch-up window for retry.
+            return;
           }
-        }finally{telegramSyncRef.current=false;}
-      };
-      void drain();
-    },1200);
-    return ()=>window.clearTimeout(timer);
-  },[telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,
-    settings.telegramBotToken,settings.telegramChatId,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+          sent.push(reminder.id);
+          localStorage.setItem(historyKey,JSON.stringify(sent.slice(-500)));
+        }
+        // Only advance after successful processing; never mark undelivered reminders as sent.
+        localStorage.setItem(checkedKey,String(now.getTime()));
+      }finally{
+        telegramSendingRef.current=false;
+      }
+    };
+    const runCheck=()=>{void check().catch(error=>console.warn('Telegram reminder check failed',error));};
+    runCheck();
+    const timer=window.setInterval(runCheck,30000);
+    const onFocus=runCheck;
+    window.addEventListener('focus',onFocus);
+    return ()=>{cancelled=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);};
+  },[telegramRemindersEnabled,telegramConfigured,telegramKey,telegramChatId,settings.telegramBotToken,settings.telegramApiUrl,settings.mandatoryExpenses,settings.manualPaidExpenses,events,ownProfileId,familyId,user?.uid]);
 
   const enableReminders=async()=>{
     if(remindersEnabled){

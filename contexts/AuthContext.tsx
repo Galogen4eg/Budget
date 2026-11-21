@@ -11,7 +11,8 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider, messaging } from '../firebase';
+import { onMessage } from 'firebase/messaging';
 import { disableCalendarPush } from '../utils/calendarPush';
 import { getOrInitUserFamily, getPendingFamilyInvitation, joinFamily } from '../utils/db';
 import { toast } from 'sonner';
@@ -51,6 +52,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+  useEffect(() => {
+    if(!user?.uid || !messaging) return;
+    // FCM delivers foreground data messages to the page rather than the SW.
+    // This listener must stay active in every Budget section, not just Plans.
+    return onMessage(messaging, payload => {
+      const body=payload.data?.body;
+      if(typeof body==='string' && body) toast.info(body);
+    });
+  },[user?.uid]);
 
   const enterDemoMode = () => {
       const mockUser = {

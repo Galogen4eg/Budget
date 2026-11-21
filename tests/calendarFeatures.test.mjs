@@ -42,3 +42,14 @@ test('ICS exports reminder alarms for native phone calendar apps',()=>{
  assert.match(ics,/TRIGGER:-PT15M/);
  assert.match(ics,/ACTION:DISPLAY/);
 });
+
+test('foreground reminder catches a suspended tab without replaying old alerts',()=>{
+ const at=new Date(2026,10,21,12,25,0);
+ const since=new Date(2026,10,21,11,40,0);
+ assert.equal(dueCalendarNotifications([event],at,'u',since).length,1);
+ assert.equal(dueCalendarNotifications([event],at,'u',new Date(2026,10,21,12,0)).length,0);
+});
+test('foreground reminder does not send a notification before its trigger time',()=>{
+ const at=new Date(2026,10,21,11,40,0);
+ assert.equal(dueCalendarNotifications([event],at,'u',new Date(2026,10,21,11,0)).length,0);
+});

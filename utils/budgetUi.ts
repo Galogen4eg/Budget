@@ -1,4 +1,4 @@
-import { monthlyMoneyTotals } from './budgetFinancialMath';
+import { monthlyMoneyTotals } from './budgetFinancialMath.ts';
 
 type DatedTransaction = {id:string;date:string;amount:number;type:string};
 

@@ -91,7 +91,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
       <Bell size={14}/>{remindersEnabled?(pushEnabled?'Push включены':'Напоминания вкл.'):'Включить напоминания'}
     </button>
     <button type="button" onClick={onToggleTelegramReminders}
-      title={telegramConfigured?'Фоновые напоминания через Telegram по расписанию Vercel':'Сначала настройте Telegram-бота'}
+      title={telegramConfigured?'Отправка Telegram-напоминаний работает только пока Budget открыт':'Сначала настройте Telegram-бота'}
       aria-pressed={telegramRemindersEnabled}
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Send size={14}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}
@@ -130,7 +130,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    </div>)}
   </div>
-  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Включённые Telegram-напоминания отправляются с сервера даже при закрытом Budget. Платежи показаны без автоматического списания.</p>
+  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Telegram-напоминания также работают только при открытом Budget. Платежи показаны без автоматического списания.</p>
  </section>;
 };
 export default FamilyAgendaPanel;

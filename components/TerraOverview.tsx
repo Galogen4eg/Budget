@@ -251,7 +251,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     }
 
     await updateSettings({
-      ...settings,
       manualPaidExpenses: {
         ...(settings.manualPaidExpenses || {}),
         [currentMonthKey]: updated
@@ -263,7 +262,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
     const updated = Array.from(new Set([...existing, ...expenseIds]));
     await updateSettings({
-      ...settings,
       manualPaidExpenses: {
         ...(settings.manualPaidExpenses || {}),
         [currentMonthKey]: updated
@@ -1946,7 +1944,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           futureExpenses={detailedMandatoryExpenses}
           manualReserved={manualReserved}
           onUpdateManualSavings={async (amt) => {
-            await updateSettings({ ...settings, manualReservedAmount: amt });
+            await updateSettings({ manualReservedAmount: amt });
           }}
           onTogglePaid={handleToggleMandatoryPaid}
           onPayExpenses={handlePayMandatoryExpenses}

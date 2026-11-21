@@ -111,33 +111,35 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   });
 
   return (
-    <div className="shrink-0 border-b border-stone-200/80 dark:border-white/10 bg-[#FAF7F2] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2 z-10">
-      <div className="flex gap-2 flex-wrap">
+    <div className="shrink-0 min-w-0 border-b border-stone-200/80 dark:border-white/10 bg-[#FAF7F2] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2 z-10">
+      <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => setSection(section === 'templates' ? null : 'templates')}
           aria-expanded={section === 'templates'}
-          className="rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-2 dark:text-white">
+          aria-controls="shopping-template-options"
+          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-stone-200 dark:border-white/15 px-2 sm:px-3 py-2 text-[11px] sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <BookMarked size={16}/> Быстрые списки {section === 'templates' && <ChevronUp size={14}/>}
         </button>
         <button type="button" onClick={() => setSection(section === 'history' ? null : 'history')}
           aria-expanded={section === 'history'}
-          className="rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-2 dark:text-white">
+          aria-controls="shopping-repeat-options"
+          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-stone-200 dark:border-white/15 px-2 sm:px-3 py-2 text-[11px] sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <RotateCcw size={16}/> Повторить покупки {section === 'history' && <ChevronUp size={14}/>}
         </button>
       </div>
 
       {section === 'templates' && (
-        <div className="pt-3 space-y-3 max-h-[40vh] overflow-y-auto" aria-label="Быстрые списки покупок">
+        <div id="shopping-template-options" className="pt-3 space-y-3 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain" aria-label="Быстрые списки покупок">
           <p className="text-xs text-stone-500 dark:text-stone-400">Добавьте готовый список или сохраните текущие товары. Шаблоны общие для вашей семьи.</p>
           <div className="flex flex-wrap gap-2">
             {[...templates, ...BUILTIN].map(t => (
-              <div key={t.id} className="flex items-center gap-1 border rounded-xl border-stone-200 dark:border-white/15 p-1">
+              <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-stone-200 dark:border-white/15 p-1">
                 <button type="button" disabled={saving} onClick={() => void addProducts(t.items)}
-                  className="px-2 py-1.5 text-xs font-medium dark:text-white disabled:opacity-50">
+                  className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium dark:text-white disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   <Plus size={13} className="inline mr-1"/>{t.name} · {t.items.length}
                 </button>
                 {!t.id.startsWith('preset-') && (
                   <button type="button" disabled={saving} onClick={() => void removeTemplate(t.id)}
-                    className="p-2 text-red-600" aria-label={`Удалить шаблон ${t.name}`}><Trash2 size={14}/></button>
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg p-2 text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Удалить шаблон ${t.name}`}><Trash2 size={14}/></button>
                 )}
               </div>
             ))}
@@ -147,7 +149,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
               maxLength={60} placeholder="Название своего списка" aria-label="Название нового списка"
               className="min-w-0 flex-1 rounded-xl bg-white dark:bg-stone-800 dark:text-white border border-stone-200 dark:border-white/15 px-3 py-2 text-sm"/>
             <button type="submit" disabled={saving || !templateName.trim()}
-              className="rounded-xl bg-[#4A7C59] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              className="min-h-[44px] rounded-xl bg-[#4A7C59] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               {saving ? <Loader2 size={16} className="animate-spin"/> : 'Сохранить текущие'}
             </button>
           </form>
@@ -155,12 +157,12 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
       )}
 
       {section === 'history' && (
-        <div className="pt-3 space-y-3 max-h-[40vh] overflow-y-auto" aria-label="История покупок">
+        <div id="shopping-repeat-options" className="pt-3 space-y-3 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain" aria-label="История покупок">
           <div className="flex justify-between gap-2 items-center flex-wrap">
             <p className="text-xs text-stone-500 dark:text-stone-400">Недавно купленные товары, доступные обоим участникам семьи.</p>
             <button type="button" disabled={saving || recent.length===0}
               onClick={() => void addProducts(recent)}
-              className="px-3 py-2 bg-[#4A7C59] text-white rounded-xl text-xs font-semibold disabled:opacity-50">
+              className="min-h-[44px] px-3 py-2 bg-[#4A7C59] text-white rounded-xl text-xs font-semibold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               Повторить последние ({recent.length})
             </button>
           </div>
@@ -169,8 +171,8 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
-                className="flex justify-between items-center text-left gap-2 rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-sm dark:text-white disabled:opacity-50">
-                <span className="truncate">{p.title} <span className="text-stone-500">{p.amount} {p.unit}</span></span>
+                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-sm dark:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <span className="min-w-0 break-words">{p.title} <span className="text-stone-500">{p.amount} {p.unit}</span></span>
                 <Plus size={16} className="shrink-0"/>
               </button>
             ))}

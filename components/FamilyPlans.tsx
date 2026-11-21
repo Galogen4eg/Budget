@@ -202,7 +202,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
             text:telegramReminderText(reminder)
           });
           if(!result.success){
-            console.warn('Telegram calendar reminder delivery failed',result.code);
+            console.warn('Telegram calendar reminder delivery failed','code' in result ? result.code : 'unknown');
             // Keep the failed reminder in the catch-up window for retry.
             return;
           }

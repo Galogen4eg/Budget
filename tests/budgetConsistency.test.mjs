@@ -24,3 +24,14 @@ test('personal transactions never fall back to the entire family when member map
  assert.deepEqual(personalTransactions(transactions,'personal','member-a'),[transactions[0]]);
  assert.deepEqual(personalTransactions(transactions,'family',undefined),transactions);
 });
+
+test('concurrent payments in different months do not overwrite the other month', () => {
+  const before = {manualPaidExpenses:{'2026-10':['rent'],'2026-11':[]},theme:'light'};
+  const after = {...before,manualPaidExpenses:{'2026-10':['rent'],'2026-11':['rent']}};
+  assert.deepEqual(diffSettings(before,after),{manualPaidExpenses:{'2026-11':['rent']}});
+});
+
+test('unchanged shared settings generate no writes', () => {
+  const previous = {manualPaidExpenses:{'2026-11':['rent']},theme:'light'};
+  assert.deepEqual(diffSettings(previous,{...previous}),{});
+});

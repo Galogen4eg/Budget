@@ -14,6 +14,8 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import { useData } from '../contexts/DataContext';
+import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates } from '../utils/budgetFinancialMath';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -58,6 +60,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onSelectCategory,
   onOpenSettings
 }) => {
+  const { goals } = useData();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
@@ -100,26 +103,42 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [memberFilteredTransactions, currentMonth]);
 
-  // Income, Expense, Balance calculations
-  const monthIncome = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0));
-  }, [monthTransactions]);
+  // Money is summed in integer kopecks; full ledger balance carries income
+  // and expenses from preceding months rather than resetting on the 1st.
+  const {income: monthIncome, expense: monthExpense, net: monthBalance} =
+    useMemo(() => monthlyMoneyTotals(monthTransactions), [monthTransactions]);
 
-  const monthExpense = useMemo(() => {
-    return Math.round(monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0));
-  }, [monthTransactions]);
-
-  const monthBalance = Math.round(monthIncome - monthExpense);
-
-  // Remaining days in month calculation
   const totalDaysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const today = new Date();
   const isCurrentMonthView = today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
   const currentDayNum = isCurrentMonthView ? today.getDate() : 1;
   const remainingDays = Math.max(1, totalDaysInMonth - currentDayNum + 1);
 
-  // Safe daily limit (remaining balance / remaining days)
-  const safeDailyLimit = Math.max(0, monthBalance > 0 ? Math.round(monthBalance / remainingDays) : 0);
+  const monthlyPaymentStates = useMemo(() => mandatoryPaymentStates(
+    mandatoryExpenses.filter(bill => selectedMember === 'all' || !bill.memberId || bill.memberId === selectedMember),
+    monthTransactions,
+    settings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`] || []
+  ), [mandatoryExpenses, monthTransactions, settings.manualPaidExpenses, selectedMember, currentMonth]);
+  const mandatoryReserve = (settings.enableSmartReserve ?? true)
+    ? sumMoney(monthlyPaymentStates.map(item => item.amountNeeded)) : 0;
+  const monthlySalary = useMemo(() => sumMoney(monthTransactions.filter(tx => {
+    const label=categories.find(category=>category.id===tx.category)?.label.toLowerCase() || '';
+    return tx.type==='income' && (tx.category==='salary'||label.includes('зарплата')||label.includes('salary'));
+  }).map(tx=>tx.amount)), [monthTransactions,categories]);
+  const savingsReserve = sumMoney([monthlySalary * ((settings.savingsRate || 0)/100)]);
+  const manualReserve = typeof settings.manualReservedAmount==='number'
+    ? settings.manualReservedAmount : sumMoney(goals.map(goal=>goal.currentAmount||0));
+  const reservedAmount = sumMoney([mandatoryReserve,savingsReserve,manualReserve]);
+  // Opening balance belongs to the family ledger. An individual member has
+  // no assigned share of it, so never invent one for the member filter.
+  const ledger = useMemo(() => ledgerBalance(
+    memberFilteredTransactions,
+    selectedMember==='all' ? settings.initialBalance : 0,
+    settings.initialBalanceDate
+  ), [memberFilteredTransactions, selectedMember, settings.initialBalance, settings.initialBalanceDate]);
+  const availableBalance = Math.max(0,sumMoney([ledger,-reservedAmount]));
+  const safeDailyLimit = isCurrentMonthView
+    ? budgetDailyLimit(ledger,reservedAmount,remainingDays) : 0;
 
   // Today's spend
   const todaySpent = useMemo(() => {
@@ -252,13 +271,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [settings.manualPaidExpenses, currentMonthKey]);
 
   // Helper to check if a mandatory expense is paid
-  const checkMandatoryPaid = (exp: MandatoryExpense): boolean => {
-    if (manuallyPaidIds.includes(exp.id)) return true;
-    return monthTransactions.some(t => t.type === 'expense' && (
-      t.linkedExpenseId === exp.id || 
-      (exp.keywords && exp.keywords.some(k => (t.note || '').toLowerCase().includes((k || '').toLowerCase())))
-    ));
-  };
+  const checkMandatoryPaid = (exp: MandatoryExpense): boolean =>
+    monthlyPaymentStates.find(state=>state.id===exp.id)?.isPaid ?? false;
 
   // Previous month trailing days
   const prevMonthDaysCount = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
@@ -443,7 +457,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Остаток на {remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${(monthBalance > 0 ? monthBalance : 0).toLocaleString('ru-RU')} ₽`}</strong>
+                  Доступно до конца периода ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs ${
@@ -1025,7 +1039,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
             </div>
             <p className="text-[10px] text-graphite-muted dark:text-gray-400 mt-0.5">
-              Расчёт: {settings.privacyMode ? '•••' : `${monthBalance.toLocaleString('ru-RU')} ₽`} остатка ÷ {remainingDays} оставшихся дней
+              Расчёт: {settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`} доступно ÷ {remainingDays} оставшихся дней
             </p>
           </div>
 

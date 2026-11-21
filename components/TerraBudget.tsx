@@ -159,7 +159,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   // Yesterday's spend
   const yesterdaySpent = useMemo(() => {
     if (currentDayNum <= 1) return 0;
-    return Math.round(monthTransactions.filter(t => {
+    return sumMoney(monthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
     }).map(t => t.amount));

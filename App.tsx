@@ -1278,7 +1278,13 @@ export default function App() {
                     // The same goal ID is reused for all transfers when this
                     // family has no existing savings goal yet.
                     const defaultGoal = savingsRows.length
-                      ? applySavingsTransferToGoals(goals,0,true).affectedGoal : undefined;
+                      ? (() => {
+                          const candidate = applySavingsTransferToGoals(goals,0,true).affectedGoal;
+                          // Stable ID for a new default goal: retries after partial
+                          // imports must never create another savings account.
+                          return goals.length ? candidate : {...candidate,id:'savings_import_default'};
+                        })()
+                      : undefined;
                     for (const row of savingsRows) {
                       const goal = row.linkedGoalId
                         ? goals.find(g=>g.id===row.linkedGoalId) || (defaultGoal?.id===row.linkedGoalId?defaultGoal:undefined)

@@ -16,7 +16,7 @@ async function sendTelegram(botToken,chatId,text){
  }finally{clearTimeout(timer);}
 }
 
-const queue=new QueueClient({region:'fra1'});
+const queue=new QueueClient({region:process.env.VERCEL_REGION||'iad1'});
 export default queue.handleNodeCallback(async(message)=>{
  const {uid,slot,when}=message.payload||{};
  if(typeof uid!=='string'||typeof slot!=='string'||!Number.isFinite(when))return;

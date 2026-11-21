@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {toUTC,nextReminder,definition,slotKey}=require('../../lib/calendarScheduleEngine.cjs');
+const {toUTC,nextReminder,definition,slotKey}=require('../lib/calendarScheduleEngine.cjs');
 const member={id:'a',userId:'one'};
 const user='one',tz='Europe/Moscow';
 const event={id:'e',title:'Оплата',date:'2026-11-25',time:'18:00',memberIds:['a'],reminders:[60]};

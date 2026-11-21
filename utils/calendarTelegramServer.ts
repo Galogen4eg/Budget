@@ -33,3 +33,22 @@ export async function disableTelegramSchedule():Promise<void>{
   });
   if(!response.ok)throw new Error('Не удалось отключить Telegram-расписание');
 }
+
+/** Refresh common family plans even if this device isn't a Telegram subscriber. */
+export async function refreshFamilyTelegramSchedules(input:{
+ familyId:string;events:FamilyEvent[];members:FamilyMember[];settings:AppSettings;
+}):Promise<void>{
+ const current=auth.currentUser;
+ if(!current)return;
+ const token=await current.getIdToken();
+ const response=await fetch('/api/calendar-telegram-sync',{
+  method:'PUT',
+  headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+  body:JSON.stringify({
+   familyId:input.familyId,events:input.events,members:input.members,
+   payments:input.settings.mandatoryExpenses||[],
+   paid:input.settings.manualPaidExpenses||{}
+  })
+ });
+ if(!response.ok)throw new Error('Не удалось обновить общее Telegram-расписание');
+}

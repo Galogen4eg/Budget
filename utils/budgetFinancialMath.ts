@@ -113,9 +113,11 @@ export function ledgerBalance(
   initialBalance: number,
   initialBalanceDate?: string
 ): number {
-  const since=initialBalanceDate ? new Date(initialBalanceDate.slice(0,10)+'T00:00:00').getTime() : -Infinity;
-  const rows=transactions.filter(tx=>Number.isFinite(new Date(tx.date).getTime())
-    && new Date(tx.date).getTime()>=since);
+  const since=initialBalanceDate?.slice(0,10);
+  const rows=transactions.filter(tx=>
+    /^\\d{4}-\\d{2}-\\d{2}/.test(tx.date)
+    && (!since || tx.date.slice(0,10)>=since)
+  );
   return money(cents(initialBalance)+cents(monthlyMoneyTotals(rows).net));
 }
 

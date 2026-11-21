@@ -64,14 +64,6 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
       newMonthIds = [...monthIds, expenseId];
     }
 
-    const newSettings = { 
-      ...settings, 
-      manualPaidExpenses: {
-        ...currentManuals,
-        [currentMonthKey]: newMonthIds
-      }
-    };
-
     await updateSettings({manualPaidExpenses:{[currentMonthKey]:newMonthIds}});
 
     // Синхронизация с карточкой долга, если платёж привязан

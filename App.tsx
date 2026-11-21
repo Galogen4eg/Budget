@@ -50,6 +50,7 @@ import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
 import { learnedRuleChangesSavings } from './utils/importSafety';
+import { resolveImportMemberId, assertImportRowsBelongToMember } from './utils/importMemberIdentity';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
@@ -425,8 +426,7 @@ export default function App() {
     importFileDigestRef.current = null;
     importFileRef.current = file;
     try {
-        const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
-        const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+        const memberId = resolveImportMemberId(members, user?.uid);
         const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
@@ -434,8 +434,7 @@ export default function App() {
     } catch (err: any) {
         if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
           try {
-            const currentUserMember = members.find(m => m.userId === user?.uid) || members[0];
-            const memberId = currentUserMember ? currentUserMember.id : 'unknown';
+            const memberId = resolveImportMemberId(members, user?.uid);
             const allRows = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, []);
             if (await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id))) {
               const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
@@ -1238,6 +1237,9 @@ export default function App() {
                       toast.info("Импорт отменен (нет операций)");
                       return;
                     }
+                    // Profile bindings can change while the import preview is open.
+                    const importMemberId = resolveImportMemberId(members, user?.uid);
+                    assertImportRowsBelongToMember(itemsToImport, importMemberId);
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);
@@ -1309,7 +1311,7 @@ export default function App() {
                     // original XLSX exists on the Firestore server. The preview
                     // can omit legacy duplicates, so checking only prepared is unsafe.
                     if (familyId && importFileDigestRef.current && importFileRef.current) {
-                      const memberId = prepared[0]?.memberId || 'unknown';
+                      const memberId = importMemberId;
                       const allRows = await parseAlfaStatement(
                         importFileRef.current, settings.alfaMapping, memberId,
                         learnedRules, categories, []

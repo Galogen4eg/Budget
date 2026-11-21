@@ -450,10 +450,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between">
               <div className="flex flex-col">
-                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">Безопасный лимит в день</span>
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">{isCurrentMonthView ? 'Безопасный лимит в день' : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
-                    {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
+                    {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
                   </span>
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
@@ -467,7 +467,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
               }`}>
                 <Sprout size={15} />
-                <span>{safeDailyLimit > 0 ? 'В темпе' : 'Превышен'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}</span>
               </div>
             </div>
 
@@ -1038,7 +1038,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </span>
             </div>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
-              {remainingDays} дней ост.
+              {isCurrentMonthView ? `${remainingDays} дн. до зарплаты` : 'Архив'}
             </span>
           </div>
 
@@ -1057,12 +1057,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Рекомендация ритма:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {safeDailyLimit > 0 ? 'Идеальный темп' : 'Бюджет исчерпан'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}
             </span>
           </div>
         </div>
 
-        {/* Card 2: Индикатор трат сегодня */}
+        {/* Current-day metrics do not apply to historical months. */}
+        {isCurrentMonthView ? (
         <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
@@ -1102,8 +1103,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </span>
           </div>
         </div>
+        ) : (
+          <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">Расходы выбранного месяца</span>
+            <span className="text-2xl font-bold text-graphite dark:text-white tabular-nums">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</span>
+            <p className="text-xs text-graphite-muted dark:text-gray-400">Показатели «сегодня» и «вчера» доступны в текущем месяце</p>
+          </div>
+        )}
 
-        {/* Card 3: Месячный прогресс бюджета */}
+                {/* Card 3: Месячный прогресс бюджета */}
         <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">

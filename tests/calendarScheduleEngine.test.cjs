@@ -29,10 +29,18 @@ test('timezone conversion is DST aware and rejects nonexistent local hour',()=>{
  assert.equal(toUTC('2027-03-28','03:30','Europe/Berlin'),Date.parse('2027-03-28T01:30:00Z'));
  assert.equal(toUTC('2027-03-28','02:30','Europe/Berlin'),null);
 });
-test('edited instance keeps the same schedule identity but changes its trigger time',()=>{
+test('edited instance keeps the same logical slot but uses a new immutable schedule ID',()=>{
  const first=nextReminder(snapshot(),user,tz,Date.parse('2026-11-21T00:00:00Z'))[0];
  const next=nextReminder(snapshot([{...event,time:'20:00'}]),user,tz,Date.parse('2026-11-21T00:00:00Z'))[0];
  assert.equal(slotKey(first),slotKey(next));
- assert.equal(definition(user,first).name,definition(user,next).name);
+ assert.notEqual(definition(user,first).name,definition(user,next).name);
  assert.notEqual(first.when,next.when);
+});
+
+test('next recurring occurrence gets a new one-time schedule name',()=>{
+ const recurring={...event,recurrence:'daily'};
+ const first=nextReminder(snapshot([recurring]),user,tz,Date.parse('2026-11-21T00:00:00Z'))[0];
+ const next=nextReminder(snapshot([recurring]),user,tz,first.when+1000)[0];
+ assert.equal(slotKey(first),slotKey(next));
+ assert.notEqual(definition(user,first).name,definition(user,next).name);
 });

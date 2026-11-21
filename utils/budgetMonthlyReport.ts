@@ -1,5 +1,5 @@
 import { cents, money, monthlyMoneyTotals, sumMoney } from './budgetFinancialMath.ts';
-import { buildCategoryBudgetRows, normalizeCategoryBudget } from './budgetPlanning.ts';
+import { buildCategoryBudgetRows } from './budgetPlanning.ts';
 
 type BudgetCategory = {id:string;label:string;parentId?:string};
 type BudgetTransaction = {

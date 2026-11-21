@@ -37,7 +37,7 @@ function isOccurrence(event, date) {
 }
 function dueAtMinute(event, minute, timezone) {
   if (!event || (event.kind==='task'&&event.completed) || event.isTemplate) return [];
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(event.time||'')) return [];
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(event.time||'')) return [];
   const leads=Array.isArray(event.reminders)?event.reminders:[];
   const due=[];
   for (const lead of new Set(leads)) {

@@ -17,10 +17,11 @@ interface Props {
  onToggleTask:(event:FamilyEvent)=>Promise<void>;
  onEnableReminders:()=>void;
  remindersEnabled:boolean;
+ pushEnabled?:boolean;
 }
 type View='today'|'week'|'month'|'tasks';
 export const FamilyAgendaPanel:React.FC<Props>=({
- events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled
+ events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled,pushEnabled=false
 })=>{
  const [view,setView]=useState<View>('week');
  const [savingId,setSavingId]=useState<string|null>(null);
@@ -84,7 +85,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
     <button type="button" onClick={onEnableReminders} title="Напоминания работают при открытом приложении"
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
-      <Bell size={14}/>{remindersEnabled?'Напоминания вкл.':'Включить напоминания'}
+      <Bell size={14}/>{remindersEnabled?(pushEnabled?'Push включены':'Напоминания вкл.'):'Включить напоминания'}
     </button>
     <button type="button" onClick={exportICS} title="Скачать события в формате iCalendar"
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
@@ -120,7 +121,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    </div>)}
   </div>
-  <p className="text-[10px] text-stone-500 dark:text-stone-400">Напоминания здесь работают при открытом Budget; фоновые push требуют отдельного подключения. Платежи показаны без автоматического списания.</p>
+  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Платежи показаны без автоматического списания.</p>
  </section>;
 };
 export default FamilyAgendaPanel;

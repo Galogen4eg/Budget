@@ -106,3 +106,24 @@ export function mandatoryPaymentStates(
     };
   });
 }
+
+/** Balance from persisted expenses/income, including carried initial balance. */
+export function ledgerBalance(
+  transactions: readonly {date:string;type:string;amount:number}[],
+  initialBalance: number,
+  initialBalanceDate?: string
+): number {
+  const since=initialBalanceDate ? new Date(initialBalanceDate.slice(0,10)+'T00:00:00').getTime() : -Infinity;
+  const rows=transactions.filter(tx=>Number.isFinite(new Date(tx.date).getTime())
+    && new Date(tx.date).getTime()>=since);
+  return money(cents(initialBalance)+cents(monthlyMoneyTotals(rows).net));
+}
+
+/** Show kopecks when present and don't round individual operations to rubles. */
+export function formatBudgetMoney(value: number): string {
+  const wholeKopecks=cents(value);
+  const hasKopecks=Math.abs(wholeKopecks)%100!==0;
+  return new Intl.NumberFormat('ru-RU',{
+    minimumFractionDigits:hasKopecks?2:0, maximumFractionDigits:2
+  }).format(money(wholeKopecks));
+}

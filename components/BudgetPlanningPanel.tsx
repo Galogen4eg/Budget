@@ -4,6 +4,7 @@ import type { AppSettings, Category, Transaction } from '../types';
 import { useData } from '../contexts/DataContext';
 import { buildCategoryBudgetRows, forecastUntilSalary, normalizeCategoryBudget } from '../utils/budgetPlanning';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { buildMonthlyBudgetReport } from '../utils/budgetMonthlyReport';
 
 interface Props {
  settings:AppSettings;categories:Category[];transactions:Transaction[];
@@ -27,6 +28,8 @@ export default function BudgetPlanningPanel({
  const limits=settings.categoryBudgets||{};
  const rows=useMemo(()=>buildCategoryBudgetRows(monthTransactions,categories,limits),
   [monthTransactions,categories,limits]);
+ const monthlyReport=useMemo(()=>buildMonthlyBudgetReport(transactions,categories,limits,currentMonth),
+  [transactions,categories,limits,currentMonth]);
  const forecast=useMemo(()=>forecastUntilSalary({
    transactions,now:new Date(),daysRemaining:daysToSalary,totalBalance,reservedAmount
  }),[transactions,daysToSalary,totalBalance,reservedAmount]);
@@ -98,6 +101,67 @@ export default function BudgetPlanningPanel({
      </div>)}
     </div>
    }
+   <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-2" aria-label="Месячный отчёт бюджета">
+     <h3 className="text-sm font-bold text-graphite dark:text-white">План и факт за месяц</h3>
+     <p className="text-xs text-graphite-muted dark:text-gray-400">
+       {currentMonth.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · фактические операции из бюджета, без событий календаря
+     </p>
+     <div className="grid grid-cols-2 gap-2">
+       <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
+         <p className="text-[11px] text-graphite-muted dark:text-gray-400">Доходы</p>
+         <p className="text-base font-bold tabular-nums">{currency(monthlyReport.income)}</p>
+       </div>
+       <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
+         <p className="text-[11px] text-graphite-muted dark:text-gray-400">Расходы</p>
+         <p className="text-base font-bold tabular-nums">{currency(monthlyReport.expense)}</p>
+       </div>
+     </div>
+     <div className="flex justify-between gap-2 text-sm">
+       <span className="text-graphite-muted dark:text-gray-400">Итог месяца</span>
+       <strong className="tabular-nums">{currency(monthlyReport.net)}</strong>
+     </div>
+     {monthlyReport.planned > 0 ? (<>
+       <div className="flex justify-between gap-2 text-sm">
+         <span>План по категориям</span>
+         <b className="tabular-nums">{currency(monthlyReport.planned)}</b>
+       </div>
+       <div className="flex justify-between gap-2 text-sm">
+         <span>Факт по категориям с лимитом</span>
+         <b className="tabular-nums">{currency(monthlyReport.plannedSpent)}</b>
+       </div>
+       <div className="flex justify-between gap-2 text-xs text-graphite-muted dark:text-gray-400">
+         <span>Осталось по лимитам</span>
+         <span>{currency(monthlyReport.plannedRemaining)}</span>
+       </div>
+       {monthlyReport.overBudget > 0 && (
+         <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+           Превышение отдельных лимитов: {currency(monthlyReport.overBudget)}
+         </p>
+       )}
+       {monthlyReport.overlappingLimitIds.length>0 && (
+         <p className="text-xs text-graphite-muted dark:text-gray-400">
+           В общем плане не дублируются вложенные лимиты: {monthlyReport.overlappingLimitIds.length}.
+         </p>
+       )}
+     </>) : (
+       <p className="text-xs text-graphite-muted dark:text-gray-400">
+         Для сравнения плана с фактом добавьте лимит хотя бы одной категории.
+       </p>
+     )}
+     {monthlyReport.unplannedSpent>0 && (
+       <p className="text-xs text-graphite-muted dark:text-gray-400">
+         Расходы вне категорий с лимитами: {currency(monthlyReport.unplannedSpent)}
+       </p>
+     )}
+     <div className="border-t border-surface-border dark:border-white/10 pt-2">
+       <p className="text-xs text-graphite-muted dark:text-gray-400">
+         Прошлый месяц: {currency(monthlyReport.previousMonthExpense)} расходов.
+         {monthlyReport.expenseChangePercent===null
+           ? ' Нет базы для процентного сравнения.'
+           : ` Изменение: ${monthlyReport.expenseChangePercent>0?'+':''}${monthlyReport.expenseChangePercent}%.`}
+       </p>
+     </div>
+   </div>
    {isCurrentMonth&&(
     <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-1.5">
      <h3 className="text-sm font-bold text-graphite dark:text-white">Прогноз до зарплаты</h3>

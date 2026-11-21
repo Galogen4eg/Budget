@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CircleCheck, Circle, Download, Bell, Plus, Repeat2, Wallet, ListTodo } from 'lucide-react';
+import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, Wallet, ListTodo } from 'lucide-react';
 import { toast } from 'sonner';
 import type { FamilyEvent, MandatoryExpense, FamilyMember } from '../types';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
@@ -18,10 +18,13 @@ interface Props {
  onEnableReminders:()=>void;
  remindersEnabled:boolean;
  pushEnabled?:boolean;
+ telegramRemindersEnabled?:boolean;
+ telegramConfigured?:boolean;
+ onToggleTelegramReminders?:()=>void;
 }
 type View='today'|'week'|'month'|'tasks';
 export const FamilyAgendaPanel:React.FC<Props>=({
- events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled,pushEnabled=false
+ events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled,pushEnabled=false,telegramRemindersEnabled=false,telegramConfigured=false,onToggleTelegramReminders
 })=>{
  const [view,setView]=useState<View>('week');
  const [savingId,setSavingId]=useState<string|null>(null);
@@ -87,6 +90,12 @@ export const FamilyAgendaPanel:React.FC<Props>=({
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Bell size={14}/>{remindersEnabled?(pushEnabled?'Push включены':'Напоминания вкл.'):'Включить напоминания'}
     </button>
+    <button type="button" onClick={onToggleTelegramReminders}
+      title={telegramConfigured?'Отправка Telegram-напоминаний работает только пока Budget открыт':'Сначала настройте Telegram-бота'}
+      aria-pressed={telegramRemindersEnabled}
+      className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
+      <Send size={14}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}
+    </button>
     <button type="button" onClick={exportICS} title="Скачать события в формате iCalendar"
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Download size={14}/> .ics
@@ -121,7 +130,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    </div>)}
   </div>
-  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Платежи показаны без автоматического списания.</p>
+  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Telegram-напоминания также работают только при открытом Budget. Платежи показаны без автоматического списания.</p>
  </section>;
 };
 export default FamilyAgendaPanel;

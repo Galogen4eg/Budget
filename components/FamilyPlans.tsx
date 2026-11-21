@@ -12,6 +12,8 @@ import { formatLocalCalendarDate } from '../utils/calendarDates';
 import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
+import { sendTelegramMessage } from '../utils/telegram';
+import { telegramReminderKey, telegramReminderText, telegramReminderSince } from '../utils/calendarTelegram';
 import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
@@ -56,6 +58,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const { familyId, user } = useAuth();
   const [remindersEnabled,setRemindersEnabled]=useState(false);
   const [pushEnabled,setPushEnabled]=useState(false);
+  const [telegramRemindersEnabled,setTelegramRemindersEnabled]=useState(false);
+  const telegramSendingRef=useRef(false);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
 
@@ -140,6 +144,84 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     setRemindersEnabled(localStorage.getItem(reminderKey)==='enabled');
     setPushEnabled(user?.uid ? isCalendarPushRegisteredLocally(user.uid) : false);
   },[reminderKey]);
+
+  const telegramChatId=settings.telegramChatId?.trim()||'';
+  const telegramConfigured=Boolean(settings.telegramBotToken?.trim()&&telegramChatId);
+  const telegramKey=telegramReminderKey(familyId||'none',user?.uid||'none',telegramChatId||'none');
+  useEffect(()=>{
+    setTelegramRemindersEnabled(telegramConfigured&&localStorage.getItem(telegramKey)==='enabled');
+  },[telegramKey,telegramConfigured]);
+
+  const toggleTelegramReminders=()=>{
+    if(telegramRemindersEnabled){
+      localStorage.removeItem(telegramKey);
+      setTelegramRemindersEnabled(false);
+      toast.info('Напоминания в Telegram отключены на этом устройстве.');
+      return;
+    }
+    if(!telegramConfigured){
+      toast.error('Сначала укажите токен Telegram-бота и Chat ID в настройках.');
+      onOpenSettings?.();
+      return;
+    }
+    localStorage.setItem(telegramKey,'enabled');
+    setTelegramRemindersEnabled(true);
+    toast.info('Telegram-напоминания включены, пока открыт Budget. При закрытом приложении отправка не работает.');
+  };
+
+  useEffect(()=>{
+    if(!telegramRemindersEnabled||!telegramConfigured||!familyId||!user?.uid)return;
+    let cancelled=false;
+    const check=async()=>{
+      if(cancelled||telegramSendingRef.current||!navigator.onLine)return;
+      telegramSendingRef.current=true;
+      try{
+        const now=new Date();
+        // Include earlier occurrences so suspended tabs can catch up.
+        const first=new Date(now);first.setDate(first.getDate()-8);
+        const until=new Date(now);until.setDate(until.getDate()+8);
+        const occurrences=buildCalendarOccurrences(events,formatLocalCalendarDate(first),formatLocalCalendarDate(until));
+        const months=[-1,0,1].map(offset=>paymentAgenda(
+          settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+offset,1),
+          settings.manualPaidExpenses||{}
+        ));
+        const checkedKey=`${telegramKey}:last-checked`;
+        const raw=localStorage.getItem(checkedKey);
+        const since=telegramReminderSince(now,raw===null?null:Number(raw));
+        const due=dueCalendarNotifications([...occurrences,...months.flat()],now,ownProfileId,since);
+        const historyKey=`${telegramKey}:sent`;
+        let sent:string[]=[];
+        try{
+          const saved=JSON.parse(localStorage.getItem(historyKey)||'[]');
+          if(Array.isArray(saved))sent=saved.filter((id):id is string=>typeof id==='string');
+        }catch{}
+        for(const reminder of due.filter(item=>!sent.includes(item.id))){
+          if(cancelled)break;
+          const result=await sendTelegramMessage({
+            config:{botToken:settings.telegramBotToken,chatId:telegramChatId,apiUrl:settings.telegramApiUrl},
+            text:telegramReminderText(reminder)
+          });
+          if(!result.success){
+            console.warn('Telegram calendar reminder delivery failed','code' in result ? result.code : 'unknown');
+            // Keep the failed reminder in the catch-up window for retry.
+            return;
+          }
+          sent.push(reminder.id);
+          localStorage.setItem(historyKey,JSON.stringify(sent.slice(-500)));
+        }
+        // Only advance after successful processing; never mark undelivered reminders as sent.
+        localStorage.setItem(checkedKey,String(now.getTime()));
+      }finally{
+        telegramSendingRef.current=false;
+      }
+    };
+    const runCheck=()=>{void check().catch(error=>console.warn('Telegram reminder check failed',error));};
+    runCheck();
+    const timer=window.setInterval(runCheck,30000);
+    const onFocus=runCheck;
+    window.addEventListener('focus',onFocus);
+    return ()=>{cancelled=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);};
+  },[telegramRemindersEnabled,telegramConfigured,telegramKey,telegramChatId,settings.telegramBotToken,settings.telegramApiUrl,settings.mandatoryExpenses,settings.manualPaidExpenses,events,ownProfileId,familyId,user?.uid]);
 
   const enableReminders=async()=>{
     if(remindersEnabled){
@@ -366,7 +448,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         onToggleTask={handleToggleTask}
         onEnableReminders={()=>void enableReminders()}
         remindersEnabled={remindersEnabled}
-        pushEnabled={pushEnabled}/>
+        pushEnabled={pushEnabled}
+        telegramRemindersEnabled={telegramRemindersEnabled}
+        telegramConfigured={telegramConfigured}
+        onToggleTelegramReminders={toggleTelegramReminders}/>
         <div className="flex-1 min-h-0 overflow-hidden">
         {isDesktop ? (
             <FamilyPlansDesktop 

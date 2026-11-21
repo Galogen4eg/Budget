@@ -6,6 +6,11 @@ import BudgetMobile from './BudgetMobile';
 import BudgetDesktop from './BudgetDesktop';
 import { useClickAway } from 'react-use';
 import { RippleButton } from './RippleButton';
+import { useAuth } from '../contexts/AuthContext';
+import { updateItem } from '../utils/db';
+import { isSavingsTransfer } from '../utils/savingsSync';
+import { isCategoryForType } from '../utils/categoryCatalog';
+import { toast } from 'sonner';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -50,6 +55,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     hideFilters = false, onLearnRule, onApplyRuleToExisting, onAddCategory, hideActiveFilterBadge
 }) => {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const { familyId } = useAuth();
+  const pendingCategoryUpdates = useRef(new Set<string>());
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('context');
   
@@ -214,25 +221,34 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         .slice(0, 15);
   }, [searchedTransactions, searchQuery, filterMode, showAll, selectedCategoryId, selectedDate, isDesktop, typeFilter, periodFilter]);
 
-  const handleCategoryChange = (txId: string, newCategoryId: string) => {
-    if (!setTransactions) return;
-    setTransactions(prev => prev.map(t => {
-      if (t.id === txId) {
-        const updated = { ...t, category: newCategoryId };
-        const merchantKey = t.note || t.rawNote || '';
-        if (merchantKey && onLearnRule) {
-          onLearnRule({
-            id: 'rule-' + Date.now(),
-            keyword: merchantKey,
-            pattern: merchantKey,
-            categoryId: newCategoryId,
-            exactMatch: false
-          });
-        }
-        return updated;
-      }
-      return t;
-    }));
+  const handleCategoryChange = async (txId: string, newCategoryId: string) => {
+    if (!setTransactions || pendingCategoryUpdates.current.has(txId)) return;
+    const original = transactions.find(t => t.id === txId);
+    if (!original || original.category === newCategoryId) return;
+    if (!isCategoryForType(newCategoryId, categories, original.type)) {
+      toast.error('Выбранная категория не подходит к типу операции');
+      return;
+    }
+    const updated = { ...original, category: newCategoryId };
+    // Savings transfers alter another Firestore document: use the full edit flow
+    // rather than changing one field and leaving goal balances inconsistent.
+    if (isSavingsTransfer(original) !== isSavingsTransfer(updated)) {
+      toast.info('Для перевода в накопления откройте редактирование операции');
+      onEditTransaction?.(original);
+      return;
+    }
+    pendingCategoryUpdates.current.add(txId);
+    try {
+      if (familyId) await updateItem(familyId, 'transactions', txId, { category: newCategoryId });
+      setTransactions(prev => prev.map(t => t.id === txId ? { ...t, category: newCategoryId } : t));
+      // Learning rules is a separate user action; editing an existing category
+      // must not silently change how unrelated future purchases are classified.
+    } catch (error) {
+      console.error('Could not save transaction category',error);
+      toast.error('Категория не сохранена. Попробуйте снова.');
+    } finally {
+      pendingCategoryUpdates.current.delete(txId);
+    }
   };
 
   const FilterControls = (

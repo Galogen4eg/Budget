@@ -62,6 +62,9 @@ const BudgetMobile: React.FC<BudgetMobileProps> = ({
                     <motion.div 
                       key={tx.id}
                       onClick={() => onEdit(tx)}
+                       role="button" tabIndex={0}
+                       aria-label={`Редактировать операцию ${displayTitle}`}
+                       onKeyDown={(e) => { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();onEdit(tx);} }}
                       whileTap={{ scale: 0.98 }}
                       className="flex items-center justify-between p-3 rounded-2xl border border-surface-border dark:border-white/5 bg-white dark:bg-[#252528] shadow-2xs cursor-pointer active:bg-gray-50 dark:active:bg-[#2C2C2E]"
                     >

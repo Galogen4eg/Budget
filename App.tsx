@@ -852,6 +852,8 @@ export default function App() {
                 onClick={() => setIsSidebarExpanded(prev => !prev)}
                 className="flex items-center gap-3 cursor-pointer group text-left"
                 title={isSidebarExpanded ? "Свернуть меню" : "Развернуть меню"}
+                aria-label={isSidebarExpanded ? "Свернуть боковое меню" : "Развернуть боковое меню"}
+                aria-expanded={isSidebarExpanded}
               >
                 <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 group-hover:scale-105 transition-transform">
                   <Leaf className="w-5 h-5 text-white stroke-[2.2]" />
@@ -880,7 +882,8 @@ export default function App() {
                     }}
                     title={tab.label}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full flex items-center ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
+                    aria-label={tab.label}
+                    className={`w-full flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
                         ? 'bg-primary text-white font-bold shadow-[0_2px_10px_rgba(74,124,89,0.3)]' 
                         : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] font-medium'
@@ -1094,7 +1097,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
-      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-2 py-2 flex justify-around items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
          {TAB_CONFIG.map(tab => {
              const isActive = activeTab === tab.id;
              return (
@@ -1102,6 +1105,7 @@ export default function App() {
                   key={tab.id} 
                   type="button"
                   aria-current={isActive ? 'page' : undefined}
+                  aria-label={tab.label}
                   onClick={() => {
                     triggerHaptic('light');
                     if (tab.id === 'services') {
@@ -1109,14 +1113,14 @@ export default function App() {
                     }
                     setActiveTab(tab.id);
                   }} 
-                  className={`relative flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-all ${
+                  className={`relative flex flex-col items-center justify-center flex-1 min-w-0 min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all ${
                     isActive ? 'text-[#4A7C59] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
                   }`}
                 >
                     <span className="relative z-10 flex items-center justify-center">
                       {React.createElement(tab.icon, { size: 21, strokeWidth: isActive ? 2.3 : 1.8 })}
                     </span>
-                    <span className="text-[11px] mt-0.5 font-medium">{tab.label}</span>
+                    <span className="w-full min-w-0 truncate text-center text-[10px] sm:text-[11px] mt-1 font-medium">{tab.label}</span>
                     {tab.id === 'shopping' && activeShoppingCount > 0 && (
                       <span className="absolute top-1 right-[26%] w-2 h-2 rounded-full bg-[#4A7C59]" />
                     )}

@@ -232,7 +232,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     const updated = { ...original, category: newCategoryId };
     // Savings transfers alter another Firestore document: use the full edit flow
     // rather than changing one field and leaving goal balances inconsistent.
-    if (isSavingsTransfer(original) !== isSavingsTransfer(updated)) {
+    if (isSavingsTransfer(original) || isSavingsTransfer(updated)) {
       toast.info('Для перевода в накопления откройте редактирование операции');
       onEditTransaction?.(original);
       return;

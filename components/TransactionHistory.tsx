@@ -241,8 +241,16 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     try {
       if (familyId) await updateItem(familyId, 'transactions', txId, { category: newCategoryId });
       setTransactions(prev => prev.map(t => t.id === txId ? { ...t, category: newCategoryId } : t));
-      // Learning rules is a separate user action; editing an existing category
-      // must not silently change how unrelated future purchases are classified.
+      // Retain the existing learned-rule behavior, but only after the
+      // transaction is durably saved, never inside a React state updater.
+      const merchantKey = original.note || original.rawNote || '';
+      if (merchantKey && onLearnRule) onLearnRule({
+        id: 'rule-' + Date.now(),
+        keyword: merchantKey,
+        pattern: merchantKey,
+        categoryId: newCategoryId,
+        exactMatch: false
+      });
     } catch (error) {
       console.error('Could not save transaction category',error);
       toast.error('Категория не сохранена. Попробуйте снова.');

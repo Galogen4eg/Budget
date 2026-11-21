@@ -205,7 +205,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const current = settingsRef.current;
       const patch = diffSettings(current, newSettings);
       if (!Object.keys(patch).length) return;
-      const merged = { ...current, ...patch };
+      const merged = { ...current, ...patch,
+          ...(patch.manualPaidExpenses ? { manualPaidExpenses: {
+              ...(current.manualPaidExpenses || {}), ...patch.manualPaidExpenses
+          }} : {})
+      };
       settingsRef.current = merged;
       setSettings(merged);
       if (familyId && user) {

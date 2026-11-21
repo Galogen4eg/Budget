@@ -61,10 +61,10 @@ function paymentDueAtMinute(payment,paid,minute,timezone) {
 function memberCanReceive(event,uid,profileIds) {
   return !event.memberIds?.length || event.memberIds.some(id=>profileIds.has(id));
 }
-function dueForDevice(events,payments,paid,device,profileIds,now=Date.now()) {
+function dueForDevice(events,payments,paid,device,profileIds,now=Date.now(),lookbackMinutes=2) {
   const minute=Math.floor(now/MINUTE)*MINUTE;
   const result=[];
-  for(let back=0;back<=2;back++){
+  for(let back=0;back<=Math.min(Math.max(0,lookbackMinutes),60);back++){
     const time=minute-back*MINUTE;
     for(const event of events){
       if(!memberCanReceive(event,device.uid,profileIds))continue;

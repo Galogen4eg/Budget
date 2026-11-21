@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeCalendarICS } from '../utils/calendarExport.ts';
 import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders.ts';
+import { telegramReminderText, telegramReminderKey, telegramReminderSince } from '../utils/calendarTelegram.ts';
 
 const event={id:'a',title:'Оплата, интернета',description:'Тест\nСообщение',date:'2026-11-21',time:'12:00',duration:1,memberIds:['u'],reminders:[15]};
 test('ICS escapes content and contains local timestamp with stable UID',()=>{
@@ -52,4 +53,24 @@ test('foreground reminder catches a suspended tab without replaying old alerts',
 test('foreground reminder does not send a notification before its trigger time',()=>{
  const at=new Date(2026,10,21,11,40,0);
  assert.equal(dueCalendarNotifications([event],at,'u',new Date(2026,10,21,11,0)).length,0);
+});
+
+test('Telegram reminders format lead time and do not execute before a scheduled trigger',()=>{
+ const at=new Date(2026,10,21,11,45,0);
+ const items=dueCalendarNotifications([event],at,'u');
+ assert.equal(items.length,1);
+ assert.match(telegramReminderText(items[0]),/Через 15 мин/);
+ assert.match(telegramReminderText(items[0]),/Оплата, интернета/);
+ assert.equal(dueCalendarNotifications([event],new Date(2026,10,21,11,44), 'u').length,0);
+});
+test('Telegram delivery history is scoped to family, authenticated user and chat',()=>{
+ assert.notEqual(telegramReminderKey('family1','u1','123'),telegramReminderKey('family1','u2','123'));
+ assert.notEqual(telegramReminderKey('family1','u1','123'),telegramReminderKey('family2','u1','123'));
+ assert.notEqual(telegramReminderKey('family1','u1','123'),telegramReminderKey('family1','u1','456'));
+});
+test('Telegram catch-up is capped at one hour and safely resumes the last check',()=>{
+ const now=new Date('2026-11-21T12:00:00Z');
+ assert.equal(telegramReminderSince(now,Date.parse('2026-11-21T11:40:00Z')).toISOString(),'2026-11-21T11:40:00.000Z');
+ assert.equal(telegramReminderSince(now,Date.parse('2026-11-19T12:00:00Z')).toISOString(),'2026-11-21T11:00:00.000Z');
+ assert.equal(telegramReminderSince(now,null).toISOString(),'2026-11-21T11:58:00.000Z');
 });

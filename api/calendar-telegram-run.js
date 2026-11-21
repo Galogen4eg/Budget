@@ -42,7 +42,7 @@ export default queue.handleNodeCallback(async(message)=>{
  }
  // Schedules has completed this one-time run. Generate the next occurrence,
  // only for a still enabled subscription and current calendar snapshot.
- await syncOneUser(uid,subscription.timeZone,snapshot,Math.max(Date.now(),when)+60000);
+ await syncOneUser(uid,subscription.timeZone,snapshot,Math.max(Date.now(),when));
 },{retry:(error,metadata)=>{
  if(metadata.deliveryCount>5)return {acknowledge:true};
  return {afterSeconds:Math.min(600,30*metadata.deliveryCount)};

@@ -26,6 +26,7 @@ import { OverviewRecentTransactions } from './overview/OverviewRecentTransaction
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
+import { mandatoryPaymentStates, budgetDailyLimit, sumMoney } from '../utils/budgetFinancialMath';
 import { toast } from 'sonner';
 
 interface TerraOverviewProps {
@@ -209,73 +210,35 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return all;
   }, [settings.mandatoryExpenses, budgetMode, myMemberId]);
 
-  const { unpaidMandatoryTotal } = useMemo(() => {
-    let total = 0;
-    const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    const expensesTx = currentMonthTransactions.filter(t => t.type === 'expense');
+  // A transaction can credit only one bill. Both the reserve total and
+  // detailed breakdown derive from the same allocation, so they cannot diverge.
+  const paymentStates = useMemo(() => mandatoryPaymentStates(
+    relevantMandatoryExpenses,
+    currentMonthTransactions,
+    settings.manualPaidExpenses?.[currentMonthKey] || []
+  ), [relevantMandatoryExpenses, currentMonthTransactions, settings.manualPaidExpenses, currentMonthKey]);
 
-    if (settings.enableSmartReserve ?? true) {
-      relevantMandatoryExpenses.forEach(expense => {
-        const keywords = expense.keywords || [];
-        const expNameLower = (expense.name || '').trim().toLowerCase();
+  const unpaidMandatoryTotal = useMemo(() => (
+    settings.enableSmartReserve ?? true
+  ) ? sumMoney(paymentStates.map(state => state.amountNeeded)) : 0,
+  [paymentStates, settings.enableSmartReserve]);
 
-        const matches = expensesTx.filter(tx => {
-          if (tx.linkedExpenseId === expense.id) return true;
-          const noteLower = (tx.note || '').toLowerCase();
-          const rawLower = (tx.rawNote || '').toLowerCase();
-          if (expNameLower.length >= 3 && (noteLower.includes(expNameLower) || rawLower.includes(expNameLower))) return true;
-          if (keywords.length === 0) return false;
-          return keywords.some(k => k.trim().length >= 2 && (noteLower.includes(k.toLowerCase().trim()) || rawLower.includes(k.toLowerCase().trim())));
-        });
-        const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
-        const isManuallyPaid = manuallyPaidIds.includes(expense.id);
-        const isPaid = (paidAmount >= expense.amount * 0.95) || isManuallyPaid;
-        const remainingToPay = isPaid ? 0 : Math.max(0, expense.amount - paidAmount);
-        if (!isPaid) total += remainingToPay;
-      });
-    }
-    return { unpaidMandatoryTotal: total };
-  }, [relevantMandatoryExpenses, currentMonthTransactions, settings.enableSmartReserve, settings.manualPaidExpenses, currentMonthKey]);
-
-  // Detailed Mandatory Expenses for Reserve Breakdown
   const detailedMandatoryExpenses = useMemo(() => {
+    const states = new Map(paymentStates.map(state => [state.id, state]));
     const today = now.getDate();
-    const manuallyPaidIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    const expensesTx = currentMonthTransactions.filter(t => t.type === 'expense');
-
-    if (relevantMandatoryExpenses && relevantMandatoryExpenses.length > 0) {
-      return relevantMandatoryExpenses.map(expense => {
-        const keywords = expense.keywords || [];
-        const expNameLower = (expense.name || '').trim().toLowerCase();
-
-        const matches = expensesTx.filter(tx => {
-          if (tx.linkedExpenseId === expense.id) return true;
-          const noteLower = (tx.note || '').toLowerCase();
-          const rawLower = (tx.rawNote || '').toLowerCase();
-          if (expNameLower.length >= 3 && (noteLower.includes(expNameLower) || rawLower.includes(expNameLower))) return true;
-          if (keywords.length === 0) return false;
-          return keywords.some(k => k.trim().length >= 2 && (noteLower.includes(k.toLowerCase().trim()) || rawLower.includes(k.toLowerCase().trim())));
-        });
-        const paidAmount = matches.reduce((sum, t) => sum + t.amount, 0);
-        const isManuallyPaid = manuallyPaidIds.includes(expense.id);
-        const isPaid = (paidAmount >= expense.amount * 0.95) || isManuallyPaid;
-        const amountNeeded = isPaid ? 0 : Math.max(0, expense.amount - paidAmount);
-        const isOverdue = !isPaid && expense.day < today;
-
-        return {
-          expense,
-          amountNeeded,
-          paidAmount,
-          isPaid,
-          isManuallyPaid,
-          isOverdue,
-          subtitle: `Обязательный регулярный платеж (${expense.day} число)`
-        };
-      });
-    }
-
-    return undefined;
-  }, [relevantMandatoryExpenses, currentMonthTransactions, settings.manualPaidExpenses, currentMonthKey, now]);
+    return relevantMandatoryExpenses.map(expense => {
+      const status = states.get(expense.id)!;
+      return {
+        expense,
+        amountNeeded: status.amountNeeded,
+        paidAmount: status.paidAmount,
+        isPaid: status.isPaid,
+        isManuallyPaid: status.isManuallyPaid,
+        isOverdue: !status.isPaid && expense.day < today,
+        subtitle: `Обязательный регулярный платеж (${expense.day} число)`
+      };
+    });
+  }, [relevantMandatoryExpenses, paymentStates, now]);
 
   const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
@@ -343,12 +306,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const manualReserved = typeof settings.manualReservedAmount === 'number' 
     ? settings.manualReservedAmount 
     : totalSavingsAccountAmount;
-  const reservedAmount = Math.round(savingsAmount + unpaidMandatoryTotal + manualReserved);
+  const reservedAmount = sumMoney([savingsAmount, unpaidMandatoryTotal, manualReserved]);
   const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
   const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
 
   const availableBalance = Math.max(0, totalBalance - reservedAmount);
-  const dailyLimit = Math.max(0, Math.round(availableBalance / daysRemaining));
+  const dailyLimit = budgetDailyLimit(totalBalance, reservedAmount, daysRemaining);
 
   // Today's spending
   const todayTransactions = useMemo(() => {

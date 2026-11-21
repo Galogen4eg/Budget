@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cents, money, sumMoney, budgetDailyLimit, monthlyMoneyTotals,
-  mandatoryPaymentStates, ledgerBalance, formatBudgetMoney
+  mandatoryPaymentStates, ledgerBalance, formatBudgetMoney, daysUntilNextSalary
 } from '../utils/budgetFinancialMath.ts';
 
 test('money arithmetic keeps kopecks and avoids binary floating point drift', () => {
@@ -86,4 +86,11 @@ test('kopecks display consistently on desktop and mobile',()=>{
  assert.equal(formatBudgetMoney(10),'10');
  assert.equal(formatBudgetMoney(10.5),'10,50');
  assert.equal(formatBudgetMoney(10.05),'10,05');
+});
+
+test('next salary date uses calendar days across month boundaries',()=>{
+ assert.equal(daysUntilNextSalary(new Date(2026,10,21),[25]),4);
+ assert.equal(daysUntilNextSalary(new Date(2026,10,25),[25]),30);
+ assert.equal(daysUntilNextSalary(new Date(2026,1,27),[31]),1);
+ assert.equal(daysUntilNextSalary(new Date(2026,2,28),[1,15]),4);
 });

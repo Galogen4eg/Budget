@@ -48,6 +48,7 @@ import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
+import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
@@ -332,7 +333,7 @@ export default function App() {
       familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
     );
 
-    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    // Firestore goal snapshots now carry authoritative balances after an atomic write.
     if (editing) {
       setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
@@ -718,6 +719,9 @@ export default function App() {
 
       const ids = toDelete.map(t => t.id);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      // Deleting a savings transfer without adjusting its goal would corrupt balances.
+      try { assertBulkDeleteSafe(transactions,ids); }
+      catch(error){toast.error((error as Error).message);return;}
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);
@@ -725,6 +729,9 @@ export default function App() {
 
   const handleBatchDelete = async (ids: string[]) => {
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      // Deleting a savings transfer without adjusting its goal would corrupt balances.
+      try { assertBulkDeleteSafe(transactions,ids); }
+      catch(error){toast.error((error as Error).message);return;}
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} записей`);
@@ -1172,7 +1179,7 @@ export default function App() {
                   }
                   if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
                   await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
-                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
+                  // Firestore snapshots reconcile goals after the delete.
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);

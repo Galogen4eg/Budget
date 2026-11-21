@@ -4,11 +4,12 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Trash2, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Transaction, AppSettings } from '../types';
+import { isPotentialDuplicate } from '../utils/duplicateReview';
 
 interface DuplicatesModalProps {
   transactions: Transaction[];
   onClose: () => void;
-  onDelete: (ids: string[]) => void;
+  onDelete: (ids: string[]) => void | boolean | Promise<void | boolean>;
   onIgnore?: (pairIds: string[]) => void; // New prop for ignoring
   ignoredPairs?: string[];
 }
@@ -40,16 +41,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             // but strict check on other fields
             if (timeDiff > 24 * 60 * 60 * 1000) break; 
 
-            // Strict amount check
-            const isSameAmount = Math.abs(current.amount - next.amount) < 0.01;
-            const isSameType = current.type === next.type;
-            
-            // Fuzzy description match
-            const noteSim = (current.note || '').toLowerCase().trim() === (next.note || '').toLowerCase().trim();
-            const rawSim = (current.rawNote || '').toLowerCase().trim() === (next.rawNote || '').toLowerCase().trim();
-
-            if (isSameAmount && isSameType && (noteSim || rawSim)) {
-                // Check if this pair is ignored
+            if (isPotentialDuplicate(current, next)) {
                 const pairKey = [current.id, next.id].sort().join('_');
                 if (!ignoredPairs.includes(pairKey)) {
                     group.push(next);
@@ -66,15 +58,9 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
     return groups;
   }, [transactions, ignoredPairs]);
 
-  // Pre-select duplicates for deletion (keep the first one)
+  // Similar payments are review candidates, never pre-approved for deletion.
   React.useEffect(() => {
-      const initialSelection = new Set<string>();
-      duplicateGroups.forEach(group => {
-          // Keep the first one (original)
-          // Select all others for deletion
-          group.items.slice(1).forEach(item => initialSelection.add(item.id));
-      });
-      setSelectedToDelete(initialSelection);
+      setSelectedToDelete(new Set());
   }, [duplicateGroups]);
 
   const toggleSelection = (id: string) => {
@@ -84,9 +70,18 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
       setSelectedToDelete(newSet);
   };
 
-  const handleExecute = () => {
-      onDelete(Array.from(selectedToDelete));
-      onClose();
+  const [deleting,setDeleting] = useState(false);
+  const handleExecute = async () => {
+      if (!selectedToDelete.size || deleting) return;
+      setDeleting(true);
+      try {
+        const result = await onDelete(Array.from(selectedToDelete));
+        if (result !== false) onClose();
+      } catch (error) {
+        console.error('Не удалось удалить предполагаемые дубли', error);
+      } finally {
+        setDeleting(false);
+      }
   };
 
   const handleIgnoreGroup = (groupItems: Transaction[]) => {
@@ -208,13 +203,16 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         
         {duplicateGroups.length > 0 && (
             <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Это только возможные дубли. Ничего не выбрано заранее: отметьте операции после сверки.
+                </p>
                 <button 
                     onClick={handleExecute} 
-                    disabled={selectedToDelete.size === 0}
+                    disabled={selectedToDelete.size === 0 || deleting}
                     className="w-full py-4 bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                     <Trash2 size={16} />
-                    Удалить выбранные ({selectedToDelete.size})
+                    {deleting ? 'Удаление…' : `Удалить выбранные (${selectedToDelete.size})`}
                 </button>
             </div>
         )}

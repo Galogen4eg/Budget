@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency.ts';
@@ -34,4 +35,36 @@ test('concurrent payments in different months do not overwrite the other month',
 test('unchanged shared settings generate no writes', () => {
   const previous = {manualPaidExpenses:{'2026-11':['rent']},theme:'light'};
   assert.deepEqual(diffSettings(previous,{...previous}),{});
+});
+
+test('budget actions do not pass stale complete settings documents to updateSettings',()=>{
+  for(const path of ['App.tsx','components/TerraOverview.tsx']){
+    const code=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+    assert.doesNotMatch(code,/updateSettings\(\{\s*\.\.\.settings\s*,/g,path);
+  }
+});
+
+test('unrelated settings survive partial toggle from a stale second-device snapshot',()=>{
+  const latest={privacyMode:false,manualReservedAmount:7000,savingsRate:15};
+  const staleDevice={privacyMode:false,manualReservedAmount:1000,savingsRate:15};
+  const patch=diffSettings(latest,{privacyMode:!staleDevice.privacyMode});
+  assert.deepEqual({...latest,...patch},{privacyMode:true,manualReservedAmount:7000,savingsRate:15});
+});
+
+test('a payment change in November cannot overwrite another user October changes',()=>{
+ const snapshot={manualPaidExpenses:{'2026-10':['rent'], '2026-11':['internet']}};
+ const patch=diffSettings(snapshot,{manualPaidExpenses:{'2026-11':['internet','water']}});
+ assert.deepEqual(patch,{manualPaidExpenses:{'2026-11':['internet','water']}});
+ const committed={...snapshot,manualPaidExpenses:{...snapshot.manualPaidExpenses,...patch.manualPaidExpenses}};
+ assert.deepEqual(committed.manualPaidExpenses,{
+   '2026-10':['rent'],'2026-11':['internet','water']
+ });
+});
+
+test('payment handlers submit only month patches, not stale full month maps',()=>{
+ const files=['App.tsx','components/TerraOverview.tsx','components/MandatoryExpensesList.tsx'];
+ for(const path of files){
+   const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+   assert.doesNotMatch(source,/manualPaidExpenses:\s*\{\s*\.\.\.(settings\.manualPaidExpenses|currentManuals)/,path);
+ }
 });

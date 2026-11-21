@@ -48,9 +48,11 @@ import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
+import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
+import { learnedRuleChangesSavings } from './utils/importSafety';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
+  addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
   saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence 
 } from './utils/db';
 
@@ -332,7 +334,7 @@ export default function App() {
       familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
     );
 
-    if (goalAdjustment) setGoals(goalAdjustment.updatedGoals);
+    // Firestore goal snapshots now carry authoritative balances after an atomic write.
     if (editing) {
       setTransactions(prev => prev.map(t => t.id === editing.id ? transaction : t));
       setSelectedTx(null);
@@ -343,75 +345,41 @@ export default function App() {
 
   const handleLearnRule = async (rule: LearnedRule) => {
     try {
-      // Optimistic update for UI
-      setLearnedRules(prev => [...prev, rule]);
-      
-      // Save to Firestore if online
-      if (familyId) {
-        try {
-          await addItem(familyId, 'rules', rule);
-        } catch (e) {
-          console.warn("Could not save rule to Firestore:", e);
+      if (!familyId) throw new Error('Семья ещё не готова');
+      if (!rule.keyword?.trim()) throw new Error('Нельзя сохранить пустое правило');
+      // Do not report a learned rule as saved when Firestore rejected it.
+      await addItem(familyId, 'rules', rule);
+      setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
+
+      const keyword = rule.keyword.trim().toLowerCase();
+      let needsIndividualReview = 0;
+      const changed: Transaction[] = [];
+      for (const original of transactions) {
+        const raw = (original.rawNote || original.note || '').toLowerCase();
+        if (!raw.includes(keyword) || !isCategoryForType(rule.categoryId, categories, original.type)) continue;
+        const updated = {...original,category:rule.categoryId,note:rule.cleanName || original.note};
+        if (updated.category === original.category && updated.note === original.note) continue;
+        // Reclassification must never secretly create, move or reverse a savings
+        // transfer. Individual editing uses Firestore transaction+goal handling.
+        if (isSavingsTransfer(original) || isSavingsTransfer(updated) ||
+            learnedRuleChangesSavings(original, updated)) {
+          needsIndividualReview++;
+          continue;
         }
+        changed.push(updated);
       }
-
-      // Automatically apply the new rule to existing transactions
-      const keyword = rule.keyword.toLowerCase();
-      let count = 0;
-      let totalSavingsDelta = 0;
-      
-      const updatedTransactions = transactions.map(tx => {
-        // Skip if already in the target category (unless we want to enforce renaming)
-        if (tx.category === rule.categoryId && (!rule.cleanName || tx.note === rule.cleanName)) {
-          return tx;
-        }
-
-        const raw = (tx.rawNote || tx.note || '').toLowerCase();
-        
-        if (raw.includes(keyword) && isCategoryForType(rule.categoryId, categories, tx.type)) {
-          count++;
-          if (rule.categoryId === 'savings' || isSavingsTransfer({ category: rule.categoryId, note: rule.cleanName, rawNote: raw })) {
-            totalSavingsDelta += tx.amount;
-          }
-          return { 
-            ...tx, 
-            category: rule.categoryId,
-            note: rule.cleanName || tx.note // Update clean name if available
-          };
-        }
-        return tx;
-      });
-
-      if (totalSavingsDelta > 0) {
-        const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalSavingsDelta, true);
-        setGoals(updatedGoals);
-        if (familyId) {
-          if (goals.some(g => g.id === affectedGoal.id)) {
-            await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-          } else {
-            await addItem(familyId, 'goals', affectedGoal);
-          }
-        }
+      if (changed.length) {
+        await updateItemsBatch(familyId, 'transactions', changed);
+        const ids = new Map(changed.map(tx=>[tx.id,tx]));
+        setTransactions(prev=>prev.map(tx=>ids.get(tx.id)||tx));
       }
-
-      if (count > 0) {
-        setTransactions(updatedTransactions);
-        if (familyId) {
-          try {
-            const changed = updatedTransactions.filter((tx, i) => tx !== transactions[i]);
-            if (changed.length > 0) {
-              await updateItemsBatch(familyId, 'transactions', changed);
-            }
-          } catch (e) {
-            console.warn("Could not sync updated transactions:", e);
-          }
-        }
-        toast.success(`Правило сохранено. Обновлено операций: ${count}${totalSavingsDelta > 0 ? ` (в копилку: +${totalSavingsDelta.toLocaleString('ru-RU')} ₽)` : ''}`);
-      } else {
-        toast.success("Правило сохранено");
-      }
-    } catch (err) {
-      console.error("Error in handleLearnRule:", err);
+      if (needsIndividualReview) toast.warning(
+        `Правило сохранено. ${needsIndividualReview} переводов в накопления оставлены для отдельного редактирования.`
+      );
+      toast.success(`Правило сохранено. Обновлено обычных операций: ${changed.length}`);
+    } catch (error) {
+      console.error('Failed to learn bank category rule',error);
+      toast.error('Правило не сохранено полностью. Проверьте соединение и повторите.');
     }
   };
 
@@ -428,11 +396,7 @@ export default function App() {
       : [...monthIds, expenseId];
 
     updateSettings({
-      ...settings,
-      manualPaidExpenses: {
-        ...currentManuals,
-        [currentMonthKey]: newMonthIds
-      }
+      manualPaidExpenses: { [currentMonthKey]: newMonthIds }
     });
   };
 
@@ -588,7 +552,6 @@ export default function App() {
             } catch {}
 
             await updateSettings({
-              ...settings,
               telegramState: newState
             });
           }
@@ -723,16 +686,29 @@ export default function App() {
 
       const ids = toDelete.map(t => t.id);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
+      // Deleting a savings transfer without adjusting its goal would corrupt balances.
+      try { assertBulkDeleteSafe(transactions,ids); }
+      catch(error){toast.error((error as Error).message);return;}
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);
   };
 
-  const handleBatchDelete = async (ids: string[]) => {
-      if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
-      await deleteItemsBatch(familyId, 'transactions', ids);
-      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
-      toast.success(`Удалено ${ids.length} записей`);
+  const handleBatchDelete = async (ids: string[]): Promise<boolean> => {
+      if (!familyId) {
+        toast.error('Семья ещё не подключена');
+        return false;
+      }
+      try {
+        assertBulkDeleteSafe(transactions,ids);
+        await deleteItemsBatch(familyId, 'transactions', ids);
+        setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+        toast.success(`Удалено ${ids.length} записей`);
+        return true;
+      } catch(error) {
+        toast.error(error instanceof Error ? error.message : 'Удаление не выполнено');
+        return false;
+      }
   };
 
   const handleGoalSave = async (goal: any) => {
@@ -769,7 +745,7 @@ export default function App() {
   const renderWidget = (id: string) => {
       switch (id) {
           case 'balance':
-              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ ...settings, privacyMode: !settings.privacyMode })} className="shrink-0" />;
+              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
           case 'month_chart':
               return (
                   <div className="flex-1 h-[280px] lg:h-auto min-h-[250px]">
@@ -1177,7 +1153,7 @@ export default function App() {
                   }
                   if (!familyId) throw new Error('Family is not ready: transaction was not deleted');
                   await deleteTransactionWithGoal(familyId, id, updatedSavings?.affectedGoal);
-                  if (updatedSavings) setGoals(updatedSavings.updatedGoals);
+                  // Firestore snapshots reconcile goals after the delete.
                   setTransactions(prev => prev.filter(t => t.id !== id));
                   setIsAddModalOpen(false);
                   setSelectedTx(null);
@@ -1286,33 +1262,47 @@ export default function App() {
                     )) {
                       throw new Error('В выписке остались операции без надёжной категории. Импорт отложен для ручной проверки, XLSX сохранён.');
                     }
-                    // No success toast or local mutation before a durable Firestore write.
-                    const created = familyId
-                      ? prepared.every(t => /^alfa_[a-f0-9]{40}$/.test(t.id))
-                        ? await addAlfaItemsIdempotent(familyId, prepared)
-                        : await addItemsBatch(familyId, 'transactions', prepared)
-                      : prepared;
-
-                    const savingsTransfers = created.filter(t => isSavingsTransfer(t));
-                    let totalImportedSavings = 0;
-                    savingsTransfers.forEach(t => {
-                      totalImportedSavings += (t.type === 'expense' ? t.amount : -t.amount);
-                    });
-                    if (totalImportedSavings > 0) {
-                      const { updatedGoals, affectedGoal } = applySavingsTransferToGoals(goals, totalImportedSavings, true);
-                      if (familyId) {
-                        if (goals.some(g => g.id === affectedGoal.id)) {
-                          await updateItem(familyId, 'goals', affectedGoal.id, affectedGoal);
-                        } else {
-                          await addItem(familyId, 'goals', affectedGoal);
-                        }
-                      }
-                      setGoals(updatedGoals);
+                    // A bank transfer and its savings account must commit together.
+                    // Known Alfa IDs are idempotent on retry; no speculative local
+                    // goal balance updates and no extra post-import Firestore write.
+                    if (!familyId) throw new Error('Семья не подключена. Импорт не выполнен.');
+                    const normalRows = prepared.filter(t=>!isSavingsTransfer(t));
+                    const savingsRows = prepared.filter(t=>isSavingsTransfer(t));
+                    const created: Transaction[] = [];
+                    if(normalRows.length) {
+                      const ordinary = normalRows.every(t=>/^alfa_[a-f0-9]{40}$/.test(t.id))
+                        ? await addAlfaItemsIdempotent(familyId,normalRows)
+                        : await addItemsBatch(familyId,'transactions',normalRows);
+                      created.push(...ordinary);
                     }
+                    // The same goal ID is reused for all transfers when this
+                    // family has no existing savings goal yet.
+                    const defaultGoal = savingsRows.length
+                      ? (() => {
+                          const candidate = applySavingsTransferToGoals(goals,0,true).affectedGoal;
+                          // Stable ID for a new default goal: retries after partial
+                          // imports must never create another savings account.
+                          return goals.length ? candidate : {...candidate,id:'savings_import_default'};
+                        })()
+                      : undefined;
+                    for (const row of savingsRows) {
+                      const goal = row.linkedGoalId
+                        ? goals.find(g=>g.id===row.linkedGoalId) || (defaultGoal?.id===row.linkedGoalId?defaultGoal:undefined)
+                        : defaultGoal;
+                      if (!goal) throw new Error('Накопительная цель перевода не найдена. Исправьте её в предпросмотре.');
+                      const linkedRow={...row,linkedGoalId:goal.id};
+                      if(await addImportedSavingsItemIdempotent(familyId,linkedRow,goal))
+                        created.push(linkedRow);
+                    }
+                    const totalImportedSavings = created
+                      .filter(t=>isSavingsTransfer(t))
+                      .reduce((sum,t)=>sum+(t.type==='expense'?t.amount:-t.amount),0);
                     setImportPreview(null);
-                    setTransactions(prev => [...created.filter(t => !prev.some(ex => ex.id === t.id)), ...prev]);
+                    setTransactions(prev=>[...created.filter(t=>!prev.some(ex=>ex.id===t.id)),...prev]);
                     if (created.length === 0) toast.info('Все операции уже сохранены');
-                    else if (totalImportedSavings > 0) toast.success(`Импортировано ${created.length} операций (в копилку: +${totalImportedSavings.toLocaleString('ru-RU')} ₽)`);
+                    else if (totalImportedSavings !== 0) toast.success(
+                      `Импортировано ${created.length} операций, изменение накоплений: ${totalImportedSavings.toLocaleString('ru-RU')} ₽`
+                    );
                     else toast.success(`Импортировано ${created.length} операций`);
 
                     // Never acknowledge deletion until every operation in the
@@ -1379,7 +1369,7 @@ export default function App() {
                         } else {
                             updated = [...(settings.mandatoryExpenses || []), { ...e, id: e.id || Date.now().toString() }];
                         }
-                        await updateSettings({ ...settings, mandatoryExpenses: updated }); 
+                        await updateSettings({ mandatoryExpenses: updated }); 
                         setIsMandatoryModalOpen(false); 
                         setSelectedMandatoryExpense(null);
                     } catch (error: any) {
@@ -1392,7 +1382,7 @@ export default function App() {
                             if (selectedMandatoryExpense && ex === selectedMandatoryExpense) return false;
                             return ex.id !== id;
                         });
-                        await updateSettings({ ...settings, mandatoryExpenses: updated });
+                        await updateSettings({ mandatoryExpenses: updated });
                         setIsMandatoryModalOpen(false);
                         setSelectedMandatoryExpense(null);
                     } catch (error: any) {
@@ -1401,7 +1391,7 @@ export default function App() {
                 }}
             />}
             
-            {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ...settings, ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
+            {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
             {isAddEventModalOpen && (
                 <EventModal 

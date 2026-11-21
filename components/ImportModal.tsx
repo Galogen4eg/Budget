@@ -16,6 +16,7 @@ import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from 
 import { toast } from 'sonner';
 import { countCategoryUsage } from '../utils/categoryPopularity';
 import { isCategoryForType } from '../utils/categoryCatalog';
+import { splitImportReview } from '../utils/importSafety';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -474,13 +475,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     setIsBatchCategoryOpen(false);
   };
 
-  // Финальное подтверждение
-  const handleConfirm = () => {
-    // Автоматическое сохранение правил для элементов с чекбоксом запомнить
-    items.forEach(item => {
+  // Explicit partial manual import. Unrecognized rows remain in the source
+  // XLSX for later review; they are never silently categorized or discarded.
+  const handleConfirm = (onlyReady = false) => {
+    const selected = onlyReady ? splitImportReview(items, categories).ready : items;
+    if (!selected.length) {
+      toast.error('Нет распознанных операций для импорта');
+      return;
+    }
+    selected.forEach(item => {
       if (item.rememberRule && item.category && item.category !== 'other' &&
           categories.some(c => c.id === item.category) && item.rawNote) {
-        onLearnRule({
+        void onLearnRule({
           id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
           keyword: extractCleanRuleKeyword(item.rawNote, item.note),
           cleanName: item.note,
@@ -488,8 +494,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         });
       }
     });
-
-    const cleanItems = items.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
+    const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
     onConfirm(cleanItems);
   };
 
@@ -502,9 +507,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     return items.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   }, [items]);
 
-  const unassignedCount = useMemo(() => {
-    return items.filter(t => t.category === 'other' || !t.category || !categories.some(c => c.id === t.category)).length;
-  }, [items, categories]);
+  const unassignedCount = useMemo(() =>
+    splitImportReview(items, categories).needsReview.length,
+    [items, categories]
+  );
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
@@ -1029,10 +1035,27 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               Отмена
             </button>
 
+            {unassignedCount > 0 && items.length > unassignedCount && (
+              <button
+                type="button"
+                onClick={() => handleConfirm(true)}
+                className="py-2.5 px-4 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-xs min-h-[44px]"
+                title="Нераспознанные операции не импортируются. Их можно разобрать при повторной загрузке той же выписки."
+              >
+                Импортировать распознанные ({items.length - unassignedCount})
+              </button>
+            )}
+            {unassignedCount > 0 && (
+              <p className="text-xs text-amber-800 dark:text-amber-300 w-full sm:basis-full" role="status">
+                Нераспознанные операции можно оставить в XLSX и импортировать после назначения категорий.
+                Сохраните исходную выписку для повторной загрузки.
+              </p>
+            )}
+
             {/* Кнопка "Подтвердить импорт" */}
             <button 
               type="button"
-              onClick={handleConfirm}
+              onClick={() => handleConfirm()}
               disabled={items.length === 0}
               className="py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
             >

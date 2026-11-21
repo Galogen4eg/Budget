@@ -1,5 +1,5 @@
 /** Pure helpers: avoid overwriting another family member's unrelated settings. */
-export function diffSettings<T extends Record<string, unknown>>(
+export function diffSettings<T extends object>(
   previous: T,
   next: Partial<T>
 ): Partial<T> {

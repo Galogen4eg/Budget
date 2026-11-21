@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
+import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
 import { prepareFamilyMemberInvitation } from './familyInvitation';
@@ -391,44 +392,76 @@ export const cleanForFirestore = <T = any>(obj: T): T => {
 };
 
 /**
- * Persist a transaction and its savings-goal adjustment in one Firestore batch.
- * Both documents commit together; the caller updates local UI only on success.
+ * Saving a transaction and its savings-account contribution must use the latest
+ * Firestore documents. runTransaction retries if another family member edits
+ * the same transaction or savings goal concurrently.
  */
 export const saveTransactionWithGoal = async (
-  familyId: string,
-  transaction: Transaction,
-  isEdit: boolean,
-  goal?: SavingsGoal
+  familyId: string, transaction: Transaction, isEdit: boolean, goal?: SavingsGoal
 ) => {
   if (!familyId) throw new Error('No family ID');
-  const batch = writeBatch(db);
-  const txRef = doc(db, 'families', familyId, 'transactions', transaction.id);
-  if (isEdit) {
-    const { id: _id, ...updates } = transaction;
-    batch.update(txRef, cleanForFirestore(updates));
-  } else {
-    batch.set(txRef, cleanForFirestore(transaction));
-  }
-  if (goal) {
-    const goalRef = doc(db, 'families', familyId, 'goals', goal.id);
-    batch.set(goalRef, cleanForFirestore(goal), { merge: true });
-  }
-  await batch.commit();
+  const txRef=doc(db,'families',familyId,'transactions',transaction.id);
+  await runTransaction(db,async tx=>{
+    const saved=await tx.get(txRef);
+    if(isEdit && !saved.exists())throw new Error('Операция была удалена другим пользователем');
+    if(!isEdit && saved.exists())throw new Error('Операция уже существует');
+    const previous=saved.exists()?saved.data() as Transaction:null;
+    const before=savingsContributionKopecks(previous);
+    const after=savingsContributionKopecks(transaction);
+    const previousGoalId=previous?.linkedGoalId || (before!==0?goal?.id:undefined);
+    const nextGoalId=transaction.linkedGoalId || (after!==0?goal?.id:undefined);
+    if(before!==0&&!previousGoalId)throw new Error('Не удалось определить накопительную цель предыдущей операции');
+    if(after!==0&&!nextGoalId)throw new Error('Для перевода в накопления необходимо выбрать цель');
+    const adjustments=new Map<string,number>();
+    if(previousGoalId&&before)adjustments.set(previousGoalId,-before);
+    if(nextGoalId&&after)adjustments.set(nextGoalId,(adjustments.get(nextGoalId)||0)+after);
+    const goalSnapshots=await Promise.all([...adjustments.keys()].map(async goalId=>{
+      const ref=doc(db,'families',familyId,'goals',goalId);
+      return {goalId,ref,snapshot:await tx.get(ref)};
+    }));
+    for(const {goalId,ref,snapshot} of goalSnapshots){
+      const delta=adjustments.get(goalId)!;
+      if(delta===0)continue;
+      if(!snapshot.exists()){
+        if(!goal||goal.id!==goalId||delta<0)throw new Error('Накопительная цель удалена другим пользователем');
+        tx.set(ref,cleanForFirestore({...goal,currentAmount:nextSavingsGoalAmount(0,0,delta)}));
+      }else{
+        const current=snapshot.data() as SavingsGoal;
+        tx.update(ref,{currentAmount:nextSavingsGoalAmount(current.currentAmount,0,delta)});
+      }
+    }
+    if(isEdit){
+      const {id:_id,...updates}=transaction;
+      tx.update(txRef,cleanForFirestore(updates));
+    }else tx.set(txRef,cleanForFirestore(transaction));
+  });
 };
 
-/** Delete a transaction and reverse its savings adjustment in one batch. */
+/**
+ * Remove a transaction and reverse its saved contribution atomically,
+ * preventing another family member's recent savings deposit from being lost.
+ */
 export const deleteTransactionWithGoal = async (
-  familyId: string,
-  transactionId: string,
-  goal?: SavingsGoal
+  familyId: string,transactionId: string,goal?: SavingsGoal
 ) => {
-  if (!familyId) throw new Error('No family ID');
-  const batch = writeBatch(db);
-  batch.delete(doc(db, 'families', familyId, 'transactions', transactionId));
-  if (goal) {
-    batch.set(doc(db, 'families', familyId, 'goals', goal.id), cleanForFirestore(goal), { merge: true });
-  }
-  await batch.commit();
+  if(!familyId)throw new Error('No family ID');
+  const txRef=doc(db,'families',familyId,'transactions',transactionId);
+  await runTransaction(db,async tx=>{
+    const saved=await tx.get(txRef);
+    if(!saved.exists())throw new Error('Операция уже удалена');
+    const previous=saved.data() as Transaction;
+    const before=savingsContributionKopecks(previous);
+    const goalId=previous.linkedGoalId||goal?.id;
+    if(before!==0&&!goalId)throw new Error('Нельзя удалить перевод без привязанной накопительной цели');
+    const goalRef=before&&goalId?doc(db,'families',familyId,'goals',goalId):null;
+    const goalSnap=goalRef?await tx.get(goalRef):null;
+    if(before!==0){
+      if(!goalSnap?.exists()||!goalRef)throw new Error('Накопительная цель не найдена: удаление отменено');
+      const serverGoal=goalSnap.data() as SavingsGoal;
+      tx.update(goalRef,{currentAmount:nextSavingsGoalAmount(serverGoal.currentAmount,before,0)});
+    }
+    tx.delete(txRef);
+  });
 };
 
 /**

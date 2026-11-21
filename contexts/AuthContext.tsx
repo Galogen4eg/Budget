@@ -12,6 +12,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import { disableCalendarPush } from '../utils/calendarPush';
 import { getOrInitUserFamily, getPendingFamilyInvitation, joinFamily } from '../utils/db';
 import { toast } from 'sonner';
 
@@ -261,6 +262,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+      if(user?.uid) {
+        try { await disableCalendarPush(user.uid); }
+        catch(error) {
+          console.warn('Unable to unregister push before sign out',error);
+          toast.error('Не удалось отписать устройство от push. Проверьте соединение при следующем входе.');
+        }
+      }
       await signOut(auth);
       setUser(null);
       setFamilyId(null);

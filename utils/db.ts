@@ -611,6 +611,42 @@ export const addAlfaItemsIdempotent = async (familyId: string, items: Transactio
   return created;
 };
 
+/**
+ * Import one savings transaction and apply its effect to the latest savings
+ * account in the SAME Firestore transaction. Import retries are idempotent.
+ * The caller must explicitly resolve/choose a goal, never infer a goal from
+ * a stale local balance at commit time.
+ */
+export const addImportedSavingsItemIdempotent = async (
+  familyId: string, item: Transaction, goal: SavingsGoal
+): Promise<boolean> => {
+  if(!familyId || !item.id || !goal?.id)throw new Error('Не указана семья, операция или накопительная цель');
+  if(item.linkedGoalId && item.linkedGoalId!==goal.id)throw new Error('Накопительная цель операции не совпадает с выбранной');
+  const txRef=doc(db,'families',familyId,'transactions',item.id);
+  const goalRef=doc(db,'families',familyId,'goals',goal.id);
+  return runTransaction(db,async transaction=>{
+    const [existing,savedGoal]=await Promise.all([transaction.get(txRef),transaction.get(goalRef)]);
+    if(existing.exists())return false;
+    const completeItem={...item,linkedGoalId:goal.id};
+    const contribution=savingsContributionKopecks(completeItem);
+    if(!contribution)throw new Error('Операция не является переводом в накопления');
+    if(!savedGoal.exists() && contribution<0)
+      throw new Error('Нельзя списать накопления: цель ещё не создана');
+    if(savedGoal.exists()){
+      const current=savedGoal.data() as SavingsGoal;
+      transaction.update(goalRef,{
+        currentAmount:nextSavingsGoalAmount(current.currentAmount,0,contribution)
+      });
+    }else{
+      transaction.set(goalRef,cleanForFirestore({
+        ...goal,currentAmount:nextSavingsGoalAmount(0,0,contribution)
+      }));
+    }
+    transaction.set(txRef,cleanForFirestore(completeItem));
+    return true;
+  });
+};
+
 /** Verify an all-duplicate statement against the server before acknowledging cleanup. */
 export const areAlfaItemsSavedOnServer = async (familyId: string, ids: string[]): Promise<boolean> => {
   if (!familyId || ids.length === 0) return false;

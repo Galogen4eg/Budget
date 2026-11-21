@@ -42,7 +42,7 @@ export default async function handler(req,res){
     const subscribedUids=await redis.smembers(SUBSCRIBERS);
     let scheduled=0;
     for(const uid of subscribedUids){
-      const person=uid===identity.uid?subscription:await redis.get(userKey(uid));
+      const person=subscription&&uid===identity.uid?subscription:await redis.get(userKey(uid));
       if(person?.familyId!==raw.familyId)continue;
       const outcome=await syncOneUser(uid,person.timeZone,snapshot);
       scheduled+=outcome.count;

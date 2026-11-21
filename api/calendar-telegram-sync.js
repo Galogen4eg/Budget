@@ -1,6 +1,7 @@
 import {redis} from '../lib/redis.js';
 import {verifyFirebaseToken,verifyFamilyMembership,validateCalendarSnapshot,encryptSecret,
   SUBSCRIBERS,userKey,familyKey} from '../lib/calendarTelegramBackend.js';
+import {syncOneUser,disableOneUser} from '../lib/calendarScheduleManager.js';
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -15,6 +16,7 @@ export default async function handler(req,res){
       return res.status(200).json({enabled:!!subscription,chatId:subscription?.chatId||null});
     }
     if(req.method==='DELETE'){
+      await disableOneUser(identity.uid);
       await redis.del(key);
       await redis.srem(SUBSCRIBERS,identity.uid);
       return res.status(200).json({enabled:false});
@@ -29,12 +31,12 @@ export default async function handler(req,res){
       events:snapshot.events,members:snapshot.members,payments:snapshot.payments,
       paid:snapshot.paid,updatedAt:Date.now()
     });
-    await redis.set(key,{
-      familyId:raw.familyId,uid:identity.uid,chatId,timeZone:raw.timeZone,
-      encryptedToken:encryptSecret(token),updatedAt:Date.now()
-    });
+    const subscription={familyId:raw.familyId,uid:identity.uid,chatId,timeZone:raw.timeZone,
+      encryptedToken:encryptSecret(token),updatedAt:Date.now()};
+    const result=await syncOneUser(identity.uid,raw.timeZone,snapshot);
+    await redis.set(key,subscription);
     await redis.sadd(SUBSCRIBERS,identity.uid);
-    return res.status(200).json({enabled:true});
+    return res.status(200).json({enabled:true,scheduled:result.count});
   }catch(error){
     console.warn('Calendar Telegram registration failed:',error.message);
     return res.status(401).json({error:'Не удалось подтвердить аккаунт или сохранить расписание'});

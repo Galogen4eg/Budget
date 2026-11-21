@@ -15,7 +15,7 @@ import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
 import { useData } from '../contexts/DataContext';
-import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates } from '../utils/budgetFinancialMath';
+import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -112,7 +112,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const today = new Date();
   const isCurrentMonthView = today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
   const currentDayNum = isCurrentMonthView ? today.getDate() : 1;
-  const remainingDays = Math.max(1, totalDaysInMonth - currentDayNum + 1);
+  const configuredSalaryDays = settings.salaryDates?.length
+    ? settings.salaryDates : [settings.startOfMonthDay || 1];
+  const remainingDays = isCurrentMonthView
+    ? daysUntilNextSalary(today, configuredSalaryDays) : 0;
 
   const monthlyPaymentStates = useMemo(() => mandatoryPaymentStates(
     mandatoryExpenses.filter(bill => selectedMember === 'all' || !bill.memberId || bill.memberId === selectedMember),
@@ -457,7 +460,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Доступно до конца периода ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
+                  Доступно до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs ${

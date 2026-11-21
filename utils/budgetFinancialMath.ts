@@ -115,7 +115,7 @@ export function ledgerBalance(
 ): number {
   const since=initialBalanceDate?.slice(0,10);
   const rows=transactions.filter(tx=>
-    /^\\d{4}-\\d{2}-\\d{2}/.test(tx.date)
+    /^\d{4}-\d{2}-\d{2}/.test(tx.date)
     && (!since || tx.date.slice(0,10)>=since)
   );
   return money(cents(initialBalance)+cents(monthlyMoneyTotals(rows).net));

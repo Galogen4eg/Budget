@@ -13,8 +13,6 @@ import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarRemind
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { enableCalendarPush, disableCalendarPush, isCalendarPushRegisteredLocally } from '../utils/calendarPush';
-import { messaging } from '../firebase';
-import { onMessage } from 'firebase/messaging';
 import FamilyPlansMobile from './FamilyPlansMobile';
 import FamilyPlansDesktop from './FamilyPlansDesktop';
 import { filterEventsForCalendarMonth, parseLocalCalendarDate } from '../utils/calendarDates';
@@ -176,14 +174,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   useEffect(()=>{
-    if(!messaging||!remindersEnabled)return;
-    // Background data messages are handled by the service worker; while the
-    // page is open the existing foreground scheduler owns notification display.
-    return onMessage(messaging,()=>{});
-  },[remindersEnabled]);
-
-  useEffect(()=>{
-    if(!remindersEnabled||!familyId||!user)return;
+    if(!remindersEnabled||pushEnabled||!familyId||!user)return;
     const tick=()=>{
       const now=new Date(),today=formatLocalCalendarDate(now);
       const end=new Date(now);end.setDate(end.getDate()+40);
@@ -219,7 +210,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     const onFocus=()=>tick();
     window.addEventListener('focus',onFocus);
     return ()=>{window.clearInterval(interval);window.removeEventListener('focus',onFocus);};
-  },[events,remindersEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+  },[events,remindersEnabled,pushEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses,settings.manualPaidExpenses]);
 
   // --- Calendar Data ---
   const calendarData = useMemo(() => {

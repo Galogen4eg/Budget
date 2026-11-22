@@ -64,6 +64,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
   // Similar payments are review candidates, never pre-approved for deletion.
   React.useEffect(() => {
       setSelectedToDelete(new Set());
+      setIsConfirmingDelete(false);
   }, [duplicateGroups]);
 
   const toggleSelection = (id: string) => {
@@ -76,7 +77,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
 
   const [deleting,setDeleting] = useState(false);
   const handleExecute = async () => {
-      if (!selectedToDelete.size || deleting) return;
+      if (!selectedToDelete.size || deleting || isIgnoring) return;
       if (!isConfirmingDelete) { setIsConfirmingDelete(true); return; }
       setDeleting(true);
       try {
@@ -119,7 +120,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
-        onClick={onClose} 
+        onClick={() => { if (!deleting && !isIgnoring) onClose(); }}
         className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" 
       />
       
@@ -133,18 +134,18 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         className="relative bg-[#FAF6F0] dark:bg-[#121214] w-full max-w-xl md:rounded-[24px] rounded-t-[24px] shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="bg-white dark:bg-[#1C1C1E] px-4 sm:px-6 py-4 flex justify-between items-center gap-3 border-b border-gray-100 dark:border-white/5">
-          <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-full text-orange-500">
+          <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 shrink-0 bg-orange-50 dark:bg-orange-900/30 rounded-full text-orange-500">
                   <Copy size={20} />
               </div>
-              <div>
+              <div className="min-w-0">
                   <h3 id="duplicate-review-heading" className="text-xl font-bold font-headline text-[#1C1C1E] dark:text-white">Проверка возможных дублей</h3>
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                       Найдено групп: {duplicateGroups.length}
                   </p>
               </div>
           </div>
-          <button type="button" aria-label="Закрыть проверку дублей" onClick={onClose} className="w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 transition-colors"><X size={20}/></button>
+          <button type="button" aria-label="Закрыть проверку дублей" disabled={deleting || isIgnoring} onClick={onClose} className="w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 transition-colors"><X size={20}/></button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4 overscroll-contain">
@@ -159,7 +160,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                         <div className="bg-gray-50 dark:bg-[#2C2C2E] p-3 sm:p-4 flex flex-wrap justify-between items-center gap-2 border-b border-gray-100 dark:border-white/5">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-gray-400 uppercase bg-white dark:bg-black/20 px-2 py-1 rounded-lg">Группа {idx + 1}</span>
-                                <span className="text-sm font-black text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString()} ₽</span>
+                                <span className="text-sm font-black text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString('ru-RU')} ₽</span>
                             </div>
                             <button type="button"
                                 disabled={isIgnoring || !onIgnore}
@@ -171,10 +172,10 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                         </div>
                         
                         <div className="p-2 space-y-2">
-                            {/* Original Item (First one) */}
+                            {/* First comparison item is retained, but is not a verified original */}
                             <div className="relative p-3 rounded-2xl border-2 border-green-500/20 bg-green-50/10">
                                 <div className="text-xs font-medium text-[#2D5A43] dark:text-emerald-300 mb-1">Запись для сравнения · останется без изменений</div>
-                                <div className="text-sm font-semibold text-[#1C1C1E] dark:text-white mb-1 break-words">{group.items[0].note}</div>
+                                <div className="text-sm font-semibold text-[#1C1C1E] dark:text-white mb-1 break-words">{group.items[0].note || 'Без описания'}</div>
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                                     <span>{new Date(group.items[0].date).toLocaleTimeString()}</span>
                                     <span>{new Date(group.items[0].date).toLocaleDateString()}</span>
@@ -205,7 +206,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                                                 {isSelected && <Trash2 size={10} />}
                                             </div>
                                         </div>
-                                        <div className="flex gap-3 text-[10px] text-gray-400 font-mono">
+                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                                             <span className={item.date !== group.items[0].date ? 'text-orange-500 font-bold' : ''}>
                                                 {new Date(item.date).toLocaleTimeString()}
                                             </span>
@@ -227,12 +228,20 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         
         {duplicateGroups.length > 0 && (
             <div className="p-3 sm:p-5 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Это только возможные дубли. Ничего не выбрано заранее: отметьте операции после сверки.
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-3" role="status">
+                    {isConfirmingDelete
+                      ? `Будут окончательно удалены ${selectedToDelete.size} выбранных записей из общего бюджета. Это действие нельзя отменить.`
+                      : 'Это только возможные дубли. Ничего не выбрано заранее: отметьте операции после сверки.'}
                 </p>
+                {isConfirmingDelete && (
+                  <button type="button" onClick={() => setIsConfirmingDelete(false)}
+                    className="mb-2 min-h-[44px] w-full rounded-xl border border-stone-300 dark:border-white/20 font-semibold text-sm text-stone-700 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                    Отмена удаления
+                  </button>
+                )}
                 <button type="button"
                     onClick={() => void handleExecute()} 
-                    disabled={selectedToDelete.size === 0 || deleting}
+                    disabled={selectedToDelete.size === 0 || deleting || isIgnoring}
                     className="w-full min-h-[48px] py-3 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     <Trash2 size={16} />

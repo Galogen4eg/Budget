@@ -150,7 +150,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [is2FAEnabled, setIs2FAEnabled] = useState(true);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -721,40 +720,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </section>
 
-            {/* CARD 3: Двухфакторная аутентификация */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <ShieldCheck size={22} />
-                  </div>
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="font-headline text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                        Двухфакторная аутентификация (2FA)
-                      </h3>
-                      <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                        Рекомендовано
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-xl">
-                      Дополнительное подтверждение через Telegram при входе с нового устройства. Код одноразового доступа приходит в официальный бот Terra Guard.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1 text-xs text-gray-500 dark:text-gray-400">
-                      <Send size={14} className="text-[#2D5A43] dark:text-emerald-400 shrink-0" />
-                      <span className="truncate">Привязанный Telegram: <strong className="text-gray-800 dark:text-gray-200 font-semibold">@alex_terra_user</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2 sm:pt-0 shrink-0">
-                  <ToggleSwitch 
-                    checked={is2FAEnabled} 
-                    onChange={() => {
-                      setIs2FAEnabled(!is2FAEnabled);
-                      toast.success(!is2FAEnabled ? '2FA успешно активирована' : '2FA деактивирована');
-                    }} 
-                  />
+            {/* No security control is exposed until a real server-side MFA enrollment flow exists. */}
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-4 sm:p-6">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#4A7C59]" aria-hidden="true" />
+                <div className="min-w-0 space-y-1">
+                  <h3 className="font-headline text-base font-bold text-gray-900 dark:text-white">
+                    Дополнительная защита входа
+                  </h3>
+                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                    Двухфакторная аутентификация в Budget пока не настроена.
+                    Подтверждение через Telegram для входа не подключено.
+                    Используйте надёжный пароль и не передавайте данные входа.
+                  </p>
                 </div>
               </div>
             </section>
@@ -762,7 +740,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* BOTTOM ACTIONS */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 pb-4">
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                Все действия в журнале аудита шифруются локальным ключом семьи.
+                Настройки семьи синхронизируются между участниками после сохранения.
               </div>
               <button
                 type="button"

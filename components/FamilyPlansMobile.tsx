@@ -20,6 +20,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
+import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
@@ -98,8 +99,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   };
 
   const changeMonth = (increment: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + increment);
+    const newDate = shiftCalendarMonth(currentDate, increment);
     setCurrentDate(newDate);
   };
 

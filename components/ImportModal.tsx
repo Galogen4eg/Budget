@@ -83,6 +83,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   members 
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  const pendingRulesRef = useRef<LearnedRule[]>([]);
   // Snapshot of saved family history, not the changing preview, keeps ranking stable.
   const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
   // Локальный список операций с уникальными стабильными ключами
@@ -463,25 +465,40 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Explicit partial manual import. Unrecognized rows remain in the source
   // XLSX for later review; they are never silently categorized or discarded.
-  const handleConfirm = (onlyReady = false) => {
+  const handleConfirm = async (onlyReady = false) => {
+    if (isConfirmingImport) return;
     const selected = onlyReady ? splitImportReview(items, categories).ready : items;
     if (!selected.length) {
       toast.error('Нет распознанных операций для импорта');
       return;
     }
-    selected.forEach(item => {
-      if (item.rememberRule && item.category && item.category !== 'other' &&
-          categories.some(c => c.id === item.category) && item.rawNote) {
-        void onLearnRule({
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-          keyword: extractCleanRuleKeyword(item.rawNote, item.note),
-          cleanName: item.note,
-          categoryId: item.category
-        });
-      }
-    });
     const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
-    onConfirm(cleanItems);
+    setIsConfirmingImport(true);
+    try {
+      const committed = await onConfirm(cleanItems);
+      if (!committed) return;
+      const rules = [...pendingRulesRef.current];
+      selected.forEach(item => {
+        if (item.rememberRule && item.category && item.category !== 'other' &&
+            categories.some(c => c.id === item.category) && item.rawNote) {
+          const keyword = extractCleanRuleKeyword(item.rawNote, item.note);
+          if (keyword.length >= 3) rules.push({
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 5),
+            keyword, cleanName: item.note, categoryId: item.category
+          });
+        }
+      });
+      const unique = new Set<string>();
+      rules.forEach(rule => {
+        const key = `${rule.keyword.trim().toLowerCase()}|${rule.categoryId}`;
+        if (!unique.has(key)) { unique.add(key); onLearnRule(rule); }
+      });
+      pendingRulesRef.current = [];
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Не удалось выполнить импорт');
+    } finally {
+      setIsConfirmingImport(false);
+    }
   };
 
   // Подсчет сумм
@@ -500,7 +517,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
-    if (items.length === 0) return 'за период 01.08.2026 – 21.08.2026';
+    if (items.length === 0) return 'нет операций';
     const timestamps = items.map(t => new Date(t.date).getTime()).filter(n => !isNaN(n));
     if (timestamps.length === 0) return 'за период текущего месяца';
     const minDate = new Date(Math.min(...timestamps));
@@ -978,7 +995,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {unassignedCount > 0 && items.length > unassignedCount && (
               <button
                 type="button"
-                onClick={() => handleConfirm(true)}
+                onClick={() => void handleConfirm(true)}
+                disabled={isConfirmingImport}
                 className="py-2.5 px-4 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-xs min-h-[44px]"
                 title="Нераспознанные операции не импортируются. Их можно разобрать при повторной загрузке той же выписки."
               >
@@ -995,9 +1013,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {/* Кнопка "Подтвердить импорт" */}
             <button 
               type="button"
-              onClick={() => handleConfirm()}
-              disabled={items.length === 0}
-              className="py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
+              onClick={() => void handleConfirm()}
+              disabled={isConfirmingImport || items.length === 0}
+              className="min-h-[44px] py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
             >
               <Check size={16} strokeWidth={3} />
               <span>Подтвердить импорт ({items.length})</span>
@@ -1044,7 +1062,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           onDelete={async () => {
             handleDeleteFromEditModal();
           }}
-          onLearnRule={onLearnRule}
+          onLearnRule={rule => { pendingRulesRef.current.push(rule); }}
           settings={settings}
           members={members}
           categories={categories}
@@ -1115,7 +1133,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           results.forEach(({ itemId, categoryId, ruleToLearn }) => {
             if (ruleToLearn && ruleToLearn.keyword) {
               try {
-                onLearnRule(ruleToLearn);
+                pendingRulesRef.current.push(ruleToLearn);
                 learnedBatchRules.push(ruleToLearn);
               } catch (e) {
                 console.warn("Failed to learn batch rule:", e);

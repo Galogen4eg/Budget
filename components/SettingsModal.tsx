@@ -898,11 +898,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Telegram Bot Settings */}
             <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Send size={20} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-base font-bold text-gray-900 dark:text-white">Telegram</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Бот, семейный чат и уведомления</p>
                   </div>
@@ -971,21 +971,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Live Telegram Bot Listener Panel */}
               <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
+                <div className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center animate-pulse shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <Play size={16} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">Двусторонний бот-слушатель (Long Polling)</h4>
-                      <p className="text-[10px] text-blue-700 dark:text-blue-400">Позволяет добавлять траты и продукты через сообщения боту</p>
+                      <h4 className="text-sm font-bold text-blue-900 dark:text-blue-200">Приём сообщений от бота</h4>
+                      <p className="text-xs leading-relaxed text-blue-700 dark:text-blue-400">Работает только пока приложение открыто и слушатель запущен</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleToggleBot}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-3xs cursor-pointer ${
+                    aria-pressed={isBotActive}
+                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${
                       isBotActive 
                         ? 'bg-red-500 hover:bg-red-600 text-white' 
                         : 'bg-[#2D5A43] hover:bg-[#204332] text-white'
@@ -1028,17 +1029,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Gemini API Key */}
             <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <Sparkles size={20} />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Персональный ключ для голосового чата и распознавания чеков</p>
                   </div>
                 </div>
 
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2D5A43] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="min-h-[44px] text-xs font-bold text-[#2D5A43] dark:text-emerald-400 hover:underline inline-flex items-center gap-1 shrink-0">
                   Получить ключ <MoveUpRight size={12} />
                 </a>
               </div>
@@ -1047,6 +1048,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="relative">
                   <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
+                    aria-label="Ключ Google Gemini API"
+                    autoComplete="off"
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
                     onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value); }}
@@ -1069,7 +1072,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={handleTestKey}
                       disabled={aiTestStatus === 'loading'}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {aiTestStatus === 'loading' ? (
                         <Loader2 size={13} className="animate-spin text-purple-500" />

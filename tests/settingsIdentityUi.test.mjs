@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const settings=readFileSync(new URL('../components/SettingsModal.tsx',import.meta.url),'utf8');
 const members=readFileSync(new URL('../components/MembersSettingsSection.tsx',import.meta.url),'utf8');
+const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
 
 test('settings do not imply unimplemented Telegram 2FA enrollment',()=>{
  assert.doesNotMatch(settings,/setIs2FAEnabled|is2FAEnabled/);
@@ -17,4 +18,10 @@ test('family selector does not steal a profile or infer it from email',()=>{
  assert.match(members,/bindFamilyProfile\(members, currentUserId, targetMemberId\)/);
  assert.match(members,/disabled=\{Boolean\(m\.userId && m\.userId !== currentUserId\)\}/);
  assert.doesNotMatch(members,/const byEmail = members\.find/);
+});
+
+test('member profile success follows persisted Firestore write',()=>{
+ assert.match(members,/await onUpdateMembers\(updated\)/);
+ assert.match(app,/await updateItemsBatch\(familyId, 'members', m\)/);
+ assert.doesNotMatch(app,/Failed to sync members to cloud:[^\n]*\n\s*\}/);
 });

@@ -76,7 +76,7 @@ export function formatCurrencyRub(amount: number): string {
 
 export interface MembersSettingsSectionProps {
   readonly members: FamilyMember[];
-  readonly onUpdateMembers: (members: FamilyMember[]) => void;
+  readonly onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   readonly currentFamilyId: string | null;
   readonly transactions?: Transaction[];
 }
@@ -128,11 +128,15 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     currentUserId ? members.find(m => m.userId === currentUserId) || null : null
   ), [members, currentUserId]);
 
-  const handleBindProfile = useCallback((targetMemberId: string) => {
+  const [isBindingProfile, setIsBindingProfile] = useState(false);
+
+  const handleBindProfile = useCallback(async (targetMemberId: string) => {
+    if (isBindingProfile) return;
     try {
       const updated = bindFamilyProfile(members, currentUserId, targetMemberId);
+      setIsBindingProfile(true);
+      await onUpdateMembers(updated);
       triggerHaptic();
-      onUpdateMembers(updated);
       if (targetMemberId === GUEST_MODE_ID) {
         toast.success('Сессия переключена в гостевой режим');
       } else {
@@ -141,8 +145,10 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось привязать профиль');
+    } finally {
+      setIsBindingProfile(false);
     }
-  }, [members, currentUserId, onUpdateMembers]);
+  }, [members, currentUserId, onUpdateMembers, isBindingProfile]);
 
   // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {
@@ -314,7 +320,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   <select 
                     id="session-profile-link-desktop"
                     value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
-                    onChange={(e) => handleBindProfile(e.target.value)}
+                    onChange={(e) => void handleBindProfile(e.target.value)}
+                    disabled={isBindingProfile}
                     className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
                   >
                     {members.map(m => (
@@ -612,7 +619,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
             <div className="relative w-full">
               <select 
                 value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
-                onChange={(e) => handleBindProfile(e.target.value)}
+                onChange={(e) => void handleBindProfile(e.target.value)}
+                    disabled={isBindingProfile}
                 className="w-full min-h-[46px] appearance-none bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200/50 dark:border-white/5 text-xs sm:text-sm font-bold rounded-xl px-3.5 pr-10 focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors cursor-pointer"
               >
                 {members.map(m => (

@@ -3,18 +3,22 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Trash2, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
-import { Transaction, AppSettings } from '../types';
+import { toast } from 'sonner';
+import { Transaction } from '../types';
+import { isPotentialDuplicate } from '../utils/duplicateReview';
 
 interface DuplicatesModalProps {
   transactions: Transaction[];
   onClose: () => void;
-  onDelete: (ids: string[]) => void;
-  onIgnore?: (pairIds: string[]) => void; // New prop for ignoring
+  onDelete: (ids: string[]) => void | boolean | Promise<void | boolean>;
+  onIgnore?: (pairIds: string[]) => void | Promise<void>; // New prop for ignoring
   ignoredPairs?: string[];
 }
 
 const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose, onDelete, onIgnore, ignoredPairs = [] }) => {
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isIgnoring, setIsIgnoring] = useState(false);
 
   // Find duplicates logic with improved smart matching
   const duplicateGroups = useMemo(() => {
@@ -40,16 +44,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
             // but strict check on other fields
             if (timeDiff > 24 * 60 * 60 * 1000) break; 
 
-            // Strict amount check
-            const isSameAmount = Math.abs(current.amount - next.amount) < 0.01;
-            const isSameType = current.type === next.type;
-            
-            // Fuzzy description match
-            const noteSim = (current.note || '').toLowerCase().trim() === (next.note || '').toLowerCase().trim();
-            const rawSim = (current.rawNote || '').toLowerCase().trim() === (next.rawNote || '').toLowerCase().trim();
-
-            if (isSameAmount && isSameType && (noteSim || rawSim)) {
-                // Check if this pair is ignored
+            if (isPotentialDuplicate(current, next)) {
                 const pairKey = [current.id, next.id].sort().join('_');
                 if (!ignoredPairs.includes(pairKey)) {
                     group.push(next);
@@ -66,31 +61,40 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
     return groups;
   }, [transactions, ignoredPairs]);
 
-  // Pre-select duplicates for deletion (keep the first one)
+  // Similar payments are review candidates, never pre-approved for deletion.
   React.useEffect(() => {
-      const initialSelection = new Set<string>();
-      duplicateGroups.forEach(group => {
-          // Keep the first one (original)
-          // Select all others for deletion
-          group.items.slice(1).forEach(item => initialSelection.add(item.id));
-      });
-      setSelectedToDelete(initialSelection);
+      setSelectedToDelete(new Set());
+      setIsConfirmingDelete(false);
   }, [duplicateGroups]);
 
   const toggleSelection = (id: string) => {
+      setIsConfirmingDelete(false);
       const newSet = new Set(selectedToDelete);
       if (newSet.has(id)) newSet.delete(id);
       else newSet.add(id);
       setSelectedToDelete(newSet);
   };
 
-  const handleExecute = () => {
-      onDelete(Array.from(selectedToDelete));
-      onClose();
+  const [deleting,setDeleting] = useState(false);
+  const handleExecute = async () => {
+      if (!selectedToDelete.size || deleting || isIgnoring) return;
+      if (!isConfirmingDelete) { setIsConfirmingDelete(true); return; }
+      setDeleting(true);
+      try {
+        const result = await onDelete(Array.from(selectedToDelete));
+        if (result !== false) onClose();
+        else { setIsConfirmingDelete(false); toast.error('Удаление не выполнено. Проверьте сообщение об ошибке.'); }
+      } catch (error) {
+        console.error('Не удалось удалить предполагаемые дубли', error);
+        setIsConfirmingDelete(false);
+        toast.error('Не удалось удалить выбранные операции');
+      } finally {
+        setDeleting(false);
+      }
   };
 
-  const handleIgnoreGroup = (groupItems: Transaction[]) => {
-      if (!onIgnore) return;
+  const handleIgnoreGroup = async (groupItems: Transaction[]) => {
+      if (!onIgnore || isIgnoring) return;
       // Create pairs for all items in group to ignore them against each other
       const pairs: string[] = [];
       for (let i = 0; i < groupItems.length; i++) {
@@ -98,7 +102,16 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
               pairs.push([groupItems[i].id, groupItems[j].id].sort().join('_'));
           }
       }
-      onIgnore(pairs);
+      setIsIgnoring(true);
+      try {
+        await onIgnore(pairs);
+        toast.success('Эти операции исключены из предложений дублей');
+      } catch (error) {
+        console.error('Не удалось сохранить исключения дублей', error);
+        toast.error('Не удалось сохранить исключения. Повторите попытку.');
+      } finally {
+        setIsIgnoring(false);
+      }
   };
 
   return createPortal(
@@ -107,7 +120,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
-        onClick={onClose} 
+        onClick={() => { if (!deleting && !isIgnoring) onClose(); }}
         className="absolute inset-0 bg-[#1C1C1E]/30 backdrop-blur-md" 
       />
       
@@ -115,51 +128,55 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         initial={{ y: '100%' }} 
         animate={{ y: 0 }} 
         exit={{ y: '100%' }} 
-        className="relative bg-[#F2F2F7] dark:bg-black w-full max-w-lg md:rounded-[3rem] rounded-t-[3rem] shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duplicate-review-heading"
+        className="relative bg-[#FAF6F0] dark:bg-[#121214] w-full max-w-xl md:rounded-[24px] rounded-t-[24px] shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
-        <div className="bg-white dark:bg-[#1C1C1E] p-6 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
-          <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-full text-orange-500">
+        <div className="bg-white dark:bg-[#1C1C1E] px-4 sm:px-6 py-4 flex justify-between items-center gap-3 border-b border-gray-100 dark:border-white/5">
+          <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 shrink-0 bg-orange-50 dark:bg-orange-900/30 rounded-full text-orange-500">
                   <Copy size={20} />
               </div>
-              <div>
-                  <h3 className="text-xl font-black text-[#1C1C1E] dark:text-white">Поиск дублей</h3>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div className="min-w-0">
+                  <h3 id="duplicate-review-heading" className="text-xl font-bold font-headline text-[#1C1C1E] dark:text-white">Проверка возможных дублей</h3>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                       Найдено групп: {duplicateGroups.length}
                   </p>
               </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 transition-colors"><X size={20}/></button>
+          <button type="button" aria-label="Закрыть проверку дублей" disabled={deleting || isIgnoring} onClick={onClose} className="w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-gray-100 dark:bg-[#2C2C2E] rounded-full flex items-center justify-center text-gray-500 dark:text-white hover:bg-gray-200 transition-colors"><X size={20}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4 overscroll-contain">
             {duplicateGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-gray-400">
                     <CheckCircle2 size={48} className="mb-4 text-green-500 opacity-50" />
-                    <p className="font-bold text-xs uppercase tracking-widest">Дублей не найдено</p>
+                    <p className="font-semibold text-sm">Похожих операций не найдено</p>
                 </div>
             ) : (
                 duplicateGroups.map((group, idx) => (
-                    <div key={group.key} className="bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
-                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-4 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
+                    <div key={group.key} className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+                        <div className="bg-gray-50 dark:bg-[#2C2C2E] p-3 sm:p-4 flex flex-wrap justify-between items-center gap-2 border-b border-gray-100 dark:border-white/5">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-gray-400 uppercase bg-white dark:bg-black/20 px-2 py-1 rounded-lg">Группа {idx + 1}</span>
-                                <span className="text-sm font-black text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString()} ₽</span>
+                                <span className="text-sm font-black text-[#1C1C1E] dark:text-white">{group.items[0].amount.toLocaleString('ru-RU')} ₽</span>
                             </div>
-                            <button 
-                                onClick={() => handleIgnoreGroup(group.items)}
-                                className="text-[10px] font-bold text-blue-500 hover:text-blue-600 uppercase flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg transition-colors"
+                            <button type="button"
+                                disabled={isIgnoring || !onIgnore}
+                                onClick={() => void handleIgnoreGroup(group.items)}
+                                className="min-h-[44px] text-xs font-semibold text-[#2D5A43] dark:text-emerald-300 flex items-center gap-1 bg-[#EAF2EC] dark:bg-emerald-950/30 px-3 py-2 rounded-xl disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]"
                             >
                                 <ShieldCheck size={12} /> Не дубль
                             </button>
                         </div>
                         
                         <div className="p-2 space-y-2">
-                            {/* Original Item (First one) */}
+                            {/* First comparison item is retained, but is not a verified original */}
                             <div className="relative p-3 rounded-2xl border-2 border-green-500/20 bg-green-50/10">
-                                <div className="absolute top-2 right-2 text-[9px] font-black text-green-600 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded-full uppercase">Оригинал</div>
-                                <div className="text-xs font-bold text-[#1C1C1E] dark:text-white mb-1 truncate pr-16">{group.items[0].note}</div>
-                                <div className="flex gap-3 text-[10px] text-gray-400 font-mono">
+                                <div className="text-xs font-medium text-[#2D5A43] dark:text-emerald-300 mb-1">Запись для сравнения · останется без изменений</div>
+                                <div className="text-sm font-semibold text-[#1C1C1E] dark:text-white mb-1 break-words">{group.items[0].note || 'Без описания'}</div>
+                                <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                                     <span>{new Date(group.items[0].date).toLocaleTimeString()}</span>
                                     <span>{new Date(group.items[0].date).toLocaleDateString()}</span>
                                 </div>
@@ -175,18 +192,21 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                             {group.items.slice(1).map(item => {
                                 const isSelected = selectedToDelete.has(item.id);
                                 return (
-                                    <div 
-                                        key={item.id} 
+                                    <button type="button"
+                                        key={item.id}
                                         onClick={() => toggleSelection(item.id)}
-                                        className={`relative p-3 rounded-2xl border-2 cursor-pointer transition-all ${isSelected ? 'border-red-500 bg-red-50/10' : 'border-gray-100 dark:border-white/10 bg-white dark:bg-[#1C1C1E]'}`}
+                                        aria-pressed={isSelected}
+                                        aria-label={`Выбрать для удаления: ${item.note || 'Без описания'}, ${item.amount.toLocaleString('ru-RU')} ₽`}
+                                        disabled={deleting || isIgnoring}
+                                        className={`relative w-full min-h-[56px] text-left p-3 rounded-xl border-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors ${isSelected ? 'border-red-500 bg-red-50/10' : 'border-gray-100 dark:border-white/10 bg-white dark:bg-[#1C1C1E]'}`}
                                     >
                                         <div className="flex justify-between items-start mb-1">
-                                            <div className="text-xs font-bold text-[#1C1C1E] dark:text-white truncate pr-2">{item.note || 'Без описания'}</div>
+                                            <div className="text-sm font-semibold text-[#1C1C1E] dark:text-white break-words pr-2 min-w-0">{item.note || 'Без описания'}</div>
                                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
                                                 {isSelected && <Trash2 size={10} />}
                                             </div>
                                         </div>
-                                        <div className="flex gap-3 text-[10px] text-gray-400 font-mono">
+                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                                             <span className={item.date !== group.items[0].date ? 'text-orange-500 font-bold' : ''}>
                                                 {new Date(item.date).toLocaleTimeString()}
                                             </span>
@@ -197,7 +217,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                                                 <AlertCircle size={10} /> Категория отличается
                                             </div>
                                         )}
-                                    </div>
+                                    </button>
                                 );
                             })}
                         </div>
@@ -207,14 +227,25 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         </div>
         
         {duplicateGroups.length > 0 && (
-            <div className="p-6 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5">
-                <button 
-                    onClick={handleExecute} 
-                    disabled={selectedToDelete.size === 0}
-                    className="w-full py-4 bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+            <div className="p-3 sm:p-5 bg-white dark:bg-[#1C1C1E] border-t border-gray-100 dark:border-white/5">
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-3" role="status">
+                    {isConfirmingDelete
+                      ? `Будут окончательно удалены ${selectedToDelete.size} выбранных записей из общего бюджета. Это действие нельзя отменить.`
+                      : 'Это только возможные дубли. Ничего не выбрано заранее: отметьте операции после сверки.'}
+                </p>
+                {isConfirmingDelete && (
+                  <button type="button" onClick={() => setIsConfirmingDelete(false)}
+                    className="mb-2 min-h-[44px] w-full rounded-xl border border-stone-300 dark:border-white/20 font-semibold text-sm text-stone-700 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                    Отмена удаления
+                  </button>
+                )}
+                <button type="button"
+                    onClick={() => void handleExecute()} 
+                    disabled={selectedToDelete.size === 0 || deleting || isIgnoring}
+                    className="w-full min-h-[48px] py-3 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     <Trash2 size={16} />
-                    Удалить выбранные ({selectedToDelete.size})
+                    {deleting ? 'Удаление…' : isConfirmingDelete ? `Подтвердить удаление (${selectedToDelete.size})` : `Удалить выбранные (${selectedToDelete.size})`}
                 </button>
             </div>
         )}

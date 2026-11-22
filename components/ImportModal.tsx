@@ -16,6 +16,7 @@ import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from 
 import { toast } from 'sonner';
 import { countCategoryUsage } from '../utils/categoryPopularity';
 import { isCategoryForType } from '../utils/categoryCatalog';
+import { splitImportReview } from '../utils/importSafety';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -27,7 +28,7 @@ interface ImportItem extends Omit<Transaction, 'id'> {
 
 interface ImportModalProps {
   preview: Omit<Transaction, 'id'>[];
-  onConfirm: (items?: Omit<Transaction, 'id'>[]) => void;
+  onConfirm: (items?: Omit<Transaction, 'id'>[]) => Promise<boolean>;
   onCancel: () => void;
   settings: AppSettings;
   onUpdateItem: (index: number, updates: Partial<Transaction>) => void;
@@ -82,6 +83,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   members 
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  const pendingRulesRef = useRef<LearnedRule[]>([]);
   // Snapshot of saved family history, not the changing preview, keeps ranking stable.
   const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
   // Локальный список операций с уникальными стабильными ключами
@@ -92,13 +95,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       isVerified: false,
       rememberRule: false,
       mcc: (p as typeof p & { mcc?: string }).mcc || extractMcc(p.rawNote || p.note),
-      accountMask: extractAccountMask(p.rawNote || p.note) || '••3271'
+      accountMask: extractAccountMask(p.rawNote || p.note)
     }));
   });
 
   // Автор для всей выписки
   const [globalMemberId, setGlobalMemberId] = useState<string>(() => {
-    return preview[0]?.memberId || members[0]?.id || '';
+    return preview[0]?.memberId || '';
   });
 
   // Фильтры и поиск
@@ -171,7 +174,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       note: item.note || '',
       rawNote: item.rawNote || '',
       category: item.category || 'other',
-      memberId: item.memberId || (members[0]?.id || ''),
+      memberId: item.memberId || '',
       date: dateFormatted,
       rememberRule: !!item.rememberRule,
     });
@@ -248,7 +251,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       note: editForm.note.trim() || 'Операция',
       rawNote: editForm.rawNote,
       category: editForm.category,
-      memberId: editForm.memberId,
+      memberId: editingItem.memberId,
       date: editForm.date,
       rememberRule: editForm.rememberRule,
       isVerified: true
@@ -264,7 +267,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         cleanName: editForm.note,
         categoryId: editForm.category
       };
-      onLearnRule(newRule);
+      // Apply the rule to this preview only. Persist after a successful import.
 
       const { updatedList, matchedCount } = applyRuleToUnassigned(newItems, newRule, editingItem.tempId);
       newItems = updatedList;
@@ -339,20 +342,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
 
-  // Назначение автора для всех операций
-  const handleSetGlobalMember = (memberId: string) => {
-    setGlobalMemberId(memberId);
-    const updated = items.map(item => ({ ...item, memberId }));
-    syncToParent(updated);
-  };
-
-  // Назначение автора для конкретной карточки
-  const handleItemMemberChange = (tempId: string, memberId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const updated = items.map(item => item.tempId === tempId ? { ...item, memberId } : item);
-    syncToParent(updated);
-  };
-
   // Выбор категории для карточки
   const handleSelectCategory = (tempId: string, catId: string) => {
     const item = items.find(i => i.tempId === tempId);
@@ -368,7 +357,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           cleanName: item.note,
           categoryId: catId
         };
-        onLearnRule(newRule);
+        // Apply the rule to this preview only. Persist after a successful import.
 
         // Применяем правило ко всем подходящим операциям текущей выписки
         const { updatedList, matchedCount } = applyRuleToUnassigned(updated, newRule, tempId);
@@ -447,7 +436,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         cleanName: item.note,
         categoryId: item.category
       };
-      onLearnRule(newRule);
+      // Apply the rule to this preview only. Persist after a successful import.
 
       const { updatedList, matchedCount } = applyRuleToUnassigned(updated, newRule, tempId);
       updated = updatedList;
@@ -474,23 +463,55 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     setIsBatchCategoryOpen(false);
   };
 
-  // Финальное подтверждение
-  const handleConfirm = () => {
-    // Автоматическое сохранение правил для элементов с чекбоксом запомнить
-    items.forEach(item => {
-      if (item.rememberRule && item.category && item.category !== 'other' &&
-          categories.some(c => c.id === item.category) && item.rawNote) {
-        onLearnRule({
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-          keyword: extractCleanRuleKeyword(item.rawNote, item.note),
-          cleanName: item.note,
-          categoryId: item.category
-        });
-      }
-    });
-
-    const cleanItems = items.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
-    onConfirm(cleanItems);
+  // Explicit partial manual import. Unrecognized rows remain in the source
+  // XLSX for later review; they are never silently categorized or discarded.
+  const handleConfirm = async (onlyReady = false) => {
+    if (isConfirmingImport) return;
+    const selected = onlyReady ? splitImportReview(items, categories).ready : items;
+    if (!selected.length) {
+      toast.error('Нет распознанных операций для импорта');
+      return;
+    }
+    if (!globalMemberId || selected.some(item => item.memberId !== globalMemberId)) {
+      toast.error('Владелец выписки не совпадает с участником операции. Повторно загрузите файл.');
+      return;
+    }
+    if (selected.some(item => !Number.isFinite(item.amount) || item.amount <= 0)) {
+      toast.error('В выписке есть неверные или нулевые суммы. Проверьте операции перед импортом.');
+      return;
+    }
+    if (selected.some(item => !item.date || Number.isNaN(new Date(item.date).getTime()))) {
+      toast.error('В выписке есть операции с неверной датой. Исправьте их перед импортом.');
+      return;
+    }
+    const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
+    setIsConfirmingImport(true);
+    try {
+      const committed = await onConfirm(cleanItems);
+      if (!committed) return;
+      // A partial import must not persist rules belonging to excluded rows.
+      const rules = onlyReady ? [] : [...pendingRulesRef.current];
+      selected.forEach(item => {
+        if (item.rememberRule && item.category && item.category !== 'other' &&
+            categories.some(c => c.id === item.category) && item.rawNote) {
+          const keyword = extractCleanRuleKeyword(item.rawNote, item.note);
+          if (keyword.length >= 3) rules.push({
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 5),
+            keyword, cleanName: item.note, categoryId: item.category
+          });
+        }
+      });
+      const unique = new Set<string>();
+      rules.forEach(rule => {
+        const key = `${rule.keyword.trim().toLowerCase()}|${rule.categoryId}`;
+        if (!unique.has(key)) { unique.add(key); onLearnRule(rule); }
+      });
+      pendingRulesRef.current = [];
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Не удалось выполнить импорт');
+    } finally {
+      setIsConfirmingImport(false);
+    }
   };
 
   // Подсчет сумм
@@ -502,15 +523,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     return items.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   }, [items]);
 
-  const unassignedCount = useMemo(() => {
-    return items.filter(t => t.category === 'other' || !t.category || !categories.some(c => c.id === t.category)).length;
-  }, [items, categories]);
+  const unassignedCount = useMemo(() =>
+    splitImportReview(items, categories).needsReview.length,
+    [items, categories]
+  );
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
-    if (items.length === 0) return 'за период 01.08.2026 – 21.08.2026';
+    if (items.length === 0) return 'нет операций';
     const timestamps = items.map(t => new Date(t.date).getTime()).filter(n => !isNaN(n));
-    if (timestamps.length === 0) return 'за период текущего месяца';
+    if (timestamps.length === 0) return 'даты не указаны';
     const minDate = new Date(Math.min(...timestamps));
     const maxDate = new Date(Math.max(...timestamps));
     const format = (d: Date) => d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -562,13 +584,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           type="button"
           onClick={onCancel}
           aria-label="Закрыть модальное окно"
-          className="absolute top-5 right-5 z-20 w-9 h-9 rounded-full bg-stone-200/60 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] cursor-pointer"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 z-20 w-11 h-11 rounded-full bg-stone-200/60 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] cursor-pointer"
         >
           <X size={20} />
         </button>
 
         {/* ШАПКА МОДАЛЬНОГО ОКНА */}
-        <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-[#ECE6DE] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E]">
+        <div className="px-3 sm:px-8 pt-5 pb-4 border-b border-[#ECE6DE] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Заголовок и иконка */}
@@ -594,41 +616,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {/* Сводка и селектор авторов */}
             <div className="flex flex-wrap items-center gap-2.5 pr-8 lg:pr-0">
               
-              {/* Селектор автора выписки */}
-              <div className="flex items-center bg-white dark:bg-[#252528] rounded-xl border border-[#EBE4DC] dark:border-white/10 p-1.5 shadow-sm">
-                <span className="text-[11px] font-bold text-stone-400 dark:text-gray-400 uppercase tracking-wider px-2 hidden sm:inline">
-                  Автор:
-                </span>
-                <div className="flex items-center gap-1.5">
-                  {members.map(m => {
-                    const isSelected = globalMemberId === m.id;
-                    const initial = m.name ? m.name.charAt(0).toUpperCase() : 'У';
-
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleSetGlobalMember(m.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                          isSelected 
-                            ? 'bg-[#EAF2EC] dark:bg-primary/30 text-[#2A4C34] dark:text-green-300 font-bold border border-[#4A7C59]/30 shadow-xs' 
-                            : 'font-semibold text-stone-600 dark:text-gray-400 hover:bg-stone-100 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <span 
-                          className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-[#4A7C59] text-white' : 'bg-[#E5ECE9] dark:bg-white/10 text-[#3B6447] dark:text-gray-300'
-                          }`}
-                          style={!isSelected && m.color ? { backgroundColor: `${m.color}20`, color: m.color } : {}}
-                        >
-                          {initial}
-                        </span>
-                        <span className="whitespace-nowrap">{m.name}</span>
-                        {isSelected && <Check size={12} strokeWidth={3} className="shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Bank statement ownership is fixed by the authenticated family profile. */}
+              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#252528] px-3 py-2 text-sm">
+                <User size={16} className="shrink-0 text-[#4A7C59]" />
+                <span className="text-stone-500 dark:text-gray-400">Владелец выписки:</span>
+                <strong className="min-w-0 truncate text-stone-800 dark:text-white">
+                  {members.find(m => m.id === globalMemberId)?.name || 'Не указан'}
+                </strong>
               </div>
 
               {/* Объединенный бейдж доходов и расходов в одной строке */}
@@ -738,7 +732,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* СПИСОК ОПЕРАЦИЙ */}
-        <div className="overflow-y-auto px-6 sm:px-8 py-4 space-y-2.5 flex-1 bg-[#FAF8F5] dark:bg-[#18181A]">
+        <div className="overflow-y-auto min-h-0 px-3 sm:px-8 py-4 space-y-2.5 flex-1 bg-[#FAF8F5] dark:bg-[#18181A]">
           {unassignedCount > 0 && (
             <div className="bg-gradient-to-r from-[#FEF7EC] to-[#FAF6EE] dark:from-[#282118] dark:to-[#1C1C1E] border-2 border-[#E09F3E]/60 dark:border-amber-900/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
               <div className="flex items-center gap-3">
@@ -791,7 +785,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <div 
                   key={item.tempId}
                   onClick={() => handleOpenEditModal(item)}
-                  className={`rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
+                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
                     isHighlighted
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
                       : isUnrecognized 
@@ -852,10 +846,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         </p>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-stone-400 font-medium">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-stone-500 dark:text-gray-400 font-medium">
                         <span>{dateFormatted}</span>
-                        <span>•</span>
-                        <span>Счёт: {item.accountMask}</span>
+                        {item.accountMask && <><span>•</span><span>Счёт: {item.accountMask}</span></>}
                         <span>•</span>
                         <label 
                           onClick={(e) => handleToggleRemember(item.tempId, e)}
@@ -874,7 +867,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   </div>
 
                   {/* Правая часть: Категория, Выбор автора, Сумма, Кнопки подтверждения/удаления */}
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
+                  <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 min-w-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
                     
                     {/* Выпадающее меню категорий */}
                     <div className="relative">
@@ -912,27 +905,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       )}
                     </div>
 
-                    {/* Селектор автора [Галя | Гена | Общее] */}
-                    <div className="flex items-center bg-stone-100 dark:bg-[#252528] rounded-xl p-1 text-xs shrink-0">
-                      {members.map(m => {
-                        const isMemberActive = item.memberId === m.id;
-                        return (
-                          <button 
-                            key={m.id}
-                            type="button"
-                            onClick={(e) => handleItemMemberChange(item.tempId, m.id, e)}
-                            className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                              isMemberActive 
-                                ? 'bg-white dark:bg-[#1C1C1E] font-bold text-[#2A4C34] dark:text-green-400 shadow-xs' 
-                                : 'text-stone-500 dark:text-gray-400 font-semibold hover:text-stone-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {m.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-
                     {/* Сумма операции */}
                     <div className="text-right min-w-[90px]">
                       <span className={`text-base font-extrabold tabular-nums ${
@@ -942,12 +914,20 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Кнопка подтверждения и удаления */}
+                    {/* Доступные действия для клавиатуры и смартфона */}
                     <div className="flex items-center gap-1 pl-2 border-l border-amber-200/60 dark:border-white/10">
+                      <button type="button"
+                        aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
+                        onClick={e => { e.stopPropagation(); handleOpenEditModal(item); }}
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                        <Edit3 size={17} />
+                      </button>
                       <button 
                         type="button"
                         onClick={(e) => handleToggleVerify(item.tempId, e)}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                        aria-label={item.isVerified ? 'Снять подтверждение операции' : 'Подтвердить операцию'}
+                        aria-pressed={!!item.isVerified}
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                           item.isVerified 
                             ? 'bg-[#4A7C59] text-white' 
                             : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2E7D32] dark:text-green-300 hover:bg-[#4A7C59] hover:text-white'
@@ -960,7 +940,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       <button 
                         type="button"
                         onClick={(e) => handleDeleteItem(item.tempId, e)}
-                        className="w-8 h-8 rounded-lg hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer"
+                        aria-label="Исключить операцию из предпросмотра"
+                        className="w-11 h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer"
                         title="Исключить из выписки"
                       >
                         <Trash2 size={16} />
@@ -975,7 +956,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* ФУТЕР С ДЕЙСТВИЯМИ */}
-        <footer className="px-6 sm:px-8 py-4 bg-[#FAF8F5] dark:bg-[#1C1C1E] border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <footer className="px-3 sm:px-8 py-3 bg-[#FAF8F5] dark:bg-[#1C1C1E] border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           
           {/* Индикатор статуса */}
           <div className="flex items-center text-xs text-stone-600 dark:text-gray-300">
@@ -990,7 +971,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           </div>
 
           {/* Кнопки футера */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             
             {/* Кнопка "Назначить выбранным" */}
             {unassignedCount > 0 && (
@@ -998,7 +979,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Tag size={14} className="text-[#4A7C59]" />
                   <span>Назначить всем без категории</span>
@@ -1024,17 +1005,35 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <button 
               type="button"
               onClick={onCancel}
-              className="py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
+              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
             >
               Отмена
             </button>
 
+            {unassignedCount > 0 && items.length > unassignedCount && (
+              <button
+                type="button"
+                onClick={() => void handleConfirm(true)}
+                disabled={isConfirmingImport}
+                className="py-2.5 px-4 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-xs min-h-[44px]"
+                title="Нераспознанные операции не импортируются. Их можно разобрать при повторной загрузке той же выписки."
+              >
+                Импортировать распознанные ({items.length - unassignedCount})
+              </button>
+            )}
+            {unassignedCount > 0 && (
+              <p className="text-xs text-amber-800 dark:text-amber-300 w-full sm:basis-full" role="status">
+                Нераспознанные операции можно оставить в XLSX и импортировать после назначения категорий.
+                Сохраните исходную выписку для повторной загрузки.
+              </p>
+            )}
+
             {/* Кнопка "Подтвердить импорт" */}
             <button 
               type="button"
-              onClick={handleConfirm}
-              disabled={items.length === 0}
-              className="py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
+              onClick={() => void handleConfirm()}
+              disabled={isConfirmingImport || items.length === 0}
+              className="min-h-[44px] py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
             >
               <Check size={16} strokeWidth={3} />
               <span>Подтвердить импорт ({items.length})</span>
@@ -1053,7 +1052,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             amount: editingItem.amount,
             type: editingItem.type,
             category: editingItem.category || 'other',
-            memberId: editingItem.memberId || members[0]?.id || '',
+            memberId: editingItem.memberId || '',
             note: editingItem.note || '',
             rawNote: editingItem.rawNote || '',
             date: editingItem.date,
@@ -1069,7 +1068,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               note: updatedTx.note || 'Операция',
               rawNote: updatedTx.rawNote || editingItem.rawNote,
               category: updatedTx.category,
-              memberId: updatedTx.memberId,
+              memberId: editingItem.memberId,
               date: updatedTx.date,
               linkedExpenseId: updatedTx.linkedExpenseId,
               isVerified: true
@@ -1081,7 +1080,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           onDelete={async () => {
             handleDeleteFromEditModal();
           }}
-          onLearnRule={onLearnRule}
+          onLearnRule={rule => { pendingRulesRef.current.push(rule); }}
           settings={settings}
           members={members}
           categories={categories}
@@ -1118,7 +1117,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {
           try {
             if (ruleToLearn) {
-              onLearnRule(ruleToLearn);
+              pendingRulesRef.current.push(ruleToLearn);
             }
           } catch (e) {
             console.warn("Failed to learn rule:", e);
@@ -1152,7 +1151,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           results.forEach(({ itemId, categoryId, ruleToLearn }) => {
             if (ruleToLearn && ruleToLearn.keyword) {
               try {
-                onLearnRule(ruleToLearn);
+                pendingRulesRef.current.push(ruleToLearn);
                 learnedBatchRules.push(ruleToLearn);
               } catch (e) {
                 console.warn("Failed to learn batch rule:", e);

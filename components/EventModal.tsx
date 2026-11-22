@@ -358,7 +358,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-[520px] md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[94dvh] md:max-h-[88vh] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-[28px] md:rounded-3xl shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
+        className="w-full max-w-[520px] md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[calc(100dvh-env(safe-area-inset-top,0px))] md:max-h-[88dvh] min-h-0 bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-[28px] md:rounded-3xl shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
       >
         {/* Mobile Pull Handle */}
         <div className="w-full flex justify-center pt-2 md:hidden shrink-0">
@@ -388,7 +388,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                     setShowTemplatesDropdown(!showTemplatesDropdown);
                   }
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                aria-expanded={showTemplatesDropdown}
+                className={`min-h-[44px] px-2.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                   showTemplatesDropdown
                     ? 'bg-[#4A7C59] text-white shadow-2xs'
                     : 'bg-[#F5F2EB] dark:bg-white/10 text-[#4A7C59] dark:text-emerald-400 hover:bg-[#EAE5DB] border border-[#CBD7CB]/60 dark:border-white/10'
@@ -403,7 +404,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                 type="button"
                 onClick={handleManualSend} 
                 disabled={loading} 
-                className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                aria-label="Отправить событие в Telegram"
+                className={`w-11 h-11 rounded-full border flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                   sent 
                     ? 'bg-emerald-600 text-white border-emerald-600' 
                     : 'bg-[#F5F2EB] dark:bg-white/10 border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#4A7C59]'
@@ -415,7 +417,8 @@ export const EventModal: React.FC<EventModalProps> = ({
               <button 
                 type="button"
                 onClick={onClose} 
-                className="w-7 h-7 rounded-full bg-[#F5F2EB] dark:bg-white/10 border border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#2C2723] dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                aria-label="Закрыть редактор события"
+                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-[#F5F2EB] dark:bg-white/10 border border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#2C2723] dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X size={15} strokeWidth={2.5} />
               </button>
@@ -441,7 +444,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </header>
 
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar">
           
           <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -828,14 +831,15 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Footer Actions: Fixed at bottom */}
-        <footer className="p-3.5 md:px-7 md:py-4 bg-white dark:bg-[#202022] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2">
+        <footer className="p-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] md:px-7 md:py-4 bg-white dark:bg-[#202022] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2">
           <div>
             {event && onDelete && (
               !isConfirmingDelete ? (
                 <button
                   type="button"
                   onClick={() => setIsConfirmingDelete(true)}
-                  className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                  aria-label="Удалить событие"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
                   title="Удалить"
                 >
                   <Trash2 size={15} />
@@ -879,7 +883,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <button 
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-500 hover:bg-[#F5F2EB] cursor-pointer"
+              className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold text-stone-500 hover:bg-[#F5F2EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
             >
               Отмена
             </button>
@@ -887,7 +891,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               type="button"
               disabled={isSaving}
               onClick={handleSave}
-              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
+              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[#4A7C59] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
             >
               <Check size={14} strokeWidth={2.8} />
               <span>{isSaving ? 'Сохранение…' : event ? 'Сохранить' : 'Создать'}</span>

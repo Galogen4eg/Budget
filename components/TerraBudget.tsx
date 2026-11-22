@@ -14,6 +14,7 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { clampBudgetDay } from '../utils/budgetUi';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
@@ -97,6 +98,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     if (selectedMember === 'all') return transactions;
     return transactions.filter(t => t.memberId === selectedMember);
   }, [transactions, selectedMember]);
+
+  // Category limits are shared family-wide, regardless of member filter.
+  const familyMonthTransactions = useMemo(() => transactions.filter(t => {
+    const date = new Date(t.date);
+    return date.getMonth() === currentMonth.getMonth()
+      && date.getFullYear() === currentMonth.getFullYear();
+  }), [transactions, currentMonth]);
 
   // Current month transactions - sorted chronologically descending (from current/newest to past)
   const monthTransactions = useMemo(() => {
@@ -909,6 +917,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </button>
             </div>
           </section>
+          <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
+            transactions={transactions} monthTransactions={familyMonthTransactions}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
         </div>
       </div>
 
@@ -1535,7 +1547,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
 
-          {/* 2. Mandatory Payments Card */}
+<BudgetPlanningPanel settings={settings} categories={categories}
+            transactions={transactions} monthTransactions={familyMonthTransactions}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
+          
+                    {/* 2. Mandatory Payments Card */}
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm">
             <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-surface-border/70 dark:border-white/10">
               <div className="flex items-center gap-2">

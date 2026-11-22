@@ -25,7 +25,7 @@ import MembersSettingsSection from './MembersSettingsSection';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
-import { testTelegramBotConnection, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
+import { testTelegramBotConnection, sendTelegramMessage, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
 import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
 import { startTelegramBotListener, stopTelegramBotListener, isBotPollingActive, BotLogEntry } from '../utils/telegramBotListener';
 
@@ -37,7 +37,7 @@ interface SettingsModalProps {
   savingsRate: number;
   setSavingsRate: (val: number) => void;
   members: FamilyMember[];
-  onUpdateMembers: (members: FamilyMember[]) => void;
+  onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
   onDeleteCategory?: (id: string) => void;
@@ -150,13 +150,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [is2FAEnabled, setIs2FAEnabled] = useState(true);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [telegramDeliveryResult, setTelegramDeliveryResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isTestingDelivery, setIsTestingDelivery] = useState(false);
 
   // Live Telegram Bot polling states
   const { setTransactions, setShoppingItems, shoppingItems } = useData();
@@ -241,6 +242,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       toast.error(errorMsg);
     } finally {
       setIsTestingTelegram(false);
+    }
+  };
+
+  const handleTestTelegramDelivery = async () => {
+    if (!settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()) {
+      toast.error('Укажите токен бота и ID семейного чата');
+      return;
+    }
+    setIsTestingDelivery(true);
+    setTelegramDeliveryResult(null);
+    try {
+      const result = await sendTelegramMessage({
+        config: {
+          botToken: settings.telegramBotToken,
+          chatId: settings.telegramChatId,
+          apiUrl: settings.telegramApiUrl,
+        },
+        text: 'Budget: проверка доставки сообщений в семейный чат.',
+      });
+      if (result.success) {
+        setTelegramDeliveryResult({ ok: true, message: 'Проверочное сообщение отправлено в семейный чат.' });
+        toast.success('Сообщение доставлено в Telegram API');
+      } else {
+        setTelegramDeliveryResult({ ok: false, message: result.error });
+        toast.error(result.error);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось проверить отправку';
+      setTelegramDeliveryResult({ ok: false, message });
+      toast.error(message);
+    } finally {
+      setIsTestingDelivery(false);
     }
   };
 
@@ -629,7 +662,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowCurrentPass(!showCurrentPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -721,40 +754,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </section>
 
-            {/* CARD 3: Двухфакторная аутентификация */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <ShieldCheck size={22} />
-                  </div>
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="font-headline text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                        Двухфакторная аутентификация (2FA)
-                      </h3>
-                      <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                        Рекомендовано
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-xl">
-                      Дополнительное подтверждение через Telegram при входе с нового устройства. Код одноразового доступа приходит в официальный бот Terra Guard.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1 text-xs text-gray-500 dark:text-gray-400">
-                      <Send size={14} className="text-[#2D5A43] dark:text-emerald-400 shrink-0" />
-                      <span className="truncate">Привязанный Telegram: <strong className="text-gray-800 dark:text-gray-200 font-semibold">@alex_terra_user</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2 sm:pt-0 shrink-0">
-                  <ToggleSwitch 
-                    checked={is2FAEnabled} 
-                    onChange={() => {
-                      setIs2FAEnabled(!is2FAEnabled);
-                      toast.success(!is2FAEnabled ? '2FA успешно активирована' : '2FA деактивирована');
-                    }} 
-                  />
+            {/* No security control is exposed until a real server-side MFA enrollment flow exists. */}
+            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-4 sm:p-6">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#4A7C59]" aria-hidden="true" />
+                <div className="min-w-0 space-y-1">
+                  <h3 className="font-headline text-base font-bold text-gray-900 dark:text-white">
+                    Дополнительная защита входа
+                  </h3>
+                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                    Двухфакторная аутентификация в Budget пока не настроена.
+                    Подтверждение через Telegram для входа не подключено.
+                    Используйте надёжный пароль и не передавайте данные входа.
+                  </p>
                 </div>
               </div>
             </section>
@@ -762,7 +774,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* BOTTOM ACTIONS */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 pb-4">
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                Все действия в журнале аудита шифруются локальным ключом семьи.
+                Настройки семьи синхронизируются между участниками после сохранения.
               </div>
               <button
                 type="button"
@@ -886,13 +898,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Telegram Bot Settings */}
             <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Send size={20} />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Telegram Бот оверлея</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Автоматическая отправка уведомлений в семейный чат</p>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Telegram</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Бот, семейный чат и уведомления</p>
                   </div>
                 </div>
 
@@ -900,38 +912,55 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleTestTelegramConnection}
                   disabled={isTestingTelegram || !settings.telegramBotToken}
-                  className="px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs"
+                  className="min-h-[44px] px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]"
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  <span>Проверить связь</span>
+                  <span>Проверить токен</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
+                  <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
                   <input 
+                    id="telegram-bot-token"
                     type="password" 
+                    autoComplete="off"
                     value={settings.telegramBotToken || ''} 
-                    onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
+                    onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="712345678:AAHk..." 
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
+                  <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
                   <input 
+                    id="telegram-chat-id"
                     type="text" 
                     value={settings.telegramChatId || ''} 
-                    onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
+                    onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="-1001928374650" 
                   />
                 </div>
               </div>
 
+              <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" onClick={handleTestTelegramDelivery}
+                  disabled={isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
+                  className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
+                  Проверить доставку
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Отправит одно проверочное сообщение в указанный чат</span>
+              </div>
+              {telegramDeliveryResult && (
+                <p role="status" aria-live="polite" className={`rounded-xl border p-3 text-sm ${telegramDeliveryResult.ok ? 'border-emerald-200 text-emerald-700 dark:text-emerald-300' : 'border-red-200 text-red-700 dark:text-red-300'}`}>{telegramDeliveryResult.message}</p>
+              )}
+
               {telegramTestResult && (
-                <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-in fade-in ${
+                <div role="status" aria-live="polite" className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
                   telegramTestResult.ok 
                     ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-800 dark:text-emerald-200' 
                     : 'bg-red-50 dark:bg-red-950/30 border-red-200 text-red-800 dark:text-red-200'
@@ -942,21 +971,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Live Telegram Bot Listener Panel */}
               <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
+                <div className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center animate-pulse shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <Play size={16} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">Двусторонний бот-слушатель (Long Polling)</h4>
-                      <p className="text-[10px] text-blue-700 dark:text-blue-400">Позволяет добавлять траты и продукты через сообщения боту</p>
+                      <h4 className="text-sm font-bold text-blue-900 dark:text-blue-200">Приём сообщений от бота</h4>
+                      <p className="text-xs leading-relaxed text-blue-700 dark:text-blue-400">Работает только пока приложение открыто и слушатель запущен</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleToggleBot}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-3xs cursor-pointer ${
+                    aria-pressed={isBotActive}
+                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${
                       isBotActive 
                         ? 'bg-red-500 hover:bg-red-600 text-white' 
                         : 'bg-[#2D5A43] hover:bg-[#204332] text-white'
@@ -999,17 +1029,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Gemini API Key */}
             <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <Sparkles size={20} />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Персональный ключ для голосового чата и распознавания чеков</p>
                   </div>
                 </div>
 
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2D5A43] dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="min-h-[44px] text-xs font-bold text-[#2D5A43] dark:text-emerald-400 hover:underline inline-flex items-center gap-1 shrink-0">
                   Получить ключ <MoveUpRight size={12} />
                 </a>
               </div>
@@ -1018,15 +1048,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="relative">
                   <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
+                    aria-label="Ключ Google Gemini API"
+                    autoComplete="off"
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
-                    onChange={e => handleChange('geminiApiKey', e.target.value)}
+                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value); }}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
                   <button
                     type="button"
                     onClick={() => setShowGeminiKey(!showGeminiKey)}
+                    aria-label={showGeminiKey ? 'Скрыть ключ Gemini' : 'Показать ключ Gemini'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                   >
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1039,7 +1072,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={handleTestKey}
                       disabled={aiTestStatus === 'loading'}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {aiTestStatus === 'loading' ? (
                         <Loader2 size={13} className="animate-spin text-purple-500" />

@@ -776,7 +776,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   tabIndex={0}
                   aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
                   onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleOpenEditModal(item); } }}
-                  className={`rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
+                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
                     isHighlighted
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
                       : isUnrecognized 
@@ -837,7 +837,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         </p>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-stone-400 font-medium">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-stone-500 dark:text-gray-400 font-medium">
                         <span>{dateFormatted}</span>
                         {item.accountMask && <><span>•</span><span>Счёт: {item.accountMask}</span></>}
                         <span>•</span>
@@ -858,7 +858,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   </div>
 
                   {/* Правая часть: Категория, Выбор автора, Сумма, Кнопки подтверждения/удаления */}
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
+                  <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 min-w-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
                     
                     {/* Выпадающее меню категорий */}
                     <div className="relative">
@@ -923,6 +923,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       <button 
                         type="button"
                         onClick={(e) => handleDeleteItem(item.tempId, e)}
+                        aria-label="Исключить операцию из предпросмотра"
                         className="w-11 h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer"
                         title="Исключить из выписки"
                       >
@@ -961,7 +962,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Tag size={14} className="text-[#4A7C59]" />
                   <span>Назначить всем без категории</span>
@@ -987,7 +988,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <button 
               type="button"
               onClick={onCancel}
-              className="py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
+              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
             >
               Отмена
             </button>
@@ -1099,7 +1100,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         onApplyCategoryWithRule={(itemId, catId, ruleToLearn) => {
           try {
             if (ruleToLearn) {
-              onLearnRule(ruleToLearn);
+              pendingRulesRef.current.push(ruleToLearn);
             }
           } catch (e) {
             console.warn("Failed to learn rule:", e);

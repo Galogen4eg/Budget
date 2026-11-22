@@ -772,10 +772,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <div 
                   key={item.tempId}
                   onClick={() => handleOpenEditModal(item)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
-                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleOpenEditModal(item); } }}
                   className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
                     isHighlighted
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
@@ -905,12 +901,20 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Кнопка подтверждения и удаления */}
+                    {/* Доступные действия для клавиатуры и смартфона */}
                     <div className="flex items-center gap-1 pl-2 border-l border-amber-200/60 dark:border-white/10">
+                      <button type="button"
+                        aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
+                        onClick={e => { e.stopPropagation(); handleOpenEditModal(item); }}
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                        <Edit3 size={17} />
+                      </button>
                       <button 
                         type="button"
                         onClick={(e) => handleToggleVerify(item.tempId, e)}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                        aria-label={item.isVerified ? 'Снять подтверждение операции' : 'Подтвердить операцию'}
+                        aria-pressed={!!item.isVerified}
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                           item.isVerified 
                             ? 'bg-[#4A7C59] text-white' 
                             : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2E7D32] dark:text-green-300 hover:bg-[#4A7C59] hover:text-white'

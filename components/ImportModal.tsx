@@ -472,12 +472,25 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       toast.error('Нет распознанных операций для импорта');
       return;
     }
+    if (!globalMemberId || selected.some(item => item.memberId !== globalMemberId)) {
+      toast.error('Владелец выписки не совпадает с участником операции. Повторно загрузите файл.');
+      return;
+    }
+    if (selected.some(item => !Number.isFinite(item.amount) || item.amount <= 0)) {
+      toast.error('В выписке есть неверные или нулевые суммы. Проверьте операции перед импортом.');
+      return;
+    }
+    if (selected.some(item => !item.date || Number.isNaN(new Date(item.date).getTime()))) {
+      toast.error('В выписке есть операции с неверной датой. Исправьте их перед импортом.');
+      return;
+    }
     const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
     setIsConfirmingImport(true);
     try {
       const committed = await onConfirm(cleanItems);
       if (!committed) return;
-      const rules = [...pendingRulesRef.current];
+      // A partial import must not persist rules belonging to excluded rows.
+      const rules = onlyReady ? [] : [...pendingRulesRef.current];
       selected.forEach(item => {
         if (item.rememberRule && item.category && item.category !== 'other' &&
             categories.some(c => c.id === item.category) && item.rawNote) {
@@ -519,7 +532,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const dateRangeString = useMemo(() => {
     if (items.length === 0) return 'нет операций';
     const timestamps = items.map(t => new Date(t.date).getTime()).filter(n => !isNaN(n));
-    if (timestamps.length === 0) return 'за период текущего месяца';
+    if (timestamps.length === 0) return 'даты не указаны';
     const minDate = new Date(Math.min(...timestamps));
     const maxDate = new Date(Math.max(...timestamps));
     const format = (d: Date) => d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });

@@ -25,3 +25,9 @@ test('mobile review has usable action targets and semantically accessible row ed
  assert.match(modal,/aria-label=\{\x60Редактировать операцию/);
  assert.match(modal,/role="status"/);
 });
+
+test('invalid amounts, dates and owner mismatch are rejected before saving',()=>{
+ assert.match(modal,/!Number\.isFinite\(item\.amount\) \|\| item\.amount <= 0/);
+ assert.match(modal,/Number\.isNaN\(new Date\(item\.date\)\.getTime\(\)\)/);
+ assert.match(modal,/item\.memberId !== globalMemberId/);
+});

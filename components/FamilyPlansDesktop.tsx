@@ -10,6 +10,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
+import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansDesktopProps {
@@ -83,8 +84,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   const changeDate = (dir: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + dir);
+    const newDate = shiftCalendarMonth(currentDate, dir);
     setCurrentDate(newDate);
   };
 

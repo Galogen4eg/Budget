@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
 import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
+import { bindFamilyProfile } from '../utils/familyProfileBinding';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
 export const MAX_MEMBER_NAME_LENGTH = 40;
@@ -122,39 +123,24 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     }
   }, [selectedMember, editingMemberId]);
 
-  // Find currently mapped member
-  const mappedMember = useMemo(() => {
-    if (!members || members.length === 0) return null;
-    if (currentUserId) {
-      const byUserId = members.find(m => m.userId === currentUserId);
-      if (byUserId) return byUserId;
-    }
-    if (user?.email) {
-      const byEmail = members.find(m => m.email?.toLowerCase() === user.email?.toLowerCase());
-      if (byEmail) return byEmail;
-    }
-    return null;
-  }, [members, currentUserId, user?.email]);
+  // Profile attribution must follow Firebase UID, never a display-name/email guess.
+  const mappedMember = useMemo(() => (
+    currentUserId ? members.find(m => m.userId === currentUserId) || null : null
+  ), [members, currentUserId]);
 
   const handleBindProfile = useCallback((targetMemberId: string) => {
-    triggerHaptic();
-    if (targetMemberId === GUEST_MODE_ID) {
-      const updated = members.map(m => (m.userId === currentUserId ? { ...m, userId: null } : m));
+    try {
+      const updated = bindFamilyProfile(members, currentUserId, targetMemberId);
+      triggerHaptic();
       onUpdateMembers(updated);
-      toast.success('Сессия переключена в гостевой режим');
-    } else {
-      const updated = members.map(m => {
-        if (m.id === targetMemberId) {
-          return { ...m, userId: currentUserId || 'local-user' };
-        }
-        if (currentUserId && m.userId === currentUserId) {
-          return { ...m, userId: null };
-        }
-        return m;
-      });
-      onUpdateMembers(updated);
-      const selected = members.find(m => m.id === targetMemberId);
-      toast.success(`Сессия успешно сопоставлена с профилем «${selected?.name || ''}»`);
+      if (targetMemberId === GUEST_MODE_ID) {
+        toast.success('Сессия переключена в гостевой режим');
+      } else {
+        const selected = members.find(m => m.id === targetMemberId);
+        toast.success(`Профиль «${selected?.name || ''}» привязан к вашему аккаунту`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось привязать профиль');
     }
   }, [members, currentUserId, onUpdateMembers]);
 
@@ -315,7 +301,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">
-                  Все новые операции, создаваемые с этого устройства, автоматически связываются с выбранным профилем.
+                  Новые операции относятся к профилю, привязанному к вашему аккаунту. Профиль другого пользователя выбрать нельзя.
                 </p>
               </div>
 
@@ -332,7 +318,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
                   >
                     {members.map(m => (
-                      <option key={m.id} value={m.id}>
+                      <option key={m.id} value={m.id} disabled={Boolean(m.userId && m.userId !== currentUserId)}>
                         {m.name} {mappedMember?.id === m.id ? '(Текущий профиль)' : ''}
                       </option>
                     ))}
@@ -616,7 +602,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            Все вводимые вами расходы и доходы автоматически связываются с выбранным участником семьи.
+            Новые операции можно сохранять только после привязки вашего аккаунта к участнику семьи.
           </p>
           
           <div className="flex flex-col gap-1.5 pt-1">
@@ -630,7 +616,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 className="w-full min-h-[46px] appearance-none bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200/50 dark:border-white/5 text-xs sm:text-sm font-bold rounded-xl px-3.5 pr-10 focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors cursor-pointer"
               >
                 {members.map(m => (
-                  <option key={m.id} value={m.id}>
+                  <option key={m.id} value={m.id} disabled={Boolean(m.userId && m.userId !== currentUserId)}>
                     {m.name} {mappedMember?.id === m.id ? '(Вы)' : ''}
                   </option>
                 ))}

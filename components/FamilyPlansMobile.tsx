@@ -327,19 +327,21 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       const prevDate = new Date(year, month - 1, prevDayNumber);
 
       cells.push(
-        <div
+        <button
+          type="button"
+          aria-label={`Выбрать ${prevDayNumber} число предыдущего месяца`}
           key={`prev-${prevDayNumber}`}
           onClick={() => {
             handleDateClick(prevDate.getFullYear(), prevDate.getMonth(), prevDayNumber);
             setCurrentDate(new Date(prevDate.getFullYear(), prevDate.getMonth(), 1));
           }}
-          className="h-[52px] sm:h-[56px] p-1.5 rounded-2xl flex flex-col justify-between items-center transition-all cursor-pointer select-none opacity-40"
+          className="min-h-[48px] sm:min-h-[56px] p-1.5 rounded-xl flex flex-col justify-between items-center cursor-pointer select-none opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="text-xs font-normal text-graphite-muted dark:text-gray-600 mt-1">
             {prevDayNumber}
           </span>
           <div className="h-2" />
-        </div>
+        </button>
       );
     }
 
@@ -367,10 +369,13 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       }
 
       cells.push(
-        <div
+        <button
+          type="button"
+          aria-label={`Выбрать ${day} число месяца`}
+          aria-pressed={isSelected}
           key={`current-${day}`}
           onClick={() => handleDateClick(year, month, day)}
-          className={`h-[52px] sm:h-[56px] p-1.5 rounded-2xl flex flex-col justify-between items-center transition-all cursor-pointer select-none relative active:scale-95 ${
+          className={`min-h-[48px] sm:min-h-[56px] p-1.5 rounded-xl flex flex-col justify-between items-center cursor-pointer select-none relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] motion-reduce:transform-none ${
             isSelected
               ? 'ring-2 ring-[#4A7C59] bg-[#EEF5F0] dark:bg-[#4A7C59]/20 shadow-xs z-10'
               : 'bg-[#F5F2EB] dark:bg-white/5 hover:bg-[#EAE6DE] dark:hover:bg-white/10'
@@ -403,7 +408,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               <span className="w-1.5 h-1.5 opacity-0" />
             )}
           </div>
-        </div>
+        </button>
       );
     }
 
@@ -414,19 +419,21 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     for (let nextDay = 1; nextDay <= remainingInGrid; nextDay++) {
       const nextDate = new Date(year, month + 1, nextDay);
       cells.push(
-        <div
+        <button
+          type="button"
+          aria-label={`Выбрать ${nextDay} число следующего месяца`}
           key={`next-${nextDay}`}
           onClick={() => {
             handleDateClick(nextDate.getFullYear(), nextDate.getMonth(), nextDay);
             setCurrentDate(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
           }}
-          className="h-[52px] sm:h-[56px] p-1.5 rounded-2xl flex flex-col justify-between items-center transition-all cursor-pointer select-none opacity-40"
+          className="min-h-[48px] sm:min-h-[56px] p-1.5 rounded-xl flex flex-col justify-between items-center cursor-pointer select-none opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="text-xs font-normal text-graphite-muted dark:text-gray-600 mt-1">
             {nextDay}
           </span>
           <div className="h-2" />
-        </div>
+        </button>
       );
     }
 
@@ -831,7 +838,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 type="button"
                 onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
                 aria-label={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
-                className="w-9 h-9 rounded-full bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
+                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
                 title={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
@@ -840,7 +847,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 type="button"
                 onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)}
                 aria-label={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
-                className="w-9 h-9 rounded-full bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
+                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
                 title={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
@@ -853,7 +860,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <button
               type="button"
               onClick={() => setViewMode('month')}
-              className={`py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              aria-pressed={viewMode === 'month'}
+              className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'month'
                   ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
                   : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'
@@ -866,7 +874,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <button
               type="button"
               onClick={() => setViewMode('week')}
-              className={`py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              aria-pressed={viewMode === 'week'}
+              className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'week'
                   ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
                   : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'
@@ -879,7 +888,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              aria-pressed={viewMode === 'list'}
+              className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
                   : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'

@@ -37,7 +37,7 @@ interface SettingsModalProps {
   savingsRate: number;
   setSavingsRate: (val: number) => void;
   members: FamilyMember[];
-  onUpdateMembers: (members: FamilyMember[]) => void;
+  onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   categories: Category[];
   onUpdateCategories: (categories: Category[]) => void;
   onDeleteCategory?: (id: string) => void;

@@ -25,7 +25,7 @@ import MembersSettingsSection from './MembersSettingsSection';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
-import { testTelegramBotConnection, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
+import { testTelegramBotConnection, sendTelegramMessage, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
 import { getQueuedTelegramMessages, processTelegramQueue } from '../utils/telegramQueue';
 import { startTelegramBotListener, stopTelegramBotListener, isBotPollingActive, BotLogEntry } from '../utils/telegramBotListener';
 
@@ -156,6 +156,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [telegramDeliveryResult, setTelegramDeliveryResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isTestingDelivery, setIsTestingDelivery] = useState(false);
 
   // Live Telegram Bot polling states
   const { setTransactions, setShoppingItems, shoppingItems } = useData();
@@ -240,6 +242,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       toast.error(errorMsg);
     } finally {
       setIsTestingTelegram(false);
+    }
+  };
+
+  const handleTestTelegramDelivery = async () => {
+    if (!settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()) {
+      toast.error('Укажите токен бота и ID семейного чата');
+      return;
+    }
+    setIsTestingDelivery(true);
+    setTelegramDeliveryResult(null);
+    try {
+      const result = await sendTelegramMessage({
+        config: {
+          botToken: settings.telegramBotToken,
+          chatId: settings.telegramChatId,
+          apiUrl: settings.telegramApiUrl,
+        },
+        text: 'Budget: проверка доставки сообщений в семейный чат.',
+      });
+      if (result.success) {
+        setTelegramDeliveryResult({ ok: true, message: 'Проверочное сообщение отправлено в семейный чат.' });
+        toast.success('Сообщение доставлено в Telegram API');
+      } else {
+        setTelegramDeliveryResult({ ok: false, message: result.error });
+        toast.error(result.error);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось проверить отправку';
+      setTelegramDeliveryResult({ ok: false, message });
+      toast.error(message);
+    } finally {
+      setIsTestingDelivery(false);
     }
   };
 
@@ -628,7 +662,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowCurrentPass(!showCurrentPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -869,8 +903,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Send size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Telegram Бот оверлея</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Автоматическая отправка уведомлений в семейный чат</p>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Telegram</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Бот, семейный чат и уведомления</p>
                   </div>
                 </div>
 
@@ -878,38 +912,55 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleTestTelegramConnection}
                   disabled={isTestingTelegram || !settings.telegramBotToken}
-                  className="px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs"
+                  className="min-h-[44px] px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]"
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  <span>Проверить связь</span>
+                  <span>Проверить токен</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
+                  <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
                   <input 
+                    id="telegram-bot-token"
                     type="password" 
+                    autoComplete="off"
                     value={settings.telegramBotToken || ''} 
-                    onChange={e => handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value))} 
+                    onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="712345678:AAHk..." 
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
+                  <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
                   <input 
+                    id="telegram-chat-id"
                     type="text" 
                     value={settings.telegramChatId || ''} 
-                    onChange={e => handleChange('telegramChatId', cleanTelegramChatId(e.target.value))} 
+                    onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="-1001928374650" 
                   />
                 </div>
               </div>
 
+              <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" onClick={handleTestTelegramDelivery}
+                  disabled={isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
+                  className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
+                  Проверить доставку
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Отправит одно проверочное сообщение в указанный чат</span>
+              </div>
+              {telegramDeliveryResult && (
+                <p role="status" aria-live="polite" className={`rounded-xl border p-3 text-sm ${telegramDeliveryResult.ok ? 'border-emerald-200 text-emerald-700 dark:text-emerald-300' : 'border-red-200 text-red-700 dark:text-red-300'}`}>{telegramDeliveryResult.message}</p>
+              )}
+
               {telegramTestResult && (
-                <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-in fade-in ${
+                <div role="status" aria-live="polite" className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
                   telegramTestResult.ok 
                     ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-800 dark:text-emerald-200' 
                     : 'bg-red-50 dark:bg-red-950/30 border-red-200 text-red-800 dark:text-red-200'
@@ -998,13 +1049,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input 
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
-                    onChange={e => handleChange('geminiApiKey', e.target.value)}
+                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value); }}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
                   <button
                     type="button"
                     onClick={() => setShowGeminiKey(!showGeminiKey)}
+                    aria-label={showGeminiKey ? 'Скрыть ключ Gemini' : 'Показать ключ Gemini'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
                   >
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}

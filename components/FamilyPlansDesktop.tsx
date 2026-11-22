@@ -295,7 +295,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   return (
-    <div className="flex h-full w-full bg-[#F8F6F0] dark:bg-[#121214] text-stone-900 dark:text-white font-sans overflow-hidden select-none">
+    <div className="flex h-full min-w-0 w-full bg-[#F8F6F0] dark:bg-[#121214] text-stone-900 dark:text-white font-sans overflow-hidden select-none">
       
       {/* Левая и центральная область: Календарь планов */}
       <main className="flex-1 flex flex-col min-w-0 h-full p-5 lg:p-7 overflow-y-auto">
@@ -328,15 +328,17 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Быстрое переключение месяцев / недель */}
             <div className="flex items-center gap-0.5 ml-1">
               <button 
-                onClick={() => viewMode === 'week' ? changeWeek(-1) : changeDate(-1)} 
-                className="p-1 rounded-lg hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
+                onClick={() => viewMode === 'week' ? changeWeek(-1) : changeDate(-1)}
+                aria-label={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
+                className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-stone-200/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
                 title={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
               </button>
               <button 
-                onClick={() => viewMode === 'week' ? changeWeek(1) : changeDate(1)} 
-                className="p-1 rounded-lg hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
+                onClick={() => viewMode === 'week' ? changeWeek(1) : changeDate(1)}
+                aria-label={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
+                className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-stone-200/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
                 title={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
@@ -799,7 +801,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: ИНСПЕКТОР ДНЯ */}
-      <aside className="w-[380px] bg-[#F8F6F0] dark:bg-[#141416] border-l border-[#ECE5DB] dark:border-white/10 flex flex-col shrink-0 h-full p-6 lg:p-7 overflow-y-auto no-scrollbar space-y-6">
+      <aside className="w-[min(360px,32vw)] min-w-[280px] bg-[#F8F6F0] dark:bg-[#141416] border-l border-[#ECE5DB] dark:border-white/10 flex flex-col shrink-0 h-full p-6 lg:p-7 overflow-y-auto no-scrollbar space-y-6">
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">

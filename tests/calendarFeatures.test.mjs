@@ -6,7 +6,7 @@ import { telegramReminderText, telegramReminderKey, telegramReminderSince } from
 
 const event={id:'a',title:'Оплата, интернета',description:'Тест\nСообщение',date:'2026-11-21',time:'12:00',duration:1,memberIds:['u'],reminders:[15]};
 test('ICS escapes content and contains local timestamp with stable UID',()=>{
- const ics=makeCalendarICS([event]);
+ const ics=makeCalendarICS([event],new Date(2026,10,21,9,0));
  assert.match(ics,/BEGIN:VCALENDAR/);
  assert.match(ics,/SUMMARY:Оплата\\, интернета/);
  assert.match(ics,/DESCRIPTION:Тест\\nСообщение/);

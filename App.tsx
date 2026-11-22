@@ -1237,7 +1237,7 @@ export default function App() {
                     if (!itemsToImport || itemsToImport.length === 0) {
                       setImportPreview(null);
                       toast.info("Импорт отменен (нет операций)");
-                      return;
+                      return false;
                     }
                     // Profile bindings can change while the import preview is open.
                     const importMemberId = resolveImportMemberId(members, user?.uid);
@@ -1331,9 +1331,11 @@ export default function App() {
                         toast.warning('Операции сохранены, но не вся выписка подтверждена на сервере. XLSX оставлен для проверки.');
                       }
                     }
+                    return true;
                   } catch (err: any) {
                     console.error("Import error:", err);
                     toast.error("Ошибка сохранения: " + (err.message || String(err)));
+                    return false;
                   }
                 }}
                 settings={settings} 

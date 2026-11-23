@@ -24,13 +24,13 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   selectedMonth,
   members 
 }) => {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [day, setDay] = useState('');
-  const [remind, setRemind] = useState(true);
-  const [memberId, setMemberId] = useState('');
-  const [expenseType, setExpenseType] = useState<MandatoryExpenseType>('regular');
-  const [linkedDebtId, setLinkedDebtId] = useState<string>('');
+  const [name, setName] = useState(() => expense?.name || '');
+  const [amount, setAmount] = useState(() => expense ? String(expense.amount || '') : '');
+  const [day, setDay] = useState(() => expense ? String(expense.day || '1') : '10');
+  const [remind, setRemind] = useState(() => expense?.remind ?? true);
+  const [memberId, setMemberId] = useState(() => expense?.memberId || '');
+  const [expenseType, setExpenseType] = useState<MandatoryExpenseType>(() => expense?.expenseType || (expense?.linkedDebtId ? 'debt' : 'regular'));
+  const [linkedDebtId, setLinkedDebtId] = useState<string>(() => expense?.linkedDebtId || '');
   const [isPaidCurrentMonth, setIsPaidCurrentMonth] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');

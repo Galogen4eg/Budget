@@ -26,6 +26,7 @@ import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
 import { OverviewRecentTransactions } from './overview/OverviewRecentTransactions';
 import { getMerchantBrandKey } from '../utils/categorizer';
+import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
 import { mandatoryPaymentStates, budgetDailyLimit, sumMoney, daysUntilNextSalary } from '../utils/budgetFinancialMath';
@@ -98,9 +99,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [onMonthChange]);
 
   const handleStepMonth = useCallback((step: number) => {
-    const next = new Date(activeMonth);
-    next.setMonth(next.getMonth() + step);
-    handleMonthChange(next);
+    handleMonthChange(shiftCalendarMonth(activeMonth, step));
   }, [activeMonth, handleMonthChange]);
 
   const realToday = new Date();
@@ -1424,13 +1423,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </span>
 
-                  <div className="flex rounded-xl bg-surface-subtle dark:bg-[#2C2C2E] p-0.5 border border-surface-border dark:border-white/5 ml-1">
+                  <div role="group" aria-label="Период динамики расходов на ПК" className="flex max-w-full overflow-x-auto rounded-xl bg-surface-subtle dark:bg-[#2C2C2E] p-0.5 border border-surface-border dark:border-white/5 ml-1">
                     {(['day', 'week', 'month'] as const).map(scale => (
                       <button
                         key={scale}
                         type="button"
                         onClick={() => setChartScale(scale)}
-                        className={`px-2.5 py-1 text-[11px] rounded-lg transition capitalize cursor-pointer ${
+                        aria-pressed={chartScale === scale}
+                        className={`min-h-[44px] shrink-0 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
                           chartScale === scale
                             ? 'font-semibold text-graphite dark:text-white bg-white dark:bg-[#1C1C1E] shadow-xs'
                             : 'font-medium text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'

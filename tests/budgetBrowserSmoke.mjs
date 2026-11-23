@@ -27,7 +27,7 @@ try{
   await waitForServer();
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
-  for(const [label,width,height] of [['phone-390',390,844],['tablet-768',768,1024],['desktop-1440',1440,900]]){
+  for(const [label,width,height] of [['phone-390',390,844],['tablet-768',768,1024],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
     const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
@@ -45,6 +45,37 @@ try{
       label+': horizontal overflow '+JSON.stringify(widthInfo));
     assert.deepEqual(errors,[],label+': JavaScript page errors');
     await page.screenshot({path:'artifacts/budget-browser/'+label+'.png',fullPage:true,animations:'disabled'});
+    if(label==='desktop-1920'){
+      // The local demo is isolated from family Firestore; exercise the real
+      // Overview UI on Full HD, not just the unauthenticated login page.
+      const demo=page.getByRole('button',{name:/Локальный демо-режим/});
+      await demo.click({timeout:10000});
+      await page.getByRole('group',{name:'Период динамики расходов на ПК'}).waitFor({state:'visible',timeout:15000});
+      const tabs=page.getByRole('group',{name:'Период динамики расходов на ПК'});
+      for(const name of ['Неделя','Месяц','День']){
+        const tab=tabs.getByRole('button',{name,exact:true});
+        await tab.click();
+        assert.equal(await tab.getAttribute('aria-pressed'),'true','1920: chart '+name+' not selected');
+        const rect=await tab.boundingBox();
+        assert.ok(rect && rect.height>=44,'1920: small chart control '+name);
+      }
+      const picker=page.getByRole('button',{name:/Выбрать месяц\. Сейчас:/});
+      await picker.click();
+      assert.equal(await picker.getAttribute('aria-expanded'),'true','1920: month picker did not open');
+      const options=page.locator('div.absolute.right-0.top-full').getByRole('button');
+      assert.ok(await options.count()>0,'1920: no month options');
+      await options.first().click();
+      assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: month picker did not close');
+      const personal=page.getByRole('button',{name:/^Личный/}).first();
+      const family=page.getByRole('button',{name:/^Семейный$/}).first();
+      await personal.click();
+      assert.equal(await personal.getAttribute('aria-pressed'),'true','1920: personal mode not selected');
+      await family.click();
+      assert.equal(await family.getAttribute('aria-pressed'),'true','1920: family mode not restored');
+      assert.deepEqual(errors,[],'1920: Overview generated runtime errors');
+      await page.screenshot({path:'artifacts/budget-browser/desktop-1920-overview.png',fullPage:true,animations:'disabled'});
+      console.log('PASS desktop-1920 Overview demo interactions');
+    }
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

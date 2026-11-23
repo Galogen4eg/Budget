@@ -106,6 +106,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [quickAddedSuccess, setQuickAddedSuccess] = useState(false);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState('');
+  const [quickMemberId, setQuickMemberId] = useState('');
 
   // Filter transactions by selected family member
   const memberFilteredTransactions = useMemo(() => {
@@ -239,7 +240,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     }
     // In family view, never silently assign the expense to the first member.
     const ownMember = members.find(member => member.userId && member.userId === user?.uid);
-    const memberId = selectedMember !== 'all' ? selectedMember : ownMember?.id;
+    const memberId = selectedMember !== 'all' ? selectedMember : (quickMemberId || ownMember?.id);
     if (!memberId || !members.some(member => member.id === memberId)) {
       setQuickAddError('Выберите участника бюджета для этой операции.');
       return;
@@ -260,7 +261,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     } finally {
       setIsQuickSaving(false);
     }
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, user?.uid, activeSelectedDate, isQuickSaving]);
+  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, quickMemberId, members, user?.uid, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -1406,11 +1407,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   const brandKey = getMerchantBrandKey(displayTitle);
 
                   return (
-                    <div 
+                    <button type="button"
                       key={tx.id}
                       onClick={() => onEditTransaction(tx)}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#252528] border border-surface-border/70 dark:border-white/5 hover:border-primary/50 hover:bg-[#FAF9F6] shadow-xs cursor-pointer transition group"
-                      title="Нажмите для открытия карточки операции"
+                      aria-label={`Редактировать операцию: ${displayTitle}`}
+                      className="min-h-[48px] w-full text-left flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-[#252528] border border-surface-border/70 dark:border-white/5 hover:border-primary/50 hover:bg-[#FAF9F6] shadow-xs cursor-pointer transition group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <div className="flex items-center gap-3">
                         <div className="shrink-0">
@@ -1446,7 +1447,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -1457,6 +1458,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 mb-2">
                 Быстрый ввод чека на {selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })}:
               </div>
+              {selectedMember === 'all' && !members.some(member=>member.userId && member.userId===user?.uid) && (
+                <div className="mb-2">
+                  <label htmlFor="budget-quick-member" className="block mb-1 text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
+                    Кто совершил покупку?
+                  </label>
+                  <select id="budget-quick-member" value={quickMemberId}
+                    onChange={event=>{setQuickMemberId(event.target.value);setQuickAddError('');}}
+                    className="min-h-[44px] w-full rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-xs text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <option value="">Выберите участника</option>
+                    {members.map(member=><option key={member.id} value={member.id}>{member.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex flex-wrap sm:flex-nowrap gap-2">
                 <input 
                   value={quickTitle}

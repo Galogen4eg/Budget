@@ -22,6 +22,7 @@ import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansMobileProps {
@@ -901,7 +902,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 3: Chip Filters (Все, Папа, Мама, Пересечения) */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          <div role="group" aria-label="Фильтр участников планов" className={FILTER_RAIL}>
             {memberFilterStats.map(stat => {
               const isSelected = filterMemberId === stat.id;
 
@@ -911,10 +912,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   type="button"
                   onClick={() => setFilterMemberId(stat.id as any)}
                   aria-pressed={isSelected}
-                  className={`min-h-[44px] px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 ${
+                  className={`${FILTER_CHIP} cursor-pointer ${
                     isSelected
-                      ? 'bg-[#3B6347] text-white shadow-xs font-bold'
-                      : 'bg-[#F0ECE4] dark:bg-white/10 text-[#2E3230] dark:text-gray-200 hover:bg-[#EAE6DE]'
+                      ? FILTER_CHIP_ACTIVE
+                      : FILTER_CHIP_IDLE
                   }`}
                 >
                   {stat.id !== 'all' && (

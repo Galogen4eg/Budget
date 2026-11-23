@@ -610,6 +610,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       onClick={() => setSelectedDay(dayNum)}
                       role="button" tabIndex={0} aria-pressed={isSelected}
                       aria-label={`Выбрать ${dayNum} ${mobileMonthName}`}
+                      title={settings.privacyMode ? undefined : `Доходы: ${formatBudgetMoney(stat.income)} ₽, расходы: ${formatBudgetMoney(stat.expense)} ₽, итог: ${formatBudgetMoney(stat.net)} ₽`}
                       onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''

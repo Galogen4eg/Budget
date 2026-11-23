@@ -244,7 +244,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     settingsRef.current=merged;
     setSettings(merged);
     if (debtChanges.length) {
-      const byId = new Map(debtChanges.map(item=>[item.id,item.changes]));
+      const byId = new Map<string,Partial<Debt>>(debtChanges.map(item=>[item.id,item.changes] as const));
       setDebts(previous=>previous.map(debt=>byId.has(debt.id)
         ? {...debt,...byId.get(debt.id)} : debt));
     }

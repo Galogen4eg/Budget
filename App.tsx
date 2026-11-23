@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
 import { Toaster, toast } from 'sonner';
 
@@ -105,8 +105,7 @@ export default function App() {
     members, setMembers,
     categories, setCategories,
     importSourcesReady,
-    settings, updateSettings, 
-    debts, setDebts,
+    settings, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -393,32 +392,24 @@ export default function App() {
 
   const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
 
-  // A linked debt is updated only after Firestore confirms the write.
-  const syncLinkedMandatoryDebt = async (debtId: string, changes: Partial<Debt>) => {
-    if (familyId) await updateItem(familyId, 'debts', debtId, changes);
-    setDebts(previous => previous.map(debt => debt.id === debtId ? {...debt, ...changes} : debt));
-  };
-
   const handleToggleMandatoryPaid = async (expenseId: string) => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
     const paid = !monthIds.includes(expenseId);
     const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
-    try {
-      await updateSettings({manualPaidExpenses: {[monthKey]: nextMonthIds}});
-    } catch (error) {
-      toast.error('Не удалось сохранить отметку оплаты. Попробуйте снова.');
-      return;
-    }
     const bill = (settings.mandatoryExpenses || []).find(item => item.id === expenseId);
     const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
       currentMonth.getFullYear() === new Date().getFullYear();
-    if (bill?.linkedDebtId && isThisMonth) {
-      try {
-        await syncLinkedMandatoryDebt(bill.linkedDebtId, {paidThisMonth: paid});
-      } catch (error) {
-        toast.error('Отметка платежа сохранена, но статус связанного долга не обновлён.');
-      }
+    const debtChanges = bill?.linkedDebtId && isThisMonth
+      ? [{id: bill.linkedDebtId, changes: {paidThisMonth: paid}}]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses: settings.mandatoryExpenses || [],
+        manualPaidExpenses: {[monthKey]: nextMonthIds}
+      },debtChanges);
+    } catch (error) {
+      toast.error('Не удалось изменить отметку оплаты. Данные не сохранены.');
     }
   };
 
@@ -1390,54 +1381,47 @@ export default function App() {
                 onSave={async (e, manuallyPaid) => {
                   const existingId = selectedMandatoryExpense?.id;
                   const updated = existingId
-                    ? (settings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e, id: existingId} : item)
+                    ? (settings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
                     : [...(settings.mandatoryExpenses || []), e];
                   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
                   const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
                   const nextMonthIds = manuallyPaid
-                    ? Array.from(new Set([...monthIds, e.id]))
+                    ? Array.from(new Set([...monthIds,e.id]))
                     : monthIds.filter(id => id !== e.id);
-                  // Both fields are persisted in one settings document patch.
-                  await updateSettings({
-                    mandatoryExpenses: updated,
-                    manualPaidExpenses: {[monthKey]: nextMonthIds}
-                  });
-                  try {
-                    const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
-                    if (oldDebtId && oldDebtId !== e.linkedDebtId) {
-                      await syncLinkedMandatoryDebt(oldDebtId, {linkedExpenseId: null, paidThisMonth: false});
-                    }
-                    if (e.linkedDebtId) {
-                      const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
-                        currentMonth.getFullYear() === new Date().getFullYear();
-                      await syncLinkedMandatoryDebt(e.linkedDebtId, {
-                        linkedExpenseId: e.id,
-                        ...(isThisMonth ? {paidThisMonth: manuallyPaid} : {})
-                      });
-                    }
-                  } catch (error) {
-                    throw new Error('Платёж сохранён, но связанный долг не синхронизирован. Повторите сохранение.');
+                  const debtChanges: Array<{id:string;changes:Partial<import('./types').Debt>}> = [];
+                  const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
+                  if (oldDebtId && oldDebtId !== e.linkedDebtId) {
+                    debtChanges.push({id:oldDebtId,changes:{linkedExpenseId:null,paidThisMonth:false}});
                   }
+                  if (e.linkedDebtId) {
+                    const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
+                      currentMonth.getFullYear() === new Date().getFullYear();
+                    debtChanges.push({id:e.linkedDebtId,changes:{
+                      linkedExpenseId:e.id,
+                      ...(isThisMonth ? {paidThisMonth:manuallyPaid} : {})
+                    }});
+                  }
+                  await updateMandatoryPaymentBundle({
+                    mandatoryExpenses:updated,
+                    manualPaidExpenses:{[monthKey]:nextMonthIds}
+                  },debtChanges);
                   setIsMandatoryModalOpen(false);
                   setSelectedMandatoryExpense(null);
                 }}
                 onDelete={async (id) => {
                   const updated = (settings.mandatoryExpenses || []).filter(item => item.id !== id);
                   const manualPaid = Object.fromEntries(
-                    Object.entries(settings.manualPaidExpenses || {}).map(([month, ids]) =>
-                      [month, ids.filter(paidId => paidId !== id)]
+                    Object.entries(settings.manualPaidExpenses || {}).map(([month,ids])=>
+                      [month,ids.filter(paidId => paidId !== id)]
                     )
                   );
-                  await updateSettings({mandatoryExpenses: updated, manualPaidExpenses: manualPaid});
-                  if (selectedMandatoryExpense?.linkedDebtId) {
-                    try {
-                      await syncLinkedMandatoryDebt(selectedMandatoryExpense.linkedDebtId, {
-                        linkedExpenseId: null, paidThisMonth: false
-                      });
-                    } catch (error) {
-                      throw new Error('Платёж удалён, но связь с долгом не снята. Проверьте карточку долга.');
-                    }
-                  }
+                  const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
+                  const debtChanges = oldDebtId
+                    ? [{id:oldDebtId,changes:{linkedExpenseId:null,paidThisMonth:false}}]
+                    : [];
+                  await updateMandatoryPaymentBundle({
+                    mandatoryExpenses:updated,manualPaidExpenses:manualPaid
+                  },debtChanges);
                   setIsMandatoryModalOpen(false);
                   setSelectedMandatoryExpense(null);
                 }}

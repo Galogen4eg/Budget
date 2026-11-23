@@ -220,16 +220,16 @@ export default function FamilyChat() {
   });
 
   return (
-    <div className="w-full h-full flex-1 flex bg-[#FAF6F0] dark:bg-[#121214] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-3xl overflow-hidden border-0 md:border md:border-outline-variant/30 md:shadow-lg select-none min-h-0">
+    <div className="w-full h-full flex-1 flex bg-[#FAF6F0] dark:bg-[#121214] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[#EAE5DB] dark:md:border-white/10 select-none min-h-0">
       
       {/* LEFT COLUMN: CHAT FOLDERS / TOPICS LIST (Always visible on desktop md+, toggleable on mobile) */}
       <aside className={`w-full md:w-72 lg:w-80 border-r border-outline-variant/30 bg-[#F5F1EA] dark:bg-[#1C1C1E] flex-col shrink-0 h-full ${
         mobileView === 'list' ? 'flex' : 'hidden md:flex'
       }`}>
         {/* Sidebar Header */}
-        <header className="h-16 px-4 border-b border-surface-variant/40 dark:border-white/10 flex items-center justify-between shrink-0 bg-[#FAF6F0] dark:bg-[#121214]">
+        <header className="min-h-16 px-4 border-b border-[#EAE5DB] dark:border-white/10 flex items-center justify-between shrink-0 bg-[#FAF6F0] dark:bg-[#121214]">
           <div>
-            <h1 className="font-headline font-bold text-base text-on-surface dark:text-white">Семейные беседы</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tight text-[#2E3230] dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block"></span>
               <span>{members.length} участников семьи</span>
@@ -239,7 +239,8 @@ export default function FamilyChat() {
             type="button"
             onClick={handleCreateTopic}
             title="Создать тему"
-            className="w-9 h-9 rounded-full bg-primary-container/60 hover:bg-primary-container text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Создать тему"
+            className="w-11 h-11 rounded-full bg-primary-container/60 hover:bg-primary-container text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
           </button>
@@ -286,7 +287,7 @@ export default function FamilyChat() {
       }`}>
         
         {/* Chat Header */}
-        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0] dark:bg-[#121214] shadow-[0_2px_12px_rgba(46,50,48,0.04)] border-b border-surface-variant/40 dark:border-white/10 shrink-0">
+        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0] dark:bg-[#121214] border-b border-[#EAE5DB] dark:border-white/10 shrink-0">
           <div className="h-16 px-3.5 flex items-center justify-between gap-2">
             
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -295,7 +296,7 @@ export default function FamilyChat() {
                 type="button"
                 aria-label="К спискам чатов" 
                 onClick={() => setMobileView('list')}
-                className="md:hidden w-10 h-10 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
+                className="md:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
               </button>
@@ -319,7 +320,7 @@ export default function FamilyChat() {
                 type="button"
                 aria-label="Поиск" 
                 onClick={() => setIsSearching(!isSearching)}
-                className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant dark:text-stone-300 hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant dark:text-stone-300 hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[22px]">search</span>
               </button>
@@ -328,7 +329,7 @@ export default function FamilyChat() {
                 type="button"
                 aria-label="Удалить чат" 
                 onClick={() => setIsDeleteModalOpen(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                 title="Удалить чат"
               >
                 <span className="material-symbols-outlined text-[22px]">delete</span>

@@ -45,6 +45,15 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   const [saving, setSaving] = useState(false);
   const captured = useRef(new Set<string>());
   const recent = useMemo(() => recentRepeatItems(history, 20), [history]);
+  const lastPurchasedAt = useMemo(() => {
+    const latest = new Map<string, number>();
+    for (const purchase of history) {
+      const key = `${purchase.title.trim().toLocaleLowerCase('ru-RU')}|${(purchase.unit || 'шт').trim().toLowerCase()}`;
+      const previous = latest.get(key) || 0;
+      if (purchase.purchasedAt > previous) latest.set(key, purchase.purchasedAt);
+    }
+    return latest;
+  }, [history]);
 
   useEffect(() => {
     captured.current.clear();
@@ -174,7 +183,14 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
                 className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-sm dark:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                <span className="min-w-0 break-words">{p.title} <span className="text-stone-500">{p.amount} {p.unit}</span></span>
+                <span className="min-w-0 break-words">
+                  <span className="block font-semibold">{p.title} · {p.amount} {p.unit}</span>
+                  {lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`) && (
+                    <span className="block mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                      Последняя покупка: {new Date(lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`)!).toLocaleDateString('ru-RU')}
+                    </span>
+                  )}
+                </span>
                 <Plus size={16} className="shrink-0"/>
               </button>
             ))}

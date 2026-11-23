@@ -29,7 +29,9 @@ import { getMerchantBrandKey } from '../utils/categorizer';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
-import { mandatoryPaymentStates, budgetDailyLimit, sumMoney, daysUntilNextSalary } from '../utils/budgetFinancialMath';
+import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney, cents, money } from '../utils/budgetFinancialMath';
+import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
+import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { toast } from 'sonner';
 
 interface TerraOverviewProps {
@@ -63,11 +65,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     transactions, 
     setTransactions,
     filteredTransactions, 
-    totalBalance, 
     currentMonthSpent, 
     goals,
     settings, 
-    updateSettings, 
+    updateSettings, updateMandatoryPaymentBundle, 
     members, 
     categories, 
     shoppingItems, 
@@ -183,39 +184,43 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     });
   }, [filteredTransactions, activeMonth]);
 
+  // Family commitments and spendable cash are shared even when personal
+  // history is selected. Never apply the family's opening balance to one member.
+  const familyMonthTransactions = useMemo(() => transactions.filter(tx => {
+    const d = new Date(tx.date);
+    return d.getMonth() === activeMonth.getMonth() && d.getFullYear() === activeMonth.getFullYear();
+  }), [transactions, activeMonth]);
+
   const displayMonthSpent = useMemo(() => {
     return currentMonthTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
   }, [currentMonthTransactions]);
 
-  // Mandatory Expenses Calculation
-  const myMemberId = currentMember.id;
-  const relevantMandatoryExpenses = useMemo(() => {
-    const all = settings.mandatoryExpenses || [];
-    if (budgetMode === 'personal') {
-      if (myMemberId === 'unlinked') return [];
-      return all.filter(e => !e.memberId || e.memberId === myMemberId);
-    }
-    return all;
-  }, [settings.mandatoryExpenses, budgetMode, myMemberId]);
+  // Always use the same shared projection as the Budget section.
+  const relevantMandatoryExpenses = useMemo(() => settings.mandatoryExpenses || [], [settings.mandatoryExpenses]);
+  const familyProjection = useMemo(() => calculateFamilyBudgetProjection({
+    transactions,
+    monthTransactions: familyMonthTransactions,
+    bills: relevantMandatoryExpenses,
+    categories,
+    manuallyPaidIds: settings.manualPaidExpenses?.[currentMonthKey] || [],
+    initialBalance: settings.initialBalance,
+    initialBalanceDate: settings.initialBalanceDate,
+    enableSmartReserve: settings.enableSmartReserve,
+    savingsRate: settings.savingsRate ?? savingsRate,
+    manualReservedAmount: settings.manualReservedAmount,
+    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0)
+  }), [transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
+      settings.manualPaidExpenses, currentMonthKey, settings.initialBalance,
+      settings.initialBalanceDate, settings.enableSmartReserve,
+      settings.savingsRate, savingsRate, settings.manualReservedAmount, goals]);
 
-  // A transaction can credit only one bill. Both the reserve total and
-  // detailed breakdown derive from the same allocation, so they cannot diverge.
-  const paymentStates = useMemo(() => mandatoryPaymentStates(
-    relevantMandatoryExpenses,
-    currentMonthTransactions,
-    settings.manualPaidExpenses?.[currentMonthKey] || []
-  ), [relevantMandatoryExpenses, currentMonthTransactions, settings.manualPaidExpenses, currentMonthKey]);
-
-  const unpaidMandatoryTotal = useMemo(() => (
-    settings.enableSmartReserve ?? true
-  ) ? sumMoney(paymentStates.map(state => state.amountNeeded)) : 0,
-  [paymentStates, settings.enableSmartReserve]);
-
+  const paymentStates = familyProjection.monthlyPaymentStates;
+  const unpaidMandatoryTotal = familyProjection.mandatoryReserve;
   const detailedMandatoryExpenses = useMemo(() => {
     const states = new Map(paymentStates.map(state => [state.id, state]));
-    const today = now.getDate();
+    const day = isCurrentCalendarMonth ? now.getDate() : 0;
     return relevantMandatoryExpenses.map(expense => {
       const status = states.get(expense.id)!;
       return {
@@ -224,88 +229,80 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         paidAmount: status.paidAmount,
         isPaid: status.isPaid,
         isManuallyPaid: status.isManuallyPaid,
-        isOverdue: !status.isPaid && expense.day < today,
-        subtitle: `Обязательный регулярный платеж (${expense.day} число)`
+        isOverdue: !status.isPaid && day > 0 && expense.day < day,
+        subtitle: `Обязательный регулярный платёж (${expense.day} число)`
       };
     });
-  }, [relevantMandatoryExpenses, paymentStates, now]);
+  }, [relevantMandatoryExpenses, paymentStates, isCurrentCalendarMonth, now]);
 
   const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    let updated: string[];
-    if (isPaid) {
-      updated = Array.from(new Set([...existing, expenseId]));
-    } else {
-      updated = existing.filter(id => id !== expenseId);
-    }
-
+    const updated = isPaid
+      ? Array.from(new Set([...existing, expenseId]))
+      : existing.filter(id => id !== expenseId);
     if (!isPaid) {
-      // An existing payment cannot be undone by changing local state only:
-      // it would still exist in Firestore and be counted as paid on reload.
-      const recorded = currentMonthTransactions.some(t =>
-        t.type === 'expense' && t.linkedExpenseId === expenseId
+      const recorded = familyMonthTransactions.some(tx =>
+        tx.type === 'expense' && tx.linkedExpenseId === expenseId
       );
       if (recorded) {
-        toast.info('Платёж привязан к операции. Измените или удалите саму операцию, чтобы отметить платёж неоплаченным.');
+        toast.info('Платёж связан с финансовой операцией. Измените или удалите её, чтобы снять оплату.');
         return;
       }
     }
-
-    await updateSettings({
-      manualPaidExpenses: { [currentMonthKey]: updated }
-    });
-  }, [settings, currentMonthKey, currentMonthTransactions, updateSettings]);
+    const bill = relevantMandatoryExpenses.find(expense => expense.id === expenseId);
+    const debtChanges = isCurrentCalendarMonth && bill?.linkedDebtId
+      ? [{ id:bill.linkedDebtId, changes:{ paidThisMonth:isPaid } }]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:relevantMandatoryExpenses,
+        manualPaidExpenses:{ [currentMonthKey]:updated }
+      }, debtChanges);
+    } catch {
+      toast.error('Не удалось сохранить отметку платежа и связанный долг.');
+    }
+  }, [settings.manualPaidExpenses, currentMonthKey, familyMonthTransactions,
+      relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
   const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    const updated = Array.from(new Set([...existing, ...expenseIds]));
-    await updateSettings({
-      manualPaidExpenses: { [currentMonthKey]: updated }
-    });
-  }, [settings, currentMonthKey, updateSettings]);
+    const updated = Array.from(new Set([...existing,...expenseIds]));
+    const ids = new Set(expenseIds);
+    const debtIds = new Set(relevantMandatoryExpenses.filter(expense =>
+      ids.has(expense.id) && isCurrentCalendarMonth && Boolean(expense.linkedDebtId)
+    ).map(expense => expense.linkedDebtId!));
+    const debtChanges = Array.from(debtIds).map(id => ({id, changes:{paidThisMonth:true}}));
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:relevantMandatoryExpenses,
+        manualPaidExpenses:{ [currentMonthKey]:updated }
+      }, debtChanges);
+    } catch {
+      toast.error('Не удалось записать оплату обязательств и связанных долгов.');
+    }
+  }, [settings.manualPaidExpenses, currentMonthKey, relevantMandatoryExpenses,
+      isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
-  // Salary incomes this month for auto-savings
-  const currentMonthSalary = useMemo(() => {
-    const rawVal = currentMonthTransactions
-      .filter(t => {
-        const isSalaryCat = t.category === 'salary';
-        const catLabel = categories.find(c => c.id === t.category)?.label.toLowerCase();
-        const isCustomSalary = catLabel?.includes('зарплата') || catLabel?.includes('salary');
-        return t.type === 'income' && (isSalaryCat || isCustomSalary);
-      })
-      .reduce((acc, t) => acc + t.amount, 0);
-    return Math.round(rawVal * 100) / 100;
-  }, [currentMonthTransactions, categories]);
-
-  // Savings accounts (копилка / накопительный счёт) total balance
-  const totalSavingsAccountAmount = useMemo(() => {
-    const rawVal = (goals || []).reduce((acc, g) => acc + (g.currentAmount || 0), 0);
-    return Math.round(rawVal * 100) / 100;
-  }, [goals]);
-
-  // Reserve & Available Balance
-  const savingsAmount = currentMonthSalary * (savingsRate / 100);
-  const manualReserved = typeof settings.manualReservedAmount === 'number' 
-    ? settings.manualReservedAmount 
-    : totalSavingsAccountAmount;
-  const reservedAmount = sumMoney([savingsAmount, unpaidMandatoryTotal, manualReserved]);
+  const sharedLedger = familyProjection.ledger;
+  const savingsAmount = familyProjection.savingsReserve;
+  const manualReserved = familyProjection.manualReserve;
+  const reservedAmount = familyProjection.reservedAmount;
+  const availableBalance = familyProjection.availableBalance;
   const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
   const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
-
-  const availableBalance = Math.max(0, totalBalance - reservedAmount);
-  const dailyLimit = budgetDailyLimit(totalBalance, reservedAmount, daysRemaining);
+  const dailyLimit = budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining);
 
   // Today's spending
   const todayTransactions = useMemo(() => {
     const todayStr = realToday.toDateString();
-    return filteredTransactions.filter(t => {
+    return transactions.filter(t => {
       const d = new Date(t.date);
       return d.toDateString() === todayStr && t.type === 'expense';
     });
-  }, [filteredTransactions, realToday]);
+  }, [transactions, realToday]);
 
   const spentToday = useMemo(() => {
-    return todayTransactions.reduce((sum, t) => sum + t.amount, 0);
+    return sumMoney(todayTransactions.map(t => t.amount));
   }, [todayTransactions]);
 
   const isOverDailyLimit = dailyLimit > 0 && spentToday > dailyLimit;
@@ -332,6 +329,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     };
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
+  // A family budget target must not be reported as a personal spending target.
+  const chartDailyLimit = budgetMode === 'family' ? dailyLimit : 0;
+
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
     const year = activeMonth.getFullYear();
@@ -343,7 +343,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       currentMonthTransactions.forEach(t => {
         if (t.type === 'expense') {
           const day = new Date(t.date).getDate();
-          dailyExpensesMap[day] = (dailyExpensesMap[day] || 0) + t.amount;
+          dailyExpensesMap[day] = sumMoney([dailyExpensesMap[day] || 0, t.amount]);
         }
       });
 
@@ -357,7 +357,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         if (d <= currentDay) {
           sum += amt;
           if (amt > max) max = amt;
-          if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
+          if (chartDailyLimit <= 0 || amt <= chartDailyLimit) compliantDays++;
         }
         const fullDateStr = new Date(year, month, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         points.push({
@@ -365,24 +365,24 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           fullLabel: fullDateStr,
           dateObj: new Date(year, month, d),
           amount: d <= currentDay ? amt : 0,
-          limit: dailyLimit,
-          isHigh: dailyLimit > 0 && d <= currentDay ? amt > dailyLimit : false,
+          limit: chartDailyLimit,
+          isHigh: chartDailyLimit > 0 && d <= currentDay ? amt > chartDailyLimit : false,
           isCurrent: isCurrentCalendarMonth && d === currentDay
         });
       }
 
-      const avg = currentDay > 0 ? Math.round(sum / currentDay) : 0;
+      const avg = currentDay > 0 ? money(Math.round(cents(sum) / currentDay)) : 0;
       const complianceRate = currentDay > 0 ? Math.round((compliantDays / currentDay) * 100) : 100;
 
       return {
         points,
         avg,
         max,
-        limit: dailyLimit,
-        limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: 'Расходы и плановые лимиты по дням месяца',
+        limit: chartDailyLimit,
+        limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
+        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : 'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: dailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -412,7 +412,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       filteredTransactions.forEach(t => {
         if (t.type === 'expense') {
           const tDateString = new Date(t.date).toDateString();
-          dailyExpensesMap[tDateString] = (dailyExpensesMap[tDateString] || 0) + t.amount;
+          dailyExpensesMap[tDateString] = sumMoney([dailyExpensesMap[tDateString] || 0, t.amount]);
         }
       });
 
@@ -427,7 +427,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           sum += amt;
           if (amt > max) max = amt;
           passedDaysCount++;
-          if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
+          if (chartDailyLimit <= 0 || amt <= chartDailyLimit) compliantDays++;
         }
 
         const fullDateStr = w.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
@@ -436,13 +436,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           fullLabel: `${w.dayName}, ${fullDateStr}`,
           dateObj: w.date,
           amount: w.isPassedOrToday ? amt : 0,
-          limit: dailyLimit,
-          isHigh: dailyLimit > 0 && w.isPassedOrToday ? amt > dailyLimit : false,
+          limit: chartDailyLimit,
+          isHigh: chartDailyLimit > 0 && w.isPassedOrToday ? amt > chartDailyLimit : false,
           isCurrent: w.isCurrent
         };
       });
 
-      const avg = passedDaysCount > 0 ? Math.round(sum / passedDaysCount) : 0;
+      const avg = passedDaysCount > 0 ? money(Math.round(cents(sum) / passedDaysCount)) : 0;
       const complianceRate = passedDaysCount > 0 ? Math.round((compliantDays / passedDaysCount) * 100) : 100;
       const weekStartLabel = `${weekDays[0].dayNumber} ${weekDays[0].monthShort}`;
       const weekEndLabel = `${weekDays[6].dayNumber} ${weekDays[6].monthShort}`;
@@ -451,11 +451,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         points,
         avg,
         max,
-        limit: dailyLimit,
-        limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
+        limit: chartDailyLimit,
+        limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: dailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -468,12 +468,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         const d = new Date(t.date);
         if (d.getFullYear() === year) {
           const m = d.getMonth();
-          monthlyExpensesMap[m] = (monthlyExpensesMap[m] || 0) + t.amount;
+          monthlyExpensesMap[m] = sumMoney([monthlyExpensesMap[m] || 0, t.amount]);
         }
       }
     });
 
-    const monthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 0);
+    const monthlyLimit = budgetMode === 'family' ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -499,7 +499,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     });
 
     const passedMonthsCount = currentM >= 0 ? currentM + 1 : 0;
-    const avg = passedMonthsCount > 0 ? Math.round(sum / passedMonthsCount) : 0;
+    const avg = passedMonthsCount > 0 ? money(Math.round(cents(sum) / passedMonthsCount)) : 0;
     const complianceRate = passedMonthsCount > 0 ? Math.round((compliantMonths / passedMonthsCount) * 100) : 100;
 
     return {
@@ -510,63 +510,28 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, realToday, isCurrentCalendarMonth]);
 
-  // Category Breakdown (Top 4 Categories in Terra palette)
+  // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
-    const expenses = currentMonthTransactions.filter(t => t.type === 'expense');
-    const total = expenses.reduce((acc, t) => acc + t.amount, 0);
-
-    const grouped = expenses.reduce((acc, t) => {
-      const cat = categories.find(c => c.id === t.category);
-      const effectiveCatId = cat?.parentId || t.category;
-      acc[effectiveCatId] = (acc[effectiveCatId] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const paletteColors = [
-      { color: '#B25E41', barBg: 'bg-[#B25E41]' }, // clay
-      { color: '#C48C3B', barBg: 'bg-[#C48C3B]' }, // warm-amber
-      { color: '#4A7C59', barBg: 'bg-[#4A7C59]' }, // primary / forest
-      { color: '#50756C', barBg: 'bg-[#50756C]' }, // slate-pine
-    ];
-
-    const sorted = Object.entries(grouped)
-      .filter(([_, amount]) => amount > 0)
-      .map(([catId, amount]) => {
-        const cat = categories.find(c => c.id === catId);
-        const percent = total > 0 ? Math.round((amount / total) * 100) : 0;
-        const color = cat?.color || '#4A7C59';
-        return {
-          id: catId,
-          name: cat?.label || 'Другое',
-          amount,
-          percent,
-          color,
-          icon: cat?.icon
-        };
-      })
-      .sort((a, b) => b.amount - a.amount);
-
-    // Fallback if no expenses recorded yet
-    const fallbackList = [
-      { id: 'food', name: 'Продукты', amount: 0, percent: 0, color: '#4A7C59', icon: 'ShoppingBasket' },
-      { id: 'restaurants', name: 'Кафе и рестораны', amount: 0, percent: 0, color: '#E07A5F', icon: 'Utensils' },
-      { id: 'auto', name: 'Транспорт', amount: 0, percent: 0, color: '#457B9D', icon: 'Bus' },
-      { id: 'shopping', name: 'Шоппинг', amount: 0, percent: 0, color: '#D4A373', icon: 'ShoppingBag' }
-    ];
-
-    const finalItems = sorted.length > 0 ? sorted : fallbackList;
-
-    return {
-      total,
-      items: finalItems.map((item) => ({
-        ...item,
-        style: { color: item.color, barBg: item.color }
-      }))
-    };
+    const grouped = buildBudgetCategoryBreakdown(currentMonthTransactions, categories);
+    const total = sumMoney(grouped.map(category => category.sum));
+    const items = grouped.map(category => {
+      const original = categories.find(item=>item.id===category.id);
+      const color = category.color || '#4A7C59';
+      return {
+        id: category.id,
+        name: category.label,
+        amount: category.sum,
+        percent: total > 0 ? Math.round((category.sum / total) * 100) : 0,
+        color,
+        icon: original?.icon,
+        style: { color, barBg: color }
+      };
+    });
+    return { total, items };
   }, [currentMonthTransactions, categories]);
 
   // Shopping Items (Active top 4)
@@ -599,14 +564,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const formatAmount = (num: number) => {
     if (settings.privacyMode) return '••••••';
-    return Math.round(num).toLocaleString('ru-RU');
+    return formatBudgetMoney(num);
   };
 
   const totalMonthlyLimit = settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0);
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
-  const recentMobileTransactions = filteredTransactions.slice(0, 4);
+  const recentMobileTransactions = recentTransactions.slice(0, 4);
 
   const mobileCategories = useMemo(() => {
     if (categoryBreakdown.items.length > 0 && categoryBreakdown.total > 0) {
@@ -630,6 +595,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Display only actual chart points: artificial fallback dates mislead the user.
   const mobileChartData = dynamicsData.points;
+  const hasChartExpenses = dynamicsData.points.some(point => point.amount > 0);
 
   // Future / upcoming events for the rest of current week
   const upcomingWeekEvents = useMemo(() => {
@@ -799,17 +765,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <section className={`${SURFACE_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
-                {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
+                {'Семейный баланс'}
               </span>
               <span className="text-xs text-graphite-muted dark:text-gray-400">{currentMonthName}</span>
             </div>
 
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight break-words tabular-nums">
-                {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
+                {settings.privacyMode ? '••••••' : `${formatAmount(sharedLedger)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Баланс в выбранном режиме учёта. Расходы за месяц показаны ниже.
+                Общий семейный баланс. Фильтр «Личный» меняет только историю и её показатели.
               </p>
             </div>
 
@@ -880,7 +846,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Area Chart with Tooltip on Peak */}
-            <div role="img" aria-label={`График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
+            <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
+              {hasChartExpenses ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
@@ -908,7 +875,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         return (
                           <div className="bg-[#1C1C1E] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
                             <span className="text-gray-300">{fullDate}:</span>
-                            <span className="text-[#4ADE80] font-headline">{typeof val === 'number' ? Math.round(val).toLocaleString('ru-RU') : val} ₽</span>
+                            <span className="text-[#4ADE80] font-headline">{settings.privacyMode ? '•••' : formatBudgetMoney(typeof val === 'number' ? val : Number(val) || 0)} {settings.privacyMode ? '' : '₽'}</span>
                           </div>
                         );
                       }
@@ -926,6 +893,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              ) : (
+                <div role="status" className="h-full flex items-center justify-center px-4 text-center text-xs text-graphite-muted dark:text-gray-400">
+                  За выбранный период расходов нет
+                </div>
+              )}
             </div>
 
             {/* Footer Insight */}
@@ -977,11 +949,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </p>
               )}
               {mobileCategories.map((cat, idx) => (
-                <div 
-                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
+                <button type="button"
+                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`}
                   onClick={() => onDrillDown(cat.id || 'all')}
-                  className="space-y-1.5 p-1.5 -mx-1.5 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
-                  title={`Аналитика категории «${cat.name}»`}
+                  aria-label={`Аналитика категории: ${cat.name}`}
+                  className="min-h-[44px] w-full text-left space-y-1.5 p-2 -mx-1 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1004,7 +976,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
                     />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -1037,7 +1009,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       type="button"
                       onClick={onOpenAddEventModal}
                       title="Запланировать событие"
-                      className="w-7 h-7 rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
+                      aria-label="Создать событие"
+                      className="min-h-[44px] min-w-[44px] rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
                     >
                       <Plus size={15} strokeWidth={2.4} />
                     </button>
@@ -1064,10 +1037,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
 
                   return (
-                    <div
+                    <button type="button"
                       key={ev.id ? `mob-ev-${ev.id}` : `mob-ev-idx-${idx}`}
                       onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
-                      className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer"
+                      aria-label={`Открыть событие: ${ev.title}`}
+                      className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
@@ -1093,7 +1067,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       </div>
 
                       <ChevronRight size={16} className="text-graphite-muted dark:text-gray-400 shrink-0" />
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1139,10 +1113,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleString('ru-RU', { month: 'short' })}`;
 
                 return (
-                  <div
+                  <button type="button"
                     key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
-                    onClick={() => onEditTransaction(tx as any)}
-                    className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between hover:bg-[#EAE6DD]/70 transition cursor-pointer"
+                    onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between gap-2 hover:bg-[#EAE6DD]/70 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
@@ -1167,10 +1142,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
                       </span>
                       <span className="text-[10px] text-graphite-muted dark:text-gray-400 block mt-0.5">
-                        {budgetMode === 'family' ? 'Семейный счёт' : 'Личный счёт'}
+                        {budgetMode === 'family' ? 'Семейная операция' : 'Личная история'}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1253,15 +1228,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>ОБЩИЙ БАЛАНС</span>
+                <span>СЕМЕЙНЫЙ БАЛАНС</span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
-                {budgetMode === 'family' ? 'Семейный' : 'Личный'}
+                Общий
               </span>
             </div>
             <div className="my-3 flex items-baseline">
               <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
-                {formatAmount(totalBalance)} <span className="text-2xl font-light text-primary">₽</span>
+                {formatAmount(sharedLedger)} <span className="text-2xl font-light text-primary">₽</span>
               </span>
             </div>
             <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
@@ -1352,14 +1327,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
-          <div 
+          <button type="button"
             onClick={() => setIsReserveModalOpen(true)}
-            className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
+            aria-label="Открыть подробности семейного резерва"
+            className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                {budgetMode === 'family' ? 'СЕМЕЙНЫЙ РЕЗЕРВ' : 'ЛИЧНЫЙ РЕЗЕРВ'}
+                СЕМЕЙНЫЙ РЕЗЕРВ
               </span>
               <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%
@@ -1382,7 +1358,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 ></div>
               </div>
             </div>
-          </div>
+          </button>
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}
@@ -1446,16 +1422,18 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               {/* Chart Area */}
               <div className="relative py-6 min-h-[300px] flex flex-col justify-end overflow-hidden">
                 <div className="w-full h-[220px]">
+                  {hasChartExpenses ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart 
                       data={dynamicsData.points} 
                       margin={{ top: 15, right: 10, left: -15, bottom: 0 }}
                       onClick={(e: any) => {
-                        if (e && e.activePayload && e.activePayload.length > 0) {
-                          const payloadData = e.activePayload[0].payload;
-                          if (payloadData && payloadData.dateObj) {
-                            setSelectedDayDetailDate(new Date(payloadData.dateObj));
-                          }
+                        const payloadData = e?.activePayload?.[0]?.payload;
+                        if (!payloadData?.dateObj) return;
+                        if (chartScale === 'month') {
+                          handleMonthChange(new Date(payloadData.dateObj));
+                        } else {
+                          setSelectedDayDetailDate(new Date(payloadData.dateObj));
                         }
                       }}
                       className="cursor-pointer"
@@ -1478,7 +1456,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         axisLine={false} 
                         tickLine={false} 
                         tick={{ fontSize: 11, fill: '#8C948E' }}
-                        tickFormatter={(val) => `${val >= 1000 ? `${(val/1000).toFixed(0)}k` : val} ₽`}
+                        tickFormatter={(val) => settings.privacyMode ? '•••' : `${val >= 1000 ? `${(val/1000).toFixed(0)}к` : val} ₽`}
                       />
                       {dynamicsData.limit > 0 && (
                         <ReferenceLine 
@@ -1486,7 +1464,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           stroke={isOverDailyLimit && chartScale === 'day' ? '#EA580C' : '#F97316'} 
                           strokeDasharray="4 4" 
                           label={{ 
-                            value: dynamicsData.limitLabel, 
+                            value: settings.privacyMode ? 'Лимит скрыт' : dynamicsData.limitLabel, 
                             position: 'insideTopRight', 
                             fill: isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#C48C3B',
                             fontSize: 10,
@@ -1543,6 +1521,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       />
                     </AreaChart>
                   </ResponsiveContainer>
+                  ) : (
+                    <div role="status" className="h-full flex items-center justify-center text-center text-sm text-graphite-muted dark:text-gray-400">
+                      За выбранный период расходов нет
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1599,11 +1582,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-auto pt-4">
+                {categoryBreakdown.items.length === 0 && (
+                  <p className="col-span-full py-5 text-sm text-graphite-muted dark:text-gray-400">
+                    За выбранный период расходов по категориям пока нет.
+                  </p>
+                )}
                 {categoryBreakdown.items.map((cat, idx) => (
-                  <div 
-                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`} 
+                  <button type="button"
+                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`}
                     onClick={() => onDrillDown(cat.id)}
-                    className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex flex-col justify-between hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
+                    aria-label={`Аналитика категории: ${cat.name}`}
+                    className="min-h-[44px] w-full text-left p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex flex-col justify-between hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center justify-between text-xs gap-2">
                       <span className="font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">{cat.name}</span>
@@ -1620,7 +1609,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         style={{ width: `${cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
                       />
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -1739,7 +1728,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         type="button"
                         onClick={onOpenAddEventModal}
                         title="Запланировать событие"
-                        className="w-7 h-7 rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
+                        aria-label="Создать событие"
+                        className="min-h-[44px] min-w-[44px] rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
                       >
                         <Plus size={14} strokeWidth={2.4} />
                       </button>
@@ -1766,10 +1756,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
 
                     return (
-                      <div
+                      <button type="button"
                         key={ev.id ? `desk-ev-${ev.id}` : `desk-ev-idx-${idx}`}
                         onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
-                        className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
+                        aria-label={`Открыть событие: ${ev.title}`}
+                        className="min-h-[48px] w-full text-left p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-xl bg-[#EAE5DC] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
@@ -1795,7 +1786,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         </div>
 
                         <ChevronRight size={14} className="text-graphite-muted dark:text-gray-400 group-hover:text-primary transition shrink-0" />
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1841,10 +1832,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     const isExpense = tx.type === 'expense';
 
                     return (
-                      <div 
+                      <button type="button"
                         key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
                         onClick={() => onEditTransaction(tx)}
-                        className={`flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer ${
+                        aria-label={`Редактировать операцию: ${displayTitle}`}
+                        className={`min-h-[48px] w-full text-left flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isTxToday && isExpense && isOverDailyLimit && idx === 0
                             ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A] border-[#FDBA74] dark:border-[#C2410C]/40'
                             : 'bg-[#FAF8F5] dark:bg-[#2C2C2E] hover:bg-[#F3EFE9] dark:hover:bg-[#3A3A3C] border-surface-border dark:border-white/5'
@@ -1888,7 +1880,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           </span>
                           <p className="text-[10px] text-graphite-muted dark:text-gray-400 truncate max-w-[90px]">{catLabel}</p>
                         </div>
-                      </div>
+                      </button>
                     );
                   })
                 )}
@@ -1904,7 +1896,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         <ReserveDetailsModal 
           isOpen={isReserveModalOpen}
           onClose={() => setIsReserveModalOpen(false)}
-          totalBalance={totalBalance}
+          totalBalance={sharedLedger}
           reservedAmount={reservedAmount}
           availableBalance={availableBalance}
           dailyBudget={dailyLimit}

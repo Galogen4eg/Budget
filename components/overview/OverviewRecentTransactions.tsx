@@ -43,7 +43,7 @@ export const OverviewRecentTransactions: React.FC<OverviewRecentTransactionsProp
 
         <button
           type="button"
-          onClick={() => onNavigateTab('transactions')}
+          onClick={() => onNavigateTab('budget')}
           className="flex items-center gap-1 text-xs font-bold text-[#4A7C59] hover:underline cursor-pointer"
         >
           <span>Все операции</span>
@@ -76,10 +76,11 @@ export const OverviewRecentTransactions: React.FC<OverviewRecentTransactionsProp
             const dateFormatted = new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
             return (
-              <div
+              <button type="button"
                 key={tx.id}
                 onClick={() => onEditTransaction(tx)}
-                className="py-3 flex items-center justify-between hover:bg-[#F2ECE1]/50 dark:hover:bg-white/5 px-2 rounded-xl transition cursor-pointer"
+                aria-label={`Редактировать операцию: ${displayTitle}`}
+                className="min-h-[48px] w-full text-left py-3 flex items-center justify-between gap-3 hover:bg-[#F2ECE1]/50 dark:hover:bg-white/5 px-2 rounded-xl transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
@@ -109,7 +110,7 @@ export const OverviewRecentTransactions: React.FC<OverviewRecentTransactionsProp
                     {budgetMode === 'family' ? 'Семейный счёт' : 'Личный счёт'}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

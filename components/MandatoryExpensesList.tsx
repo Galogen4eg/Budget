@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { Check, AlertCircle, DollarSign, Edit2, Plus, Home, CreditCard, Link2 } from 'lucide-react';
 import { MandatoryExpense, Transaction, AppSettings, FamilyMember, Debt } from '../types';
 import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { updateItem } from '../utils/db';
 import { mandatoryPaymentStates, sumMoney, formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { MemberMarker } from '../constants';
 import { toast } from 'sonner';
@@ -39,8 +37,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
 }) => {
   const [filterType, setFilterType] = useState<ExpenseFilterType>('all');
   const [updatingPaidId, setUpdatingPaidId] = useState<string | null>(null);
-  const { updateSettings, debts, setDebts } = useData();
-  const { familyId } = useAuth();
+  const { updateMandatoryPaymentBundle, debts } = useData();
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const isCurrentMonthNow = useMemo(() => {
@@ -56,25 +53,18 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
     const paid = !monthIds.includes(expenseId);
     const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
     setUpdatingPaidId(expenseId);
-    try {
-      await updateSettings({manualPaidExpenses: {[currentMonthKey]: nextMonthIds}});
-    } catch (error) {
-      toast.error('Не удалось сохранить отметку оплаты. Попробуйте снова.');
-      setUpdatingPaidId(null);
-      return;
-    }
     const bill = expenses.find(item => item.id === expenseId);
     const linkedDebt = bill ? findLinkedDebtForExpense(bill, debts) : null;
-    if (linkedDebt && isCurrentMonthNow) {
-      try {
-        if (familyId) {
-          await updateItem(familyId, 'debts', linkedDebt.id, {paidThisMonth: paid});
-        }
-        setDebts(previous => previous.map(debt => debt.id === linkedDebt.id
-          ? {...debt, paidThisMonth: paid} : debt));
-      } catch (error) {
-        toast.error('Отметка сохранена, но статус долга не удалось обновить.');
-      }
+    const debtChanges = linkedDebt && isCurrentMonthNow
+      ? [{id:linkedDebt.id,changes:{paidThisMonth:paid}}]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:settings.mandatoryExpenses || [],
+        manualPaidExpenses:{[currentMonthKey]:nextMonthIds}
+      },debtChanges);
+    } catch (error) {
+      toast.error('Не удалось сохранить отметку оплаты. Изменения отменены.');
     }
     setUpdatingPaidId(null);
   };

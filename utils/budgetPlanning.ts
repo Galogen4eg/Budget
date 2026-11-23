@@ -13,6 +13,15 @@ export function normalizeCategoryBudget(value:number):number|null{
  return money(cents(value));
 }
 
+/** Validate human-entered limits before writing; never silently round input. */
+export function parseCategoryBudgetInput(raw:string):number|null{
+ const normalized=raw.trim().replace(/[\s\u00a0]/g,'').replace(',','.');
+ if(!/^\d+(?:\.\d{1,2})?$/.test(normalized))return null;
+ const value=Number(normalized);
+ if(!Number.isFinite(value)||value<=0||!Number.isSafeInteger(Math.round(value*100)))return null;
+ return money(Math.round(value*100));
+}
+
 export function buildCategoryBudgetRows(
  transactions:readonly ExpenseLike[],
  categories:readonly CategoryLike[],

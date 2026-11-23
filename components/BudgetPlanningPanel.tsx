@@ -2,7 +2,7 @@ import React,{useMemo,useState} from 'react';
 import { toast } from 'sonner';
 import type { AppSettings, Category, Transaction } from '../types';
 import { useData } from '../contexts/DataContext';
-import { buildCategoryBudgetRows, forecastUntilSalary, normalizeCategoryBudget } from '../utils/budgetPlanning';
+import { buildCategoryBudgetRows, forecastUntilSalary, parseCategoryBudgetInput } from '../utils/budgetPlanning';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { buildMonthlyBudgetReport } from '../utils/budgetMonthlyReport';
 
@@ -22,9 +22,8 @@ export default function BudgetPlanningPanel({
  const [amount,setAmount]=useState('');
  const [saving,setSaving]=useState(false);
  const [editing,setEditing]=useState(false);
- const expenseCategories=useMemo(()=>categories.filter(c=>
-   !c.parentId && c.transactionType!=='income'
- ),[categories]);
+ const expenseCategories=useMemo(()=>categories.filter(c=>c.transactionType!=='income'),[categories]);
+ const categoryNames=useMemo(()=>new Map(categories.map(c=>[c.id,c.label])),[categories]);
  const limits=settings.categoryBudgets||{};
  const rows=useMemo(()=>buildCategoryBudgetRows(monthTransactions,categories,limits),
   [monthTransactions,categories,limits]);
@@ -36,9 +35,11 @@ export default function BudgetPlanningPanel({
  const currency=(value:number)=>settings.privacyMode?'•••':formatBudgetMoney(value)+' ₽';
  const save=async()=>{
    if(saving||!categoryId)return;
-   const entered=Number(amount.replace(',','.'));
-   const limit=amount.trim()?normalizeCategoryBudget(entered):null;
-   if(amount.trim()&&limit===null){toast.error('Введите положительный лимит в рублях');return;}
+   const limit=amount.trim()?parseCategoryBudgetInput(amount):null;
+   if(amount.trim()&&limit===null){
+     toast.error('Укажите положительный лимит с точностью до копейки.');
+     return;
+   }
    setSaving(true);
    try{
      const next={...limits};
@@ -59,26 +60,29 @@ export default function BudgetPlanningPanel({
      </div>
      <button type="button" onClick={()=>setEditing(x=>!x)}
        aria-expanded={editing}
-       className="min-h-[36px] px-3 text-xs font-semibold text-primary dark:text-green-400 rounded-lg border border-surface-border dark:border-white/15">
+       disabled={saving}
+       aria-controls="budget-category-limit-form"
+       className="min-h-[44px] px-3 text-xs font-semibold text-primary dark:text-green-400 rounded-lg border border-surface-border dark:border-white/15">
        {editing?'Закрыть':'+ Лимит'}
      </button>
    </div>
    {editing&&(
-    <div className="flex flex-col gap-2 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
+    <div id="budget-category-limit-form" className="flex flex-col gap-2 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
       <label htmlFor="budget-limit-category" className="text-xs font-semibold">Категория</label>
-      <select id="budget-limit-category" value={categoryId} onChange={e=>{
+      <select id="budget-limit-category" value={categoryId} disabled={saving} onChange={e=>{
        const id=e.target.value;setCategoryId(id);setAmount(limits[id]?String(limits[id]):'');
       }} className="min-h-[44px] w-full rounded-lg border border-surface-border dark:border-white/15 bg-white dark:bg-[#202024] px-2 text-sm">
        <option value="">Выберите категорию</option>
-       {expenseCategories.map(cat=><option key={cat.id} value={cat.id}>{cat.label}</option>)}
+       {expenseCategories.map(cat=><option key={cat.id} value={cat.id}>{cat.parentId ? `${categoryNames.get(cat.parentId) || 'Категория'} / ${cat.label}` : cat.label}</option>)}
       </select>
       <label htmlFor="budget-limit-amount" className="text-xs font-semibold">Лимит в месяц, ₽ (пустое поле — удалить)</label>
-      <input id="budget-limit-amount" inputMode="decimal" value={amount}
-        placeholder="Например, 30000" onChange={e=>setAmount(e.target.value)}
+      <p className="text-[11px] text-graphite-muted dark:text-gray-400">Устанавливается для всей семьи. Можно задать лимит и для подкатегории; в общем плане она не дублируется.</p>
+      <input id="budget-limit-amount" type="text" inputMode="decimal" disabled={saving} value={amount}
+        placeholder="Например, 30000,50" onChange={e=>setAmount(e.target.value)}
         className="min-h-[44px] w-full rounded-lg border border-surface-border dark:border-white/15 bg-white dark:bg-[#202024] px-3 text-sm"/>
       <button type="button" onClick={save} disabled={saving||!categoryId}
        className="min-h-[44px] rounded-lg bg-primary disabled:opacity-40 text-white text-sm font-semibold">
-       {saving?'Сохранение…':'Сохранить лимит'}
+       {saving?'Сохранение…':amount.trim()?'Сохранить лимит':'Удалить лимит'}
       </button>
     </div>
    )}

@@ -195,28 +195,20 @@ export default function AddTransactionModal({
       return;
     }
     
-    // Evaluate if it's a mathematical expression, otherwise parse as standard float
-    let finalAmount = parseFloat(amount.replace(/\s/g, '').replace(',', '.'));
-    if (isNaN(finalAmount)) {
-      const evaluated = evaluateMathExpression(amount);
-      if (evaluated !== null) {
-        finalAmount = evaluated;
-      }
-    } else {
-      // Check if there are operators in the string to see if we should override with evaluated result
-      if (/[\+\-\*\/]/.test(amount)) {
-        const evaluated = evaluateMathExpression(amount);
-        if (evaluated !== null) {
-          finalAmount = evaluated;
-        }
-      }
-    }
-    
-    if (isNaN(finalAmount) || finalAmount <= 0) {
-      setValidationError("Пожалуйста, укажите верную сумму или математическое выражение больше 0");
+    // Number() rejects trailing garbage that parseFloat accepts ("12abc").
+    // Expressions are allowed, but their result is always stored in kopecks.
+    const normalizedAmount=amount.replace(/\s/g,'').replace(',', '.');
+    const hasMathOperators=/[+*/]/.test(normalizedAmount) || /-(?!^)/.test(normalizedAmount);
+    let finalAmount=hasMathOperators ? evaluateMathExpression(amount) : Number(normalizedAmount);
+    if (finalAmount === null || !normalizedAmount || !Number.isFinite(finalAmount) ||
+        finalAmount <= 0 || !Number.isSafeInteger(Math.round(finalAmount*100)) ||
+        (!hasMathOperators && Math.abs(finalAmount*100-Math.round(finalAmount*100))>0.000001)) {
+      setValidationError('Введите положительную сумму с точностью до копейки или корректное выражение.');
       setIsSubmitting(false);
       return;
     }
+    finalAmount=Math.round(finalAmount*100)/100;
+
     try {
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
 
@@ -509,11 +501,13 @@ export default function AddTransactionModal({
                           key={addVal}
                           type="button"
                           onClick={() => {
-                            const currentNum = parseFloat(amount.replace(/\s/g, '').replace(',', '.')) || 0;
-                            setAmount(String(currentNum + addVal));
+                            const numericInput=Number(amount.replace(/\s/g, '').replace(',', '.'));
+                            const evaluated=evaluateMathExpression(amount);
+                            const currentNum=Number.isFinite(numericInput) ? numericInput : (evaluated ?? 0);
+                            setAmount(String(Math.round((currentNum+addVal)*100)/100));
                             triggerHaptic('light');
                           }}
-                          className="px-2.5 py-1 text-[11px] font-extrabold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-graphite dark:text-white rounded-lg transition active:scale-95 shrink-0 cursor-pointer"
+                          className="min-h-[44px] px-3 py-2 text-[11px] font-extrabold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-graphite dark:text-white rounded-lg transition active:scale-95 shrink-0 cursor-pointer"
                         >
                           +{addVal >= 1000 ? `${addVal / 1000}k` : addVal}
                         </button>

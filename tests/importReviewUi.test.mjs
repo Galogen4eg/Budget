@@ -31,3 +31,14 @@ test('invalid amounts, dates and owner mismatch are rejected before saving',()=>
  assert.match(modal,/Number\.isNaN\(new Date\(item\.date\)\.getTime\(\)\)/);
  assert.match(modal,/item\.memberId !== globalMemberId/);
 });
+
+test('iteration 67: full bank import is blocked until all categories are reviewed',()=>{
+ assert.match(modal,/!onlyReady && splitImportReview\(selected, categories\)\.needsReview\.length/);
+ assert.match(modal,/disabled=\{isConfirmingImport \|\| items\.length === 0 \|\| unassignedCount > 0\}/);
+ assert.match(app,/assertImportBatchReady\(itemsToImport, categories, importMemberId\)/);
+});
+test('iteration 67: closing bank preview is disabled during persistent save',()=>{
+ assert.match(modal,/if \(!isConfirmingImport\) onCancel\(\)/);
+ assert.match(modal,/disabled=\{isConfirmingImport\}/);
+ assert.match(modal,/Сохранение…/);
+});

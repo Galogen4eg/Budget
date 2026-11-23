@@ -17,12 +17,15 @@ import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
 import { clampBudgetDay } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, budgetDailyLimit, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
+import { filterBudgetHistory } from '../utils/budgetHistory';
+import { buildBudgetDayMoney } from '../utils/budgetDayMoney';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -38,7 +41,7 @@ interface TerraBudgetProps {
   onOpenTrainModal?: () => void;
   onImportClick?: () => void;
   onToggleMandatoryPaid?: (expenseId: string) => void;
-  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => Promise<boolean>;
+  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string, categoryId: string) => Promise<boolean>;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
   onAddMandatoryExpense?: () => void;
   onSelectCategory?: (categoryId: string) => void;
@@ -70,12 +73,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onOpenSettings
 }) => {
   const { goals } = useData();
+  const { user } = useAuth();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
   // Mobile calendar scale: 'month' | 'week'
   const [calendarScale, setCalendarScale] = useState<'month' | 'week'>('month');
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [historyScope, setHistoryScope] = useState<'day' | 'month'>('day');
+  const [historyType, setHistoryType] = useState<'all' | 'expense' | 'income'>('all');
+  const [historySearch, setHistorySearch] = useState('');
 
   // Selected day for interactive calendar detail (defaults to today in current month or 1st)
   const [requestedDay, setSelectedDay] = useState<number>(() => {
@@ -98,6 +105,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [quickAmount, setQuickAmount] = useState('');
   const [quickAddedSuccess, setQuickAddedSuccess] = useState(false);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
+  const [quickAddError, setQuickAddError] = useState('');
+  const [quickMemberId, setQuickMemberId] = useState('');
+  const [quickCategoryId, setQuickCategoryId] = useState('other');
 
   // Filter transactions by selected family member
   const memberFilteredTransactions = useMemo(() => {
@@ -191,6 +201,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     });
   }, [monthTransactions, selectedDay]);
 
+  // History is a view of the current member/month selection; it never
+  // changes the family-wide projected balance or the transaction ledger.
+  const visibleHistory = useMemo(() => filterBudgetHistory(
+    historyScope === 'day' ? selectedDayTransactions : monthTransactions,
+    historyType, historySearch, categories, members
+  ), [historyScope, historyType, historySearch, selectedDayTransactions, monthTransactions, categories, members]);
+
   const selectedDayNet = useMemo(() => {
     return monthlyMoneyTotals(selectedDayTransactions).net;
   }, [selectedDayTransactions]);
@@ -212,23 +229,40 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Only clear the form and show success after the save is confirmed.
   const handleQuickAdd = useCallback(async () => {
+    if (isQuickSaving || !onQuickAddTransaction) return;
+    setQuickAddError('');
     const title = quickTitle.trim();
-    const amount = parseFloat(quickAmount.replace(',', '.'));
-    if (!title || !Number.isFinite(amount) || amount <= 0 || isQuickSaving || !onQuickAddTransaction) return;
-
+    const normalized=quickAmount.trim().replace(/\s/g, '').replace(',', '.');
+    const amount=Number(normalized);
+    if (!title || !normalized || !/^\d+(?:\.\d{1,2})?$/.test(normalized) ||
+        !Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
+      setQuickAddError('Введите название и сумму больше нуля с точностью до копейки.');
+      return;
+    }
+    // In family view, never silently assign the expense to the first member.
+    const ownMember = members.find(member => member.userId && member.userId === user?.uid);
+    const memberId = selectedMember !== 'all' ? selectedMember : (quickMemberId || ownMember?.id);
+    if (!memberId || !members.some(member => member.id === memberId)) {
+      setQuickAddError('Выберите участника бюджета для этой операции.');
+      return;
+    }
     setIsQuickSaving(true);
     try {
-      const memberId = selectedMember !== 'all' ? selectedMember : (members[0]?.id || '1');
-      const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
-      if (!saved) return;
+      const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId, quickCategoryId);
+      if (!saved) {
+        setQuickAddError('Не удалось записать операцию. Повторите попытку.');
+        return;
+      }
       setQuickTitle('');
       setQuickAmount('');
       setQuickAddedSuccess(true);
       setTimeout(() => setQuickAddedSuccess(false), 2000);
+    } catch {
+      setQuickAddError('Ошибка сохранения операции. Проверьте соединение.');
     } finally {
       setIsQuickSaving(false);
     }
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate, isQuickSaving]);
+  }, [quickTitle, quickAmount, quickCategoryId, onQuickAddTransaction, selectedMember, quickMemberId, members, user?.uid, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -241,26 +275,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Day statistics map for the calendar
   const dayStatsMap = useMemo(() => {
-    const map: Record<number, { income: number; expense: number; net: number; count: number; hasMandatory: boolean }> = {};
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      const hasMandatory = mandatoryExpenses.some(m => ((m.day ?? (m as any).dayOfMonth) === d));
-      map[d] = { income: 0, expense: 0, net: 0, count: 0, hasMandatory };
-    }
-    monthTransactions.forEach(t => {
-      const d = new Date(t.date).getDate();
-      if (map[d]) {
-        if (t.type === 'income') map[d].income += t.amount;
-        if (t.type === 'expense') map[d].expense += t.amount;
-        map[d].count += 1;
-      }
-    });
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      map[d].income = Math.round(map[d].income);
-      map[d].expense = Math.round(map[d].expense);
-      map[d].net = Math.round(map[d].income - map[d].expense);
+    const financialDays=buildBudgetDayMoney(monthTransactions,currentMonth);
+    const map:Record<number,{income:number;expense:number;net:number;count:number;hasMandatory:boolean}>={};
+    for(let day=1;day<=totalDaysInMonth;day++){
+      map[day]={
+        ...financialDays[day],
+        hasMandatory:mandatoryExpenses.some(bill=>(bill.day??(bill as any).dayOfMonth)===day)
+      };
     }
     return map;
-  }, [monthTransactions, totalDaysInMonth, mandatoryExpenses]);
+  }, [monthTransactions,currentMonth,totalDaysInMonth,mandatoryExpenses]);
 
   // Current month key and manual paid IDs
   const currentMonthKey = useMemo(() => {
@@ -588,6 +612,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       onClick={() => setSelectedDay(dayNum)}
                       role="button" tabIndex={0} aria-pressed={isSelected}
                       aria-label={`Выбрать ${dayNum} ${mobileMonthName}`}
+                      title={settings.privacyMode ? undefined : `Доходы: ${formatBudgetMoney(stat.income)} ₽, расходы: ${formatBudgetMoney(stat.expense)} ₽, итог: ${formatBudgetMoney(stat.net)} ₽`}
                       onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between shadow-2xs relative cursor-pointer active:scale-95 transition-all select-none ${
                         isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
@@ -615,7 +640,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           ? 'text-[#4A7C59] bg-[#C8E8D0]/60 dark:bg-green-950/40'
                           : 'text-[#6B6358] dark:text-gray-400'
                       }`}>
-                        {badgeText}
+                        {settings.privacyMode ? '•••' : badgeText}
                       </span>
                     </div>
                   );
@@ -667,7 +692,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
                         stat.net < 0 ? 'text-[#B83230] bg-[#FFDAD8]/50' : stat.net > 0 ? 'text-[#4A7C59] bg-[#C8E8D0]/60' : 'text-[#6B6358]'
                       }`}>
-                        {badgeText}
+                        {settings.privacyMode ? '•••' : badgeText}
                       </span>
                     </div>
                   );
@@ -741,10 +766,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleDateString('ru-RU', { month: 'short' })}`;
 
                 return (
-                  <div 
+                  <button type="button"
                     key={tx.id}
                     onClick={() => onEditTransaction(tx)}
-                    className="flex items-center justify-between p-2.5 bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 transition-transform active:scale-[0.99] cursor-pointer hover:border-[#4A7C59]/30"
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[48px] w-full flex items-center justify-between p-2.5 text-left bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 transition cursor-pointer hover:border-[#4A7C59]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
@@ -768,7 +794,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     }`}>
                       {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -919,7 +945,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
           <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
         </div>
       </div>
@@ -1382,11 +1408,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   const brandKey = getMerchantBrandKey(displayTitle);
 
                   return (
-                    <div 
+                    <button type="button"
                       key={tx.id}
                       onClick={() => onEditTransaction(tx)}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#252528] border border-surface-border/70 dark:border-white/5 hover:border-primary/50 hover:bg-[#FAF9F6] shadow-xs cursor-pointer transition group"
-                      title="Нажмите для открытия карточки операции"
+                      aria-label={`Редактировать операцию: ${displayTitle}`}
+                      className="min-h-[48px] w-full text-left flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-[#252528] border border-surface-border/70 dark:border-white/5 hover:border-primary/50 hover:bg-[#FAF9F6] shadow-xs cursor-pointer transition group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <div className="flex items-center gap-3">
                         <div className="shrink-0">
@@ -1422,7 +1448,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -1433,12 +1459,39 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 mb-2">
                 Быстрый ввод чека на {selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })}:
               </div>
+              {selectedMember === 'all' && (
+                <div className="mb-2">
+                  <label htmlFor="budget-quick-member" className="block mb-1 text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
+                    Кто совершил покупку?
+                  </label>
+                  <select id="budget-quick-member" value={quickMemberId || members.find(member=>member.userId && member.userId===user?.uid)?.id || ''}
+                    onChange={event=>{setQuickMemberId(event.target.value);setQuickAddError('');}}
+                    className="min-h-[44px] w-full rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-xs text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <option value="">Выберите участника</option>
+                    {members.map(member=><option key={member.id} value={member.id}>{member.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="mb-2">
+                <label htmlFor="budget-quick-category" className="block mb-1 text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
+                  Категория расхода
+                </label>
+                <select id="budget-quick-category" value={quickCategoryId}
+                  onChange={event=>{setQuickCategoryId(event.target.value);setQuickAddError('');}}
+                  className="min-h-[44px] w-full rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-xs text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="other">Другое — разобрать позже</option>
+                  {categories.filter(cat=>cat.id!=='other' && cat.transactionType!=='income').map(cat=>(
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex flex-wrap sm:flex-nowrap gap-2">
                 <input 
                   value={quickTitle}
                   onChange={(e) => setQuickTitle(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
+                  aria-label="Название быстрой операции"
+                  className="min-h-[44px] w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Название (например: Обед, Такси...)" 
                   type="text"
                 />
@@ -1446,14 +1499,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   value={quickAmount}
                   onChange={(e) => setQuickAmount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
+                  aria-label="Сумма быстрой операции"
+                  inputMode="decimal"
+                  className="min-h-[44px] w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Сумма ₽" 
                   type="text"
                 />
                 <button 
                   onClick={handleQuickAdd}
                   disabled={isQuickSaving}
-                  className={`w-full sm:w-auto px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-all ${
+                  className={`min-h-[44px] w-full sm:w-auto px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-all ${
                     quickAddedSuccess ? 'bg-emerald-700' : 'bg-primary hover:bg-primary-dark active:scale-95'
                   }`}
                   type="button"
@@ -1461,6 +1516,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {isQuickSaving ? 'Сохранение…' : quickAddedSuccess ? '✓ Записано' : '+ Записать'}
                 </button>
               </div>
+              {quickAddError && (
+                <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">{quickAddError}</p>
+              )}
             </div>
           </div>
         </div>
@@ -1551,7 +1609,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
 <BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}
@@ -1663,64 +1721,73 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
 
-          {/* 3. Family Operations Feed (filtered by selected calendar day) */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/70 dark:border-white/10 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
-                  Операции участников
-                </h3>
-                <span className="text-[10px] font-semibold text-graphite-muted dark:text-gray-400">
-                  ({selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
-                </span>
-              </div>
-              <span className="text-[11px] font-bold text-primary dark:text-green-400">
-                {selectedDayTransactions.length > 0 ? `${selectedDayTransactions.length} на дату` : `${monthTransactions.length} за месяц`}
+          {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
+          <section className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex flex-col gap-3"
+            aria-label="История операций бюджета">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
+                История операций
+              </h3>
+              <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">
+                {visibleHistory.length} из {historyScope === 'day' ? selectedDayTransactions.length : monthTransactions.length}
               </span>
             </div>
-
-            <div className="space-y-1.5 overflow-y-auto max-h-64 no-scrollbar">
-              {(selectedDayTransactions.length > 0 ? selectedDayTransactions : monthTransactions.slice(0, 6)).map(tx => {
-                const member = members.find(m => m.id === tx.memberId);
-                const category = categories.find(c => c.id === tx.category);
-                const displayTitle = tx.note || category?.label || 'Операция';
-
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Период истории операций">
+              {(['day','month'] as const).map(scope => (
+                <button key={scope} type="button" onClick={() => setHistoryScope(scope)}
+                  aria-pressed={historyScope===scope}
+                  className={`min-h-[44px] px-3 rounded-xl border text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${historyScope===scope
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-[#FAF9F6] dark:bg-[#252528] text-graphite dark:text-white border-surface-border'}`}>
+                  {scope==='day' ? `День · ${selectedDay}` : 'Весь месяц'}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input type="search" aria-label="Поиск по истории операций"
+                value={historySearch} onChange={event=>setHistorySearch(event.target.value)}
+                placeholder="Название, категория или участник"
+                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-sm text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+              <select aria-label="Тип операций в истории" value={historyType}
+                onChange={event=>setHistoryType(event.target.value as 'all' | 'expense' | 'income')}
+                className="min-h-[44px] rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-sm text-graphite dark:text-white focus-visible:ring-2 focus-visible:ring-primary">
+                <option value="all">Все типы</option>
+                <option value="expense">Расходы</option>
+                <option value="income">Доходы</option>
+              </select>
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1.5 overscroll-contain">
+              {visibleHistory.length===0 && (
+                <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
+                  {historySearch.trim() || historyType!=='all'
+                    ? 'По заданным фильтрам операций нет.'
+                    : historyScope==='day'
+                      ? 'В выбранный день операций нет. Переключитесь на «Весь месяц».'
+                      : 'В этом месяце операций нет.'}
+                </p>
+              )}
+              {visibleHistory.map(tx => {
+                const member=members.find(m=>m.id===tx.memberId);
+                const category=categories.find(cat=>cat.id===tx.category);
+                const title=tx.note || category?.label || 'Операция';
                 return (
-                  <div 
-                    key={tx.id}
-                    onClick={() => onEditTransaction(tx)}
-                    className="flex items-center justify-between p-2 rounded-xl border border-transparent hover:border-surface-border hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span 
-                        className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: member?.color || '#4A7C59' }}
-                      >
-                        {member ? member.name.charAt(0).toUpperCase() : 'С'}
+                  <button type="button" key={tx.id} onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${title}`}
+                    className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[#FAF9F6] dark:hover:bg-[#252528] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-graphite dark:text-white break-words">{title}</span>
+                      <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
+                        {member?.name || 'Семья'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
                       </span>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-graphite dark:text-white truncate group-hover:text-primary transition leading-tight">
-                          {displayTitle}
-                        </div>
-                        <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block leading-tight">
-                          {member?.name || 'Семья'}, {new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 pl-2 shrink-0">
-                      <span className={`text-xs font-bold font-headline tabular-nums ${
-                        tx.type === 'income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'
-                      }`}>
-                        {settings.privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
-                      </span>
-                      <span className="text-graphite-muted text-xs group-hover:text-primary transition">›</span>
-                    </div>
-                  </div>
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold tabular-nums ${tx.type==='income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'}`}>
+                      {settings.privacyMode ? '•••' : `${tx.type==='income' ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
+                    </span>
+                  </button>
                 );
               })}
             </div>
-          </div>
+          </section>
         </div>
       </div>
       </div>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitImportReview, learnedRuleChangesSavings, isEligibleForImport } from '../utils/importSafety.ts';
+import { splitImportReview, learnedRuleChangesSavings, isEligibleForImport, assertImportBatchReady } from '../utils/importSafety.ts';
 
 const categories=[
  {id:'other',label:'Другое',transactionType:'expense'},
@@ -24,4 +24,22 @@ test('learning ordinary categories can never silently change savings classificat
  assert.equal(learnedRuleChangesSavings(tx('a','savings'),{...tx('a','food'),id:'a'}),true);
  assert.equal(learnedRuleChangesSavings(tx('a','food'),{...tx('a','savings'),id:'a'}),true);
  assert.equal(learnedRuleChangesSavings(tx('a','food'),{...tx('a','food'),id:'a',note:'Магазин 2'}),false);
+});
+
+test('iteration 67: import rejects unreviewed and wrong-direction categories before writes',()=>{
+ const good=tx('a','food');
+ assert.doesNotThrow(()=>assertImportBatchReady([good],categories,'m'));
+ assert.throws(()=>assertImportBatchReady([good,tx('b','other')],categories,'m'),/категория/);
+ assert.throws(()=>assertImportBatchReady([tx('c','salary')],categories,'m'),/категория/);
+});
+test('iteration 67: import rejects wrong member, invalid dates and kopeck precision',()=>{
+ const row=tx('a','food');
+ assert.throws(()=>assertImportBatchReady([{...row,memberId:'other'}],categories,'m'),/участник/);
+ assert.throws(()=>assertImportBatchReady([{...row,date:'not-a-date'}],categories,'m'),/дат/);
+ assert.throws(()=>assertImportBatchReady([{...row,amount:1.001}],categories,'m'),/копейки/);
+ assert.throws(()=>assertImportBatchReady([{...row,amount:0}],categories,'m'),/копейки/);
+ assert.throws(()=>assertImportBatchReady([{...row,amount:Number.POSITIVE_INFINITY}],categories,'m'),/копейки/);
+});
+test('iteration 67: accidental duplicate operation IDs are not accepted in the same batch',()=>{
+ assert.throws(()=>assertImportBatchReady([tx('same','food'),tx('same','food')],categories,'m'),/идентификаторы/);
 });

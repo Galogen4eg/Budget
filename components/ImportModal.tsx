@@ -472,12 +472,19 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       toast.error('Нет распознанных операций для импорта');
       return;
     }
+    if (!onlyReady && splitImportReview(selected, categories).needsReview.length) {
+      toast.error('Сначала назначьте категории всем операциям или импортируйте только распознанные.');
+      setFilterTab('unrecognized');
+      return;
+    }
     if (!globalMemberId || selected.some(item => item.memberId !== globalMemberId)) {
       toast.error('Владелец выписки не совпадает с участником операции. Повторно загрузите файл.');
       return;
     }
-    if (selected.some(item => !Number.isFinite(item.amount) || item.amount <= 0)) {
-      toast.error('В выписке есть неверные или нулевые суммы. Проверьте операции перед импортом.');
+    if (selected.some(item => !Number.isFinite(item.amount) || item.amount <= 0 ||
+        !Number.isSafeInteger(Math.round(item.amount * 100)) ||
+        Math.abs(item.amount * 100 - Math.round(item.amount * 100)) > 0.000001)) {
+      toast.error('Проверьте суммы: они должны быть положительными и с точностью до копейки.');
       return;
     }
     if (selected.some(item => !item.date || Number.isNaN(new Date(item.date).getTime()))) {
@@ -542,8 +549,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтрация элементов
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      if (filterTab === 'unrecognized' && item.category && item.category !== 'other' &&
-          categories.some(c => c.id === item.category)) return false;
+      if (filterTab === 'unrecognized' && isCategoryForType(item.category, categories, item.type) &&
+          item.category !== 'other') return false;
       if (filterTab === 'income' && item.type !== 'income') return false;
       if (filterTab === 'expense' && item.type !== 'expense') return false;
 
@@ -564,7 +571,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onCancel();
+          if (!isConfirmingImport) onCancel();
         }
       }}
       className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-all duration-300 select-none cursor-pointer"
@@ -583,6 +590,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         <button 
           type="button"
           onClick={onCancel}
+          disabled={isConfirmingImport}
           aria-label="Закрыть модальное окно"
           className="absolute top-3 right-3 sm:top-5 sm:right-5 z-20 w-11 h-11 rounded-full bg-stone-200/60 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] cursor-pointer"
         >
@@ -1005,6 +1013,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <button 
               type="button"
               onClick={onCancel}
+              disabled={isConfirmingImport}
               className="min-h-[44px] py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
             >
               Отмена
@@ -1018,13 +1027,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 className="py-2.5 px-4 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-xs min-h-[44px]"
                 title="Нераспознанные операции не импортируются. Их можно разобрать при повторной загрузке той же выписки."
               >
-                Импортировать распознанные ({items.length - unassignedCount})
+                {isConfirmingImport ? 'Сохранение…' : `Импортировать распознанные (${items.length - unassignedCount})`}
               </button>
             )}
             {unassignedCount > 0 && (
               <p className="text-xs text-amber-800 dark:text-amber-300 w-full sm:basis-full" role="status">
-                Нераспознанные операции можно оставить в XLSX и импортировать после назначения категорий.
-                Сохраните исходную выписку для повторной загрузки.
+                Полный импорт недоступен, пока есть операции без подходящей категории.
+                Можно сохранить только распознанные строки, а остальные разобрать после повторной загрузки XLSX.
               </p>
             )}
 
@@ -1032,11 +1041,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <button 
               type="button"
               onClick={() => void handleConfirm()}
-              disabled={isConfirmingImport || items.length === 0}
+              disabled={isConfirmingImport || items.length === 0 || unassignedCount > 0}
               className="min-h-[44px] py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
             >
               <Check size={16} strokeWidth={3} />
-              <span>Подтвердить импорт ({items.length})</span>
+              <span>{isConfirmingImport ? 'Сохранение…' : `Импортировать все (${items.length})`}</span>
             </button>
           </div>
 

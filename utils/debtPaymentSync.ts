@@ -1,7 +1,7 @@
 import { Debt, MandatoryExpense, Transaction, AppSettings } from '../types';
 
-/** Порог признания платежа оплаченным (95% от ожидаемой суммы) */
-export const PAYMENT_MATCH_THRESHOLD = 0.95;
+/** Обязательство считается закрытым только при 100% суммы. */
+export const PAYMENT_MATCH_THRESHOLD = 1;
 
 /** Категория транзакций по умолчанию для погашения долгов */
 export const DEBT_TRANSACTION_CATEGORY = 'debts';
@@ -151,7 +151,9 @@ export function computeDebtMonthPaymentStatus(
     ? manualPaidList.includes(linkedExpense.id) 
     : false;
 
-  const isManualDebtPaid = Boolean(debt.paidThisMonth);
+  // The legacy flag represents only the real current month. It must not
+  // overwrite historical month status when browsing past obligations.
+  const isManualDebtPaid = getMonthKey(month) === getMonthKey(new Date()) && Boolean(debt.paidThisMonth);
 
   // Сортируем транзакции по дате (последняя первая)
   const sortedTxs = [...matchedTransactions].sort(
@@ -178,7 +180,7 @@ export function computeDebtMonthPaymentStatus(
     return {
       isPaid: true,
       status: 'paid',
-      paidAmount: expectedAmount,
+      paidAmount: totalPaidByTx,
       expectedAmount,
       remainingAmount: 0,
       source: 'mandatory_expense',
@@ -192,7 +194,7 @@ export function computeDebtMonthPaymentStatus(
     return {
       isPaid: true,
       status: 'paid',
-      paidAmount: expectedAmount,
+      paidAmount: totalPaidByTx,
       expectedAmount,
       remainingAmount: 0,
       source: 'manual_debt',

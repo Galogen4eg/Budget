@@ -17,9 +17,9 @@ test('mobile overview supports safe-area insets and long balance values', () => 
   assert.match(overview, /break-words.*tabular-nums/);
 });
 test('mobile header and spending scale controls expose touch-size targets', () => {
-  assert.match(overview, /aria-label="Добавить операцию"/);
+  assert.match(overview, /addTitle="Добавить операцию"/);
   assert.match(overview, /aria-expanded=\{isMonthPickerOpen\}/);
-  assert.match(overview, /aria-label="Настройки"/);
+  assert.match(overview, /onOpenSettings=\{onOpenSettings\}/);
   assert.match(overview, /min-h-\[44px\]/);
 });
 test('switching personal and family budget is identifiable by assistive technology', () => {

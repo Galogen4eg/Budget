@@ -22,6 +22,7 @@ import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansMobileProps {
@@ -783,7 +784,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       />
 
       {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
-      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md mx-auto w-full">
+      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md sm:max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (
@@ -818,7 +819,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         )}
         
         {/* CARD 1: Month Title & Filter Card (Image 1 Spec) */}
-        <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm space-y-3.5 border border-[#EAE5DB]/60 dark:border-white/5">
+        <div className={`${SURFACE_CARD} space-y-3.5`}>
           
           {/* Row 1: Month Title & Arrows */}
           <div className="flex items-center justify-between">
@@ -901,7 +902,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 3: Chip Filters (Все, Папа, Мама, Пересечения) */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          <div role="group" aria-label="Фильтр участников планов" className={FILTER_RAIL}>
             {memberFilterStats.map(stat => {
               const isSelected = filterMemberId === stat.id;
 
@@ -911,10 +912,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   type="button"
                   onClick={() => setFilterMemberId(stat.id as any)}
                   aria-pressed={isSelected}
-                  className={`min-h-[44px] px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 ${
+                  className={`${FILTER_CHIP} cursor-pointer ${
                     isSelected
-                      ? 'bg-[#3B6347] text-white shadow-xs font-bold'
-                      : 'bg-[#F0ECE4] dark:bg-white/10 text-[#2E3230] dark:text-gray-200 hover:bg-[#EAE6DE]'
+                      ? FILTER_CHIP_ACTIVE
+                      : FILTER_CHIP_IDLE
                   }`}
                 >
                   {stat.id !== 'all' && (

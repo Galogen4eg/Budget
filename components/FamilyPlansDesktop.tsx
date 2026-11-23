@@ -12,6 +12,7 @@ import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 
 interface FamilyPlansDesktopProps {
   events: FamilyEvent[];
@@ -346,60 +347,30 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </div>
           </div>
 
-          {/* Фильтры участников и выбор режима отображения */}
-          <div className="flex items-center flex-wrap gap-2.5">
-            
-            {/* Фильтр: Все */}
-            <button 
-              onClick={() => setFilterMemberId('all')} 
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                filterMemberId === 'all' 
-                  ? 'bg-[#EBE5DB] dark:bg-white/20 text-stone-900 dark:text-white shadow-xs' 
-                  : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-600 dark:text-stone-300 hover:border-stone-400'
-              }`}
-            >
+          {/* Common non-shrinking participant rail; avoid duplicate 'Общие' button that simply reset to all. */}
+          <div role="group" aria-label="Участник планов" className={FILTER_RAIL}>
+            <button type="button" aria-pressed={filterMemberId === 'all'}
+              onClick={() => setFilterMemberId('all')}
+              className={`${FILTER_CHIP} ${filterMemberId === 'all' ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
               Все ({events.length})
             </button>
-
-            {/* Фильтры по участникам (только если есть события) */}
             {members.map(m => {
               const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
               if (count === 0) return null;
-
               const isSelected = filterMemberId === m.id;
-
               return (
-                <button 
-                  key={m.id} 
-                  onClick={() => setFilterMemberId(isSelected ? 'all' : m.id)} 
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isSelected 
-                      ? 'bg-[#EBE5DB] dark:bg-white/20 text-stone-900 dark:text-white shadow-xs' 
-                      : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400'
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.color || '#4A7C59' }} />
-                  <span>{m.name}</span>
-                  <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold">({count})</span>
+                <button key={m.id} type="button" aria-pressed={isSelected}
+                  onClick={() => setFilterMemberId(isSelected ? 'all' : m.id)}
+                  className={`${FILTER_CHIP} ${isSelected ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: m.color || '#4A7C59' }} />
+                  <span className="max-w-[12rem] truncate" title={m.name}>{m.name}</span>
+                  <span className="text-xs opacity-70">({count})</span>
                 </button>
               );
             })}
 
-            {/* Фильтр: Общие */}
-            <button 
-              onClick={() => setFilterMemberId('all')} 
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                filterMemberId === 'all'
-                  ? 'bg-[#EBE5DB] dark:bg-white/20 text-stone-900 dark:text-white shadow-xs'
-                  : 'bg-[#FDFBF7] dark:bg-white/5 border border-[#ECE5DB] dark:border-white/10 text-stone-700 dark:text-stone-300 hover:border-stone-400'
-              }`}
-            >
-              <Users size={12} className="shrink-0 text-[#4A7C59]" />
-              <span>Общие</span>
-            </button>
-
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
-            <div className="flex items-center bg-[#EBE5DB] dark:bg-white/10 p-0.5 rounded-full text-xs font-medium ml-1">
+            <div role="group" aria-label="Вид календаря" className="flex flex-none shrink-0 items-center gap-1">
               <button 
                 onClick={() => {
                   setViewMode('month');
@@ -407,10 +378,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
                   setSelectedDate(now);
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'month' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Месяц
@@ -420,10 +391,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setViewMode('week');
                   resetToCurrentWeek();
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'week' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Неделя
@@ -433,10 +404,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setViewMode('list');
                   setListTab('upcoming');
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'list' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Расписание
@@ -446,7 +417,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Голосовой ввод */}
             <button 
               onClick={startListening} 
-              className={`p-2 rounded-full transition-all cursor-pointer ${
+              aria-label="Голосовой ввод события"
+              className={`w-11 h-11 flex flex-none items-center justify-center rounded-xl transition-colors cursor-pointer ${
                 isListening 
                   ? 'bg-red-500 text-white animate-pulse' 
                   : 'bg-[#EBE5DB] dark:bg-white/10 hover:bg-stone-300 text-stone-700 dark:text-stone-300'
@@ -459,7 +431,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Круглая темно-зеленая кнопка Создания */}
             <button 
               onClick={() => onOpenEvent(null, { date: getLocalDateString(selectedDate) })}
-              className="w-9 h-9 rounded-full bg-[#2D5A46] hover:bg-[#234636] active:scale-95 text-white flex items-center justify-center transition shadow-xs cursor-pointer ml-1"
+              aria-label="Добавить событие"
+              className="w-11 h-11 shrink-0 rounded-xl bg-[#2D5A46] hover:bg-[#234636] active:scale-95 text-white flex items-center justify-center transition shadow-xs cursor-pointer ml-1"
               title="Добавить событие"
             >
               <Plus size={18} strokeWidth={2.5} />
@@ -468,7 +441,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         </header>
 
         {/* Сетка календаря */}
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 lg:p-6 border border-[#ECE5DB] dark:border-white/10 shadow-xs flex-1 flex flex-col min-h-0">
+        <div className={`${SURFACE_CARD} flex-1 flex flex-col min-h-0`}>
           
           {viewMode === 'month' && (
             <>
@@ -673,7 +646,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'upcoming'
                         ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        : FILTER_CHIP_IDLE
                     }`}
                   >
                     <Sparkles size={14} />
@@ -691,7 +664,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'past'
                         ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        : FILTER_CHIP_IDLE
                     }`}
                   >
                     <History size={14} />

@@ -14,6 +14,7 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { clampBudgetDay } from '../utils/budgetUi';
@@ -458,7 +459,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         {/* Mobile Page Content */}
         <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
-          <section className="flex flex-col gap-3.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE5DB] dark:border-white/10">
+          <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
@@ -512,27 +513,29 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
             {/* Family Member Filter Chips with safe horizontal scrolling */}
-            <div className="w-full flex items-center gap-1.5 py-0.5 overflow-x-auto no-scrollbar scroll-smooth flex-nowrap shrink-0">
+            <div role="group" aria-label="Участник бюджета" className={FILTER_RAIL}>
               <button 
                 type="button"
                 onClick={() => setSelectedMember('all')}
-                className={`min-h-[44px] flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 ${
+                aria-pressed={selectedMember === "all"}
+                className={`${FILTER_CHIP} cursor-pointer ${
                   selectedMember === 'all'
-                    ? 'bg-[#4A7C59] text-white'
-                    : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
+                    ? FILTER_CHIP_ACTIVE
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 <Users size={14} className="shrink-0" />
-                <span className="truncate">Все</span>
+                <span className="whitespace-nowrap">Все</span>
               </button>
               {members.map(m => (
                 <button 
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMember(m.id)}
-                  className={`min-h-[44px] flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 ${
+                  aria-pressed={selectedMember === m.id}
+                  className={`${FILTER_CHIP} cursor-pointer ${
                     selectedMember === m.id
-                      ? 'bg-[#4A7C59] text-white shadow-xs'
+                      ? FILTER_CHIP_ACTIVE
                       : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
                   }`}
                 >
@@ -542,7 +545,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   >
                     {m.name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="truncate">{m.name}</span>
+                  <span className="max-w-[12rem] truncate" title={m.name}>{m.name}</span>
                 </button>
               ))}
             </div>
@@ -964,17 +967,18 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </div>
 
           {/* Family Member Filter Pills */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-graphite-muted dark:text-gray-400 uppercase tracking-wide hidden sm:inline">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 hidden sm:inline">
               Участники:
             </span>
-            <div className="flex items-center bg-[#EAE6DE] dark:bg-[#2C2C2E] p-1 rounded-xl gap-1 text-xs">
+            <div role="group" aria-label="Участник бюджета" className={FILTER_RAIL}>
               <button 
                 onClick={() => setSelectedMember('all')}
-                className={`cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg ${
+                aria-pressed={selectedMember === "all"}
+                className={`${FILTER_CHIP} cursor-pointer ${
                   selectedMember === 'all' 
-                    ? 'bg-[#2E3230] text-white shadow-xs dark:bg-white dark:text-[#1C1C1E]' 
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
                 type="button"
               >
@@ -988,7 +992,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <button 
                     key={m.id}
                     onClick={() => setSelectedMember(m.id)}
-                    className={`cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+                    aria-pressed={isSelected}
+                    className={`${FILTER_CHIP} cursor-pointer ${
                       isSelected 
                         ? 'bg-[#2E3230] text-white shadow-xs dark:bg-white dark:text-[#1C1C1E]' 
                         : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10'

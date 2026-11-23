@@ -1,3 +1,4 @@
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, ListTodo, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -102,10 +103,10 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>Telegram</button>
     <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>
   </div>
-  <div className="flex items-center gap-1 overflow-x-auto" role="group" aria-label="Период календаря">
+  <div className={FILTER_RAIL} role="group" aria-label="Период календаря">
    {([['today','Сегодня'],['week','7 дней'],['month','30 дней'],['tasks','Задачи']] as const).map(([id,label])=>
     <button key={id} type="button" aria-pressed={view===id} onClick={()=>setView(id)}
-     className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${view===id?'bg-[#4A7C59] text-white':'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-200'}`}>
+     className={`${FILTER_CHIP} ${view===id ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
      {label}
     </button>
    )}

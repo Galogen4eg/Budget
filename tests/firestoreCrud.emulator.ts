@@ -1,7 +1,7 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { connectFirestoreEmulator, doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
+import { connectFirestoreEmulator, terminate, doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { saveTransactionWithGoal, deleteTransactionWithGoal } from '../utils/db';
 import { monthlyMoneyTotals } from '../utils/budgetFinancialMath';
@@ -12,6 +12,7 @@ if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8080') {
   throw new Error('Refusing CRUD test without the local Firestore Emulator');
 }
 connectFirestoreEmulator(db, '127.0.0.1', 8080);
+after(async () => { await terminate(db); });
 const createFamily = () => 'crud-ci-' + randomUUID();
 const transaction = (id: string, amount: number, memberId='papa'): Transaction => ({
   id, amount, memberId, category: 'food', note: 'Test expense',

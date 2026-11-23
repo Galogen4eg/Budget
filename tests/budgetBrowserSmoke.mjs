@@ -173,6 +173,31 @@ try{
 
 
     }
+    if(label!=='desktop-1920'){
+      // Other requested viewport widths: validate the newly added mandatory
+      // entry point and full modal save/delete in isolated demo state.
+      await page.getByRole('button',{name:/Локальный демо-режим/}).click();
+      await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
+      const add=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
+      const bounds=await add.boundingBox();
+      assert.ok(bounds && bounds.height>=44,label+': mandatory create target too small');
+      await add.click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'visible'});
+      await page.locator('#paymentName').fill('QA обязательство '+label);
+      await page.locator('#paymentAmount').fill('100.15');
+      await page.locator('#paymentDay').fill('12');
+      await page.screenshot({path:'artifacts/budget-browser/'+label+'-mandatory.png',fullPage:true,animations:'disabled'});
+      await page.getByRole('button',{name:'Добавить платёж',exact:true}).click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'hidden'});
+      const edit=page.getByRole('button',{name:'Редактировать обязательный платёж: QA обязательство '+label}).filter({visible:true}).last();
+      await edit.click();
+      await page.getByRole('button',{name:'Удалить платеж',exact:true}).click();
+      await page.getByRole('button',{name:'Подтвердить удаление',exact:true}).click();
+      await page.getByRole('heading',{name:'Редактирование платежа'}).waitFor({state:'hidden'});
+      assert.equal(await edit.count(),0,label+': deleted demo payment still visible');
+      assert.deepEqual(errors,[],label+': mandatory flow generated errors');
+      console.log('PASS',label,'mandatory payment create/delete demo');
+    }
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

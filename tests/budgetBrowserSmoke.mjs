@@ -62,7 +62,7 @@ try{
       const picker=page.getByRole('button',{name:/Выбрать месяц\. Сейчас:/});
       await picker.click();
       assert.equal(await picker.getAttribute('aria-expanded'),'true','1920: month picker did not open');
-      const options=page.locator('button').filter({hasText:/^(январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь) \d{4}$/i}).filter({visible:true});
+      const options=page.locator('div.absolute.right-0.top-full').getByRole('button');
       assert.ok(await options.count()>0,'1920: no month options');
       await options.first().click();
       assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: month picker did not close');

@@ -19,6 +19,7 @@ import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { clampBudgetDay } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
+import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 
@@ -195,22 +196,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   }, [selectedDayTransactions]);
 
   // Category donut chart computation
-  const categoryBreakdown = useMemo(() => {
-    const expenses = monthTransactions.filter(t => t.type === 'expense');
-    const parentCats = categories.filter(c => !c.parentId);
-
-    const data = parentCats.map(cat => {
-      const childIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
-      const familyIds = [cat.id, ...childIds];
-      const sum = expenses.filter(t => familyIds.includes(t.category)).reduce((acc, t) => acc + t.amount, 0);
-      return {
-        ...cat,
-        sum
-      };
-    }).filter(c => c.sum > 0).sort((a, b) => b.sum - a.sum);
-
-    return data;
-  }, [monthTransactions, categories]);
+  const categoryBreakdown = useMemo(() =>
+    buildBudgetCategoryBreakdown(monthTransactions, categories),
+    [monthTransactions, categories]
+  );
 
   // Month navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -475,7 +464,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
                 </span>
                 <span className={`font-semibold tabular-nums ${monthBalance < 0 ? "text-[#B83230] dark:text-red-400" : "text-[#4A7C59] dark:text-green-400"}`}>
-                  {monthBalance < 0 ? "Дефицит" : "Осталось"} {settings.privacyMode ? '•••' : `${Math.abs(monthBalance).toLocaleString('ru-RU')} ₽`}
+                  Результат месяца: {monthBalance < 0 ? "−" : "+"}{settings.privacyMode ? '•••' : `${Math.abs(monthBalance).toLocaleString('ru-RU')} ₽`}
                 </span>
               </div>
               <div className="w-full bg-[#EAE6DE] dark:bg-[#2C2C2E] h-2.5 rounded-full overflow-hidden flex">
@@ -1148,23 +1137,23 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽`}
               </span>
               <span className="text-[8px] text-graphite-muted dark:text-gray-400 block">
-                {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '0%'}
+                {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
               </span>
             </div>
 
             <div className="text-center px-1">
-              <span className="text-[9px] uppercase font-bold text-graphite-muted dark:text-gray-400 block">Свободно</span>
+              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Результат месяца</span>
               <span className="text-xs lg:text-sm font-black font-headline text-emerald-700 dark:text-green-400 truncate block">
                 {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${monthBalance.toLocaleString('ru-RU')} ₽`}
               </span>
-              <span className="text-[8px] text-emerald-700 dark:text-green-400 block">В норме</span>
+              <span className="text-xs text-graphite-muted dark:text-gray-400 block">Доходы − расходы</span>
             </div>
           </div>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex items-center justify-between text-[11px]">
-            <span className="text-graphite-muted dark:text-gray-400">Исполнение бюджета:</span>
+            <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>
             <span className="font-bold text-graphite dark:text-white">
-              {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '0%'}
+              {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
             </span>
           </div>
         </div>

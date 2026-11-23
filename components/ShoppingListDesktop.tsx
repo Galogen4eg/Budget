@@ -1039,10 +1039,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             {/* Custom checkmark */}
                             <label 
                               onClick={(e) => e.stopPropagation()}
-                              className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0"
+                              className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0 focus-within:ring-2 focus-within:ring-primary"
                             >
                               <input 
                                 type="checkbox"
+                                aria-label={`Отметить купленным: ${item.title}`}
                                 checked={item.completed}
                                 onChange={() => handleToggleComplete(item)}
                                 className="peer sr-only"
@@ -1054,9 +1055,12 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm text-[#2E3230] dark:text-white truncate">
+                                <button type="button"
+                                  onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
+                                  aria-label={`Редактировать товар: ${item.title}`}
+                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[#2E3230] dark:text-white truncate rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                   {item.title}
-                                </span>
+                                </button>
                                 {item.priority === 'high' && (
                                   <span className="px-2 py-0.5 rounded-md bg-[#F8E0A8] dark:bg-amber-950/40 text-[#554020] dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
                                     <Zap size={11} className="text-[#705C30]" /> Срочно
@@ -1166,7 +1170,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         <div className="flex items-center gap-3">
                           <button 
                             onClick={() => handleToggleComplete(item)}
-                            className="w-5 h-5 rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition"
+                            aria-label={`Вернуть в список: ${item.title}`}
+                            className="min-w-[44px] min-h-[44px] rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition focus-visible:ring-2 focus-visible:ring-primary"
                             title="Вернуть в список"
                           >
                             <Check size={13} strokeWidth={3} />

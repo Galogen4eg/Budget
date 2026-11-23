@@ -95,12 +95,34 @@ try{
       }
       // Verify Full HD calendar selection, day details and a safe unsaved
       // transaction form. Do not write or mutate persistent/demo data.
+      // Full HD actions must remain reachable without tiny click targets.
+      for(const name of ['Предыдущий месяц','Следующий месяц']){
+        const arrow=page.getByRole('button',{name,exact:true}).filter({visible:true}).first();
+        const bounds=await arrow.boundingBox();
+        assert.ok(bounds && bounds.width>=44 && bounds.height>=44,
+          '1920: undersized Budget month control '+name);
+      }
       const calendarDay=page.getByRole('button',{name:/^Выбрать 15 /}).filter({visible:true}).first();
       await calendarDay.click();
       assert.equal(await calendarDay.getAttribute('aria-pressed'),'true','1920: selected calendar day not reflected');
-      await page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first().click();
+      const expandDay=page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first();
+      const expandBounds=await expandDay.boundingBox();
+      assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
+      await expandDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
-      await page.getByRole('button',{name:'Закрыть',exact:true}).filter({visible:true}).last().click();
+      const closeDay=page.locator('button[title="Закрыть"]').filter({visible:true}).last();
+      // DayDetailModal scales from 0.98 to 1 on entrance; measure only
+      // after that transform finishes, not at an intermediate frame.
+      await page.waitForFunction(() => {
+        const close=document.querySelector('button[title="Закрыть"]');
+        if(!close)return false;
+        const rect=close.getBoundingClientRect();
+        return rect.width>=43.95 && rect.height>=43.95;
+      },null,{timeout:4000});
+      const closeBounds=await closeDay.boundingBox();
+      assert.ok(closeBounds && closeBounds.width>=43.95 && closeBounds.height>=43.95,
+        '1920: undersized day details close action '+JSON.stringify(closeBounds));
+      await closeDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});
       await page.getByRole('button',{name:'Добавить операцию',exact:true}).filter({visible:true}).first().click();
       await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'visible'});

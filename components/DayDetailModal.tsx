@@ -109,7 +109,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
           <button 
             onClick={onClose}
-            className="w-8 h-8 rounded-xl border border-surface-border dark:border-white/10 hover:bg-[#F3EFE7] dark:hover:bg-white/5 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white flex items-center justify-center transition cursor-pointer active:scale-95"
+            className="w-11 h-11 shrink-0 rounded-xl border border-surface-border dark:border-white/10 hover:bg-[#F3EFE7] dark:hover:bg-white/5 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white flex items-center justify-center transition cursor-pointer active:scale-95"
             title="Закрыть"
           >
             <X size={16} />

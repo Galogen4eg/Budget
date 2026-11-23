@@ -924,7 +924,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <button 
               onClick={handlePrevMonth}
               aria-label="Предыдущий месяц" 
-              className="text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white p-0.5 rounded transition" 
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" 
               type="button"
             >
               <ChevronLeft size={16} />
@@ -935,7 +935,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <button 
               onClick={handleNextMonth}
               aria-label="Следующий месяц" 
-              className="text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white p-0.5 rounded transition" 
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" 
               type="button"
             >
               <ChevronRight size={16} />
@@ -1345,7 +1345,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </span>
                 <button 
                   onClick={() => setIsDayModalOpen(true)}
-                  className="text-[10px] font-bold text-primary hover:underline ml-1"
+                  className="inline-flex min-h-[44px] items-center px-2 text-xs font-bold text-primary hover:underline ml-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Развернуть ↗
                 </button>

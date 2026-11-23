@@ -24,13 +24,13 @@ jobs:
         with:
           node-version: '24'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: TypeScript check
-        run: npx tsc --noEmit
-      - name: Build Vite app
-        run: npm run build
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npm install --prefer-offline --no-audit --no-fund
+      # Full tests and TypeScript run once in Budget CI/check.
+      # Browser job builds the preview without the npm prebuild hook.
+      - name: Build browser preview (without duplicate unit suite)
+        run: npx vite build
+      - name: Install Chromium headless shell
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Browser smoke at mobile, tablet and desktop widths
         run: node tests/budgetBrowserSmoke.mjs
       - name: Upload screenshots when available

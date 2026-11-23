@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { connectFirestoreEmulator, terminate, doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { saveTransactionWithGoal, deleteTransactionWithGoal } from '../utils/db';
+import { saveTransactionWithGoal, deleteTransactionWithGoal, saveAppSettingsPatch } from '../utils/db';
 import { monthlyMoneyTotals } from '../utils/budgetFinancialMath';
 import type { Transaction, SavingsGoal } from '../types';
 
@@ -75,4 +75,34 @@ test('Firestore emulator: missing savings target refuses new write and preserves
   const t={...transaction('bad-transfer',50),category:'savings',linkedGoalId:'absent-goal'};
   await assert.rejects(saveTransactionWithGoal(family,t,false),/удалена/);
   assert.equal((await getDoc(transactionRef(family,'bad-transfer'))).exists(),false);
+});
+
+test('Firestore emulator: mandatory payment create/edit/delete and manual flags preserve unrelated months', async () => {
+  const family=createFamily();
+  const user='family-user-1';
+  const settingsRef=doc(db,'families',family,'config','settings');
+  const bill={id:'electric',name:'Электричество',amount:499.99,day:18,remind:true};
+  await saveAppSettingsPatch(family,user,{
+    mandatoryExpenses:[bill],
+    manualPaidExpenses:{'2026-11':['electric']}
+  });
+  let saved=(await getDoc(settingsRef)).data()!;
+  assert.equal(saved.mandatoryExpenses[0].amount,499.99);
+  assert.deepEqual(saved.manualPaidExpenses['2026-11'],['electric']);
+  // The second member's edit updates only the required shared keys.
+  await saveAppSettingsPatch(family,'family-user-2',{
+    mandatoryExpenses:[{...bill,amount:525.05}],
+    manualPaidExpenses:{'2026-12':[]}
+  });
+  saved=(await getDoc(settingsRef)).data()!;
+  assert.equal(saved.mandatoryExpenses[0].amount,525.05);
+  assert.deepEqual(saved.manualPaidExpenses['2026-11'],['electric']);
+  assert.deepEqual(saved.manualPaidExpenses['2026-12'],[]);
+  await saveAppSettingsPatch(family,user,{
+    mandatoryExpenses:[],
+    manualPaidExpenses:{'2026-11':[]}
+  });
+  saved=(await getDoc(settingsRef)).data()!;
+  assert.deepEqual(saved.mandatoryExpenses,[]);
+  assert.deepEqual(saved.manualPaidExpenses['2026-11'],[]);
 });

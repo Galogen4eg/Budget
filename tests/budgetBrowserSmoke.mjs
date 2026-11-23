@@ -93,6 +93,28 @@ try{
         assert.equal((await familyLimit.innerText()).trim(),originalFamilyLimit,
           '1920: member history filter changed shared family daily guidance');
       }
+      // Verify Full HD calendar selection, day details and a safe unsaved
+      // transaction form. Do not write or mutate persistent/demo data.
+      const calendarDay=page.getByRole('button',{name:/^Выбрать 15 /}).filter({visible:true}).first();
+      await calendarDay.click();
+      assert.equal(await calendarDay.getAttribute('aria-pressed'),'true','1920: selected calendar day not reflected');
+      await page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first().click();
+      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
+      await page.getByRole('button',{name:'Закрыть',exact:true}).filter({visible:true}).last().click();
+      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});
+      await page.getByRole('button',{name:'Добавить операцию',exact:true}).filter({visible:true}).first().click();
+      await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'visible'});
+      const amountField=page.getByRole('textbox',{name:'Сумма операции'});
+      await amountField.fill('1250');
+      assert.equal(await amountField.inputValue(),'1250','1920: amount field does not accept expense');
+      const incomeTab=page.getByRole('button',{name:/ДОХОД/}).filter({visible:true}).first();
+      await incomeTab.click();
+      assert.equal(await incomeTab.getAttribute('aria-pressed'),'true','1920: income mode not selected');
+      await page.getByRole('button',{name:'Закрыть модальное окно'}).click();
+      await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'hidden'});
+      assert.deepEqual(errors,[],'1920: calendar or transaction dialog raised runtime errors');
+      console.log('PASS desktop-1920 calendar day details and unsaved transaction form');
+
       assert.deepEqual(errors,[],'1920: Budget family filter generated runtime errors');
       await page.screenshot({path:'artifacts/budget-browser/desktop-1920-budget-family.png',fullPage:true,animations:'disabled'});
       console.log('PASS desktop-1920 family projection stable across member filters');

@@ -67,7 +67,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     currentMonthSpent, 
     goals,
     settings, 
-    updateSettings, 
+    updateSettings, updateMandatoryPaymentBundle, 
     members, 
     categories, 
     shoppingItems, 
@@ -197,7 +197,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [currentMonthTransactions]);
 
   // Always use the same shared projection as the Budget section.
-  const relevantMandatoryExpenses = settings.mandatoryExpenses || [];
+  const relevantMandatoryExpenses = useMemo(() => settings.mandatoryExpenses || [], [settings.mandatoryExpenses]);
   const familyProjection = useMemo(() => calculateFamilyBudgetProjection({
     transactions,
     monthTransactions: familyMonthTransactions,
@@ -236,37 +236,51 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    let updated: string[];
-    if (isPaid) {
-      updated = Array.from(new Set([...existing, expenseId]));
-    } else {
-      updated = existing.filter(id => id !== expenseId);
-    }
-
+    const updated = isPaid
+      ? Array.from(new Set([...existing, expenseId]))
+      : existing.filter(id => id !== expenseId);
     if (!isPaid) {
-      // An existing payment cannot be undone by changing local state only:
-      // it would still exist in Firestore and be counted as paid on reload.
-      const recorded = familyMonthTransactions.some(t =>
-        t.type === 'expense' && t.linkedExpenseId === expenseId
+      const recorded = familyMonthTransactions.some(tx =>
+        tx.type === 'expense' && tx.linkedExpenseId === expenseId
       );
       if (recorded) {
-        toast.info('Платёж привязан к операции. Измените или удалите саму операцию, чтобы отметить платёж неоплаченным.');
+        toast.info('Платёж связан с финансовой операцией. Измените или удалите её, чтобы снять оплату.');
         return;
       }
     }
-
-    await updateSettings({
-      manualPaidExpenses: { [currentMonthKey]: updated }
-    });
-  }, [settings, currentMonthKey, familyMonthTransactions, updateSettings]);
+    const bill = relevantMandatoryExpenses.find(expense => expense.id === expenseId);
+    const debtChanges = isCurrentCalendarMonth && bill?.linkedDebtId
+      ? [{ id:bill.linkedDebtId, changes:{ paidThisMonth:isPaid } }]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:relevantMandatoryExpenses,
+        manualPaidExpenses:{ [currentMonthKey]:updated }
+      }, debtChanges);
+    } catch {
+      toast.error('Не удалось сохранить отметку платежа и связанный долг.');
+    }
+  }, [settings.manualPaidExpenses, currentMonthKey, familyMonthTransactions,
+      relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
   const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
-    const updated = Array.from(new Set([...existing, ...expenseIds]));
-    await updateSettings({
-      manualPaidExpenses: { [currentMonthKey]: updated }
-    });
-  }, [settings, currentMonthKey, updateSettings]);
+    const updated = Array.from(new Set([...existing,...expenseIds]));
+    const ids = new Set(expenseIds);
+    const debtIds = new Set(relevantMandatoryExpenses.filter(expense =>
+      ids.has(expense.id) && isCurrentCalendarMonth && Boolean(expense.linkedDebtId)
+    ).map(expense => expense.linkedDebtId!));
+    const debtChanges = Array.from(debtIds).map(id => ({id, changes:{paidThisMonth:true}}));
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:relevantMandatoryExpenses,
+        manualPaidExpenses:{ [currentMonthKey]:updated }
+      }, debtChanges);
+    } catch {
+      toast.error('Не удалось записать оплату обязательств и связанных долгов.');
+    }
+  }, [settings.manualPaidExpenses, currentMonthKey, relevantMandatoryExpenses,
+      isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
   const sharedLedger = familyProjection.ledger;
   const savingsAmount = familyProjection.savingsReserve;

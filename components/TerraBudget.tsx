@@ -21,7 +21,8 @@ import { clampBudgetDay } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
-import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
+import { monthlyMoneyTotals, sumMoney, budgetDailyLimit, daysUntilNextSalary } from '../utils/budgetFinancialMath';
+import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -133,48 +134,45 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const remainingDays = isCurrentMonthView
     ? daysUntilNextSalary(today, configuredSalaryDays) : 0;
 
-  const monthlyPaymentStates = useMemo(() => mandatoryPaymentStates(
-    mandatoryExpenses.filter(bill => selectedMember === 'all' || !bill.memberId || bill.memberId === selectedMember),
-    monthTransactions,
-    settings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`] || []
-  ), [mandatoryExpenses, monthTransactions, settings.manualPaidExpenses, selectedMember, currentMonth]);
-  const mandatoryReserve = (settings.enableSmartReserve ?? true)
-    ? sumMoney(monthlyPaymentStates.map(item => item.amountNeeded)) : 0;
-  const monthlySalary = useMemo(() => sumMoney(monthTransactions.filter(tx => {
-    const label=categories.find(category=>category.id===tx.category)?.label.toLowerCase() || '';
-    return tx.type==='income' && (tx.category==='salary'||label.includes('зарплата')||label.includes('salary'));
-  }).map(tx=>tx.amount)), [monthTransactions,categories]);
-  const savingsReserve = sumMoney([monthlySalary * ((settings.savingsRate || 0)/100)]);
-  const manualReserve = typeof settings.manualReservedAmount==='number'
-    ? settings.manualReservedAmount : sumMoney(goals.map(goal=>goal.currentAmount||0));
-  const reservedAmount = sumMoney([mandatoryReserve,savingsReserve,manualReserve]);
-  // Opening balance belongs to the family ledger. An individual member has
-  // no assigned share of it, so never invent one for the member filter.
-  const ledger = useMemo(() => ledgerBalance(
-    memberFilteredTransactions,
-    selectedMember==='all' ? settings.initialBalance : 0,
-    settings.initialBalanceDate
-  ), [memberFilteredTransactions, selectedMember, settings.initialBalance, settings.initialBalanceDate]);
-  const availableBalance = Math.max(0,sumMoney([ledger,-reservedAmount]));
+  // Shared family cash and commitments must not change when the user filters
+  // the transaction history to a single family member.
+  const familyProjection = useMemo(() => calculateFamilyBudgetProjection({
+    transactions: transactions,
+    monthTransactions: familyMonthTransactions,
+    bills: mandatoryExpenses,
+    categories,
+    manuallyPaidIds: settings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`] || [],
+    initialBalance: settings.initialBalance,
+    initialBalanceDate: settings.initialBalanceDate,
+    enableSmartReserve: settings.enableSmartReserve,
+    savingsRate: settings.savingsRate || 0,
+    manualReservedAmount: settings.manualReservedAmount,
+    goalSavedAmounts: goals.map(goal=>goal.currentAmount||0),
+  }), [transactions, familyMonthTransactions, mandatoryExpenses, categories,
+       settings.manualPaidExpenses, currentMonth, settings.initialBalance,
+       settings.initialBalanceDate, settings.enableSmartReserve,
+       settings.savingsRate, settings.manualReservedAmount, goals]);
+  const { monthlyPaymentStates, mandatoryReserve, monthlySalary, savingsReserve,
+    manualReserve, reservedAmount, ledger, availableBalance } = familyProjection;
   const safeDailyLimit = isCurrentMonthView
     ? budgetDailyLimit(ledger,reservedAmount,remainingDays) : 0;
 
   // Today's spend
   const todaySpent = useMemo(() => {
-    return sumMoney(monthTransactions.filter(t => {
+    return sumMoney(familyMonthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === currentDayNum && t.type === 'expense';
     }).map(t => t.amount));
-  }, [monthTransactions, currentDayNum]);
+  }, [familyMonthTransactions, currentDayNum]);
 
   // Yesterday's spend
   const yesterdaySpent = useMemo(() => {
     if (currentDayNum <= 1) return 0;
-    return sumMoney(monthTransactions.filter(t => {
+    return sumMoney(familyMonthTransactions.filter(t => {
       const d = new Date(t.date);
       return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
     }).map(t => t.amount));
-  }, [monthTransactions, currentDayNum]);
+  }, [familyMonthTransactions, currentDayNum]);
 
   const todayReserve = safeDailyLimit - todaySpent;
 
@@ -436,15 +434,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? 'Безопасный лимит в день' : 'История бюджета'}</span>
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? 'Семейный ориентир в день' : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
+                  <span data-testid="family-daily-limit-mobile" className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
                     {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
                   </span>
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Доступно до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
+                  Доступно семье до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -453,7 +451,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   : 'bg-[#EAE6DD] text-[#6B6358] dark:bg-white/10 dark:text-gray-300'
               }`}>
                 <Sprout size={15} />
-                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Нет остатка'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'Рассчитан' : 'Нет остатка'}</span>
               </div>
             </div>
 
@@ -708,7 +706,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   )}
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Баланс дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${formatBudgetMoney(selectedDayNet)} ₽`}</strong> • {selectedDayNet >= 0 || Math.abs(selectedDayNet) <= safeDailyLimit ? 'Без перерасхода' : 'Превышение'}
+                  Результат дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${formatBudgetMoney(selectedDayNet)} ₽`}</strong> • {selectedMember === 'all' ? 'Все участники' : 'Выбранный участник'}
                 </span>
               </div>
               <button 
@@ -1034,7 +1032,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
-                Дневной лимит
+                Семейный ориентир в день
               </span>
             </div>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
@@ -1044,7 +1042,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           <div className="my-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl lg:text-3xl font-black font-headline text-primary-dark dark:text-green-400 tracking-tight">
+              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-black font-headline text-primary-dark dark:text-green-400 tracking-tight">
                 {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
@@ -1057,7 +1055,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Рекомендация ритма:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
             </span>
           </div>
         </div>
@@ -1067,7 +1065,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
-              Индикатор трат сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
+              Траты семьи сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
               todayReserve >= 0 
@@ -1081,7 +1079,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="my-2 space-y-1.5">
             <div className="flex justify-between items-baseline">
               <div className="text-lg font-bold font-headline text-graphite dark:text-white">
-                Сегодня: {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
+                Сегодня (семья): {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
               </div>
               <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-primary dark:text-green-400' : 'text-red-500'}`}>
                 {todayReserve >= 0 ? `Запас: +${todayReserve.toLocaleString('ru-RU')} ₽` : `Перерасход: ${todayReserve.toLocaleString('ru-RU')} ₽`}
@@ -1097,7 +1095,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </div>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex items-center justify-between text-[11px] text-graphite-muted dark:text-gray-400">
-            <span>Вчера: {yesterdaySpent.toLocaleString('ru-RU')} ₽</span>
+            <span>Вчера (семья): {yesterdaySpent.toLocaleString('ru-RU')} ₽</span>
             <span className="text-emerald-700 dark:text-green-400 font-semibold">
               {yesterdaySpent < safeDailyLimit ? `Сэкономлено ${(safeDailyLimit - yesterdaySpent).toLocaleString('ru-RU')} ₽` : ''}
             </span>
@@ -1343,7 +1341,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${selectedDayNet.toLocaleString('ru-RU')} ₽`}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-light dark:bg-green-950/40 text-primary dark:text-green-400">
-                  Баланс дня
+                  Результат выбранного дня
                 </span>
                 <button 
                   onClick={() => setIsDayModalOpen(true)}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { connectFirestoreEmulator, terminate, doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { saveTransactionWithGoal, deleteTransactionWithGoal, saveAppSettingsPatch, updateItem } from '../utils/db';
+import { saveTransactionWithGoal, deleteTransactionWithGoal, saveAppSettingsPatch, updateItem, commitMandatoryPaymentBundle } from '../utils/db';
 import { monthlyMoneyTotals } from '../utils/budgetFinancialMath';
 import type { Transaction, SavingsGoal } from '../types';
 
@@ -123,4 +123,52 @@ test('Firestore emulator: linked debt can be marked paid and detached without lo
   assert.equal(saved.currentBalance,2500);
   await assert.rejects(updateItem(family,'debts','missing-debt',{paidThisMonth:true}));
   assert.equal((await getDoc(doc(db,'families',family,'debts','missing-debt'))).exists(),false);
+});
+
+test('Firestore emulator: mandatory payment and debt update commit together', async () => {
+  const family=createFamily();
+  const config=doc(db,'families',family,'config','settings');
+  const debt=doc(db,'families',family,'debts','loan-atomic');
+  const bill={id:'bill-atomic',name:'Ипотека',amount:1200.25,day:15,remind:true,linkedDebtId:'loan-atomic'};
+  await setDoc(debt,{id:'loan-atomic',name:'Ипотека',currentBalance:20000,paidThisMonth:false});
+  await commitMandatoryPaymentBundle(family,'member-a',{
+    mandatoryExpenses:[bill],
+    manualPaidExpenses:{'2026-11':['bill-atomic']}
+  },[{id:'loan-atomic',changes:{linkedExpenseId:'bill-atomic',paidThisMonth:true}}]);
+  let shared=(await getDoc(config)).data()!;
+  let savedDebt=(await getDoc(debt)).data()!;
+  assert.equal(shared.mandatoryExpenses[0].amount,1200.25);
+  assert.deepEqual(shared.manualPaidExpenses['2026-11'],['bill-atomic']);
+  assert.equal(savedDebt.linkedExpenseId,'bill-atomic');
+  assert.equal(savedDebt.paidThisMonth,true);
+  assert.equal(savedDebt.currentBalance,20000);
+
+  await commitMandatoryPaymentBundle(family,'member-b',{
+    mandatoryExpenses:[],
+    manualPaidExpenses:{'2026-11':[]}
+  },[{id:'loan-atomic',changes:{linkedExpenseId:null,paidThisMonth:false}}]);
+  shared=(await getDoc(config)).data()!;
+  savedDebt=(await getDoc(debt)).data()!;
+  assert.deepEqual(shared.mandatoryExpenses,[]);
+  assert.deepEqual(shared.manualPaidExpenses['2026-11'],[]);
+  assert.equal(savedDebt.linkedExpenseId,null);
+  assert.equal(savedDebt.paidThisMonth,false);
+});
+
+test('Firestore emulator: missing linked debt rejects the entire obligation change', async () => {
+  const family=createFamily();
+  const config=doc(db,'families',family,'config','settings');
+  const bill={id:'bill-existing',name:'Аренда',amount:999.05,day:11,remind:false};
+  await saveAppSettingsPatch(family,'member-a',{
+    mandatoryExpenses:[bill],manualPaidExpenses:{'2026-11':[]}
+  });
+  const desired={...bill,amount:5000.01};
+  await assert.rejects(commitMandatoryPaymentBundle(family,'member-b',{
+    mandatoryExpenses:[desired],
+    manualPaidExpenses:{'2026-11':['bill-existing']}
+  },[{id:'missing-linked-debt',changes:{paidThisMonth:true}}]),/удалён/);
+  const saved=(await getDoc(config)).data()!;
+  assert.equal(saved.mandatoryExpenses[0].amount,999.05);
+  assert.deepEqual(saved.manualPaidExpenses['2026-11'],[]);
+  assert.equal((await getDoc(doc(db,'families',family,'debts','missing-linked-debt'))).exists(),false);
 });

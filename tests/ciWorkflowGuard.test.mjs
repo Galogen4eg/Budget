@@ -12,16 +12,25 @@ test('Telegram failure branch narrows discriminated result before accessing erro
  assert.match(settings,/['"]error['"] in result \? result\.error/);
  assert.doesNotMatch(settings,/toast\.error\(result\.error\)/);
 });
-test('CI type-checks BEFORE building and testing on every pull request',()=>{
+test('one authoritative full gate typechecks before tests and production build on each PR',()=>{
  for(const workflow of [ci,checks]){
   assert.match(workflow,/pull_request:/);
   assert.match(workflow,/push:/);
   assert.match(workflow,/branches: \[main\]/);
-  const typeIndex=workflow.indexOf('npx tsc --noEmit');
-  const buildIndex=workflow.indexOf('npm run build');
-  assert.ok(typeIndex>=0 && buildIndex>typeIndex,'TypeScript must fail fast before Vite build');
   assert.match(workflow,/node-version: ['"]24['"]/);
  }
+ const typeIndex=ci.indexOf('npx tsc --noEmit');
+ const buildIndex=ci.indexOf('npm run build');
+ assert.ok(typeIndex>=0 && buildIndex>typeIndex,'Budget CI must typecheck before full tests/build');
+ assert.doesNotMatch(checks,/npx tsc --noEmit|npm run build/,'Budget checks must not duplicate expensive full gates');
+ assert.match(checks,/tests\/familyBudgetProjection\.test\.mjs/);
+ assert.match(checks,/tests\/ciWorkflowGuard\.test\.mjs/);
+});
+
+test('browser smoke builds real preview without re-running full test suite',()=>{
+ assert.match(browser,/npx vite build/);
+ assert.doesNotMatch(browser,/npm run build|npx tsc --noEmit/);
+ assert.match(browser,/playwright install --with-deps --only-shell chromium/);
 });
 test('UI browser smoke runs for every PR, not only edits to smoke tests',()=>{
  assert.match(browser,/pull_request:/);

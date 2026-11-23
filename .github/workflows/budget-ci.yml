@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --prefer-offline --no-audit --no-fund
       - name: TypeScript diagnostics
         run: npx tsc --noEmit
       - name: Run all regression tests and compile Vite

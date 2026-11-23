@@ -154,6 +154,37 @@ export const saveAppSettingsPatch = async (
   if (Object.keys(sharedPart).length || Object.keys(userPart).length) await batch.commit();
 };
 
+/**
+ * Atomically store shared mandatory obligations and their linked debt state.
+ * Missing debt documents abort the whole commit. No optimistic UI update.
+ */
+export const commitMandatoryPaymentBundle = async (
+  familyId: string,
+  userId: string,
+  changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
+  debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
+): Promise<void> => {
+  if (!familyId || !userId) throw new Error('Family or user ID is missing');
+  const uniqueIds = new Set<string>();
+  for (const item of debtChanges) {
+    if (!item.id || uniqueIds.has(item.id)) throw new Error('Invalid or duplicate debt ID');
+    uniqueIds.add(item.id);
+  }
+  const configRef = doc(db, 'families', familyId, 'config', 'settings');
+  await runTransaction(db, async transaction => {
+    const debtRefs = debtChanges.map(item => doc(db,'families',familyId,'debts',item.id));
+    // Firestore transactions require every read to occur before any write.
+    const existingDebts = await Promise.all(debtRefs.map(ref => transaction.get(ref)));
+    for (let i=0; i<existingDebts.length; i++) {
+      if (!existingDebts[i].exists()) throw new Error('Связанный долг удалён. Обновите данные и повторите.');
+    }
+    transaction.set(configRef, cleanForFirestore(changes), {merge: true});
+    for (let i=0; i<debtChanges.length; i++) {
+      transaction.update(debtRefs[i],cleanForFirestore(debtChanges[i].changes));
+    }
+  });
+};
+
 // Legacy support wrapper (deprecated for direct use in components)
 export const saveSettings = async (familyId: string, settings: AppSettings) => {
     // This function assumes it receives the FULL settings object but doesn't know the USER ID context for splitting properly if called directly without userId.

@@ -10,12 +10,12 @@ const budget=read('TerraBudget.tsx');
 const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
 
 test('mobile plans share one vertical scroll container, not two nested scroll panes',()=>{
- assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y lg:overflow-hidden/);
+ assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y pt-\[calc\(64px\+env\(safe-area-inset-top\)\)\] md:pt-0 lg:overflow-hidden/);
  assert.match(plans,/flex-none min-h-0 lg:flex-1 lg:overflow-hidden/);
  assert.match(plansMobile,/overflow-visible/);
 });
 test('nearby agenda is collapsible on mobile and calendar does not include payments',()=>{
- assert.match(agenda,/aria-expanded=\{expanded\}/);
+ assert.match(agenda,/aria-expanded=\{panelOpen\}/);
  assert.match(agenda,/md:hidden/);
  assert.doesNotMatch(agenda,/paymentAgenda\(/);
  assert.doesNotMatch(plans, /payments=\{settings\.mandatoryExpenses/);

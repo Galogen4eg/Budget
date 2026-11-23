@@ -75,6 +75,28 @@ try{
       assert.deepEqual(errors,[],'1920: Overview generated runtime errors');
       await page.screenshot({path:'artifacts/budget-browser/desktop-1920-overview.png',fullPage:true,animations:'disabled'});
       console.log('PASS desktop-1920 Overview demo interactions');
+      // Re-select the latest month so the shared daily guidance is meaningful.
+      await picker.click();
+      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
+
+      // The member chips are HISTORY filters. They must not reallocate
+      // the shared family opening balance, paid bills or savings reserve.
+      await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
+      const familyLimit=page.locator('[data-testid="family-daily-limit-desktop"]');
+      await familyLimit.waitFor({state:'visible'});
+      const originalFamilyLimit=(await familyLimit.innerText()).trim();
+      const memberRail=page.getByRole('group',{name:'Участник бюджета'}).filter({visible:true}).first();
+      for(const name of ['Папа','Мама','Все']){
+        const button=memberRail.getByRole('button',{name:new RegExp(name,'i')}).first();
+        await button.click();
+        assert.equal(await button.getAttribute('aria-pressed'),'true','1920: filter '+name+' did not select');
+        assert.equal((await familyLimit.innerText()).trim(),originalFamilyLimit,
+          '1920: member history filter changed shared family daily guidance');
+      }
+      assert.deepEqual(errors,[],'1920: Budget family filter generated runtime errors');
+      await page.screenshot({path:'artifacts/budget-browser/desktop-1920-budget-family.png',fullPage:true,animations:'disabled'});
+      console.log('PASS desktop-1920 family projection stable across member filters');
+
     }
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();

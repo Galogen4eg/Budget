@@ -31,7 +31,11 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   const [memberId, setMemberId] = useState(() => expense?.memberId || '');
   const [expenseType, setExpenseType] = useState<MandatoryExpenseType>(() => expense?.expenseType || (expense?.linkedDebtId ? 'debt' : 'regular'));
   const [linkedDebtId, setLinkedDebtId] = useState<string>(() => expense?.linkedDebtId || '');
-  const [isPaidCurrentMonth, setIsPaidCurrentMonth] = useState(false);
+  const [isPaidCurrentMonth, setIsPaidCurrentMonth] = useState(() => {
+    if (!expense) return false;
+    const monthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+    return (settings.manualPaidExpenses?.[monthKey] || []).includes(expense.id);
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);

@@ -464,7 +464,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
                 </span>
                 <span className={`font-semibold tabular-nums ${monthBalance < 0 ? "text-[#B83230] dark:text-red-400" : "text-[#4A7C59] dark:text-green-400"}`}>
-                  Результат месяца: {monthBalance < 0 ? "−" : "+"}{settings.privacyMode ? '•••' : `${Math.abs(monthBalance).toLocaleString('ru-RU')} ₽`}
+                  Результат месяца: {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
                 </span>
               </div>
               <div className="w-full bg-[#EAE6DE] dark:bg-[#2C2C2E] h-2.5 rounded-full overflow-hidden flex">

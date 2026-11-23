@@ -1002,7 +1002,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       type="button"
                       onClick={onOpenAddEventModal}
                       title="Запланировать событие"
-                      className="w-7 h-7 rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
+                      aria-label="Создать событие"
+                      className="min-h-[44px] min-w-[44px] rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
                     >
                       <Plus size={15} strokeWidth={2.4} />
                     </button>
@@ -1029,10 +1030,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
 
                   return (
-                    <div
+                    <button type="button"
                       key={ev.id ? `mob-ev-${ev.id}` : `mob-ev-idx-${idx}`}
                       onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
-                      className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer"
+                      aria-label={`Открыть событие: ${ev.title}`}
+                      className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
@@ -1058,7 +1060,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       </div>
 
                       <ChevronRight size={16} className="text-graphite-muted dark:text-gray-400 shrink-0" />
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1713,7 +1715,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         type="button"
                         onClick={onOpenAddEventModal}
                         title="Запланировать событие"
-                        className="w-7 h-7 rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
+                        aria-label="Создать событие"
+                        className="min-h-[44px] min-w-[44px] rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
                       >
                         <Plus size={14} strokeWidth={2.4} />
                       </button>
@@ -1740,10 +1743,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     const memberMeta = primaryMemberId ? members.find(m => m.id === primaryMemberId) : null;
 
                     return (
-                      <div
+                      <button type="button"
                         key={ev.id ? `desk-ev-${ev.id}` : `desk-ev-idx-${idx}`}
                         onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
-                        className="p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
+                        aria-label={`Открыть событие: ${ev.title}`}
+                        className="min-h-[48px] w-full text-left p-2.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex items-center justify-between gap-3 hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-xl bg-[#EAE5DC] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
@@ -1769,7 +1773,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         </div>
 
                         <ChevronRight size={14} className="text-graphite-muted dark:text-gray-400 group-hover:text-primary transition shrink-0" />
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

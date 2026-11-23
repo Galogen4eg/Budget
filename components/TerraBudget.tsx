@@ -17,6 +17,7 @@ import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
 import { clampBudgetDay } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
@@ -70,6 +71,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onOpenSettings
 }) => {
   const { goals } = useData();
+  const { user } = useAuth();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
   
@@ -98,6 +100,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [quickAmount, setQuickAmount] = useState('');
   const [quickAddedSuccess, setQuickAddedSuccess] = useState(false);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
+  const [quickAddError, setQuickAddError] = useState('');
 
   // Filter transactions by selected family member
   const memberFilteredTransactions = useMemo(() => {
@@ -212,23 +215,40 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Only clear the form and show success after the save is confirmed.
   const handleQuickAdd = useCallback(async () => {
+    if (isQuickSaving || !onQuickAddTransaction) return;
+    setQuickAddError('');
     const title = quickTitle.trim();
-    const amount = parseFloat(quickAmount.replace(',', '.'));
-    if (!title || !Number.isFinite(amount) || amount <= 0 || isQuickSaving || !onQuickAddTransaction) return;
-
+    const normalized=quickAmount.trim().replace(/\s/g, '').replace(',', '.');
+    const amount=Number(normalized);
+    if (!title || !normalized || !/^\d+(?:\.\d{1,2})?$/.test(normalized) ||
+        !Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
+      setQuickAddError('Введите название и сумму больше нуля с точностью до копейки.');
+      return;
+    }
+    // In family view, never silently assign the expense to the first member.
+    const ownMember = members.find(member => member.userId && member.userId === user?.uid);
+    const memberId = selectedMember !== 'all' ? selectedMember : ownMember?.id;
+    if (!memberId || !members.some(member => member.id === memberId)) {
+      setQuickAddError('Выберите участника бюджета для этой операции.');
+      return;
+    }
     setIsQuickSaving(true);
     try {
-      const memberId = selectedMember !== 'all' ? selectedMember : (members[0]?.id || '1');
       const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
-      if (!saved) return;
+      if (!saved) {
+        setQuickAddError('Не удалось записать операцию. Повторите попытку.');
+        return;
+      }
       setQuickTitle('');
       setQuickAmount('');
       setQuickAddedSuccess(true);
       setTimeout(() => setQuickAddedSuccess(false), 2000);
+    } catch {
+      setQuickAddError('Ошибка сохранения операции. Проверьте соединение.');
     } finally {
       setIsQuickSaving(false);
     }
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, activeSelectedDate, isQuickSaving]);
+  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, members, user?.uid, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -1438,7 +1458,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   value={quickTitle}
                   onChange={(e) => setQuickTitle(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
+                  aria-label="Название быстрой операции"
+                  className="min-h-[44px] w-full sm:w-1/2 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Название (например: Обед, Такси...)" 
                   type="text"
                 />
@@ -1446,14 +1467,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   value={quickAmount}
                   onChange={(e) => setQuickAmount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-                  className="w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
+                  aria-label="Сумма быстрой операции"
+                  inputMode="decimal"
+                  className="min-h-[44px] w-full sm:w-1/4 bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-graphite dark:text-white font-semibold placeholder-graphite-muted dark:placeholder-white/40 focus:ring-1 focus:ring-primary focus:border-primary" 
                   placeholder="Сумма ₽" 
                   type="text"
                 />
                 <button 
                   onClick={handleQuickAdd}
                   disabled={isQuickSaving}
-                  className={`w-full sm:w-auto px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-all ${
+                  className={`min-h-[44px] w-full sm:w-auto px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-all ${
                     quickAddedSuccess ? 'bg-emerald-700' : 'bg-primary hover:bg-primary-dark active:scale-95'
                   }`}
                   type="button"
@@ -1461,6 +1484,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {isQuickSaving ? 'Сохранение…' : quickAddedSuccess ? '✓ Записано' : '+ Записать'}
                 </button>
               </div>
+              {quickAddError && (
+                <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">{quickAddError}</p>
+              )}
             </div>
           </div>
         </div>

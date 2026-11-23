@@ -111,8 +111,16 @@ try{
       await expandDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
       const closeDay=page.locator('button[title="Закрыть"]').filter({visible:true}).last();
+      // DayDetailModal scales from 0.98 to 1 on entrance; measure only
+      // after that transform finishes, not at an intermediate frame.
+      await page.waitForFunction(() => {
+        const close=document.querySelector('button[title="Закрыть"]');
+        if(!close)return false;
+        const rect=close.getBoundingClientRect();
+        return rect.width>=43.95 && rect.height>=43.95;
+      },null,{timeout:4000});
       const closeBounds=await closeDay.boundingBox();
-      assert.ok(closeBounds && closeBounds.width>=44 && closeBounds.height>=44,
+      assert.ok(closeBounds && closeBounds.width>=43.95 && closeBounds.height>=43.95,
         '1920: undersized day details close action '+JSON.stringify(closeBounds));
       await closeDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});

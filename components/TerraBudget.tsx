@@ -1653,7 +1653,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                             }`}>
                             {paymentState?.isManuallyPaid ? 'Снять отметку' : 'Отметить оплаченным'}
                           </button>
-                        ) : null}                      </div>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })

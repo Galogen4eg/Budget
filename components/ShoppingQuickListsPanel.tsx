@@ -66,10 +66,12 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   useEffect(() => {
     if (!familyId) return;
     for (const item of items) {
-      if (!item.completed || !item.id || captured.current.has(item.id)) continue;
-      captured.current.add(item.id);
+      if (!item.completed || !item.id) continue;
+      const completionKey = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
+      if (captured.current.has(completionKey)) continue;
+      captured.current.add(completionKey);
       void recordFamilyPurchase(familyId, item).catch(error => {
-        captured.current.delete(item.id);
+        captured.current.delete(completionKey);
         console.error('Failed to save shopping history', error);
       });
     }

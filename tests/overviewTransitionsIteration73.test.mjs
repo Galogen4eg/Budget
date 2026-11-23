@@ -62,3 +62,10 @@ test('iteration 73: existing mandatory payment edits start with populated fields
  assert.match(modal,/useState\(\(\) => expense \? String\(expense\.amount/);
  assert.match(modal,/useState\(\(\) => expense\?\.name/);
 });
+
+test('release: edit mandatory manually-paid state must be correct on first render',()=>{
+ const source=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
+ assert.match(source,/const \[isPaidCurrentMonth, setIsPaidCurrentMonth\] = useState\(\(\) => \{/);
+ assert.match(source,/settings\.manualPaidExpenses\?\.\[monthKey\]/);
+ assert.match(source,/\.includes\(expense\.id\)/);
+});

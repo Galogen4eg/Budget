@@ -71,6 +71,7 @@ export function mergeOrRestoreShoppingItems(
       const restoredItem: ShoppingItem = {
         ...existing,
         completed: false,
+        completedAt: null,
         amount: String(incomingQty),
         unit: incoming.unit || existing.unit || 'шт',
         category: incoming.category && incoming.category !== 'other' ? incoming.category : existing.category,

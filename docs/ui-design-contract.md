@@ -17,6 +17,17 @@ Visual thesis: the active financial amount or selected calendar date is the foca
 
 Use existing project font utilities (`font-headline` for main amounts/headings and `font-sans` or `font-body` for UI copy). Limit typography to three useful levels: page heading, section heading, readable 12–14px labels and 14–16px interactive/body content. Avoid tracking-heavy ALL CAPS for recurring navigation and actions.
 
+## Reusable UI primitives
+
+For the primary screen sections, reuse constants in `components/filterUiTokens.ts`: `SURFACE_CARD` for flat cards, `PAGE_HEADING` and `SECTION_HEADING` for hierarchy, and `FILTER_RAIL`/`FILTER_CHIP` for filters and preset actions.
+
+- **One card silhouette:** `rounded-2xl`, a fine outline, consistent warm off-white canvas and compact `p-4 sm:p-5`. Do not mix gratuitous `rounded-[28px]`, oversized drop shadows and floating gradient containers on neighboring pages.
+- **One filter behavior:** every chip is `flex-none shrink-0`, 44px tall, text kept on one line; the **rail** scrolls horizontally with `min-w-0` and `overflow-x-auto`. Never distribute full rows of filters into compressed equal-width columns.
+- **One navigation hierarchy:** a clear page title and muted secondary date / selection controls; actions are identifiable, never represented by a handful of unrelated ornamental icon buttons.
+- **One state language:** restrained dark-green selection, neutral inactive state, meaningful danger red. Do not use glowing gradients or bouncing animations merely to signal an active item.
+- **Long real content:** large family names, repeated purchases and finance amounts must retain accessible names, avoid page-wide overflow and remain clickable on 320px phones.
+- **Release check:** record actual widths and heights of controls with Chromium; text-based JSX checks alone do not prove a layout works. Keep this check separate from real family-account E2E.
+
 ## Layout and behavior
 
 - Mobile: one main content column, horizontal spacing 12–16px, readable dates and amounts, no fixed pixel minimum taller than the viewport. Respect `100dvh` and safe-area bottom padding in sticky controls and modal footers.

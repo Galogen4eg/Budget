@@ -493,7 +493,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (parsedItems.length === 0) return;
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
@@ -528,7 +527,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const targetMemberId = getShoppingMember(filterMemberId);
     if (!targetMemberId) return;
     const {
-      updatedList,
         purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb,
@@ -581,7 +579,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     } else {
       // Check if this item is in completed or active list without creating duplicate
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
@@ -757,7 +754,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       }));
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,

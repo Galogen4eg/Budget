@@ -501,11 +501,13 @@ export default function AddTransactionModal({
                           key={addVal}
                           type="button"
                           onClick={() => {
-                            const currentNum = parseFloat(amount.replace(/\s/g, '').replace(',', '.')) || 0;
-                            setAmount(String(currentNum + addVal));
+                            const numericInput=Number(amount.replace(/\s/g, '').replace(',', '.'));
+                            const evaluated=evaluateMathExpression(amount);
+                            const currentNum=Number.isFinite(numericInput) ? numericInput : (evaluated ?? 0);
+                            setAmount(String(Math.round((currentNum+addVal)*100)/100));
                             triggerHaptic('light');
                           }}
-                          className="px-2.5 py-1 text-[11px] font-extrabold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-graphite dark:text-white rounded-lg transition active:scale-95 shrink-0 cursor-pointer"
+                          className="min-h-[44px] px-3 py-2 text-[11px] font-extrabold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-graphite dark:text-white rounded-lg transition active:scale-95 shrink-0 cursor-pointer"
                         >
                           +{addVal >= 1000 ? `${addVal / 1000}k` : addVal}
                         </button>

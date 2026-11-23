@@ -1011,7 +1011,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
         className="relative z-10 bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <button 
             type="button"
             onClick={(e) => {
@@ -1019,7 +1019,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onToggle(item);
             }}
             aria-label="Отметить как купленное"
-            className="w-6 h-6 rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[#4A7C59] active:scale-90 flex items-center justify-center shrink-0 transition-all cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[#4A7C59] active:scale-90 flex items-center justify-center shrink-0 transition-all cursor-pointer"
           >
             <Check size={14} className="text-transparent" />
           </button>
@@ -1056,7 +1056,8 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, -1);
             }}
-            className="w-6 h-6 rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
+            aria-label="Уменьшить количество"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
           >
             -
           </button>
@@ -1069,7 +1070,8 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, 1);
             }}
-            className="w-6 h-6 rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
+            aria-label="Увеличить количество"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
           >
             +
           </button>

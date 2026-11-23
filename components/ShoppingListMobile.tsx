@@ -20,7 +20,7 @@ import {
   parseQuickShoppingInput, 
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
-import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges } from '../utils/shoppingManager';
 import { 
   recordPurchaseEvent, 
   getTopFrequentPurchases,
@@ -257,7 +257,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
 
       if (closeAfterSave) {
         setIsAddModalOpen(false);
@@ -374,7 +374,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setQuickAddText('');
       setTimeout(() => {
         quickInputRef.current?.focus();
@@ -416,7 +416,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       recordCommittedShoppingEvents(purchaseEvents);
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
@@ -491,7 +491,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
               recordCommittedShoppingEvents(purchaseEvents);
             }
-            setItems(updatedList);
+            setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
           }
         } catch {
           toast.error('Ошибка при обработке голоса');

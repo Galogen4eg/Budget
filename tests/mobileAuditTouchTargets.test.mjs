@@ -14,7 +14,10 @@ test('mobile plans scroll until desktop component activates at 1024px, not 768px
 });
 test('calendar participant filters are accessible 44px targets',()=>{
  assert.match(plansMobile,/aria-pressed=\{isSelected\}/);
- assert.match(plansMobile,/min-h-\[44px\].*rounded-full/);
+ assert.match(plansMobile,/FILTER_CHIP/);
+ const chipTokens=readFileSync(new URL('../components/filterUiTokens.ts',import.meta.url),'utf8');
+ assert.match(chipTokens,/min-h-\[44px\]/);
+ assert.match(chipTokens,/shrink-0/);
 });
 test('shopping checkbox and steppers have 44px targets and labelled amounts',()=>{
  assert.match(shopping,/aria-label="Уменьшить количество"/);

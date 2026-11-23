@@ -202,6 +202,29 @@ try{
       assert.deepEqual(errors,[],label+': mandatory flow generated errors');
       console.log('PASS',label,'mandatory payment create/delete demo');
     }
+    // Shopping section smoke: verify real navigation and responsive quick-list
+    // expansion on each viewport, without writing any family data.
+    const shoppingTab=page.getByRole('button',{name:/Покупки/i}).filter({visible:true}).first();
+    await shoppingTab.click();
+    const quickLists=page.getByRole('button',{name:/Быстрые списки/}).filter({visible:true}).first();
+    const repeat=page.getByRole('button',{name:/Повторить покупки/}).filter({visible:true}).first();
+    await quickLists.waitFor({state:'visible'});
+    for(const control of [quickLists,repeat]){
+      const dimensions=await control.boundingBox();
+      assert.ok(dimensions && dimensions.height>=44,label+': small shopping panel control');
+      await control.click();
+      assert.equal(await control.getAttribute('aria-expanded'),'true',label+': shopping panel did not expand');
+    }
+    const shoppingOverflow=await page.evaluate(()=>({
+      viewport:window.innerWidth,body:document.body.scrollWidth,
+      document:document.documentElement.scrollWidth
+    }));
+    assert.ok(shoppingOverflow.body<=shoppingOverflow.viewport+2 &&
+      shoppingOverflow.document<=shoppingOverflow.viewport+2,
+      label+': shopping horizontal overflow '+JSON.stringify(shoppingOverflow));
+    await page.screenshot({path:'artifacts/budget-browser/'+label+'-shopping.png',fullPage:true,animations:'disabled'});
+    assert.deepEqual(errors,[],label+': shopping panel runtime errors');
+    console.log('PASS',label,'Shopping quick lists / repeat navigation and responsive layout');
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

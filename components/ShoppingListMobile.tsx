@@ -8,6 +8,7 @@ import {
   Search, CheckCircle2
 } from 'lucide-react';
 import TerraMobileHeader from './TerraMobileHeader';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
@@ -564,7 +565,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             exit={{ opacity: 0 }} 
             className="fixed inset-0 z-[2000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-6"
           >
-            <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs border border-[#E4E0D8]/60 dark:border-white/10">
+            <div className={`${SURFACE_CARD} flex flex-col items-center gap-4 text-center max-w-xs`}>
               {isListening ? (
                 <div className="w-16 h-16 rounded-full bg-[#4A7C59] text-white flex items-center justify-center shadow-lg">
                   <Mic size={32} />
@@ -769,7 +770,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar touch-pan-x">
+          <div role="group" aria-label="Частые покупки" className={`${FILTER_RAIL} -mx-4 px-4`}>
             {(frequentStaples.length > 0 ? frequentStaples : defaultSuggestions).map((item, idx) => {
               const label = typeof item === 'string' ? item : item.title;
               return (
@@ -777,7 +778,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                   key={`staple-${label}-${idx}`}
                   type="button"
                   onClick={() => handleAddFrequentPreset(item as any)}
-                  className="bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 hover:bg-[#F5F1EA] active:scale-95 transition rounded-full px-3.5 py-1.5 text-xs font-semibold text-[#1E2420] dark:text-white shadow-2xs shrink-0 flex items-center gap-1 cursor-pointer"
+                  className={`${FILTER_CHIP} ${FILTER_CHIP_IDLE} cursor-pointer`}
                 >
                   <span>{label}</span>
                   <span className="text-[#4A7C59] dark:text-emerald-400 font-bold">+</span>

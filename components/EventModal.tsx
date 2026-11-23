@@ -335,7 +335,6 @@ export const EventModal: React.FC<EventModalProps> = ({
       recurrence:isSingle?'none':recurrence,
       ...(recurrence!=='none'&&!isSingle&&recurrenceUntil?{recurrenceUntil}:{}),
       ...(isSingle?{seriesId,occurrenceDate:event?.occurrenceDate||event?.date}:{ }),
-      linkedExpenseId:event?.linkedExpenseId,
       userId: auth.currentUser?.uid,
     };
 

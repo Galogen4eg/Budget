@@ -38,6 +38,7 @@ test('outer touch refresh does not interfere with plans vertical gestures',()=>{
 });
 test('chart does not add invented time points and budget reports real shortfall',()=>{
  assert.doesNotMatch(overview,/label: '10', amount: 0, fullLabel/);
- assert.match(budget,/monthBalance < 0 \? "Дефицит" : "Осталось"/);
+ assert.match(budget,/Результат месяца/);
+ assert.doesNotMatch(budget,/monthBalance < 0 \\? "Дефицит" : "Осталось"/);
  assert.match(budget,/Math\.round\(\(monthExpense \/ monthIncome\) \* 100\)/);
 });

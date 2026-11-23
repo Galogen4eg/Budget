@@ -827,22 +827,23 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
                         </span>
                       )}
-                      {isPaid ? (
-                        <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5">
-                          <CheckCircle2 size={12} />
-                          Оплачено
+                      {isPaid && !paymentState?.isManuallyPaid ? (
+                        <span className="text-[11px] font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-1">
+                          <CheckCircle2 size={14} />
+                          Оплачено операцией
                         </span>
-                      ) : (
-                        <button 
+                      ) : onToggleMandatoryPaid ? (
+                        <button
                           type="button"
-                          onClick={(e) => {
-                            onToggleMandatoryPaid?.(exp.id);
-                          }}
-                          className="min-h-[44px] px-3 py-2 text-xs font-semibold text-white bg-[#4A7C59] hover:bg-[#3B6447] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
+                          onClick={() => void onToggleMandatoryPaid(exp.id)}
+                          aria-label={paymentState?.isManuallyPaid ? 'Снять ручную отметку оплаты' : 'Отметить платёж оплаченным вручную'}
+                          className={`min-h-[44px] px-3 py-2 text-xs font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${paymentState?.isManuallyPaid
+                            ? 'text-emerald-800 bg-emerald-100 dark:bg-green-950/40 dark:text-green-400'
+                            : 'text-white bg-primary hover:bg-primary-dark'}`}
                         >
-                          Отметить оплаченным
+                          {paymentState?.isManuallyPaid ? 'Снять отметку' : 'Отметить вручную'}
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );

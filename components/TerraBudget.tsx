@@ -78,6 +78,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   // Mobile calendar scale: 'month' | 'week'
   const [calendarScale, setCalendarScale] = useState<'month' | 'week'>('month');
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [historyScope, setHistoryScope] = useState<'day' | 'month'>('day');
+  const [historyType, setHistoryType] = useState<'all' | 'expense' | 'income'>('all');
+  const [historySearch, setHistorySearch] = useState('');
 
   // Selected day for interactive calendar detail (defaults to today in current month or 1st)
   const [requestedDay, setSelectedDay] = useState<number>(() => {
@@ -193,6 +196,22 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       return d.getDate() === selectedDay;
     });
   }, [monthTransactions, selectedDay]);
+
+  // History is a view of the current member/month selection; it never
+  // changes the family-wide projected balance or the transaction ledger.
+  const visibleHistory = useMemo(() => {
+    const source=historyScope === 'day' ? selectedDayTransactions : monthTransactions;
+    const query=historySearch.trim().toLocaleLowerCase('ru-RU');
+    return source.filter(tx => {
+      if (historyType !== 'all' && tx.type !== historyType) return false;
+      if (!query) return true;
+      const category=categories.find(cat=>cat.id===tx.category);
+      const member=members.find(person=>person.id===tx.memberId);
+      const content=[tx.note,tx.rawNote,category?.label,member?.name]
+        .filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
+      return content.includes(query);
+    });
+  }, [historyScope, historyType, historySearch, selectedDayTransactions, monthTransactions, categories, members]);
 
   const selectedDayNet = useMemo(() => {
     return monthlyMoneyTotals(selectedDayTransactions).net;
@@ -1689,64 +1708,73 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
 
-          {/* 3. Family Operations Feed (filtered by selected calendar day) */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/70 dark:border-white/10 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
-                  Операции участников
-                </h3>
-                <span className="text-[10px] font-semibold text-graphite-muted dark:text-gray-400">
-                  ({selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
-                </span>
-              </div>
-              <span className="text-[11px] font-bold text-primary dark:text-green-400">
-                {selectedDayTransactions.length > 0 ? `${selectedDayTransactions.length} на дату` : `${monthTransactions.length} за месяц`}
+          {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
+          <section className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 border border-surface-border dark:border-white/10 shadow-sm flex flex-col gap-3"
+            aria-label="История операций бюджета">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
+                История операций
+              </h3>
+              <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">
+                {visibleHistory.length} из {historyScope === 'day' ? selectedDayTransactions.length : monthTransactions.length}
               </span>
             </div>
-
-            <div className="space-y-1.5 overflow-y-auto max-h-64 no-scrollbar">
-              {(selectedDayTransactions.length > 0 ? selectedDayTransactions : monthTransactions.slice(0, 6)).map(tx => {
-                const member = members.find(m => m.id === tx.memberId);
-                const category = categories.find(c => c.id === tx.category);
-                const displayTitle = tx.note || category?.label || 'Операция';
-
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Период истории операций">
+              {(['day','month'] as const).map(scope => (
+                <button key={scope} type="button" onClick={() => setHistoryScope(scope)}
+                  aria-pressed={historyScope===scope}
+                  className={`min-h-[44px] px-3 rounded-xl border text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${historyScope===scope
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-[#FAF9F6] dark:bg-[#252528] text-graphite dark:text-white border-surface-border'}`}>
+                  {scope==='day' ? `День · ${selectedDay}` : 'Весь месяц'}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input type="search" aria-label="Поиск по истории операций"
+                value={historySearch} onChange={event=>setHistorySearch(event.target.value)}
+                placeholder="Название, категория или участник"
+                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-sm text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+              <select aria-label="Тип операций в истории" value={historyType}
+                onChange={event=>setHistoryType(event.target.value as 'all' | 'expense' | 'income')}
+                className="min-h-[44px] rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-sm text-graphite dark:text-white focus-visible:ring-2 focus-visible:ring-primary">
+                <option value="all">Все типы</option>
+                <option value="expense">Расходы</option>
+                <option value="income">Доходы</option>
+              </select>
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1.5 overscroll-contain">
+              {visibleHistory.length===0 && (
+                <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
+                  {historySearch.trim() || historyType!=='all'
+                    ? 'По заданным фильтрам операций нет.'
+                    : historyScope==='day'
+                      ? 'В выбранный день операций нет. Переключитесь на «Весь месяц».'
+                      : 'В этом месяце операций нет.'}
+                </p>
+              )}
+              {visibleHistory.map(tx => {
+                const member=members.find(m=>m.id===tx.memberId);
+                const category=categories.find(cat=>cat.id===tx.category);
+                const title=tx.note || category?.label || 'Операция';
                 return (
-                  <div 
-                    key={tx.id}
-                    onClick={() => onEditTransaction(tx)}
-                    className="flex items-center justify-between p-2 rounded-xl border border-transparent hover:border-surface-border hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span 
-                        className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: member?.color || '#4A7C59' }}
-                      >
-                        {member ? member.name.charAt(0).toUpperCase() : 'С'}
+                  <button type="button" key={tx.id} onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${title}`}
+                    className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[#FAF9F6] dark:hover:bg-[#252528] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-graphite dark:text-white break-words">{title}</span>
+                      <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
+                        {member?.name || 'Семья'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
                       </span>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-graphite dark:text-white truncate group-hover:text-primary transition leading-tight">
-                          {displayTitle}
-                        </div>
-                        <span className="text-[10px] text-graphite-muted dark:text-gray-400 truncate block leading-tight">
-                          {member?.name || 'Семья'}, {new Date(tx.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 pl-2 shrink-0">
-                      <span className={`text-xs font-bold font-headline tabular-nums ${
-                        tx.type === 'income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'
-                      }`}>
-                        {settings.privacyMode ? '•••' : `${tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
-                      </span>
-                      <span className="text-graphite-muted text-xs group-hover:text-primary transition">›</span>
-                    </div>
-                  </div>
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold tabular-nums ${tx.type==='income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'}`}>
+                      {settings.privacyMode ? '•••' : `${tx.type==='income' ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
+                    </span>
+                  </button>
                 );
               })}
             </div>
-          </div>
+          </section>
         </div>
       </div>
       </div>

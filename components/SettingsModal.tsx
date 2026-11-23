@@ -265,8 +265,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setTelegramDeliveryResult({ ok: true, message: 'Проверочное сообщение отправлено в семейный чат.' });
         toast.success('Сообщение доставлено в Telegram API');
       } else {
-        setTelegramDeliveryResult({ ok: false, message: result.error });
-        toast.error(result.error);
+        const errorMessage = 'error' in result ? result.error : 'Telegram не подтвердил отправку';
+        setTelegramDeliveryResult({ ok: false, message: errorMessage });
+        toast.error(errorMessage);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось проверить отправку';

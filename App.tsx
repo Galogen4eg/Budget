@@ -187,6 +187,12 @@ export default function App() {
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // The plans page has its own scroll viewport; do not mistake its gestures
+    // for pull-to-refresh of the non-scrolling outer main container.
+    if (activeTab === 'plans') {
+      touchStartY.current = 0;
+      return;
+    }
     if (mainRef.current && mainRef.current.scrollTop === 0) {
       touchStartY.current = e.touches[0].clientY;
     } else {

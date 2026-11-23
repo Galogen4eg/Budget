@@ -381,7 +381,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: 'Расходы и плановые лимиты по дням месяца',
         complianceRate,
-        complianceText: `Лимит на день соблюдён в ${complianceRate}% дней`
+        complianceText: dailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : 'Лимит на день не задан'
       };
     }
 
@@ -454,7 +454,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: `Дневной лимит соблюдён в ${complianceRate}% дней недели`
+        complianceText: dailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : 'Лимит на день не задан'
       };
     }
 
@@ -509,7 +509,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: `Месячный бюджет выдержан в ${complianceRate}% месяцев`
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : 'Месячный лимит не задан'
     };
   }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget, realToday, isCurrentCalendarMonth]);
 
@@ -627,18 +627,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return [];
   }, [categoryBreakdown, categories]);
 
-  const mobileChartData = useMemo(() => {
-    if (dynamicsData && dynamicsData.points && dynamicsData.points.length >= 4) {
-      return dynamicsData.points;
-    }
-    const monthLong = activeMonth.toLocaleString('ru-RU', { month: 'long' });
-    return [
-      { label: '1', amount: 0, fullLabel: `1 ${monthLong}` },
-      { label: '10', amount: 0, fullLabel: `10 ${monthLong}` },
-      { label: '20', amount: 0, fullLabel: `20 ${monthLong}` },
-      { label: '28', amount: 0, fullLabel: `28 ${monthLong}` },
-    ];
-  }, [dynamicsData, activeMonth]);
+  // Display only actual chart points: artificial fallback dates mislead the user.
+  const mobileChartData = dynamicsData.points;
 
   // Future / upcoming events for the rest of current week
   const upcomingWeekEvents = useMemo(() => {
@@ -663,13 +653,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [events]);
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#F4F1EA] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 text-graphite dark:text-gray-100 transition-colors">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
       <div className="md:hidden flex flex-col min-w-0 w-full">
         {/* Top Header Bar */}
-        <header className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-2 sticky top-0 bg-[#F4F1EA]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
+        <header className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-2 sticky top-0 bg-[#FAF6F0]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
           {/* Left: Circle Settings Button */}
           <button
             type="button"
@@ -826,7 +816,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {/* Mobile Dashboard Cards Stream */}
         <div className="px-4 space-y-4 pb-2">
           {/* 1. Hero Balance Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
+          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
                 {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
@@ -844,15 +834,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             <div className="space-y-1.5 pt-1">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-graphite-muted dark:text-gray-400">Израсходовано от лимита</span>
-                <span className="font-bold text-graphite dark:text-white font-headline">
+              <div className="flex flex-wrap justify-between items-baseline gap-1.5 text-xs">
+                <span className="text-graphite-muted dark:text-gray-400">{totalMonthlyLimit > 0 ? "Использовано из лимита" : "Расходы за месяц"}</span>
+                <span className="font-semibold text-graphite dark:text-white tabular-nums break-words">
                   {settings.privacyMode ? '•••' : totalMonthlyLimit > 0
                     ? `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`
-                    : `${formatAmount(displayMonthSpent)} ₽ · лимит не задан`}
+                    : `${formatAmount(displayMonthSpent)} ₽`}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
+              <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden" aria-hidden="true">
                 <div 
                   className="h-full rounded-full bg-[#4A7C59] transition-all duration-500"
                   style={{ width: `${totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
@@ -862,7 +852,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 2. Динамика расходов Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
+          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
@@ -910,9 +900,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Area Chart with Tooltip on Peak */}
-            <div className="h-[135px] w-full relative -mx-2">
+            <div role="img" aria-label={`График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mobileChartData} margin={{ top: 22, right: 14, left: 14, bottom: 0 }}>
+                <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
                     <linearGradient id="mobileWaveGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.34} />
@@ -961,7 +951,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             {/* Footer Insight */}
             <div className="bg-[#EAE6DD]/60 dark:bg-white/5 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-graphite dark:text-gray-300">
               <ShieldCheck size={16} className="text-[#4A7C59] shrink-0" />
-              <span>Лимит на день соблюдён в {dynamicsData.complianceRate || 87}% случаев за этот период.</span>
+              <span>{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан — сравнение с лимитом недоступно."}</span>
             </div>
           </section>
 

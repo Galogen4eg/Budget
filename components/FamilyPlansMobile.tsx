@@ -755,7 +755,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar text-[#2E3230] dark:text-gray-100 transition-colors">
+    <div className="flex-none flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-visible text-[#2E3230] dark:text-gray-100 transition-colors">
       
       {/* 1. UNIFIED MOBILE HEADER */}
       <TerraMobileHeader

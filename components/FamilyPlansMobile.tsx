@@ -22,7 +22,7 @@ import { findEventConflicts } from '../utils/eventConflicts';
 import { parseLocalCalendarDate } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
-import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
 interface FamilyPlansMobileProps {
@@ -784,7 +784,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       />
 
       {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
-      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md mx-auto w-full">
+      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md sm:max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (
@@ -819,7 +819,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         )}
         
         {/* CARD 1: Month Title & Filter Card (Image 1 Spec) */}
-        <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm space-y-3.5 border border-[#EAE5DB]/60 dark:border-white/5">
+        <div className={`${SURFACE_CARD} space-y-3.5`}>
           
           {/* Row 1: Month Title & Arrows */}
           <div className="flex items-center justify-between">

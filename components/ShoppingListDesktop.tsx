@@ -211,6 +211,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
   const [isPurchasedOpen, setIsPurchasedOpen] = useState(true);
+  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Add / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -457,9 +459,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleClearCompleted = async () => {
+    if (!confirmClearCompleted || isClearingCompleted) return;
+    setIsClearingCompleted(true);
     const completedIds = items.filter(i => i.completed).map(i => i.id);
     if (completedIds.length === 0) {
       toast.info('Нет купленных товаров для удаления');
+      setIsClearingCompleted(false);
+      setConfirmClearCompleted(false);
       return;
     }
 
@@ -468,9 +474,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       await deleteItemsBatch(familyId, 'shopping', completedIds);
       setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
       toast.success(`Удалено ${completedIds.length} купленных товаров`);
+      setConfirmClearCompleted(false);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    }
+    } finally { setIsClearingCompleted(false); }
   };
 
   const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -1064,7 +1071,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             <div className="flex items-center bg-[#F5F1EA] dark:bg-stone-800 rounded-xl px-1.5 py-1">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
-                                className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
+                                aria-label={`Уменьшить количество: ${item.title}`}
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 -
                               </button>
@@ -1073,7 +1081,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               </span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
-                                className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
+                                aria-label={`Увеличить количество: ${item.title}`}
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 +
                               </button>
@@ -1081,7 +1090,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                             <button 
                               onClick={(e) => handleDeleteItem(e, item.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#74796E] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                              aria-label={`Удалить товар: ${item.title}`}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[#74796E] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               title="Удалить товар"
                             >
                               <Trash2 size={17} />
@@ -1124,18 +1134,27 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     </span>
                   </div>
 
-                  <button 
+                  <button type="button"
+                    disabled={isClearingCompleted}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleClearCompleted();
+                      if (!confirmClearCompleted) setConfirmClearCompleted(true);
+                      else void handleClearCompleted();
                     }}
-                    className="text-xs text-[#B83230] hover:underline font-semibold flex items-center gap-1 transition cursor-pointer"
+                    className="min-h-[44px] px-3 text-xs text-[#B83230] hover:underline font-semibold flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
                   >
                     <Trash2 size={13} />
-                    <span>Очистить купленные</span>
+                    <span>{isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}</span>
                   </button>
                 </div>
 
+                {confirmClearCompleted && (
+                  <div role="status" className="flex items-center gap-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
+                    Удалить все купленные товары из общего списка?
+                    <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                      className="min-h-[44px] px-3 underline font-semibold">Отмена</button>
+                  </div>
+                )}
                 {/* Purchased items list */}
                 {isPurchasedOpen && (
                   <div className="flex flex-col gap-2 pt-2 animate-in fade-in duration-200">

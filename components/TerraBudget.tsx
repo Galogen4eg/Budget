@@ -639,7 +639,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           ? 'text-[#4A7C59] bg-[#C8E8D0]/60 dark:bg-green-950/40'
                           : 'text-[#6B6358] dark:text-gray-400'
                       }`}>
-                        {badgeText}
+                        {settings.privacyMode ? '•••' : badgeText}
                       </span>
                     </div>
                   );
@@ -691,7 +691,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
                         stat.net < 0 ? 'text-[#B83230] bg-[#FFDAD8]/50' : stat.net > 0 ? 'text-[#4A7C59] bg-[#C8E8D0]/60' : 'text-[#6B6358]'
                       }`}>
-                        {badgeText}
+                        {settings.privacyMode ? '•••' : badgeText}
                       </span>
                     </div>
                   );

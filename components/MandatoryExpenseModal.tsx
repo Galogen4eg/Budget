@@ -100,8 +100,10 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
     const parsedAmount = Number(String(amount).replace(',', '.'));
     const parsedDay = Number(day);
     if (!name.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0 ||
+        !Number.isSafeInteger(Math.round(parsedAmount * 100)) ||
+        Math.abs(parsedAmount * 100 - Math.round(parsedAmount * 100)) > 0.000001 ||
         !Number.isInteger(parsedDay) || parsedDay < 1 || parsedDay > 31) {
-      setFormError('Укажите название, положительную сумму и день месяца от 1 до 31.');
+      setFormError('Укажите название, сумму больше нуля с точностью до копейки и день от 1 до 31.');
       return;
     }
 
@@ -152,7 +154,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   return createPortal(
     <div 
       className="fixed inset-0 z-[2000] bg-stone-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 select-none"
-      onClick={onClose}
+      onClick={() => { if (!isSaving) onClose(); }}
+      role="presentation"
     >
       <div 
         className="relative w-full max-w-[490px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border-0 sm:border border-[#ECE6DE] dark:border-white/10 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
@@ -166,6 +169,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
           <button 
             type="button"
             onClick={onClose}
+            disabled={isSaving}
             aria-label="Закрыть" 
             className="w-11 h-11 shrink-0 rounded-full bg-stone-200/70 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 flex items-center justify-center text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer"
           >
@@ -288,7 +292,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   id="paymentAmount" 
                   name="paymentAmount" 
                   type="number" 
-                  step="any"
+                  step="0.01"
+                  min="0.01"
                   value={amount} 
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
@@ -394,6 +399,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             type="button"
             aria-pressed={isPaidCurrentMonth}
             onClick={() => setIsPaidCurrentMonth(!isPaidCurrentMonth)}
+            disabled={isSaving}
             className="w-full text-left bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -402,7 +408,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
               </div>
               <div>
                 <div className="text-sm font-semibold text-stone-900 dark:text-white">Отметить оплаченным вручную</div>
-                <div className="text-xs text-stone-400 capitalize">{monthName}</div>
+                <div className="text-xs text-stone-400 capitalize">{monthName}. Не создаёт расходную операцию</div>
               </div>
             </div>
 

@@ -627,18 +627,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return [];
   }, [categoryBreakdown, categories]);
 
-  const mobileChartData = useMemo(() => {
-    if (dynamicsData && dynamicsData.points && dynamicsData.points.length >= 4) {
-      return dynamicsData.points;
-    }
-    const monthLong = activeMonth.toLocaleString('ru-RU', { month: 'long' });
-    return [
-      { label: '1', amount: 0, fullLabel: `1 ${monthLong}` },
-      { label: '10', amount: 0, fullLabel: `10 ${monthLong}` },
-      { label: '20', amount: 0, fullLabel: `20 ${monthLong}` },
-      { label: '28', amount: 0, fullLabel: `28 ${monthLong}` },
-    ];
-  }, [dynamicsData, activeMonth]);
+  // Display only actual chart points: artificial fallback dates mislead the user.
+  const mobileChartData = dynamicsData.points;
 
   // Future / upcoming events for the rest of current week
   const upcomingWeekEvents = useMemo(() => {

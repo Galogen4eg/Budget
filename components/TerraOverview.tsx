@@ -957,7 +957,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 3. Категории расходов Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
+          <section className={`${SURFACE_CARD} space-y-3.5`}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
@@ -1044,7 +1044,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
           {upcomingWeekEvents.length > 0 && (
-            <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
+            <section className={`${SURFACE_CARD} space-y-3.5`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar size={18} className="text-[#4A7C59]" />
@@ -1122,7 +1122,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           )}
 
           {/* 6. История операций Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-3.5">
+          <section className={`${SURFACE_CARD} space-y-3.5`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText size={18} className="text-graphite-muted dark:text-gray-400" />

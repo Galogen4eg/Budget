@@ -571,7 +571,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
-  const recentMobileTransactions = filteredTransactions.slice(0, 4);
+  const recentMobileTransactions = recentTransactions.slice(0, 4);
 
   const mobileCategories = useMemo(() => {
     if (categoryBreakdown.items.length > 0 && categoryBreakdown.total > 0) {
@@ -845,7 +845,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Area Chart with Tooltip on Peak */}
-            <div role="img" aria-label={`График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
+            <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
@@ -873,7 +873,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         return (
                           <div className="bg-[#1C1C1E] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
                             <span className="text-gray-300">{fullDate}:</span>
-                            <span className="text-[#4ADE80] font-headline">{typeof val === 'number' ? Math.round(val).toLocaleString('ru-RU') : val} ₽</span>
+                            <span className="text-[#4ADE80] font-headline">{settings.privacyMode ? '•••' : formatBudgetMoney(typeof val === 'number' ? val : Number(val) || 0)} {settings.privacyMode ? '' : '₽'}</span>
                           </div>
                         );
                       }
@@ -1417,11 +1417,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       data={dynamicsData.points} 
                       margin={{ top: 15, right: 10, left: -15, bottom: 0 }}
                       onClick={(e: any) => {
-                        if (e && e.activePayload && e.activePayload.length > 0) {
-                          const payloadData = e.activePayload[0].payload;
-                          if (payloadData && payloadData.dateObj) {
-                            setSelectedDayDetailDate(new Date(payloadData.dateObj));
-                          }
+                        const payloadData = e?.activePayload?.[0]?.payload;
+                        if (!payloadData?.dateObj) return;
+                        if (chartScale === 'month') {
+                          handleMonthChange(new Date(payloadData.dateObj));
+                        } else {
+                          setSelectedDayDetailDate(new Date(payloadData.dateObj));
                         }
                       }}
                       className="cursor-pointer"

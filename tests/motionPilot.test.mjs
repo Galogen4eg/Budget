@@ -27,7 +27,7 @@ test('agenda disclosure has animated height and a stable non-animated parent scr
 });
 
 test('disclosure hides exiting content from keyboard and assistive technology', () => {
-  assert.match(agenda, /inert=\{!panelOpen\}/);
+  assert.match(agenda, /contentRef\.current\.inert=!panelOpen/);
   assert.match(agenda, /aria-hidden=\{!panelOpen\}/);
   assert.match(agenda, /aria-expanded=\{panelOpen\}/);
 });

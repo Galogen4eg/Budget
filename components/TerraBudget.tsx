@@ -1458,12 +1458,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 mb-2">
                 Быстрый ввод чека на {selectedDay} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })}:
               </div>
-              {selectedMember === 'all' && !members.some(member=>member.userId && member.userId===user?.uid) && (
+              {selectedMember === 'all' && (
                 <div className="mb-2">
                   <label htmlFor="budget-quick-member" className="block mb-1 text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
                     Кто совершил покупку?
                   </label>
-                  <select id="budget-quick-member" value={quickMemberId}
+                  <select id="budget-quick-member" value={quickMemberId || members.find(member=>member.userId && member.userId===user?.uid)?.id || ''}
                     onChange={event=>{setQuickMemberId(event.target.value);setQuickAddError('');}}
                     className="min-h-[44px] w-full rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-xs text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <option value="">Выберите участника</option>

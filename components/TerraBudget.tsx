@@ -40,6 +40,7 @@ interface TerraBudgetProps {
   onToggleMandatoryPaid?: (expenseId: string) => void;
   onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => Promise<boolean>;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
+  onAddMandatoryExpense?: () => void;
   onSelectCategory?: (categoryId: string) => void;
   onOpenSettings?: () => void;
 }
@@ -64,6 +65,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onToggleMandatoryPaid,
   onQuickAddTransaction,
   onEditMandatoryExpense,
+  onAddMandatoryExpense,
   onSelectCategory,
   onOpenSettings
 }) => {
@@ -779,9 +781,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A]" />
                 <span className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">Обязательные платежи</span>
               </div>
-              <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">
-                {displayMandatoryExpenses.length} {displayMandatoryExpenses.length === 1 ? 'платеж' : displayMandatoryExpenses.length < 5 ? 'платежа' : 'платежей'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">
+                  {displayMandatoryExpenses.length} {displayMandatoryExpenses.length === 1 ? 'платёж' : displayMandatoryExpenses.length < 5 ? 'платежа' : 'платежей'}
+                </span>
+                {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
+                  aria-label="Добавить обязательный платёж"
+                  className="min-h-[44px] px-3 rounded-xl bg-[#4A7C59] text-white text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  Добавить
+                </button>}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
@@ -791,7 +800,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {displayMandatoryExpenses.map(exp => {
                 const title = exp.name || (exp as any).title || 'Обязательный платёж';
                 const dayNum = exp.day ?? (exp as any).dayOfMonth ?? 1;
-                const isPaid = checkMandatoryPaid(exp);
+                const paymentState = monthlyPaymentStates.find(state => state.id === exp.id);
+                const isPaid = paymentState?.isPaid ?? false;
 
                 return (
                   <div 
@@ -812,6 +822,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <span className="text-xs font-headline font-bold text-[#2E3230] dark:text-white">
                         {settings.privacyMode ? '•••' : `${exp.amount.toLocaleString('ru-RU')} ₽`}
                       </span>
+                      {!isPaid && paymentState && paymentState.paidAmount > 0 && (
+                        <span className="text-[11px] text-[#6B6358] dark:text-gray-400">
+                          {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
+                        </span>
+                      )}
                       {isPaid ? (
                         <span className="text-[10px] font-bold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5">
                           <CheckCircle2 size={12} />
@@ -1555,9 +1570,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </div>
               </div>
 
-              <span className="text-[10px] font-bold text-[#D95C48] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/30 px-1.5 py-0.5 rounded">
-                {mandatoryExpenses.length} счёта
-              </span>
+              {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
+                aria-label="Добавить обязательный платёж"
+                className="min-h-[44px] px-3 rounded-xl bg-[#4A7C59] text-white text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                Добавить
+              </button>}
             </div>
 
             <div className="space-y-2">
@@ -1567,8 +1584,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </div>
               ) : (
                 mandatoryExpenses.map(expense => {
-                  const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                  const isPaid = checkMandatoryPaid(expense);
+                  const paymentState = monthlyPaymentStates.find(state => state.id === expense.id);
+                  const isPaid = paymentState?.isPaid ?? false;
                   const isDebt = expense.expenseType === 'debt' || Boolean(expense.linkedDebtId);
 
                   return (
@@ -1612,8 +1629,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
                       <div className="flex items-center gap-2.5">
                         <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums">
-                          {expense.amount.toLocaleString('ru-RU')} ₽
+                          {settings.privacyMode ? '•••' : `${formatBudgetMoney(expense.amount)} ₽`}
                         </span>
+                        {!isPaid && paymentState && paymentState.paidAmount > 0 && (
+                          <span className="text-[10px] text-[#6B6358] dark:text-gray-400">
+                            {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
+                          </span>
+                        )}
                         {onToggleMandatoryPaid && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); onToggleMandatoryPaid(expense.id); }}

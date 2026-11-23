@@ -11,20 +11,25 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: budget-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Node 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
+          cache: npm
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Run all regression tests and compile Vite
-        run: npm run build
+        run: npm ci --no-audit --no-fund
       - name: TypeScript diagnostics
         run: npx tsc --noEmit
+      - name: Run all regression tests and compile Vite
+        run: npm run build

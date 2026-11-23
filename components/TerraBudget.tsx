@@ -1016,7 +1016,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <button 
             onClick={onOpenAddModal}
             aria-label="Добавить операцию" 
-            className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-primary hover:bg-primary-dark active:scale-95 text-white shadow-sm transition cursor-pointer" 
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary hover:bg-primary-dark text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" 
             title="Добавить операцию" 
             type="button"
           >
@@ -1028,32 +1028,32 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Дневной безопасный лимит */}
-        <div className="bg-gradient-to-br from-white via-white to-primary-light/40 dark:from-[#1C1C1E] dark:via-[#1C1C1E] dark:to-[#4A7C59]/15 border-2 border-primary/30 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
                 Семейный ориентир в день
               </span>
             </div>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
               {isCurrentMonthView ? `${remainingDays} дн. до зарплаты` : 'Архив'}
             </span>
           </div>
 
           <div className="my-2">
             <div className="flex items-baseline gap-1.5">
-              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-black font-headline text-primary-dark dark:text-green-400 tracking-tight">
+              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-semibold font-headline text-primary-dark dark:text-green-400 tracking-tight">
                 {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
             </div>
-            <p className="text-[10px] text-graphite-muted dark:text-gray-400 mt-0.5">
+            <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
               Расчёт: {settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`} доступно ÷ {remainingDays} оставшихся дней
             </p>
           </div>
 
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
-            <span className="text-graphite-muted dark:text-gray-400">Рекомендация ритма:</span>
+            <span className="text-graphite-muted dark:text-gray-400">Дневной ориентир:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
               {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
             </span>
@@ -1062,17 +1062,17 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
         {/* Current-day metrics do not apply to historical months. */}
         {isCurrentMonthView ? (
-        <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
+        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
               Траты семьи сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
               todayReserve >= 0 
                 ? 'bg-emerald-50 text-emerald-800 dark:bg-green-950/40 dark:text-green-400 border border-emerald-200 dark:border-green-800/40' 
                 : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400 border border-red-200'
             }`}>
-              {todayReserve >= 0 ? 'Без перерасхода' : 'Превышение!'}
+              {safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
             </span>
           </div>
 
@@ -1082,14 +1082,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 Сегодня (семья): {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
               </div>
               <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-primary dark:text-green-400' : 'text-red-500'}`}>
-                {todayReserve >= 0 ? `Запас: +${todayReserve.toLocaleString('ru-RU')} ₽` : `Перерасход: ${todayReserve.toLocaleString('ru-RU')} ₽`}
+                {safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
               </div>
             </div>
 
             <div className="w-full bg-[#EAE6DE] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-300 ${todayReserve >= 0 ? 'bg-primary' : 'bg-red-500'}`}
-                style={{ width: `${safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 100}%` }}
+                style={{ width: `${safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
               />
             </div>
           </div>
@@ -1097,12 +1097,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex items-center justify-between text-[11px] text-graphite-muted dark:text-gray-400">
             <span>Вчера (семья): {yesterdaySpent.toLocaleString('ru-RU')} ₽</span>
             <span className="text-emerald-700 dark:text-green-400 font-semibold">
-              {yesterdaySpent < safeDailyLimit ? `Сэкономлено ${(safeDailyLimit - yesterdaySpent).toLocaleString('ru-RU')} ₽` : ''}
+              {yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
             </span>
           </div>
         </div>
         ) : (
-          <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
+          <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
             <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">Расходы выбранного месяца</span>
             <span className="text-2xl font-bold text-graphite dark:text-white tabular-nums">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</span>
             <p className="text-xs text-graphite-muted dark:text-gray-400">Показатели «сегодня» и «вчера» доступны в текущем месяце</p>
@@ -1110,38 +1110,38 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         )}
 
                 {/* Card 3: Месячный прогресс бюджета */}
-        <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-2xl px-4 py-3.5 shadow-sm flex flex-col justify-between">
+        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
               Месячный прогресс бюджета
             </span>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-[#F5F1EA] dark:bg-white/5 text-graphite dark:text-white">
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[#F5F1EA] dark:bg-white/5 text-graphite dark:text-white">
               {currentDayNum} из {totalDaysInMonth} дней
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 py-1 my-1">
             <div className="text-center px-1">
-              <span className="text-[9px] uppercase font-bold text-graphite-muted dark:text-gray-400 block">Приход</span>
-              <span className="text-xs lg:text-sm font-black font-headline text-primary dark:text-green-400 truncate block">
+              <span className="text-xs uppercase font-bold text-graphite-muted dark:text-gray-400 block">Приход</span>
+              <span className="text-xs lg:text-sm font-semibold font-headline text-primary dark:text-green-400 truncate block">
                 {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}
               </span>
-              <span className="text-[8px] text-emerald-700 dark:text-green-400 block">факт</span>
+              <span className="text-xs text-emerald-700 dark:text-green-400 block">факт</span>
             </div>
 
             <div className="text-center px-1 border-x border-surface-border/70 dark:border-white/5">
-              <span className="text-[9px] uppercase font-bold text-graphite-muted dark:text-gray-400 block">Расход</span>
-              <span className="text-xs lg:text-sm font-black font-headline text-[#D95C48] dark:text-red-400 truncate block">
+              <span className="text-xs uppercase font-bold text-graphite-muted dark:text-gray-400 block">Расход</span>
+              <span className="text-xs lg:text-sm font-semibold font-headline text-[#D95C48] dark:text-red-400 truncate block">
                 {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽`}
               </span>
-              <span className="text-[8px] text-graphite-muted dark:text-gray-400 block">
+              <span className="text-xs text-graphite-muted dark:text-gray-400 block">
                 {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
               </span>
             </div>
 
             <div className="text-center px-1">
               <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Результат месяца</span>
-              <span className="text-xs lg:text-sm font-black font-headline text-emerald-700 dark:text-green-400 truncate block">
+              <span className="text-xs lg:text-sm font-semibold font-headline text-emerald-700 dark:text-green-400 truncate block">
                 {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${monthBalance.toLocaleString('ru-RU')} ₽`}
               </span>
               <span className="text-xs text-graphite-muted dark:text-gray-400 block">Доходы − расходы</span>

@@ -595,6 +595,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   // Display only actual chart points: artificial fallback dates mislead the user.
   const mobileChartData = dynamicsData.points;
+  const hasChartExpenses = dynamicsData.points.some(point => point.amount > 0);
 
   // Future / upcoming events for the rest of current week
   const upcomingWeekEvents = useMemo(() => {
@@ -846,6 +847,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Area Chart with Tooltip on Peak */}
             <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
+              {hasChartExpenses ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
@@ -891,6 +893,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              ) : (
+                <div role="status" className="h-full flex items-center justify-center px-4 text-center text-xs text-graphite-muted dark:text-gray-400">
+                  За выбранный период расходов нет
+                </div>
+              )}
             </div>
 
             {/* Footer Insight */}
@@ -1415,6 +1422,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               {/* Chart Area */}
               <div className="relative py-6 min-h-[300px] flex flex-col justify-end overflow-hidden">
                 <div className="w-full h-[220px]">
+                  {hasChartExpenses ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart 
                       data={dynamicsData.points} 
@@ -1513,6 +1521,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       />
                     </AreaChart>
                   </ResponsiveContainer>
+                  ) : (
+                    <div role="status" className="h-full flex items-center justify-center text-center text-sm text-graphite-muted dark:text-gray-400">
+                      За выбранный период расходов нет
+                    </div>
+                  )}
                 </div>
               </div>
 

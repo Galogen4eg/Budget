@@ -519,7 +519,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             disabled={isSendingTelegram}
             title="Отправить список в Telegram"
             aria-label="Отправить список в Telegram"
-            className="w-10 h-10 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
+            className="min-w-[44px] min-h-[44px] rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
           >
             {isSendingTelegram ? (
               <Loader2 size={18} className="animate-spin" />
@@ -612,13 +612,15 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск в покупках..."
-            className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white dark:bg-[#1C1C1E] text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[#EAE4D6] dark:border-white/10 shadow-xs focus:outline-none focus:border-[#4A7C59] transition"
+            aria-label="Поиск по товарам в семейном списке"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[#1C1C1E] text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[#EAE4D6] dark:border-white/10 shadow-xs focus:outline-none focus:border-[#4A7C59] transition"
           />
           {searchQuery ? (
             <button 
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 text-[#A39E93] hover:text-[#1E2420] dark:hover:text-white p-1 cursor-pointer"
+              aria-label="Очистить поиск товаров"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[#1E2420] dark:hover:text-white cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -626,7 +628,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             <button 
               type="button"
               onClick={startListening}
-              className="absolute right-3 text-[#4A7C59] dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
+              aria-label="Голосовой ввод товара"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 hover:opacity-80 cursor-pointer"
             >
               <Mic size={17} />
             </button>
@@ -643,12 +646,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               value={quickAddText}
               onChange={e => setQuickAddText(e.target.value)}
               placeholder="Например: молоко 1.5 л, бананы 1 кг..."
-              className="flex-1 bg-transparent text-xs sm:text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
+              aria-label="Быстрое добавление товаров"
+              className="min-h-[44px] flex-1 bg-transparent text-xs sm:text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
             />
             <button 
               type="submit"
               disabled={!quickAddText.trim() || isSubmittingQuick}
-              className="w-9 h-9 rounded-full bg-[#4A7C59] hover:bg-[#3F6B4D] active:scale-95 text-white flex items-center justify-center shadow-xs shrink-0 transition-all disabled:opacity-40 cursor-pointer"
+              aria-label="Добавить товары в общий список"
+              className="min-w-[44px] min-h-[44px] rounded-full bg-[#4A7C59] hover:bg-[#3F6B4D] active:scale-95 text-white flex items-center justify-center shadow-xs shrink-0 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Plus size={20} strokeWidth={2.5} />
             </button>

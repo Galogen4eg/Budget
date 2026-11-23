@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import TerraMobileHeader from './TerraMobileHeader';
+import { SURFACE_CARD, PAGE_HEADING } from './filterUiTokens';
 
 import DebtSnowball from './DebtSnowball';
 import WalletApp from './Wallet';
@@ -116,9 +117,9 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
           <div className="flex flex-col space-y-3 sm:space-y-5">
             {/* Desktop-only SectionHeaderCard */}
             <div className="hidden md:flex flex-col space-y-4">
-              <div className="bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-6 shadow-[0_2px_8px_rgba(50,40,30,0.03)]" data-purpose="services-header">
+              <div className={SURFACE_CARD} data-purpose="services-header">
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <h1 className="text-[22px] font-bold tracking-tight text-stone-900 dark:text-white leading-tight">
+                  <h1 className={PAGE_HEADING}>
                     Финансовые сервисы
                   </h1>
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
@@ -138,7 +139,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                   type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className="touch-bounce bg-white dark:bg-[#1C1C1E] border border-stone-200/80 dark:border-white/10 rounded-2xl p-3 sm:p-5 shadow-[0_2px_8px_rgba(40,35,30,0.04)] relative transition-all duration-200 hover:border-[#3B7A57]/50 hover:shadow-[0_6px_20px_rgba(59,122,87,0.1)] active:scale-[0.98] cursor-pointer flex flex-col text-left justify-between group min-h-[110px] sm:min-h-[135px]"
+                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors hover:border-[#4A7C59]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] group cursor-pointer`}
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}
@@ -155,10 +156,10 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
 
                     {/* Title and Description */}
                     <div>
-                      <h2 className="text-xs sm:text-base font-bold text-stone-900 dark:text-white tracking-tight group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors break-words">
+                      <h2 className="text-sm sm:text-base font-semibold text-[#2E3230] dark:text-white leading-snug break-words">
                         {app.label}
                       </h2>
-                      <p className="text-[10.5px] sm:text-xs text-stone-500 dark:text-stone-400 mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed line-clamp-2">
+                      <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed line-clamp-2">
                         {app.desc}
                       </p>
                     </div>

@@ -772,10 +772,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleDateString('ru-RU', { month: 'short' })}`;
 
                 return (
-                  <div 
+                  <button type="button"
                     key={tx.id}
                     onClick={() => onEditTransaction(tx)}
-                    className="flex items-center justify-between p-2.5 bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 transition-transform active:scale-[0.99] cursor-pointer hover:border-[#4A7C59]/30"
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[48px] w-full flex items-center justify-between p-2.5 text-left bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 transition cursor-pointer hover:border-[#4A7C59]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
@@ -799,7 +800,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     }`}>
                       {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>

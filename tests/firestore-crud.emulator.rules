@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This file is exclusively for the disposable CI emulator.
+    // Never deploy it to production Firebase.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

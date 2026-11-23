@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check, Trash2, Edit3, Send, CheckCircle2, CheckSquare, CreditCard, Home, Link2, Info } from 'lucide-react';
-import { MandatoryExpense, MandatoryExpenseType, AppSettings, FamilyMember, Debt } from '../types';
+import { X, Trash2, Edit3, Send, CheckCircle2, CheckSquare, CreditCard, Home, Link2, Info } from 'lucide-react';
+import { MandatoryExpense, MandatoryExpenseType, AppSettings, FamilyMember } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { updateItem } from '../utils/db';
 
 interface MandatoryExpenseModalProps {
   expense: MandatoryExpense | null;
   onClose: () => void;
-  onSave: (expense: MandatoryExpense) => void;
-  onDelete?: (id: string) => void;
+  onSave: (expense: MandatoryExpense, manuallyPaid: boolean) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   settings: AppSettings;
+  selectedMonth: Date;
   members: FamilyMember[];
 }
 
@@ -21,6 +21,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   onSave, 
   onDelete, 
   settings, 
+  selectedMonth,
   members 
 }) => {
   const [name, setName] = useState('');
@@ -31,15 +32,15 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   const [expenseType, setExpenseType] = useState<MandatoryExpenseType>('regular');
   const [linkedDebtId, setLinkedDebtId] = useState<string>('');
   const [isPaidCurrentMonth, setIsPaidCurrentMonth] = useState(false);
-  const [isSavedAnimation, setIsSavedAnimation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
-  const { updateSettings, debts, setDebts } = useData();
-  const { user: firebaseUser, familyId } = useAuth();
+  const { debts } = useData();
+  const { user: firebaseUser } = useAuth();
   
-  const now = new Date();
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthName = now.toLocaleString('ru-RU', { month: 'long' });
+  const currentMonthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+  const monthName = selectedMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
     if (expense) {
@@ -93,79 +94,57 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   };
 
   const handleSave = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!name.trim() || !amount || !day) return;
+    e?.preventDefault();
+    if (isSaving) return;
+    setFormError('');
+    const parsedAmount = Number(String(amount).replace(',', '.'));
+    const parsedDay = Number(day);
+    if (!name.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0 ||
+        !Number.isInteger(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      setFormError('Укажите название, положительную сумму и день месяца от 1 до 31.');
+      return;
+    }
 
     const expenseId = expense?.id || Date.now().toString();
     const isDebt = expenseType === 'debt';
-    const effectiveLinkedDebtId = isDebt && linkedDebtId ? linkedDebtId : null;
-
-    const parsedAmount = parseFloat(String(amount).replace(',', '.'));
-    const safeAmount = Number.isFinite(parsedAmount) ? Math.abs(parsedAmount) : 0;
-
     const updatedExpense: MandatoryExpense = {
       id: expenseId,
       name: name.trim(),
-      amount: safeAmount,
-      day: Math.max(1, Math.min(31, parseInt(day) || 1)),
+      amount: Math.round(parsedAmount * 100) / 100,
+      day: parsedDay,
       remind,
       memberId: memberId || null,
       keywords: expense?.keywords || (isDebt ? [name.trim().toLowerCase()] : []),
       expenseType,
-      linkedDebtId: effectiveLinkedDebtId
+      linkedDebtId: isDebt && linkedDebtId ? linkedDebtId : null
     };
 
-    // Синхронизация статуса оплаты за текущий месяц в настройках
-    const currentManuals = settings.manualPaidExpenses || {};
-    const monthIds = currentManuals[currentMonthKey] || [];
-    let newMonthIds = monthIds;
-
-    if (isPaidCurrentMonth) {
-      if (!monthIds.includes(expenseId)) {
-        newMonthIds = [...monthIds, expenseId];
-      }
-    } else {
-      newMonthIds = monthIds.filter(id => id !== expenseId);
+    setIsSaving(true);
+    try {
+      // Parent commits payment settings and related debt data before closing.
+      await onSave(updatedExpense, isPaidCurrentMonth);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Не удалось сохранить платёж. Повторите попытку.');
+    } finally {
+      setIsSaving(false);
     }
-
-    if (newMonthIds !== monthIds) {
-      await updateSettings({
-        ...settings,
-        manualPaidExpenses: {
-          ...currentManuals,
-          [currentMonthKey]: newMonthIds
-        }
-      });
-    }
-
-    // Двусторонняя синхронизация с сервисом долгов
-    if (effectiveLinkedDebtId) {
-      const targetDebt = debts.find(d => d.id === effectiveLinkedDebtId);
-      if (targetDebt) {
-        const debtUpdates: Partial<Debt> = {
-          linkedExpenseId: expenseId,
-          paidThisMonth: isPaidCurrentMonth
-        };
-        setDebts(prev => prev.map(d => d.id === effectiveLinkedDebtId ? { ...d, ...debtUpdates } : d));
-        if (familyId) {
-          await updateItem(familyId, 'debts', effectiveLinkedDebtId, debtUpdates);
-        }
-      }
-    }
-
-    setIsSavedAnimation(true);
-    setTimeout(() => {
-      onSave(updatedExpense);
-    }, 250);
   };
 
-  const handleDelete = () => {
-    if (!expense || !onDelete) return;
+  const handleDelete = async () => {
+    if (!expense || !onDelete || isSaving) return;
     if (!isConfirmingDelete) {
       setIsConfirmingDelete(true);
       return;
     }
-    onDelete(expense.id);
+    setFormError('');
+    setIsSaving(true);
+    try {
+      await onDelete(expense.id);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Не удалось удалить платёж. Повторите попытку.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const selectedDebt = debts.find(d => d.id === linkedDebtId);
@@ -188,7 +167,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Закрыть" 
-            className="w-8 h-8 rounded-full bg-stone-200/70 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 flex items-center justify-center text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-full bg-stone-200/70 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 flex items-center justify-center text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -434,22 +413,13 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
           {/* Кнопки действий */}
           <div className="flex flex-col gap-2 pt-2">
-            <button 
+            {formError && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{formError}</p>}
+            <button
               type="submit"
-              className={`w-full font-bold py-3.5 px-6 rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.12)] active:scale-[0.99] transition-all text-center tracking-wider text-xs uppercase cursor-pointer flex items-center justify-center gap-2 ${
-                isSavedAnimation 
-                  ? 'bg-emerald-700 text-white' 
-                  : 'bg-[#4A7C59] hover:bg-[#3D6B4C] text-white'
-              }`}
+              disabled={isSaving}
+              className="w-full min-h-[44px] font-bold py-3.5 px-6 rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.12)] transition text-xs uppercase bg-[#4A7C59] hover:bg-[#3D6B4C] text-white disabled:opacity-60 disabled:cursor-wait"
             >
-              {isSavedAnimation ? (
-                <>
-                  <Check size={16} strokeWidth={3} />
-                  <span>Сохранено ✓</span>
-                </>
-              ) : (
-                <span>{expense ? 'Сохранить изменения' : 'Добавить платеж'}</span>
-              )}
+              {isSaving ? 'Сохранение…' : expense ? 'Сохранить изменения' : 'Добавить платёж'}
             </button>
 
             {expense && onDelete && (
@@ -457,6 +427,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 <button 
                   type="button"
                   onClick={handleDelete}
+                  disabled={isSaving}
                   className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#D95C48] hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
                 >
                   <Trash2 size={16} />
@@ -467,6 +438,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   <button 
                     type="button"
                     onClick={handleDelete}
+                  disabled={isSaving}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-[#D95C48] hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
                     <Trash2 size={16} />

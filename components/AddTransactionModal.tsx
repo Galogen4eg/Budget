@@ -195,28 +195,20 @@ export default function AddTransactionModal({
       return;
     }
     
-    // Evaluate if it's a mathematical expression, otherwise parse as standard float
-    let finalAmount = parseFloat(amount.replace(/\s/g, '').replace(',', '.'));
-    if (isNaN(finalAmount)) {
-      const evaluated = evaluateMathExpression(amount);
-      if (evaluated !== null) {
-        finalAmount = evaluated;
-      }
-    } else {
-      // Check if there are operators in the string to see if we should override with evaluated result
-      if (/[\+\-\*\/]/.test(amount)) {
-        const evaluated = evaluateMathExpression(amount);
-        if (evaluated !== null) {
-          finalAmount = evaluated;
-        }
-      }
-    }
-    
-    if (isNaN(finalAmount) || finalAmount <= 0) {
-      setValidationError("Пожалуйста, укажите верную сумму или математическое выражение больше 0");
+    // Number() rejects trailing garbage that parseFloat accepts ("12abc").
+    // Expressions are allowed, but their result is always stored in kopecks.
+    const normalizedAmount=amount.replace(/\s/g,'').replace(',', '.');
+    const hasMathOperators=/[+*/]/.test(normalizedAmount) || /-(?!^)/.test(normalizedAmount);
+    let finalAmount=hasMathOperators ? evaluateMathExpression(amount) : Number(normalizedAmount);
+    if (finalAmount === null || !normalizedAmount || !Number.isFinite(finalAmount) ||
+        finalAmount <= 0 || !Number.isSafeInteger(Math.round(finalAmount*100)) ||
+        (!hasMathOperators && Math.abs(finalAmount*100-Math.round(finalAmount*100))>0.000001)) {
+      setValidationError('Введите положительную сумму с точностью до копейки или корректное выражение.');
       setIsSubmitting(false);
       return;
     }
+    finalAmount=Math.round(finalAmount*100)/100;
+
     try {
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
 

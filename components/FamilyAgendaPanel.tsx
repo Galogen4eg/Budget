@@ -1,5 +1,8 @@
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
 import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
+import { useMedia } from 'react-use';
+import { agendaDisclosureTransition } from '../utils/uiMotion';
 import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, ListTodo, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import type { FamilyEvent, FamilyMember } from '../types';
@@ -25,6 +28,9 @@ export const FamilyAgendaPanel:React.FC<Props>=({
 })=>{
  const [view,setView]=useState<View>('week');
  const [expanded,setExpanded]=useState(false);
+ const isDesktop=useMedia('(min-width: 768px)', false);
+ const reduceMotion=useReducedMotion();
+ const panelOpen=isDesktop||expanded;
  const [savingId,setSavingId]=useState<string|null>(null);
  const [today,setToday]=useState(()=>formatLocalCalendarDate(new Date()));
  useEffect(()=>{
@@ -67,7 +73,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
  };
  return <section className="border-b border-[#EAE5DB] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2.5 space-y-2 shrink-0">
   <div className="flex items-center justify-between flex-wrap gap-2">
-   <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={expanded}
+   <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={panelOpen}
       aria-controls="family-agenda-content"
       className="md:pointer-events-none min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#2E3230] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
@@ -95,7 +101,15 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    </div>
   </div>
-  <div id="family-agenda-content" className={`${expanded?'block':'hidden'} md:block space-y-2`}>
+  <div id="family-agenda-content">
+   <MotionConfig reducedMotion="user">
+    <AnimatePresence initial={false}>
+     {panelOpen && (
+      <motion.div key="agenda-disclosure" initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+        transition={agendaDisclosureTransition(Boolean(reduceMotion))}
+        inert={!panelOpen} aria-hidden={!panelOpen}
+        className="overflow-hidden space-y-2">
   <div className="md:hidden flex flex-wrap gap-2">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
@@ -129,6 +143,10 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    </div>)}
   </div>
   <p className="text-xs leading-relaxed text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для устройства.':'Обычные напоминания работают при открытом Budget.'} Telegram-напоминания отправляются с сервера, если включены.</p>
+      </motion.div>
+     )}
+    </AnimatePresence>
+   </MotionConfig>
   </div>
  </section>;
 };

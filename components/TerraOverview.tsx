@@ -764,15 +764,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
         <div className="px-4 my-3 w-full">
-          <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-2xl grid grid-cols-2 gap-1 shadow-inner">
+          <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid grid-cols-2 gap-1">
             <button
               type="button"
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
-              className={`min-h-[44px] py-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
-                  ? 'bg-[#4A7C59] text-white shadow-xs'
-                  : FILTER_CHIP_IDLE
+                  ? 'bg-[#4A7C59] text-white'
+                  : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <Users size={15} />
@@ -782,10 +782,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               type="button"
               onClick={() => setBudgetMode('personal')}
               aria-pressed={budgetMode === 'personal'}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`min-h-[44px] py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'personal'
-                  ? 'bg-[#4A7C59] text-white shadow-xs'
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
+                  ? 'bg-[#4A7C59] text-white'
+                  : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <User size={15} />

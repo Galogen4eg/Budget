@@ -25,6 +25,7 @@ import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, budgetDailyLimit, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { filterBudgetHistory } from '../utils/budgetHistory';
+import { buildBudgetDayMoney } from '../utils/budgetDayMoney';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -272,26 +273,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Day statistics map for the calendar
   const dayStatsMap = useMemo(() => {
-    const map: Record<number, { income: number; expense: number; net: number; count: number; hasMandatory: boolean }> = {};
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      const hasMandatory = mandatoryExpenses.some(m => ((m.day ?? (m as any).dayOfMonth) === d));
-      map[d] = { income: 0, expense: 0, net: 0, count: 0, hasMandatory };
-    }
-    monthTransactions.forEach(t => {
-      const d = new Date(t.date).getDate();
-      if (map[d]) {
-        if (t.type === 'income') map[d].income += t.amount;
-        if (t.type === 'expense') map[d].expense += t.amount;
-        map[d].count += 1;
-      }
-    });
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      map[d].income = Math.round(map[d].income);
-      map[d].expense = Math.round(map[d].expense);
-      map[d].net = Math.round(map[d].income - map[d].expense);
+    const financialDays=buildBudgetDayMoney(monthTransactions,currentMonth);
+    const map:Record<number,{income:number;expense:number;net:number;count:number;hasMandatory:boolean}>={};
+    for(let day=1;day<=totalDaysInMonth;day++){
+      map[day]={
+        ...financialDays[day],
+        hasMandatory:mandatoryExpenses.some(bill=>(bill.day??(bill as any).dayOfMonth)===day)
+      };
     }
     return map;
-  }, [monthTransactions, totalDaysInMonth, mandatoryExpenses]);
+  }, [monthTransactions,currentMonth,totalDaysInMonth,mandatoryExpenses]);
 
   // Current month key and manual paid IDs
   const currentMonthKey = useMemo(() => {
@@ -951,7 +942,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
           <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
         </div>
       </div>
@@ -1589,7 +1580,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
 <BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView && selectedMember === 'all'}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}

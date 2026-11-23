@@ -1,18 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, Wallet, ListTodo } from 'lucide-react';
+import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, ListTodo, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import type { FamilyEvent, MandatoryExpense, FamilyMember } from '../types';
+import type { FamilyEvent, FamilyMember } from '../types';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
 import { upcomingAgenda, buildCalendarOccurrences } from '../utils/familyPlanEngine';
-import { paymentAgenda } from '../utils/calendarReminders';
 import { makeCalendarICS } from '../utils/calendarExport';
 
 interface Props {
  events: FamilyEvent[];
  members: FamilyMember[];
- payments: MandatoryExpense[];
- paidByMonth?: Record<string,string[]>;
- onOpenBudget?: () => void;
  onOpenEvent:(event?:FamilyEvent|null,prefill?:Record<string,unknown>)=>void;
  onToggleTask:(event:FamilyEvent)=>Promise<void>;
  onEnableReminders:()=>void;
@@ -24,9 +20,10 @@ interface Props {
 }
 type View='today'|'week'|'month'|'tasks';
 export const FamilyAgendaPanel:React.FC<Props>=({
- events,members,payments,paidByMonth,onOpenBudget,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled,pushEnabled=false,telegramRemindersEnabled=false,telegramConfigured=false,onToggleTelegramReminders
+ events,members,onOpenEvent,onToggleTask,onEnableReminders,remindersEnabled,pushEnabled=false,telegramRemindersEnabled=false,telegramConfigured=false,onToggleTelegramReminders
 })=>{
  const [view,setView]=useState<View>('week');
+ const [expanded,setExpanded]=useState(false);
  const [savingId,setSavingId]=useState<string|null>(null);
  const [today,setToday]=useState(()=>formatLocalCalendarDate(new Date()));
  useEffect(()=>{
@@ -45,18 +42,10 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     ?buildCalendarOccurrences(events,formatLocalCalendarDate(pastFrom),formatLocalCalendarDate(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()-1)))
       .filter(e=>e.kind==='task'&&!e.completed)
     :[];
-  const dates=new Date();const candidates:FamilyEvent[]=[];
-  for(let i=0;i<3;i++){
-   const month=new Date(dates.getFullYear(),dates.getMonth()+i,1);
-   candidates.push(...paymentAgenda(payments,month,paidByMonth||{}));
-  }
-  const end=new Date();end.setDate(end.getDate()+count-1);
-  const last=formatLocalCalendarDate(end);
-  const all=[...overdue,...raw,...candidates.filter(x=>x.date>=today&&x.date<=last &&
-    !((paidByMonth?.[x.date.slice(0,7)]||[]).includes(x.linkedExpenseId||'')))];
+  const all=[...overdue,...raw];
   return all.filter(x=>view==='tasks'?x.kind==='task':true)
    .sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time)).slice(0,60);
- },[events,payments,paidByMonth,today,view]);
+ },[events,today,view]);
  const exportICS=()=>{
   const ics=makeCalendarICS(events);
   const url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
@@ -75,13 +64,16 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    toast.error(error instanceof Error?error.message:'Не удалось обновить задачу');
   }finally{setSavingId(null);}
  };
- return <section className="border-b border-stone-200 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#18181A] px-3 sm:px-5 py-3 space-y-3 shrink-0">
+ return <section className="border-b border-[#EAE5DB] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2.5 space-y-2 shrink-0">
   <div className="flex items-center justify-between flex-wrap gap-2">
-   <div className="flex items-center gap-2">
+   <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={expanded}
+      aria-controls="family-agenda-content"
+      className="md:pointer-events-none min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#2E3230] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
-    <h2 className="text-sm font-bold dark:text-white">Ближайшие дела</h2>
-   </div>
-   <div className="flex gap-1.5 flex-wrap">
+    Ближайшие дела <span className="text-xs font-normal text-stone-500">({agenda.length})</span>
+    <ChevronDown size={16} aria-hidden="true" className={`md:hidden text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
+   </button>
+   <div className="hidden md:flex gap-1.5 flex-wrap">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
       <Plus size={14}/>Задача
@@ -102,10 +94,18 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    </div>
   </div>
+  <div id="family-agenda-content" className={`${expanded?'block':'hidden'} md:block space-y-2`}>
+  <div className="md:hidden flex flex-wrap gap-2">
+    <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
+      className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
+    <button type="button" onClick={onEnableReminders} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>Напоминания</button>
+    <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>Telegram</button>
+    <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>
+  </div>
   <div className="flex items-center gap-1 overflow-x-auto" role="group" aria-label="Период календаря">
    {([['today','Сегодня'],['week','7 дней'],['month','30 дней'],['tasks','Задачи']] as const).map(([id,label])=>
     <button key={id} type="button" aria-pressed={view===id} onClick={()=>setView(id)}
-     className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${view===id?'bg-[#4A7C59] text-white':'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-200'}`}>
+     className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${view===id?'bg-[#4A7C59] text-white':'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-200'}`}>
      {label}
     </button>
    )}
@@ -113,24 +113,22 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   <div className="max-h-44 sm:max-h-52 overflow-y-auto space-y-1.5" aria-label="Ближайшие события и семейные задачи">
    {agenda.length===0&&<p className="text-xs text-stone-500 py-3">Пока нет запланированных дел на этот период.</p>}
    {agenda.map(event=><div key={event.id} className="flex gap-2 items-center py-2 px-2 rounded-xl bg-white dark:bg-white/5">
-    {event.kind==='task'&&!event.linkedExpenseId?
+    {event.kind==='task'?
       <button type="button" title="Отметить выполнение" disabled={savingId===event.id}
        onClick={()=>void toggle(event)} className="p-1 text-[#4A7C59] shrink-0">
        {event.completed?<CircleCheck size={19}/>:<Circle size={19}/>}
-      </button>:
-      event.linkedExpenseId?<Wallet size={17} className="text-[#4A7C59] shrink-0"/>:
-      <CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}
-    <button type="button" disabled={Boolean(event.linkedExpenseId&&!onOpenBudget)}
-     onClick={()=>event.linkedExpenseId?onOpenBudget?.():onOpenEvent(event)}
-     className="text-left min-w-0 flex-1 disabled:cursor-default">
+      </button>:<CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}
+    <button type="button" onClick={()=>onOpenEvent(event)}
+     className="text-left min-h-[44px] min-w-0 flex-1">
      <div className="text-xs sm:text-sm font-semibold dark:text-white truncate">{event.title}
       {event.recurrence&&event.recurrence!=='none'&&<Repeat2 size={12} className="inline ml-1 text-stone-400"/>}
      </div>
-     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {event.linkedExpenseId?'Открыть обязательные платежи':memberNames(event)} {event.kind==='task'&&!event.completed&&event.date<today?'· Просрочено':''}</div>
+     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {memberNames(event)} {event.kind==='task'&&!event.completed&&event.date<today?'· Просрочено':''}</div>
     </button>
    </div>)}
   </div>
-  <p className="text-[10px] text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для этого устройства.':'Напоминания работают при открытом Budget; фоновые push требуют настройки Firebase.'} Включённые Telegram-напоминания отправляются с сервера даже при закрытом Budget. Платежи показаны без автоматического списания.</p>
+  <p className="text-xs leading-relaxed text-stone-500 dark:text-stone-400">{pushEnabled?'Фоновые push настроены для устройства.':'Обычные напоминания работают при открытом Budget.'} Telegram-напоминания отправляются с сервера, если включены.</p>
+  </div>
  </section>;
 };
 export default FamilyAgendaPanel;

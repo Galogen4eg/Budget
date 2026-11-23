@@ -51,3 +51,42 @@ test('iteration 66: desktop Budget paid presentation reads the shared monthly pa
   assert.match(source,/const isPaid = checkMandatoryPaid\(expense\)/);
   assert.doesNotMatch(source,/const isPaid = \(settings\.manualPaidExpenses\?\.\[currentMonthKey\] \|\| \[\]\)\.includes\(expense\.id\)/);
 });
+
+test('iteration 66: 99.99% paid is not auto-complete and overpayment does not create negative reserve',()=>{
+  const nearly=mandatoryPaymentStates([bill],[payment('p1',1000.24)],[])[0];
+  assert.equal(nearly.isPaid,false);
+  assert.equal(nearly.amountNeeded,0.01);
+  const over=mandatoryPaymentStates([bill],[payment('p1',1001.75)],[])[0];
+  assert.equal(over.isPaid,true);
+  assert.equal(over.amountNeeded,0);
+});
+
+test('iteration 66: mandatory modal waits for confirmed save and exposes errors, not premature success',()=>{
+  const src=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
+  assert.match(src,/await onSave\(updatedExpense, isPaidCurrentMonth\)/);
+  assert.match(src,/await onDelete\(expense\.id\)/);
+  assert.match(src,/setFormError\(error instanceof Error/);
+  assert.match(src,/disabled=\{isSaving\}/);
+  assert.doesNotMatch(src,/setTimeout\(\(\) => \{\s*onSave/);
+  assert.doesNotMatch(src,/isSavedAnimation/);
+  assert.match(src,/aria-pressed=\{isPaidCurrentMonth\}/);
+});
+
+test('iteration 66: selected month and linked debt persistence follow the settings write',()=>{
+  const modal=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
+  const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
+  assert.match(modal,/selectedMonth\.getFullYear\(\)/);
+  assert.match(app,/selectedMonth=\{currentMonth\}/);
+  assert.match(app,/await updateSettings\(\{\s*mandatoryExpenses: updated,\s*manualPaidExpenses:/);
+  assert.match(app,/await syncLinkedMandatoryDebt\(/);
+  assert.match(app,/onAddMandatoryExpense=\{\(\) =>/);
+  assert.match(app,/await updateSettings\(\{manualPaidExpenses:/);
+});
+
+test('iteration 66: detailed mandatory list uses same paid allocation as family reserve',()=>{
+  const source=readFileSync(new URL('../components/MandatoryExpensesList.tsx',import.meta.url),'utf8');
+  assert.match(source,/const isPaid = status\.isPaid/);
+  assert.doesNotMatch(source,/PAYMENT_MATCH_THRESHOLD/);
+  assert.match(source,/const itemPaid = Math\.min\(e\.paidAmount, e\.amount\)/);
+  assert.match(source,/await updateSettings\(\{manualPaidExpenses:/);
+});

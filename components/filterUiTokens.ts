@@ -8,5 +8,5 @@ export const FILTER_CHIP_IDLE = 'bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] d
 
 /** Section cards: no gradient, large drop shadow or arbitrary radius. */
 export const SURFACE_CARD = 'rounded-2xl border border-[#EAE5DB] bg-[#FAF8F5] dark:border-white/10 dark:bg-[#1C1C1E] p-4 sm:p-5';
-export const PAGE_HEADING = 'font-headline text-2xl font-bold tracking-tight text-[#2E3230] dark:text-white';
+export const PAGE_HEADING = 'font-headline text-xl sm:text-2xl font-bold tracking-tight text-[#2E3230] dark:text-white';
 export const SECTION_HEADING = 'font-headline text-lg font-bold leading-tight text-[#2E3230] dark:text-white';

@@ -433,11 +433,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y md:overflow-hidden" data-testid="plans-scroll-container">
       <FamilyAgendaPanel events={events} members={members}
-        payments={settings.mandatoryExpenses||[]}
-        paidByMonth={settings.manualPaidExpenses}
-        onOpenBudget={onOpenBudget}
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
         onEnableReminders={()=>void enableReminders()}
@@ -446,7 +443,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         telegramRemindersEnabled={telegramRemindersEnabled}
         telegramConfigured={telegramConfigured}
         onToggleTelegramReminders={toggleTelegramReminders}/>
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-none min-h-0 md:flex-1 md:overflow-hidden">
         {isDesktop ? (
             <FamilyPlansDesktop 
                 {...commonProps} 

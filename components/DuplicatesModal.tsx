@@ -19,6 +19,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isIgnoring, setIsIgnoring] = useState(false);
+  const [locallyIgnoredPairs, setLocallyIgnoredPairs] = useState<Set<string>>(new Set());
 
   // Find duplicates logic with improved smart matching
   const duplicateGroups = useMemo(() => {
@@ -46,7 +47,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
 
             if (isPotentialDuplicate(current, next)) {
                 const pairKey = [current.id, next.id].sort().join('_');
-                if (!ignoredPairs.includes(pairKey)) {
+                if (!ignoredPairs.includes(pairKey) && !locallyIgnoredPairs.has(pairKey)) {
                     group.push(next);
                     processedIds.add(next.id);
                 }
@@ -59,7 +60,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
         }
     }
     return groups;
-  }, [transactions, ignoredPairs]);
+  }, [transactions, ignoredPairs, locallyIgnoredPairs]);
 
   // Similar payments are review candidates, never pre-approved for deletion.
   React.useEffect(() => {
@@ -105,6 +106,7 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
       setIsIgnoring(true);
       try {
         await onIgnore(pairs);
+        setLocallyIgnoredPairs(previous => new Set([...previous, ...pairs]));
         toast.success('Эти операции исключены из предложений дублей');
       } catch (error) {
         console.error('Не удалось сохранить исключения дублей', error);
@@ -233,6 +235,14 @@ const DuplicatesModal: React.FC<DuplicatesModalProps> = ({ transactions, onClose
                       ? `Будут окончательно удалены ${selectedToDelete.size} выбранных записей из общего бюджета. Это действие нельзя отменить.`
                       : 'Это только возможные дубли. Ничего не выбрано заранее: отметьте операции после сверки.'}
                 </p>
+                {selectedToDelete.size > 0 && !isConfirmingDelete && (
+                  <button type="button"
+                    disabled={deleting || isIgnoring}
+                    onClick={() => { setSelectedToDelete(new Set()); setIsConfirmingDelete(false); }}
+                    className="mb-2 min-h-[44px] w-full rounded-xl border border-surface-border text-sm font-semibold text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    Снять выбор ({selectedToDelete.size})
+                  </button>
+                )}
                 {isConfirmingDelete && (
                   <button type="button" onClick={() => setIsConfirmingDelete(false)}
                     className="mb-2 min-h-[44px] w-full rounded-xl border border-stone-300 dark:border-white/20 font-semibold text-sm text-stone-700 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">

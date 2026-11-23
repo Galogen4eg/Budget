@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence } from '../utils/db';
 import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
-import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
+import { dueCalendarNotifications } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { telegramReminderKey } from '../utils/calendarTelegram';
@@ -215,7 +215,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     },1200);
     return ()=>window.clearTimeout(timer);
   },[telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,
-    settings.telegramBotToken,settings.telegramChatId,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+    settings.telegramBotToken,settings.telegramChatId]);
 
   const enableReminders=async()=>{
     if(remindersEnabled){
@@ -255,9 +255,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const now=new Date(),today=formatLocalCalendarDate(now);
       const end=new Date(now);end.setDate(end.getDate()+40);
       const future=buildCalendarOccurrences(events,today,formatLocalCalendarDate(end));
-      const monthly=Array.from({length:3},(_,i)=>paymentAgenda(
-        settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1),settings.manualPaidExpenses||{}
-      ));
       // Browser timers can pause while the tab is in the background. Resume from
       // the last check, but avoid replaying notifications older than one hour.
       const checkedKey=`${reminderKey}:last-checked`;
@@ -265,7 +262,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const since=Number.isFinite(previous)&&previous>0&&previous<=now.getTime()
         ?new Date(Math.max(previous,now.getTime()-3600000))
         :new Date(now.getTime()-120000);
-      const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId,since);
+      const due=dueCalendarNotifications(future,now,ownProfileId,since);
       localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;
       let seen:string[]=[];
@@ -286,7 +283,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     const onFocus=()=>tick();
     window.addEventListener('focus',onFocus);
     return ()=>{window.clearInterval(interval);window.removeEventListener('focus',onFocus);};
-  },[events,remindersEnabled,pushEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+  },[events,remindersEnabled,pushEnabled,familyId,user?.uid,ownProfileId,reminderKey]);
 
   // --- Calendar Data ---
   const calendarData = useMemo(() => {

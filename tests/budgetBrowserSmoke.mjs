@@ -95,12 +95,26 @@ try{
       }
       // Verify Full HD calendar selection, day details and a safe unsaved
       // transaction form. Do not write or mutate persistent/demo data.
+      // Full HD actions must remain reachable without tiny click targets.
+      for(const name of ['Предыдущий месяц','Следующий месяц']){
+        const arrow=page.getByRole('button',{name,exact:true}).filter({visible:true}).first();
+        const bounds=await arrow.boundingBox();
+        assert.ok(bounds && bounds.width>=44 && bounds.height>=44,
+          '1920: undersized Budget month control '+name);
+      }
       const calendarDay=page.getByRole('button',{name:/^Выбрать 15 /}).filter({visible:true}).first();
       await calendarDay.click();
       assert.equal(await calendarDay.getAttribute('aria-pressed'),'true','1920: selected calendar day not reflected');
-      await page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first().click();
+      const expandDay=page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first();
+      const expandBounds=await expandDay.boundingBox();
+      assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
+      await expandDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
-      await page.getByRole('button',{name:'Закрыть',exact:true}).filter({visible:true}).last().click();
+      const closeDay=page.getByRole('button',{name:'Закрыть',exact:true}).filter({visible:true}).last();
+      const closeBounds=await closeDay.boundingBox();
+      assert.ok(closeBounds && closeBounds.width>=44 && closeBounds.height>=44,
+        '1920: undersized day details close action');
+      await closeDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});
       await page.getByRole('button',{name:'Добавить операцию',exact:true}).filter({visible:true}).first().click();
       await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'visible'});

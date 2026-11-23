@@ -27,7 +27,7 @@ try{
   await waitForServer();
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
-  for(const [label,width,height] of [['phone-390',390,844],['tablet-768',768,1024],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
+  for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
     const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));

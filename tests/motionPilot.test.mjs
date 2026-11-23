@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { agendaDisclosureTransition } from '../utils/uiMotion.ts';
 
 const agenda = readFileSync(new URL('../components/FamilyAgendaPanel.tsx', import.meta.url), 'utf8');
+const plans = readFileSync(new URL('../components/FamilyPlans.tsx', import.meta.url), 'utf8');
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('reuse installed Framer Motion rather than adding a second Motion dependency', () => {
@@ -35,4 +36,8 @@ test('disclosure hides exiting content from keyboard and assistive technology', 
 test('calendar-only agenda still excludes budget payments', () => {
   assert.doesNotMatch(agenda, /paymentAgenda\(/);
   assert.doesNotMatch(agenda, /linkedExpenseId/);
+});
+
+test('fixed mobile Plans header reserves layout space so agenda is clickable', () => {
+  assert.match(plans, /pt-\[calc\(64px\+env\(safe-area-inset-top\)\)\] md:pt-0/);
 });

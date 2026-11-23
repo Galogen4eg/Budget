@@ -436,7 +436,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? 'Семейный ориентир в день' : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
+                  <span data-testid="family-daily-limit-mobile" className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
                     {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
                   </span>
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
@@ -1042,7 +1042,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           <div className="my-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl lg:text-3xl font-black font-headline text-primary-dark dark:text-green-400 tracking-tight">
+              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-black font-headline text-primary-dark dark:text-green-400 tracking-tight">
                 {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>

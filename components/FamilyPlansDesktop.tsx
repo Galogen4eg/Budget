@@ -459,7 +459,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
               {/* Сетка дней (7 колонок, гибкие карточки с мягким скруглением) */}
               <div className="grid grid-cols-7 flex-1 gap-2 overflow-y-auto no-scrollbar min-h-0 auto-rows-fr">
-                {calendarData.slice(0, 35).map((d, i) => {
+                {calendarData.map((d, i) => {
                   const dateObj = new Date(d.year, d.month, d.day);
                   const dateStr = getLocalDateString(dateObj);
                   const dayEvents: FamilyEvent[] = events.filter((e: FamilyEvent) => e.date === dateStr);
@@ -470,13 +470,22 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
 
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Выбрать дату ${dateStr}`}
+                      aria-pressed={isSelected}
                       onClick={() => {
                         const newDate = new Date(d.year, d.month, d.day);
                         setSelectedDate(newDate);
                       }}
-                      className={`p-2.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[96px] ${
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                        e.preventDefault();
+                        setSelectedDate(new Date(d.year, d.month, d.day));
+                      }}
+                      className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary p-2.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[96px] ${
                         d.current 
                           ? isToday
                             ? 'border-2 border-[#2D5A46] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
@@ -508,14 +517,15 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                           const badgeStyle = getEventBadgeStyle(evt);
 
                           return (
-                            <div 
-                              key={evt.id} 
+                            <button type="button"
+                              key={evt.id}
+                              aria-label={`Открыть событие: ${evt.title}, ${dateStr}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedDate(new Date(d.year, d.month, d.day));
                                 onOpenEvent(evt);
                               }}
-                              className={`text-[11px] font-medium py-1 px-2 rounded-lg truncate transition-all flex items-center gap-1.5 border-l-2 ${
+                              className={`w-full text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-[11px] font-medium py-1 px-2 rounded-lg truncate transition-all flex items-center gap-1.5 border-l-2 ${
                                 badgeStyle.badgeBg
                               } ${badgeStyle.badgeText} ${
                                 dimmed ? 'opacity-30 scale-98' : 'hover:opacity-90 shadow-2xs'
@@ -525,21 +535,22 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
                               <span className="font-bold text-[10px] shrink-0 opacity-80">{evt.time || 'Весь день'}</span>
                               <span className="truncate">{evt.title}</span>
-                            </div>
+                            </button>
                           );
                         })}
 
                         {dayEvents.length === 0 && d.current && (
-                          <div 
+                          <button type="button"
+                            aria-label={`Добавить событие: ${dateStr}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedDate(new Date(d.year, d.month, d.day));
                               onOpenEvent(null, { date: dateStr });
                             }}
-                            className="text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[#2D5A46] transition py-1 text-center opacity-70 hover:opacity-100"
+                            className="min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[#2D5A46] transition py-1 text-center opacity-70 hover:opacity-100"
                           >
                             + Добавить
-                          </div>
+                          </button>
                         )}
 
                         {dayEvents.length > 2 && (

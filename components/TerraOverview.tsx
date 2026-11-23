@@ -1149,7 +1149,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
                       </span>
                       <span className="text-[10px] text-graphite-muted dark:text-gray-400 block mt-0.5">
-                        {budgetMode === 'family' ? 'Семейный счёт' : 'Личный счёт'}
+                        {budgetMode === 'family' ? 'Семейная операция' : 'Личная история'}
                       </span>
                     </div>
                   </div>
@@ -1334,14 +1334,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
-          <div 
+          <button type="button"
             onClick={() => setIsReserveModalOpen(true)}
-            className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
+            aria-label="Открыть подробности семейного резерва"
+            className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                {budgetMode === 'family' ? 'СЕМЕЙНЫЙ РЕЗЕРВ' : 'ЛИЧНЫЙ РЕЗЕРВ'}
+                СЕМЕЙНЫЙ РЕЗЕРВ
               </span>
               <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%
@@ -1364,7 +1365,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 ></div>
               </div>
             </div>
-          </div>
+          </button>
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}

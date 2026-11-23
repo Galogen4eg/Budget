@@ -71,6 +71,7 @@ export function mergeOrRestoreShoppingItems(
       const restoredItem: ShoppingItem = {
         ...existing,
         completed: false,
+        completedAt: null,
         amount: String(incomingQty),
         unit: incoming.unit || existing.unit || 'шт',
         category: incoming.category && incoming.category !== 'other' ? incoming.category : existing.category,
@@ -185,4 +186,18 @@ export function mergeOrRestoreShoppingItems(
 /** Update local suggestions only after the shopping changes were committed. */
 export function recordCommittedShoppingEvents(events: Array<Parameters<typeof recordPurchaseEvent>>): void {
   for (const [title, event, options] of events) recordPurchaseEvent(title, event, options);
+}
+
+/** Apply only confirmed Firestore changes to the most recent subscribed list.
+ * Never replace the entire family list with a snapshot captured before await.
+ */
+export function applyCommittedShoppingChanges(
+  current: readonly ShoppingItem[],
+  updates: readonly ShoppingItem[],
+  additions: readonly ShoppingItem[]
+): ShoppingItem[] {
+  const updatedById = new Map(updates.map(item=>[item.id,item]));
+  const existingIds = new Set(current.map(item=>item.id));
+  const newItems = additions.filter(item=>!existingIds.has(item.id));
+  return [...newItems, ...current.map(item=>updatedById.get(item.id) ?? item)];
 }

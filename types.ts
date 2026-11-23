@@ -66,6 +66,8 @@ export interface ShoppingItem {
   unit: 'шт' | 'кг' | 'уп' | 'л' | 'г' | 'бут' | string;
   estimatedPrice?: number;
   completed?: boolean;
+  /** Timestamp of the latest confirmed purchase; null after restoring the item. */
+  completedAt?: number | null;
   memberId: string;
   userId?: string;
   priority: 'low' | 'medium' | 'high';

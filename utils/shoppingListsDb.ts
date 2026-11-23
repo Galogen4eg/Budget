@@ -57,7 +57,8 @@ export async function recordFamilyPurchase(familyId: string, item: ShoppingItem)
     const ref = libraryDoc(familyId);
     const existing = await transaction.get(ref);
     const data = readLibrary(existing.data());
-    if (data.history.some(p => p.shoppingItemId === item.id)) return;
+    const eventId = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
+    if (data.history.some(p => (p.purchaseEventId || p.shoppingItemId) === eventId)) return;
     transaction.set(ref, { ...data, history: mergePurchaseHistory(data.history, item, Date.now()) });
   });
 }

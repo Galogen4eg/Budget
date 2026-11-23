@@ -37,12 +37,13 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
-import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
@@ -210,6 +211,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
   const [isPurchasedOpen, setIsPurchasedOpen] = useState(true);
+  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Add / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -413,10 +416,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleToggleComplete = async (item: ShoppingItem) => {
-    const updated = { ...item, completed: !item.completed };
+    const updated = { ...item, completed: !item.completed, completedAt: item.completed ? null : Date.now() };
     try {
       if (!familyId) throw new Error('Family is not ready');
-      await updateItem(familyId, 'shopping', item.id, { completed: updated.completed });
+      await updateItem(familyId, 'shopping', item.id, { completed: updated.completed, completedAt: updated.completedAt });
       setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     } catch (error) {
       toast.error('Не удалось сохранить статус покупки');
@@ -437,7 +440,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleUpdateAmount = async (item: ShoppingItem, delta: number) => {
     try {
       if (!familyId) throw new Error('Family is not ready');
-      const amount = await adjustShoppingAmount(familyId, item.id, delta, 0.5);
+      const step = shoppingQuantityStep(item.unit);
+      const amount = await adjustShoppingAmount(familyId, item.id, delta * step, step);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
     } catch (error) { toast.error('Не удалось обновить количество'); }
   };
@@ -455,9 +459,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleClearCompleted = async () => {
+    if (!confirmClearCompleted || isClearingCompleted) return;
+    setIsClearingCompleted(true);
     const completedIds = items.filter(i => i.completed).map(i => i.id);
     if (completedIds.length === 0) {
       toast.info('Нет купленных товаров для удаления');
+      setIsClearingCompleted(false);
+      setConfirmClearCompleted(false);
       return;
     }
 
@@ -466,9 +474,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       await deleteItemsBatch(familyId, 'shopping', completedIds);
       setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
       toast.success(`Удалено ${completedIds.length} купленных товаров`);
+      setConfirmClearCompleted(false);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    }
+    } finally { setIsClearingCompleted(false); }
   };
 
   const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -484,7 +493,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       if (parsedItems.length === 0) return;
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
@@ -496,7 +504,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
       setQuickInputText('');
@@ -519,7 +527,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     const targetMemberId = getShoppingMember(filterMemberId);
     if (!targetMemberId) return;
     const {
-      updatedList,
         purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb,
@@ -538,7 +545,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       recordCommittedShoppingEvents(purchaseEvents);
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
@@ -547,6 +554,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleSaveModal = async (shouldMerge = false) => {
     if (!itemName.trim()) return;
     const cleanName = itemName.trim();
+    const parsedQuantity = parseShoppingQuantity(itemAmount);
+    if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     const targetMemberId = getShoppingMember(itemMemberId);
     if (!targetMemberId) return;
 
@@ -554,7 +563,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       const updated: ShoppingItem = {
         ...editingItem,
         title: cleanName,
-        amount: String(itemAmount),
+        amount: parsedQuantity,
         unit: itemUnit,
         category: itemCategory,
         memberId: targetMemberId,
@@ -570,14 +579,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     } else {
       // Check if this item is in completed or active list without creating duplicate
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, [{
         title: cleanName,
-        amount: String(itemAmount),
+        amount: parsedQuantity,
         unit: itemUnit,
         category: itemCategory,
         memberId: targetMemberId,
@@ -590,7 +598,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     }
@@ -746,7 +754,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       }));
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb,
@@ -759,7 +766,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         recordCommittedShoppingEvents(purchaseEvents);
       }
 
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
 
       toast.success(summaryMessage);
@@ -1030,10 +1037,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             {/* Custom checkmark */}
                             <label 
                               onClick={(e) => e.stopPropagation()}
-                              className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0"
+                              className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0 focus-within:ring-2 focus-within:ring-primary"
                             >
                               <input 
                                 type="checkbox"
+                                aria-label={`Отметить купленным: ${item.title}`}
                                 checked={item.completed}
                                 onChange={() => handleToggleComplete(item)}
                                 className="peer sr-only"
@@ -1045,9 +1053,12 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm text-[#2E3230] dark:text-white truncate">
+                                <button type="button"
+                                  onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
+                                  aria-label={`Редактировать товар: ${item.title}`}
+                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[#2E3230] dark:text-white truncate rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                   {item.title}
-                                </span>
+                                </button>
                                 {item.priority === 'high' && (
                                   <span className="px-2 py-0.5 rounded-md bg-[#F8E0A8] dark:bg-amber-950/40 text-[#554020] dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
                                     <Zap size={11} className="text-[#705C30]" /> Срочно
@@ -1062,7 +1073,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             <div className="flex items-center bg-[#F5F1EA] dark:bg-stone-800 rounded-xl px-1.5 py-1">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
-                                className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
+                                aria-label={`Уменьшить количество: ${item.title}`}
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 -
                               </button>
@@ -1071,7 +1083,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               </span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
-                                className="w-6 h-6 rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer"
+                                aria-label={`Увеличить количество: ${item.title}`}
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 +
                               </button>
@@ -1079,7 +1092,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                             <button 
                               onClick={(e) => handleDeleteItem(e, item.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#74796E] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                              aria-label={`Удалить товар: ${item.title}`}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[#74796E] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               title="Удалить товар"
                             >
                               <Trash2 size={17} />
@@ -1122,18 +1136,27 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     </span>
                   </div>
 
-                  <button 
+                  <button type="button"
+                    disabled={isClearingCompleted}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleClearCompleted();
+                      if (!confirmClearCompleted) setConfirmClearCompleted(true);
+                      else void handleClearCompleted();
                     }}
-                    className="text-xs text-[#B83230] hover:underline font-semibold flex items-center gap-1 transition cursor-pointer"
+                    className="min-h-[44px] px-3 text-xs text-[#B83230] hover:underline font-semibold flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
                   >
                     <Trash2 size={13} />
-                    <span>Очистить купленные</span>
+                    <span>{isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}</span>
                   </button>
                 </div>
 
+                {confirmClearCompleted && (
+                  <div role="status" className="flex items-center gap-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
+                    Удалить все купленные товары из общего списка?
+                    <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                      className="min-h-[44px] px-3 underline font-semibold">Отмена</button>
+                  </div>
+                )}
                 {/* Purchased items list */}
                 {isPurchasedOpen && (
                   <div className="flex flex-col gap-2 pt-2 animate-in fade-in duration-200">
@@ -1145,7 +1168,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         <div className="flex items-center gap-3">
                           <button 
                             onClick={() => handleToggleComplete(item)}
-                            className="w-5 h-5 rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition"
+                            aria-label={`Вернуть в список: ${item.title}`}
+                            className="min-w-[44px] min-h-[44px] rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition focus-visible:ring-2 focus-visible:ring-primary"
                             title="Вернуть в список"
                           >
                             <Check size={13} strokeWidth={3} />

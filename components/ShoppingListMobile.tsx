@@ -11,6 +11,7 @@ import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
@@ -19,7 +20,7 @@ import {
   parseQuickShoppingInput, 
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
-import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges } from '../utils/shoppingManager';
 import { 
   recordPurchaseEvent, 
   getTopFrequentPurchases,
@@ -99,6 +100,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   // Collapsible Completed section
   const [isCompletedOpen, setIsCompletedOpen] = useState(true);
+  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Frequent items state
   const [frequentStaples, setFrequentStaples] = useState<(FrequentItemStat & { totalScore: number; frequencyLabel: string })[]>([]);
@@ -213,6 +216,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     e.preventDefault();
     const title = newItemTitle.trim();
     if (!title) return;
+    const parsedQuantity = parseShoppingQuantity(newItemAmount.trim() || '1');
+    if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     try {
     const validMemberId = getShoppingMember(newItemMemberId);
     if (!validMemberId) return;
@@ -221,7 +226,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       const updated: ShoppingItem = {
         ...editingItem,
         title,
-        amount: newItemAmount.trim() || '1',
+        amount: parsedQuantity,
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
@@ -234,13 +239,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     } else {
       // Check if item is in completed or active list without creating duplicate
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, [{
         title,
-        amount: newItemAmount.trim() || '1',
+        amount: parsedQuantity,
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
@@ -252,7 +256,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
 
       if (closeAfterSave) {
         setIsAddModalOpen(false);
@@ -275,10 +279,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   const handleToggle = async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
-    const updated = { ...item, completed: nextCompleted };
+    const updated = { ...item, completed: nextCompleted, completedAt: nextCompleted ? Date.now() : null };
     try {
       if (!familyId) throw new Error('Family is not ready');
-      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted, completedAt: updated.completedAt });
       setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     } catch (error) {
       toast.error('Не удалось сохранить статус покупки');
@@ -296,7 +300,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const handleAdjustAmount = async (item: ShoppingItem, delta: number) => {
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
-      const amount = await adjustShoppingAmount(familyId, item.id, delta, 1);
+      const step = shoppingQuantityStep(item.unit);
+      const amount = await adjustShoppingAmount(familyId, item.id, delta * step, step);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
     } catch (error) { toast.error('Не удалось обновить количество'); }
   };
@@ -313,15 +318,17 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleClearCompleted = async () => {
-    if (completedItems.length === 0) return;
+    if (!confirmClearCompleted || isClearingCompleted || completedItems.length === 0) return;
+    setIsClearingCompleted(true);
     const idsToDelete = completedItems.map(i => i.id);
     try {
       if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', idsToDelete);
       setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+      setConfirmClearCompleted(false);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    }
+    } finally { setIsClearingCompleted(false); }
   };
 
   const handleTelegramSend = async () => {
@@ -355,7 +362,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (parsedItems.length === 0) return;
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
@@ -366,7 +372,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setQuickAddText('');
       setTimeout(() => {
         quickInputRef.current?.focus();
@@ -391,7 +397,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (!targetMemberId) return;
 
     const {
-      updatedList,
         purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb
@@ -408,7 +413,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       recordCommittedShoppingEvents(purchaseEvents);
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
     } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
@@ -472,7 +477,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             }));
 
             const {
-              updatedList,
         purchaseEvents,
               itemsToUpdateInDb,
               itemsToAddInDb
@@ -483,7 +487,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
               recordCommittedShoppingEvents(purchaseEvents);
             }
-            setItems(updatedList);
+            setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
           }
         } catch {
           toast.error('Ошибка при обработке голоса');
@@ -513,7 +517,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             disabled={isSendingTelegram}
             title="Отправить список в Telegram"
             aria-label="Отправить список в Telegram"
-            className="w-10 h-10 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
+            className="min-w-[44px] min-h-[44px] rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
           >
             {isSendingTelegram ? (
               <Loader2 size={18} className="animate-spin" />
@@ -606,13 +610,15 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск в покупках..."
-            className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white dark:bg-[#1C1C1E] text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[#EAE4D6] dark:border-white/10 shadow-xs focus:outline-none focus:border-[#4A7C59] transition"
+            aria-label="Поиск по товарам в семейном списке"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[#1C1C1E] text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[#EAE4D6] dark:border-white/10 shadow-xs focus:outline-none focus:border-[#4A7C59] transition"
           />
           {searchQuery ? (
             <button 
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 text-[#A39E93] hover:text-[#1E2420] dark:hover:text-white p-1 cursor-pointer"
+              aria-label="Очистить поиск товаров"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[#1E2420] dark:hover:text-white cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -620,7 +626,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             <button 
               type="button"
               onClick={startListening}
-              className="absolute right-3 text-[#4A7C59] dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
+              aria-label="Голосовой ввод товара"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 hover:opacity-80 cursor-pointer"
             >
               <Mic size={17} />
             </button>
@@ -637,12 +644,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               value={quickAddText}
               onChange={e => setQuickAddText(e.target.value)}
               placeholder="Например: молоко 1.5 л, бананы 1 кг..."
-              className="flex-1 bg-transparent text-xs sm:text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
+              aria-label="Быстрое добавление товаров"
+              className="min-h-[44px] flex-1 bg-transparent text-xs sm:text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
             />
             <button 
               type="submit"
               disabled={!quickAddText.trim() || isSubmittingQuick}
-              className="w-9 h-9 rounded-full bg-[#4A7C59] hover:bg-[#3F6B4D] active:scale-95 text-white flex items-center justify-center shadow-xs shrink-0 transition-all disabled:opacity-40 cursor-pointer"
+              aria-label="Добавить товары в общий список"
+              className="min-w-[44px] min-h-[44px] rounded-full bg-[#4A7C59] hover:bg-[#3F6B4D] active:scale-95 text-white flex items-center justify-center shadow-xs shrink-0 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Plus size={20} strokeWidth={2.5} />
             </button>
@@ -716,9 +725,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         {completedItems.length > 0 && (
           <section className="bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3.5 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <div 
+              <button type="button"
+                aria-expanded={isCompletedOpen}
+                aria-controls="mobile-completed-shopping-items"
                 onClick={() => setIsCompletedOpen(!isCompletedOpen)}
-                className="flex items-center gap-1.5 cursor-pointer select-none"
+                className="min-h-[44px] flex items-center gap-1.5 cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <div className="w-5 h-5 rounded-full bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] flex items-center justify-center text-xs">
                   <Check size={12} strokeWidth={3} />
@@ -729,19 +740,27 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 <span className="bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] text-[11px] font-bold px-2 py-0.2 rounded-full">
                   {completedItems.length}
                 </span>
-              </div>
+              </button>
 
-              <button 
-                type="button"
-                onClick={handleClearCompleted}
-                className="text-xs font-semibold text-[#C62828] hover:underline cursor-pointer"
+              <button type="button"
+                disabled={isClearingCompleted}
+                aria-label={confirmClearCompleted ? `Подтвердить удаление ${completedItems.length} купленных товаров` : 'Очистить купленные товары'}
+                onClick={() => { if (!confirmClearCompleted) setConfirmClearCompleted(true); else void handleClearCompleted(); }}
+                className="min-h-[44px] px-2 text-xs font-semibold text-[#C62828] hover:underline cursor-pointer disabled:opacity-50"
               >
-                Очистить купленные
+                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}
               </button>
             </div>
 
+            {confirmClearCompleted && (
+              <div role="status" className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
+                Удалить все купленные товары из общего списка?
+                <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                  className="ml-3 min-h-[44px] px-3 font-semibold underline">Отмена</button>
+              </div>
+            )}
             {isCompletedOpen && (
-              <div className="space-y-2 pt-1 border-t border-[#EAE4D6]/60 dark:border-white/10">
+              <div id="mobile-completed-shopping-items" className="space-y-2 pt-1 border-t border-[#EAE4D6]/60 dark:border-white/10">
                 {completedItems.map((item, compIdx) => (
                   <SwipeableCompletedItem
                     key={item.id ? `mob-comp-${item.id}` : `mob-comp-idx-${compIdx}`}

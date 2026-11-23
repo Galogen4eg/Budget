@@ -40,3 +40,20 @@ test('repeat purchases deduplicates by name and unit, preserving last quantity',
  assert.equal(latest.find(x=>x.unit==='л').amount,'3');
  assert.equal(latest.find(x=>x.unit==='уп').amount,'1');
 });
+
+test('iteration 74: one shopping item bought twice is recorded as two distinct purchase events',()=>{
+ const first={...items[0],completed:true,completedAt:1000};
+ const second={...first,completedAt:2000,amount:'3'};
+ let history=mergePurchaseHistory([],first,1000);
+ history=mergePurchaseHistory(history,first,1000);
+ assert.equal(history.length,1,'the same completion event must be idempotent');
+ history=mergePurchaseHistory(history,second,2000);
+ assert.equal(history.length,2,'a later completion is another real purchase');
+ assert.equal(recentRepeatItems(history)[0].amount,'3','repeat uses the latest quantity');
+});
+test('iteration 74: legacy completed item without completion timestamp stays deduplicated',()=>{
+ const current=mergePurchaseHistory([],items[0],100);
+ assert.equal(mergePurchaseHistory(current,items[0],200).length,1);
+ const afterTimestamp=mergePurchaseHistory(current,{...items[0],completedAt:300},300);
+ assert.equal(afterTimestamp.length,2);
+});

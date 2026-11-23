@@ -99,7 +99,7 @@ export function mandatoryPaymentStates(
     const amount=Math.max(0,cents(bill.amount));
     const credited=paid.get(bill.id)||0;
     const isManuallyPaid=manuallyPaid.has(bill.id);
-    const isPaid=isManuallyPaid || (amount>0 && credited>=Math.ceil(amount*0.95));
+    const isPaid=isManuallyPaid || (amount>0 && credited>=amount);
     return {
       id:bill.id, paidAmount:money(credited), isPaid, isManuallyPaid,
       amountNeeded:isPaid?0:money(Math.max(0,amount-credited))

@@ -48,7 +48,7 @@ test('iteration 66: family reserve drops only by confirmed payments across membe
 test('iteration 66: desktop Budget paid presentation reads the shared monthly payment projection',()=>{
   const source=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
   assert.match(source,/mandatoryExpenses\.map\(expense => \{/);
-  assert.match(source,/const isPaid = checkMandatoryPaid\(expense\)/);
+  assert.match(source,/const isPaid = paymentState\?\.isPaid \?\? false/);
   assert.doesNotMatch(source,/const isPaid = \(settings\.manualPaidExpenses\?\.\[currentMonthKey\] \|\| \[\]\)\.includes\(expense\.id\)/);
 });
 

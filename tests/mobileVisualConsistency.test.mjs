@@ -15,7 +15,7 @@ test('mobile plans share one vertical scroll container, not two nested scroll pa
  assert.match(plansMobile,/overflow-visible/);
 });
 test('nearby agenda is collapsible on mobile and calendar does not include payments',()=>{
- assert.match(agenda,/aria-expanded=\{expanded\}/);
+ assert.match(agenda,/aria-expanded=\{panelOpen\}/);
  assert.match(agenda,/md:hidden/);
  assert.doesNotMatch(agenda,/paymentAgenda\(/);
  assert.doesNotMatch(plans, /payments=\{settings\.mandatoryExpenses/);

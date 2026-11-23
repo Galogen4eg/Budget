@@ -24,6 +24,7 @@ import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, budgetDailyLimit, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
+import { filterBudgetHistory } from '../utils/budgetHistory';
 
 interface TerraBudgetProps {
   transactions: Transaction[];
@@ -199,19 +200,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // History is a view of the current member/month selection; it never
   // changes the family-wide projected balance or the transaction ledger.
-  const visibleHistory = useMemo(() => {
-    const source=historyScope === 'day' ? selectedDayTransactions : monthTransactions;
-    const query=historySearch.trim().toLocaleLowerCase('ru-RU');
-    return source.filter(tx => {
-      if (historyType !== 'all' && tx.type !== historyType) return false;
-      if (!query) return true;
-      const category=categories.find(cat=>cat.id===tx.category);
-      const member=members.find(person=>person.id===tx.memberId);
-      const content=[tx.note,tx.rawNote,category?.label,member?.name]
-        .filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
-      return content.includes(query);
-    });
-  }, [historyScope, historyType, historySearch, selectedDayTransactions, monthTransactions, categories, members]);
+  const visibleHistory = useMemo(() => filterBudgetHistory(
+    historyScope === 'day' ? selectedDayTransactions : monthTransactions,
+    historyType, historySearch, categories, members
+  ), [historyScope, historyType, historySearch, selectedDayTransactions, monthTransactions, categories, members]);
 
   const selectedDayNet = useMemo(() => {
     return monthlyMoneyTotals(selectedDayTransactions).net;

@@ -512,7 +512,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <button 
                 type="button"
                 onClick={() => setSelectedMember('all')}
-                className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 ${
+                className={`min-h-[44px] flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 ${
                   selectedMember === 'all'
                     ? 'bg-[#4A7C59] text-white'
                     : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'
@@ -526,7 +526,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMember(m.id)}
-                  className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 ${
+                  className={`min-h-[44px] flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 ${
                     selectedMember === m.id
                       ? 'bg-[#4A7C59] text-white shadow-xs'
                       : 'bg-[#EAE6DE] dark:bg-[#252528] text-[#6B6358] dark:text-gray-300 hover:text-[#2E3230]'

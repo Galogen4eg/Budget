@@ -239,7 +239,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     } else {
       // Check if item is in completed or active list without creating duplicate
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
@@ -363,7 +362,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (parsedItems.length === 0) return;
 
       const {
-        updatedList,
         purchaseEvents,
         itemsToUpdateInDb,
         itemsToAddInDb
@@ -399,7 +397,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       if (!targetMemberId) return;
 
     const {
-      updatedList,
         purchaseEvents,
       itemsToUpdateInDb,
       itemsToAddInDb
@@ -480,7 +477,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             }));
 
             const {
-              updatedList,
         purchaseEvents,
               itemsToUpdateInDb,
               itemsToAddInDb

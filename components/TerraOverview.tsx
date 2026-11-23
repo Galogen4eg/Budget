@@ -19,6 +19,7 @@ import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
+import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
@@ -659,20 +660,21 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
       <div className="md:hidden flex flex-col min-w-0 w-full">
-        {/* Top Header Bar */}
-        <header className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-2 sticky top-0 bg-[#FAF6F0]/95 dark:bg-[#121214]/95 backdrop-blur-md z-20">
-          {/* Left: Circle Settings Button */}
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label="Настройки"
-            title="Настройки"
-            className="w-11 h-11 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] dark:text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
-          >
-            <Settings size={19} strokeWidth={2.2} />
-          </button>
-
-          {/* Center: Month Dropdown Pill */}
+        {/* Shared app header; date selection is a secondary control, not competing navigation. */}
+        <TerraMobileHeader
+          title="Обзор"
+          onAdd={onOpenAddModal}
+          addTitle="Добавить операцию"
+          onOpenSettings={onOpenSettings}
+          rightExtra={
+            <button type="button" onClick={onOpenAIChat}
+              aria-label="AI Ассистент" title="AI Ассистент"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+              <Sparkles size={18} />
+            </button>
+          }
+        />
+        <div className="px-4 pt-3">
           <div className="relative min-w-0">
             <button
               type="button"
@@ -758,29 +760,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </>
             )}
           </div>
-
-          {/* Right: AI Assistant & Circle Plus Button */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={onOpenAIChat}
-              title="AI Ассистент (Gemini)"
-              aria-label="AI Ассистент"
-              className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-emerald-100/80 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
-            >
-              <Sparkles size={19} />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenAddModal}
-              aria-label="Добавить операцию"
-              title="Добавить операцию"
-              className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6849] text-white flex items-center justify-center shadow-xs cursor-pointer active:scale-95 transition"
-            >
-              <Plus size={22} strokeWidth={2.4} />
-            </button>
-          </div>
-        </header>
+        </div>
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
         <div className="px-4 my-3 w-full">

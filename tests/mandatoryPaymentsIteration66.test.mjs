@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mandatoryPaymentStates } from '../utils/budgetFinancialMath.ts';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection.ts';
+import { computeDebtMonthPaymentStatus, PAYMENT_MATCH_THRESHOLD } from '../utils/debtPaymentSync.ts';
 
 const bill={id:'rent',name:'Аренда',amount:1000.25,day:10,remind:false};
 const payment=(id,amount,memberId='one')=>({
@@ -90,4 +91,28 @@ test('iteration 66: detailed mandatory list uses same paid allocation as family 
   assert.doesNotMatch(source,/PAYMENT_MATCH_THRESHOLD/);
   assert.match(source,/const itemPaid = Math\.min\(e\.paidAmount, e\.amount\)/);
   assert.match(source,/await updateMandatoryPaymentBundle\(\{/);
+});
+
+test('iteration 66: debt service ignores current-month manual flag when viewing historical period',()=>{
+  const debt={id:'loan',name:'Ипотека',monthlyPayment:1000.25,paidThisMonth:true};
+  const past=computeDebtMonthPaymentStatus(debt,undefined,[],{manualPaidExpenses:{}},new Date(2025,0,10));
+  assert.equal(past.isPaid,false);
+  assert.equal(past.status,'unpaid');
+  assert.equal(PAYMENT_MATCH_THRESHOLD,1);
+});
+
+test('iteration 66: acknowledgment in debt service is not fabricated transaction money',()=>{
+  const debt={id:'loan',name:'Ипотека',monthlyPayment:1000.25,paidThisMonth:true};
+  const status=computeDebtMonthPaymentStatus(debt,undefined,[],{manualPaidExpenses:{}},new Date());
+  assert.equal(status.isPaid,true);
+  assert.equal(status.paidAmount,0);
+  assert.equal(status.remainingAmount,0);
+  assert.equal(status.source,'manual_debt');
+});
+
+test('iteration 66: required amount must be a safe positive ruble-and-kopeck sum',()=>{
+  const modal=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
+  assert.match(modal,/Number\.isSafeInteger\(Math\.round\(parsedAmount \* 100\)\)/);
+  assert.match(modal,/step="0\.01"/);
+  assert.match(modal,/onClick=\{\(\) => \{ if \(!isSaving\) onClose\(\); \}\}/);
 });

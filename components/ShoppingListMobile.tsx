@@ -275,10 +275,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   const handleToggle = async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
-    const updated = { ...item, completed: nextCompleted };
+    const updated = { ...item, completed: nextCompleted, completedAt: nextCompleted ? Date.now() : null };
     try {
       if (!familyId) throw new Error('Family is not ready');
-      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted, completedAt: updated.completedAt });
       setItems(prev => prev.map(i => i.id === item.id ? updated : i));
     } catch (error) {
       toast.error('Не удалось сохранить статус покупки');

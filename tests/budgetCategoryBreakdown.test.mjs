@@ -45,4 +45,5 @@ test('financial result is not labelled available cash or always declared normal'
  assert.match(budget,/Результат месяца/);
  assert.doesNotMatch(budget,/block">В норме<\/span>/);
  assert.match(budget,/buildBudgetCategoryBreakdown\(monthTransactions, categories\)/);
+ assert.match(budget,/cat.id === 'uncategorized' \? undefined/);
 });

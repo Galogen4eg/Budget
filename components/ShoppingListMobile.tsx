@@ -11,7 +11,7 @@ import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { shoppingQuantityStep } from '../utils/shoppingAmount';
+import { shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
@@ -216,6 +216,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     e.preventDefault();
     const title = newItemTitle.trim();
     if (!title) return;
+    const parsedQuantity = parseShoppingQuantity(newItemAmount.trim() || '1');
+    if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     try {
     const validMemberId = getShoppingMember(newItemMemberId);
     if (!validMemberId) return;
@@ -224,7 +226,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       const updated: ShoppingItem = {
         ...editingItem,
         title,
-        amount: newItemAmount.trim() || '1',
+        amount: parsedQuantity,
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,
@@ -243,7 +245,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         itemsToAddInDb
       } = mergeOrRestoreShoppingItems(items, [{
         title,
-        amount: newItemAmount.trim() || '1',
+        amount: parsedQuantity,
         unit: newItemUnit,
         priority: newItemPriority,
         category: selectedAisle,

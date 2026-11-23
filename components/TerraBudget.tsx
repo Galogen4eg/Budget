@@ -18,6 +18,7 @@ import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { clampBudgetDay } from '../utils/budgetUi';
+import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 
@@ -213,15 +214,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Month navigation handlers
   const handlePrevMonth = useCallback(() => {
-    const next = new Date(currentMonth);
-    next.setMonth(next.getMonth() - 1);
-    onMonthChange(next);
+    onMonthChange(shiftCalendarMonth(currentMonth, -1));
   }, [currentMonth, onMonthChange]);
 
   const handleNextMonth = useCallback(() => {
-    const next = new Date(currentMonth);
-    next.setMonth(next.getMonth() + 1);
-    onMonthChange(next);
+    onMonthChange(shiftCalendarMonth(currentMonth, 1));
   }, [currentMonth, onMonthChange]);
 
   // Only clear the form and show success after the save is confirmed.
@@ -330,15 +327,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const displayTransactions = selectedDayTransactions;
 
   // Display mandatory expenses
-  const displayMandatoryExpenses = useMemo(() => {
-    if (mandatoryExpenses && mandatoryExpenses.length > 0) {
-      return mandatoryExpenses;
-    }
-    return [
-      { id: 'mand-1', name: 'Ипотека', amount: 35000, day: 15, remind: true },
-      { id: 'mand-2', name: 'Домашний интернет', amount: 800, day: 1, remind: true }
-    ] as MandatoryExpense[];
-  }, [mandatoryExpenses]);
+  const displayMandatoryExpenses = mandatoryExpenses;
 
   // Top spending categories
   const displayTopCategories = useMemo(() => {
@@ -346,12 +335,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       ...cat,
       percent: monthExpense > 0 ? Math.round((cat.sum / monthExpense) * 100) : 0
     }));
-    if (list.length > 0) return list;
-    return [
-      { id: 'cat-1', label: 'Переводы и инвестиции', sum: 102354, percent: 69, color: '#4A7C59' },
-      { id: 'cat-2', label: 'Продукты питания', sum: 22478, percent: 15, color: '#6A9E78' },
-      { id: 'cat-3', label: 'Кафе и рестораны', sum: 15915, percent: 11, color: '#C4A66A' }
-    ];
+    return list;
   }, [categoryBreakdown, monthExpense]);
 
   // Format calendar net badge
@@ -720,7 +704,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Selected Day Details & Transactions */}
-          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
             {/* Selected Day Banner */}
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
@@ -802,7 +786,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Scheduled Monthly Mandatory Payments */}
-          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A]" />
@@ -814,6 +798,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
             <div className="grid grid-cols-1 gap-2">
+              {displayMandatoryExpenses.length === 0 && (
+                <p className="rounded-xl border border-[#EAE5DB] dark:border-white/10 px-3 py-4 text-sm text-[#6B6358] dark:text-gray-400">Обязательных платежей пока нет. Добавьте их в настройках бюджета, если они нужны.</p>
+              )}
               {displayMandatoryExpenses.map(exp => {
                 const title = exp.name || (exp as any).title || 'Обязательный платёж';
                 const dayNum = exp.day ?? (exp as any).dayOfMonth ?? 1;
@@ -822,19 +809,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 return (
                   <div 
                     key={exp.id}
-                    onClick={() => onEditMandatoryExpense?.(exp)}
-                    className="flex items-center justify-between p-2.5 bg-white dark:bg-[#252528] rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5 cursor-pointer hover:border-[#4A7C59]/30 transition"
+                    className="flex items-center justify-between gap-2 p-2.5 bg-white dark:bg-[#252528] rounded-xl border border-[#EAE6DE]/60 dark:border-white/5"
                   >
-                    <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => onEditMandatoryExpense?.(exp)} aria-label={`Редактировать обязательный платёж: ${title}`}
+                      className="min-h-[44px] flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                       <div className="w-8 h-8 rounded-lg bg-[#C4A66A]/20 text-[#705C30] dark:text-[#C4A66A] flex items-center justify-center shrink-0">
                         {getMandatoryIcon(title)}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-[#2E3230] dark:text-white">{title}</span>
+                        <span className="text-sm font-semibold text-[#2E3230] dark:text-white break-words">{title}</span>
                         <span className="text-[11px] text-[#6B6358] dark:text-gray-400">До {dayNum}-го числа</span>
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end">
+                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="text-xs font-headline font-bold text-[#2E3230] dark:text-white">
                         {settings.privacyMode ? '•••' : `${exp.amount.toLocaleString('ru-RU')} ₽`}
                       </span>
@@ -847,12 +834,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         <button 
                           type="button"
                           onClick={(e) => {
-                            e.stopPropagation();
                             onToggleMandatoryPaid?.(exp.id);
                           }}
-                          className="text-[10px] font-bold text-white bg-[#705C30] hover:bg-[#5E4D27] px-2 py-0.5 rounded-full mt-0.5 transition cursor-pointer"
+                          className="min-h-[44px] px-3 py-2 text-xs font-semibold text-white bg-[#4A7C59] hover:bg-[#3B6447] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                         >
-                          Оплатить
+                          Отметить оплаченным
                         </button>
                       )}
                     </div>
@@ -872,6 +858,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
             <div className="flex flex-col gap-2.5">
+              {displayTopCategories.length === 0 && (
+                <p className="rounded-xl border border-[#EAE5DB] dark:border-white/10 px-3 py-4 text-sm text-[#6B6358] dark:text-gray-400">За этот месяц ещё нет расходов по категориям.</p>
+              )}
               {displayTopCategories.map((cat, idx) => (
                 <div 
                   key={cat.id || idx} 

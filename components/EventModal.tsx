@@ -458,14 +458,14 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label className="text-xs font-semibold dark:text-white">Тип
                 <select value={kind} onChange={e=>setKind(e.target.value as 'event'|'task')}
-                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  className="mt-1 w-full min-h-[44px] rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
                   <option value="event">Событие</option><option value="task">Совместная задача</option>
                 </select>
               </label>
               <label className="text-xs font-semibold dark:text-white">Повторять
                 <select value={recurrence} onChange={e=>setRecurrence(e.target.value as NonNullable<FamilyEvent['recurrence']>)}
                   disabled={editScope==='single'&&Boolean(event)}
-                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
+                  className="mt-1 w-full min-h-[44px] rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white">
                   <option value="none">Не повторять</option>
                   <option value="daily">Ежедневно</option><option value="weekly">Еженедельно</option>
                   <option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option>
@@ -475,13 +475,13 @@ export const EventModal: React.FC<EventModalProps> = ({
             {recurrence!=='none'&&editScope!=='single'&&
               <label className="block text-xs font-semibold dark:text-white">Повторять до (необязательно)
                 <input type="date" value={recurrenceUntil} onChange={e=>setRecurrenceUntil(e.target.value)}
-                  className="mt-1 w-full rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white"/>
+                  className="mt-1 w-full min-h-[44px] rounded-lg p-2 bg-[#F5F2EB] dark:bg-[#252528] dark:text-white"/>
               </label>}
             {event&&(Boolean(event.seriesId)||Boolean(event.recurrence&&event.recurrence!=='none'))&&
               <fieldset className="flex flex-wrap gap-3 text-xs dark:text-white">
                 <legend className="font-semibold mb-1">Что изменить?</legend>
-                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='single'} onChange={()=>setEditScope('single')}/>Только этот раз</label>
-                <label className="flex items-center gap-1"><input type="radio" checked={editScope==='series'} onChange={()=>setEditScope('series')}/>Всю серию</label>
+                <label className="min-h-[44px] flex items-center gap-2 px-3 rounded-lg border border-[#EAE5DB] dark:border-white/10 cursor-pointer focus-within:ring-2 focus-within:ring-primary"><input type="radio" name="calendar-edit-scope" checked={editScope==='single'} onChange={()=>setEditScope('single')}/>Только этот раз</label>
+                <label className="min-h-[44px] flex items-center gap-2 px-3 rounded-lg border border-[#EAE5DB] dark:border-white/10 cursor-pointer focus-within:ring-2 focus-within:ring-primary"><input type="radio" name="calendar-edit-scope" checked={editScope==='series'} onChange={()=>setEditScope('series')}/>Всю серию</label>
               </fieldset>}
             {kind==='task'&&
               <label className="flex items-center gap-2 text-xs font-medium dark:text-white">
@@ -928,14 +928,14 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setConflictToConfirm(null)}
-                  className="px-2.5 py-1.5 rounded-lg border text-xs font-bold text-stone-700 dark:text-stone-300 cursor-pointer"
+                  className="min-h-[44px] px-3 py-2 rounded-lg border text-xs font-bold text-stone-700 dark:text-stone-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Изменить
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmConflictSave}
-                  className="px-2.5 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold cursor-pointer"
+                  className="min-h-[44px] px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Всё равно сохранить
                 </button>

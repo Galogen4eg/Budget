@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { shoppingQuantityStep } from '../utils/shoppingAmount';
+import { shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
@@ -556,6 +556,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleSaveModal = async (shouldMerge = false) => {
     if (!itemName.trim()) return;
     const cleanName = itemName.trim();
+    const parsedQuantity = parseShoppingQuantity(itemAmount);
+    if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     const targetMemberId = getShoppingMember(itemMemberId);
     if (!targetMemberId) return;
 
@@ -563,7 +565,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       const updated: ShoppingItem = {
         ...editingItem,
         title: cleanName,
-        amount: String(itemAmount),
+        amount: parsedQuantity,
         unit: itemUnit,
         category: itemCategory,
         memberId: targetMemberId,
@@ -586,7 +588,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         summaryMessage
       } = mergeOrRestoreShoppingItems(items, [{
         title: cleanName,
-        amount: String(itemAmount),
+        amount: parsedQuantity,
         unit: itemUnit,
         category: itemCategory,
         memberId: targetMemberId,

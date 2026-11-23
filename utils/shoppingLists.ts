@@ -2,7 +2,7 @@ import type { ShoppingItem } from '../types';
 
 export type ListProduct = Pick<ShoppingItem, 'title'|'amount'|'unit'|'category'|'priority'|'estimatedPrice'>;
 export interface SavedShoppingList { id: string; name: string; items: ListProduct[]; createdAt: number; }
-export interface PurchasedProduct extends ListProduct { shoppingItemId: string; purchasedAt: number; }
+export interface PurchasedProduct extends ListProduct { shoppingItemId: string; purchaseEventId?: string; purchasedAt: number; }
 
 function snapshot(item: ShoppingItem): ListProduct {
   return {
@@ -31,9 +31,10 @@ export function mergePurchaseHistory(
   history: readonly PurchasedProduct[], item: ShoppingItem, purchasedAt: number
 ): PurchasedProduct[] {
   if (!item.id || !item.title?.trim()) return [...history];
-  if (history.some(p => p.shoppingItemId === item.id)) return [...history];
+  const eventId = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
+  if (history.some(p => (p.purchaseEventId || p.shoppingItemId) === eventId)) return [...history];
   return [
-    { ...snapshot(item), shoppingItemId: item.id, purchasedAt },
+    { ...snapshot(item), shoppingItemId: item.id, purchaseEventId: eventId, purchasedAt },
     ...history
   ].sort((a,b) => b.purchasedAt - a.purchasedAt).slice(0,60);
 }

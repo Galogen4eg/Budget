@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { shoppingQuantityStep } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
@@ -437,7 +438,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleUpdateAmount = async (item: ShoppingItem, delta: number) => {
     try {
       if (!familyId) throw new Error('Family is not ready');
-      const amount = await adjustShoppingAmount(familyId, item.id, delta, 0.5);
+      const step = shoppingQuantityStep(item.unit);
+      const amount = await adjustShoppingAmount(familyId, item.id, delta * step, step);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
     } catch (error) { toast.error('Не удалось обновить количество'); }
   };

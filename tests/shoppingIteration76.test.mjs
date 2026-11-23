@@ -51,3 +51,8 @@ test('iteration 76: responsive browser gate covers Shopping at the existing six 
  assert.match(src,/label\+'-shopping\.png'/);
  assert.match(src,/shoppingOverflow\.body<=shoppingOverflow\.viewport\+2/);
 });
+
+test('iteration 76: shopping panels sit below fixed mobile Terra navigation',()=>{
+ const wrapper=read('../components/ShoppingList.tsx');
+ assert.match(wrapper,/pt-\[calc\(64px\+env\(safe-area-inset-top,0px\)\)\] md:pt-0/);
+});

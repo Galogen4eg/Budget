@@ -109,7 +109,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                         onMonthChange(m.date);
                         setIsMonthPickerOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-[#F2ECE1] dark:hover:bg-white/10 transition cursor-pointer ${
+                      className={`min-h-[44px] w-full text-left px-4 py-2 text-sm font-semibold flex items-center justify-between hover:bg-[#F2ECE1] dark:hover:bg-white/10 transition cursor-pointer ${
                         isSelected ? 'text-[#4A7C59] font-bold bg-[#EAE6DD]/40 dark:bg-white/5' : 'text-graphite dark:text-gray-300'
                       }`}
                     >

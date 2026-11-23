@@ -18,6 +18,7 @@ import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { clampBudgetDay } from '../utils/budgetUi';
+import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { monthlyMoneyTotals, sumMoney, ledgerBalance, budgetDailyLimit, mandatoryPaymentStates, daysUntilNextSalary } from '../utils/budgetFinancialMath';
 
@@ -213,15 +214,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
   // Month navigation handlers
   const handlePrevMonth = useCallback(() => {
-    const next = new Date(currentMonth);
-    next.setMonth(next.getMonth() - 1);
-    onMonthChange(next);
+    onMonthChange(shiftCalendarMonth(currentMonth, -1));
   }, [currentMonth, onMonthChange]);
 
   const handleNextMonth = useCallback(() => {
-    const next = new Date(currentMonth);
-    next.setMonth(next.getMonth() + 1);
-    onMonthChange(next);
+    onMonthChange(shiftCalendarMonth(currentMonth, 1));
   }, [currentMonth, onMonthChange]);
 
   // Only clear the form and show success after the save is confirmed.
@@ -330,15 +327,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const displayTransactions = selectedDayTransactions;
 
   // Display mandatory expenses
-  const displayMandatoryExpenses = useMemo(() => {
-    if (mandatoryExpenses && mandatoryExpenses.length > 0) {
-      return mandatoryExpenses;
-    }
-    return [
-      { id: 'mand-1', name: 'Ипотека', amount: 35000, day: 15, remind: true },
-      { id: 'mand-2', name: 'Домашний интернет', amount: 800, day: 1, remind: true }
-    ] as MandatoryExpense[];
-  }, [mandatoryExpenses]);
+  const displayMandatoryExpenses = mandatoryExpenses;
 
   // Top spending categories
   const displayTopCategories = useMemo(() => {
@@ -346,12 +335,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       ...cat,
       percent: monthExpense > 0 ? Math.round((cat.sum / monthExpense) * 100) : 0
     }));
-    if (list.length > 0) return list;
-    return [
-      { id: 'cat-1', label: 'Переводы и инвестиции', sum: 102354, percent: 69, color: '#4A7C59' },
-      { id: 'cat-2', label: 'Продукты питания', sum: 22478, percent: 15, color: '#6A9E78' },
-      { id: 'cat-3', label: 'Кафе и рестораны', sum: 15915, percent: 11, color: '#C4A66A' }
-    ];
+    return list;
   }, [categoryBreakdown, monthExpense]);
 
   // Format calendar net badge
@@ -720,7 +704,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Selected Day Details & Transactions */}
-          <section className="flex flex-col bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10 gap-3">
+          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
             {/* Selected Day Banner */}
             <div className="flex items-center justify-between">
               <div className="flex flex-col">

@@ -2,15 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { Check, AlertCircle, DollarSign, Edit2, Plus, Home, CreditCard, Link2 } from 'lucide-react';
 import { MandatoryExpense, Transaction, AppSettings, FamilyMember, Debt } from '../types';
 import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { updateItem } from '../utils/db';
-import { mandatoryPaymentStates, sumMoney } from '../utils/budgetFinancialMath';
+import { mandatoryPaymentStates, sumMoney, formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { MemberMarker } from '../constants';
+import { toast } from 'sonner';
 import { 
   findLinkedDebtForExpense, 
   isDebtExpense, 
-  PAYMENT_MATCH_THRESHOLD, 
-  DEBT_TRANSACTION_CATEGORY 
 } from '../utils/debtPaymentSync';
 
 interface MandatoryExpensesListProps {
@@ -39,8 +36,8 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
   onAdd 
 }) => {
   const [filterType, setFilterType] = useState<ExpenseFilterType>('all');
-  const { updateSettings, debts, setDebts } = useData();
-  const { familyId } = useAuth();
+  const [updatingPaidId, setUpdatingPaidId] = useState<string | null>(null);
+  const { updateMandatoryPaymentBundle, debts } = useData();
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const isCurrentMonthNow = useMemo(() => {
@@ -51,33 +48,25 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
   // Toggle Manual Paid Status with bidirectional Debt sync
   const toggleManualPaid = async (e: React.MouseEvent, expenseId: string) => {
     e.stopPropagation();
-    
-    const currentManuals = settings.manualPaidExpenses || {};
-    const monthIds = currentManuals[currentMonthKey] || [];
-    const isCurrentlyManual = monthIds.includes(expenseId);
-    const newIsPaid = !isCurrentlyManual;
-
-    let newMonthIds: string[];
-    if (isCurrentlyManual) {
-      newMonthIds = monthIds.filter(id => id !== expenseId);
-    } else {
-      newMonthIds = [...monthIds, expenseId];
+    if (updatingPaidId) return;
+    const monthIds = settings.manualPaidExpenses?.[currentMonthKey] || [];
+    const paid = !monthIds.includes(expenseId);
+    const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
+    setUpdatingPaidId(expenseId);
+    const bill = expenses.find(item => item.id === expenseId);
+    const linkedDebt = bill ? findLinkedDebtForExpense(bill, debts) : null;
+    const debtChanges = linkedDebt && isCurrentMonthNow
+      ? [{id:linkedDebt.id,changes:{paidThisMonth:paid}}]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses:settings.mandatoryExpenses || [],
+        manualPaidExpenses:{[currentMonthKey]:nextMonthIds}
+      },debtChanges);
+    } catch (error) {
+      toast.error('Не удалось сохранить отметку оплаты. Изменения отменены.');
     }
-
-    await updateSettings({manualPaidExpenses:{[currentMonthKey]:newMonthIds}});
-
-    // Синхронизация с карточкой долга, если платёж привязан
-    const targetExpense = (expenses || []).find(ex => ex.id === expenseId);
-    if (targetExpense) {
-      const linkedDebt = findLinkedDebtForExpense(targetExpense, debts);
-      if (linkedDebt) {
-        const debtUpdates: Partial<Debt> = { paidThisMonth: newIsPaid };
-        setDebts(prev => prev.map(d => d.id === linkedDebt.id ? { ...d, ...debtUpdates } : d));
-        if (familyId) {
-          await updateItem(familyId, 'debts', linkedDebt.id, debtUpdates);
-        }
-      }
-    }
+    setUpdatingPaidId(null);
   };
 
   // Process and compute stats
@@ -104,10 +93,11 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
       const linkedDebt = findLinkedDebtForExpense(expense, debts);
       const status = byId.get(expense.id)!;
       const paidAmount = status.paidAmount;
-      const isAutoPaid = expense.amount > 0 && paidAmount >= (expense.amount * PAYMENT_MATCH_THRESHOLD);
+      const isAutoPaid = status.isPaid && !status.isManuallyPaid;
       const isManuallyPaid = status.isManuallyPaid;
-      const isPaidViaLinkedDebt = Boolean(linkedDebt?.paidThisMonth);
-      const isPaid = isAutoPaid || isManuallyPaid || isPaidViaLinkedDebt;
+      const isPaidViaLinkedDebt = isCurrentMonthNow && Boolean(linkedDebt?.paidThisMonth);
+      // A debt-card flag alone must not erase the family's unpaid reserve.
+      const isPaid = status.isPaid;
 
       const progress = expense.amount > 0 ? Math.min(100, (paidAmount / expense.amount) * 100) : 0;
       const today = new Date();
@@ -139,7 +129,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
 
     processed.forEach(e => {
       budgetSum += e.amount;
-      const itemPaid = e.isPaid ? e.amount : Math.min(e.paidAmount, e.amount);
+      const itemPaid = Math.min(e.paidAmount, e.amount); // Only persisted transactions, not manual acknowledgements.
       paidSum += itemPaid;
 
       if (e.isDebt) {
@@ -186,7 +176,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
               Обязательные платежи
             </h3>
             <span className="text-[10px] md:text-xs font-mono font-bold text-gray-400 dark:text-gray-500 block mt-1">
-              {Math.round(totalPaid).toLocaleString('ru-RU')} / {totalBudget.toLocaleString('ru-RU')} ₽
+              По операциям: {formatBudgetMoney(totalPaid)} / {formatBudgetMoney(totalBudget)} ₽
             </span>
           </div>
         </div>
@@ -194,7 +184,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
         {onAdd && (
           <button 
             onClick={onAdd}
-            className="w-8 h-8 bg-[#FAF8F5] dark:bg-[#252528] text-graphite dark:text-white rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#2C2C2E] border border-surface-border dark:border-white/5 transition-colors shadow-xs cursor-pointer"
+            className="w-11 h-11 bg-[#FAF8F5] dark:bg-[#252528] text-graphite dark:text-white rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#2C2C2E] border border-surface-border dark:border-white/5 transition-colors shadow-xs cursor-pointer"
             title="Добавить обязательный платеж"
             aria-label="Добавить обязательный платеж"
           >
@@ -210,7 +200,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
           <div className="min-w-0">
             <div className="text-[9px] uppercase tracking-wider text-stone-400">Бытовые</div>
             <div className="font-bold text-stone-800 dark:text-stone-200 truncate">
-              {Math.round(regularPaid).toLocaleString('ru-RU')} / {regularBudget.toLocaleString('ru-RU')} ₽
+              {formatBudgetMoney(regularPaid)} / {formatBudgetMoney(regularBudget)} ₽
             </div>
           </div>
         </div>
@@ -220,7 +210,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
           <div className="min-w-0">
             <div className="text-[9px] uppercase tracking-wider text-amber-700 dark:text-amber-400">Долги и кредиты</div>
             <div className="font-bold text-stone-800 dark:text-stone-200 truncate">
-              {Math.round(debtPaid).toLocaleString('ru-RU')} / {debtBudget.toLocaleString('ru-RU')} ₽
+              {formatBudgetMoney(debtPaid)} / {formatBudgetMoney(debtBudget)} ₽
             </div>
           </div>
         </div>
@@ -282,8 +272,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
             return (
               <div 
                 key={expense.id} 
-                onClick={() => onEdit && onEdit(expense)} 
-                className={`relative flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer group ${
+                className={`relative flex items-center justify-between gap-2 p-3 rounded-2xl border transition-all group ${
                   expense.isPaid 
                     ? 'bg-[#FAF8F5]/60 dark:bg-[#252528]/40 border-transparent opacity-75 hover:opacity-100' 
                     : expense.isDebt
@@ -294,8 +283,11 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Checkbox / Day Button */}
                   <button
-                    onClick={(e) => toggleManualPaid(e, expense.id)}
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all active:scale-95 cursor-pointer ${
+                    onClick={(e) => void toggleManualPaid(e, expense.id)}
+                    type="button"
+                    disabled={Boolean(updatingPaidId) || (expense.isAutoPaid && !expense.isManuallyPaid)}
+                    aria-label={expense.isManuallyPaid ? 'Снять ручную отметку оплаты' : expense.isAutoPaid ? 'Оплачено операцией' : 'Отметить платёж оплаченным вручную'}
+                    className={`w-11 h-11 disabled:opacity-60 rounded-xl flex items-center justify-center shrink-0 border transition-all active:scale-95 cursor-pointer ${
                       expense.isPaid 
                         ? 'bg-[#4A7C59] border-[#4A7C59] text-white shadow-xs' 
                         : expense.isOverdue
@@ -304,16 +296,19 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                             ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/40 text-[#8C3A3A] dark:text-rose-400 hover:border-[#4A7C59]'
                             : 'bg-[#FAF8F5] dark:bg-[#2C2C2E] border-surface-border dark:border-white/10 text-graphite-muted hover:border-[#4A7C59] hover:text-[#4A7C59]'
                     }`}
-                    title={expense.isPaid ? "Отметить как неоплаченное" : "Отметить оплаченным"}
+                    title={expense.isManuallyPaid ? "Снять ручную отметку" : expense.isAutoPaid ? "Закрыто операцией" : "Отметить вручную"}
                   >
                     {expense.isPaid ? <Check size={16} strokeWidth={2.5} /> : <span className="text-xs font-headline font-bold">{expense.day}</span>}
                   </button>
 
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-xs font-bold truncate ${expense.isPaid ? 'text-gray-400 line-through' : 'text-graphite dark:text-white'}`}>
-                        {expense.name || (expense as any).title || 'Обязательный платеж'}
-                      </span>
+                      <button type="button" disabled={!onEdit}
+                        onClick={() => onEdit?.(expense)}
+                        aria-label={`Редактировать обязательный платёж: ${expense.name}`}
+                        className={`min-h-[44px] inline-flex items-center text-left text-xs font-bold truncate rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${expense.isPaid ? 'text-gray-400 line-through' : 'text-graphite dark:text-white'}`}>
+                        {expense.name || (expense as any).title || 'Обязательный платёж'}
+                      </button>
 
                       {/* Бейдж типа: Долг / Бытовой */}
                       {expense.isDebt ? (
@@ -348,7 +343,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                       )}
                       {expense.isPaid && (
                         <span className="text-[9px] font-mono font-bold text-[#4A7C59] dark:text-green-400 bg-[#EAF2EC] dark:bg-[#4A7C59]/20 px-1.5 py-0.5 rounded">
-                          {expense.isAutoPaid ? 'Операция' : expense.isPaidViaLinkedDebt ? 'В сервисе долгов' : 'Вручную'}
+                          {expense.isAutoPaid ? 'Операция' : 'Вручную'}
                         </span>
                       )}
 
@@ -377,7 +372,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                     
                     {!expense.isPaid && expense.paidAmount > 0 && (
                       <span className="text-[8px] font-mono font-bold text-[#4A7C59]">
-                        оплачено: {Math.round(expense.paidAmount)}
+                        по операциям: {formatBudgetMoney(expense.paidAmount)} ₽
                       </span>
                     )}
                   </div>

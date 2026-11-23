@@ -66,6 +66,13 @@ try{
       assert.ok(await options.count()>0,'1920: no month options');
       await options.first().click();
       assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: month picker did not close');
+      // Return to the current real calendar month before validating family
+      // calculations and taking screenshots with demo transactions present.
+      await picker.click();
+      // Desktop month picker has month options but no "Current month" button.
+      // The last option in this picker is the latest available period.
+      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
+      assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: latest month picker did not close');
       const personal=page.getByRole('button',{name:/^Личный/}).first();
       const family=page.getByRole('button',{name:/^Семейный$/}).first();
       await personal.click();
@@ -75,9 +82,6 @@ try{
       assert.deepEqual(errors,[],'1920: Overview generated runtime errors');
       await page.screenshot({path:'artifacts/budget-browser/desktop-1920-overview.png',fullPage:true,animations:'disabled'});
       console.log('PASS desktop-1920 Overview demo interactions');
-      // Re-select the latest month so the shared daily guidance is meaningful.
-      await picker.click();
-      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
 
       // The member chips are HISTORY filters. They must not reallocate
       // the shared family opening balance, paid bills or savings reserve.
@@ -141,6 +145,62 @@ try{
       await page.screenshot({path:'artifacts/budget-browser/desktop-1920-budget-family.png',fullPage:true,animations:'disabled'});
       console.log('PASS desktop-1920 family projection stable across member filters');
 
+      // Iteration 66: fully exercise mandatory bill create/edit/mark/delete
+      // in the local demo only. No authenticated Firestore writes.
+      const addBill=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
+      await addBill.click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'visible'});
+      await page.locator('#paymentName').fill('Тест итерации 66');
+      await page.locator('#paymentAmount').fill('1250.45');
+      await page.locator('#paymentDay').fill('18');
+      const markManual=page.getByRole('button',{name:/Отметить оплаченным вручную/});
+      await markManual.click();
+      assert.equal(await markManual.getAttribute('aria-pressed'),'true','1920: manual-paid flag not selected');
+      await page.getByRole('button',{name:'Добавить платёж',exact:true}).click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'hidden'});
+      const editBill=page.getByRole('button',{name:'Редактировать обязательный платёж: Тест итерации 66'}).filter({visible:true}).last();
+      await editBill.click();
+      await page.getByRole('heading',{name:'Редактирование платежа'}).waitFor({state:'visible'});
+      assert.equal(await page.locator('#paymentAmount').inputValue(),'1250.45');
+      assert.equal(await page.getByRole('button',{name:/Отметить оплаченным вручную/}).getAttribute('aria-pressed'),'true');
+      await page.locator('#paymentAmount').fill('1300.55');
+      await page.getByRole('button',{name:'Сохранить изменения',exact:true}).click();
+      await page.getByRole('heading',{name:'Редактирование платежа'}).waitFor({state:'hidden'});
+      await editBill.click();
+      assert.equal(await page.locator('#paymentAmount').inputValue(),'1300.55');
+      await page.getByRole('button',{name:'Удалить платеж',exact:true}).click();
+      await page.getByRole('button',{name:'Подтвердить удаление',exact:true}).click();
+      await page.getByRole('heading',{name:'Редактирование платежа'}).waitFor({state:'hidden'});
+      assert.equal(await editBill.count(),0,'1920: deleted mandatory payment still visible');
+      assert.deepEqual(errors,[],'1920: mandatory payment CRUD raised runtime errors');
+      console.log('PASS desktop-1920 mandatory payment create/edit/manual-paid/delete demo');
+
+
+    }
+    if(label!=='desktop-1920'){
+      // Other requested viewport widths: validate the newly added mandatory
+      // entry point and full modal save/delete in isolated demo state.
+      await page.getByRole('button',{name:/Локальный демо-режим/}).click();
+      await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
+      const add=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
+      const bounds=await add.boundingBox();
+      assert.ok(bounds && bounds.height>=44,label+': mandatory create target too small');
+      await add.click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'visible'});
+      await page.locator('#paymentName').fill('QA обязательство '+label);
+      await page.locator('#paymentAmount').fill('100.15');
+      await page.locator('#paymentDay').fill('12');
+      await page.screenshot({path:'artifacts/budget-browser/'+label+'-mandatory.png',fullPage:true,animations:'disabled'});
+      await page.getByRole('button',{name:'Добавить платёж',exact:true}).click();
+      await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'hidden'});
+      const edit=page.getByRole('button',{name:'Редактировать обязательный платёж: QA обязательство '+label}).filter({visible:true}).last();
+      await edit.click();
+      await page.getByRole('button',{name:'Удалить платеж',exact:true}).click();
+      await page.getByRole('button',{name:'Подтвердить удаление',exact:true}).click();
+      await page.getByRole('heading',{name:'Редактирование платежа'}).waitFor({state:'hidden'});
+      assert.equal(await edit.count(),0,label+': deleted demo payment still visible');
+      assert.deepEqual(errors,[],label+': mandatory flow generated errors');
+      console.log('PASS',label,'mandatory payment create/delete demo');
     }
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
 import { Toaster, toast } from 'sonner';
 
@@ -105,7 +105,7 @@ export default function App() {
     members, setMembers,
     categories, setCategories,
     importSourcesReady,
-    settings, updateSettings, 
+    settings, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -392,19 +392,25 @@ export default function App() {
 
   const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
 
-  const handleToggleMandatoryPaid = (expenseId: string) => {
-    const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    const currentManuals = settings.manualPaidExpenses || {};
-    const monthIds = currentManuals[currentMonthKey] || [];
-    const isManuallyPaid = monthIds.includes(expenseId);
-
-    const newMonthIds = isManuallyPaid
-      ? monthIds.filter(id => id !== expenseId)
-      : [...monthIds, expenseId];
-
-    updateSettings({
-      manualPaidExpenses: { [currentMonthKey]: newMonthIds }
-    });
+  const handleToggleMandatoryPaid = async (expenseId: string) => {
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+    const paid = !monthIds.includes(expenseId);
+    const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
+    const bill = (settings.mandatoryExpenses || []).find(item => item.id === expenseId);
+    const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
+      currentMonth.getFullYear() === new Date().getFullYear();
+    const debtChanges = bill?.linkedDebtId && isThisMonth
+      ? [{id: bill.linkedDebtId, changes: {paidThisMonth: paid}}]
+      : [];
+    try {
+      await updateMandatoryPaymentBundle({
+        mandatoryExpenses: settings.mandatoryExpenses || [],
+        manualPaidExpenses: {[monthKey]: nextMonthIds}
+      },debtChanges);
+    } catch (error) {
+      toast.error('Не удалось изменить отметку оплаты. Данные не сохранены.');
+    }
   };
 
   const handleResetSettings = async () => {
@@ -1034,6 +1040,10 @@ export default function App() {
                     onImportClick={() => document.getElementById('import-input')?.click()}
                     onToggleMandatoryPaid={handleToggleMandatoryPaid}
                     onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
+                    onAddMandatoryExpense={() => {
+                        setSelectedMandatoryExpense(null);
+                        setIsMandatoryModalOpen(true);
+                    }}
                     onEditMandatoryExpense={(expense) => {
                         setSelectedMandatoryExpense(expense);
                         setIsMandatoryModalOpen(true);
@@ -1361,48 +1371,62 @@ export default function App() {
             )}
             {showNotifications && <NotificationsModal key="notifications-modal" onClose={() => setShowNotifications(false)} />}
             
-            {isMandatoryModalOpen && <MandatoryExpenseModal 
+            {isMandatoryModalOpen && <MandatoryExpenseModal
                 key={selectedMandatoryExpense ? `edit-exp-${selectedMandatoryExpense.id}` : 'mandatory-exp-modal'}
-                expense={selectedMandatoryExpense} 
-                onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }} 
-                settings={settings} 
-                members={members} 
-                onSave={async (e) => { 
-                    try {
-                        let updated;
-                        if (selectedMandatoryExpense) {
-                            const targetId = selectedMandatoryExpense.id;
-                            updated = (settings.mandatoryExpenses || []).map(ex => {
-                                if ((targetId && ex.id === targetId) || ex === selectedMandatoryExpense) {
-                                    return { ...e, id: targetId || e.id };
-                                }
-                                return ex;
-                            });
-                        } else {
-                            updated = [...(settings.mandatoryExpenses || []), { ...e, id: e.id || Date.now().toString() }];
-                        }
-                        await updateSettings({ mandatoryExpenses: updated }); 
-                        setIsMandatoryModalOpen(false); 
-                        setSelectedMandatoryExpense(null);
-                    } catch (error: any) {
-                        toast.error('Ошибка при сохранении: ' + (error.message || String(error)));
-                    }
-                }} 
+                expense={selectedMandatoryExpense}
+                onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }}
+                settings={settings}
+                selectedMonth={currentMonth}
+                members={members}
+                onSave={async (e, manuallyPaid) => {
+                  const existingId = selectedMandatoryExpense?.id;
+                  const updated = existingId
+                    ? (settings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
+                    : [...(settings.mandatoryExpenses || []), e];
+                  const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                  const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+                  const nextMonthIds = manuallyPaid
+                    ? Array.from(new Set([...monthIds,e.id]))
+                    : monthIds.filter(id => id !== e.id);
+                  const debtChanges: Array<{id:string;changes:Partial<Debt>}> = [];
+                  const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
+                  if (oldDebtId && oldDebtId !== e.linkedDebtId) {
+                    debtChanges.push({id:oldDebtId,changes:{linkedExpenseId:null,paidThisMonth:false}});
+                  }
+                  if (e.linkedDebtId) {
+                    const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
+                      currentMonth.getFullYear() === new Date().getFullYear();
+                    debtChanges.push({id:e.linkedDebtId,changes:{
+                      linkedExpenseId:e.id,
+                      ...(isThisMonth ? {paidThisMonth:manuallyPaid} : {})
+                    }});
+                  }
+                  await updateMandatoryPaymentBundle({
+                    mandatoryExpenses:updated,
+                    manualPaidExpenses:{[monthKey]:nextMonthIds}
+                  },debtChanges);
+                  setIsMandatoryModalOpen(false);
+                  setSelectedMandatoryExpense(null);
+                }}
                 onDelete={async (id) => {
-                    try {
-                        const updated = (settings.mandatoryExpenses || []).filter(ex => {
-                            if (selectedMandatoryExpense && ex === selectedMandatoryExpense) return false;
-                            return ex.id !== id;
-                        });
-                        await updateSettings({ mandatoryExpenses: updated });
-                        setIsMandatoryModalOpen(false);
-                        setSelectedMandatoryExpense(null);
-                    } catch (error: any) {
-                        toast.error('Ошбика при удалении: ' + (error.message || String(error)));
-                    }
+                  const updated = (settings.mandatoryExpenses || []).filter(item => item.id !== id);
+                  const manualPaid = Object.fromEntries(
+                    Object.entries(settings.manualPaidExpenses || {}).map(([month,ids])=>
+                      [month,ids.filter(paidId => paidId !== id)]
+                    )
+                  );
+                  const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
+                  const debtChanges = oldDebtId
+                    ? [{id:oldDebtId,changes:{linkedExpenseId:null,paidThisMonth:false}}]
+                    : [];
+                  await updateMandatoryPaymentBundle({
+                    mandatoryExpenses:updated,manualPaidExpenses:manualPaid
+                  },debtChanges);
+                  setIsMandatoryModalOpen(false);
+                  setSelectedMandatoryExpense(null);
                 }}
             />}
-            
+
             {isDuplicatesOpen && <DuplicatesModal key="duplicates-modal" transactions={transactions} onClose={() => setIsDuplicatesOpen(false)} onDelete={handleBatchDelete} onIgnore={async (pairs) => { const ignored = [...(settings.ignoredDuplicatePairs || []), ...pairs]; await updateSettings({ ignoredDuplicatePairs: ignored }); }} ignoredPairs={settings.ignoredDuplicatePairs} />}
             {isGoalModalOpen && <GoalModal key={editingGoal ? `edit-goal-${editingGoal.id}` : 'goal-modal'} goal={editingGoal} onClose={() => { setIsGoalModalOpen(false); setEditingGoal(null); }} onSave={handleGoalSave} onDelete={editingGoal ? () => handleGoalDelete(editingGoal.id) : undefined} settings={settings} />}
             {isAddEventModalOpen && (

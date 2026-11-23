@@ -12,7 +12,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, subscribeToAppSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, subscribeToAppSettings
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -83,6 +83,10 @@ interface DataContextType {
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   updateSettings: (newSettings: Partial<AppSettings>) => Promise<void>; // Patch only modified fields
+  updateMandatoryPaymentBundle: (
+    changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
+    debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
+  ) => Promise<void>;
   debts: Debt[];
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   loyaltyCards: LoyaltyCard[];
@@ -222,6 +226,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               throw error;
           }
       }
+  };
+
+  // One atomic commit across family obligations and linked debts.
+  // Optimistic state is intentionally avoided: errors leave the UI editable.
+  const updateMandatoryPaymentBundle = async (
+    changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
+    debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
+  ) => {
+    if (familyId && user) {
+      await commitMandatoryPaymentBundle(familyId, user.uid, changes, debtChanges);
+    }
+    const current = settingsRef.current;
+    const merged = {...current, ...changes,
+      manualPaidExpenses: {...(current.manualPaidExpenses || {}), ...(changes.manualPaidExpenses || {})}
+    };
+    settingsRef.current=merged;
+    setSettings(merged);
+    if (debtChanges.length) {
+      const byId = new Map<string,Partial<Debt>>(debtChanges.map(item=>[item.id,item.changes] as const));
+      setDebts(previous=>previous.map(debt=>byId.has(debt.id)
+        ? {...debt,...byId.get(debt.id)} : debt));
+    }
   };
 
   // Unified persistent updater for learned rules
@@ -610,7 +636,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     importSourcesReady: transactionsReady && catalogReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
-    settings, setSettings, updateSettings, // Expose unified updater
+    settings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose unified updater
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
     notifications, setNotifications,

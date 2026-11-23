@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextShoppingAmount, shoppingQuantityStep } from '../utils/shoppingAmount.ts';
+import { nextShoppingAmount, shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount.ts';
 
 test('adds quantities in tenths without floating drift', () => {
   assert.equal(nextShoppingAmount('1,2', 0.3, 1), '1.5');
@@ -32,5 +32,14 @@ test('iteration 75: kilograms and litres use 0.5, pieces and packages use 1 ever
   assert.equal(step,1);
   assert.equal(nextShoppingAmount('1',-step,step),'1');
   assert.equal(nextShoppingAmount('1',step,step),'2');
+ }
+});
+
+test('iteration 75: validate only positive shopping quantities with one decimal place',()=>{
+ assert.equal(parseShoppingQuantity('1,5'),'1.5');
+ assert.equal(parseShoppingQuantity('0.5'),'0.5');
+ assert.equal(parseShoppingQuantity('2'),'2');
+ for(const invalid of ['','0','-1','0.01','1.01','1abc','Infinity','10001',Number.NaN]){
+  assert.equal(parseShoppingQuantity(invalid),null,String(invalid));
  }
 });

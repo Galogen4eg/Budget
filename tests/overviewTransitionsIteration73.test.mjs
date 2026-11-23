@@ -38,3 +38,21 @@ test('iteration 73: chart period controls and category details remain accessible
  assert.match(src,/aria-pressed=\{chartScale === scale\}/);
  assert.match(src,/aria-label=\{\x60Аналитика категории:/);
 });
+
+test('iteration 73: events open as accessible targets without linking to financial calendar',()=>{
+ const labels=src.match(/aria-label=\{\x60Открыть событие:/g)||[];
+ assert.equal(labels.length,2);
+ assert.match(src,/onNavigateTab\('plans'\)/);
+ assert.match(src,/min-h-\[48px\] w-full text-left/);
+});
+
+test('iteration 73: zero data renders stable empty charts without fake curves',()=>{
+ assert.match(src,/const hasChartExpenses = dynamicsData\.points\.some\(point => point\.amount > 0\)/);
+ assert.match(src,/hasChartExpenses \? \(/);
+ const placeholders=src.match(/За выбранный период расходов нет/g)||[];
+ assert.equal(placeholders.length,2);
+});
+test('iteration 73: desktop graph axis respects privacy mode',()=>{
+ assert.match(src,/tickFormatter=\{\(val\) => settings\.privacyMode \? '•••'/);
+ assert.match(src,/value: settings\.privacyMode \? 'Лимит скрыт'/);
+});

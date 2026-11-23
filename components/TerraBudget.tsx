@@ -454,11 +454,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         {/* Mobile Page Content */}
         <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
-          <section className="flex flex-col gap-3.5 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE6DE] dark:border-white/10">
+          <section className="flex flex-col gap-3.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE5DB] dark:border-white/10">
             {/* Top Row: Daily Safe Limit & Pace Badge */}
-            <div className="flex items-start justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400 tracking-wide uppercase">{isCurrentMonthView ? 'Безопасный лимит в день' : 'История бюджета'}</span>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? 'Безопасный лимит в день' : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
                     {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
@@ -469,7 +469,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   Доступно до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
                 </span>
               </div>
-              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs ${
+              <div className={`flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                 safeDailyLimit > 0
                   ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:bg-green-950/40 dark:text-green-400'
                   : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
@@ -481,21 +481,21 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
             {/* Monthly Budget Progress Bar & Breakdown */}
             <div className="flex flex-col gap-1.5 bg-white dark:bg-[#252528] p-3 rounded-xl shadow-xs border border-[#EAE6DE]/60 dark:border-white/5">
-              <div className="flex items-center justify-between text-xs font-medium">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-medium">
                 <span className="text-[#6B6358] dark:text-gray-400">
-                  Использовано {monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}% бюджета
+                  {monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
                 </span>
-                <span className="text-[#4A7C59] dark:text-green-400 font-bold">
-                  Осталось {settings.privacyMode ? '•••' : `${(monthBalance > 0 ? monthBalance : 0).toLocaleString('ru-RU')} ₽`}
+                <span className={`font-semibold tabular-nums ${monthBalance < 0 ? "text-[#B83230] dark:text-red-400" : "text-[#4A7C59] dark:text-green-400"}`}>
+                  {monthBalance < 0 ? "Дефицит" : "Осталось"} {settings.privacyMode ? '•••' : `${Math.abs(monthBalance).toLocaleString('ru-RU')} ₽`}
                 </span>
               </div>
               <div className="w-full bg-[#EAE6DE] dark:bg-[#2C2C2E] h-2.5 rounded-full overflow-hidden flex">
                 <div 
-                  className="bg-[#4A7C59] h-full rounded-full transition-all duration-500" 
+                  className={`${monthIncome > 0 && monthExpense > monthIncome ? "bg-[#B83230]" : "bg-[#4A7C59]"} h-full rounded-full transition-[width] duration-300` 
                   style={{ width: `${monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between pt-1 text-[11px] text-[#6B6358] dark:text-gray-400">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1 text-xs text-[#6B6358] dark:text-gray-400">
                 <span className="flex items-center gap-1 font-semibold text-[#4A7C59] dark:text-green-400">
                   <ArrowDown size={13} />
                   Приход: {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}

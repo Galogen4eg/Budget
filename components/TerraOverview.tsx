@@ -1446,7 +1446,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         axisLine={false} 
                         tickLine={false} 
                         tick={{ fontSize: 11, fill: '#8C948E' }}
-                        tickFormatter={(val) => `${val >= 1000 ? `${(val/1000).toFixed(0)}k` : val} ₽`}
+                        tickFormatter={(val) => settings.privacyMode ? '•••' : `${val >= 1000 ? `${(val/1000).toFixed(0)}к` : val} ₽`}
                       />
                       {dynamicsData.limit > 0 && (
                         <ReferenceLine 
@@ -1454,7 +1454,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           stroke={isOverDailyLimit && chartScale === 'day' ? '#EA580C' : '#F97316'} 
                           strokeDasharray="4 4" 
                           label={{ 
-                            value: dynamicsData.limitLabel, 
+                            value: settings.privacyMode ? 'Лимит скрыт' : dynamicsData.limitLabel, 
                             position: 'insideTopRight', 
                             fill: isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#C48C3B',
                             fontSize: 10,

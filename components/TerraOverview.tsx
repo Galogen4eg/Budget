@@ -19,6 +19,7 @@ import ReserveDetailsModal from './ReserveDetailsModal';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
@@ -791,7 +792,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               className={`min-h-[44px] py-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
                   ? 'bg-[#4A7C59] text-white shadow-xs'
-                  : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
+                  : FILTER_CHIP_IDLE
               }`}
             >
               <Users size={15} />
@@ -816,7 +817,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {/* Mobile Dashboard Cards Stream */}
         <div className="px-4 space-y-4 pb-2">
           {/* 1. Hero Balance Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 shadow-sm space-y-4">
+          <section className={`${SURFACE_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
                 {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
@@ -855,7 +856,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
+                <h3 className={SECTION_HEADING}>
                   Динамика расходов
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
@@ -864,7 +865,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               {/* Filter tabs: День / Неделя / Месяц */}
-              <div role="group" aria-label="Период динамики расходов" className="bg-[#EAE6DD] dark:bg-[#2C2C2E] p-0.5 rounded-xl flex items-center text-xs">
+              <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL}>
                 {(['day', 'week', 'month'] as const).map(scale => {
                   const labels: Record<string, string> = { day: 'День', week: 'Неделя', month: 'Месяц' };
                   const isCurrent = chartScale === scale;
@@ -874,9 +875,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       type="button"
                       onClick={() => setChartScale(scale)}
                       aria-pressed={isCurrent}
-                      className={`min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs transition ${
+                      className={`${FILTER_CHIP} cursor-pointer ${
                         isCurrent
-                          ? 'bg-white dark:bg-[#1C1C1E] text-graphite dark:text-white font-bold shadow-xs'
+                          ? FILTER_CHIP_ACTIVE
                           : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
                       }`}
                     >

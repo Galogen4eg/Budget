@@ -44,3 +44,11 @@ test('iteration 78: desktop month renders all six calendar weeks, including 36th
 test('iteration 78: calendar editor never attaches a financial expense ID to a new event',()=>{
  assert.doesNotMatch(modal,/linkedExpenseId:event\?\.linkedExpenseId/);
 });
+
+test('iteration 78: recurrence scope and conflict confirmation have clear 44px controls',()=>{
+ assert.match(modal,/name="calendar-edit-scope"/);
+ assert.match(modal,/Только этот раз/);
+ assert.match(modal,/Всю серию/);
+ assert.match(modal,/focus-within:ring-2/);
+ assert.match(modal,/min-h-\[44px\][^"]*bg-amber-600/);
+});

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
+  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
 import { Toaster, toast } from 'sonner';
 
@@ -1388,7 +1388,7 @@ export default function App() {
                   const nextMonthIds = manuallyPaid
                     ? Array.from(new Set([...monthIds,e.id]))
                     : monthIds.filter(id => id !== e.id);
-                  const debtChanges: Array<{id:string;changes:Partial<import('./types').Debt>}> = [];
+                  const debtChanges: Array<{id:string;changes:Partial<Debt>}> = [];
                   const oldDebtId = selectedMandatoryExpense?.linkedDebtId;
                   if (oldDebtId && oldDebtId !== e.linkedDebtId) {
                     debtChanges.push({id:oldDebtId,changes:{linkedExpenseId:null,paidThisMonth:false}});

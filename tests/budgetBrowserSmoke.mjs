@@ -66,6 +66,11 @@ try{
       assert.ok(await options.count()>0,'1920: no month options');
       await options.first().click();
       assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: month picker did not close');
+      // Return to the current real calendar month before validating family
+      // calculations and taking screenshots with demo transactions present.
+      await picker.click();
+      await page.getByRole('button',{name:'Текущий месяц',exact:true}).click();
+      assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: current month picker did not close');
       const personal=page.getByRole('button',{name:/^Личный/}).first();
       const family=page.getByRole('button',{name:/^Семейный$/}).first();
       await personal.click();
@@ -75,9 +80,6 @@ try{
       assert.deepEqual(errors,[],'1920: Overview generated runtime errors');
       await page.screenshot({path:'artifacts/budget-browser/desktop-1920-overview.png',fullPage:true,animations:'disabled'});
       console.log('PASS desktop-1920 Overview demo interactions');
-      // Re-select the latest month so the shared daily guidance is meaningful.
-      await picker.click();
-      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
 
       // The member chips are HISTORY filters. They must not reallocate
       // the shared family opening balance, paid bills or savings reserve.

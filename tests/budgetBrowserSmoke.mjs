@@ -69,8 +69,10 @@ try{
       // Return to the current real calendar month before validating family
       // calculations and taking screenshots with demo transactions present.
       await picker.click();
-      await page.getByRole('button',{name:'Текущий месяц',exact:true}).click();
-      assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: current month picker did not close');
+      // Desktop month picker has month options but no "Current month" button.
+      // The last option in this picker is the latest available period.
+      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
+      assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: latest month picker did not close');
       const personal=page.getByRole('button',{name:/^Личный/}).first();
       const family=page.getByRole('button',{name:/^Семейный$/}).first();
       await personal.click();

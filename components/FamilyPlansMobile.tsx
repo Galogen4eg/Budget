@@ -603,7 +603,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     <button
                       type="button"
                       aria-label="Подробнее"
-                      className="w-7 h-7 flex items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-[#4A7C59] transition-colors cursor-pointer"
+                      className="w-11 h-11 flex items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-[#4A7C59] transition-colors cursor-pointer"
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -910,7 +910,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   key={stat.id}
                   type="button"
                   onClick={() => setFilterMemberId(stat.id as any)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 ${
+                  aria-pressed={isSelected}
+                  className={`min-h-[44px] px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 ${
                     isSelected
                       ? 'bg-[#3B6347] text-white shadow-xs font-bold'
                       : 'bg-[#F0ECE4] dark:bg-white/10 text-[#2E3230] dark:text-gray-200 hover:bg-[#EAE6DE]'
@@ -1084,7 +1085,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                               e.stopPropagation();
                               onSendToTelegram(ev);
                             }}
-                            className="w-7 h-7 flex items-center justify-center text-[#4A7C59] hover:bg-[#EDE8DD] dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                            className="w-11 h-11 flex items-center justify-center text-[#4A7C59] hover:bg-[#EDE8DD] dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
                             title="В Telegram"
                           >
                             <Send size={15} />

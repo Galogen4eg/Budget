@@ -403,7 +403,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <button 
                 type="button"
                 onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-                className="px-3 py-1.5 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-xs font-bold text-[#2E3230] dark:text-white hover:text-primary transition-colors flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                aria-expanded={isMonthPickerOpen}
+                aria-label={`Выбрать месяц: ${mobileMonthName}`}
+                className="min-h-[44px] px-3 py-2 rounded-full bg-[#EAE6DD] dark:bg-[#252528] text-xs font-bold text-[#2E3230] dark:text-white hover:text-primary transition-colors flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
               >
                 <span className="capitalize">{mobileMonthName}</span>
                 <ChevronDown size={14} className="text-[#6B6358] dark:text-gray-400 shrink-0" />
@@ -421,7 +423,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <button
                         type="button"
                         onClick={handlePrevMonth}
-                        className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
+                        aria-label="Предыдущий месяц"
+                        className="w-11 h-11 flex items-center justify-center hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
                       >
                         <ChevronLeft size={16} />
                       </button>
@@ -429,7 +432,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <button
                         type="button"
                         onClick={handleNextMonth}
-                        className="p-1 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
+                        aria-label="Следующий месяц"
+                        className="w-11 h-11 flex items-center justify-center hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-xs font-bold cursor-pointer"
                       >
                         <ChevronRight size={16} />
                       </button>
@@ -440,7 +444,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         onMonthChange(new Date());
                         setIsMonthPickerOpen(false);
                       }}
-                      className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between cursor-pointer"
+                      className="min-h-[44px] w-full text-xs font-bold py-2 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition text-left flex items-center justify-between cursor-pointer"
                     >
                       <span>Текущий месяц</span>
                     </button>
@@ -734,7 +738,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <button 
                 type="button"
                 onClick={() => setIsDayModalOpen(true)}
-                className="text-xs font-semibold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5 hover:underline cursor-pointer"
+                aria-label="Операции за выбранный день"
+                className="min-h-[44px] text-xs font-semibold text-[#4A7C59] dark:text-green-400 flex items-center gap-0.5 hover:underline cursor-pointer"
               >
                 <span>Операции за день</span>
                 <ChevronRight size={16} />

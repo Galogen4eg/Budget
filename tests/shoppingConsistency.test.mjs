@@ -57,3 +57,11 @@ test('merges the active product rather than restoring a second completed card',(
   assert.equal(result.itemsToUpdateInDb[0].amount,'3');
   assert.equal(result.updatedList.find(x=>x.id==='old').completed,true);
 });
+
+test('iteration 75: restoring a previously purchased item resets old completion event',()=>{
+ const previouslyBought={...item('old','Молоко','1','л',true),completedAt:1700000000000};
+ const result=mergeOrRestoreShoppingItems([previouslyBought],[incoming('Молоко','2','л')],'person-b');
+ assert.equal(result.updatedList[0].completed,false);
+ assert.equal(result.updatedList[0].completedAt,null);
+ assert.equal(result.itemsToUpdateInDb[0].completedAt,null);
+});

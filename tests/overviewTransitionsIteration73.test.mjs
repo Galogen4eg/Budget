@@ -56,3 +56,9 @@ test('iteration 73: desktop graph axis respects privacy mode',()=>{
  assert.match(src,/tickFormatter=\{\(val\) => settings\.privacyMode \? '•••'/);
  assert.match(src,/value: settings\.privacyMode \? 'Лимит скрыт'/);
 });
+
+test('iteration 73: existing mandatory payment edits start with populated fields before effects',()=>{
+ const modal=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
+ assert.match(modal,/useState\(\(\) => expense \? String\(expense\.amount/);
+ assert.match(modal,/useState\(\(\) => expense\?\.name/);
+});

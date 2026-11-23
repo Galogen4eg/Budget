@@ -29,7 +29,8 @@ import { getMerchantBrandKey } from '../utils/categorizer';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
-import { mandatoryPaymentStates, budgetDailyLimit, sumMoney, daysUntilNextSalary } from '../utils/budgetFinancialMath';
+import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { toast } from 'sonner';
 
 interface TerraOverviewProps {
@@ -63,7 +64,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     transactions, 
     setTransactions,
     filteredTransactions, 
-    totalBalance, 
     currentMonthSpent, 
     goals,
     settings, 
@@ -183,39 +183,43 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     });
   }, [filteredTransactions, activeMonth]);
 
+  // Family commitments and spendable cash are shared even when personal
+  // history is selected. Never apply the family's opening balance to one member.
+  const familyMonthTransactions = useMemo(() => transactions.filter(tx => {
+    const d = new Date(tx.date);
+    return d.getMonth() === activeMonth.getMonth() && d.getFullYear() === activeMonth.getFullYear();
+  }), [transactions, activeMonth]);
+
   const displayMonthSpent = useMemo(() => {
     return currentMonthTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
   }, [currentMonthTransactions]);
 
-  // Mandatory Expenses Calculation
-  const myMemberId = currentMember.id;
-  const relevantMandatoryExpenses = useMemo(() => {
-    const all = settings.mandatoryExpenses || [];
-    if (budgetMode === 'personal') {
-      if (myMemberId === 'unlinked') return [];
-      return all.filter(e => !e.memberId || e.memberId === myMemberId);
-    }
-    return all;
-  }, [settings.mandatoryExpenses, budgetMode, myMemberId]);
+  // Always use the same shared projection as the Budget section.
+  const relevantMandatoryExpenses = settings.mandatoryExpenses || [];
+  const familyProjection = useMemo(() => calculateFamilyBudgetProjection({
+    transactions,
+    monthTransactions: familyMonthTransactions,
+    bills: relevantMandatoryExpenses,
+    categories,
+    manuallyPaidIds: settings.manualPaidExpenses?.[currentMonthKey] || [],
+    initialBalance: settings.initialBalance,
+    initialBalanceDate: settings.initialBalanceDate,
+    enableSmartReserve: settings.enableSmartReserve,
+    savingsRate: settings.savingsRate ?? savingsRate,
+    manualReservedAmount: settings.manualReservedAmount,
+    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0)
+  }), [transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
+      settings.manualPaidExpenses, currentMonthKey, settings.initialBalance,
+      settings.initialBalanceDate, settings.enableSmartReserve,
+      settings.savingsRate, savingsRate, settings.manualReservedAmount, goals]);
 
-  // A transaction can credit only one bill. Both the reserve total and
-  // detailed breakdown derive from the same allocation, so they cannot diverge.
-  const paymentStates = useMemo(() => mandatoryPaymentStates(
-    relevantMandatoryExpenses,
-    currentMonthTransactions,
-    settings.manualPaidExpenses?.[currentMonthKey] || []
-  ), [relevantMandatoryExpenses, currentMonthTransactions, settings.manualPaidExpenses, currentMonthKey]);
-
-  const unpaidMandatoryTotal = useMemo(() => (
-    settings.enableSmartReserve ?? true
-  ) ? sumMoney(paymentStates.map(state => state.amountNeeded)) : 0,
-  [paymentStates, settings.enableSmartReserve]);
-
+  const paymentStates = familyProjection.monthlyPaymentStates;
+  const unpaidMandatoryTotal = familyProjection.mandatoryReserve;
   const detailedMandatoryExpenses = useMemo(() => {
     const states = new Map(paymentStates.map(state => [state.id, state]));
-    const today = now.getDate();
+    const day = isCurrentCalendarMonth ? now.getDate() : 0;
     return relevantMandatoryExpenses.map(expense => {
       const status = states.get(expense.id)!;
       return {
@@ -224,11 +228,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         paidAmount: status.paidAmount,
         isPaid: status.isPaid,
         isManuallyPaid: status.isManuallyPaid,
-        isOverdue: !status.isPaid && expense.day < today,
-        subtitle: `Обязательный регулярный платеж (${expense.day} число)`
+        isOverdue: !status.isPaid && day > 0 && expense.day < day,
+        subtitle: `Обязательный регулярный платёж (${expense.day} число)`
       };
     });
-  }, [relevantMandatoryExpenses, paymentStates, now]);
+  }, [relevantMandatoryExpenses, paymentStates, isCurrentCalendarMonth, now]);
 
   const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
@@ -242,7 +246,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     if (!isPaid) {
       // An existing payment cannot be undone by changing local state only:
       // it would still exist in Firestore and be counted as paid on reload.
-      const recorded = currentMonthTransactions.some(t =>
+      const recorded = familyMonthTransactions.some(t =>
         t.type === 'expense' && t.linkedExpenseId === expenseId
       );
       if (recorded) {
@@ -254,7 +258,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     await updateSettings({
       manualPaidExpenses: { [currentMonthKey]: updated }
     });
-  }, [settings, currentMonthKey, currentMonthTransactions, updateSettings]);
+  }, [settings, currentMonthKey, familyMonthTransactions, updateSettings]);
 
   const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
     const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
@@ -264,48 +268,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     });
   }, [settings, currentMonthKey, updateSettings]);
 
-  // Salary incomes this month for auto-savings
-  const currentMonthSalary = useMemo(() => {
-    const rawVal = currentMonthTransactions
-      .filter(t => {
-        const isSalaryCat = t.category === 'salary';
-        const catLabel = categories.find(c => c.id === t.category)?.label.toLowerCase();
-        const isCustomSalary = catLabel?.includes('зарплата') || catLabel?.includes('salary');
-        return t.type === 'income' && (isSalaryCat || isCustomSalary);
-      })
-      .reduce((acc, t) => acc + t.amount, 0);
-    return Math.round(rawVal * 100) / 100;
-  }, [currentMonthTransactions, categories]);
-
-  // Savings accounts (копилка / накопительный счёт) total balance
-  const totalSavingsAccountAmount = useMemo(() => {
-    const rawVal = (goals || []).reduce((acc, g) => acc + (g.currentAmount || 0), 0);
-    return Math.round(rawVal * 100) / 100;
-  }, [goals]);
-
-  // Reserve & Available Balance
-  const savingsAmount = currentMonthSalary * (savingsRate / 100);
-  const manualReserved = typeof settings.manualReservedAmount === 'number' 
-    ? settings.manualReservedAmount 
-    : totalSavingsAccountAmount;
-  const reservedAmount = sumMoney([savingsAmount, unpaidMandatoryTotal, manualReserved]);
+  const sharedLedger = familyProjection.ledger;
+  const savingsAmount = familyProjection.savingsReserve;
+  const manualReserved = familyProjection.manualReserve;
+  const reservedAmount = familyProjection.reservedAmount;
+  const availableBalance = familyProjection.availableBalance;
   const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
   const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
-
-  const availableBalance = Math.max(0, totalBalance - reservedAmount);
-  const dailyLimit = budgetDailyLimit(totalBalance, reservedAmount, daysRemaining);
+  const dailyLimit = budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining);
 
   // Today's spending
   const todayTransactions = useMemo(() => {
     const todayStr = realToday.toDateString();
-    return filteredTransactions.filter(t => {
+    return transactions.filter(t => {
       const d = new Date(t.date);
       return d.toDateString() === todayStr && t.type === 'expense';
     });
-  }, [filteredTransactions, realToday]);
+  }, [transactions, realToday]);
 
   const spentToday = useMemo(() => {
-    return todayTransactions.reduce((sum, t) => sum + t.amount, 0);
+    return sumMoney(todayTransactions.map(t => t.amount));
   }, [todayTransactions]);
 
   const isOverDailyLimit = dailyLimit > 0 && spentToday > dailyLimit;
@@ -599,7 +581,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
   const formatAmount = (num: number) => {
     if (settings.privacyMode) return '••••••';
-    return Math.round(num).toLocaleString('ru-RU');
+    return formatBudgetMoney(num);
   };
 
   const totalMonthlyLimit = settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0);
@@ -799,17 +781,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <section className={`${SURFACE_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
-                {budgetMode === 'family' ? 'Семейный баланс' : 'Личный баланс'}
+                {'Семейный баланс'}
               </span>
               <span className="text-xs text-graphite-muted dark:text-gray-400">{currentMonthName}</span>
             </div>
 
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight break-words tabular-nums">
-                {settings.privacyMode ? '••••••' : `${formatAmount(totalBalance)} ₽`}
+                {settings.privacyMode ? '••••••' : `${formatAmount(sharedLedger)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Баланс в выбранном режиме учёта. Расходы за месяц показаны ниже.
+                Общий семейный баланс. Фильтр «Личный» меняет только историю и её показатели.
               </p>
             </div>
 
@@ -1253,15 +1235,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>ОБЩИЙ БАЛАНС</span>
+                <span>СЕМЕЙНЫЙ БАЛАНС</span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
-                {budgetMode === 'family' ? 'Семейный' : 'Личный'}
+                Общий
               </span>
             </div>
             <div className="my-3 flex items-baseline">
               <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
-                {formatAmount(totalBalance)} <span className="text-2xl font-light text-primary">₽</span>
+                {formatAmount(sharedLedger)} <span className="text-2xl font-light text-primary">₽</span>
               </span>
             </div>
             <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
@@ -1904,7 +1886,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         <ReserveDetailsModal 
           isOpen={isReserveModalOpen}
           onClose={() => setIsReserveModalOpen(false)}
-          totalBalance={totalBalance}
+          totalBalance={sharedLedger}
           reservedAmount={reservedAmount}
           availableBalance={availableBalance}
           dailyBudget={dailyLimit}

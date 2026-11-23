@@ -942,11 +942,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </p>
               )}
               {mobileCategories.map((cat, idx) => (
-                <div 
-                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`} 
+                <button type="button"
+                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`}
                   onClick={() => onDrillDown(cat.id || 'all')}
-                  className="space-y-1.5 p-1.5 -mx-1.5 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
-                  title={`Аналитика категории «${cat.name}»`}
+                  aria-label={`Аналитика категории: ${cat.name}`}
+                  className="min-h-[44px] w-full text-left space-y-1.5 p-2 -mx-1 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
@@ -969,7 +969,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
                     />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -1565,11 +1565,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-auto pt-4">
+                {categoryBreakdown.items.length === 0 && (
+                  <p className="col-span-full py-5 text-sm text-graphite-muted dark:text-gray-400">
+                    За выбранный период расходов по категориям пока нет.
+                  </p>
+                )}
                 {categoryBreakdown.items.map((cat, idx) => (
-                  <div 
-                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`} 
+                  <button type="button"
+                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`}
                     onClick={() => onDrillDown(cat.id)}
-                    className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex flex-col justify-between hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group"
+                    aria-label={`Аналитика категории: ${cat.name}`}
+                    className="min-h-[44px] w-full text-left p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 flex flex-col justify-between hover:border-[#DFD7CA] dark:hover:border-white/20 transition cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center justify-between text-xs gap-2">
                       <span className="font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">{cat.name}</span>
@@ -1586,7 +1592,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         style={{ width: `${cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
                       />
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

@@ -100,6 +100,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   // Collapsible Completed section
   const [isCompletedOpen, setIsCompletedOpen] = useState(true);
+  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Frequent items state
   const [frequentStaples, setFrequentStaples] = useState<(FrequentItemStat & { totalScore: number; frequencyLabel: string })[]>([]);
@@ -315,15 +317,17 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleClearCompleted = async () => {
-    if (completedItems.length === 0) return;
+    if (!confirmClearCompleted || isClearingCompleted || completedItems.length === 0) return;
+    setIsClearingCompleted(true);
     const idsToDelete = completedItems.map(i => i.id);
     try {
       if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', idsToDelete);
       setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+      setConfirmClearCompleted(false);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    }
+    } finally { setIsClearingCompleted(false); }
   };
 
   const handleTelegramSend = async () => {
@@ -718,9 +722,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         {completedItems.length > 0 && (
           <section className="bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3.5 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <div 
+              <button type="button"
+                aria-expanded={isCompletedOpen}
+                aria-controls="mobile-completed-shopping-items"
                 onClick={() => setIsCompletedOpen(!isCompletedOpen)}
-                className="flex items-center gap-1.5 cursor-pointer select-none"
+                className="min-h-[44px] flex items-center gap-1.5 cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <div className="w-5 h-5 rounded-full bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] flex items-center justify-center text-xs">
                   <Check size={12} strokeWidth={3} />
@@ -731,19 +737,27 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 <span className="bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] text-[11px] font-bold px-2 py-0.2 rounded-full">
                   {completedItems.length}
                 </span>
-              </div>
+              </button>
 
-              <button 
-                type="button"
-                onClick={handleClearCompleted}
-                className="text-xs font-semibold text-[#C62828] hover:underline cursor-pointer"
+              <button type="button"
+                disabled={isClearingCompleted}
+                aria-label={confirmClearCompleted ? `Подтвердить удаление ${completedItems.length} купленных товаров` : 'Очистить купленные товары'}
+                onClick={() => { if (!confirmClearCompleted) setConfirmClearCompleted(true); else void handleClearCompleted(); }}
+                className="min-h-[44px] px-2 text-xs font-semibold text-[#C62828] hover:underline cursor-pointer disabled:opacity-50"
               >
-                Очистить купленные
+                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}
               </button>
             </div>
 
+            {confirmClearCompleted && (
+              <div role="status" className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
+                Удалить все купленные товары из общего списка?
+                <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                  className="ml-3 min-h-[44px] px-3 font-semibold underline">Отмена</button>
+              </div>
+            )}
             {isCompletedOpen && (
-              <div className="space-y-2 pt-1 border-t border-[#EAE4D6]/60 dark:border-white/10">
+              <div id="mobile-completed-shopping-items" className="space-y-2 pt-1 border-t border-[#EAE4D6]/60 dark:border-white/10">
                 {completedItems.map((item, compIdx) => (
                   <SwipeableCompletedItem
                     key={item.id ? `mob-comp-${item.id}` : `mob-comp-idx-${compIdx}`}

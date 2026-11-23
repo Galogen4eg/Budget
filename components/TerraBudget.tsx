@@ -41,7 +41,7 @@ interface TerraBudgetProps {
   onOpenTrainModal?: () => void;
   onImportClick?: () => void;
   onToggleMandatoryPaid?: (expenseId: string) => void;
-  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string) => Promise<boolean>;
+  onQuickAddTransaction?: (title: string, amount: number, date: Date, memberId: string, categoryId: string) => Promise<boolean>;
   onEditMandatoryExpense?: (expense: MandatoryExpense) => void;
   onAddMandatoryExpense?: () => void;
   onSelectCategory?: (categoryId: string) => void;
@@ -107,6 +107,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [isQuickSaving, setIsQuickSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState('');
   const [quickMemberId, setQuickMemberId] = useState('');
+  const [quickCategoryId, setQuickCategoryId] = useState('other');
 
   // Filter transactions by selected family member
   const memberFilteredTransactions = useMemo(() => {
@@ -247,7 +248,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     }
     setIsQuickSaving(true);
     try {
-      const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId);
+      const saved = await onQuickAddTransaction(title, amount, activeSelectedDate, memberId, quickCategoryId);
       if (!saved) {
         setQuickAddError('Не удалось записать операцию. Повторите попытку.');
         return;
@@ -261,7 +262,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     } finally {
       setIsQuickSaving(false);
     }
-  }, [quickTitle, quickAmount, onQuickAddTransaction, selectedMember, quickMemberId, members, user?.uid, activeSelectedDate, isQuickSaving]);
+  }, [quickTitle, quickAmount, quickCategoryId, onQuickAddTransaction, selectedMember, quickMemberId, members, user?.uid, activeSelectedDate, isQuickSaving]);
 
   // Calendar grid calculations
   const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
@@ -1471,6 +1472,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   </select>
                 </div>
               )}
+              <div className="mb-2">
+                <label htmlFor="budget-quick-category" className="block mb-1 text-[11px] font-semibold text-graphite-muted dark:text-gray-400">
+                  Категория расхода
+                </label>
+                <select id="budget-quick-category" value={quickCategoryId}
+                  onChange={event=>{setQuickCategoryId(event.target.value);setQuickAddError('');}}
+                  className="min-h-[44px] w-full rounded-xl border border-surface-border bg-white dark:bg-[#252528] px-3 text-xs text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="other">Другое — разобрать позже</option>
+                  {categories.filter(cat=>cat.id!=='other' && cat.transactionType!=='income').map(cat=>(
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex flex-wrap sm:flex-nowrap gap-2">
                 <input 
                   value={quickTitle}

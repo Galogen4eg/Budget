@@ -1049,6 +1049,10 @@ export default function App() {
                     onImportClick={() => document.getElementById('import-input')?.click()}
                     onToggleMandatoryPaid={handleToggleMandatoryPaid}
                     onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
+                    onAddMandatoryExpense={() => {
+                        setSelectedMandatoryExpense(null);
+                        setIsMandatoryModalOpen(true);
+                    }}
                     onEditMandatoryExpense={(expense) => {
                         setSelectedMandatoryExpense(expense);
                         setIsMandatoryModalOpen(true);

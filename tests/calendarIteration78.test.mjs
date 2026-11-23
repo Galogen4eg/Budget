@@ -36,3 +36,11 @@ test('iteration 78: delete confirmation remains cancelable and touch reachable',
  assert.match(modal,/disabled=\{isSaving\}/);
  assert.match(modal,/min-h-\[44px\]/);
 });
+
+test('iteration 78: desktop month renders all six calendar weeks, including 36th–42nd day cells',()=>{
+ assert.match(desktop,/calendarData\.map\(\(d, i\) =>/);
+ assert.doesNotMatch(desktop,/calendarData\.slice\(0,\s*35\)/);
+});
+test('iteration 78: calendar editor never attaches a financial expense ID to a new event',()=>{
+ assert.doesNotMatch(modal,/linkedExpenseId:event\?\.linkedExpenseId/);
+});

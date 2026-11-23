@@ -116,3 +116,21 @@ test('iteration 66: required amount must be a safe positive ruble-and-kopeck sum
   assert.match(modal,/step="0\.01"/);
   assert.match(modal,/onClick=\{\(\) => \{ if \(!isSaving\) onClose\(\); \}\}/);
 });
+
+test('iteration 66: mobile and desktop distinguish manual acknowledgment and allow undo',()=>{
+  const budget=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
+  assert.match(budget,/Оплачено операцией/);
+  assert.match(budget,/Снять ручную отметку оплаты/);
+  assert.match(budget,/Отметить платёж оплаченным вручную/);
+  assert.match(budget,/onAddMandatoryExpense/);
+});
+
+test('iteration 66: Firestore updates settings and debts in one transaction',()=>{
+  const db=readFileSync(new URL('../utils/db.ts',import.meta.url),'utf8');
+  const data=readFileSync(new URL('../contexts/DataContext.tsx',import.meta.url),'utf8');
+  assert.match(db,/export const commitMandatoryPaymentBundle = async/);
+  assert.match(db,/await runTransaction\(db, async transaction =>/);
+  assert.match(db,/transaction\.set\(configRef/);
+  assert.match(db,/transaction\.update\(debtRefs\[i\]/);
+  assert.match(data,/await commitMandatoryPaymentBundle\(familyId, user\.uid, changes, debtChanges\)/);
+});

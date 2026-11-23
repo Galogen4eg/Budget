@@ -51,6 +51,7 @@ import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsS
 import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
 import { learnedRuleChangesSavings } from './utils/importSafety';
 import { resolveImportMemberId, assertImportRowsBelongToMember } from './utils/importMemberIdentity';
+import { assertImportBatchReady } from './utils/importSafety';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
@@ -1258,6 +1259,7 @@ export default function App() {
                     // Profile bindings can change while the import preview is open.
                     const importMemberId = resolveImportMemberId(members, user?.uid);
                     assertImportRowsBelongToMember(itemsToImport, importMemberId);
+                    assertImportBatchReady(itemsToImport, categories, importMemberId);
                     const prepared = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);

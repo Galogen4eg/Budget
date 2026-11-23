@@ -11,6 +11,7 @@ import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { shoppingQuantityStep } from '../utils/shoppingAmount';
 import { adjustShoppingAmount, saveShoppingMerge, updateItem, deleteItem, deleteItemsBatch } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
 import { GoogleGenAI } from "@google/genai";
@@ -296,7 +297,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const handleAdjustAmount = async (item: ShoppingItem, delta: number) => {
     if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
     try {
-      const amount = await adjustShoppingAmount(familyId, item.id, delta, 1);
+      const step = shoppingQuantityStep(item.unit);
+      const amount = await adjustShoppingAmount(familyId, item.id, delta * step, step);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, amount } : i));
     } catch (error) { toast.error('Не удалось обновить количество'); }
   };

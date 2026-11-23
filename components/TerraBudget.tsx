@@ -853,9 +853,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {displayTopCategories.map((cat, idx) => (
                 <div 
                   key={cat.id || idx} 
-                  onClick={() => onSelectCategory?.(cat.id)}
-                  className="flex flex-col gap-1 p-1.5 -mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] transition cursor-pointer"
-                  title={`Аналитика категории «${cat.label || (cat as any).name || ''}»`}
+                  onClick={cat.id === 'uncategorized' ? undefined : () => onSelectCategory?.(cat.id)}
+                  className={`flex flex-col gap-1 p-1.5 -mx-1.5 rounded-xl ${cat.id === 'uncategorized' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'}`}
+                  title={cat.id === 'uncategorized' ? 'Расходы без назначенной категории' : `Аналитика категории «${cat.label || (cat as any).name || ''}»`}
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#2E3230] dark:text-white truncate">

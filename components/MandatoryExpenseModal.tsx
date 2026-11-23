@@ -364,9 +364,11 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
           </div>
 
           {/* Переключатель 1: Напоминать в Telegram */}
-          <div 
+          <button
+            type="button"
+            aria-pressed={remind}
             onClick={() => setRemind(!remind)}
-            className="bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full text-left bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-[#4A7C59] group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
@@ -385,19 +387,21 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 remind ? 'translate-x-5' : 'translate-x-0'
               }`} />
             </div>
-          </div>
+          </button>
 
-          {/* Переключатель 2: Оплачено в этом месяце */}
-          <div 
+          {/* Ручное закрытие обязательства — не банковская операция. */}
+          <button
+            type="button"
+            aria-pressed={isPaidCurrentMonth}
             onClick={() => setIsPaidCurrentMonth(!isPaidCurrentMonth)}
-            className="bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full text-left bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-stone-500 group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
                 <CheckSquare size={18} />
               </div>
               <div>
-                <div className="text-sm font-semibold text-stone-900 dark:text-white">Оплачено в этом месяце</div>
+                <div className="text-sm font-semibold text-stone-900 dark:text-white">Отметить оплаченным вручную</div>
                 <div className="text-xs text-stone-400 capitalize">{monthName}</div>
               </div>
             </div>
@@ -409,7 +413,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 isPaidCurrentMonth ? 'translate-x-5' : 'translate-x-0'
               }`} />
             </div>
-          </div>
+          </button>
 
           {/* Кнопки действий */}
           <div className="flex flex-col gap-2 pt-2">

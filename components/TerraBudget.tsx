@@ -459,7 +459,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         {/* Mobile Page Content */}
         <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
-          <section className="flex flex-col gap-3.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-4 rounded-2xl shadow-xs border border-[#EAE5DB] dark:border-white/10">
+          <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">

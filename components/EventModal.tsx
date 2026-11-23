@@ -304,8 +304,17 @@ export const EventModal: React.FC<EventModalProps> = ({
 
 
     const finalDuration = parseFloat(String(dur)) || 1;
-    if(recurrenceUntil&&recurrenceUntil<date&&recurrence!=='none'){
-      toast.error('Конец повторения не может быть раньше начала события');return;
+    if (recurrence !== 'none' && recurrenceUntil) {
+      try {
+        parseLocalCalendarDate(recurrenceUntil);
+      } catch {
+        toast.error('Укажите корректную дату окончания повторения');
+        return;
+      }
+      if (recurrenceUntil && recurrenceUntil < date) {
+        toast.error('Конец повторения не может быть раньше начала события');
+        return;
+      }
     }
     const seriesId=event?.seriesId||event?.id;
     const isSingle=Boolean(event && seriesId && (event?.seriesId||event.recurrence&&event.recurrence!=='none') && editScope==='single');
@@ -863,14 +872,14 @@ export const EventModal: React.FC<EventModalProps> = ({
                         setIsSaving(false);
                       }
                     }}
-                    className="px-2 py-1 rounded bg-red-600 text-white text-[11px] font-bold cursor-pointer"
+                    className="min-h-[44px] px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                   >
                     Да, удалить
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsConfirmingDelete(false)}
-                    className="px-2 py-1 text-stone-400 text-[11px] cursor-pointer"
+                    className="min-h-[44px] px-3 py-2 text-stone-500 text-xs cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     Нет
                   </button>

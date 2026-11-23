@@ -7,6 +7,7 @@ const plansMobile=read('FamilyPlansMobile.tsx');
 const agenda=read('FamilyAgendaPanel.tsx');
 const overview=read('TerraOverview.tsx');
 const budget=read('TerraBudget.tsx');
+const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
 
 test('mobile plans share one vertical scroll container, not two nested scroll panes',()=>{
  assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y md:overflow-hidden/);
@@ -29,4 +30,14 @@ test('overview and budget share mobile surface and minimum 44px actions',()=>{
  assert.match(overview,/bg-\[#FAF6F0\]/);
  assert.match(budget,/min-h-\[44px\]/);
  assert.match(budget,/flex-wrap/);
+});
+
+test('outer touch refresh does not interfere with plans vertical gestures',()=>{
+ assert.match(app,/if \(activeTab === 'plans'\) \{/);
+ assert.match(app,/touchStartY\.current = 0;/);
+});
+test('chart does not add invented time points and budget reports real shortfall',()=>{
+ assert.doesNotMatch(overview,/label: '10', amount: 0, fullLabel/);
+ assert.match(budget,/monthBalance < 0 \? "Дефицит" : "Осталось"/);
+ assert.match(budget,/Math\.round\(\(monthExpense \/ monthIncome\) \* 100\)/);
 });

@@ -1,0 +1,44 @@
+name: Budget Firestore CRUD emulator
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'utils/db.ts'
+      - 'utils/transactionSavingsConsistency.ts'
+      - 'firebase.ts'
+      - 'tests/firestoreCrud.emulator.ts'
+      - 'tests/firestore-crud.emulator.json'
+      - 'tests/firestore-crud.emulator.rules'
+      - '.github/workflows/budget-firestore-crud.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: budget-firestore-crud-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  crud-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install project dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+      - name: Bundle actual Firestore persistence functions for Node
+        run: npx esbuild tests/firestoreCrud.emulator.ts --bundle --platform=node --packages=external --format=esm --outfile=artifacts/firestore-crud.mjs
+      - name: Run isolated create/edit/delete and savings scenarios
+        env:
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          CI: 'true'
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project budg-1d5e0 --only firestore --config tests/firestore-crud.emulator.json "node artifacts/firestore-crud.mjs"

@@ -1104,10 +1104,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleString('ru-RU', { month: 'short' })}`;
 
                 return (
-                  <div
+                  <button type="button"
                     key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
-                    onClick={() => onEditTransaction(tx as any)}
-                    className="bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between hover:bg-[#EAE6DD]/70 transition cursor-pointer"
+                    onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between gap-2 hover:bg-[#EAE6DD]/70 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
@@ -1135,7 +1136,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         {budgetMode === 'family' ? 'Семейная операция' : 'Личная история'}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1814,10 +1815,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     const isExpense = tx.type === 'expense';
 
                     return (
-                      <div 
+                      <button type="button"
                         key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
                         onClick={() => onEditTransaction(tx)}
-                        className={`flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer ${
+                        aria-label={`Редактировать операцию: ${displayTitle}`}
+                        className={`min-h-[48px] w-full text-left flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isTxToday && isExpense && isOverDailyLimit && idx === 0
                             ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A] border-[#FDBA74] dark:border-[#C2410C]/40'
                             : 'bg-[#FAF8F5] dark:bg-[#2C2C2E] hover:bg-[#F3EFE9] dark:hover:bg-[#3A3A3C] border-surface-border dark:border-white/5'
@@ -1861,7 +1863,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           </span>
                           <p className="text-[10px] text-graphite-muted dark:text-gray-400 truncate max-w-[90px]">{catLabel}</p>
                         </div>
-                      </div>
+                      </button>
                     );
                   })
                 )}

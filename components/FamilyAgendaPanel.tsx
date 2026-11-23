@@ -28,9 +28,13 @@ export const FamilyAgendaPanel:React.FC<Props>=({
 })=>{
  const [view,setView]=useState<View>('week');
  const [expanded,setExpanded]=useState(false);
+ const contentRef=React.useRef<HTMLDivElement|null>(null);
  const isDesktop=useMedia('(min-width: 768px)', false);
  const reduceMotion=useReducedMotion();
  const panelOpen=isDesktop||expanded;
+ useEffect(()=>{
+   if(contentRef.current) contentRef.current.inert=!panelOpen;
+ },[panelOpen]);
  const [savingId,setSavingId]=useState<string|null>(null);
  const [today,setToday]=useState(()=>formatLocalCalendarDate(new Date()));
  useEffect(()=>{
@@ -105,10 +109,10 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    <MotionConfig reducedMotion="user">
     <AnimatePresence initial={false}>
      {panelOpen && (
-      <motion.div key="agenda-disclosure" initial={{ height: 0, opacity: 0 }}
+      <motion.div ref={contentRef} key="agenda-disclosure" initial={{ height: 0, opacity: 0 }}
         animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
         transition={agendaDisclosureTransition(Boolean(reduceMotion))}
-        inert={!panelOpen} aria-hidden={!panelOpen}
+        aria-hidden={!panelOpen}
         className="overflow-hidden space-y-2">
   <div className="md:hidden flex flex-wrap gap-2">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}

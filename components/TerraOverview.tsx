@@ -29,7 +29,8 @@ import { getMerchantBrandKey } from '../utils/categorizer';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
-import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney, cents, money } from '../utils/budgetFinancialMath';
+import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { toast } from 'sonner';
 
@@ -328,6 +329,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     };
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
+  // A family budget target must not be reported as a personal spending target.
+  const chartDailyLimit = budgetMode === 'family' ? dailyLimit : 0;
+
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
     const year = activeMonth.getFullYear();
@@ -339,7 +343,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       currentMonthTransactions.forEach(t => {
         if (t.type === 'expense') {
           const day = new Date(t.date).getDate();
-          dailyExpensesMap[day] = (dailyExpensesMap[day] || 0) + t.amount;
+          dailyExpensesMap[day] = sumMoney([dailyExpensesMap[day] || 0, t.amount]);
         }
       });
 
@@ -353,7 +357,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         if (d <= currentDay) {
           sum += amt;
           if (amt > max) max = amt;
-          if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
+          if (chartDailyLimit <= 0 || amt <= chartDailyLimit) compliantDays++;
         }
         const fullDateStr = new Date(year, month, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         points.push({
@@ -361,24 +365,24 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           fullLabel: fullDateStr,
           dateObj: new Date(year, month, d),
           amount: d <= currentDay ? amt : 0,
-          limit: dailyLimit,
-          isHigh: dailyLimit > 0 && d <= currentDay ? amt > dailyLimit : false,
+          limit: chartDailyLimit,
+          isHigh: chartDailyLimit > 0 && d <= currentDay ? amt > chartDailyLimit : false,
           isCurrent: isCurrentCalendarMonth && d === currentDay
         });
       }
 
-      const avg = currentDay > 0 ? Math.round(sum / currentDay) : 0;
+      const avg = currentDay > 0 ? money(Math.round(cents(sum) / currentDay)) : 0;
       const complianceRate = currentDay > 0 ? Math.round((compliantDays / currentDay) * 100) : 100;
 
       return {
         points,
         avg,
         max,
-        limit: dailyLimit,
-        limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: 'Расходы и плановые лимиты по дням месяца',
+        limit: chartDailyLimit,
+        limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
+        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : 'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: dailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -408,7 +412,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       filteredTransactions.forEach(t => {
         if (t.type === 'expense') {
           const tDateString = new Date(t.date).toDateString();
-          dailyExpensesMap[tDateString] = (dailyExpensesMap[tDateString] || 0) + t.amount;
+          dailyExpensesMap[tDateString] = sumMoney([dailyExpensesMap[tDateString] || 0, t.amount]);
         }
       });
 
@@ -423,7 +427,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           sum += amt;
           if (amt > max) max = amt;
           passedDaysCount++;
-          if (dailyLimit <= 0 || amt <= dailyLimit) compliantDays++;
+          if (chartDailyLimit <= 0 || amt <= chartDailyLimit) compliantDays++;
         }
 
         const fullDateStr = w.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
@@ -432,13 +436,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           fullLabel: `${w.dayName}, ${fullDateStr}`,
           dateObj: w.date,
           amount: w.isPassedOrToday ? amt : 0,
-          limit: dailyLimit,
-          isHigh: dailyLimit > 0 && w.isPassedOrToday ? amt > dailyLimit : false,
+          limit: chartDailyLimit,
+          isHigh: chartDailyLimit > 0 && w.isPassedOrToday ? amt > chartDailyLimit : false,
           isCurrent: w.isCurrent
         };
       });
 
-      const avg = passedDaysCount > 0 ? Math.round(sum / passedDaysCount) : 0;
+      const avg = passedDaysCount > 0 ? money(Math.round(cents(sum) / passedDaysCount)) : 0;
       const complianceRate = passedDaysCount > 0 ? Math.round((compliantDays / passedDaysCount) * 100) : 100;
       const weekStartLabel = `${weekDays[0].dayNumber} ${weekDays[0].monthShort}`;
       const weekEndLabel = `${weekDays[6].dayNumber} ${weekDays[6].monthShort}`;
@@ -447,11 +451,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         points,
         avg,
         max,
-        limit: dailyLimit,
-        limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
+        limit: chartDailyLimit,
+        limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: dailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -464,12 +468,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         const d = new Date(t.date);
         if (d.getFullYear() === year) {
           const m = d.getMonth();
-          monthlyExpensesMap[m] = (monthlyExpensesMap[m] || 0) + t.amount;
+          monthlyExpensesMap[m] = sumMoney([monthlyExpensesMap[m] || 0, t.amount]);
         }
       }
     });
 
-    const monthlyLimit = settings.targetMonthlyBudget || (dailyLimit > 0 ? dailyLimit * 30 : 0);
+    const monthlyLimit = budgetMode === 'family' ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -495,7 +499,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     });
 
     const passedMonthsCount = currentM >= 0 ? currentM + 1 : 0;
-    const avg = passedMonthsCount > 0 ? Math.round(sum / passedMonthsCount) : 0;
+    const avg = passedMonthsCount > 0 ? money(Math.round(cents(sum) / passedMonthsCount)) : 0;
     const complianceRate = passedMonthsCount > 0 ? Math.round((compliantMonths / passedMonthsCount) * 100) : 100;
 
     return {
@@ -506,63 +510,28 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, realToday, isCurrentCalendarMonth]);
 
-  // Category Breakdown (Top 4 Categories in Terra palette)
+  // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
-    const expenses = currentMonthTransactions.filter(t => t.type === 'expense');
-    const total = expenses.reduce((acc, t) => acc + t.amount, 0);
-
-    const grouped = expenses.reduce((acc, t) => {
-      const cat = categories.find(c => c.id === t.category);
-      const effectiveCatId = cat?.parentId || t.category;
-      acc[effectiveCatId] = (acc[effectiveCatId] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const paletteColors = [
-      { color: '#B25E41', barBg: 'bg-[#B25E41]' }, // clay
-      { color: '#C48C3B', barBg: 'bg-[#C48C3B]' }, // warm-amber
-      { color: '#4A7C59', barBg: 'bg-[#4A7C59]' }, // primary / forest
-      { color: '#50756C', barBg: 'bg-[#50756C]' }, // slate-pine
-    ];
-
-    const sorted = Object.entries(grouped)
-      .filter(([_, amount]) => amount > 0)
-      .map(([catId, amount]) => {
-        const cat = categories.find(c => c.id === catId);
-        const percent = total > 0 ? Math.round((amount / total) * 100) : 0;
-        const color = cat?.color || '#4A7C59';
-        return {
-          id: catId,
-          name: cat?.label || 'Другое',
-          amount,
-          percent,
-          color,
-          icon: cat?.icon
-        };
-      })
-      .sort((a, b) => b.amount - a.amount);
-
-    // Fallback if no expenses recorded yet
-    const fallbackList = [
-      { id: 'food', name: 'Продукты', amount: 0, percent: 0, color: '#4A7C59', icon: 'ShoppingBasket' },
-      { id: 'restaurants', name: 'Кафе и рестораны', amount: 0, percent: 0, color: '#E07A5F', icon: 'Utensils' },
-      { id: 'auto', name: 'Транспорт', amount: 0, percent: 0, color: '#457B9D', icon: 'Bus' },
-      { id: 'shopping', name: 'Шоппинг', amount: 0, percent: 0, color: '#D4A373', icon: 'ShoppingBag' }
-    ];
-
-    const finalItems = sorted.length > 0 ? sorted : fallbackList;
-
-    return {
-      total,
-      items: finalItems.map((item) => ({
-        ...item,
-        style: { color: item.color, barBg: item.color }
-      }))
-    };
+    const grouped = buildBudgetCategoryBreakdown(currentMonthTransactions, categories);
+    const total = sumMoney(grouped.map(category => category.sum));
+    const items = grouped.map(category => {
+      const original = categories.find(item=>item.id===category.id);
+      const color = category.color || '#4A7C59';
+      return {
+        id: category.id,
+        name: category.label,
+        amount: category.sum,
+        percent: total > 0 ? Math.round((category.sum / total) * 100) : 0,
+        color,
+        icon: original?.icon,
+        style: { color, barBg: color }
+      };
+    });
+    return { total, items };
   }, [currentMonthTransactions, categories]);
 
   // Shopping Items (Active top 4)

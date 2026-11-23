@@ -29,3 +29,14 @@ test('mobile review provides visible focus, non-clipped descriptions and reachab
  assert.match(source,/focus-visible:ring-2/);
  assert.match(source,/safe-area-inset-bottom/);
 });
+
+test('iteration 67: ignoring a group hides it after persistence confirms',()=>{
+ assert.match(source,/await onIgnore\(pairs\)/);
+ assert.match(source,/setLocallyIgnoredPairs\(previous => new Set\(\[\.\.\.previous, \.\.\.pairs\]\)\)/);
+ assert.match(source,/!locallyIgnoredPairs\.has\(pairKey\)/);
+});
+test('iteration 67: mistaken duplicate selection can be cleared without deleting anything',()=>{
+ assert.match(source,/Снять выбор/);
+ assert.match(source,/setSelectedToDelete\(new Set\(\)\)/);
+ assert.match(source,/if \(!isConfirmingDelete\)/);
+});

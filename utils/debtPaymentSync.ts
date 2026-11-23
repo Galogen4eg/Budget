@@ -1,4 +1,4 @@
-import { Debt, MandatoryExpense, Transaction, AppSettings } from '../types';
+import type { Debt, MandatoryExpense, Transaction, AppSettings } from '../types';
 
 /** Обязательство считается закрытым только при 100% суммы. */
 export const PAYMENT_MATCH_THRESHOLD = 1;

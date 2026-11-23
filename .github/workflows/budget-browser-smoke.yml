@@ -3,22 +3,30 @@ name: Budget browser smoke
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'tests/budgetBrowserSmoke.mjs'
-      - '.github/workflows/budget-browser-smoke.yml'
+  push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: budget-browser-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   chromium-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc --noEmit
       - name: Build Vite app
         run: npm run build
       - name: Install Chromium
@@ -27,7 +35,7 @@ jobs:
         run: node tests/budgetBrowserSmoke.mjs
       - name: Upload screenshots when available
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: budget-browser-screenshots
           path: artifacts/budget-browser/

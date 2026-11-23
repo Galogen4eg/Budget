@@ -10,6 +10,8 @@ const shopping=read('ShoppingListMobile.tsx');
 const services=read('ServicesHub.tsx');
 const chat=read('FamilyChat.tsx');
 const mobileHeader=read('TerraMobileHeader.tsx');
+const agenda=read('FamilyAgendaPanel.tsx');
+const plansDesktop=read('FamilyPlansDesktop.tsx');
 
 test('shared Terra tokens define stable spacing, nonshrinking controls and calm surfaces',()=>{
  assert.match(token,/overflow-x-auto/);
@@ -45,4 +47,11 @@ test('chat and shared mobile header use consistent page hierarchy and controls',
  assert.match(chat,/rounded-none md:rounded-2xl/);
  assert.match(mobileHeader,/PAGE_HEADING/);
  assert.match(mobileHeader,/w-11 h-11/);
+});
+
+test('calendar agenda and desktop view controls use nonshrinking tokens',()=>{
+ assert.match(agenda,/FILTER_RAIL/);
+ assert.match(agenda,/FILTER_CHIP/);
+ assert.match(plansDesktop,/aria-label="Вид календаря"/);
+ assert.match(plansDesktop,/FILTER_CHIP/);
 });

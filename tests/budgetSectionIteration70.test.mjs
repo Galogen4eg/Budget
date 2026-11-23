@@ -75,3 +75,12 @@ test('iteration 70: guarded full import and duplicates are retained',()=>{
   assert.ok(app.includes('assertImportBatchReady(itemsToImport, categories, importMemberId)'));
   assert.ok(duplicates.includes('Снять выбор'));
 });
+
+test('iteration 70: quick add writes the selected expense category to the ledger',()=>{
+  const budget=read('../components/TerraBudget.tsx');
+  const app=read('../App.tsx');
+  assert.ok(budget.includes('id="budget-quick-category"'));
+  assert.ok(budget.includes("quickCategoryId, onQuickAddTransaction"));
+  assert.ok(app.includes('category: categoryId,'));
+  assert.ok(app.includes("categoryId !== 'other'"));
+});

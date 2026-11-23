@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { connectFirestoreEmulator, terminate, doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { saveTransactionWithGoal, deleteTransactionWithGoal, saveAppSettingsPatch } from '../utils/db';
+import { saveTransactionWithGoal, deleteTransactionWithGoal, saveAppSettingsPatch, updateItem } from '../utils/db';
 import { monthlyMoneyTotals } from '../utils/budgetFinancialMath';
 import type { Transaction, SavingsGoal } from '../types';
 
@@ -105,4 +105,22 @@ test('Firestore emulator: mandatory payment create/edit/delete and manual flags 
   saved=(await getDoc(settingsRef)).data()!;
   assert.deepEqual(saved.mandatoryExpenses,[]);
   assert.deepEqual(saved.manualPaidExpenses['2026-11'],[]);
+});
+
+test('Firestore emulator: linked debt can be marked paid and detached without losing the debt balance', async () => {
+  const family=createFamily();
+  const ref=doc(db,'families',family,'debts','loan-1');
+  await setDoc(ref,{id:'loan-1',name:'Кредит',currentBalance:2500,paidThisMonth:false});
+  await updateItem(family,'debts','loan-1',{linkedExpenseId:'bill-1',paidThisMonth:true});
+  let saved=(await getDoc(ref)).data()!;
+  assert.equal(saved.linkedExpenseId,'bill-1');
+  assert.equal(saved.paidThisMonth,true);
+  assert.equal(saved.currentBalance,2500);
+  await updateItem(family,'debts','loan-1',{linkedExpenseId:null,paidThisMonth:false});
+  saved=(await getDoc(ref)).data()!;
+  assert.equal(saved.linkedExpenseId,null);
+  assert.equal(saved.paidThisMonth,false);
+  assert.equal(saved.currentBalance,2500);
+  await assert.rejects(updateItem(family,'debts','missing-debt',{paidThisMonth:true}));
+  assert.equal((await getDoc(doc(db,'families',family,'debts','missing-debt'))).exists(),false);
 });

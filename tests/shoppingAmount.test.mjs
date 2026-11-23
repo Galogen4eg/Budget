@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextShoppingAmount } from '../utils/shoppingAmount.ts';
+import { nextShoppingAmount, shoppingQuantityStep } from '../utils/shoppingAmount.ts';
 
 test('adds quantities in tenths without floating drift', () => {
   assert.equal(nextShoppingAmount('1,2', 0.3, 1), '1.5');
@@ -18,4 +18,19 @@ test('invalid persisted amount defaults to one', () => {
 
 test('refuses non-finite deltas', () => {
   assert.throws(() => nextShoppingAmount('1', Number.NaN, 1));
+});
+
+test('iteration 75: kilograms and litres use 0.5, pieces and packages use 1 everywhere',()=>{
+ for(const unit of ['кг','л']) {
+  const step=shoppingQuantityStep(unit);
+  assert.equal(step,0.5);
+  assert.equal(nextShoppingAmount('1', -step, step),'0.5');
+  assert.equal(nextShoppingAmount('1', step, step),'1.5');
+ }
+ for(const unit of ['шт','уп','г','бут',undefined]){
+  const step=shoppingQuantityStep(unit);
+  assert.equal(step,1);
+  assert.equal(nextShoppingAmount('1',-step,step),'1');
+  assert.equal(nextShoppingAmount('1',step,step),'2');
+ }
 });

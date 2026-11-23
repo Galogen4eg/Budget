@@ -472,10 +472,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className={`flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                 safeDailyLimit > 0
                   ? 'bg-[#4A7C59]/10 text-[#4A7C59] dark:bg-green-950/40 dark:text-green-400'
-                  : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                  : 'bg-[#EAE6DD] text-[#6B6358] dark:bg-white/10 dark:text-gray-300'
               }`}>
                 <Sprout size={15} />
-                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Нет остатка'}</span>
               </div>
             </div>
 

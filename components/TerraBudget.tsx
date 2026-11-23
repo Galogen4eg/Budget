@@ -451,7 +451,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   : 'bg-[#EAE6DD] text-[#6B6358] dark:bg-white/10 dark:text-gray-300'
               }`}>
                 <Sprout size={15} />
-                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'В темпе' : 'Нет остатка'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'Рассчитан' : 'Нет остатка'}</span>
               </div>
             </div>
 
@@ -1032,7 +1032,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
-                Дневной лимит
+                Семейный ориентир в день
               </span>
             </div>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
@@ -1055,7 +1055,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Рекомендация ритма:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'В темпе' : 'Лимит 0 ₽'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
             </span>
           </div>
         </div>
@@ -1341,7 +1341,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${selectedDayNet.toLocaleString('ru-RU')} ₽`}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-light dark:bg-green-950/40 text-primary dark:text-green-400">
-                  Баланс дня
+                  Результат выбранного дня
                 </span>
                 <button 
                   onClick={() => setIsDayModalOpen(true)}

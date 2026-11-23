@@ -1591,10 +1591,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   return (
                     <div 
                       key={expense.id}
-                      onClick={() => onEditMandatoryExpense?.(expense)}
-                      className="flex items-center justify-between p-2.5 rounded-xl border border-surface-border dark:border-white/5 hover:border-primary/40 bg-[#FAF9F6] dark:bg-[#252528] transition cursor-pointer group"
+                      className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl border border-surface-border dark:border-white/5 hover:border-primary/40 bg-[#FAF9F6] dark:bg-[#252528] transition group"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <button type="button"
+                        onClick={() => onEditMandatoryExpense?.(expense)}
+                        aria-label={`Редактировать обязательный платёж: ${expense.name}`}
+                        className="min-h-[44px] flex min-w-0 flex-1 items-center gap-2.5 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         <div className={`w-8 h-8 rounded-lg border font-bold text-xs flex items-center justify-center shrink-0 ${
                           isDebt 
                             ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400' 
@@ -1625,9 +1627,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                             {expense.remind ? 'С напоминанием' : 'Ежемесячно'}
                           </span>
                         </div>
-                      </div>
+                      </button>
 
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center justify-end gap-2.5">
                         <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums">
                           {settings.privacyMode ? '•••' : `${formatBudgetMoney(expense.amount)} ₽`}
                         </span>
@@ -1636,20 +1638,22 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                             {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
                           </span>
                         )}
-                        {onToggleMandatoryPaid && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onToggleMandatoryPaid(expense.id); }}
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-xs cursor-pointer transition-all active:scale-95 ${
-                              isPaid 
-                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300 dark:bg-green-950/40 dark:text-green-400' 
+                        {isPaid && !paymentState?.isManuallyPaid ? (
+                          <span className="text-xs font-semibold text-[#4A7C59] dark:text-green-400">
+                            Оплачено операцией
+                          </span>
+                        ) : onToggleMandatoryPaid ? (
+                          <button type="button"
+                            onClick={() => void onToggleMandatoryPaid(expense.id)}
+                            aria-label={paymentState?.isManuallyPaid ? 'Снять ручную отметку оплаты' : 'Отметить платёж оплаченным вручную'}
+                            className={`min-h-[44px] px-3 text-xs font-semibold rounded-xl transition-colors ${
+                              paymentState?.isManuallyPaid
+                                ? 'text-emerald-800 bg-emerald-100 dark:bg-green-950/40'
                                 : 'text-white bg-primary hover:bg-primary-dark'
-                            }`}
-                            type="button"
-                          >
-                            {isPaid ? 'Оплачено ✓' : 'Оплатить'}
+                            }`}>
+                            {paymentState?.isManuallyPaid ? 'Снять отметку' : 'Отметить оплаченным'}
                           </button>
-                        )}
-                      </div>
+                        ) : null}                      </div>
                     </div>
                   );
                 })

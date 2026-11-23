@@ -48,3 +48,9 @@ test('iteration 68: transaction editor rejects malformed numeric text and rounds
  assert.match(src,/Number\.isFinite\(finalAmount\)/);
  assert.match(src,/finalAmount=Math\.round\(finalAmount\*100\)\/100/);
 });
+
+test('iteration 68: mobile day operations have labeled keyboard-accessible controls',()=>{
+ const source=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
+ assert.match(source,/aria-label=\{\x60Редактировать операцию: \$\{displayTitle\}\x60\}/);
+ assert.match(source,/min-h-\[48px\] w-full flex items-center justify-between p-2\.5 text-left/);
+});

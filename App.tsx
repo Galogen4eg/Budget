@@ -1049,13 +1049,17 @@ export default function App() {
                         setSelectedMandatoryExpense(expense);
                         setIsMandatoryModalOpen(true);
                     }}
-                    onQuickAddTransaction={async (title, amount, date, memberId) => {
+                    onQuickAddTransaction={async (title, amount, date, memberId, categoryId) => {
                         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                         try {
+                            const selectedCategory = categories.find(category => category.id === categoryId);
+                            if (categoryId !== 'other' && (!selectedCategory || selectedCategory.transactionType === 'income')) {
+                                throw new Error('Выбранная категория недоступна для расходов');
+                            }
                             await handleTransactionSubmit({
                                 amount,
                                 type: 'expense',
-                                category: 'other',
+                                category: categoryId,
                                 memberId,
                                 note: title,
                                 date: dateStr

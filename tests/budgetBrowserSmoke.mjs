@@ -110,7 +110,7 @@ try{
       assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
       await expandDay.click();
       await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
-      const closeDay=page.getByRole('button',{name:'Закрыть',exact:true}).filter({visible:true}).last();
+      const closeDay=page.locator('button[title="Закрыть"]').filter({visible:true}).last();
       const closeBounds=await closeDay.boundingBox();
       assert.ok(closeBounds && closeBounds.width>=44 && closeBounds.height>=44,
         '1920: undersized day details close action');

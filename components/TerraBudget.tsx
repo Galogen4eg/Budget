@@ -1568,7 +1568,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               ) : (
                 mandatoryExpenses.map(expense => {
                   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                  const isPaid = (settings.manualPaidExpenses?.[currentMonthKey] || []).includes(expense.id);
+                  const isPaid = checkMandatoryPaid(expense);
                   const isDebt = expense.expenseType === 'debt' || Boolean(expense.linkedDebtId);
 
                   return (

@@ -272,8 +272,7 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
             return (
               <div 
                 key={expense.id} 
-                onClick={() => onEdit && onEdit(expense)} 
-                className={`relative flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer group ${
+                className={`relative flex items-center justify-between gap-2 p-3 rounded-2xl border transition-all group ${
                   expense.isPaid 
                     ? 'bg-[#FAF8F5]/60 dark:bg-[#252528]/40 border-transparent opacity-75 hover:opacity-100' 
                     : expense.isDebt
@@ -297,16 +296,19 @@ export const MandatoryExpensesList: React.FC<MandatoryExpensesListProps> = ({
                             ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/40 text-[#8C3A3A] dark:text-rose-400 hover:border-[#4A7C59]'
                             : 'bg-[#FAF8F5] dark:bg-[#2C2C2E] border-surface-border dark:border-white/10 text-graphite-muted hover:border-[#4A7C59] hover:text-[#4A7C59]'
                     }`}
-                    title={expense.isPaid ? "Отметить как неоплаченное" : "Отметить оплаченным"}
+                    title={expense.isManuallyPaid ? "Снять ручную отметку" : expense.isAutoPaid ? "Закрыто операцией" : "Отметить вручную"}
                   >
                     {expense.isPaid ? <Check size={16} strokeWidth={2.5} /> : <span className="text-xs font-headline font-bold">{expense.day}</span>}
                   </button>
 
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-xs font-bold truncate ${expense.isPaid ? 'text-gray-400 line-through' : 'text-graphite dark:text-white'}`}>
-                        {expense.name || (expense as any).title || 'Обязательный платеж'}
-                      </span>
+                      <button type="button" disabled={!onEdit}
+                        onClick={() => onEdit?.(expense)}
+                        aria-label={`Редактировать обязательный платёж: ${expense.name}`}
+                        className={`min-h-[44px] inline-flex items-center text-left text-xs font-bold truncate rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${expense.isPaid ? 'text-gray-400 line-through' : 'text-graphite dark:text-white'}`}>
+                        {expense.name || (expense as any).title || 'Обязательный платёж'}
+                      </button>
 
                       {/* Бейдж типа: Долг / Бытовой */}
                       {expense.isDebt ? (

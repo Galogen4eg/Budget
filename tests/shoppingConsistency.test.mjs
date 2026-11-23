@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeOrRestoreShoppingItems } from '../utils/shoppingManager.ts';
+import { mergeOrRestoreShoppingItems, applyCommittedShoppingChanges } from '../utils/shoppingManager.ts';
 
 const item = (id, title, amount, unit, completed=false) => ({
   id, title, amount, unit, completed, memberId:'person-a', category:'grocery', priority:'medium'
@@ -64,4 +64,20 @@ test('iteration 75: restoring a previously purchased item resets old completion 
  assert.equal(result.updatedList[0].completed,false);
  assert.equal(result.updatedList[0].completedAt,null);
  assert.equal(result.itemsToUpdateInDb[0].completedAt,null);
+});
+
+test('iteration 76: local merge preserves other member items received from Firestore during an async save',()=>{
+ const stale=[item('a','Молоко','1','л')];
+ const latest=[...stale,item('b','Хлеб','2','шт')];
+ const update={...stale[0],amount:'3'};
+ const merged=applyCommittedShoppingChanges(latest,[update],[item('c','Чай','1','уп')]);
+ assert.deepEqual(merged.map(x=>x.id),['c','a','b']);
+ assert.equal(merged.find(x=>x.id==='a').amount,'3');
+ assert.equal(merged.find(x=>x.id==='b').amount,'2');
+});
+test('iteration 76: existing Firestore item is not duplicated after an add response',()=>{
+ const existing=[item('x','Чай','2','уп')];
+ const merged=applyCommittedShoppingChanges(existing,[],[item('x','Чай','1','уп')]);
+ assert.equal(merged.length,1);
+ assert.equal(merged[0].amount,'2');
 });

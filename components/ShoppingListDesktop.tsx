@@ -43,7 +43,7 @@ import { detectProductCategory } from '../utils/categorizer';
 import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLookup';
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
-import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, normalizeProductTitle } from '../utils/shoppingManager';
+import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges, normalizeProductTitle } from '../utils/shoppingManager';
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
@@ -505,7 +505,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
       setQuickInputText('');
@@ -547,7 +547,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     try {
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       recordCommittedShoppingEvents(purchaseEvents);
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     } catch (error) { toast.error('Не удалось добавить покупку'); }
@@ -601,7 +601,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
         recordCommittedShoppingEvents(purchaseEvents);
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     }
@@ -770,7 +770,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         recordCommittedShoppingEvents(purchaseEvents);
       }
 
-      setItems(updatedList);
+      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setFrequentTrigger(prev => prev + 1);
 
       toast.success(summaryMessage);

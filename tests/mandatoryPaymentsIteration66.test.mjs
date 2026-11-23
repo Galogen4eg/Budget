@@ -77,10 +77,11 @@ test('iteration 66: selected month and linked debt persistence follow the settin
   const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
   assert.match(modal,/selectedMonth\.getFullYear\(\)/);
   assert.match(app,/selectedMonth=\{currentMonth\}/);
-  assert.match(app,/await updateSettings\(\{\s*mandatoryExpenses: updated,\s*manualPaidExpenses:/);
-  assert.match(app,/await syncLinkedMandatoryDebt\(/);
+  assert.match(app,/await updateMandatoryPaymentBundle\(\{/);
+  assert.doesNotMatch(app,/syncLinkedMandatoryDebt/);
   assert.match(app,/onAddMandatoryExpense=\{\(\) =>/);
-  assert.match(app,/await updateSettings\(\{manualPaidExpenses:/);
+  const provider=readFileSync(new URL('../contexts/DataContext.tsx',import.meta.url),'utf8');
+  assert.match(provider,/await commitMandatoryPaymentBundle\(/);
 });
 
 test('iteration 66: detailed mandatory list uses same paid allocation as family reserve',()=>{
@@ -88,5 +89,5 @@ test('iteration 66: detailed mandatory list uses same paid allocation as family 
   assert.match(source,/const isPaid = status\.isPaid/);
   assert.doesNotMatch(source,/PAYMENT_MATCH_THRESHOLD/);
   assert.match(source,/const itemPaid = Math\.min\(e\.paidAmount, e\.amount\)/);
-  assert.match(source,/await updateSettings\(\{manualPaidExpenses:/);
+  assert.match(source,/await updateMandatoryPaymentBundle\(\{/);
 });

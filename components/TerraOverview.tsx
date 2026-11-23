@@ -381,7 +381,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: 'Расходы и плановые лимиты по дням месяца',
         complianceRate,
-        complianceText: `Лимит на день соблюдён в ${complianceRate}% дней`
+        complianceText: dailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : 'Лимит на день не задан'
       };
     }
 
@@ -454,7 +454,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: dailyLimit > 0 ? `Лимит ${dailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: `Дневной лимит соблюдён в ${complianceRate}% дней недели`
+        complianceText: dailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : 'Лимит на день не задан'
       };
     }
 
@@ -509,7 +509,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: `Месячный бюджет выдержан в ${complianceRate}% месяцев`
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : 'Месячный лимит не задан'
     };
   }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, dailyLimit, chartScale, settings.targetMonthlyBudget, realToday, isCurrentCalendarMonth]);
 

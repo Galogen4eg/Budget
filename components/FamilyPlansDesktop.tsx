@@ -370,7 +370,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             })}
 
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
-            <div className="flex items-center bg-[#EBE5DB] dark:bg-white/10 p-0.5 rounded-full text-xs font-medium ml-1">
+            <div role="group" aria-label="Вид календаря" className="flex flex-none shrink-0 items-center gap-1">
               <button 
                 onClick={() => {
                   setViewMode('month');
@@ -378,10 +378,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
                   setSelectedDate(now);
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'month' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Месяц
@@ -391,10 +391,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setViewMode('week');
                   resetToCurrentWeek();
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'week' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Неделя
@@ -404,10 +404,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   setViewMode('list');
                   setListTab('upcoming');
                 }}
-                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'list' 
-                    ? 'bg-white dark:bg-[#2C2C2E] shadow-xs text-stone-900 dark:text-white font-bold' 
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    ? FILTER_CHIP_ACTIVE 
+                    : FILTER_CHIP_IDLE
                 }`}
               >
                 Расписание
@@ -417,7 +417,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Голосовой ввод */}
             <button 
               onClick={startListening} 
-              className={`p-2 rounded-full transition-all cursor-pointer ${
+              aria-label="Голосовой ввод события"
+              className={`w-11 h-11 flex flex-none items-center justify-center rounded-xl transition-colors cursor-pointer ${
                 isListening 
                   ? 'bg-red-500 text-white animate-pulse' 
                   : 'bg-[#EBE5DB] dark:bg-white/10 hover:bg-stone-300 text-stone-700 dark:text-stone-300'
@@ -430,7 +431,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Круглая темно-зеленая кнопка Создания */}
             <button 
               onClick={() => onOpenEvent(null, { date: getLocalDateString(selectedDate) })}
-              className="w-9 h-9 rounded-full bg-[#2D5A46] hover:bg-[#234636] active:scale-95 text-white flex items-center justify-center transition shadow-xs cursor-pointer ml-1"
+              aria-label="Добавить событие"
+              className="w-11 h-11 shrink-0 rounded-xl bg-[#2D5A46] hover:bg-[#234636] active:scale-95 text-white flex items-center justify-center transition shadow-xs cursor-pointer ml-1"
               title="Добавить событие"
             >
               <Plus size={18} strokeWidth={2.5} />
@@ -644,7 +646,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'upcoming'
                         ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        : FILTER_CHIP_IDLE
                     }`}
                   >
                     <Sparkles size={14} />
@@ -662,7 +664,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'past'
                         ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        : FILTER_CHIP_IDLE
                     }`}
                   >
                     <History size={14} />

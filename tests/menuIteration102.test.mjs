@@ -30,3 +30,13 @@ test('settings separate budget parameters from history tools without removing ha
  assert.match(app,/navigateMenu=\(id:string\)/);
  assert.doesNotMatch(app,/if\(!visibleTabs.some\(t=>t.id===activeTab\)\)/);
 });
+
+test('controlled settings inputs initiate optimistic updates within the input event',()=>{
+ const source=readFileSync(new URL('../components/SettingsModal.tsx',import.meta.url),'utf8');
+ const handler=source.split('const saveSettingsPatch = useCallback')[1]?.split('const handleUpdateFamilyId')[0];
+ assert.ok(handler);
+ assert.match(handler,/try\s*\{\s*await onUpdate\(patch\)/);
+ assert.match(handler,/void saveSettingsPatch\(\{ \[key\]: value \}\)/);
+ assert.doesNotMatch(handler,/Promise\.resolve\(\)\.then/);
+ assert.match(source,/void saveSettingsPatch\(patch\)/);
+});

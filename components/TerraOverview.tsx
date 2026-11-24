@@ -1225,23 +1225,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
+        <section data-testid="overview-metrics-desktop" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
           {/* Card 1: ОБЩИЙ БАЛАНС */}
-          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-colors relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>{personalOnly?(personalOpeningKnown?'ЛИЧНЫЙ БАЛАНС':'ИТОГ ЛИЧНЫХ ОПЕРАЦИЙ'):'СЕМЕЙНЫЙ БАЛАНС'}</span>
+          <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center text-primary font-semibold text-sm">
+                <span>{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</span>
               </div>
-              <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
-                {personalOnly?'Личный':'Общий'}
-              </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
+              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
                 {formatAmount(sharedLedger)} <span className="text-2xl font-light text-primary">₽</span>
               </span>
             </div>
-            <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
+            <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-graphite-muted dark:text-gray-400">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
                 {lastMonthComparison.isPositive === true ? (
                   <TrendingDown size={14} className="mr-0.5" />
@@ -1250,24 +1247,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 ) : null}
                 {lastMonthComparison.text}
               </span>
-              <span className="text-[11px]">расходы к прошлому месяцу</span>
+              <span className="text-xs">расходы к прошлому месяцу</span>
             </div>
           </div>
 
-          {/* Card 2: НА ДЕНЬ */}
-          <div className={`bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border shadow-sm flex flex-col justify-between transition-all ${
-            isOverDailyLimit 
-              ? 'border-[#FDBA74] dark:border-[#C2410C]/40 hover:border-[#F97316]' 
-              : 'border-surface-border dark:border-white/5 hover:border-[#CADACF] dark:hover:border-white/15'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+          {/* Card 2: На день */}
+          <div className={`${DASHBOARD_CARD} flex flex-col justify-between ${isOverDailyLimit ? 'ring-1 ring-[#C2410C]/40' : ''}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className={`text-sm font-semibold flex items-center gap-1.5 ${
                 isOverDailyLimit ? 'text-[#C2410C] dark:text-orange-400' : 'text-graphite dark:text-gray-200'
               }`}>
                 <TrendingUp size={14} className={isOverDailyLimit ? 'text-[#C2410C]' : 'text-primary'} />
-                НА ДЕНЬ
+                На день
               </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
                 isOverDailyLimit 
                   ? 'bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] dark:text-orange-400 border-[#FDBA74] dark:border-transparent' 
                   : 'bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 border-[#D5E5D9] dark:border-transparent'
@@ -1276,14 +1269,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#9A3412] dark:text-orange-400' : 'text-graphite dark:text-white'
               }`}>
                 {personalOpeningKnown?formatAmount(dailyLimit):'—'} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
               </span>
             </div>
             <div>
-              <div className="flex justify-between text-[11px] text-graphite-muted dark:text-gray-400 mb-1 font-medium">
+              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
                 <span>Лимит дня</span>
                 <span className="font-mono">{dailyUsagePercent}%</span>
               </div>
@@ -1297,24 +1290,23 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* Card 3: ТРАТЫ СЕГОДНЯ */}
-          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#EDDCD4] dark:hover:border-white/15 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+          <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-graphite dark:text-gray-200 flex items-center gap-1.5">
                 <ArrowDownRight size={14} className="text-clay" />
-                ТРАТЫ
+                Траты сегодня
               </span>
-              <span className="text-[10px] text-graphite-muted dark:text-gray-400">Сегодня</span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
+              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#B25E41]' : 'text-graphite dark:text-white'
               }`}>
                 {formatAmount(spentToday)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
               </span>
             </div>
             <div>
-              <div className="flex justify-between text-[11px] text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span className="whitespace-nowrap">{personalOpeningKnown?`План: до ${formatAmount(dailyLimit)} ₽`:'Начальный остаток не задан'}</span>
+              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
+                <span className="min-w-0 break-words">{personalOpeningKnown?`План: до ${formatAmount(dailyLimit)} ₽`:'Начальный остаток не задан'}</span>
                 {isOverDailyLimit && (
                   <span className="text-xs font-mono font-bold text-clay">+{formatAmount(overLimitDelta)} ₽</span>
                 )}
@@ -1328,29 +1320,29 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
           </div>
 
-          {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
+          {/* Card 4: Семейный резерв */}
           <button type="button"
             onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
             aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
-            className="w-full text-left bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-colors cursor-pointer group"
+            className={`${DASHBOARD_CARD} w-full text-left flex flex-col justify-between hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer group`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-graphite dark:text-gray-200 flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                {personalOnly?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'}
+                {personalOnly?'Личный резерв':'Семейный резерв'}
               </span>
-              <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
+              <span className="text-xs bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%
               </span>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className="text-2xl lg:text-3xl font-headline font-bold text-graphite dark:text-white tracking-tight whitespace-nowrap inline-flex items-baseline gap-1">
+              <span className="text-2xl lg:text-3xl font-headline font-bold text-graphite dark:text-white tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex items-baseline gap-1">
                 {formatAmount(reservedAmount)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
               </span>
             </div>
             <div>
-              <div className="flex justify-between text-[11px] text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span className="whitespace-nowrap">Цель: {formatAmount(targetReserveGoal)} ₽</span>
+              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
+                <span className="min-w-0 break-words">Цель: {formatAmount(targetReserveGoal)} ₽</span>
                 <span className="font-mono text-[#845E20] dark:text-amber-400 font-semibold group-hover:underline">Подробнее →</span>
               </div>
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">

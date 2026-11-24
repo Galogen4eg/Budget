@@ -128,3 +128,19 @@ test('verified email invitation allows only its intended profile and consumes in
  await assertSucceeds(join.commit());
  await assertSucceeds(getDoc(doc(invited,f+'/transactions/a1')));
 });
+
+test('actual shopping library config supports both family members in either budget mode, never outsiders',async()=>{
+ const a=db('u1'),b=db('u2'),out=db('outsider');
+ const path=f+'/config/shoppingLists';
+ const data={templates:[{id:'t',name:'Weekly',items:[]}],history:[]};
+ await assertSucceeds(getDoc(doc(a,path)));
+ await assertSucceeds(setDoc(doc(a,path),data));
+ assert.deepEqual((await assertSucceeds(getDoc(doc(b,path)))).data(),data);
+ await personal();
+ await assertSucceeds(updateDoc(doc(b,path),{history:[{shoppingItemId:'s',title:'Milk'}]}));
+ assert.equal((await assertSucceeds(getDoc(doc(a,path)))).data().history.length,1);
+ await assertFails(getDoc(doc(out,path)));
+ await assertFails(setDoc(doc(out,path),data));
+ await assertFails(updateDoc(doc(a,path),{initialBalance:100}));
+ await assertFails(getDoc(doc(a,f+'/config/unknown')));
+});

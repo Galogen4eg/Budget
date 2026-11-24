@@ -69,6 +69,9 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     currentMonthSpent, totalBalance
   } = useData();
   const { familyId, user } = useAuth();
+  const historyKey='terra_ai_chat_history:'+JSON.stringify([familyId??'local',user?.uid??'demo',householdPersonal?'personal':'family']);
+  const activeScopeRef=useRef(true);
+  useEffect(()=>{activeScopeRef.current=true;return ()=>{activeScopeRef.current=false;};},[]);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,7 +107,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   // Load chat history
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
-      const saved = localStorage.getItem('terra_ai_chat_history');
+      const saved = localStorage.getItem(historyKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -114,7 +117,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     } catch (e) {
       console.warn('Не удалось загрузить историю диалога AI:', e);
     }
-    return [
+    return householdPersonal?[DEFAULT_WELCOME_MESSAGE]:[
       DEFAULT_WELCOME_MESSAGE,
       {
         id: 'welcome_user_init',
@@ -136,11 +139,11 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   // Save history
   useEffect(() => {
     try {
-      localStorage.setItem('terra_ai_chat_history', JSON.stringify(messages.slice(-50)));
+      localStorage.setItem(historyKey, JSON.stringify(messages.slice(-50)));
     } catch (e) {
       console.warn('Не удалось сохранить историю диалога AI:', e);
     }
-  }, [messages]);
+  }, [messages,historyKey]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -311,6 +314,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         activeApiKey
       );
 
+      if(!activeScopeRef.current)return;
       await executeAssistantAction(assistantOutput);
 
       const botMessage: Message = {

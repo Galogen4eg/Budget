@@ -198,8 +198,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Removed isolated savingsRate state
   const [preferredBudgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
-  const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;policy:'family'|'personal'}|null>(null);
-  const policyReady=!familyId||householdPolicy?.familyId===familyId;
+  const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;actorUid:string;policy:'family'|'personal'}|null>(null);
+  const policyReady=!familyId||(householdPolicy?.familyId===familyId&&householdPolicy?.actorUid===user?.uid);
   const householdPersonal=Boolean(familyId&&(!policyReady||householdPolicy?.policy==='personal'));
   const budgetMode=effectiveBudgetMode(householdPersonal?'personal':'family',preferredBudgetMode);
   const linkedMemberId=members.find(m=>m.userId&&m.userId===user?.uid)?.id;
@@ -207,10 +207,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if(!familyId||!user?.uid)return;
     setHouseholdPolicy(null);
     return subscribeToHouseholdBudgetPolicy(familyId,
-      value=>setHouseholdPolicy({familyId,policy:value.policy}),
+      value=>setHouseholdPolicy({familyId,actorUid:user.uid,policy:value.policy}),
       ()=>setHouseholdPolicy(null));
   },[familyId,user?.uid]);
-  const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(settings,linkedMemberId):settings,[householdPersonal,settings,linkedMemberId]);
+  const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(settings,policyReady?linkedMemberId:undefined):settings,[householdPersonal,settings,linkedMemberId,policyReady]);
   const visibleTransactions=useMemo(()=>householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[householdPersonal,transactions,linkedMemberId,policyReady]);
   const visibleGoals=useMemo(()=>householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[householdPersonal,goals,linkedMemberId,policyReady]);
   const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
@@ -235,7 +235,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
-      await updateSettings({ savingsRate: rate });
+      if(familyId&&!policyReady)throw new Error('Режим бюджета ещё не подтверждён');
+      await updateSettings(householdPersonal?{personalSavingsRate:rate}:{savingsRate:rate});
   };
 
   // Persist only modified keys; a stale client must not rewrite unrelated
@@ -269,6 +270,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
     debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
   ) => {
+    if(familyId&&householdPersonal)throw new Error('Изменение обязательных платежей в личном режиме пока недоступно');
     if (familyId && user) {
       await commitMandatoryPaymentBundle(familyId, user.uid, changes, debtChanges);
     }
@@ -676,7 +678,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     filteredTransactions,
     totalBalance,
     currentMonthSpent,
-    savingsRate: settings.savingsRate ?? 10,
+    savingsRate: financialSettings.savingsRate ?? 10,
     setSavingsRate: updateSavingsRate,
     budgetMode, setBudgetMode
   };

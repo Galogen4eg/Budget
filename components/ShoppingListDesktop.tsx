@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { SURFACE_CARD } from './filterUiTokens';
 import {
   Plus,
   ShoppingBag,
@@ -845,17 +846,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         <header className="flex flex-col gap-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-3">
-                <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[var(--terra-ink)] dark:text-white tracking-tight">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="font-headline text-2xl lg:text-3xl font-bold text-[var(--terra-ink)] dark:text-white tracking-tight">
                   Список покупок
                 </h1>
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-400 text-xs font-semibold">
                   {totalItemsCount - completedCount} в списке · {completedCount} куплено
                 </span>
               </div>
-              <p className="text-sm text-[var(--terra-muted)] dark:text-stone-400 font-medium">
-                Общий список покупок в реальном времени
-              </p>
+
             </div>
 
             {/* Action Buttons */}
@@ -870,7 +869,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isScanning}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-ink)] dark:text-stone-200 text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition shadow-xs cursor-pointer"
+                className="min-h-[44px] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-ink)] dark:text-stone-200 text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition  cursor-pointer"
                 title="Распознать штрихкод товара по фото"
               >
                 {isScanning ? <Loader2 size={18} className="animate-spin text-[#705C30]" /> : <ScanLine size={18} className="text-[#705C30]" />}
@@ -879,7 +878,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               <button 
                 onClick={startVoiceRecording}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-xs cursor-pointer border ${
+                className={`min-h-[44px] flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition  cursor-pointer border ${
                   isVoiceListening
                     ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 shadow-rose-200/50 dark:shadow-none'
                     : 'bg-[#EBF4EE] hover:bg-[#DDF0E3] dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 text-[#2A6038] dark:text-emerald-400 border-[#C8E8D0] dark:border-emerald-800/40'
@@ -887,7 +886,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 title="Записать список покупок голосом"
               >
                 {isVoiceListening ? (
-                  <Mic size={18} className="text-rose-500 animate-bounce" />
+                  <Mic size={18} className="text-rose-500 " />
                 ) : (
                   <Mic size={18} className="text-[#2A6038] dark:text-emerald-400" />
                 )}
@@ -897,7 +896,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <button 
                 onClick={handleTelegramSend}
                 disabled={isSendingTelegram}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#edf4ef] hover:bg-[#d8edd9] dark:bg-[#243628] hover:dark:bg-[#2e4733] text-[var(--terra-primary)] dark:text-emerald-400 text-sm font-semibold transition shadow-xs cursor-pointer border border-[#d1dbd1] dark:border-emerald-800/40 active:scale-95"
+                className="min-h-[44px] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#edf4ef] hover:bg-[#d8edd9] dark:bg-[#243628] hover:dark:bg-[#2e4733] text-[var(--terra-primary)] dark:text-emerald-400 text-sm font-semibold transition  cursor-pointer border border-[#d1dbd1] dark:border-emerald-800/40 "
                 title="Отправить актуальный список покупок в семейный Telegram чат"
               >
                 {isSendingTelegram ? <Loader2 size={18} className="animate-spin text-[var(--terra-primary)] dark:text-emerald-400" /> : <Send size={18} className="text-[var(--terra-primary)] dark:text-emerald-400" />}
@@ -906,9 +905,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               <button 
                 onClick={() => openAddModal()}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3D694B] text-white text-sm font-semibold transition shadow-md shadow-[#4A7C59]/25 active:scale-95 cursor-pointer group"
+                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3D694B] text-white text-sm font-semibold transition  cursor-pointer group"
               >
-                <Plus size={19} strokeWidth={2.5} className="transition-transform group-hover:rotate-90" />
+                <Plus size={19} strokeWidth={2.5} className="" />
                 <span>Добавить товар</span>
               </button>
             </div>
@@ -923,12 +922,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Быстрый поиск в списке..."
-                className="w-full pl-9 pr-9 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-xs text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] outline-none focus:ring-1 focus:ring-[#4A7C59] shadow-2xs border border-[#ECE5DB]/60 dark:border-transparent"
+                placeholder="Поиск товаров"
+                aria-label="Поиск по товарам в семейном списке"
+                className="min-h-[44px] w-full pl-9 pr-12 py-2 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-xs text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] outline-none focus:ring-1 focus:ring-[#4A7C59]  border border-[#ECE5DB]/60 dark:border-transparent"
               />
               <button
                 onClick={startVoiceRecording}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] hover:text-[var(--terra-primary)] dark:text-stone-400 dark:hover:text-emerald-400 p-1 rounded-md transition cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[var(--terra-muted)] hover:text-[var(--terra-primary)] dark:text-stone-400 dark:hover:text-emerald-400 p-1 rounded-md transition cursor-pointer"
                 title="Надиктовать список голосом"
               >
                 <Mic size={14} />
@@ -944,17 +944,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="lg:col-span-8 flex flex-col gap-6 w-full min-w-0">
             
             {/* Smart Quick Add Bar (Terra styled) */}
-            <div className="w-full min-w-0 bg-white dark:bg-[var(--terra-surface)] p-3.5 sm:p-4 rounded-2xl border border-[var(--terra-border)] dark:border-white/5 shadow-xs overflow-hidden transition-all">
+            <div className={`${SURFACE_CARD} w-full min-w-0`}>
               <form onSubmit={handleQuickAddSubmit} className="flex flex-col gap-2.5 w-full min-w-0">
                 <div className="flex items-center justify-between gap-3 min-w-0">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300 flex items-center gap-1.5 shrink-0">
-                    <Plus size={14} className="text-[var(--terra-primary)] dark:text-emerald-400 shrink-0" />
+                  <label className="text-sm font-semibold text-[var(--terra-ink)] dark:text-white">
                     <span>Быстрое добавление</span>
-                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 rounded border border-[#D5CFBE] dark:border-stone-700">↵ Enter</kbd>
                   </label>
-                  <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 truncate hidden md:inline min-w-0">
-                    Например: <span className="text-[var(--terra-primary)] dark:text-emerald-400 font-semibold">чипсы 2 шт, молоко 1.5 л, сыр 300г</span>
-                  </span>
+
                 </div>
 
                 <div className="relative flex items-center w-full min-w-0">
@@ -968,14 +964,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         setQuickInputText('');
                       }
                     }}
-                    placeholder="Введите товары (чипсы 2 шт, бананы 1 кг, хлеб)..."
-                    className="w-full min-w-0 bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10 rounded-xl text-xs sm:text-sm font-medium text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] py-2.5 sm:py-3 pl-3.5 sm:pl-4 pr-11 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/40 focus:bg-white dark:focus:bg-[var(--terra-soft)] transition"
+                    placeholder="Например, молоко 1 л"
+                    aria-label="Быстрое добавление товаров"
+                    className="w-full min-w-0 bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10 rounded-xl text-xs sm:text-sm font-medium text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] min-h-[48px] py-2.5 sm:py-3 pl-3.5 sm:pl-4 pr-14 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/40 focus:bg-white dark:focus:bg-[var(--terra-soft)] transition"
                   />
                   <button 
                     type="submit"
                     disabled={!quickInputText.trim() || isSubmittingQuick}
-                    className="absolute right-1.5 sm:right-2 p-1.5 sm:p-2 bg-[#4A7C59] hover:bg-[#3D694B] text-white rounded-lg transition disabled:opacity-40 cursor-pointer shadow-xs active:scale-95 flex items-center justify-center shrink-0"
-                    title="Добавить в список"
+                    className="absolute right-1 min-h-[44px] min-w-[44px] bg-[#4A7C59] hover:bg-[#3D694B] text-white rounded-lg transition disabled:opacity-40 cursor-pointer   flex items-center justify-center shrink-0"
+                    title="Добавить в список" aria-label="Добавить товары в общий список"
                   >
                     <Plus size={16} strokeWidth={2.5} />
                   </button>
@@ -983,14 +980,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 {/* Live Parsed Preview Chips */}
                 {liveParsedQuickItems.length > 0 && (
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap pt-0.5 animate-in fade-in duration-150 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap pt-0.5  min-w-0 overflow-hidden">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 shrink-0">Будет добавлено:</span>
                     {liveParsedQuickItems.map((pi, idx) => {
                       const dept = DEPARTMENTS.find(d => d.id === pi.category) || DEPARTMENTS[DEPARTMENTS.length - 1];
                       return (
                         <div 
                           key={`parsed-quick-${pi.title}-${idx}`}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#EDF4EF] dark:bg-[#203425] text-[#2A6038] dark:text-emerald-300 border border-[#D1DBD1] dark:border-green-800/40 text-xs font-semibold shadow-2xs max-w-full truncate"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#EDF4EF] dark:bg-[#203425] text-[#2A6038] dark:text-emerald-300 border border-[#D1DBD1] dark:border-green-800/40 text-xs font-semibold  max-w-full truncate"
                         >
                           <span className="truncate">{pi.title}</span>
                           <span className="font-mono bg-white/80 dark:bg-black/30 px-1.5 py-0.2 rounded text-[11px] text-[var(--terra-ink)] dark:text-white shrink-0">
@@ -1031,9 +1028,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         <div 
                           key={item.id ? `desk-item-${item.id}` : `desk-item-idx-${dept.id}-${itemIdx}`}
                           onClick={() => openEditModal(item)}
-                          className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[var(--terra-surface)] rounded-2xl shadow-xs hover:shadow-md border border-[var(--terra-border)] dark:border-white/5 transition-all cursor-pointer hover:border-[#C8E8D0]"
+                          className="group relative flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[var(--terra-surface)] rounded-xl border border-[var(--terra-border)] transition-colors cursor-pointer hover:border-primary"
                         >
-                          <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             {/* Custom checkmark */}
                             <label 
                               onClick={(e) => e.stopPropagation()}
@@ -1056,7 +1053,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                 <button type="button"
                                   onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
                                   aria-label={`Редактировать товар: ${item.title}`}
-                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white truncate rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white break-words rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                   {item.title}
                                 </button>
                                 {item.priority === 'high' && (
@@ -1069,7 +1066,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                           </div>
 
                           {/* Stepper & Actions */}
-                          <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap items-center gap-1 shrink-0 max-w-full" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center bg-[var(--terra-soft)] dark:bg-stone-800 rounded-xl px-1.5 py-1">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
@@ -1106,17 +1103,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 </section>
               ))
             ) : (
-              <div className="p-12 rounded-3xl bg-white dark:bg-[var(--terra-surface)] border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
-                <PackageCheck size={40} className="text-[var(--terra-primary)] opacity-70" />
-                <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">Все товары куплены!</h3>
-                <p className="text-xs text-[var(--terra-muted)] max-w-sm">
-                  Список пуст. Вы можете добавить новые продукты вручную или выбрать из частых покупок справа.
-                </p>
+              <div className="p-5 rounded-2xl text-center flex flex-col items-center justify-center gap-3">
+                <h3 className="text-sm font-medium text-[var(--terra-ink)] dark:text-white">{searchQuery.trim() ? 'Активные товары не найдены' : 'Нет активных покупок'}</h3>
                 <button 
                   onClick={() => openAddModal()}
-                  className="mt-2 px-4 py-2 rounded-xl bg-[#4A7C59] text-white text-xs font-bold shadow-xs hover:bg-[#3D694B] transition cursor-pointer"
+                  className="mt-2 px-4 py-2 rounded-xl bg-[#4A7C59] text-white text-xs font-bold  hover:bg-[#3D694B] transition cursor-pointer"
                 >
-                  + Добавить первый товар
+                  Добавить товар
                 </button>
               </div>
             )}
@@ -1124,17 +1117,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             {/* Completed Section (Collapsible Accordion) */}
             {completedItems.length > 0 && (
               <section className="mt-4 bg-[#F5F1EA]/80 dark:bg-stone-900/60 rounded-2xl p-4 flex flex-col gap-3 border border-[var(--terra-border)] dark:border-white/5">
-                <div 
-                  className="flex items-center justify-between cursor-pointer select-none"
-                  onClick={() => setIsPurchasedOpen(prev => !prev)}
-                >
-                  <div className="flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button type="button" aria-expanded={isPurchasedOpen} aria-controls="desktop-completed-shopping-items" onClick={() => setIsPurchasedOpen(prev => !prev)} className="min-h-[44px] flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <ChevronDown size={18} className={`transition-transform duration-200 ${isPurchasedOpen ? 'rotate-180' : ''}`} />
-                    <span className="font-serif font-bold text-sm">Уже куплено в этот раз</span>
+                    <span className="font-headline font-semibold text-sm">Куплено</span>
                     <span className="px-2 py-0.5 rounded-full bg-[var(--terra-soft)] dark:bg-stone-800 text-xs font-bold text-[var(--terra-primary)] dark:text-emerald-400">
                       {completedItems.length}
                     </span>
-                  </div>
+                  </button>
 
                   <button type="button"
                     disabled={isClearingCompleted}
@@ -1159,11 +1149,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 )}
                 {/* Purchased items list */}
                 {isPurchasedOpen && (
-                  <div className="flex flex-col gap-2 pt-2 animate-in fade-in duration-200">
+                  <div id="desktop-completed-shopping-items" className="divide-y divide-[var(--terra-border)] pt-2">
                     {completedItems.map((item, compIdx) => (
                       <div 
                         key={item.id ? `desk-comp-${item.id}` : `desk-comp-idx-${compIdx}`}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-[#1C1C1E]/60 opacity-60 hover:opacity-100 transition border border-[#ECE5DB]/60 dark:border-white/5"
+                        className="flex items-center justify-between px-1 py-2"
                       >
                         <div className="flex items-center gap-3">
                           <button 
@@ -1183,7 +1173,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                           <span>{item.amount || '1'} {item.unit || 'шт'}</span>
                           <button 
                             onClick={(e) => handleDeleteItem(e, item.id)}
-                            className="text-stone-400 hover:text-red-500 p-1 cursor-pointer"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-stone-400 hover:text-red-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                             title="Удалить навсегда"
                           >
                             <Trash2 size={14} />
@@ -1202,17 +1192,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="lg:col-span-4 flex flex-col gap-6 shrink-0">
             
             {/* Quick Add Templates (Dynamic Family Favorites) */}
-            <div className="p-6 rounded-2xl bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/5 shadow-xs flex flex-col gap-4">
+            <div className={`${SURFACE_CARD} flex flex-col gap-3`}>
               <div className="flex items-center justify-between">
                 <span className="font-serif font-bold text-sm text-[var(--terra-ink)] dark:text-white flex items-center gap-1.5">
                   <Star size={16} className="text-[#705C30] fill-[#705C30]" />
-                  Частые покупки семьи
+                  Частые покупки
                 </span>
-                <span className="text-xs text-[#705C30] font-bold">Быстрый +</span>
+
               </div>
-              <p className="text-xs text-[var(--terra-muted)] dark:text-stone-400 leading-relaxed">
-                Формируется на основе купленных, добавленных и возвращенных товаров:
-              </p>
+
 
               <div className="flex flex-wrap gap-2 pt-1">
                 {dynamicFrequentPurchases.map((fav, i) => (
@@ -1220,22 +1208,22 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     key={`fav-chip-${fav.title}-${i}`}
                     onClick={() => handleQuickAddFavorite(fav)}
                     title={`Добавлено/куплено: ${fav.frequencyLabel}. Нажмите для добавления в список`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-700 text-xs font-semibold text-[var(--terra-ink)] dark:text-stone-200 border border-[var(--terra-border)] dark:border-white/5 shadow-2xs transition group cursor-pointer"
+                    className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-700 text-xs font-semibold text-[var(--terra-ink)] dark:text-stone-200 border border-[var(--terra-border)] dark:border-white/5  transition group cursor-pointer"
                   >
                     <span>{fav.title}</span>
                     <span className="text-[10px] text-[#705C30] dark:text-amber-300/80 font-mono bg-[var(--terra-soft)] dark:bg-stone-800 px-1.5 py-0.5 rounded-md">
                       {fav.frequencyLabel}
                     </span>
-                    <Plus size={14} className="text-[var(--terra-primary)] group-hover:scale-125 transition-transform" />
+                    <Plus size={14} className="text-[var(--terra-primary)] " />
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Category Stats Box */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/5 shadow-xs space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] block">
-                Отделы в корзине
+            <div className={`${SURFACE_CARD} space-y-3`}>
+              <span className="text-sm font-semibold text-[var(--terra-ink)] block">
+                Товары по отделам
               </span>
               <div className="space-y-2">
                 {groupedDepartments.map(({ dept, items: dItems }) => (
@@ -1258,7 +1246,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
       {/* Interactive Add/Edit Item Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 ">
           <div className="relative w-full max-w-xl bg-[var(--terra-canvas)] dark:bg-[var(--terra-surface)] rounded-3xl shadow-2xl border border-[var(--terra-border)] dark:border-white/10 overflow-hidden">
             
             {/* Modal Header */}
@@ -1271,15 +1259,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <h3 className="font-serif font-bold text-lg text-[var(--terra-ink)] dark:text-white">
                     {editingItem ? 'Редактировать товар' : 'Добавить в список покупок'}
                   </h3>
-                  <p className="text-xs text-[var(--terra-muted)]">
-                    Автоматическое определение отдела и расчёт количества
-                  </p>
+
                 </div>
               </div>
 
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--terra-muted)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-800 transition cursor-pointer"
+                aria-label="Закрыть редактор товара"
+                className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-[var(--terra-muted)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -1291,7 +1278,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Item Name Input */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
+                  <label className="text-sm font-semibold text-[var(--terra-muted)] dark:text-stone-300">
                     Наименование товара
                   </label>
                   <button
@@ -1399,7 +1386,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Quantity Stepper & Unit Picker */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
+                  <span className="text-sm font-semibold text-[var(--terra-muted)] dark:text-stone-300">
                     Количество
                   </span>
                   <div className="flex items-center bg-white dark:bg-[var(--terra-soft)] rounded-xl p-1 border border-[var(--terra-border)] dark:border-white/5">
@@ -1428,7 +1415,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 {/* Unit Selector Segment */}
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
+                  <span className="text-sm font-semibold text-[var(--terra-muted)] dark:text-stone-300">
                     Единица измерения
                   </span>
                   <div className="flex items-center gap-1 bg-white dark:bg-[var(--terra-soft)] p-1 rounded-xl border border-[var(--terra-border)] dark:border-white/5">
@@ -1451,7 +1438,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               {/* Department selection */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
+                <label className="text-sm font-semibold text-[var(--terra-muted)] dark:text-stone-300">
                   Отдел / Категория
                 </label>
                 <div className="relative">
@@ -1474,7 +1461,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               {/* Urgent Priority Switch */}
               <div className="flex items-center justify-between pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
+                <span className="text-sm font-semibold text-[var(--terra-muted)] dark:text-stone-300">
                   Приоритет
                 </span>
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1501,7 +1488,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               </button>
               <button 
                 onClick={() => handleSaveModal(false)}
-                className="px-5 py-2.5 rounded-xl bg-[#4A7C59] text-white text-sm font-semibold hover:bg-[#3D694B] transition shadow-md shadow-[#4A7C59]/25 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-[#4A7C59] text-white text-sm font-semibold hover:bg-[#3D694B] transition  cursor-pointer"
               >
                 {editingItem ? 'Сохранить изменения' : 'Добавить в список'}
               </button>

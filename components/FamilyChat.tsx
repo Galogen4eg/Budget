@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { subscribeToCollection, addItem } from '../utils/db';
+import { subscribeToCollection, addItem, setChatHeart } from '../utils/db';
 import { triggerHaptic } from '../utils/haptics';
 import { toast } from 'sonner';
+import { isOwnChatMessage, chatMessageTime, shouldFollowChat } from '../utils/familyWorkspace';
 import { useVirtualMessageList, CHAT_VIRTUALIZATION_THRESHOLD } from '../hooks/useVirtualMessageList';
 
 export interface ChatMessage {
@@ -23,6 +24,7 @@ export interface ChatMessage {
   };
   reactions?: Record<string, number>;
   userReacted?: Record<string, boolean>;
+  heartUsers?: string[];
 }
 
 export interface TopicItem {
@@ -40,7 +42,7 @@ const INITIAL_TOPICS: TopicItem[] = [
 
 const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = { general: [] };
 
-export default function FamilyChat() {
+export default function FamilyChat({active=true}:{active?:boolean}) {
   const { user, familyId } = useAuth();
   const { members, settings } = useData();
 
@@ -48,6 +50,15 @@ export default function FamilyChat() {
   const [activeTopicId, setActiveTopicId] = useState<string>('general');
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES_MAP);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const scope=familyId&&user?.uid?`${familyId}:${user.uid}`:null;
+  const [openedScope,setOpenedScope]=useState<string|null>(null);
+  const [loadedScope,setLoadedScope]=useState<string|null>(null);
+  const [loadError,setLoadError]=useState(false);
+  const followChat=useRef(true);
+  const pendingHearts=useRef(new Set<string>());
+  const sendingRef=useRef(false);
+  const [heartBusy,setHeartBusy]=useState<string[]>([]);
+  useEffect(()=>{if(active&&scope)setOpenedScope(scope);},[active,scope]);
   
   // UI states
   const [inputText, setInputText] = useState('');
@@ -64,22 +75,22 @@ export default function FamilyChat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const activeTopic = topics.find(t => t.id === activeTopicId) || topics[0];
-  const currentMessages = messagesMap[activeTopicId] || [];
+  const currentMessages = loadedScope===scope?(messagesMap[activeTopicId] || []):[];
 
   // Auto-scroll to bottom on topic change or message addition
   useEffect(() => {
-    if (messagesContainerRef.current) {
+    if (active&&followChat.current&&messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [activeTopicId, currentMessages.length, mobileView]);
+  }, [active,activeTopicId, currentMessages.length, mobileView]);
 
   // Keep each message in its own topic. Empty snapshots must clear stale messages.
   useEffect(() => {
-    if (!familyId) {
-      setMessagesMap({ general: [] });
-      return;
-    }
+    setMessagesMap({ general: [] });setTopics(INITIAL_TOPICS);setActiveTopicId('general');
+    setLoadedScope(null);setLoadError(false);setInputText('');setSearchQuery('');followChat.current=true;
+    if (!familyId||!scope||openedScope!==scope) return;
     const unsub = subscribeToCollection(familyId, 'chat', (data) => {
+      setLoadedScope(scope);setLoadError(false);
       const grouped: Record<string, ChatMessage[]> = { general: [] };
       if (Array.isArray(data)) {
         for (const message of data as ChatMessage[]) {
@@ -103,13 +114,14 @@ export default function FamilyChat() {
         }));
         return discovered.length ? [...prev, ...discovered] : prev;
       });
-    });
+    },()=>setLoadError(true));
     return () => unsub();
-  }, [familyId]);
+  }, [familyId,scope,openedScope]);
 
   // Topic Switcher
   const handleSelectTopic = (topicId: string) => {
     triggerHaptic('light');
+    followChat.current=true;
     setActiveTopicId(topicId);
     setMobileView('chat');
     setIsSearching(false);
@@ -125,27 +137,28 @@ export default function FamilyChat() {
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text || isSendingMessage) return;
+    if (!text || sendingRef.current) return;
     if (!familyId || !user) {
       toast.error('Для отправки сообщений войдите в семейное пространство');
       return;
     }
 
-    setIsSendingMessage(true);
+    sendingRef.current=true;setIsSendingMessage(true);
     const topicId = activeTopicId;
     const newMsg: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       topicId,
       text,
       userId: user.uid,
-      userName: user.displayName || 'Вы',
+      userName: members.find(m=>m.userId===user.uid)?.name || user.displayName || 'Участник семьи',
       timestamp: Date.now(),
       type: 'text'
     };
     try {
       await addItem(familyId, 'chat', newMsg);
       triggerHaptic('medium');
-      setInputText(prev => prev === text ? '' : prev);
+      followChat.current=true;
+      setInputText(prev => prev.trim() === text ? '' : prev);
       setTopics(prev => prev.map(t => t.id === topicId ? {
         ...t,
         time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
@@ -155,36 +168,19 @@ export default function FamilyChat() {
       console.error('Failed to send chat message:', err);
       toast.error('Сообщение не отправлено. Повторите попытку.');
     } finally {
-      setIsSendingMessage(false);
+      sendingRef.current=false;setIsSendingMessage(false);
     }
   };
 
-  // Toggle Reactions
-  const handleToggleReaction = (msgId: string, emoji: string) => {
-    triggerHaptic('selection');
-    setMessagesMap(prev => {
-      const topicMsgs = prev[activeTopicId] || [];
-      const updated = topicMsgs.map(msg => {
-        if (msg.id === msgId) {
-          const rx = { ...(msg.reactions || {}) };
-          const userRx = { ...(msg.userReacted || {}) };
-          const hasReacted = userRx[emoji];
-
-          if (hasReacted) {
-            rx[emoji] = Math.max(0, (rx[emoji] || 1) - 1);
-            userRx[emoji] = false;
-          } else {
-            rx[emoji] = (rx[emoji] || 0) + 1;
-            userRx[emoji] = true;
-          }
-
-          return { ...msg, reactions: rx, userReacted: userRx };
-        }
-        return msg;
-      });
-
-      return { ...prev, [activeTopicId]: updated };
-    });
+  // Shared, per-account heart reactions. No local-only mutation of message counts.
+  const handleToggleReaction=async(msg:ChatMessage)=>{
+    if(!familyId||!user?.uid||pendingHearts.current.has(msg.id))return;
+    pendingHearts.current.add(msg.id);setHeartBusy(prev=>[...prev,msg.id]);
+    try{
+      await setChatHeart(familyId,msg.id,user.uid,!(msg.heartUsers||[]).includes(user.uid));
+      triggerHaptic('selection');
+    }catch{toast.error('Не удалось сохранить реакцию');}
+    finally{pendingHearts.current.delete(msg.id);setHeartBusy(prev=>prev.filter(id=>id!==msg.id));}
   };
 
   // Deleting a local topic would leave its messages in Firestore.
@@ -202,9 +198,9 @@ export default function FamilyChat() {
     }
   };
 
-  const filteredMessages = currentMessages.filter(msg => {
+  const filteredMessages = (loadedScope===scope?currentMessages:[]).filter(msg => {
     if (!searchQuery.trim()) return true;
-    return msg.text.toLowerCase().includes(searchQuery.toLowerCase().trim());
+    return (msg.text||'').toLowerCase().includes(searchQuery.toLowerCase().trim());
   });
 
   // Dynamic virtualization: activates when exceeding 500 records
@@ -369,16 +365,17 @@ export default function FamilyChat() {
         <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[#121214] overflow-hidden">
           <div 
             ref={messagesContainerRef}
+            onScroll={e=>{const el=e.currentTarget;followChat.current=shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop);}}
             data-testid="chat-messages-scroll-container"
             className="px-4 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-4 min-h-0 custom-scrollbar"
           >
             {/* Date Separator */}
             <div className="flex items-center justify-center my-1">
               <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
-                <span>Сегодня, 24 сентября</span>
+                <span>{searchQuery.trim()?'Результаты поиска':'История сообщений'}</span>
                 {isVirtual && (
                   <span className="text-[10.5px] bg-[#4A7C59]/15 text-[#2D5A3F] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" title="Виртуализация активна: рендерятся только видимые сообщения">
-                    ⚡ {filteredMessages.length} сообщ. (60fps)
+                    {filteredMessages.length} сообщ.
                   </span>
                 )}
               </div>
@@ -392,7 +389,7 @@ export default function FamilyChat() {
               const msg = filteredMessages[index];
               if (!msg) return null;
 
-              const isMe = msg.userName === 'Вы' || msg.userId === user?.uid;
+              const isMe = isOwnChatMessage(msg,user?.uid);
 
               if (msg.type === 'system') {
                 return (
@@ -408,13 +405,13 @@ export default function FamilyChat() {
                 return (
                   <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                      {msg.userName.charAt(0).toUpperCase()}
+                      {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                       <div className="flex items-baseline gap-2 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
                         <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
-                          {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                          {chatMessageTime(msg.timestamp)}
                         </span>
                       </div>
 
@@ -466,35 +463,27 @@ export default function FamilyChat() {
                 return (
                   <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                      {msg.userName.charAt(0).toUpperCase()}
+                      {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <div className="flex items-baseline gap-2 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
                         <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
-                          {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                          {chatMessageTime(msg.timestamp)}
                         </span>
                       </div>
 
-                      <div className="relative bg-surface-container-lowest dark:bg-[#1C1C1E] border border-outline-variant/20 dark:border-white/10 p-3.5 rounded-2xl rounded-tl-sm shadow-[0_3px_14px_rgba(46,50,48,0.04)] text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
+                      <div className="relative bg-surface-container-lowest dark:bg-[#1C1C1E] border border-outline-variant/20 dark:border-white/10 p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
                         {msg.text}
 
-                        {/* Heart Reaction Badge */}
-                        {msg.reactions && msg.reactions['❤️'] > 0 && (
-                          <div 
-                            onClick={() => handleToggleReaction(msg.id, '❤️')}
-                            className={`absolute -bottom-2.5 right-3 rounded-full px-2 py-0.5 shadow-sm flex items-center gap-1 cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
-                              msg.userReacted?.['❤️'] 
-                                ? 'bg-tertiary-fixed/60 border border-tertiary' 
-                                : 'bg-surface-container-lowest dark:bg-[#2C2C2E] border border-outline-variant/30'
-                            }`}
-                          >
-                            <span className="text-xs">❤️</span>
-                            <span className="text-[11px] font-bold text-on-surface-variant dark:text-stone-200">
-                              {msg.reactions['❤️']}
-                            </span>
-                          </div>
-                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <button type="button" aria-label="Реакция сердце" aria-pressed={Boolean(user?.uid&&msg.heartUsers?.includes(user.uid))}
+                            disabled={!user||heartBusy.includes(msg.id)} onClick={()=>void handleToggleReaction(msg)}
+                            className="min-h-[44px] min-w-[44px] rounded-xl px-2 text-xs border border-[#EAE5DB] dark:border-white/10 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary">
+                            ♥ {(msg.heartUsers||[]).length||''}
+                          </button>
+                          {!!msg.reactions?.['❤️']&&<span className="text-xs text-graphite-muted dark:text-gray-400">Старые реакции: {msg.reactions['❤️']}</span>}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -505,14 +494,15 @@ export default function FamilyChat() {
                 <div key={msg.id} className="flex flex-col items-end gap-1 self-end max-w-[88%] ml-auto">
                   <div className="flex items-baseline gap-2 px-1">
                     <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
-                      {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                      {chatMessageTime(msg.timestamp)}
                     </span>
                     <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">Вы</span>
                   </div>
 
-                  <div className="bg-[#2D5A3F] text-white p-3.5 rounded-2xl rounded-tr-sm shadow-[0_3px_14px_rgba(45,90,63,0.18)] text-[14.5px] leading-relaxed font-body font-medium">
+                  <div className="bg-[#2D5A3F] text-white p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tr-sm text-[14.5px] leading-relaxed font-body font-medium">
                     {msg.text}
                   </div>
+                  {!!msg.heartUsers?.length&&<span className="text-xs text-graphite-muted dark:text-gray-400">♥ {msg.heartUsers.length}</span>}
 
                   <div className="flex items-center gap-1 pr-1 text-[11px] text-on-surface-variant dark:text-stone-400 font-body">
                     <span className="material-symbols-outlined text-[15px] text-[#2D5A3F] dark:text-emerald-400">done_all</span>
@@ -524,7 +514,7 @@ export default function FamilyChat() {
 
             {filteredMessages.length === 0 && (
               <div className="text-center text-sm text-on-surface-variant dark:text-stone-400 py-8 px-4">
-                Здесь пока нет сообщений. Напишите первое сообщение семье.
+                {loadError?'Не удалось загрузить сообщения. Проверьте подключение.':scope&&loadedScope!==scope?'Загрузка сообщений…':searchQuery.trim()?'Ничего не найдено.':'Здесь пока нет сообщений. Напишите первое сообщение семье.'}
               </div>
             )}
 
@@ -547,7 +537,7 @@ export default function FamilyChat() {
               type="button"
               aria-label="Прикрепить чек или файл"
               onClick={() => fileInputRef.current?.click()}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-surface-container-low dark:bg-white/5 hover:bg-surface-container flex items-center justify-center text-on-surface-variant dark:text-stone-300 transition-colors shrink-0 cursor-pointer"
+              className="w-11 h-11 rounded-xl bg-surface-container-low dark:bg-white/5 hover:bg-surface-container flex items-center justify-center text-on-surface-variant dark:text-stone-300 transition-colors shrink-0 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px] sm:text-[22px]">attach_file</span>
             </button>
@@ -565,8 +555,8 @@ export default function FamilyChat() {
             <button 
               type="submit"
               aria-label="Отправить сообщение"
-              disabled={isSendingMessage || !inputText.trim()}
-              className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl bg-[#2D5A3F] hover:bg-[#244933] text-white font-body font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
+              disabled={isSendingMessage || !inputText.trim() || !familyId || !user}
+              className="h-11 px-3 sm:px-4 rounded-xl bg-[#2D5A3F] hover:bg-[#244933] text-white font-body font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
             >
               <span className="hidden sm:inline text-white">Отправить</span>
               <span className="material-symbols-outlined text-[17px] text-white">send</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
@@ -27,6 +27,8 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   const isValidService = (value: string | null | undefined): value is ServiceType =>
     value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
   const [activeService, setActiveService] = useState<ServiceType>(() => isValidService(initialService) ? initialService : 'menu');
+  const scrollRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(scrollRef.current)scrollRef.current.scrollTop=0;},[activeService]);
   const { 
     financialSettings: settings, 
     debts, setDebts,
@@ -112,7 +114,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       </div>
 
-      <div data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
+      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
             {/* Desktop-only SectionHeaderCard */}
@@ -133,13 +135,13 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
             </div>
 
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4" data-purpose="service-cards-grid">
+            <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <button
                   type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors hover:border-[#4A7C59]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] group cursor-pointer`}
+                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[#4A7C59]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] group cursor-pointer`}
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}

@@ -79,6 +79,8 @@ interface DataContextType {
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   importSourcesReady: boolean;
   settingsReady: boolean;
+  familyCalendarReady: boolean;
+  shoppingReady: boolean;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   aiKnowledge: AIKnowledgeItem[];
@@ -202,6 +204,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loadedSettingsScope,setLoadedSettingsScope]=useState<string|null>(null);
   const [loadedMembersScope,setLoadedMembersScope]=useState<string|null>(null);
+  const [loadedEventsScope,setLoadedEventsScope]=useState<string|null>(null);
+  const [loadedShoppingScope,setLoadedShoppingScope]=useState<string|null>(null);
   const memberScope=familyId&&user?.uid?familyId+':'+user.uid:null;
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
@@ -228,6 +232,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const linkedMemberId=(!familyId||loadedMembersScope===memberScope)?members.find(m=>m.userId&&m.userId===user?.uid)?.id:undefined;
   const settingsScope=memberScope&&policyReady?memberScope+':'+(householdPersonal?'personal':'family'):null;
   const settingsReady=!familyId||Boolean(settingsScope&&loadedSettingsScope===settingsScope);
+  const familyCalendarReady=Boolean(memberScope&&loadedEventsScope===memberScope&&loadedMembersScope===memberScope&&settingsReady);
+  const shoppingReady=!familyId||Boolean(memberScope&&loadedShoppingScope===memberScope);
   const baseSettings=settingsReady?settings:DEFAULT_SETTINGS;
   useEffect(()=>{
     if(!familyId||!user?.uid)return;
@@ -370,6 +376,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setTransactionsReady(false);
     setCatalogReady(false);
+    setLoadedEventsScope(null);setLoadedShoppingScope(null);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
     const cachedRules = !familyId ? localStorage.getItem('local_rules') : null;
     if (cachedRules) {
@@ -465,10 +472,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (data as ShoppingItem[]).forEach(item => {
           if (item && item.id) uniqueMap.set(item.id, item);
         });
-        setShoppingItems(Array.from(uniqueMap.values()));
+        setShoppingItems(Array.from(uniqueMap.values()));setLoadedShoppingScope(memberScope);
       }),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
-      subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
+      subscribeToCollection(familyId, 'events', (data) => {setEvents(data as FamilyEvent[]);setLoadedEventsScope(memberScope);}),
       subscribeToCollection(familyId, 'members', (data) => {
           setMembers(data as FamilyMember[]);
           setLoadedMembersScope(memberScope);
@@ -683,7 +690,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     members, setMembers,
     categories, setCategories,
     importSourcesReady: transactionsReady && catalogReady && settingsReady,
-    settingsReady,
+    settingsReady, familyCalendarReady, shoppingReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose scoped settings

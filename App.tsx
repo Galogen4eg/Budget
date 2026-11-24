@@ -1105,7 +1105,7 @@ export default function App() {
             </div>
 
             <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
-              <FamilyChat />
+              <FamilyChat active={activeTab==='chat'} />
             </div>
 
             <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>

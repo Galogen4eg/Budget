@@ -6,6 +6,7 @@ import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import EventModal from './EventModal';
 import { GoogleGenAI } from "@google/genai";
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence } from '../utils/db';
 import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
@@ -56,6 +57,11 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
   const { familyId, user } = useAuth();
+  const { familyCalendarReady } = useData();
+  const [telegramStatusKey,setTelegramStatusKey]=useState<string|null>(null);
+  const [telegramStatusAttempt,setTelegramStatusAttempt]=useState(0);
+  const [telegramStatusFailed,setTelegramStatusFailed]=useState(false);
+  const telegramScopeRef=useRef<string|null>(null);
   const [remindersEnabled,setRemindersEnabled]=useState(false);
   const [pushEnabled,setPushEnabled]=useState(false);
   const [telegramRemindersEnabled,setTelegramRemindersEnabled]=useState(false);
@@ -149,21 +155,28 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const telegramChatId=settings.telegramChatId?.trim()||'';
   const telegramConfigured=Boolean(settings.telegramBotToken?.trim()&&telegramChatId);
   const telegramKey=telegramReminderKey(familyId||'none',user?.uid||'none',telegramChatId||'none');
+  telegramScopeRef.current=familyId&&user?.uid?telegramKey:null;
   useEffect(()=>{
-    if(!user?.uid||!familyId)return;
+    setTelegramStatusKey(null);setTelegramRemindersEnabled(false);setTelegramStatusFailed(false);
+    if(!user?.uid||!familyId||!familyCalendarReady)return;
     let cancelled=false;
     void getTelegramScheduleStatus().then(status=>{
       if(cancelled)return;
-      setTelegramRemindersEnabled(status.enabled);
+      setTelegramRemindersEnabled(status.enabled);setTelegramStatusKey(telegramKey);
       if(status.enabled)localStorage.setItem(telegramKey,'enabled');
       else localStorage.removeItem(telegramKey);
     }).catch(error=>{
-      if(!cancelled)console.warn('Telegram schedule status unavailable',error);
+      if(!cancelled){setTelegramStatusFailed(true);console.warn('Telegram schedule status unavailable',error);}
     });
     return ()=>{cancelled=true;};
-  },[familyId,user?.uid,telegramKey]);
+  },[familyId,user?.uid,telegramKey,familyCalendarReady,telegramStatusAttempt]);
 
   const toggleTelegramReminders=async()=>{
+    if(!familyCalendarReady||telegramStatusKey!==telegramKey){
+      if(telegramStatusFailed&&familyCalendarReady){setTelegramStatusAttempt(n=>n+1);toast.info('Повторно проверяем статус Telegram.');}
+      else toast.info('Дождитесь загрузки семейных событий и статуса Telegram.');
+      return;
+    }
     if(telegramRemindersEnabled){
       try{
         await disableTelegramSchedule();
@@ -192,13 +205,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   useEffect(()=>{
-    if(!familyId||!user?.uid)return;
+    if(!familyId||!user?.uid||!familyCalendarReady||telegramStatusKey!==telegramKey)return;
     // A second family member can edit shared plans while the first is offline.
     // Send a snapshot only when Firestore data changes; do not poll.
     const timer=window.setTimeout(()=>{
-      telegramPendingRef.current=()=>telegramRemindersEnabled&&telegramConfigured
-        ?updateTelegramSchedule({familyId,events,members,settings})
-        :refreshFamilyTelegramSchedules({familyId,events,members,settings});
+      telegramPendingRef.current=()=>{
+        if(telegramScopeRef.current!==telegramKey)return Promise.resolve();
+        return telegramRemindersEnabled&&telegramConfigured
+          ?updateTelegramSchedule({familyId,events,members,settings})
+          :refreshFamilyTelegramSchedules({familyId,events,members,settings});
+      };
       if(telegramSyncRef.current)return;
       const drain=async()=>{
         telegramSyncRef.current=true;
@@ -214,7 +230,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       void drain();
     },1200);
     return ()=>window.clearTimeout(timer);
-  },[telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,
+  },[familyCalendarReady,telegramStatusKey,telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,
     settings.telegramBotToken,settings.telegramChatId]);
 
   const enableReminders=async()=>{

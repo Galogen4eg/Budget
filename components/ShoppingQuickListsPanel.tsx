@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookMarked, RotateCcw, Plus, Trash2, Loader2, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import type { ShoppingItem, FamilyMember } from '../types';
 import { generateUniqueId, saveShoppingMerge } from '../utils/db';
+import { unseenPurchaseCompletions } from '../utils/familyWorkspace';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
 import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../utils/shoppingManager';
 import { recentRepeatItems, type ListProduct, type SavedShoppingList, type PurchasedProduct } from '../utils/shoppingLists';
@@ -38,9 +40,11 @@ const BUILTIN: Pick<SavedShoppingList,'id'|'name'|'items'>[] = [
 
 export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => {
   const { familyId, user } = useAuth();
+  const { shoppingReady } = useData();
   const [section, setSection] = useState<'templates' | 'history' | null>(null);
   const [templates, setTemplates] = useState<SavedShoppingList[]>([]);
   const [history, setHistory] = useState<PurchasedProduct[]>([]);
+  const [libraryFamily,setLibraryFamily]=useState<string|null>(null);
   const [templateName, setTemplateName] = useState('');
   const [saving, setSaving] = useState(false);
   const captured = useRef(new Set<string>());
@@ -58,11 +62,11 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   useEffect(() => {
     captured.current=new Set<string>();
     setTemplates([]);
-    setHistory([]);
+    setHistory([]);setLibraryFamily(null);
     if (!familyId) return;
     return subscribeShoppingListLibrary(familyId, library => {
       setTemplates(library.templates);
-      setHistory(library.history);
+      setHistory(library.history);setLibraryFamily(familyId);
     }, error => {
       console.error('Shopping list library subscription failed', error);
       toast.error('Не удалось загрузить семейные списки');
@@ -73,12 +77,11 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   // before this feature was available. A transaction deduplicates simultaneous
   // observations from both logged-in family members.
   useEffect(() => {
-    if (!familyId) return;
+    if (!familyId||!shoppingReady||libraryFamily!==familyId) return;
     const pending: ShoppingItem[] = [];
     const keys: string[] = [];
     const capturedForFamily=captured.current;
-    for (const item of items) {
-      if (!item.completed || !item.id) continue;
+    for (const item of unseenPurchaseCompletions(items,history)) {
       const completionKey = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
       if (captured.current.has(completionKey)) continue;
       captured.current.add(completionKey);
@@ -90,7 +93,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
       for(const key of keys)capturedForFamily.delete(key);
       console.error('Failed to save shopping history', error);
     });
-  }, [familyId, items]);
+  }, [familyId, items, history, libraryFamily, shoppingReady]);
 
   const execute = async (work: () => Promise<void>) => {
     if (saving) return;
@@ -183,7 +186,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
               Повторить последние ({recent.length})
             </button>
           </div>
-          {recent.length === 0 && <p className="text-sm text-stone-500">История появится после отметки товаров как купленных.</p>}
+          {recent.length === 0 && <p className="text-sm text-stone-500">{familyId&&libraryFamily!==familyId?'История загружается.':'История появится после отметки товаров как купленных.'}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}

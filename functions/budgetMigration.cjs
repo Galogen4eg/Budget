@@ -102,7 +102,7 @@ function findUnownedFinancialRecords({family,profiles,links,shared}){
      if(ids.includes(row.memberId)||typeof row.id!=='string'||!row.id)continue;
      const title=String(row.title||row.name||row.note||row.category||row.id).slice(0,180);
      const amount=row.amount??row.currentBalance??row.currentAmount;
-     rows.push({kind,id:row.id,owner:typeof row.memberId==='string'?row.memberId:null,title,...(typeof row.date==='string'?{date:row.date}:{}),...(Number.isFinite(amount)?{amount}:{})});
+     rows.push({kind,id:row.id,owner:typeof row.memberId==='string'?row.memberId:null,title,...(typeof (row.date??row.nextPaymentDate)==='string'?{date:row.date??row.nextPaymentDate}:{}),...(Number.isFinite(amount)?{amount}:{})});
    }
  }
  return rows;

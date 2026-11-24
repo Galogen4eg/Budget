@@ -62,3 +62,13 @@ test('migration detects ambiguous or invalid financial records instead of assign
  assert.equal(result.byMember.a.mandatoryExpenses.length,1);
  assert.equal(result.byMember.b.mandatoryExpenses.length,0);
 });
+
+
+test('personal payment document is authoritative and never falls back to shared obligations',()=>{
+ const shared={initialBalance:90000,savingsRate:20,mandatoryExpenses:[{id:'old',memberId:'a'}],manualPaidExpenses:{'2026-11':['old']}};
+ const personal={...shared,personalMandatoryExpenses:[{id:'new',memberId:'a'},{id:'foreign',memberId:'b'}],personalManualPaidExpenses:{'2026-11':['new','foreign']}};
+ assert.deepEqual(projectPersonalFinance(personal,'a').mandatoryExpenses,[personal.personalMandatoryExpenses[0]]);
+ assert.deepEqual(projectPersonalFinance(personal,'a').manualPaidExpenses,{'2026-11':['new']});
+ assert.deepEqual(projectPersonalFinance(shared,'a').mandatoryExpenses,[]);
+ assert.deepEqual(projectPersonalFinance(shared,'a').manualPaidExpenses,{});
+});

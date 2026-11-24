@@ -72,7 +72,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onSelectCategory,
   onOpenSettings
 }) => {
-  const { displayGoals:goals, householdPersonal, personalDisplayOnly, personalOpeningKnown } = useData();
+  const { displayGoals:goals, householdPersonal, personalDisplayOnly, personalOpeningKnown, financialSettings, transactions:allTransactions } = useData();
   const personalOnly=householdPersonal||personalDisplayOnly;
   const { user } = useAuth();
   // Member filter: 'all' or memberId
@@ -161,7 +161,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     savingsRate: settings.savingsRate || 0,
     manualReservedAmount: settings.manualReservedAmount,
     goalSavedAmounts: goals.map(goal=>goal.currentAmount||0),
-  }), [transactions, familyMonthTransactions, mandatoryExpenses, categories,
+    paymentContext:personalDisplayOnly?{bills:financialSettings.mandatoryExpenses,transactions:allTransactions.filter(tx=>tx.date.slice(0,7)===`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`),manuallyPaidIds:financialSettings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`]||[]}:undefined,
+  }), [personalDisplayOnly,financialSettings,allTransactions,transactions, familyMonthTransactions, mandatoryExpenses, categories,
        settings.manualPaidExpenses, currentMonth, settings.initialBalance,
        settings.initialBalanceDate, settings.enableSmartReserve,
        settings.savingsRate, settings.manualReservedAmount, goals]);
@@ -1098,7 +1099,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Дневной ориентир:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : !personalOpeningKnown?'Укажите личный начальный остаток':safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
             </span>
           </div>
         </div>

@@ -212,8 +212,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     enableSmartReserve: settings.enableSmartReserve,
     savingsRate: settings.savingsRate ?? savingsRate,
     manualReservedAmount: settings.manualReservedAmount,
-    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0)
-  }), [transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
+    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0),
+    paymentContext:personalDisplayOnly?{bills:financialSettings.mandatoryExpenses,transactions:allTransactions.filter(tx=>tx.date.slice(0,7)===currentMonthKey),manuallyPaidIds:financialSettings.manualPaidExpenses?.[currentMonthKey]||[]}:undefined
+  }), [personalDisplayOnly,financialSettings,allTransactions,transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
       settings.manualPaidExpenses, currentMonthKey, settings.initialBalance,
       settings.initialBalanceDate, settings.enableSmartReserve,
       settings.savingsRate, savingsRate, settings.manualReservedAmount, goals]);
@@ -569,7 +570,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return formatBudgetMoney(num);
   };
 
-  const totalMonthlyLimit = settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0);
+  const totalMonthlyLimit = budgetMode==='personal'&&!personalOnly?0:(settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0));
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
@@ -1331,7 +1332,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
           <button type="button"
-            onClick={() => setIsReserveModalOpen(true)}
+            onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
             aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
             className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
@@ -1905,7 +1906,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           dailyBudget={dailyLimit}
           daysRemaining={daysRemaining}
           savingsAmount={savingsAmount}
-          savingsRate={savingsRate}
+          savingsRate={settings.savingsRate}
           unpaidMandatoryTotal={unpaidMandatoryTotal}
           futureExpenses={detailedMandatoryExpenses}
           manualReserved={manualReserved}

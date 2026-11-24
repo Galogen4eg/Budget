@@ -1,11 +1,11 @@
 
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer,
-  onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
+  onSnapshot, query, orderBy, where, limit, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
+import { savingsContributionKopecks, nextSavingsGoalAmount, assertGoalDeletionSafe } from './transactionSavingsConsistency';
 import { isSavingsTransfer as isSavingsTransferForRepair } from './savingsSync';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
@@ -1102,5 +1102,22 @@ export async function confirmExternalSavingsTransfer(familyId:string,actorUid:st
    if((f?.budgetPolicy??'family')!=='family')throw new Error('Доступно только в совместном режиме');
    if(!row||row.memberId!==owner||row.linkedGoalId||(Number.isFinite(row.amount)?row.amount:null)!==issue.amount||(typeof row.date==='string'?row.date:null)!==issue.date||!isSavingsTransferForRepair(row)||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Записи изменились. Повторите проверку.');
    if(row.externalSavingsConfirmed!==true)t.update(rowRef,{externalSavingsConfirmed:true});
+ });
+}
+
+/** Read at most one reference, not the entire ledger. Goal document version is
+ * revalidated by the transaction if another linked transfer updates its balance. */
+export async function deleteUnlinkedSavingsGoal(familyId:string,goalId:string,personalMemberId?:string):Promise<void>{
+ if(!familyId||!goalId)throw new Error('Накопительная цель недоступна');
+ const ref=doc(db,'families',familyId,'goals',goalId);
+ const source=collection(db,'families',familyId,'transactions');
+ const references=personalMemberId?query(source,where('memberId','==',personalMemberId),where('linkedGoalId','==',goalId),limit(1)):query(source,where('linkedGoalId','==',goalId),limit(1));
+ await runTransaction(db,async tx=>{
+   const goal=await tx.get(ref);
+   if(!goal.exists())throw new Error('Цель уже удалена');
+   if(personalMemberId&&goal.data().memberId!==personalMemberId)throw new Error('Цель принадлежит другому участнику');
+   const linked=await getDocsFromServer(references);
+   assertGoalDeletionSafe(goalId,linked.docs.map(row=>row.data() as Transaction));
+   tx.delete(ref);
  });
 }

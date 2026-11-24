@@ -52,3 +52,14 @@ test('Budget uses family projection for shared available money, independent of m
  assert.match(source,/Семейный ориентир в день/);
  assert.match(source,/Доступно семье до зарплаты/);
 });
+
+test('display-only projection credits a family payment without adding the other member income or bills',()=>{
+ const own={id:'own',name:'Интернет',memberId:'a',amount:100.15,day:10};
+ const other={id:'other',name:'Аренда',memberId:'b',amount:800,day:5};
+ const ownIncome={id:'i',memberId:'a',type:'income',amount:1000.15,category:'salary',date:'2026-11-10'};
+ const otherPayment={id:'p',memberId:'b',type:'expense',amount:40.1,category:'housing',date:'2026-11-10',linkedExpenseId:'own'};
+ const projected=calculateFamilyBudgetProjection({transactions:[ownIncome],monthTransactions:[ownIncome],bills:[own],categories:[],manuallyPaidIds:[],initialBalance:200,savingsRate:0,manualReservedAmount:0,goalSavedAmounts:[],paymentContext:{bills:[own,other],transactions:[ownIncome,otherPayment],manuallyPaidIds:[]}});
+ assert.equal(projected.ledger,1200.15);
+ assert.equal(projected.mandatoryReserve,60.05);
+ assert.deepEqual(projected.monthlyPaymentStates.map(s=>s.id),['own']);
+});

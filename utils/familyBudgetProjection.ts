@@ -17,6 +17,8 @@ export interface FamilyProjectionInput {
   savingsRate:number;
   manualReservedAmount?:number;
   goalSavedAmounts:readonly number[];
+  /** Calculate status using the authoritative family obligations, then expose only displayed bills. */
+  paymentContext?:{bills:readonly MandatoryExpense[];transactions:readonly Transaction[];manuallyPaidIds:readonly string[]};
 }
 
 /**
@@ -25,9 +27,11 @@ export interface FamilyProjectionInput {
  * but must not invent a personal portion of shared opening funds or reserves.
  */
 export function calculateFamilyBudgetProjection(input:FamilyProjectionInput){
+  const source=input.paymentContext;
+  const visibleIds=new Set(input.bills.map(bill=>bill.id));
   const monthStates=mandatoryPaymentStates(
-    input.bills,input.monthTransactions,input.manuallyPaidIds
-  );
+    source?.bills??input.bills,source?.transactions??input.monthTransactions,source?.manuallyPaidIds??input.manuallyPaidIds
+  ).filter(state=>visibleIds.has(state.id));
   const mandatoryReserve=input.enableSmartReserve!==false
     ? sumMoney(monthStates.map(x=>x.amountNeeded)) : 0;
   const categoryLabels=new Map(input.categories.map(x=>[x.id,x.label.toLocaleLowerCase('ru-RU')]));

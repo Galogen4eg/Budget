@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 interface GoalModalProps {
   goal: SavingsGoal | null;
   onClose: () => void;
-  onSave: (goal: SavingsGoal) => void;
-  onDelete?: (id: string) => void;
+  onSave: (goal: SavingsGoal) => void | Promise<void>;
+  onDelete?: (id: string) => void | Promise<void>;
   settings: AppSettings;
 }
 
@@ -34,20 +34,30 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
   const [icon, setIcon] = useState(goal?.icon || 'PiggyBank');
   const [color, setColor] = useState(goal?.color || PRESET_COLORS[0]);
 
-  const handleSave = () => {
+  const [busy,setBusy]=useState(false);
+  const handleSave = async () => {
+    if(busy)return;
     if (!title.trim() || !targetAmount) {
       toast.warning("Заполните название и целевую сумму");
       return;
     }
 
-    onSave({
+    const target=Number(targetAmount),current=Number(currentAmount||0);
+    if(!Number.isFinite(target)||target<=0||!Number.isFinite(current)||current<0){toast.warning('Проверьте суммы цели и накоплений');return;}
+    setBusy(true);
+    try{await onSave({
       id: goal?.id || Date.now().toString(),
       title: title.trim(),
-      targetAmount: Math.abs(Number(targetAmount)),
-      currentAmount: Math.abs(Number(currentAmount)) || 0,
+      targetAmount: Math.round(target*100)/100,
+      currentAmount: Math.round(current*100)/100,
       icon,
       color
-    });
+    });}catch(error){toast.error(error instanceof Error?error.message:'Не удалось сохранить цель');}finally{setBusy(false);}
+  };
+  const handleDelete=async()=>{
+    if(!goal||!onDelete||busy||!window.confirm('Удалить накопительную цель?'))return;
+    setBusy(true);
+    try{await onDelete(goal.id);}catch(error){toast.error(error instanceof Error?error.message:'Не удалось удалить цель');}finally{setBusy(false);}
   };
 
   return (
@@ -149,14 +159,16 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
 
           <div className="flex flex-col gap-2.5 pt-2">
             <button
-              onClick={handleSave}
+              disabled={busy}
+              onClick={()=>void handleSave()}
               className="w-full bg-[#4A7C59] hover:bg-[#3D6649] text-white font-bold py-3.5 rounded-2xl shadow-sm text-xs uppercase tracking-wider active:scale-[0.98] transition cursor-pointer"
             >
-              {goal ? 'Обновить цель' : 'Создать цель'}
+              {busy?'Сохранение…':goal ? 'Обновить цель' : 'Создать цель'}
             </button>
             {goal && onDelete && (
               <button
-                onClick={() => onDelete(goal.id)}
+                disabled={busy}
+                onClick={()=>void handleDelete()}
                 className="w-full py-2.5 text-rose-500 font-bold text-xs uppercase tracking-wider hover:text-rose-600 transition cursor-pointer"
               >
                 Удалить цель

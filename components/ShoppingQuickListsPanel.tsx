@@ -9,7 +9,7 @@ import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../u
 import { recentRepeatItems, type ListProduct, type SavedShoppingList, type PurchasedProduct } from '../utils/shoppingLists';
 import {
   subscribeShoppingListLibrary, saveFamilyShoppingTemplate,
-  deleteFamilyShoppingTemplate, recordFamilyPurchase
+  deleteFamilyShoppingTemplate, recordFamilyPurchases
 } from '../utils/shoppingListsDb';
 
 interface Props {
@@ -56,7 +56,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   }, [history]);
 
   useEffect(() => {
-    captured.current.clear();
+    captured.current=new Set<string>();
     setTemplates([]);
     setHistory([]);
     if (!familyId) return;
@@ -74,16 +74,22 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   // observations from both logged-in family members.
   useEffect(() => {
     if (!familyId) return;
+    const pending: ShoppingItem[] = [];
+    const keys: string[] = [];
+    const capturedForFamily=captured.current;
     for (const item of items) {
       if (!item.completed || !item.id) continue;
       const completionKey = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
       if (captured.current.has(completionKey)) continue;
       captured.current.add(completionKey);
-      void recordFamilyPurchase(familyId, item).catch(error => {
-        captured.current.delete(completionKey);
-        console.error('Failed to save shopping history', error);
-      });
+      pending.push(item);
+      keys.push(completionKey);
     }
+    if (!pending.length) return;
+    void recordFamilyPurchases(familyId, pending).catch(error => {
+      for(const key of keys)capturedForFamily.delete(key);
+      console.error('Failed to save shopping history', error);
+    });
   }, [familyId, items]);
 
   const execute = async (work: () => Promise<void>) => {

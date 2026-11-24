@@ -2,7 +2,7 @@ import { doc, onSnapshot, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ShoppingItem } from '../types';
 import {
-  createShoppingListTemplate, mergePurchaseHistory,
+  createShoppingListTemplate, mergeCompletedPurchaseHistory,
   type SavedShoppingList, type PurchasedProduct
 } from './shoppingLists';
 
@@ -51,14 +51,19 @@ export async function deleteFamilyShoppingTemplate(familyId: string, templateId:
   });
 }
 
-export async function recordFamilyPurchase(familyId: string, item: ShoppingItem): Promise<void> {
-  if (!familyId || !item.id) return;
+export async function recordFamilyPurchases(familyId: string, items: readonly ShoppingItem[]): Promise<void> {
+  if (!familyId || !items.some(item=>item.completed&&item.id)) return;
+  const observedAt=Date.now();
   await runTransaction(db, async transaction => {
     const ref = libraryDoc(familyId);
     const existing = await transaction.get(ref);
     const data = readLibrary(existing.data());
-    const eventId = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
-    if (data.history.some(p => (p.purchaseEventId || p.shoppingItemId) === eventId)) return;
-    transaction.set(ref, { ...data, history: mergePurchaseHistory(data.history, item, Date.now()) });
+    const history = mergeCompletedPurchaseHistory(data.history, items, observedAt);
+    if (history === data.history) return;
+    transaction.set(ref, { ...data, history });
   });
+}
+
+export async function recordFamilyPurchase(familyId: string, item: ShoppingItem): Promise<void> {
+  await recordFamilyPurchases(familyId, [item]);
 }

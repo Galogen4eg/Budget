@@ -52,3 +52,23 @@ export function recentRepeatItems(history: readonly PurchasedProduct[], max = 20
   }
   return result;
 }
+
+/** Merge a snapshot of completed items with one read/write of the family history. */
+export function mergeCompletedPurchaseHistory(
+  history: PurchasedProduct[], items: readonly ShoppingItem[], observedAt: number
+): PurchasedProduct[] {
+  const known = new Set(history.map(p => p.purchaseEventId || p.shoppingItemId));
+  const additions: PurchasedProduct[] = [];
+  for (const item of items) {
+    if (!item.completed || !item.id || !item.title?.trim()) continue;
+    const eventId = item.completedAt ? `${item.id}@${item.completedAt}` : item.id;
+    if (known.has(eventId)) continue;
+    known.add(eventId);
+    const purchasedAt = typeof item.completedAt === 'number' && Number.isFinite(item.completedAt) && item.completedAt > 0
+      ? item.completedAt : observedAt;
+    additions.push({ ...snapshot(item), shoppingItemId: item.id, purchaseEventId: eventId, purchasedAt });
+  }
+  if (!additions.length) return history;
+  const next = [...additions.reverse(), ...history].sort((a,b) => b.purchasedAt - a.purchasedAt).slice(0,60);
+  return next.length === history.length && next.every((p,i) => p === history[i]) ? history : next;
+}

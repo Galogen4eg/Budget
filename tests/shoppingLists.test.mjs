@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createShoppingListTemplate, recentRepeatItems, mergePurchaseHistory } from '../utils/shoppingLists.ts';
+import { createShoppingListTemplate, recentRepeatItems, mergePurchaseHistory, mergeCompletedPurchaseHistory } from '../utils/shoppingLists.ts';
 
 const items=[
  {id:'1',title:'Молоко',amount:'2',unit:'л',memberId:'a',priority:'medium',category:'dairy',completed:false},
@@ -56,4 +56,26 @@ test('iteration 74: legacy completed item without completion timestamp stays ded
  assert.equal(mergePurchaseHistory(current,items[0],200).length,1);
  const afterTimestamp=mergePurchaseHistory(current,{...items[0],completedAt:300},300);
  assert.equal(afterTimestamp.length,2);
+});
+
+const completedItem=(id,completedAt)=>({id,title:'Товар '+id,amount:'1',unit:'шт',category:'other',priority:'medium',completed:true,completedAt});
+test('one batch keeps recent completed events, without duplicating or changing saved entries',()=>{
+ const old={...completedItem('a',100),shoppingItemId:'a',purchaseEventId:'a@100',purchasedAt:100};
+ const history=[old];
+ const next=mergeCompletedPurchaseHistory(history,[completedItem('a',100),completedItem('a',200),completedItem('a',200),completedItem('b',300),{...completedItem('c',400),completed:false}],999);
+ assert.deepEqual(next.map(p=>p.purchaseEventId),['b@300','a@200','a@100']);
+ assert.equal(next[2],old);
+ assert.equal(mergeCompletedPurchaseHistory(next,[completedItem('a',100),completedItem('b',300)],1000),next);
+});
+test('old completed events outside the latest 60 do not churn the stored history',()=>{
+ const history=mergeCompletedPurchaseHistory([],Array.from({length:60},(_,i)=>completedItem('new'+i,1000+i)),2000);
+ assert.equal(mergeCompletedPurchaseHistory(history,[completedItem('old',1)],3000),history);
+ assert.equal(history.length,60);
+});
+test('legacy completions still deduplicate by item id and use observation time',()=>{
+ const old=completedItem('legacy',undefined);
+ const next=mergeCompletedPurchaseHistory([], [old,old],500);
+ assert.equal(next[0].purchaseEventId,'legacy');
+ assert.equal(next[0].purchasedAt,500);
+ assert.equal(mergeCompletedPurchaseHistory(next,[old],700),next);
 });

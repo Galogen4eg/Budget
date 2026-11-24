@@ -16,14 +16,17 @@ test('iteration 74: family listener logs repeated purchases, with retry after an
  const panel=read('../components/ShoppingQuickListsPanel.tsx');
  assert.match(panel,/const completionKey = item\.completedAt \?/);
  assert.match(panel,/captured\.current\.has\(completionKey\)/);
- assert.match(panel,/captured\.current\.delete\(completionKey\)/);
+ assert.match(panel,/capturedForFamily\.delete\(key\)/);
+ assert.match(panel,/recordFamilyPurchases\(familyId, pending\)/);
  assert.match(panel,/Последняя покупка:/);
 });
 
 test('iteration 74: backend transaction and local model share the same event key',()=>{
  const backend=read('../utils/shoppingListsDb.ts');
  const engine=read('../utils/shoppingLists.ts');
- assert.match(backend,/purchaseEventId \|\| p\.shoppingItemId/);
+ assert.match(backend,/mergeCompletedPurchaseHistory\(data\.history, items, observedAt\)/);
+ assert.match(backend,/if \(history === data\.history\) return/);
+ assert.match(engine,/purchaseEventId \|\| p\.shoppingItemId/);
  assert.match(engine,/purchaseEventId: eventId/);
  assert.match(engine,/item\.completedAt \? /);
 });

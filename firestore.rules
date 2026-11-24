@@ -70,6 +70,9 @@ service cloud.firestore {
             && !existsAfter(invitationPath()));
         allow delete: if owner(fid) && joint(fid) && resource.data.get('userId',null) == null
           && resource.data.get('isAdmin',false) == false && resource.data.get('email',null) == null;
+        match /{privateKind}/{recordId} {
+          allow read, write: if member(fid) && pid == request.auth.uid && !joint(fid) && privateKind in ['rules','knowledge'];
+        }
         match /config/{id} {
           allow get: if member(fid) && pid == request.auth.uid && id == 'settings';
           allow create: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.keys().hasOnly(personalKeys());
@@ -86,7 +89,8 @@ service cloud.firestore {
           && (joint(fid) || request.resource.data.keys().hasOnly(safeSharedKeys()));
       }
       match /{kind}/{id} {
-        allow read: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
+        allow get: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || !exists(/databases/$(database)/documents/families/$(fid)/$(kind)/$(id)) || owns(fid,resource.data));
+        allow list: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
         allow create: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,request.resource.data));
         allow update: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || (owns(fid,resource.data) && owns(fid,request.resource.data) && resource.data.memberId == request.resource.data.memberId));
         allow delete: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));

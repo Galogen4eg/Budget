@@ -219,12 +219,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   const enableReminders=async()=>{
     if(remindersEnabled){
-      localStorage.removeItem(reminderKey);
-      setRemindersEnabled(false);
       if(user?.uid){
         try{await disableCalendarPush(user.uid);setPushEnabled(false);}
-        catch(error){toast.error('Не удалось отключить фоновые push на сервере. Проверьте подключение и повторите.');}
+        catch(error){toast.error('Не удалось отключить фоновые push на сервере. Проверьте подключение и повторите.');return;}
       }
+      localStorage.removeItem(reminderKey);
+      setRemindersEnabled(false);
       toast.info('Локальные напоминания отключены.');
       return;
     }

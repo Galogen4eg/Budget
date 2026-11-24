@@ -3,7 +3,7 @@ import {
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
   onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
@@ -62,6 +62,8 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
     'personalInitialBalanceDate',
     'personalSavingsRate',
     'personalMonthlyBudget',
+    'personalMandatoryExpenses',
+    'personalManualPaidExpenses',
     'personalManualReservedAmount', 
     'pushEnabled', 
     'fcmToken', 
@@ -978,4 +980,41 @@ export function subscribeToFamilySyncStatus(familyId:string,onValue:(status:{fro
     const {fromCache,hasPendingWrites:pending}=snapshot.metadata;
     onValue({fromCache,pending,...(!fromCache&&!pending?{confirmedAt:Date.now()}:{})});
   },error=>onValue({fromCache:false,pending:false,error:error.code==='permission-denied'?'Нет доступа к семейному пространству':'Не удалось подтвердить соединение с Firebase'}));
+}
+
+
+/** Personal payment writes never touch the family settings document. */
+export async function commitPersonalMandatoryPaymentBundle(
+  familyId:string,userId:string,memberId:string,
+  changes:Pick<AppSettings,'mandatoryExpenses'|'manualPaidExpenses'>,
+  debtChanges:ReadonlyArray<{id:string;changes:Partial<Debt>}>
+):Promise<void>{
+  if(!familyId||!memberId||!userId||auth.currentUser?.uid!==userId)throw new Error('Личный профиль недоступен');
+  const ids=new Set<string>();
+  for(const expense of changes.mandatoryExpenses){
+    if(!expense.id||ids.has(expense.id)||expense.memberId!==memberId)throw new Error('Некорректный владелец или ID обязательного платежа');
+    ids.add(expense.id);
+  }
+  const paid=changes.manualPaidExpenses??{};
+  for(const [month,entries] of Object.entries(paid)){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||entries.some(id=>!ids.has(id)))throw new Error('Некорректная история оплаты');
+  }
+  if(new Set(debtChanges.map(d=>d.id)).size!==debtChanges.length||debtChanges.some(d=>!d.id||('memberId' in d.changes&&d.changes.memberId!==memberId)))throw new Error('Некорректное изменение долга');
+  const familyRef=doc(db,'families',familyId);
+  const memberRef=doc(db,'families',familyId,'members',memberId);
+  const configRef=doc(db,'families',familyId,'members',userId,'config','settings');
+  const debtRefs=debtChanges.map(d=>doc(db,'families',familyId,'debts',d.id));
+  await runTransaction(db,async tx=>{
+    const family=await tx.get(familyRef);
+    const profile=await tx.get(memberRef);
+    const config=await tx.get(configRef);
+    const debts=await Promise.all(debtRefs.map(ref=>tx.get(ref)));
+    if(family.data()?.budgetPolicy!=='personal'||!family.data()?.members?.includes(userId)||profile.data()?.userId!==userId)throw new Error('Личный режим или профиль не подтверждён');
+    if(!Array.isArray(config.data()?.personalMandatoryExpenses))throw new Error('Личные платежи ещё не перенесены');
+    for(const debt of debts){
+      if(!debt.exists()||debt.data().memberId!==memberId)throw new Error('Связанный долг недоступен');
+    }
+    tx.set(configRef,cleanForFirestore({personalMandatoryExpenses:changes.mandatoryExpenses,personalManualPaidExpenses:paid}),{merge:true});
+    for(let i=0;i<debtChanges.length;i++)tx.update(debtRefs[i],cleanForFirestore(debtChanges[i].changes));
+  });
 }

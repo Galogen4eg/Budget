@@ -21,6 +21,8 @@ jobs:
           java-version: '21'
       - name: Install emulator dependencies
         run: npm install --prefix tests/firestore-emulator --no-audit --no-fund
+      - name: Install root server dependencies
+        run: npm install --no-audit --no-fund
       - name: Install actual Cloud Functions dependencies
         run: npm install --prefix functions --no-audit --no-fund
       - name: Run rules and real callable migration tests against isolated demo project

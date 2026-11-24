@@ -53,3 +53,14 @@ test('settings keeps advanced controls accessible without making them the defaul
 test('primary editors use the shared surface palette',()=>{
  for(const name of ['GoalModal','EventModal','AddTransactionModal','MandatoryExpenseModal','ConfirmationModal','ImportModal','LoyaltyCardMobileModal','NotificationsModal','DrillDownModal'])assert.match(read('components/'+name+'.tsx'),/var\(--terra-(surface|soft)\)/,name);
 });
+
+
+test('desktop metric cards use shared surfaces and readable wrapping labels',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ const section=overview.split('data-testid="overview-metrics-desktop"')[1]?.split('</section>')[0];
+ assert.ok(section);
+ assert.equal((section.match(/\$\{DASHBOARD_CARD\}/g)||[]).length,4);
+ assert.doesNotMatch(section,/whitespace-nowrap|uppercase tracking-wider|shadow-sm/);
+ assert.match(section,/focus-visible:ring-2/);
+ for(const name of ['sharedLedger','dailyLimit','spentToday','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
+});

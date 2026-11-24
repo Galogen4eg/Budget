@@ -57,3 +57,14 @@ test('preflight identifies exact unlinked records without treating valid owners 
  assert.deepEqual(findUnownedFinancialRecords({...input,profiles:[...f.profiles,{id:'a2',userId:'u1'}]}),[]);
  assert.equal(input.links.transactions[0].memberId,'old');
 });
+
+test('legacy subscriptions require explicit ownership and do not change amount or renewal date',()=>{
+ const {findUnownedFinancialRecords}=require('../budgetMigration.cjs');
+ const f=fixture(),subscription={id:'sub1',name:'Music',amount:199.99,nextPaymentDate:'2026-12-04'};
+ const input={...f,links:{transactions:[],goals:[],debts:[],subscriptions:[subscription]},records:[...f.records,subscription]};
+ assert.throws(()=>prepareTransition(input),/linked owner/);
+ assert.deepEqual(findUnownedFinancialRecords(input).map(({kind,id,owner,amount,date})=>({kind,id,owner,amount,date})),[{kind:'subscriptions',id:'sub1',owner:null,amount:199.99,date:'2026-12-04'}]);
+ const owned={...subscription,memberId:'b'};
+ assert.equal(prepareTransition({...input,records:[...f.records,owned],links:{...input.links,subscriptions:[owned]}}).policy,'personal');
+ assert.deepEqual(owned,{...subscription,memberId:'b'});
+});

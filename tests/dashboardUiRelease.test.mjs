@@ -89,3 +89,14 @@ test('desktop overview widgets retain actions and avoid decorative card clutter'
  assert.match(section,/aria-label="Добавить в список покупок"/);
  assert.match(section,/min-h-\[44px\] min-w-\[44px\]/);
 });
+
+
+test('mobile quick shopping uses shared surfaces and stable touch controls',()=>{
+ const widget=read('components/QuickShoppingWidget.tsx');
+ assert.match(widget,/\$\{DASHBOARD_CARD\}/);
+ assert.match(widget,/divide-y divide-\[var\(--terra-border\)\]/);
+ assert.doesNotMatch(widget,/animate-pulse-slow|animate-press|after:inset-\[-10px\]/);
+ assert.match(widget,/handleToggleShopping\(item as any\)/);
+ assert.match(widget,/onSubmit=\{handleAddShoppingInline\}/);
+ assert.match(widget,/w-11 h-11/);
+});

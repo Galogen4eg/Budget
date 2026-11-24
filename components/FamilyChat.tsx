@@ -247,7 +247,7 @@ export default function FamilyChat() {
         </header>
 
         {/* Topics List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-2">
+        <div data-testid="chat-topics-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-2 space-y-1.5 custom-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-2">
           {topics.map(t => {
             const isActive = t.id === activeTopicId;
             return (
@@ -369,7 +369,8 @@ export default function FamilyChat() {
         <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[#121214] overflow-hidden">
           <div 
             ref={messagesContainerRef}
-            className="px-4 py-3 flex-1 overflow-y-auto flex flex-col gap-4 min-h-0 custom-scrollbar"
+            data-testid="chat-messages-scroll-container"
+            className="px-4 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-4 min-h-0 custom-scrollbar"
           >
             {/* Date Separator */}
             <div className="flex items-center justify-center my-1">

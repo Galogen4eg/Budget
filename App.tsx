@@ -2,7 +2,7 @@
 import TerraSplash from './components/TerraSplash';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, SavingsGoal, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -200,10 +200,6 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [showOnlineRestored, setShowOnlineRestored] = useState(false);
 
-  // Mobile Pull-To-Refresh State
-  const [pullY, setPullY] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const touchStartY = useRef(0);
 
   useEffect(()=>{if(householdPersonal||!settingsReady)stopTelegramBotListener();},[householdPersonal,settingsReady]);
   // Двусторонняя синхронизация с Telegram-ботом в реальном времени
@@ -236,48 +232,7 @@ export default function App() {
     };
   }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Plans and shopping own their scroll viewports. Do not interpret their
-    // vertical gestures as pull-to-refresh of the non-scrolling outer main.
-    if (activeTab === 'plans' || activeTab === 'shopping') {
-      touchStartY.current = 0;
-      return;
-    }
-    if (mainRef.current && mainRef.current.scrollTop === 0) {
-      touchStartY.current = e.touches[0].clientY;
-    } else {
-      touchStartY.current = 0;
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY.current > 0 && mainRef.current && mainRef.current.scrollTop === 0) {
-      const currentY = e.touches[0].clientY;
-      const diff = currentY - touchStartY.current;
-      if (diff > 0) {
-        setPullY(Math.min(diff * 0.4, 80));
-      }
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if(activeTab==='plans'||activeTab==='shopping'){
-      touchStartY.current=0;setPullY(0);return;
-    }
-    if (pullY > 55 && !isRefreshing) {
-      setIsRefreshing(true);
-      triggerHaptic('medium');
-      setTimeout(() => {
-        setIsRefreshing(false);
-        setPullY(0);
-        toast.success("Данные успешно обновлены");
-      }, 700);
-    } else {
-      setPullY(0);
-    }
-    touchStartY.current = 0;
-  };
-
+  // Each screen owns native scrolling; no simulated outer pull-to-refresh.
   const mainRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top when tab changes
@@ -1024,10 +979,7 @@ export default function App() {
       {/* Main Content Area */}
       <main 
         ref={mainRef} 
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-hidden relative"
+        className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-hidden relative"
       >
         {/* Offline Alert Banner */}
         {!isOnline && (
@@ -1045,21 +997,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Pull-To-Refresh Mobile Indicator */}
-        {(pullY > 0 || isRefreshing) && (
-          <div 
-            style={{ height: isRefreshing ? 50 : pullY }} 
-            className="flex items-center justify-center overflow-hidden transition-all duration-150 shrink-0 bg-transparent text-primary dark:text-green-400"
-          >
-            <div className="flex items-center gap-2 text-xs font-bold bg-white dark:bg-[#1C1C1E] px-3 py-1.5 rounded-full shadow-sm border border-surface-border dark:border-white/10">
-              <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} style={{ transform: `rotate(${pullY * 3}deg)` }} />
-              <span>{isRefreshing ? "Обновление..." : pullY > 55 ? "Отпустите для обновления" : "Потяните для обновления"}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="w-full flex-1 flex flex-col h-full overflow-hidden">
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
+        <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 <TerraOverview 
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
@@ -1084,7 +1023,7 @@ export default function App() {
                 />
             </div>
             
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 <TerraBudget
                     key={householdPersonal?'private-budget':'joint-budget'}
                     transactions={transactions}
@@ -1135,7 +1074,7 @@ export default function App() {
                 />
             </div>
             
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
               <FamilyPlans 
                 events={events} 
                 setEvents={setEvents} 
@@ -1162,11 +1101,11 @@ export default function App() {
               />
             </div>
 
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
               <FamilyChat />
             </div>
 
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
               <ServicesHub 
                 initialService={targetService} 
                 onClearService={() => setTargetService(null)} 

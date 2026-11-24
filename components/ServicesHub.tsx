@@ -103,7 +103,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 w-full h-full overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col min-w-0 w-full h-full overflow-hidden">
       {/* Mobile Top Header */}
       <div className="md:hidden shrink-0">
         <TerraMobileHeader 
@@ -112,7 +112,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
+      <div data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
             {/* Desktop-only SectionHeaderCard */}

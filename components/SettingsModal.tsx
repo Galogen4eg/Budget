@@ -1137,7 +1137,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       case 'categories':
         return (
-          <div className="h-full overflow-hidden min-h-[500px]">
+          <div className="h-full min-h-0 flex flex-col overflow-hidden">
             <CategoriesSettings 
               categories={categories}
               onUpdateCategories={onUpdateCategories}
@@ -1479,7 +1479,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
-            <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
+            <div data-testid="settings-menu-scroll-container" className="md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
               {/* Profile Card */}
               <div 
                 onClick={() => { setActiveSection('account'); setShowMobileMenu(false); }}
@@ -1622,7 +1622,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
-            <div className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
+            <div data-testid="settings-section-scroll-container" className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
               {renderSectionContent()}
             </div>
           </main>

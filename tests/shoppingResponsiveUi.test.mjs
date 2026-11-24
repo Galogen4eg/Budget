@@ -33,6 +33,6 @@ test('mobile shopping owns a bounded scroll viewport; outer pull-to-refresh cann
  const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
  assert.match(list,/className="flex-1 min-h-0 flex flex-col overflow-hidden"/);
  assert.match(mobile,/data-testid="shopping-scroll-container" className="flex-1 min-h-0[^"]*overflow-y-auto[^"]*touch-pan-y/);
- assert.match(app,/activeTab === 'plans' \|\| activeTab === 'shopping'/);
+ assert.doesNotMatch(app,/onTouchMove=\{handleTouchMove\}|setPullY\(/);
  assert.match(mobile,/drag="x"/);
 });

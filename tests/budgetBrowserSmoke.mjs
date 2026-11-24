@@ -22,6 +22,50 @@ const waitForServer=async()=>{
   throw new Error('Budget preview server did not become healthy');
 };
 
+// Read actual geometry and native touch scrolling on real demo screens.
+// Short content is allowed; clipping an oversized element is not.
+async function verifyMobileScroll(page,id,label,{requireOverflow=false,synthetic=false}={}){
+ const loc=page.getByTestId(id);
+ await loc.waitFor({state:'visible'});
+ if(synthetic)await loc.evaluate(el=>{
+   const probe=document.createElement('div');
+   probe.dataset.qaScrollProbe='1';probe.style.cssText='height:1800px;flex:none;pointer-events:none';
+   probe.textContent='QA layout probe';el.appendChild(probe);
+ });
+ try{
+   const m=await loc.evaluate(el=>{
+     el.scrollTop=0;
+     const rect=el.getBoundingClientRect();
+     return {top:rect.top,bottom:rect.bottom,height:el.clientHeight,scroll:el.scrollHeight,width:rect.width,left:rect.left,viewport:innerHeight,overflow:getComputedStyle(el).overflowY};
+   });
+   assert.ok(m.height>0&&m.bottom<=m.viewport+2&&m.top>=-2,label+': clipped '+id+' '+JSON.stringify(m));
+   assert.match(m.overflow,/auto|scroll/,label+': missing scroll viewport '+id);
+   if(m.scroll<=m.height+3){
+     assert.ok(!requireOverflow,label+': expected long content '+id);
+     console.log('PASS',label,id,'short content fits');return;
+   }
+   await loc.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+   assert.ok(await loc.evaluate(el=>el.scrollTop)>0,label+': cannot reach end '+id);
+   await loc.evaluate(el=>{el.scrollTop=0;});
+   // Use the padding edge rather than a horizontal chart or rail.
+   const x=Math.round(m.left+Math.min(8,m.width/2));
+   const y=Math.round(Math.min(m.bottom-12,m.viewport-78));
+   const end=Math.max(m.top+12,y-145);
+   assert.ok(y-end>25,label+': no room for touch gesture '+id);
+   const cdp=await page.context().newCDPSession(page);
+   try{
+     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+     for(let step=1;step<=10;step++){
+       await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(end-y)*step/10}]});
+       await page.waitForTimeout(16);
+     }
+     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+     await page.waitForFunction(id=>document.querySelector('[data-testid="'+id+'"]').scrollTop>5,id,{timeout:5000});
+   }finally{await cdp.detach();}
+   await loc.evaluate(el=>{el.scrollTop=0;});
+   console.log('PASS',label,id,'native touch scroll',synthetic?'synthetic long content':'real content');
+ }finally{if(synthetic)await loc.evaluate(el=>el.querySelector('[data-qa-scroll-probe]')?.remove());}
+}
 let browser;
 try{
   await waitForServer();
@@ -99,6 +143,7 @@ try{
       assert.equal(await page.locator('.terra-splash').count(),0);
     }
     await page.waitForTimeout(450);
+    if(width<768)await verifyMobileScroll(page,'login-scroll-container',label);
     const widthInfo=await page.evaluate(()=>({
       viewport:window.innerWidth,
       document:document.documentElement.scrollWidth,
@@ -244,7 +289,9 @@ try{
       // Other requested viewport widths: validate the newly added mandatory
       // entry point and full modal save/delete in isolated demo state.
       await page.getByRole('button',{name:/Локальный демо-режим/}).click();
+      if(width<768)await verifyMobileScroll(page,'overview-scroll-container',label,{requireOverflow:true});
       await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
+      if(width<768)await verifyMobileScroll(page,'budget-scroll-container',label,{requireOverflow:true});
       const add=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
       const bounds=await add.boundingBox();
       assert.ok(bounds && bounds.height>=44,label+': mandatory create target too small');
@@ -355,6 +402,7 @@ try{
       });
       if(metrics.scrollHeight>metrics.height+2)assert.ok(metrics.scrollTop>0,label+': plans scroll blocked');
     }
+    if(width<768)await verifyMobileScroll(page,'plans-scroll-container',label);
     const plansOverflow=await page.evaluate(()=>({viewport:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));
     assert.ok(plansOverflow.body<=plansOverflow.viewport+2&&plansOverflow.document<=plansOverflow.viewport+2,label+': plans horizontal overflow '+JSON.stringify(plansOverflow));
     await page.screenshot({path:'artifacts/budget-browser/'+label+'-plans.png',fullPage:true,animations:'disabled'});
@@ -364,12 +412,32 @@ try{
     await plans.waitFor({state:'visible'});
     assert.deepEqual(errors,[],label+': plans navigation runtime errors');
     console.log('PASS',label,'Plans views / day navigation / unsaved editor / return');
+    // Chat has no cloud data in demo; test its viewport with temporary DOM-only
+    // content, without sending messages or claiming message-sync verification.
+    if(width<768){
+      const nav=page.getByRole('navigation',{name:'Основная навигация'});
+      await nav.getByRole('button',{name:'Чат',exact:true}).click();
+      await verifyMobileScroll(page,'chat-messages-scroll-container',label,{requireOverflow:true,synthetic:true});
+      await page.getByRole('button',{name:'К спискам чатов'}).click();
+      await verifyMobileScroll(page,'chat-topics-scroll-container',label);
+      await nav.getByRole('button',{name:'Сервисы',exact:true}).click();
+      await verifyMobileScroll(page,'services-scroll-container',label);
+      await page.getByRole('button',{name:/Долги/}).filter({visible:true}).first().click();
+      await verifyMobileScroll(page,'services-scroll-container',label,{requireOverflow:true});
+      await nav.getByRole('button',{name:'Планы',exact:true}).click();
+    }
     // Exercise the actual settings dialog at every viewport. Changes are local demo only.
     const nav=page.getByRole('navigation',{name:width<768?'Основная навигация':'Основное меню'});
     const openSettings=page.getByRole('button',{name:'Настройки',exact:true}).filter({visible:true}).first();
     await openSettings.click();
     const settingsDialog=page.getByRole('dialog',{name:'Настройки',exact:true});
     await settingsDialog.waitFor({state:'visible'});
+    if(width<768){
+      await verifyMobileScroll(page,'settings-menu-scroll-container',label);
+      await settingsDialog.getByRole('button',{name:/Категории и правила/}).filter({visible:true}).first().click();
+      await verifyMobileScroll(page,'categories-scroll-container',label,{requireOverflow:true});
+      await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    }
     await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});

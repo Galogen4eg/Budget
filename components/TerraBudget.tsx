@@ -383,11 +383,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const isSelectedDayToday = isCurrentMonthView && selectedDay === today.getDate();
 
   return (
-    <div className="flex flex-col min-w-0 w-full h-full flex-1 overflow-hidden">
+    <div className="flex flex-col min-h-0 min-w-0 w-full h-full flex-1 overflow-hidden">
       {/* ========================================================= */}
       {/* MOBILE VIEW (Strictly matching user HTML mockup on < md)  */}
       {/* ========================================================= */}
-      <div className="md:hidden flex flex-col min-w-0 w-full flex-1 overflow-y-auto no-scrollbar bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 selection:bg-primary/20">
+      <div data-testid="budget-scroll-container" className="md:hidden flex flex-col min-w-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-y-contain no-scrollbar bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 selection:bg-primary/20">
         {/* Unified Mobile Header */}
         <TerraMobileHeader
           title="Бюджет"
@@ -953,7 +953,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* ========================================================= */}
       {/* DESKTOP VIEW (Visible on md and up)                       */}
       {/* ========================================================= */}
-      <div className="hidden md:flex flex-col min-w-0 flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pt-6 pb-20 gap-5 text-graphite dark:text-gray-100">
+      <div className="hidden md:flex flex-col min-w-0 min-h-0 flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pt-6 pb-20 gap-5 text-graphite dark:text-gray-100">
         {/* 1. TOP HEADER: Title, Month, Family Filters, Actions */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-border/70 dark:border-white/10">
         <div className="flex flex-wrap items-center gap-3 md:gap-4">

@@ -33,13 +33,26 @@ test('overview and budget share mobile surface and minimum 44px actions',()=>{
  assert.match(budget,/flex-wrap/);
 });
 
-test('outer touch refresh does not interfere with plans vertical gestures',()=>{
- assert.match(app,/if \(activeTab === 'plans'\) \{/);
- assert.match(app,/touchStartY\.current = 0;/);
+test('native scroll is not intercepted by the simulated outer refresh in any tab',()=>{
+ assert.doesNotMatch(app,/onTouchStart=\{handleTouchStart\}|onTouchMove=\{handleTouchMove\}|setPullY\(|Данные успешно обновлены/);
+ assert.match(app,/w-full flex-1 min-h-0 flex flex-col overflow-hidden/);
 });
 test('chart does not add invented time points and budget reports real shortfall',()=>{
  assert.doesNotMatch(overview,/label: '10', amount: 0, fullLabel/);
  assert.match(budget,/Результат месяца/);
  assert.doesNotMatch(budget,/monthBalance < 0 \\? "Дефицит" : "Осталось"/);
  assert.match(budget,/Math\.round\(\(monthExpense \/ monthIncome\) \* 100\)/);
+});
+
+test('main mobile scroll viewports have explicit shrink bounds and no forced category minimum height',()=>{
+ for(const [file,id] of [['TerraOverview.tsx','overview-scroll-container'],['TerraBudget.tsx','budget-scroll-container'],['ServicesHub.tsx','services-scroll-container'],['FamilyChat.tsx','chat-topics-scroll-container'],['FamilyChat.tsx','chat-messages-scroll-container'],['CategoriesSettings.tsx','categories-scroll-container'],['SettingsModal.tsx','settings-menu-scroll-container'],['LoginScreen.tsx','login-scroll-container']]){
+  const code=read(file);
+  const marker=code.indexOf('data-testid="'+id+'"');
+  assert.ok(marker>=0,file);
+  const tag=code.slice(marker,code.indexOf('>',marker));
+  assert.match(tag,/min-h-0/,file);
+  assert.match(tag,/overflow-y-auto/,file);
+ }
+ assert.doesNotMatch(read('SettingsModal.tsx'),/h-full overflow-hidden min-h-\[500px\]/);
+ assert.match(read('LoginScreen.tsx'),/my-auto shrink-0/);
 });

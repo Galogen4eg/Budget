@@ -46,10 +46,13 @@ test('GitHub Action runtimes use maintained Node24-based versions',()=>{
  assert.match(browser,/actions\/upload-artifact@v6/);
 });
 
-test('quota guard: smoke test blocks external network and service workers',()=>{
+test('quota guard: smoke test blocks external APIs and service workers',()=>{
  const smoke=read('tests/budgetBrowserSmoke.mjs');
  assert.match(smoke,/Browser smoke requires a loopback preview/);
- assert.match(smoke,/origin===previewOrigin\?route\.continue\(\):route\.abort\(\)/);
+ assert.match(smoke,/origin===previewOrigin\|\|\(request\.method\(\)==='GET'&&staticTypes\.get\(origin\)===request\.resourceType\(\)\)/);
+ assert.match(smoke,/return allowed\?route\.continue\(\):route\.abort\(\)/);
+ assert.match(smoke,/https:\/\/cdn\.tailwindcss\.com/);
+ assert.doesNotMatch(smoke,/https:\/\/[^'\"\n]*firebase/);
  assert.equal((smoke.match(/serviceWorkers:'block'/g)||[]).length,2);
  assert.match(smoke,/await isolate\(page\)/);
  assert.match(smoke,/await isolate\(dark\)/);

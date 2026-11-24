@@ -74,7 +74,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ goal, onClose, onSave, onDelete, 
           </button>
         </div>
 
-        <div className="p-6 sm:p-7 space-y-6 overflow-y-auto no-scrollbar pb-10">
+        <div className="flex-1 min-h-0 p-6 sm:p-7 space-y-6 overflow-y-auto overscroll-y-contain no-scrollbar pb-10">
           <div className="bg-white dark:bg-[#252528] p-5 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-xs space-y-3 text-center">
             <div 
               className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-white shadow-md mb-2"

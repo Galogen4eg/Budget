@@ -503,7 +503,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[#1E2420] dark:text-gray-100 font-body transition-colors">
+    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[#1E2420] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
         title="Список покупок"

@@ -6,6 +6,20 @@ import { chromium } from 'playwright';
 // Smoke-only: verifies unauthenticated app rendering in an actual browser.
 // It never creates accounts, sends credentials, or modifies financial data.
 const baseURL = process.env.BUDGET_SMOKE_URL || 'http://127.0.0.1:4173';
+// Local preview only. Allow the existing read-only presentation assets, not
+// Firebase, Telegram, analytics or other external API requests.
+const previewOrigin=new URL(baseURL).origin;
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(baseURL).hostname))throw new Error('Browser smoke requires a loopback preview');
+const staticTypes=new Map([
+ ['https://cdn.tailwindcss.com','script'],
+ ['https://fonts.googleapis.com','stylesheet'],
+ ['https://fonts.gstatic.com','font']
+]);
+const isolate=async page=>page.route('**/*',route=>{
+ const request=route.request(),origin=new URL(request.url()).origin;
+ const allowed=origin===previewOrigin||(request.method()==='GET'&&staticTypes.get(origin)===request.resourceType());
+ return allowed?route.continue():route.abort();
+});
 const child = process.env.BUDGET_SMOKE_URL ? null : spawn(
   'npm', ['run','preview','--','--host','127.0.0.1','--port','4173','--strictPort'],
   {stdio:'inherit',shell:process.platform==='win32'}
@@ -22,18 +36,61 @@ const waitForServer=async()=>{
   throw new Error('Budget preview server did not become healthy');
 };
 
-// Browser smoke is local-only. Never contact production Firebase or any other external service.
-const previewOrigin=new URL(baseURL).origin;
-if(!['127.0.0.1','localhost','[::1]'].includes(new URL(baseURL).hostname))throw new Error('Browser smoke requires a loopback preview');
-const isolate=async page=>page.route('**/*',route=>new URL(route.request().url()).origin===previewOrigin?route.continue():route.abort());
+// Read actual geometry and native touch scrolling on real demo screens.
+// Short content is allowed; clipping an oversized element is not.
+async function verifyMobileScroll(page,id,label,{requireOverflow=false,synthetic=false}={}){
+ const loc=page.getByTestId(id);
+ await loc.waitFor({state:'visible'});
+ if(synthetic)await loc.evaluate(el=>{
+   const probe=document.createElement('div');
+   probe.dataset.qaScrollProbe='1';probe.style.cssText='height:1800px;flex:none;pointer-events:none';
+   probe.textContent='QA layout probe';el.appendChild(probe);
+ });
+ try{
+   const m=await loc.evaluate(el=>{
+     el.scrollTop=0;
+     const rect=el.getBoundingClientRect();
+     return {top:rect.top,bottom:rect.bottom,height:el.clientHeight,scroll:el.scrollHeight,width:rect.width,left:rect.left,viewport:innerHeight,overflow:getComputedStyle(el).overflowY};
+   });
+   assert.ok(m.height>0&&m.bottom<=m.viewport+2&&m.top>=-2,label+': clipped '+id+' '+JSON.stringify(m));
+   assert.match(m.overflow,/auto|scroll/,label+': missing scroll viewport '+id);
+   if(m.scroll<=m.height+3){
+     assert.ok(!requireOverflow,label+': expected long content '+id);
+     console.log('PASS',label,id,'short content fits');return;
+   }
+   await loc.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+   assert.ok(await loc.evaluate(el=>el.scrollTop)>0,label+': cannot reach end '+id);
+   await loc.evaluate(el=>{el.scrollTop=0;});
+   // Use the padding edge rather than a horizontal chart or rail.
+   const x=Math.round(m.left+Math.min(8,m.width/2));
+   const y=Math.round(Math.min(m.bottom-12,m.viewport-78));
+   const end=Math.max(m.top+12,y-145);
+   assert.ok(y-end>25,label+': no room for touch gesture '+id);
+   const cdp=await page.context().newCDPSession(page);
+   try{
+     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+     for(let step=1;step<=10;step++){
+       await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(end-y)*step/10}]});
+       await page.waitForTimeout(16);
+     }
+     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+     await page.waitForFunction(id=>document.querySelector('[data-testid="'+id+'"]').scrollTop>5,id,{timeout:5000});
+   }finally{await cdp.detach();}
+   await loc.evaluate(el=>{el.scrollTop=0;});
+   console.log('PASS',label,id,'native touch scroll',synthetic?'synthetic long content':'real content');
+ }finally{if(synthetic)await loc.evaluate(el=>el.querySelector('[data-qa-scroll-probe]')?.remove());}
+}
 let browser;
 try{
   await waitForServer();
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
-    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,serviceWorkers:'block'});
+    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,hasTouch:width<1024,serviceWorkers:'block'});
     await isolate(page);
+    if(width<1024)await page.addInitScript(()=>{
+      if(!localStorage.getItem('local_shopping'))localStorage.setItem('local_shopping',JSON.stringify(Array.from({length:24},(_,i)=>({id:'qa-shopping-'+i,title:'QA товар '+i,amount:'1',unit:'шт',completed:false,memberId:'m1',priority:'medium',category:'dairy'}))));
+    });
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     if(label==='phone-390'){
@@ -102,6 +159,7 @@ try{
       assert.equal(await page.locator('.terra-splash').count(),0);
     }
     await page.waitForTimeout(450);
+    if(width<768)await verifyMobileScroll(page,'login-scroll-container',label);
     const widthInfo=await page.evaluate(()=>({
       viewport:window.innerWidth,
       document:document.documentElement.scrollWidth,
@@ -247,7 +305,9 @@ try{
       // Other requested viewport widths: validate the newly added mandatory
       // entry point and full modal save/delete in isolated demo state.
       await page.getByRole('button',{name:/Локальный демо-режим/}).click();
+      if(width<768)await verifyMobileScroll(page,'overview-scroll-container',label,{requireOverflow:true});
       await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
+      if(width<768)await verifyMobileScroll(page,'budget-scroll-container',label,{requireOverflow:true});
       const add=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
       const bounds=await add.boundingBox();
       assert.ok(bounds && bounds.height>=44,label+': mandatory create target too small');
@@ -280,6 +340,39 @@ try{
       assert.ok(dimensions && dimensions.height>=44,label+': small shopping panel control');
       await control.click();
       assert.equal(await control.getAttribute('aria-expanded'),'true',label+': shopping panel did not expand');
+    }
+    if(width<1024){
+      // Exercise real scrolling with the panel expanded and then a native touch
+      // swipe on a product card. A clipped but unbounded element must fail.
+      const scroll=page.getByTestId('shopping-scroll-container');
+      const metrics=await scroll.evaluate(el=>({height:el.clientHeight,scrollHeight:el.scrollHeight,bottom:el.getBoundingClientRect().bottom}));
+      assert.ok(metrics.height>0&&metrics.scrollHeight>metrics.height+100&&metrics.bottom<=height+2,label+': unbounded shopping viewport '+JSON.stringify(metrics));
+      await repeat.click();
+      assert.equal(await repeat.getAttribute('aria-expanded'),'false');
+      const row=scroll.locator('article').nth(5);
+      await row.scrollIntoViewIfNeeded();
+      const bounds=await row.boundingBox();
+      const viewport=await scroll.boundingBox();
+      assert.ok(bounds&&viewport,label+': product row not visible');
+      const x=Math.round(bounds.x+bounds.width*.5);
+      const y=Math.round(Math.min(bounds.y+bounds.height*.5,height-95,viewport.y+viewport.height-20));
+      const end=Math.max(viewport.y+72,y-120);
+      assert.ok(y-end>25,label+': insufficient gesture area');
+      const before=await scroll.evaluate(el=>el.scrollTop);
+      const cdp=await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      for(let step=1;step<=10;step++){
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(end-y)*step/10}]});
+        await page.waitForTimeout(16);
+      }
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await page.waitForFunction(start=>document.querySelector('[data-testid="shopping-scroll-container"]').scrollTop>start+5,before);
+      await cdp.detach();
+      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+      const bottom=scroll.getByRole('group',{name:'Частые покупки'});
+      const last=await bottom.boundingBox();
+      assert.ok(last&&last.y+last.height<=height-(width<768?50:0)+2,label+': last shopping controls obscured');
+      await scroll.evaluate(el=>{el.scrollTop=0;});
     }
     const shoppingOverflow=await page.evaluate(()=>({
       viewport:window.innerWidth,body:document.body.scrollWidth,
@@ -325,6 +418,7 @@ try{
       });
       if(metrics.scrollHeight>metrics.height+2)assert.ok(metrics.scrollTop>0,label+': plans scroll blocked');
     }
+    if(width<768)await verifyMobileScroll(page,'plans-scroll-container',label);
     const plansOverflow=await page.evaluate(()=>({viewport:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));
     assert.ok(plansOverflow.body<=plansOverflow.viewport+2&&plansOverflow.document<=plansOverflow.viewport+2,label+': plans horizontal overflow '+JSON.stringify(plansOverflow));
     await page.screenshot({path:'artifacts/budget-browser/'+label+'-plans.png',fullPage:true,animations:'disabled'});
@@ -334,12 +428,32 @@ try{
     await plans.waitFor({state:'visible'});
     assert.deepEqual(errors,[],label+': plans navigation runtime errors');
     console.log('PASS',label,'Plans views / day navigation / unsaved editor / return');
+    // Chat has no cloud data in demo; test its viewport with temporary DOM-only
+    // content, without sending messages or claiming message-sync verification.
+    if(width<768){
+      const nav=page.getByRole('navigation',{name:'Основная навигация'});
+      await nav.getByRole('button',{name:'Чат',exact:true}).click();
+      await verifyMobileScroll(page,'chat-messages-scroll-container',label,{requireOverflow:true,synthetic:true});
+      await page.getByRole('button',{name:'К спискам чатов'}).click();
+      await verifyMobileScroll(page,'chat-topics-scroll-container',label);
+      await nav.getByRole('button',{name:'Сервисы',exact:true}).click();
+      await verifyMobileScroll(page,'services-scroll-container',label);
+      await page.getByRole('button',{name:/Долги/}).filter({visible:true}).first().click();
+      await verifyMobileScroll(page,'services-scroll-container',label,{requireOverflow:true});
+      await nav.getByRole('button',{name:'Планы',exact:true}).click();
+    }
     // Exercise the actual settings dialog at every viewport. Changes are local demo only.
     const nav=page.getByRole('navigation',{name:width<768?'Основная навигация':'Основное меню'});
     const openSettings=page.getByRole('button',{name:'Настройки',exact:true}).filter({visible:true}).first();
     await openSettings.click();
     const settingsDialog=page.getByRole('dialog',{name:'Настройки',exact:true});
     await settingsDialog.waitFor({state:'visible'});
+    if(width<768){
+      await verifyMobileScroll(page,'settings-menu-scroll-container',label);
+      await settingsDialog.getByRole('button',{name:/Категории и правила/}).filter({visible:true}).first().click();
+      await verifyMobileScroll(page,'categories-scroll-container',label,{requireOverflow:true});
+      await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    }
     await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});

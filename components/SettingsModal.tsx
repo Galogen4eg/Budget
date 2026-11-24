@@ -264,6 +264,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTestTelegramConnection = async () => {
+    if (isTestingTelegram || isTestingDelivery) return;
     if (!settings.telegramBotToken?.trim()) {
       toast.error('Введите токен бота Telegram');
       return;
@@ -291,6 +292,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTestTelegramDelivery = async () => {
+    if (isTestingTelegram || isTestingDelivery) return;
     if (!settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()) {
       toast.error('Укажите токен бота и ID семейного чата');
       return;
@@ -495,20 +497,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   useBodyScrollLock();
 
   const handleTestKey = async () => {
-    if (!apiKey) return;
+    if (!apiKey.trim() || aiTestStatus === 'loading') return;
     setAiTestStatus('loading');
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
       await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: "Hello",
       });
       setAiTestStatus('success');
-      setTimeout(() => setAiTestStatus('idle'), 3000);
+
     } catch (e) {
-      console.error(e);
       setAiTestStatus('error');
-      setTimeout(() => setAiTestStatus('idle'), 3000);
+
     }
   };
 
@@ -1035,7 +1036,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTestTelegramConnection}
-                  disabled={isTestingTelegram || !settings.telegramBotToken}
+                  disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim()}
                   className="min-h-[44px] px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]"
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -1048,6 +1049,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
                   <input 
                     id="telegram-bot-token"
+                    disabled={isTestingTelegram || isTestingDelivery}
                     type="password" 
                     autoComplete="off"
                     value={settings.telegramBotToken || ''} 
@@ -1060,6 +1062,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
                   <input 
                     id="telegram-chat-id"
+                    disabled={isTestingTelegram || isTestingDelivery}
                     type="text" 
                     value={settings.telegramChatId || ''} 
                     onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
@@ -1072,7 +1075,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
               <div className="flex flex-wrap items-center gap-3">
                 <button type="button" onClick={handleTestTelegramDelivery}
-                  disabled={isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
+                  disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
                   className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                   {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
                   Проверить доставку
@@ -1173,10 +1176,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     aria-label="Ключ Google Gemini API"
+                    disabled={aiTestStatus === 'loading'}
                     autoComplete="off"
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
-                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value); }}
+                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value.trim()); }}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
@@ -1204,7 +1208,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         <BrainCircuit size={13} className="text-purple-500" />
                       )}
                       <span>
-                        {aiTestStatus === 'success' ? 'Связь активна! ✅' : aiTestStatus === 'error' ? 'Ошибка ключа! ❌' : 'Проверить ключ ИИ'}
+                        {aiTestStatus === 'success' ? 'Подключение подтверждено' : aiTestStatus === 'error' ? 'Не удалось подключиться' : 'Проверить ключ ИИ'}
                       </span>
                     </button>
                   </div>

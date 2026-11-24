@@ -1,5 +1,5 @@
 'use strict';
-const {prepareTransition,findUnownedFinancialRecords}=require('./budgetMigration.cjs');
+const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues}=require('./budgetMigration.cjs');
 class PolicyError extends Error { constructor(code,message){super(message);this.code=code;} }
 async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false}){
  if(!uid)throw new PolicyError('unauthenticated','Войдите в Budget');
@@ -35,11 +35,12 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
    catch(error){
      if(preview){
        const ownershipIssues=current==='family'&&target==='personal'?findUnownedFinancialRecords(input):[];
-       return {policy:current,enabled,issues:[ownershipIssues.length?'Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.':error.message],...(ownershipIssues.length?{ownershipIssues}:{})};
+       const linkIssues=current==='family'&&target==='personal'?findFinancialLinkIssues(input.links,input.shared.mandatoryExpenses??[]):[];
+       return {policy:current,enabled,issues:[ownershipIssues.length?'Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.':linkIssues.length?'Связанные операции разных владельцев: '+linkIssues.length+'. Проверьте список ниже.':error.message],...(ownershipIssues.length?{ownershipIssues}:{}),...(linkIssues.length?{linkIssues}:{})};
      }
      throw new PolicyError('failed-precondition','Миграция заблокирована: '+error.message);
    }
-   if(preview)return {policy:current,enabled,issues:[],...(result.archivedPaymentCount?{warnings:['Исторические отметки оплаты без действующих обязательств ('+result.archivedPaymentCount+') будут сохранены в закрытом архиве и восстановлены при возврате к совместному бюджету.']}: {})};
+   if(preview){const warnings=[];if(result.archivedPaymentCount)warnings.push('Исторические отметки оплаты без действующих обязательств ('+result.archivedPaymentCount+') будут сохранены в закрытом архиве и восстановлены при возврате к совместному бюджету.');if(result.historicalLinkCount)warnings.push('Исторические связи с удалёнными обязательствами ('+result.historicalLinkCount+') сохранены без изменения операций.');return {policy:current,enabled,issues:[],...(warnings.length?{warnings}:{})};}
    if(target==='personal'){
      tx.set(archiveRef,result.archive);
      for(const [memberUid,patch] of Object.entries(result.userPatches))tx.set(refs[memberUid],patch,{merge:true});

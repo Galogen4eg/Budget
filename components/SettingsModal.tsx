@@ -18,7 +18,6 @@ import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
-import { migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
@@ -44,7 +43,7 @@ interface SettingsModalProps {
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   currentFamilyId: string | null;
-  onJoinFamily: (id: string) => void;
+  onJoinFamily: (id: string) => void | Promise<void>;
   onLogout: () => void;
   installPrompt?: any;
   transactions?: Transaction[];
@@ -130,7 +129,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
-  const [shouldMigrate, setShouldMigrate] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
   // Account & Password Management State
@@ -481,20 +479,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       toast.error("ID не может быть пустым");
       return;
     }
-    if (targetId === currentFamilyId) return;
+    if (targetId === currentFamilyId || isJoining) return;
 
     if (!confirm(`Вы уверены, что хотите сменить ID пространства на ${targetId}?`)) return;
 
     setIsJoining(true);
     try {
-      if (shouldMigrate && currentFamilyId) {
-        toast.info('Переносим данные в новое пространство...');
-        await migrateFamilyData(currentFamilyId, targetId);
-        toast.success('Данные перенесены!');
-      }
       await onJoinFamily(targetId);
     } catch (e: any) {
       toast.error(e.message || "Ошибка при смене ID");
+    } finally {
       setIsJoining(false);
     }
   };
@@ -839,9 +833,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {currentFamilyId && (
                   <button 
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentFamilyId);
-                      toast.success('ID пространства скопирован');
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(currentFamilyId); toast.success('ID пространства скопирован'); }
+                      catch { toast.error('Не удалось скопировать ID'); }
                     }}
                     className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
@@ -871,17 +865,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
 
-                {currentFamilyId && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer pt-1">
-                    <input 
-                      type="checkbox"
-                      checked={shouldMigrate}
-                      onChange={e => setShouldMigrate(e.target.checked)}
-                      className="rounded border-gray-300 text-[#2D5A43] focus:ring-[#2D5A43]"
-                    />
-                    <span>Перенести существующие записи из текущего пространства в новое</span>
-                  </label>
-                )}
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  Для подключения нужно приглашение на email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
+                </p>
               </div>
             </section>
           </div>

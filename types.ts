@@ -52,6 +52,7 @@ export interface FamilyMember {
 
 export interface SavingsGoal {
   id: string;
+  memberId?: string; // Legacy shared goals remain unassigned
   title: string;
   targetAmount: number;
   currentAmount: number;
@@ -138,6 +139,7 @@ export interface Reminder {
 
 export interface Debt {
   id: string;
+  memberId?: string; // Legacy shared debts remain unassigned
   name: string;
   totalAmount: number;
   currentBalance: number;
@@ -295,6 +297,11 @@ export interface AppSettings {
   
   initialBalance: number;
   initialBalanceDate?: string;
+  personalInitialBalance?: number;
+  personalInitialBalanceDate?: string;
+  personalSavingsRate?: number;
+  personalMonthlyBudget?: number;
+  personalManualReservedAmount?: number;
   targetMonthlyBudget?: number;
   categoryBudgets?: Record<string, number>;
   salaryDates: number[];

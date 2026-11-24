@@ -29,6 +29,10 @@ export function projectPersonalFinance<T extends {
  manualPaidExpenses?:Record<string,string[]>;
  personalMandatoryExpenses?:readonly {id:string;memberId?:string|null}[];
  personalManualPaidExpenses?:Record<string,string[]>;
+ personalCategoryBudgets?:Record<string,number>;
+ personalIgnoredDuplicatePairs?:string[];
+ personalEnableSmartReserve?:boolean;
+ personalStartOfMonthDay?:number;
 }>(settings:T,memberId:string|undefined):T{
  const numberOrZero=(n:number|undefined)=>typeof n==='number'&&Number.isFinite(n)?n:0;
  const expenses=memberId?(settings.personalMandatoryExpenses??[]).filter(e=>e.memberId===memberId):[];
@@ -39,7 +43,10 @@ export function projectPersonalFinance<T extends {
    savingsRate:memberId?Math.min(100,Math.max(0,numberOrZero(settings.personalSavingsRate))):0,
    targetMonthlyBudget:memberId?Math.max(0,numberOrZero(settings.personalMonthlyBudget)):0,
    manualReservedAmount:memberId?Math.max(0,numberOrZero(settings.personalManualReservedAmount)):0,
-   categoryBudgets:{},
+   categoryBudgets:memberId?(settings.personalCategoryBudgets??{}):{},
+   ignoredDuplicatePairs:memberId?(settings.personalIgnoredDuplicatePairs??[]):[],
+   enableSmartReserve:memberId?(settings.personalEnableSmartReserve??true):true,
+   startOfMonthDay:memberId?(settings.personalStartOfMonthDay??1):1,
    mandatoryExpenses:expenses,
    manualPaidExpenses:Object.fromEntries(Object.entries(settings.personalManualPaidExpenses||{}).map(([month,paid])=>[month,paid.filter(id=>ids.has(id))]))
  };
@@ -113,4 +120,23 @@ export function mergePersonalMandatoryPayments<T extends {id:string;memberId?:st
  }
  for(const id of expected)if(!seenMembers.has(id))issues.push('Отсутствует личный документ участника');
  return {mandatoryExpenses,manualPaidExpenses,issues};
+}
+
+
+/** Convert UI-facing finance edits to private document fields. */
+export const PERSONAL_FINANCE_KEYS = {
+ initialBalance:'personalInitialBalance',initialBalanceDate:'personalInitialBalanceDate',
+ savingsRate:'personalSavingsRate',targetMonthlyBudget:'personalMonthlyBudget',
+ manualReservedAmount:'personalManualReservedAmount',categoryBudgets:'personalCategoryBudgets',
+ ignoredDuplicatePairs:'personalIgnoredDuplicatePairs',enableSmartReserve:'personalEnableSmartReserve',
+ startOfMonthDay:'personalStartOfMonthDay'
+} as const;
+export function toPersonalSettingsPatch<T extends object>(changes:Partial<T>):Partial<T>{
+ const result:Record<string,unknown>={};
+ for(const [key,value] of Object.entries(changes)){
+   if(key==='mandatoryExpenses'||key==='manualPaidExpenses')throw new Error('Используйте сохранение личных обязательных платежей');
+   const mapped=PERSONAL_FINANCE_KEYS[key as keyof typeof PERSONAL_FINANCE_KEYS]??key;
+   result[mapped]=value;
+ }
+ return result as Partial<T>;
 }

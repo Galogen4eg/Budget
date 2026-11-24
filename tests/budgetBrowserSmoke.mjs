@@ -470,7 +470,9 @@ try{
       await nav.getByRole('button',{name:'Бюджет',exact:true}).click();
       await page.getByText('Личный ориентир в день',{exact:true}).filter({visible:true}).first().waitFor({state:'visible'});
       assert.equal(await page.getByText('Семейный ориентир в день',{exact:true}).filter({visible:true}).count(),0);
+      await nav.getByRole('button',{name:'Планы',exact:true}).click();
       await openSettings.click();
+      await settingsDialog.waitFor({state:'visible'});
       await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
       assert.equal(await showShared.getAttribute('aria-checked'),'false');
       await showShared.click();

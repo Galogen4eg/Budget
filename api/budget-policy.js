@@ -23,12 +23,16 @@ export function createBudgetPolicyHandler(runtime=productionRuntime){
   let data;
   try{data=typeof req.body==='string'?JSON.parse(req.body):req.body;}catch{return res.status(400).json({error:'Некорректный запрос'});}
   if(!data||typeof data!=='object'||Array.isArray(data)||!['family','personal'].includes(data.target)||typeof data.preview!=='boolean'||typeof data.familyId!=='string')return res.status(400).json({error:'Некорректный запрос'});
+  const started=Date.now();
+  const timing=stage=>console.info(`SET-12 ${data.preview?'preview':'change'} ${stage} elapsedMs=${Date.now()-started}`);
+  timing('start');
   let ctx;
   try{ctx=runtime();}catch{return res.status(503).json({error:'Сервер SET-12 ещё не настроен'});}
   let user;
-  try{user=await ctx.verifyToken(token);}catch{return res.status(401).json({error:'Войдите в Budget повторно'});}
+  try{user=await ctx.verifyToken(token);timing('auth-complete');}catch{return res.status(401).json({error:'Войдите в Budget повторно'});}
   try{
-   const result=await changeHouseholdBudgetPolicy({db:ctx.db,FieldValue:ctx.FieldValue,uid:user.uid,data,enabled:ctx.enabled});
+   const result=await changeHouseholdBudgetPolicy({db:ctx.db,FieldValue:ctx.FieldValue,uid:user.uid,data,enabled:ctx.enabled,timing});
+   timing('complete');
    return res.status(200).json(result);
   }catch(error){
    if(error instanceof PolicyError)return res.status(statusFor[error.code]??500).json({error:error.message});

@@ -1,7 +1,7 @@
 'use strict';
 const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues,findSavingsLinkIssues}=require('./budgetMigration.cjs');
 class PolicyError extends Error { constructor(code,message){super(message);this.code=code;} }
-async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false}){
+async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false,timing=()=>{}}){
  if(!uid)throw new PolicyError('unauthenticated','Войдите в Budget');
  const target=data?.target, preview=data?.preview===true;
  if(!['family','personal'].includes(target))throw new PolicyError('invalid-argument','Неизвестный режим');
@@ -13,7 +13,9 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
 
  if(!preview&&!enabled)throw new PolicyError('failed-precondition','SET-12 ещё не активирован на сервере');
  return db.runTransaction(async tx=>{
+   timing('transaction-start');
    const [userSnap,familySnap]=await Promise.all([tx.get(db.doc(`users/${uid}`)),tx.get(familyRef)]);
+   timing('membership-read');
    if(userSnap.data()?.familyId!==familyId)throw new PolicyError('permission-denied','Семья изменилась');
    const family=familySnap.data();
    if(!family||family.ownerId!==uid||!Array.isArray(family.members)||!family.members.includes(uid))throw new PolicyError('permission-denied','Только администратор');
@@ -24,11 +26,13 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
       tx.get(familyRef.collection('transactions')),tx.get(familyRef.collection('goals')),tx.get(familyRef.collection('debts')),
       tx.get(familyRef.collection('accounts').limit(1)),tx.get(familyRef.collection('subscriptions')),tx.get(familyRef.collection('meterReadings').limit(1))
    ]);
+   timing('financial-snapshots-read');
    const configs=Object.create(null),refs=Object.create(null);
-   for(const memberUid of family.members){
+   await Promise.all(family.members.map(async memberUid=>{
      const ref=familyRef.collection('members').doc(memberUid).collection('config').doc('settings');
      refs[memberUid]=ref;configs[memberUid]=(await tx.get(ref)).data()??{};
-   }
+   }));
+   timing('member-configs-read');
    let result;
    const input={family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs,...subscriptions.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id})),subscriptions:subscriptions.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)};
    try{result=prepareTransition(input);}

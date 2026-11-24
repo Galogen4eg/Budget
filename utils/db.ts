@@ -63,6 +63,10 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
     'personalInitialBalanceDate',
     'personalSavingsRate',
     'personalMonthlyBudget',
+    'personalCategoryBudgets',
+    'personalIgnoredDuplicatePairs',
+    'personalEnableSmartReserve',
+    'personalStartOfMonthDay',
     'personalMandatoryExpenses',
     'personalManualPaidExpenses',
     'personalManualReservedAmount', 
@@ -86,24 +90,26 @@ export const subscribeToAppSettings = (familyId: string, userId: string, callbac
 
   let sharedSettings: Partial<AppSettings> = {};
   let userSettings: Partial<AppSettings> = {};
+  let sharedReady=false,userReady=false;
+  const selectKeys=(value:Record<string,unknown>,personal:boolean)=>Object.fromEntries(Object.entries(value).filter(([key])=>USER_SPECIFIC_KEYS.includes(key as keyof AppSettings)===personal)) as Partial<AppSettings>;
 
   const mergeAndCallback = () => {
-      callback({ ...sharedSettings, ...userSettings } as AppSettings);
+      if(sharedReady&&userReady)callback({ ...sharedSettings, ...userSettings } as AppSettings);
   };
 
-  const unsubShared = onSnapshot(doc(db, 'families', familyId, 'config', 'settings'), (doc) => {
-    if (doc.exists()) {
-      sharedSettings = doc.data() as AppSettings;
-      mergeAndCallback();
-    }
-  });
+  const unsubShared = onSnapshot(doc(db, 'families', familyId, 'config', 'settings'), {includeMetadataChanges:true}, (doc) => {
+    if(doc.metadata.fromCache&&!sharedReady)return;
+    sharedReady=true;
+    sharedSettings=selectKeys(doc.data()??{},false);
+    mergeAndCallback();
+  },()=>{sharedReady=false;});
 
-  const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), (doc) => {
-    if (doc.exists()) {
-      userSettings = doc.data() as Partial<AppSettings>;
-      mergeAndCallback();
-    }
-  });
+  const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), {includeMetadataChanges:true}, (doc) => {
+    if(doc.metadata.fromCache&&!userReady)return;
+    userReady=true;
+    userSettings=selectKeys(doc.data()??{},true);
+    mergeAndCallback();
+  },()=>{userReady=false;});
 
   return () => {
       unsubShared();

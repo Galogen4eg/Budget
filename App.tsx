@@ -717,6 +717,7 @@ export default function App() {
         return false;
       }
       try {
+        if (ids.some(id=>!transactions.some(t=>t.id===id))) throw new Error('Операция недоступна');
         assertBulkDeleteSafe(transactions,ids);
         await deleteItemsBatch(familyId, 'transactions', ids);
         setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
@@ -1250,7 +1251,7 @@ export default function App() {
                 onClose={() => setDrillDownState(null)} 
                 transactions={filteredTransactions} 
                 setTransactions={setTransactions} 
-                settings={settings} 
+                settings={financialSettings} 
                 members={members} 
                 categories={categories} 
                 onLearnRule={handleLearnRule} 
@@ -1319,7 +1320,7 @@ export default function App() {
                           const candidate = applySavingsTransferToGoals(goals,0,true).affectedGoal;
                           // Stable ID for a new default goal: retries after partial
                           // imports must never create another savings account.
-                          return goals.length ? candidate : {...candidate,id:'savings_import_default'};
+                          return goals.length ? candidate : {...candidate,id:householdPersonal ? 'savings_import_default_'+importMemberId : 'savings_import_default', ...(householdPersonal ? {memberId:importMemberId} : {})};
                         })()
                       : undefined;
                     for (const row of savingsRows) {

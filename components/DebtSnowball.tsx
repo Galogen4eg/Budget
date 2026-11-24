@@ -50,7 +50,7 @@ const DebtSnowball: React.FC<Props> = ({
   const [sortBy, setSortBy] = useState<DebtSortOption>('date');
   
   const { familyId, user } = useAuth();
-  const { updateSettings, householdPersonal, members } = useData();
+  const { updateSettings, updateMandatoryPaymentBundle, householdPersonal, members } = useData();
 
   // Синхронизация режима расчета при открытии формы редактирования
   useEffect(() => {
@@ -319,10 +319,7 @@ const DebtSnowball: React.FC<Props> = ({
         return exp;
       });
 
-      await updateSettings({
-        ...settings,
-        mandatoryExpenses: updatedExpenses
-      });
+      await updateMandatoryPaymentBundle({mandatoryExpenses:updatedExpenses,manualPaidExpenses:settings.manualPaidExpenses??{}},[]);
     }
 
     setEditingDebt(null);
@@ -351,8 +348,7 @@ const DebtSnowball: React.FC<Props> = ({
       paidThisMonth: !isCurrentlyPaid 
     };
 
-    setDebts(debts.map(d => d.id === id ? { ...d, ...updates } : d));
-    if (familyId) await updateItem(familyId, 'debts', id, updates);
+
 
     // Синхронизация статуса с обязательным платежом
     if (linkedExpense) {
@@ -367,13 +363,11 @@ const DebtSnowball: React.FC<Props> = ({
         newMonthIds = monthIds.filter(mid => mid !== linkedExpense.id);
       }
 
-      await updateSettings({
-        ...settings,
-        manualPaidExpenses: {
-          ...currentManuals,
-          [monthKey]: newMonthIds
-        }
-      });
+      await updateMandatoryPaymentBundle({mandatoryExpenses:settings.mandatoryExpenses??[],manualPaidExpenses:{[monthKey]:newMonthIds}},[{id,changes:updates}]);
+    } else {
+      if(!familyId)throw new Error('Семейный аккаунт недоступен');
+      await updateItem(familyId,'debts',id,updates);
+      setDebts(debts.map(d=>d.id===id?{...d,...updates}:d));
     }
   };
 

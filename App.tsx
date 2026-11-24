@@ -237,9 +237,9 @@ export default function App() {
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // The plans page has its own scroll viewport; do not mistake its gestures
-    // for pull-to-refresh of the non-scrolling outer main container.
-    if (activeTab === 'plans') {
+    // Plans and shopping own their scroll viewports. Do not interpret their
+    // vertical gestures as pull-to-refresh of the non-scrolling outer main.
+    if (activeTab === 'plans' || activeTab === 'shopping') {
       touchStartY.current = 0;
       return;
     }
@@ -261,6 +261,9 @@ export default function App() {
   };
 
   const handleTouchEnd = () => {
+    if(activeTab==='plans'||activeTab==='shopping'){
+      touchStartY.current=0;setPullY(0);return;
+    }
     if (pullY > 55 && !isRefreshing) {
       setIsRefreshing(true);
       triggerHaptic('medium');
@@ -1146,7 +1149,7 @@ export default function App() {
               />
             </div>
 
-            <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
+            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
               <ShoppingList 
                 items={shoppingItems} 
                 setItems={setShoppingItems} 

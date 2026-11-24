@@ -28,7 +28,10 @@ try{
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
-    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,hasTouch:width<1024});
+    if(width<1024)await page.addInitScript(()=>{
+      if(!localStorage.getItem('local_shopping'))localStorage.setItem('local_shopping',JSON.stringify(Array.from({length:24},(_,i)=>({id:'qa-shopping-'+i,title:'QA товар '+i,amount:'1',unit:'шт',completed:false,memberId:'m1',priority:'medium',category:'dairy'}))));
+    });
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     if(label==='phone-390'){
@@ -274,6 +277,39 @@ try{
       assert.ok(dimensions && dimensions.height>=44,label+': small shopping panel control');
       await control.click();
       assert.equal(await control.getAttribute('aria-expanded'),'true',label+': shopping panel did not expand');
+    }
+    if(width<1024){
+      // Exercise real scrolling with the panel expanded and then a native touch
+      // swipe on a product card. A clipped but unbounded element must fail.
+      const scroll=page.getByTestId('shopping-scroll-container');
+      const metrics=await scroll.evaluate(el=>({height:el.clientHeight,scrollHeight:el.scrollHeight,bottom:el.getBoundingClientRect().bottom}));
+      assert.ok(metrics.height>0&&metrics.scrollHeight>metrics.height+100&&metrics.bottom<=height+2,label+': unbounded shopping viewport '+JSON.stringify(metrics));
+      await repeat.click();
+      assert.equal(await repeat.getAttribute('aria-expanded'),'false');
+      const row=scroll.locator('article').nth(5);
+      await row.scrollIntoViewIfNeeded();
+      const bounds=await row.boundingBox();
+      const viewport=await scroll.boundingBox();
+      assert.ok(bounds&&viewport,label+': product row not visible');
+      const x=Math.round(bounds.x+bounds.width*.5);
+      const y=Math.round(Math.min(bounds.y+bounds.height*.5,height-95,viewport.y+viewport.height-20));
+      const end=Math.max(viewport.y+72,y-120);
+      assert.ok(y-end>25,label+': insufficient gesture area');
+      const before=await scroll.evaluate(el=>el.scrollTop);
+      const cdp=await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      for(let step=1;step<=10;step++){
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(end-y)*step/10}]});
+        await page.waitForTimeout(16);
+      }
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await page.waitForFunction(start=>document.querySelector('[data-testid="shopping-scroll-container"]').scrollTop>start+5,before);
+      await cdp.detach();
+      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+      const bottom=scroll.getByRole('group',{name:'Частые покупки'});
+      const last=await bottom.boundingBox();
+      assert.ok(last&&last.y+last.height<=height-(width<768?50:0)+2,label+': last shopping controls obscured');
+      await scroll.evaluate(el=>{el.scrollTop=0;});
     }
     const shoppingOverflow=await page.evaluate(()=>({
       viewport:window.innerWidth,body:document.body.scrollWidth,

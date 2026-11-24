@@ -8,6 +8,7 @@ import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
+import { assertBudgetPolicyOwner } from './familyBudgetPolicy';
 import { prepareFamilyMemberInvitation, resolveFamilyJoinProfile, assertUnusedFamilyProfile } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -847,5 +848,41 @@ export async function deleteUnusedFamilyProfile(familyId:string,memberId:string)
     if(!current.exists())throw new Error('Профиль не найден');
     assertUnusedFamilyProfile({...current.data(),id:current.id} as FamilyMember,false);
     tx.delete(ref);
+  });
+}
+
+
+/** Household budget policy is independent of editable member preferences.
+ * This client transaction must also be enforced by deployed Firestore rules.
+ */
+export function subscribeToHouseholdBudgetPolicy(
+  familyId:string,
+  onValue:(value:{ownerUid:string;policy:'family'|'personal'})=>void,
+  onError:(error:Error)=>void
+):()=>void {
+  return onSnapshot(doc(db,'families',familyId),snapshot=>{
+    const data=snapshot.data();
+    if(!data||typeof data.ownerId!=='string'||!data.ownerId){
+      onError(new Error('Владелец семьи не определён'));
+      return;
+    }
+    if(data.budgetPolicy!==undefined&&data.budgetPolicy!=='family'&&data.budgetPolicy!=='personal'){
+      onError(new Error('Неизвестный режим семейного бюджета'));
+      return;
+    }
+    onValue({ownerUid:data.ownerId,policy:data.budgetPolicy==='personal'?'personal':'family'});
+  },onError);
+}
+
+export async function saveHouseholdBudgetPolicy(
+  familyId:string, actorUid:string, policy:'family'|'personal'
+):Promise<void>{
+  if(!familyId||!actorUid)throw new Error('Семейный аккаунт недоступен');
+  if(policy!=='family'&&policy!=='personal')throw new Error('Некорректный режим бюджета');
+  const ref=doc(db,'families',familyId);
+  await runTransaction(db,async tx=>{
+    const snapshot=await tx.get(ref);
+    assertBudgetPolicyOwner(snapshot.data()?.ownerId,actorUid);
+    tx.update(ref,{budgetPolicy:policy});
   });
 }

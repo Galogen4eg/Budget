@@ -56,7 +56,12 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
     'pinCode', 
     'enabledTabs', 
     'enabledServices', 
-    'defaultBudgetMode', 
+    'defaultBudgetMode',
+    'personalInitialBalance',
+    'personalInitialBalanceDate',
+    'personalSavingsRate',
+    'personalMonthlyBudget',
+    'personalManualReservedAmount', 
     'pushEnabled', 
     'fcmToken', 
     'showFeedbackTool', 
@@ -885,4 +890,19 @@ export async function saveHouseholdBudgetPolicy(
     assertBudgetPolicyOwner(snapshot.data()?.ownerId,actorUid);
     tx.update(ref,{budgetPolicy:policy});
   });
+}
+
+
+/** Scoped listener: no unfiltered fallback for a missing personal identity. */
+export function subscribeToScopedFinancialCollection(
+  familyId:string,collectionName:'transactions'|'goals'|'debts',
+  policy:'family'|'personal',memberId:string|undefined,
+  onValue:(records:any[])=>void,onError:(error:Error)=>void
+):()=>void{
+  if(!familyId||(policy==='personal'&&!memberId)){onValue([]);return ()=>{};}
+  const ref=collection(db,'families',familyId,collectionName);
+  const scoped=policy==='personal'?query(ref,where('memberId','==',memberId)):query(ref);
+  return onSnapshot(scoped,snapshot=>{
+    onValue(snapshot.docs.map(record=>({...record.data(),id:record.id})));
+  },error=>{onValue([]);onError(error);});
 }

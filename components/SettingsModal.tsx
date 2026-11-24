@@ -602,6 +602,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </label>
             </section>
             <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Карточки обзора</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Скрытие карточек не удаляет данные и не меняет основной раздел.</p>
+              {([['shopping','Список покупок'],['week_events','События недели']] as const).map(([id,label])=>{
+                const widget=settings.widgets?.find(w=>w.id===id);
+                return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 text-sm">
+                  <span>{label}</span>
+                  <input type="checkbox" checked={widget?.isVisible!==false} onChange={e=>{
+                    const next={id,isVisible:e.target.checked,mobile:{colSpan:2,rowSpan:1},desktop:{colSpan:1,rowSpan:1},...widget};
+                    handleChange('widgets',[...(settings.widgets??[]).filter(w=>w.id!==id),{...next,isVisible:e.target.checked}]);
+                  }} className="h-5 w-5 accent-[#2D5A43]"/>
+                </label>;
+              })}
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Приватность и бюджет</h3>
               <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
                 <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>

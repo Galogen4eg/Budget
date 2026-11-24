@@ -293,7 +293,7 @@ export default function App() {
 
   // Filter Mandatory Expenses based on Member Filter & Budget Mode
   const filteredMandatoryExpenses = useMemo(() => {
-      const allExpenses = settings.mandatoryExpenses || [];
+      const allExpenses = financialSettings.mandatoryExpenses || [];
       const safeMembers = members || [];
       
       // 1. Strict Member Filter from UI (Higher priority)
@@ -313,7 +313,7 @@ export default function App() {
           if (!myMemberId) return []; // Unlinked profile must not inherit another member's payments.
           return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
       }
-  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
+  }, [financialSettings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
 
   useEffect(() => {
     if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {
@@ -433,10 +433,11 @@ export default function App() {
 
   const handleToggleMandatoryPaid = async (expenseId: string) => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+    const monthIds = financialSettings.manualPaidExpenses?.[monthKey] || [];
     const paid = !monthIds.includes(expenseId);
     const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
-    const bill = (settings.mandatoryExpenses || []).find(item => item.id === expenseId);
+    const bill = (financialSettings.mandatoryExpenses || []).find(item => item.id === expenseId);
+    if(!bill){toast.error('Платёж недоступен');return;}
     const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
       currentMonth.getFullYear() === new Date().getFullYear();
     const debtChanges = bill?.linkedDebtId && isThisMonth
@@ -444,7 +445,7 @@ export default function App() {
       : [];
     try {
       await updateMandatoryPaymentBundle({
-        mandatoryExpenses: settings.mandatoryExpenses || [],
+        mandatoryExpenses: financialSettings.mandatoryExpenses || [],
         manualPaidExpenses: {[monthKey]: nextMonthIds}
       },debtChanges);
     } catch (error) {
@@ -1426,16 +1427,17 @@ export default function App() {
                 key={selectedMandatoryExpense ? `edit-exp-${selectedMandatoryExpense.id}` : 'mandatory-exp-modal'}
                 expense={selectedMandatoryExpense}
                 onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }}
-                settings={settings}
+                settings={financialSettings}
                 selectedMonth={currentMonth}
-                members={members}
+                members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
                 onSave={async (e, manuallyPaid) => {
                   const existingId = selectedMandatoryExpense?.id;
+                  if(existingId&&!financialSettings.mandatoryExpenses.some(item=>item.id===existingId))throw new Error('Платёж недоступен');
                   const updated = existingId
-                    ? (settings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
-                    : [...(settings.mandatoryExpenses || []), e];
+                    ? (financialSettings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
+                    : [...(financialSettings.mandatoryExpenses || []), e];
                   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                  const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+                  const monthIds = financialSettings.manualPaidExpenses?.[monthKey] || [];
                   const nextMonthIds = manuallyPaid
                     ? Array.from(new Set([...monthIds,e.id]))
                     : monthIds.filter(id => id !== e.id);
@@ -1460,9 +1462,10 @@ export default function App() {
                   setSelectedMandatoryExpense(null);
                 }}
                 onDelete={async (id) => {
-                  const updated = (settings.mandatoryExpenses || []).filter(item => item.id !== id);
+                  if(!financialSettings.mandatoryExpenses.some(item=>item.id===id))throw new Error('Платёж недоступен');
+                  const updated = (financialSettings.mandatoryExpenses || []).filter(item => item.id !== id);
                   const manualPaid = Object.fromEntries(
-                    Object.entries(settings.manualPaidExpenses || {}).map(([month,ids])=>
+                    Object.entries(financialSettings.manualPaidExpenses || {}).map(([month,ids])=>
                       [month,ids.filter(paidId => paidId !== id)]
                     )
                   );

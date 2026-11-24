@@ -407,6 +407,16 @@ try{
     await eventDialog.getByRole('button',{name:'Закрыть редактор события'}).click();
     await eventDialog.waitFor({state:'hidden'});
     await plans.getByRole('button',{name:'Месяц',exact:true}).click();
+    // A selected mid-month date must follow the visible month, not stay in
+    // the previous month while the user opens the day details.
+    const midMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,exact:true}).filter({visible:true}).first();
+    await midMonthDay.click();
+    const selectedMidMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,pressed:true}).filter({visible:true});
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day before navigation');
+    await plans.getByRole('button',{name:'Следующий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow next month');
+    await plans.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow previous month');
     {
       const metrics=await plans.evaluate(el=>{
         const initial=el.scrollTop;

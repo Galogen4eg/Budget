@@ -45,9 +45,10 @@ test('semantic palette and compact settings apply without removing keyboard focu
 
 test('settings keeps advanced controls accessible without making them the default view',()=>{
  const settings=read('components/SettingsModal.tsx');
- assert.match(settings,/<details[\s\S]*?<summary className="terra-settings-summary">Расширенное разграничение доступа/);
+ assert.match(settings,/<details[\s\S]*?<summary className="terra-settings-summary">Разграничение финансового доступа/);
  assert.match(settings,/terra-appearance-grid/);
- assert.match(settings,/settings\.enabledTabs\?\?\['overview','budget','plans','shopping','chat','services'\]/);
+ assert.match(settings,/visibleMenuTabs\(settings.enabledTabs\)/);
+ assert.match(settings,/menuPreferencePatch\(settings.enabledTabs,settings.startTab,id,e.target.checked\)/);
  assert.match(read('public/terra-ui.css'),/\.terra-appearance-grid/);
 });
 test('primary editors use the shared surface palette',()=>{

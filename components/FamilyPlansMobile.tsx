@@ -20,8 +20,8 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { formatReminderLabel } from './EventModal';
-import { parseLocalCalendarDate, calendarEndTime } from '../utils/calendarDates';
-import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember } from '../utils/calendarDates';
+import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ConflictResolverModal } from './ConflictResolverModal';
@@ -103,6 +103,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   const changeMonth = (increment: number) => {
     const newDate = shiftCalendarMonth(currentDate, increment);
     setCurrentDate(newDate);
+    setSelectedDate(selectedDayInMonth(selectedDate,newDate));
   };
 
   const handleDateClick = (year: number, month: number, day: number) => {
@@ -120,13 +121,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     };
   };
 
-  const isEventMatchingFilter = (e: FamilyEvent): boolean => {
-    if (filterMemberId === 'all') return true;
-    if (filterMemberId === 'common') {
-      return !e.memberIds || e.memberIds.length === 0 || e.memberIds.length === members.length;
-    }
-    return Boolean(e.memberIds && e.memberIds.includes(filterMemberId));
-  };
+  const memberIds=useMemo(()=>members.map(member=>member.id),[members]);
+  const isEventMatchingFilter = (e: FamilyEvent): boolean => matchesCalendarMember(e,filterMemberId,memberIds);
 
   // Member filter chips data with counts
   const memberFilterStats = useMemo(() => {
@@ -138,7 +134,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     // Show member chip ONLY if they have at least 1 event
     members.forEach(m => {
       const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
-      if (count > 0) {
+      {
         stats.push({
           id: m.id,
           label: m.name,
@@ -148,8 +144,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       }
     });
 
-    const commonCount = events.filter(e => !e.memberIds || e.memberIds.length === 0 || e.memberIds.length === members.length).length;
-    if (commonCount > 0 && members.length > 1) {
+    const commonCount = events.filter(e => matchesCalendarMember(e,'common',memberIds)).length;
+    if (members.length > 1) {
       stats.push({
         id: 'common',
         label: 'Общие',
@@ -159,7 +155,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     }
 
     return stats;
-  }, [events, members]);
+  }, [events, members, memberIds]);
 
   // Selected Day calculations
   const selectedDateStr = formatDateKey(selectedDate);
@@ -169,7 +165,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     return events
       .filter(e => e.date === selectedDateStr && isEventMatchingFilter(e))
       .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
-  }, [events, selectedDateStr, filterMemberId]);
+  }, [events, selectedDateStr, filterMemberId, memberIds]);
 
   // Selected Day title (e.g., "24 сентября, Четверг")
   const selectedDayFormattedTitle = useMemo(() => {
@@ -289,31 +285,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       const [y, m] = (e.date || '').split('-').map(Number);
       return y === targetYear && (m - 1) === targetMonth && isEventMatchingFilter(e);
     });
-  }, [events, currentDate, filterMemberId]);
+  }, [events, currentDate, filterMemberId, memberIds]);
 
-  const scheduleUpcomingEvents = useMemo(() => {
-    const now = new Date();
-    return currentMonthEvents.filter(e => {
-      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
-      return eDate >= now;
-    }).sort((a, b) => {
-      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-      return da - db;
-    });
-  }, [currentMonthEvents]);
-
-  const schedulePastEvents = useMemo(() => {
-    const now = new Date();
-    return currentMonthEvents.filter(e => {
-      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
-      return eDate < now;
-    }).sort((a, b) => {
-      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-      return db - da;
-    });
-  }, [currentMonthEvents]);
+  const scheduleUpcomingEvents = filterEventsForCalendarMonth(currentMonthEvents,currentDate,'upcoming');
+  const schedulePastEvents = filterEventsForCalendarMonth(currentMonthEvents,currentDate,'past');
 
   // ==========================================
   // RENDER 1: MONTH CALENDAR GRID (Image Spec)
@@ -1024,7 +999,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                             style={{ backgroundColor: memberMeta?.color || '#D97706' }}
                           />
                           <span>
-                            {ev.time} {ev.duration ? `— ${calendarEndTime(ev.time,ev.duration)}` : ''}
+                            {ev.time || 'Весь день'} {ev.time && ev.duration ? `— ${calendarEndTime(ev.time,ev.duration)}` : ''}
                           </span>
                         </div>
 

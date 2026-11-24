@@ -29,3 +29,13 @@ export function paymentAgenda(payments:readonly MandatoryExpense[],month:Date,pa
   linkedExpenseId:p.id,kind:'task' as const,reminders:p.remind?[1440]:[]
  }));
 }
+
+export function parseCustomCalendarReminder(value:string,unit:'min'|'hour'|'day'):number|null {
+ const amount=Number(value);
+ if(!/^\d+$/.test(value.trim())||!Number.isInteger(amount)||amount<1||amount>365)return null;
+ return amount*(unit==='day'?1440:unit==='hour'?60:1);
+}
+export function calendarReminderWindow(now:Date,since:Date):{from:string;to:string}{
+ const end=new Date(now.getTime()+365*1440*60000);
+ return {from:formatLocalCalendarDate(since),to:formatLocalCalendarDate(end)};
+}

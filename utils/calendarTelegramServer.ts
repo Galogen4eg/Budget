@@ -17,8 +17,8 @@ export async function updateTelegramSchedule(input:{
     body:JSON.stringify({
       familyId:input.familyId,
       events:input.events,members:input.members,
-      payments:settings.mandatoryExpenses||[],
-      paid:settings.manualPaidExpenses||{},
+      payments:[], // Calendar is exclusively events/tasks; API schema still requires this field.
+      paid:{},
       timeZone,botToken:settings.telegramBotToken,chatId:settings.telegramChatId.trim()
     })
   });
@@ -46,8 +46,8 @@ export async function refreshFamilyTelegramSchedules(input:{
   headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
   body:JSON.stringify({
    familyId:input.familyId,events:input.events,members:input.members,
-   payments:input.settings.mandatoryExpenses||[],
-   paid:input.settings.manualPaidExpenses||{}
+   payments:[],
+   paid:{}
   })
  });
  if(!response.ok)throw new Error('Не удалось обновить общее Telegram-расписание');

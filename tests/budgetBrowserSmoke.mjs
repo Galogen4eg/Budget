@@ -225,6 +225,49 @@ try{
     await page.screenshot({path:'artifacts/budget-browser/'+label+'-shopping.png',fullPage:true,animations:'disabled'});
     assert.deepEqual(errors,[],label+': shopping panel runtime errors');
     console.log('PASS',label,'Shopping quick lists / repeat navigation and responsive layout');
+    // Calendar is independent of the financial calendar. Exercise the actual
+    // Plans screen in isolated demo mode, without saving or sending events.
+    await page.getByRole('button',{name:'Планы',exact:true}).filter({visible:true}).first().click();
+    const plans=page.getByTestId('plans-scroll-container');
+    await plans.waitFor({state:'visible'});
+    for(const name of ['Месяц','Неделя','День','Расписание']){
+      const tab=plans.getByRole('button',{name,exact:true}).filter({visible:true}).first();
+      await tab.click();
+      assert.equal(await tab.getAttribute('aria-pressed'),'true',label+': calendar view '+name);
+      const bounds=await tab.boundingBox();
+      assert.ok(bounds && bounds.height>=43.95,label+': calendar view target '+name);
+    }
+    await plans.getByRole('button',{name:'День',exact:true}).click();
+    await plans.getByRole('button',{name:'Следующий день',exact:true}).filter({visible:true}).first().click();
+    await plans.getByRole('button',{name:'Предыдущий день',exact:true}).filter({visible:true}).first().click();
+    const addEvent=plans.getByRole('button',{name:'Добавить событие',exact:true}).filter({visible:true}).first();
+    await addEvent.click();
+    const eventDialog=page.getByRole('dialog').filter({has:page.locator('#event-title-input')});
+    await eventDialog.waitFor({state:'visible'});
+    await eventDialog.locator('#event-title-input').fill('QA календарь '+label);
+    await eventDialog.getByRole('button',{name:'Закрыть редактор события'}).click();
+    await eventDialog.waitFor({state:'hidden'});
+    await plans.getByRole('button',{name:'Месяц',exact:true}).click();
+    if(width<1024){
+      const metrics=await plans.evaluate(el=>{
+        const initial=el.scrollTop;
+        el.scrollTop=0;
+        el.scrollTop=el.scrollHeight;
+        const result={height:el.clientHeight,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop};
+        el.scrollTop=initial;
+        return result;
+      });
+      if(metrics.scrollHeight>metrics.height+2)assert.ok(metrics.scrollTop>0,label+': plans scroll blocked');
+    }
+    const plansOverflow=await page.evaluate(()=>({viewport:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));
+    assert.ok(plansOverflow.body<=plansOverflow.viewport+2&&plansOverflow.document<=plansOverflow.viewport+2,label+': plans horizontal overflow '+JSON.stringify(plansOverflow));
+    await page.screenshot({path:'artifacts/budget-browser/'+label+'-plans.png',fullPage:true,animations:'disabled'});
+    await page.getByRole('button',{name:'Обзор',exact:true}).filter({visible:true}).first().click();
+    await plans.waitFor({state:'hidden'});
+    await page.getByRole('button',{name:'Планы',exact:true}).filter({visible:true}).first().click();
+    await plans.waitFor({state:'visible'});
+    assert.deepEqual(errors,[],label+': plans navigation runtime errors');
+    console.log('PASS',label,'Plans views / day navigation / unsaved editor / return');
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

@@ -42,3 +42,13 @@ export function filterEventsForCalendarMonth<T extends Pick<FamilyEvent,'date'|'
     return tab==='upcoming'?delta:-delta;
   });
 }
+
+/** Local wall-clock end, including the day offset for overnight events. */
+export function calendarEndTime(time:string,duration:number):string {
+ if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)||!Number.isFinite(duration)||duration<=0)return '';
+ const [h,m]=time.split(':').map(Number);
+ const total=h*60+m+Math.round(duration*60);
+ const dayOffset=Math.floor(total/1440);
+ const clock=String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+ return clock+(dayOffset?' (+'+dayOffset+' дн.)':'');
+}

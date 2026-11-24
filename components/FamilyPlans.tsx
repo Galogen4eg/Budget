@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence } from '../utils/db';
 import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
-import { dueCalendarNotifications, paymentAgenda } from '../utils/calendarReminders';
+import { dueCalendarNotifications, calendarReminderWindow } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { telegramReminderKey } from '../utils/calendarTelegram';
@@ -215,16 +215,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     },1200);
     return ()=>window.clearTimeout(timer);
   },[telegramRemindersEnabled,telegramConfigured,telegramKey,familyId,user?.uid,events,members,
-    settings.telegramBotToken,settings.telegramChatId,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+    settings.telegramBotToken,settings.telegramChatId]);
 
   const enableReminders=async()=>{
     if(remindersEnabled){
-      localStorage.removeItem(reminderKey);
-      setRemindersEnabled(false);
       if(user?.uid){
         try{await disableCalendarPush(user.uid);setPushEnabled(false);}
-        catch(error){toast.error('Не удалось отключить фоновые push на сервере. Проверьте подключение и повторите.');}
+        catch(error){toast.error('Не удалось отключить фоновые push на сервере. Проверьте подключение и повторите.');return;}
       }
+      localStorage.removeItem(reminderKey);
+      setRemindersEnabled(false);
       toast.info('Локальные напоминания отключены.');
       return;
     }
@@ -252,12 +252,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   useEffect(()=>{
     if(!remindersEnabled||pushEnabled||!familyId||!user)return;
     const tick=()=>{
-      const now=new Date(),today=formatLocalCalendarDate(now);
-      const end=new Date(now);end.setDate(end.getDate()+40);
-      const future=buildCalendarOccurrences(events,today,formatLocalCalendarDate(end));
-      const monthly=Array.from({length:3},(_,i)=>paymentAgenda(
-        settings.mandatoryExpenses||[],new Date(now.getFullYear(),now.getMonth()+i,1),settings.manualPaidExpenses||{}
-      ));
+      const now=new Date();
       // Browser timers can pause while the tab is in the background. Resume from
       // the last check, but avoid replaying notifications older than one hour.
       const checkedKey=`${reminderKey}:last-checked`;
@@ -265,7 +260,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const since=Number.isFinite(previous)&&previous>0&&previous<=now.getTime()
         ?new Date(Math.max(previous,now.getTime()-3600000))
         :new Date(now.getTime()-120000);
-      const due=dueCalendarNotifications([...future,...monthly.flat()],now,ownProfileId,since);
+      const range=calendarReminderWindow(now,since);
+      const future=buildCalendarOccurrences(events,range.from,range.to);
+      const due=dueCalendarNotifications(future,now,ownProfileId,since);
       localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;
       let seen:string[]=[];
@@ -286,7 +283,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
     const onFocus=()=>tick();
     window.addEventListener('focus',onFocus);
     return ()=>{window.clearInterval(interval);window.removeEventListener('focus',onFocus);};
-  },[events,remindersEnabled,pushEnabled,familyId,user?.uid,ownProfileId,reminderKey,settings.mandatoryExpenses,settings.manualPaidExpenses]);
+  },[events,remindersEnabled,pushEnabled,familyId,user?.uid,ownProfileId,reminderKey]);
 
   // --- Calendar Data ---
   const calendarData = useMemo(() => {

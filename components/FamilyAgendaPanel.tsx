@@ -89,7 +89,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
       className="rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
       <Plus size={14}/>Задача
     </button>
-    <button type="button" onClick={onEnableReminders} title="Напоминания работают при открытом приложении"
+    <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} title={pushEnabled?"Фоновые push включены":"Напоминания работают при открытом приложении"}
       className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Bell size={14}/>{remindersEnabled?(pushEnabled?'Push включены':'Напоминания вкл.'):'Включить напоминания'}
     </button>
@@ -117,8 +117,8 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   <div className="md:hidden flex flex-wrap gap-2">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
-    <button type="button" onClick={onEnableReminders} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>Напоминания</button>
-    <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>Telegram</button>
+    <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>{remindersEnabled?(pushEnabled?'Push: вкл.':'Напоминания: вкл.'):'Напоминания: выкл.'}</button>
+    <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}</button>
     <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>
   </div>
   <div className={FILTER_RAIL} role="group" aria-label="Период календаря">
@@ -129,12 +129,12 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    )}
   </div>
-  <div className="max-h-44 sm:max-h-52 overflow-y-auto space-y-1.5" aria-label="Ближайшие события и семейные задачи">
+  <div className="md:max-h-52 md:overflow-y-auto space-y-1.5" aria-label="Ближайшие события и семейные задачи">
    {agenda.length===0&&<p className="text-xs text-stone-500 py-3">Пока нет запланированных дел на этот период.</p>}
    {agenda.map(event=><div key={event.id} className="flex gap-2 items-center py-2 px-2 rounded-xl bg-white dark:bg-white/5">
     {event.kind==='task'?
       <button type="button" title="Отметить выполнение" disabled={savingId===event.id}
-       onClick={()=>void toggle(event)} className="p-1 text-[#4A7C59] shrink-0">
+       onClick={()=>void toggle(event)} aria-label={event.completed?"Вернуть задачу":"Отметить выполнение"} aria-pressed={Boolean(event.completed)} className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
        {event.completed?<CircleCheck size={19}/>:<Circle size={19}/>}
       </button>:<CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}
     <button type="button" onClick={()=>onOpenEvent(event)}

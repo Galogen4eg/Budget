@@ -24,7 +24,9 @@ test('agenda disclosure has animated height and a stable non-animated parent scr
   assert.match(agenda, /height: 'auto'/);
   assert.match(agenda, /aria-controls="family-agenda-content"/);
   assert.match(agenda, /useReducedMotion\(\)/);
-  assert.match(agenda, /useMedia\('\(min-width: 768px\)'/);
+  assert.match(agenda, /const panelOpen=expanded/);
+  assert.match(plans, /overflow-y-auto overscroll-y-contain touch-pan-y/);
+  assert.doesNotMatch(plans, /lg:overflow-hidden/);
 });
 
 test('disclosure hides exiting content from keyboard and assistive technology', () => {

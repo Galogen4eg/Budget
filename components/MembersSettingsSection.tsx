@@ -169,8 +169,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   // Save member modifications
-  const handleSaveMemberDetails = () => {
-    if (!editingMemberId) return;
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const handleSaveMemberDetails = async () => {
+    if (!editingMemberId || isSavingMember) return;
     const nameVal = validateMemberName(editName);
     const emailVal = validateMemberEmail(editEmail);
 
@@ -188,13 +189,17 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       color: editColor,
     } : m);
 
-    onUpdateMembers(updated);
-    setIsSaveToastVisible(true);
-    toast.success('Профиль участника успешно обновлен!');
-
-    setTimeout(() => {
-      setIsSaveToastVisible(false);
-    }, 2500);
+    setIsSavingMember(true);
+    try {
+      await onUpdateMembers(updated);
+      setIsSaveToastVisible(true);
+      toast.success('Профиль участника успешно обновлен!');
+      setTimeout(() => setIsSaveToastVisible(false), 2500);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить профиль участника');
+    } finally {
+      setIsSavingMember(false);
+    }
   };
 
   // Delete family member profile
@@ -554,6 +559,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       <button
                         type="button"
                         onClick={handleSaveMemberDetails}
+                         disabled={isSavingMember}
                         className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold transition-all shadow-3xs flex items-center gap-1.5 cursor-pointer"
                       >
                         <Check size={13} />
@@ -816,6 +822,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 <button 
                   type="button"
                   onClick={handleSaveMemberDetails}
+                         disabled={isSavingMember}
                   className="min-h-[44px] px-4 py-2.5 bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-bold rounded-xl shadow-xs transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
                 >
                   <Check size={14} />

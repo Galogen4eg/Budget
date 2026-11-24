@@ -128,6 +128,27 @@ export default function App() {
   }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [systemDark,setSystemDark]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  useEffect(()=>{
+    const media=window.matchMedia('(prefers-color-scheme: dark)');
+    const update=()=>setSystemDark(media.matches);
+    update();media.addEventListener('change',update);
+    return ()=>media.removeEventListener('change',update);
+  },[]);
+  const resolvedTheme=settings.theme==='system'?(systemDark?'dark':'light'):settings.theme;
+  const visibleTabs=TAB_CONFIG.filter(tab=>tab.id==='overview'||(settings.enabledTabs??TAB_CONFIG.map(t=>t.id)).includes(tab.id));
+  const initialTabApplied=useRef<string|null>(null);
+  useEffect(()=>{
+    if(isAuthLoading)return;
+    const key=(user?.uid??'demo')+':'+(familyId??'local');
+    if(initialTabApplied.current===key)return;
+    if(familyId&&!importSourcesReady)return;
+    initialTabApplied.current=key;
+    setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
+  },[isAuthLoading,user?.uid,familyId,importSourcesReady,settings.startTab,settings.enabledTabs]);
+  useEffect(()=>{
+    if(!visibleTabs.some(t=>t.id===activeTab))setActiveTab('overview');
+  },[activeTab,settings.enabledTabs]);
   const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
@@ -290,8 +311,8 @@ export default function App() {
   }, [user?.uid]);
 
   useEffect(() => {
-      document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-  }, [settings.theme]);
+      document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+  }, [resolvedTheme]);
 
   // Synchronize offline Telegram message queue when internet connection restores
   useEffect(() => {
@@ -893,7 +914,7 @@ export default function App() {
 
             {/* Navigation Links */}
             <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-2 mt-4`}>
-              {TAB_CONFIG.map(tab => {
+              {visibleTabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -1128,7 +1149,7 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
       <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-         {TAB_CONFIG.map(tab => {
+         {visibleTabs.map(tab => {
              const isActive = activeTab === tab.id;
              return (
                 <button 

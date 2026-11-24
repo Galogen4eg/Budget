@@ -21,7 +21,7 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
-import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner } from '../utils/db';
+import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, inspectPersonalBudgetReadiness } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -148,6 +148,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
   const { goals: ownershipGoals, debts: ownershipDebts }=useData();
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
+  const [readinessBusy,setReadinessBusy]=useState(false);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[]}|null>(null);
+  const [readinessError,setReadinessError]=useState<string|null>(null);
+  const checkReadiness=async()=>{
+    if(readinessBusy||!isHouseholdOwner||!currentFamilyId||!currentUser?.uid||currentHouseholdPolicy?.policy!=='family')return;
+    setReadinessBusy(true);setReadiness(null);setReadinessError(null);
+    try{
+      const result=await inspectPersonalBudgetReadiness(currentFamilyId,currentUser.uid);
+      setReadiness({familyId:currentFamilyId,issues:result.issues});
+    }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
+    finally{setReadinessBusy(false);}
+  };
+
   const [ownershipChoices,setOwnershipChoices]=useState<Record<string,string>>({});
   const legacyRecords=[
     ...ownershipGoals.filter(g=>!g.memberId).map(g=>({kind:'goals' as const,id:g.id,title:g.title})),
@@ -159,6 +172,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setOwnershipBusy(key);
     try{
       await assignLegacyFinancialOwner(currentFamilyId,currentUser.uid,kind,id,ownershipChoices[key]);
+      setReadiness(null);
       toast.success('Владелец назначен');
     }catch(error){toast.error(error instanceof Error?error.message:'Не удалось назначить владельца');}
     finally{setOwnershipBusy(null);}
@@ -856,6 +870,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>)}
                 </fieldset>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Изменение режима станет доступно после проверки разделения финансовых данных.</p>
+                {currentHouseholdPolicy?.policy==='family' && <div className="space-y-3 border-t border-gray-200 dark:border-white/10 pt-3">
+                  <button type="button" disabled={readinessBusy||Boolean(ownershipBusy)} onClick={()=>void checkReadiness()} className="w-full sm:w-auto min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-4 text-sm font-semibold disabled:opacity-50">{readinessBusy?'Проверка…':'Проверить готовность семьи'}</button>
+                  <div role="status" aria-live="polite" className="space-y-2 text-sm">
+                    {readinessError && <p className="text-red-600 dark:text-red-400 break-words">{readinessError}</p>}
+                    {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>Проверенные данные готовы. Серверные правила и проверка двух аккаунтов ещё необходимы.</p>)}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Проверка не изменяет данные и не включает личный режим.</p>
+                </div>}
               </div>}
             </section>
             {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">

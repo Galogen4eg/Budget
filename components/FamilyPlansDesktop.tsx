@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
@@ -124,6 +124,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     return `${startDay} ${startMonth} — ${endDay} ${endMonth} ${year}`;
   }, [currentWeekDays]);
 
+  const changeDay = (increment: number) => {
+    const nextDate=new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate()+increment);
+    setSelectedDate(nextDate);
+    setCurrentDate(new Date(nextDate.getFullYear(),nextDate.getMonth(),1));
+  };
   const changeWeek = (increment: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + increment * 7);
@@ -308,12 +314,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl lg:text-3xl font-bold font-serif capitalize tracking-tight text-stone-900 dark:text-white">
-                {viewMode === 'week' ? weekPeriodTitle : monthName}
+                {viewMode === 'day' ? selectedDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : viewMode === 'week' ? weekPeriodTitle : monthName}
               </h1>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#EBE5DB] dark:bg-white/10 text-stone-600 dark:text-stone-300">
                 {viewMode === 'week' 
                   ? (isSelectedWeekCurrent ? 'Текущая неделя' : 'Неделя')
-                  : `${daysInCurrentMonth} дней`}
+                  : viewMode === 'day' ? 'День' : `${daysInCurrentMonth} дней`}
               </span>
               {viewMode === 'week' && !isSelectedWeekCurrent && (
                 <button
@@ -329,18 +335,18 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Быстрое переключение месяцев / недель */}
             <div className="flex items-center gap-0.5 ml-1">
               <button 
-                onClick={() => viewMode === 'week' ? changeWeek(-1) : changeDate(-1)}
-                aria-label={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
+                onClick={() => viewMode === 'day' ? changeDay(-1) : viewMode === 'week' ? changeWeek(-1) : changeDate(-1)}
+                aria-label={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
                 className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-stone-200/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
-                title={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
+                title={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
               </button>
               <button 
-                onClick={() => viewMode === 'week' ? changeWeek(1) : changeDate(1)}
-                aria-label={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
+                onClick={() => viewMode === 'day' ? changeDay(1) : viewMode === 'week' ? changeWeek(1) : changeDate(1)}
+                aria-label={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
                 className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-stone-200/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-stone-500 hover:text-stone-800 dark:text-stone-400 transition cursor-pointer"
-                title={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
+                title={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
               </button>
@@ -372,12 +378,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
             <div role="group" aria-label="Вид календаря" className="flex flex-none shrink-0 items-center gap-1">
               <button 
-                onClick={() => {
-                  setViewMode('month');
-                  const now = new Date();
-                  setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-                  setSelectedDate(now);
-                }}
+                onClick={() => setViewMode('month')}
+                aria-pressed={viewMode === 'month'}
                 className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'month' 
                     ? FILTER_CHIP_ACTIVE 
@@ -389,8 +391,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               <button 
                 onClick={() => {
                   setViewMode('week');
-                  resetToCurrentWeek();
+                  setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));
                 }}
+                aria-pressed={viewMode === 'week'}
                 className={`${FILTER_CHIP} cursor-pointer ${
                   viewMode === 'week' 
                     ? FILTER_CHIP_ACTIVE 
@@ -399,7 +402,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               >
                 Неделя
               </button>
+              <button type="button" onClick={() => {
+                setViewMode('day');
+                setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));
+              }} aria-pressed={viewMode === 'day'}
+                className={`${FILTER_CHIP} cursor-pointer ${viewMode === 'day' ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>День</button>
               <button 
+                aria-pressed={viewMode === 'list'}
                 onClick={() => {
                   setViewMode('list');
                   setListTab('upcoming');
@@ -646,6 +655,22 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </div>
           )}
 
+          {viewMode === 'day' && (
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+              <h2 className="text-lg font-semibold">События дня</h2>
+              {selectedDayEvents.filter(ev=>filterMemberId==='all'||ev.memberIds?.includes(filterMemberId)).map(ev=>(
+                <button type="button" key={ev.id} onClick={()=>onOpenEvent(ev)}
+                  className="w-full min-h-[44px] rounded-xl border border-[#ECE5DB] dark:border-white/10 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-stone-100 dark:hover:bg-white/5 transition-colors motion-reduce:transition-none">
+                  <span className="block text-sm font-semibold break-words">{ev.title}</span>
+                  <span className="block text-xs text-stone-500 dark:text-stone-300">{ev.time}{ev.duration ? ' — '+calendarEndTime(ev.time,ev.duration):''}</span>
+                </button>
+              ))}
+              {!selectedDayEvents.some(ev=>filterMemberId==='all'||ev.memberIds?.includes(filterMemberId))&&
+                <p className="p-4 text-sm text-stone-500 dark:text-stone-300">На этот день нет событий.</p>}
+              <button type="button" onClick={()=>onOpenEvent(null,{date:getLocalDateString(selectedDate)})}
+                className="min-h-[44px] rounded-xl px-4 bg-[#2D5A46] text-white text-sm font-semibold">Добавить событие</button>
+            </div>
+          )}
           {viewMode === 'list' && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-4">
               {/* Переключатель: Будущие / Прошедшие в рамках текущего месяца */}
@@ -852,7 +877,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
-                          {evt.time || 'Весь день'} {evt.duration ? `– ${parseInt(evt.time || '12') + evt.duration}:00` : ''}
+                          {evt.time || 'Весь день'} {evt.duration ? `– ${calendarEndTime(evt.time,evt.duration)}` : ''}
                         </span>
                         <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
                           {badgeStyle.memberName}
@@ -879,7 +904,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
                       <button 
                         onClick={() => onOpenEvent(evt)}
-                        className="p-1 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
+                        aria-label="Редактировать событие"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                         title="Редактировать событие"
                       >
                         <Edit3 size={14} />

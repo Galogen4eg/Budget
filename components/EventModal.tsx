@@ -366,7 +366,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-[520px] md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[calc(100dvh-env(safe-area-inset-top,0px))] md:max-h-[88dvh] min-h-0 bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-[28px] md:rounded-3xl shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
+        className="w-full max-w-[520px] md:max-w-3xl max-h-[calc(100dvh-env(safe-area-inset-top,0px))] md:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-t-[28px] md:rounded-3xl shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
       >
         {/* Mobile Pull Handle */}
         <div className="w-full flex justify-center pt-2 md:hidden shrink-0">
@@ -374,7 +374,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Header Section: Compact with Always Visible Templates Button */}
-        <header className="px-4 md:px-7 py-3 md:py-3.5 border-b border-[#EAE5DB]/60 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#18181A] shrink-0">
+        <header className="px-4 md:px-7 py-3 md:py-3.5 border-b border-[#EAE5DB]/60 dark:border-white/10 bg-[var(--terra-surface)] shrink-0">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-[#EAF2EC] dark:bg-[#4A7C59]/20 border border-[#CBD7CB]/70 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-green-300 shrink-0">
@@ -434,7 +434,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           {showTemplatesDropdown && templates && templates.length > 0 && (
-            <div className="mt-2 p-1.5 bg-white dark:bg-[#252528] rounded-xl border border-[#EAE5DB] dark:border-white/10 space-y-1 max-h-32 overflow-y-auto no-scrollbar animate-in fade-in">
+            <div className="mt-2 p-1.5 bg-[var(--terra-soft)] rounded-xl border border-[#EAE5DB] dark:border-white/10 space-y-1 max-h-32 overflow-y-auto no-scrollbar animate-in fade-in">
               <div className="text-[10px] font-extrabold uppercase text-stone-400 px-2 py-0.5">Выберите шаблон:</div>
               {templates.map(t => (
                 <button
@@ -502,7 +502,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <button
                   type="button"
                   onClick={applySuggestedSlot}
-                  className="px-2 py-1 rounded-lg bg-white dark:bg-[#252528] border border-emerald-300 dark:border-emerald-800/50 text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="px-2 py-1 rounded-lg bg-[var(--terra-soft)] border border-emerald-300 dark:border-emerald-800/50 text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <span>Сдвинуть: {suggestedSlot.startTime}</span>
                   <ArrowRight size={11} />
@@ -517,7 +517,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div className="md:col-span-7 space-y-3.5">
               
               {/* Event Name & Notes */}
-              <section className="bg-white dark:bg-[#202022] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <label htmlFor="event-title-input" className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Название события
@@ -538,19 +538,19 @@ export const EventModal: React.FC<EventModalProps> = ({
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Например: Семейная поездка и пикник"
-                  className="w-full px-3 py-1.5 bg-[#F5F2EB]/60 focus:bg-white dark:bg-[#252528] dark:focus:bg-[#2C2C2E] text-sm text-[#2C2723] dark:text-white placeholder:text-stone-400 font-semibold rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
+                  className="w-full px-3 py-1.5 bg-[#F5F2EB]/60 focus:bg-[var(--terra-soft)] dark:focus:bg-[#2C2C2E] text-sm text-[#2C2723] dark:text-white placeholder:text-stone-400 font-semibold rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
                 />
                 <input 
                   type="text"
                   value={desc}
                   onChange={e => setDesc(e.target.value)}
                   placeholder="Заметка или место встречи (необязательно)..."
-                  className="w-full px-3 py-1 bg-[#F5F2EB]/40 focus:bg-white dark:bg-[#252528] dark:focus:bg-[#2C2C2E] text-xs text-[#2C2723] dark:text-white placeholder:text-stone-400 rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
+                  className="w-full px-3 py-1 bg-[#F5F2EB]/40 focus:bg-[var(--terra-soft)] dark:focus:bg-[#2C2C2E] text-xs text-[#2C2723] dark:text-white placeholder:text-stone-400 rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
                 />
               </section>
 
               {/* Timing Grid: All 3 components completely unified in icon, layout, click handling */}
-              <section className="bg-white dark:bg-[#202022] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400 block">
                   Дата и время
                 </span>
@@ -634,7 +634,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </section>
 
               {/* Participants */}
-              <section className="bg-white dark:bg-[#202022] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Участники события
@@ -680,7 +680,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div className="md:col-span-5 space-y-3.5">
               
               {/* Telegram Reminders */}
-              <section className="bg-white dark:bg-[#202022] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Bell size={12} className="text-[#4A7C59]" />
@@ -773,7 +773,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </section>
 
               {/* Checklist */}
-              <section className="bg-white dark:bg-[#202022] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Чек-лист
@@ -844,7 +844,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Footer Actions: Fixed at bottom */}
-        <footer className="p-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] md:px-7 md:py-4 bg-white dark:bg-[#202022] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2">
+        <footer className="p-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] md:px-7 md:py-4 bg-[var(--terra-soft)] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2">
           <div>
             {event && onDelete && (
               !isConfirmingDelete ? (

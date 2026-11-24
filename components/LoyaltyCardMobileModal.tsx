@@ -164,7 +164,7 @@ export const LoyaltyCardMobileModal: React.FC<LoyaltyCardMobileModalProps> = ({
           <div className="flex flex-col w-full space-y-4">
             
             {/* Main Loyalty Card Surface */}
-            <div className="w-full bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-[0_12px_36px_rgba(46,50,48,0.08)] overflow-hidden flex flex-col transition-all duration-300 border border-[#E4E0D8]/70 dark:border-white/10">
+            <div className="w-full bg-[var(--terra-surface)] rounded-3xl shadow-[0_12px_36px_rgba(46,50,48,0.08)] overflow-hidden flex flex-col transition-all duration-300 border border-[#E4E0D8]/70 dark:border-white/10">
               
               {/* Store Header Card Banner */}
               <div className={`relative bg-gradient-to-br ${gradientClass} text-white p-5 overflow-hidden`}>
@@ -316,7 +316,7 @@ export const LoyaltyCardMobileModal: React.FC<LoyaltyCardMobileModalProps> = ({
                 <button 
                   type="button"
                   onClick={() => onEdit(card)}
-                  className="flex-1 h-12 rounded-xl bg-white dark:bg-[#252528] text-[#4A4E4A] dark:text-stone-200 hover:text-[#2E3230] hover:bg-[#F0ECE4] active:scale-98 transition-all flex items-center justify-center gap-2 text-xs font-bold tracking-wide uppercase shadow-2xs border border-[#E4E0D8]/50 dark:border-white/5 cursor-pointer"
+                  className="flex-1 h-12 rounded-xl bg-[var(--terra-soft)] text-[#4A4E4A] dark:text-stone-200 hover:text-[#2E3230] hover:bg-[#F0ECE4] active:scale-98 transition-all flex items-center justify-center gap-2 text-xs font-bold tracking-wide uppercase shadow-2xs border border-[#E4E0D8]/50 dark:border-white/5 cursor-pointer"
                 >
                   <Edit2 size={18} />
                   <span>Редактировать</span>
@@ -326,7 +326,7 @@ export const LoyaltyCardMobileModal: React.FC<LoyaltyCardMobileModalProps> = ({
                   type="button"
                   onClick={() => onDelete(card)}
                   aria-label="Удалить карту"
-                  className="w-12 h-12 rounded-xl bg-white dark:bg-[#252528] text-[#4A4E4A] dark:text-stone-300 hover:text-[#B83230] hover:bg-[#FFDAD8]/40 active:scale-95 transition-all flex items-center justify-center shadow-2xs border border-[#E4E0D8]/50 dark:border-white/5 cursor-pointer"
+                  className="w-12 h-12 rounded-xl bg-[var(--terra-soft)] text-[#4A4E4A] dark:text-stone-300 hover:text-[#B83230] hover:bg-[#FFDAD8]/40 active:scale-95 transition-all flex items-center justify-center shadow-2xs border border-[#E4E0D8]/50 dark:border-white/5 cursor-pointer"
                   title="Удалить карту"
                 >
                   <Trash2 size={20} />

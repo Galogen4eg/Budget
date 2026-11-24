@@ -255,7 +255,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white dark:bg-[#252528] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex flex-col gap-2.5 relative"
+                    className="bg-[var(--terra-soft)] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex flex-col gap-2.5 relative"
                   >
                     <div className="flex items-start gap-3">
                       
@@ -335,7 +335,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
                     key={notif.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="bg-white dark:bg-[#252528] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex items-start justify-between gap-3"
+                    className="bg-[var(--terra-soft)] rounded-xl p-3.5 shadow-2xs border border-[#e6e0d4] dark:border-white/5 flex items-start justify-between gap-3"
                   >
                     <div>
                       <h3 className="text-sm font-bold text-[#2e3230] dark:text-white">{notif.title}</h3>

@@ -350,7 +350,7 @@ export default function AddTransactionModal({
             onClose();
           }
         }}
-        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[#FAF9F6] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
+        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
         {/* Mobile Drag Indicator Handle */}
@@ -363,7 +363,7 @@ export default function AddTransactionModal({
               className="flex flex-col h-full min-h-0 overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-3.5 border-b border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
+              <div className="flex items-center justify-between px-6 py-3.5 border-b border-surface-border/70 dark:border-white/10 bg-[var(--terra-surface)] shrink-0">
                 <h2 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-[#2E3230] dark:text-white">
                   {initialTransaction ? 'Редактирование операции' : 'Новая операция'}
                 </h2>
@@ -422,7 +422,7 @@ export default function AddTransactionModal({
                   </div>
 
                   {/* Sum Card */}
-                  <div className="md:col-span-7 bg-white dark:bg-[#1C1C1E] px-4 py-2 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-1.5 min-h-[50px]">
+                  <div className="md:col-span-7 bg-[var(--terra-surface)] px-4 py-2 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-1.5 min-h-[50px]">
                     <div className="flex items-center justify-between gap-2 sm:gap-3">
                       <div className="min-w-0 flex-1">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5 truncate">
@@ -534,7 +534,7 @@ export default function AddTransactionModal({
                   {/* Left Block: Name & Rules & Category */}
                   <div className="space-y-3">
                     {/* Название в истории */}
-                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center gap-3">
+                    <div className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 flex items-center justify-center font-headline font-bold text-sm shrink-0">
                         {renamedTitle ? renamedTitle.charAt(0).toUpperCase() : 'Т'}
                       </div>
@@ -573,7 +573,7 @@ export default function AddTransactionModal({
                     )}
 
                     {/* Запомнить правило */}
-                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center justify-between gap-3">
+                    <div className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                           <Sparkles size={16} />
@@ -609,7 +609,7 @@ export default function AddTransactionModal({
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1.5">
+                          <div className="bg-[var(--terra-surface)] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <label className="text-[10px] font-mono uppercase font-bold text-primary dark:text-green-400 block">
                                 КЛЮЧЕВОЕ СЛОВО (ДЛЯ АВТО-ПРАВИЛА)
@@ -642,7 +642,7 @@ export default function AddTransactionModal({
                               value={cleanKeyword}
                               onChange={(e) => setCleanKeyword(e.target.value)}
                               placeholder="Напр: Uber; Магнит; ВкусВилл..."
-                              className="w-full bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-graphite dark:text-white outline-none focus:border-primary"
+                              className="w-full bg-[var(--terra-soft)] border border-surface-border dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-graphite dark:text-white outline-none focus:border-primary"
                             />
 
                             {/* Suggestion chips from history */}
@@ -675,11 +675,11 @@ export default function AddTransactionModal({
                           setIsMobileCategoryPickerOpen(true);
                         }
                       }}
-                      className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
+                      className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div 
-                          className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs group-hover:scale-105 transition-transform"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs transition-colors"
                           style={{ backgroundColor: selectedCategory.color || '#4A7C59' }}
                         >
                           {getIconById(selectedCategory.icon, 18)}
@@ -705,7 +705,7 @@ export default function AddTransactionModal({
 
                   {/* Right Block: Metadata Details & Notes */}
                   <div className="space-y-3">
-                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-surface-border dark:border-white/10 shadow-sm divide-y divide-surface-border/60 dark:divide-white/5 overflow-hidden">
+                    <div className="bg-[var(--terra-surface)] rounded-2xl border border-surface-border dark:border-white/10 shadow-sm divide-y divide-surface-border/60 dark:divide-white/5 overflow-hidden">
                       {/* Detail 1: Привязать к платежу */}
                       <div 
                         onClick={() => setCurrentView('monthly_binding')}
@@ -771,7 +771,7 @@ export default function AddTransactionModal({
                     </div>
 
                     {/* Compact Card: Заметка и банковский оригинал */}
-                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-3.5 border border-surface-border dark:border-white/10 shadow-sm space-y-2.5">
+                    <div className="bg-[var(--terra-surface)] rounded-2xl p-3.5 border border-surface-border dark:border-white/10 shadow-sm space-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
                           Заметка / Банковский оригинал
@@ -807,7 +807,7 @@ export default function AddTransactionModal({
               </div>
 
               {/* Bottom Actions Footer */}
-              <div className="px-3 sm:px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="px-3 sm:px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-[var(--terra-surface)] flex flex-wrap items-center justify-between gap-2 shrink-0">
                 {/* Left Side: Compact Destructive Action */}
                 <div>
                   {initialTransaction && onDelete && (
@@ -888,7 +888,7 @@ export default function AddTransactionModal({
             >
               <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
+                <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   {members.map((mem) => {
                     const isSelected = memberId === mem.id;
                     return (
@@ -930,7 +930,7 @@ export default function AddTransactionModal({
             >
               <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
+                <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   <button
                     type="button"
                     onClick={() => { setBoundExpenseId(''); setCurrentView('main'); }}

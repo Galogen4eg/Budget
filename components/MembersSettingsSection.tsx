@@ -291,7 +291,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
         <div className="lg:col-span-7 space-y-6">
           
           {/* Top session box */}
-          <div className="bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-[#202225] border border-[var(--terra-border)] rounded-2xl p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
               <span className="text-xs font-bold tracking-wide uppercase text-gray-500 dark:text-gray-400">
                 Текущая активная сессия
@@ -327,7 +327,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
                     onChange={(e) => void handleBindProfile(e.target.value)}
                     disabled={isBindingProfile||householdPersonal}
-                    className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
+                    className="w-full bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
                   >
                     {members.map(m => (
                       <option key={m.id} value={m.id} disabled={Boolean(m.userId && m.userId !== currentUserId)}>

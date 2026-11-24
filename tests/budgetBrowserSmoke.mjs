@@ -485,6 +485,10 @@ try{
       assert.equal(migrations,0,label+': display preference must not call SET-12');
       page.off('request',observe);
     }
+    const appearance=settingsDialog.locator('.terra-appearance-grid');
+    await appearance.waitFor({state:'visible'});
+    assert.equal(await appearance.locator(':scope > section').count(),4);
+    assert.ok(await appearance.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+': appearance overflow');
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
     await themes.getByRole('button',{name:'Тёмная',exact:true}).click();

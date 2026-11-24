@@ -588,7 +588,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-headline"
-        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border-0 sm:border border-[#ECE6DE] dark:border-white/10 flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         
         {/* Кнопка закрытия в верхнем правом углу */}
@@ -603,7 +603,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </button>
 
         {/* ШАПКА МОДАЛЬНОГО ОКНА */}
-        <div className="px-3 sm:px-8 pt-5 pb-4 border-b border-[#ECE6DE] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E]">
+        <div className="px-3 sm:px-8 pt-5 pb-4 border-b border-[var(--terra-border)] bg-[var(--terra-surface)]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Заголовок и иконка */}
@@ -630,7 +630,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="flex flex-wrap items-center gap-2.5 pr-8 lg:pr-0">
               
               {/* Bank statement ownership is fixed by the authenticated family profile. */}
-              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#252528] px-3 py-2 text-sm">
+              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 py-2 text-sm">
                 <User size={16} className="shrink-0 text-[#4A7C59]" />
                 <span className="text-stone-500 dark:text-gray-400">Владелец выписки:</span>
                 <strong className="min-w-0 truncate text-stone-800 dark:text-white">
@@ -639,7 +639,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
 
               {/* Объединенный бейдж доходов и расходов в одной строке */}
-              <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
+              <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-[var(--terra-soft)] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] dark:text-green-400">
                   <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
                   <span className="text-stone-400 dark:text-gray-400 font-semibold uppercase text-[10px]">Доходы:</span>
@@ -667,7 +667,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs whitespace-nowrap cursor-pointer ${
                   filterTab === 'all' 
                     ? 'bg-[#4A7C59] text-white' 
-                    : 'bg-white dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
+                    : 'bg-[var(--terra-soft)] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
                 }`}
               >
                 <span className="leading-none">Все</span>
@@ -685,7 +685,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     ? 'bg-[#E09F3E] text-white shadow-xs'
                     : unassignedCount > 0 
                       ? 'bg-[#FEF7EC] dark:bg-amber-950/30 text-[#B87008] dark:text-amber-300 border border-[#F3D5A5]/70 hover:bg-[#FDF2EE]'
-                      : 'bg-white dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
+                      : 'bg-[var(--terra-soft)] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
                 }`}
               >
                 {unassignedCount > 0 && <AlertCircle size={14} className={filterTab === 'unrecognized' ? 'text-white' : 'text-[#E09F3E]'} strokeWidth={2.5} />}
@@ -735,7 +735,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Поиск по названию, MCC, сумме..." 
-                  className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#252528] border border-[#EBE4DC] dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] transition-all"
+                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--terra-soft)] border border-[#EBE4DC] dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] transition-all"
                 />
               </div>
             </div>
@@ -775,7 +775,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           )}
 
           {items.some(isSavingsTransfer)&&(
-            <fieldset className="min-w-0 rounded-2xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#1C1C1E] p-3 sm:p-4 space-y-3">
+            <fieldset className="min-w-0 rounded-2xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-surface)] p-3 sm:p-4 space-y-3">
               <legend className="px-1 text-sm font-bold text-stone-900 dark:text-white">Переводы в накопления</legend>
               <p className="text-xs leading-relaxed text-stone-600 dark:text-gray-300">Укажите для каждого перевода его цель. Если деньги переводились между банковскими счетами и не относятся к целям Terra, выберите «Без цели». Новые цели автоматически не создаются.</p>
               {items.filter(isSavingsTransfer).map(item=>(
@@ -784,7 +784,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   <select aria-label={'Цель перевода: '+(item.note||'Перевод')+' '+item.date} disabled={isConfirmingImport} value={item.externalSavingsConfirmed===true&&!item.linkedGoalId?'external':goals.some(g=>g.id===item.linkedGoalId&&g.memberId===globalMemberId)?'goal:'+item.linkedGoalId:''} onChange={event=>{
                     const choice=event.target.value;
                     syncToParent(items.map(row=>row.tempId===item.tempId?{...row,linkedGoalId:choice.startsWith('goal:')?choice.slice(5):undefined,externalSavingsConfirmed:choice==='external'?true:undefined}:row));
-                  }} className="w-full sm:w-64 min-w-0 min-h-[44px] rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#252528] px-3 text-sm focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  }} className="w-full sm:w-64 min-w-0 min-h-[44px] rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 text-sm focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                     <option value="">Выберите вариант</option>
                     <option value="external">Банковский перевод без цели</option>
                     {goals.filter(g=>g.memberId===globalMemberId).map(g=><option key={g.id} value={'goal:'+g.id}>{g.title}</option>)}
@@ -795,7 +795,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           )}
 
           {filteredItems.length === 0 ? (
-            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-10 text-center border border-[#EBE4DC] dark:border-white/10 space-y-2">
+            <div className="bg-[var(--terra-surface)] rounded-2xl p-10 text-center border border-[#EBE4DC] dark:border-white/10 space-y-2">
               <p className="text-sm font-bold text-stone-700 dark:text-gray-300">Операций по выбранным фильтрам не найдено</p>
               <p className="text-xs text-stone-400">Сбросьте поиск или переключите вкладку</p>
             </div>
@@ -823,7 +823,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
                       : isUnrecognized 
                         ? 'bg-[#FFFDF7] dark:bg-[#241F18] border-2 border-[#E09F3E]/45 shadow-[0_2px_12px_rgba(224,159,62,0.08)] hover:border-[#E09F3E]' 
-                        : 'bg-white dark:bg-[#1C1C1E] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
+                        : 'bg-[var(--terra-surface)] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
                   }`}
                 >
                   {/* Левая часть: Иконка, Заголовок, МСС, Описание, Дата и Правило */}
@@ -989,7 +989,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* ФУТЕР С ДЕЙСТВИЯМИ */}
-        <footer className="px-3 sm:px-8 py-3 bg-[#FAF8F5] dark:bg-[#1C1C1E] border-t border-[#ECE6DE] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <footer className="px-3 sm:px-8 py-3 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           
           {/* Индикатор статуса */}
           <div className="flex items-center text-xs text-stone-600 dark:text-gray-300">
@@ -1012,7 +1012,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
-                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-white dark:bg-[#252528] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-[var(--terra-soft)] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Tag size={14} className="text-[#4A7C59]" />
                   <span>Назначить всем без категории</span>

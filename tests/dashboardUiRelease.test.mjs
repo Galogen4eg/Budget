@@ -42,3 +42,14 @@ test('semantic palette and compact settings apply without removing keyboard focu
  assert.match(read('components/SettingsModal.tsx'),/data-terra-settings="true"/);
  for(const path of ['TerraBudget','ShoppingListMobile','ShoppingListDesktop','FamilyPlansMobile','FamilyPlansDesktop','FamilyChat','ServicesHub','Wallet','DebtSnowball'])assert.match(read('components/'+path+'.tsx'),/var\(--terra-/);
 });
+
+test('settings keeps advanced controls accessible without making them the default view',()=>{
+ const settings=read('components/SettingsModal.tsx');
+ assert.match(settings,/<details[\s\S]*?<summary className="terra-settings-summary">Расширенное разграничение доступа/);
+ assert.match(settings,/terra-appearance-grid/);
+ assert.match(settings,/settings\.enabledTabs\?\?\['overview','budget','plans','shopping','chat','services'\]/);
+ assert.match(read('public/terra-ui.css'),/\.terra-appearance-grid/);
+});
+test('primary editors use the shared surface palette',()=>{
+ for(const name of ['GoalModal','EventModal','AddTransactionModal','MandatoryExpenseModal','ConfirmationModal','ImportModal','LoyaltyCardMobileModal','NotificationsModal','DrillDownModal'])assert.match(read('components/'+name+'.tsx'),/var\(--terra-(surface|soft)\)/,name);
+});

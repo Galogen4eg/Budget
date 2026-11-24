@@ -163,7 +163,7 @@ exports.changeHouseholdBudgetPolicy=onCall({region,timeoutSeconds:120},async(req
    }
    let result;
    try{
-     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)});
+     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)});
    }catch(error){
      if(preview)return {policy:current,enabled,issues:[error.message]};
      throw new HttpsError('failed-precondition','Миграция заблокирована: '+error.message);

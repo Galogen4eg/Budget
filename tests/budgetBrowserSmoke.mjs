@@ -6,6 +6,20 @@ import { chromium } from 'playwright';
 // Smoke-only: verifies unauthenticated app rendering in an actual browser.
 // It never creates accounts, sends credentials, or modifies financial data.
 const baseURL = process.env.BUDGET_SMOKE_URL || 'http://127.0.0.1:4173';
+// Local preview only. Allow the existing read-only presentation assets, not
+// Firebase, Telegram, analytics or other external API requests.
+const previewOrigin=new URL(baseURL).origin;
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(baseURL).hostname))throw new Error('Browser smoke requires a loopback preview');
+const staticTypes=new Map([
+ ['https://cdn.tailwindcss.com','script'],
+ ['https://fonts.googleapis.com','stylesheet'],
+ ['https://fonts.gstatic.com','font']
+]);
+const isolate=async page=>page.route('**/*',route=>{
+ const request=route.request(),origin=new URL(request.url()).origin;
+ const allowed=origin===previewOrigin||(request.method()==='GET'&&staticTypes.get(origin)===request.resourceType());
+ return allowed?route.continue():route.abort();
+});
 const child = process.env.BUDGET_SMOKE_URL ? null : spawn(
   'npm', ['run','preview','--','--host','127.0.0.1','--port','4173','--strictPort'],
   {stdio:'inherit',shell:process.platform==='win32'}
@@ -72,14 +86,16 @@ try{
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
-    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,hasTouch:width<1024});
+    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,hasTouch:width<1024,serviceWorkers:'block'});
+    await isolate(page);
     if(width<1024)await page.addInitScript(()=>{
       if(!localStorage.getItem('local_shopping'))localStorage.setItem('local_shopping',JSON.stringify(Array.from({length:24},(_,i)=>({id:'qa-shopping-'+i,title:'QA товар '+i,amount:'1',unit:'шт',completed:false,memberId:'m1',priority:'medium',category:'dairy'}))));
     });
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     if(label==='phone-390'){
-      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce'});
+      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
+      await isolate(dark);
       try{
         await dark.addInitScript(()=>localStorage.setItem('theme','dark'));
         // Pause only the app bundle: the inline theme bootstrap must already be dark.

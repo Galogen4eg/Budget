@@ -234,19 +234,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
 
 
+  // Shared queries do not depend on which member profile happened to load first.
+  const financialQueryMemberId=householdPersonal?linkedMemberId:undefined;
   useEffect(()=>{
     if(!familyId)return;
     setTransactions([]);setGoals([]);setDebts([]);setTransactionsReady(false);
-    if(!policyReady||(householdPersonal&&!linkedMemberId))return;
+    if(!policyReady||(householdPersonal&&!financialQueryMemberId))return;
     const mode=householdPersonal?'personal':'family';
     const onError=(error:Error)=>console.error('Financial subscription failed',error);
     const unsubs=[
-      subscribeToScopedFinancialCollection(familyId,'transactions',mode,linkedMemberId,items=>{setTransactions(items.map(sanitizeTransaction));setTransactionsReady(true);},error=>{setTransactionsReady(false);onError(error);}),
-      subscribeToScopedFinancialCollection(familyId,'goals',mode,linkedMemberId,items=>setGoals(items as SavingsGoal[]),onError),
-      subscribeToScopedFinancialCollection(familyId,'debts',mode,linkedMemberId,items=>setDebts(items as Debt[]),onError)
+      subscribeToScopedFinancialCollection(familyId,'transactions',mode,financialQueryMemberId,items=>{setTransactions(items.map(sanitizeTransaction));setTransactionsReady(true);},error=>{setTransactionsReady(false);onError(error);}),
+      subscribeToScopedFinancialCollection(familyId,'goals',mode,financialQueryMemberId,items=>setGoals(items as SavingsGoal[]),onError),
+      subscribeToScopedFinancialCollection(familyId,'debts',mode,financialQueryMemberId,items=>setDebts(items as Debt[]),onError)
     ];
     return ()=>unsubs.forEach(unsub=>unsub());
-  },[familyId,policyReady,householdPersonal,linkedMemberId]);
+  },[familyId,user?.uid,policyReady,householdPersonal,financialQueryMemberId]);
 
   const isInitialLoad = useRef(true);
   const merchantCatalogSyncAttempted = useRef(new Set<string>());
@@ -354,9 +356,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }
 
-    const unsubGlobal = subscribeToGlobalRules((rules) => {
-        setGlobalRules(rules);
-    });
+    setGlobalRules([]);
+    const unsubGlobal = familyId && user?.uid ? subscribeToGlobalRules(setGlobalRules) : () => {};
 
     if (!familyId) {
         const loadLocal = (key: string, setter: (val: any) => void, fallback?: any) => {

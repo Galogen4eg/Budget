@@ -39,6 +39,10 @@ export function createBudgetPolicyHandler(runtime=productionRuntime){
   }catch(error){
    if(error instanceof PolicyError)return res.status(statusFor[error.code]??500).json({error:error.message});
    console.error('SET-12 migration failed',error?.code??'unknown');
+   if(error?.code===8||error?.code==='8'||error?.code==='RESOURCE_EXHAUSTED'||error?.code==='resource-exhausted'){
+     res.setHeader('Retry-After','300');
+     return res.status(429).json({code:'firestore-quota',error:data.preview?'Исчерпана квота Firestore. Проверка не меняла данные. Если достигнут суточный лимит, дождитесь его обновления.':'Исчерпана квота Firestore. Сервер не подтвердил переход; проверьте текущий режим после восстановления доступа.'});
+   }
    return res.status(500).json({error:'Не удалось выполнить переход. Проверьте текущий режим перед повтором.'});
   }
  };

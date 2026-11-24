@@ -63,6 +63,8 @@ import {
 import { useAuth } from './contexts/AuthContext';
 import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
+import { visibleMenuTabs } from './utils/menuNavigation';
+
 const TAB_CONFIG = [
   { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
   { id: 'budget', label: 'Бюджет', icon: Wallet },
@@ -158,7 +160,8 @@ export default function App() {
   const startupTheme=savedBootTheme==='dark'||savedBootTheme==='light'||savedBootTheme==='system'?savedBootTheme:'system';
   const themePreference=isAuthLoading||!user||(familyId&&!settingsReady)?startupTheme:settings.theme;
   const resolvedTheme=themePreference==='system'?(systemDark?'dark':'light'):themePreference;
-  const visibleTabs=TAB_CONFIG.filter(tab=>tab.id==='overview'||(settings.enabledTabs??TAB_CONFIG.map(t=>t.id)).includes(tab.id));
+  const visibleTabIds=visibleMenuTabs(settings.enabledTabs);
+  const visibleTabs=TAB_CONFIG.filter(tab=>visibleTabIds.some(id=>id===tab.id));
   const initialTabApplied=useRef<string|null>(null);
   useEffect(()=>{
     if(isAuthLoading)return;
@@ -168,10 +171,10 @@ export default function App() {
     initialTabApplied.current=key;
     setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
   },[isAuthLoading,user?.uid,familyId,settingsReady,settings.startTab,settings.enabledTabs]);
-  useEffect(()=>{
-    if(!visibleTabs.some(t=>t.id===activeTab))setActiveTab('overview');
-  },[activeTab,settings.enabledTabs]);
+  // Hidden menu entries remain reachable through explicit overview shortcuts.
+  // Visibility preferences do not control authorization.
   const [targetService, setTargetService] = useState<string | null>(null);
+  const navigateMenu=(id:string)=>{if(id==='services')setTargetService('menu');setActiveTab(id);};
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null);
@@ -873,9 +876,9 @@ export default function App() {
       )}
 
       {/* BEGIN: LeftSidebar (Desktop Terra - Collapsed by default) */}
-      <aside className={`hidden md:flex ${isSidebarExpanded ? 'w-56' : 'w-[72px]'} bg-[#FAF8F5] dark:bg-[#1C1C1E] border-r border-surface-border dark:border-white/5 flex-col justify-between shrink-0 z-30 transition-all duration-300 select-none`}>
-        <div className="flex flex-col h-full justify-between items-center w-full py-5">
-          <div className="flex flex-col w-full items-center">
+      <aside className={`hidden md:flex ${isSidebarExpanded ? 'w-56' : 'w-[72px]'} bg-[#FAF8F5] dark:bg-[#1C1C1E] border-r border-surface-border dark:border-white/5 flex-col justify-between shrink-0 min-h-0 z-30 transition-[width] duration-200 motion-reduce:transition-none`}>
+        <div className="flex flex-col h-full min-h-0 justify-between items-center w-full py-3">
+          <div className="flex flex-col w-full items-center min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {/* Logo & Expand/Collapse Toggle */}
             <div className={`flex items-center ${isSidebarExpanded ? 'px-4 justify-between w-full pb-4' : 'justify-center pb-4'} border-b border-surface-border dark:border-white/5`}>
               <button 
@@ -900,20 +903,18 @@ export default function App() {
             </div>
 
             {/* Navigation Links */}
-            <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-2 mt-4`}>
+            <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-1 mt-3` }>
               {visibleTabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                    }}
+                    onClick={()=>navigateMenu(tab.id)}
                     title={tab.label}
                     aria-current={isActive ? 'page' : undefined}
                     aria-label={tab.label}
-                    className={`w-full flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
+                    className={`w-full min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
                         ? 'bg-primary text-white font-semibold' 
                         : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] font-medium'
@@ -949,16 +950,16 @@ export default function App() {
               <button 
                 type="button"
                 onClick={() => setIsAIChatOpen(true)} 
-                title="AI Ассистент (Gemini)" 
-                className="p-2 rounded-xl text-[#4A7C59] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
+                title="AI Ассистент (Gemini)" aria-label="AI Ассистент" 
+                className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[#4A7C59] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
               >
                 <Sparkles size={18} />
               </button>
               <button 
                 type="button"
                 onClick={() => setShowNotifications(true)} 
-                title="Уведомления" 
-                className="relative p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
+                title="Уведомления" aria-label="Уведомления" 
+                className="relative min-h-[44px] min-w-[44px] p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
               >
                 <Bell size={18} />
                 {unreadNotificationsCount > 0 && (
@@ -1131,10 +1132,7 @@ export default function App() {
                   aria-label={tab.label}
                   onClick={() => {
                     triggerHaptic('light');
-                    if (tab.id === 'services') {
-                      setTargetService('menu');
-                    }
-                    setActiveTab(tab.id);
+                    navigateMenu(tab.id);
                   }} 
                   className={`relative flex flex-col items-center justify-center flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors terra-press ${
                     isActive ? 'bg-[#E6EDE5] dark:bg-[#20362A] text-[#326243] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'

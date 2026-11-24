@@ -3,10 +3,7 @@ import React from 'react';
 export default function TerraSplash({slow=false,onDemo}:{slow?:boolean;onDemo?:()=>void}){
   return (
     <div className="terra-splash">
-      <picture>
-        <source media="(max-width: 767px), (orientation: portrait)" srcSet="/terra-mobile.webp" type="image/webp" />
-        <img src="/terra-desktop.webp" alt="" fetchPriority="high" decoding="async" />
-      </picture>
+      <div className="terra-splash-art" aria-hidden="true"><div className="terra-splash-image"/><div className="terra-splash-dots"><i/><i/><i/></div></div><div className="terra-splash-compact" aria-hidden="true"><span>Загружаем данные…</span><div className="terra-splash-dots"><i/><i/><i/></div></div>
       <span className="terra-splash-status" role="status">Terra. Загружаем данные…</span>
       {slow&&onDemo&&(
         <div className="terra-splash-help">

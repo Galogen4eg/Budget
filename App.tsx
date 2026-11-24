@@ -95,9 +95,14 @@ export default function App() {
   const importFileRef = useRef<File | null>(null);
 
   useEffect(() => {
+    if(!isAuthLoading){
+      document.documentElement.dataset.terraStartupMode='compact';
+      setShowSlowLoadFallback(false);
+      return;
+    }
     const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isAuthLoading]);
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,

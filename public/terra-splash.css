@@ -1,45 +1,99 @@
-/* Terra startup only. No dependency on Tailwind, remote fonts or JavaScript. */
+/* Terra: same lightweight loading UI before React and during authentication. */
 .terra-splash {
-  position: relative;
+  --terra-boot-bg: #F8F6F2;
+  --terra-boot-text: #1E2923;
+  --terra-boot-muted: #68726B;
+  --terra-boot-track: #E6E2DA;
+  --terra-boot-accent: #4A7C59;
   box-sizing: border-box;
   width: 100%;
   height: 100vh;
   height: 100dvh;
+  overflow: auto;
   display: grid;
   place-items: center;
-  overflow: hidden;
-  background: #f4ecdf;
-  color: #39463a;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   margin: 0;
+  background: var(--terra-boot-bg);
+  color: var(--terra-boot-text);
+  font: 14px/1.5 "Nunito Sans", system-ui, sans-serif;
 }
-html.dark .terra-splash { background: #181c19; color: #e6e8e1; }
-.terra-splash picture { display: block; width: 100%; height: 100%; min-height: 0; }
-.terra-splash img { display: block; width: 100%; height: 100%; object-fit: contain; }
-html.dark .terra-splash img { filter: brightness(.62) saturate(.88); }
-.terra-splash-status {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+html.dark .terra-splash {
+  --terra-boot-bg: #121214;
+  --terra-boot-text: #f4f4f5;
+  --terra-boot-muted: #a1a1aa;
+  --terra-boot-track: #303534;
+  --terra-boot-accent: #8ab697;
 }
-.terra-splash-help {
-  position: absolute;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  inset-inline: 12px;
+.terra-splash-inner {
   box-sizing: border-box;
-  margin-inline: auto;
-  width: fit-content;
-  max-width: min(460px, calc(100% - 24px));
-  background: #fffaf2;
-  color: #39463a;
-  border: 1px solid #e6e2da;
-  border-radius: 14px;
-  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 420px);
+  gap: 12px;
   text-align: center;
-  font: 14px/1.4 system-ui, sans-serif;
+  margin: auto;
 }
-html.dark .terra-splash-help { background: #242528; color: #f4f4f5; border-color: #40443e; }
-.terra-splash-help p { margin: 0 0 8px; }
+.terra-splash picture {
+  display: block;
+  width: min(100%, 380px);
+  aspect-ratio: 3.12;
+  overflow: hidden;
+  border-radius: 12px;
+  flex: none;
+  background: #f4ecdf;
+}
+.terra-splash img { display: block; width: 100%; height: auto; max-width: none; }
+.terra-splash-title {
+  font: 600 34px/1.15 "Literata", Georgia, serif;
+  letter-spacing: -.035em;
+  margin: 4px 0 0;
+}
+.terra-splash-subtitle { font-size: 14px; color: var(--terra-boot-muted); margin: -6px 0 8px; }
+.terra-splash-progress {
+  display: block;
+  width: 136px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--terra-boot-track);
+  overflow: hidden;
+}
+.terra-splash-progress span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--terra-boot-accent);
+  animation: terra-boot-progress 1.5s ease-in-out infinite alternate;
+}
+@keyframes terra-boot-progress {
+  from { transform: translateX(0); }
+  to { transform: translateX(163%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .terra-splash-progress span { animation: none; transform: translateX(81%); }
+}
+.terra-splash-status { color: var(--terra-boot-muted); font-size: 13px; margin: 0; }
+.terra-splash-help-slot { width: 100%; min-height: 102px; display: grid; align-content: start; }
+.terra-splash-help { padding: 6px 0 0; }
+.terra-splash-help p { margin: 0 0 10px; color: var(--terra-boot-muted); font-size: 13px; }
 .terra-splash-help button {
-  background: #4a7c59; color: #fff; border: 0; border-radius: 10px;
+  background: #2D5A43; color: #fff; border: 0; border-radius: 10px;
   min-height: 44px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer;
+  max-width: 100%;
 }
-.terra-splash-help button:focus-visible { outline: 2px solid #4a7c59; outline-offset: 3px; }
+.terra-splash-help button:focus-visible { outline: 2px solid var(--terra-boot-accent); outline-offset: 3px; }
+@media (max-width: 767px), (orientation: portrait) {
+  .terra-splash picture { width: min(100%, 190px); aspect-ratio: .92; }
+  .terra-splash-title { font-size: 30px; }
+}
+@media (max-height: 480px) {
+  .terra-splash-inner { gap: 8px; }
+  .terra-splash picture { width: min(100%, 250px); }
+  .terra-splash-title { font-size: 28px; }
+  .terra-splash-help-slot { min-height: 90px; }
+}
+@media (max-height: 480px) and (max-width: 767px), (max-height: 480px) and (orientation: portrait) {
+  .terra-splash picture { width: min(100%, 120px); }
+}

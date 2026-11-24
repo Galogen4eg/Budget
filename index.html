@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#EBEFF5" />
+    <meta name="theme-color" content="#F8F6F2" />
     <script>
       // Run before fonts, external scripts and the first paint.
       (function(){
@@ -22,7 +22,7 @@
         root.classList.toggle('dark',dark);
         root.dataset.bootTheme=preference;
         root.style.colorScheme=dark?'dark':'light';
-        root.style.backgroundColor=dark?'#121214':'#EBEFF5';
+        root.style.backgroundColor=dark?'#121214':'#F8F6F2';
         document.querySelector('meta[name="theme-color"]').content=dark?'#121214':'#EBEFF5';
       })();
     </script>
@@ -146,8 +146,14 @@
   </head>
   <body class="text-[#1C1C1E] dark:text-white">
     <div id="root"><div class="terra-splash" data-terra-boot>
-      <picture><source media="(max-width: 767px), (orientation: portrait)" srcset="/terra-mobile.webp" type="image/webp" /><img src="/terra-desktop.webp" alt="" fetchpriority="high" decoding="async" /></picture>
-      <span class="terra-splash-status" role="status">Terra. Загружаем данные…</span>
+      <div class="terra-splash-inner">
+        <picture><source media="(max-width: 767px), (orientation: portrait)" srcset="/terra-mobile.webp" type="image/webp" /><img src="/terra-desktop.webp" alt="" fetchpriority="high" decoding="async" /></picture>
+        <h1 class="terra-splash-title">Terra</h1>
+        <p class="terra-splash-subtitle">Бюджет и планирование</p>
+        <div class="terra-splash-progress" aria-hidden="true"><span></span></div>
+        <p class="terra-splash-status" role="status">Загружаем данные…</p>
+        <div class="terra-splash-help-slot"></div>
+      </div>
     </div></div>
   <script type="module" src="/index.tsx"></script>
 </body>

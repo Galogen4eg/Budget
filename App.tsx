@@ -337,8 +337,8 @@ export default function App() {
     const root=document.documentElement;
     root.classList.toggle('dark',resolvedTheme==='dark');
     root.style.colorScheme=resolvedTheme;
-    root.style.backgroundColor=resolvedTheme==='dark'?'#121214':'#EBEFF5';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',resolvedTheme==='dark'?'#121214':'#EBEFF5');
+    root.style.backgroundColor=resolvedTheme==='dark'?'#121214':'#F8F6F2';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',resolvedTheme==='dark'?'#121214':'#F8F6F2');
     if(!isAuthLoading&&user&&(!familyId||settingsReady)){
       root.dataset.bootTheme=themePreference;
       try{localStorage.setItem('theme',themePreference);}catch{}

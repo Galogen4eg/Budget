@@ -41,9 +41,11 @@ try{
         const splash=dark.locator('[data-terra-boot]');
         await splash.waitFor({state:'visible',timeout:15000});
         assert.equal(await dark.evaluate(()=>document.documentElement.classList.contains('dark')),true,'dark startup must respect stored theme');
-        assert.equal(await splash.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(24, 28, 25)');
+        assert.equal(await splash.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 18, 20)');
         await dark.waitForFunction(()=>document.querySelector('[data-terra-boot] img')?.naturalWidth>0);
-        assert.notEqual(await splash.locator('img').evaluate(el=>getComputedStyle(el).filter),'none');
+        assert.equal(await splash.locator('img').evaluate(el=>getComputedStyle(el).filter),'none');
+        assert.equal(await splash.locator('.terra-splash-progress span').evaluate(el=>getComputedStyle(el).animationName),'none');
+        assert.equal(await splash.getByRole('status').innerText(),'Загружаем данные…');
         await dark.screenshot({path:'artifacts/budget-browser/phone-390-startup-dark.png',animations:'disabled'});
       }finally{await dark.close();}
     }
@@ -61,6 +63,14 @@ try{
         const img=document.querySelector('[data-terra-boot] img');
         return img?.complete&&img.naturalWidth>0&&img.currentSrc.endsWith(expected);
       },expected,{timeout:15000});
+      const picture=await boot.locator('picture').boundingBox();
+      assert.ok(picture&&picture.width<=420&&picture.height<=270,label+': startup illustration not compact');
+      assert.equal(await boot.getByRole('status').innerText(),'Загружаем данные…');
+      const bar=boot.locator('.terra-splash-progress span');
+      assert.notEqual(await bar.evaluate(el=>getComputedStyle(el).animationName),'none',label+': progress animation missing');
+      const before=await bar.evaluate(el=>getComputedStyle(el).transform);
+      await page.waitForTimeout(220);
+      assert.notEqual(await bar.evaluate(el=>getComputedStyle(el).transform),before,label+': progress does not move');
       const geometry=await boot.evaluate(el=>({width:el.clientWidth,height:el.clientHeight,scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight}));
       assert.ok(geometry.width<=width+2&&geometry.scrollWidth<=width+2&&geometry.scrollHeight<=height+2,label+': loading screen overflows '+JSON.stringify(geometry));
       await page.screenshot({path:'artifacts/budget-browser/'+label+'-startup.png',animations:'disabled',timeout:15000});

@@ -1,7 +1,7 @@
 
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
-  onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
+  onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
@@ -931,4 +931,37 @@ export async function assignLegacyFinancialOwner(
     if(typeof uid!=='string'||!uid||!family.data()?.members?.includes(uid))throw new Error('Участник не привязан к семейному аккаунту');
     tx.update(recordRef,{memberId});
   });
+}
+
+
+/** Server-read preflight, not a security boundary and not permission to activate.
+ * No financial values or member identities are returned to the UI.
+ */
+export async function inspectPersonalBudgetReadiness(familyId:string,actorUid:string):Promise<{issues:string[]}>{
+  const family=await getDocFromServer(doc(db,'families',familyId));
+  const data=family.data();
+  assertBudgetPolicyOwner(data?.ownerId,actorUid);
+  if(data?.budgetPolicy==='personal')throw new Error('Проверка подготовки доступна в совместном режиме');
+  const uids=Array.isArray(data?.members)?data.members as string[]:[];
+  const profiles=await getDocsFromServer(collection(db,'families',familyId,'members'));
+  const linked=profiles.docs.filter(p=>uids.includes(p.data().userId));
+  const issues:string[]=[];
+  if(!uids.length||uids.some(uid=>linked.filter(p=>p.data().userId===uid).length!==1))issues.push('Не все участники имеют единственный привязанный профиль');
+  const ids=new Set(linked.map(p=>p.id));
+  for(const kind of ['transactions','goals','debts'] as const){
+    const rows=await getDocsFromServer(collection(db,'families',familyId,kind));
+    const count=rows.docs.filter(row=>!ids.has(row.data().memberId)).length;
+    if(count)issues.push(({transactions:'Операции',goals:'Цели',debts:'Долги'})[kind]+': без привязанного владельца — '+count);
+  }
+  const shared=await getDocFromServer(doc(db,'families',familyId,'config','settings'));
+  const bills=shared.data()?.mandatoryExpenses;
+  if(Array.isArray(bills)){
+    const count=bills.filter(b=>!ids.has(b.memberId)).length;
+    if(count)issues.push('Обязательные платежи без владельца — '+count);
+  }
+  for(const uid of uids){
+    const settings=await getDocFromServer(doc(db,'families',familyId,'members',uid,'config','settings'));
+    if(!Number.isFinite(settings.data()?.personalInitialBalance))issues.push('У одного из участников не задан личный начальный остаток');
+  }
+  return {issues};
 }

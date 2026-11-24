@@ -12,3 +12,9 @@ export function shiftCalendarMonth(date: Date, delta: number): Date {
   result.setDate(Math.min(day, lastDay));
   return result;
 }
+
+/** Preserve the selected day, clamped to the target month. */
+export function selectedDayInMonth(selected: Date, target: Date): Date {
+  const lastDay=new Date(target.getFullYear(),target.getMonth()+1,0).getDate();
+  return new Date(target.getFullYear(),target.getMonth(),Math.min(selected.getDate(),lastDay));
+}

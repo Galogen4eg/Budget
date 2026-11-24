@@ -407,7 +407,18 @@ try{
     await eventDialog.getByRole('button',{name:'Закрыть редактор события'}).click();
     await eventDialog.waitFor({state:'hidden'});
     await plans.getByRole('button',{name:'Месяц',exact:true}).click();
-    if(width<1024){
+    // A selected mid-month date must follow the visible month, not stay in
+    // the previous month while the user opens the day details.
+    const midMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,exact:true}).filter({visible:true}).first();
+    // Click the date label, not the nested quick-add action in desktop cells.
+    await midMonthDay.locator('span').first().click();
+    const selectedMidMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,pressed:true}).filter({visible:true});
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day before navigation');
+    await plans.getByRole('button',{name:'Следующий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow next month');
+    await plans.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow previous month');
+    {
       const metrics=await plans.evaluate(el=>{
         const initial=el.scrollTop;
         el.scrollTop=0;
@@ -419,6 +430,19 @@ try{
       if(metrics.scrollHeight>metrics.height+2)assert.ok(metrics.scrollTop>0,label+': plans scroll blocked');
     }
     if(width<768)await verifyMobileScroll(page,'plans-scroll-container',label);
+    if(width===1280){
+      const originalViewport=page.viewportSize();
+      await page.setViewportSize({width,height:480});
+      try{
+        const metrics=await plans.evaluate(el=>{
+          el.scrollTop=el.scrollHeight;
+          return {height:el.clientHeight,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop};
+        });
+        assert.ok(metrics.scrollHeight>metrics.height+2 && metrics.scrollTop>0,
+          label+': short desktop viewport must scroll real calendar content '+JSON.stringify(metrics));
+        await plans.evaluate(el=>{el.scrollTop=0;});
+      }finally{await page.setViewportSize(originalViewport);}
+    }
     const plansOverflow=await page.evaluate(()=>({viewport:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));
     assert.ok(plansOverflow.body<=plansOverflow.viewport+2&&plansOverflow.document<=plansOverflow.viewport+2,label+': plans horizontal overflow '+JSON.stringify(plansOverflow));
     await page.screenshot({path:'artifacts/budget-browser/'+label+'-plans.png',fullPage:true,animations:'disabled'});
@@ -487,14 +511,18 @@ try{
     }
     const appearance=settingsDialog.locator('.terra-appearance-grid');
     await appearance.waitFor({state:'visible'});
-    assert.equal(await appearance.locator(':scope > section').count(),4);
+    assert.equal(await appearance.locator(':scope > section').count(),2);
     assert.ok(await appearance.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+': appearance overflow');
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
     await themes.getByRole('button',{name:'Тёмная',exact:true}).click();
     await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await startupSelect.evaluate(el=>getComputedStyle(el).colorScheme),'dark',label+': native select color scheme');
     assert.equal(await startupSelect.locator('option').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(36, 37, 40)',label+': dark option background');
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
     assert.equal(await page.evaluate(()=>localStorage.getItem('theme')),'dark',label+': startup theme not persisted');
     await themes.getByRole('button',{name:'Светлая',exact:true}).click();
     await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
@@ -504,6 +532,15 @@ try{
     await page.emulateMedia({colorScheme:'light'});
     await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
     await themes.getByRole('button',{name:'Светлая',exact:true}).click();
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    const settingsSearch=settingsDialog.getByRole('searchbox',{name:'Поиск настроек'}).filter({visible:true});
+    await settingsSearch.fill('пароль');
+    assert.equal(await settingsDialog.getByRole('button',{name:/Профиль и безопасность/}).filter({visible:true}).count(),1);
+    assert.equal(await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).count(),0);
+    await settingsSearch.fill('несуществующая настройка');
+    await settingsDialog.getByText('Настройки не найдены',{exact:true}).waitFor({state:'visible'});
+    await settingsSearch.fill('');
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await settingsDialog.getByRole('checkbox',{name:'Обзор',exact:true}).isDisabled(),true,label+': overview must remain reachable');
     const services=settingsDialog.getByRole('checkbox',{name:'Сервисы',exact:true});
     const startup=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
@@ -527,7 +564,7 @@ try{
     // then inspect the PWA guide without opening a native installation dialog.
     await nav.getByRole('button',{name:'Планы',exact:true}).click();
     await openSettings.click();
-    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await shoppingWidget.isChecked(),false,label+': widget preference not retained');
     await shoppingWidget.check();
     if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();

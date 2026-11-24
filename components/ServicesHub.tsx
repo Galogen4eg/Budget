@@ -49,7 +49,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'debts', 
       label: 'Долги', 
-      desc: 'Управление выплатами, кредитами и стратегией', 
+      desc: 'Кредиты, долги и погашение', 
       hasAttention: debts && debts.length > 0,
       icon: (
         <svg className="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,8 +70,8 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     },
     { 
       id: 'wallet', 
-      label: 'Wallet', 
-      desc: 'Карты лояльности и скидки', 
+      label: 'Карты лояльности', 
+      desc: 'Сохранённые дисконтные карты', 
       hasAttention: false,
       icon: (
         <svg className="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'receipts', 
       label: 'Чеки ФНС и выписки', 
-      desc: 'Сканирование QR чеков и разделение на пул позиций по категориям', 
+      desc: 'Импорт выписок и распознавание чеков', 
       hasAttention: false,
       icon: (
         <ShieldCheck className="w-6 h-6 stroke-[1.8]" />
@@ -117,23 +117,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
       <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
-            {/* Desktop-only SectionHeaderCard */}
-            <div className="hidden md:flex flex-col space-y-4">
-              <div className={SURFACE_CARD} data-purpose="services-header">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <h1 className={PAGE_HEADING}>
-                    Финансовые сервисы
-                  </h1>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[var(--terra-soft)] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
-                    {SERVICES.length} сервиса
-                  </span>
-                </div>
-                <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
-                  Специализированные инструменты управления задолженностями, лояльностью и чеками ФНС
-                </p>
-              </div>
-            </div>
-
+            <h1 className={`hidden md:block ${PAGE_HEADING}`}>Сервисы</h1>
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
             <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
@@ -147,12 +131,12 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                     {/* Card Top Bar: Icon and Arrow */}
                     <div className="flex items-start justify-between mb-2 sm:mb-3.5">
                       {/* Icon with Sage/Mint Rounded Container */}
-                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400 shadow-2xs shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
+                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
                         {app.icon}
                       </div>
 
                       <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-0.5 sm:p-1">
-                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 " />
                       </div>
                     </div>
 
@@ -178,10 +162,10 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
-                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[var(--terra-surface)] hover:bg-stone-50 dark:hover:bg-[var(--terra-soft)] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[var(--terra-surface)] hover:bg-stone-50 dark:hover:bg-[var(--terra-soft)] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition  cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>Ко всем сервисам</span>
+                  <span>Все сервисы</span>
                 </button>
                 <h2 className="text-base font-bold text-stone-800 dark:text-white">
                   {SERVICES.find(a => a.id === activeService)?.label}

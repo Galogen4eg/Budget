@@ -21,6 +21,7 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
+import { MENU_TABS, visibleMenuTabs, menuPreferencePatch, settingsSearchMatches } from '../utils/menuNavigation';
 import MembersSettingsSection from './MembersSettingsSection';
 import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
 import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
@@ -56,23 +57,33 @@ interface SettingsModalProps {
   onOpenDuplicates?: () => void;
 }
 
-type SectionType = 'account' | 'appearance' | 'family' | 'budget' | 'categories' | 'integrations' | 'diagnostics';
+type SectionType = 'account' | 'appearance' | 'navigation' | 'family' | 'budget' | 'categories' | 'data' | 'integrations' | 'diagnostics';
+type SettingsGroup='personal'|'family'|'tools';
 
 interface SectionConfig {
   id: SectionType;
   label: string;
   subtitle: string;
+  keywords: string;
+  group: SettingsGroup;
   icon: React.ReactNode;
 }
 
+const SETTINGS_GROUPS: {id:SettingsGroup;label:string}[]=[
+ {id:'personal',label:'Личные настройки'},
+ {id:'family',label:'Семья и финансы'},
+ {id:'tools',label:'Данные и приложение'}
+];
 const SECTIONS: SectionConfig[] = [
-  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль и аккаунт', icon: <User size={18} /> },
-  { id: 'appearance', label: 'Оформление и приватность', subtitle: 'Тема, видимость сумм, стартовый режим', icon: <Sun size={18} /> },
-  { id: 'family', label: 'Семья и доступ', subtitle: 'Участники, ID пространства, синхронизация', icon: <Users size={18} /> },
-  { id: 'budget', label: 'Бюджет и зарплата', subtitle: 'Дни зарплаты, сбережения, резерв', icon: <Calculator size={18} /> },
-  { id: 'categories', label: 'Категории и правила', subtitle: 'Категории трат и авто-правила', icon: <Tag size={18} /> },
-  { id: 'diagnostics', label: 'Диагностика', subtitle: 'Связь с сервером и локальные данные', icon: <Database size={18} /> },
-  { id: 'integrations', label: 'Интеграции (Telegram и ИИ)', subtitle: 'Telegram бот, Chat ID, Gemini API', icon: <Send size={18} /> },
+  { id:'account', label:'Профиль и безопасность', subtitle:'Аккаунт, email, пароль', keywords:'логин вход выход учетная запись', group:'personal', icon:<User size={18}/> },
+  { id:'appearance', label:'Оформление и приватность', subtitle:'Тема, скрытие сумм', keywords:'темная светлая системная совместный личный бюджет видимость', group:'personal', icon:<Sun size={18}/> },
+  { id:'navigation', label:'Меню и обзор', subtitle:'Вкладки, стартовый экран, карточки', keywords:'навигация виджеты разделы покупки планы чат сервисы', group:'personal', icon:<LayoutGrid size={18}/> },
+  { id:'family', label:'Семья и доступ', subtitle:'Участники, приглашения, права', keywords:'id пространство синхронизация владелец set-12', group:'family', icon:<Users size={18}/> },
+  { id:'budget', label:'Параметры бюджета', subtitle:'Остатки, зарплата, накопления, резерв', keywords:'деньги баланс лимит финансовые личные семейные', group:'family', icon:<Calculator size={18}/> },
+  { id:'categories', label:'Категории и правила', subtitle:'Категории расходов, авто-правила', keywords:'траты доходы классификация', group:'family', icon:<Tag size={18}/> },
+  { id:'data', label:'История операций', subtitle:'Дубли, экспорт, удаление', keywords:'архив очистка аудит транзакции резервная копия выписка', group:'tools', icon:<FolderOpen size={18}/> },
+  { id:'integrations', label:'Интеграции', subtitle:'Telegram и Gemini', keywords:'бот чат id ии api ассистент', group:'tools', icon:<Send size={18}/> },
+  { id:'diagnostics', label:'Диагностика и установка', subtitle:'Синхронизация, сеть, PWA', keywords:'сервер данные офлайн android ios safari установка', group:'tools', icon:<Database size={18}/> },
 ];
 
 const ToggleSwitch = ({ checked, onChange, id }: { checked: boolean; onChange: () => void; id?: string }) => (
@@ -597,9 +608,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const filteredSections = SECTIONS.filter(s => 
-    s.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    s.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSections = SECTIONS.filter(item=>settingsSearchMatches(item,searchQuery));
+  const selectSection=(id:SectionType)=>{
+    setActiveSection(id);
+    setShowMobileMenu(false);
+    setSearchQuery('');
+  };
+  useEffect(()=>{
+    const viewport=document.querySelector('[data-testid="settings-section-scroll-container"]');
+    if(viewport)viewport.scrollTop=0;
+  },[activeSection]);
+  const renderSettingsSearch=()=>(
+    <div className="relative min-w-0">
+      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] pointer-events-none"/>
+      <input type="search" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}
+        aria-label="Поиск настроек" placeholder="Поиск настроек" className="min-h-[44px] w-full min-w-0 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] pl-9 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"/>
+    </div>
   );
 
   const renderSectionContent = () => {
@@ -615,17 +639,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </section>
             <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Отображение бюджета</h3>
+              <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
+              </button>
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
+                <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
+                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span className="text-sm font-medium shrink-0">{householdPersonal||hideSharedBudget?'Выкл.':'Вкл.'}</span>
+                </button>
+                <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
+                <select id="settings-budget-default" disabled={householdPersonal||hideSharedBudget} value={householdPersonal||hideSharedBudget?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
+                  <option value="personal">Личный</option>{!householdPersonal&&<option value="family">Семейный</option>}
+                </select>
+              </div>
+            </section>
+          </div>
+        );
+      case 'navigation':
+        return (
+          <div className="terra-appearance-grid">
+            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Навигация</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Выберите разделы меню на своих устройствах. Обзор всегда доступен.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Скрытые вкладки не отображаются в меню, но доступны по ссылкам из обзора. Данные и права доступа не меняются.</p>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-3">
-                {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).map(([id,label])=>{
-                  const enabled=settings.enabledTabs??['overview','budget','plans','shopping','chat','services'];
-                  const checked=id==='overview'||enabled.includes(id);
+                {MENU_TABS.map(({id,label})=>{
+                  const checked=visibleMenuTabs(settings.enabledTabs).includes(id);
                   return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-2 text-sm">
                     <span>{label}</span>
                     <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
-                      const next=e.target.checked?[...new Set([...enabled,id])]:enabled.filter(t=>t!==id);
-                      void Promise.resolve(onUpdate({enabledTabs:next,...(!next.includes(settings.startTab??'overview')?{startTab:'overview'}:{})})).catch(()=>toast.error('Не удалось сохранить меню'));
+                      const patch=menuPreferencePatch(settings.enabledTabs,settings.startTab,id,e.target.checked);
+                      void Promise.resolve().then(()=>onUpdate(patch)).then(()=>setSettingsWriteFailed(false)).catch(()=>{setSettingsWriteFailed(true);toast.error('Не удалось сохранить меню');});
                     }} className="h-5 w-5 accent-[#2D5A43]"/>
                   </label>;
                 })}
@@ -633,7 +676,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <label className="block space-y-2 text-sm font-semibold">
                 <span>Стартовый раздел</span>
                 <select value={settings.startTab??'overview'} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2">
-                  {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).filter(([id])=>id==='overview'||(settings.enabledTabs??['overview','budget','plans','shopping','chat','services']).includes(id)).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+                  {MENU_TABS.filter(({id})=>visibleMenuTabs(settings.enabledTabs).includes(id)).map(({id,label})=><option key={id} value={id}>{label}</option>)}
                 </select>
               </label>
             </section>
@@ -650,21 +693,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   }} className="h-5 w-5 accent-[#2D5A43]"/>
                 </label>;
               })}
-            </section>
-            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
-              <h3 className="text-base font-semibold">Приватность и бюджет</h3>
-              <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
-              </button>
-              <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
-                <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
-                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span className="text-sm font-medium shrink-0">{householdPersonal||hideSharedBudget?'Выкл.':'Вкл.'}</span>
-                </button>
-                <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
-                <select id="settings-budget-default" disabled={householdPersonal||hideSharedBudget} value={householdPersonal||hideSharedBudget?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
-                  <option value="personal">Личный</option>{!householdPersonal&&<option value="family">Семейный</option>}
-                </select>
-              </div>
             </section>
           </div>
         );
@@ -953,9 +981,73 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'family':
         return (
           <div className="space-y-6 w-full max-w-full">
+            {/* Members Settings */}
+            <MembersSettingsSection 
+              members={members}
+              onUpdateMembers={onUpdateMembers}
+              currentFamilyId={currentFamilyId}
+              transactions={transactions}
+              householdPersonal={householdPersonal}
+              isHouseholdOwner={isHouseholdOwner}
+            />
+
+            {/* Family Space ID & Sync */}
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center">
+                    <Cloud size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">ID семейного пространства</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация общей базы данных между устройствами</p>
+                  </div>
+                </div>
+
+                {currentFamilyId && (
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(currentFamilyId); toast.success('ID пространства скопирован'); }
+                      catch { toast.error('Не удалось скопировать ID'); }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy size={14} />
+                    <span>Скопировать ID</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input 
+                    type="text" 
+                    value={newFamilyId}
+                    onChange={e => setNewFamilyId(e.target.value)}
+                    placeholder="Введите ID семейного пространства..."
+                    className="flex-1 px-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleUpdateFamilyId}
+                    disabled={isJoining || newFamilyId.trim() === currentFamilyId}
+                    className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                  >
+                    {isJoining ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
+                    <span>Подключиться</span>
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  Для подключения нужно приглашение на подтверждённый email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
+                </p>
+                {currentUser?.email&&!currentUser.emailVerified&&<button type="button" className="min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-3 text-sm" onClick={async()=>{try{await sendEmailVerification(currentUser);toast.success('Письмо отправлено. После подтверждения войдите повторно.');}catch{toast.error('Не удалось отправить письмо подтверждения');}}}>Отправить письмо подтверждения email</button>}
+              </div>
+            </section>
             {/* Advanced access controls remain opt-in. */}
             <details className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-3">
-              <summary className="terra-settings-summary">Расширенное разграничение доступа (SET-12)</summary>
+              <summary className="terra-settings-summary">Разграничение финансового доступа</summary>
               <div className="pt-3 space-y-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Для простого скрытия совместного бюджета используйте «Оформление и приватность». Проверка и перенос нужны только для реального запрета доступа к чужим данным.</p>
               {householdPolicyError ? <p role="status" className="text-sm text-gray-500">Не удалось получить настройки семьи.</p> :
@@ -1036,70 +1128,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>;
               })}
             </section>}
-            {/* Members Settings */}
-            <MembersSettingsSection 
-              members={members}
-              onUpdateMembers={onUpdateMembers}
-              currentFamilyId={currentFamilyId}
-              transactions={transactions}
-              householdPersonal={householdPersonal}
-              isHouseholdOwner={isHouseholdOwner}
-            />
-
-            {/* Family Space ID & Sync */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center">
-                    <Cloud size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">ID семейного пространства</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация общей базы данных между устройствами</p>
-                  </div>
-                </div>
-
-                {currentFamilyId && (
-                  <button 
-                    type="button"
-                    onClick={async () => {
-                      try { await navigator.clipboard.writeText(currentFamilyId); toast.success('ID пространства скопирован'); }
-                      catch { toast.error('Не удалось скопировать ID'); }
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Copy size={14} />
-                    <span>Скопировать ID</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input 
-                    type="text" 
-                    value={newFamilyId}
-                    onChange={e => setNewFamilyId(e.target.value)}
-                    placeholder="Введите ID семейного пространства..."
-                    className="flex-1 px-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
-                  />
-                  <button 
-                    type="button"
-                    onClick={handleUpdateFamilyId}
-                    disabled={isJoining || newFamilyId.trim() === currentFamilyId}
-                    className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
-                  >
-                    {isJoining ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
-                    <span>Подключиться</span>
-                  </button>
-                </div>
-
-                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Для подключения нужно приглашение на подтверждённый email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
-                </p>
-                {currentUser?.email&&!currentUser.emailVerified&&<button type="button" className="min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-3 text-sm" onClick={async()=>{try{await sendEmailVerification(currentUser);toast.success('Письмо отправлено. После подтверждения войдите повторно.');}catch{toast.error('Не удалось отправить письмо подтверждения');}}}>Отправить письмо подтверждения email</button>}
-              </div>
-            </section>
           </div>
         );
 
@@ -1134,12 +1162,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             onUpdateSetting={handleChange}
             savingsRate={savingsRate}
             setSavingsRate={setSavingsRate}
-            transactions={transactions}
-            onOpenDuplicates={onOpenDuplicates}
-            onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}
+            mode="finance"
           />
           </div>
         );
+
+      case 'data':
+        return <BudgetSettingsSection settings={settings} onUpdateSetting={handleChange}
+          savingsRate={savingsRate} setSavingsRate={setSavingsRate} mode="history"
+          transactions={transactions} onOpenDuplicates={onOpenDuplicates}
+          onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}/>;
 
       case 'categories':
         return (
@@ -1457,7 +1489,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <button 
                 type="button" 
-                onClick={() => setShowMobileMenu(true)} 
+                onClick={() => {setSearchQuery('');setShowMobileMenu(true);}} 
                 className="min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
               >
                 <ArrowLeft size={16} />
@@ -1487,9 +1519,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {showMobileMenu && (
             <div data-testid="settings-menu-scroll-container" className="md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
               {/* Profile Card */}
-              <div 
-                onClick={() => { setActiveSection('account'); setShowMobileMenu(false); }}
-                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-[var(--terra-border)] shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#2D5A43]/40"
+              <button type="button"
+                onClick={()=>selectSection('account')}
+                aria-label="Открыть профиль"
+                className="w-full p-3 rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex items-center justify-between text-left cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#2D5A43] dark:text-emerald-300 font-bold text-lg flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
@@ -1500,9 +1533,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                         {currentUser?.displayName || accountLogin || 'Пользователь'}
                       </h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
-                      </span>
+
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                       {currentUser?.email || 'Email не указан'}
@@ -1510,35 +1541,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
                 <ChevronRight size={20} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
-              </div>
+              </button>
 
-              {/* Список настроек */}
-              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-[var(--terra-border)] shadow-xs overflow-hidden">
-                <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Разделы настроек
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-white/5">
-                  {SECTIONS.map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => { setActiveSection(item.id as SectionType); setShowMobileMenu(false); }}
-                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                          {item.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">{item.label}</div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={18} className="text-gray-400 dark:text-gray-500 shrink-0 ml-2" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {renderSettingsSearch()}
+              <nav aria-label="Разделы настроек" className="space-y-4">
+                {SETTINGS_GROUPS.map(group=>{
+                  const entries=filteredSections.filter(item=>item.group===group.id);
+                  if(!entries.length)return null;
+                  return <section key={group.id}>
+                    <h3 className="px-1 pb-2 text-xs font-semibold text-[var(--terra-muted)]">{group.label}</h3>
+                    <div className="rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)] divide-y divide-[var(--terra-border)]">
+                      {entries.map(item=><button key={item.id} type="button" onClick={()=>selectSection(item.id)}
+                        className="w-full min-h-[44px] p-3 flex items-center gap-3 text-left hover:bg-[var(--terra-soft)] rounded-xl focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                        <span className="shrink-0 text-[var(--terra-primary)]">{item.icon}</span>
+                        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold break-words">{item.label}</span><span className="block text-xs text-[var(--terra-muted)] break-words">{item.subtitle}</span></span>
+                        <ChevronRight size={16} className="shrink-0 text-[var(--terra-muted)]"/>
+                      </button>)}
+                    </div>
+                  </section>;
+                })}
+                {!filteredSections.length&&<p role="status" className="text-sm text-[var(--terra-muted)] py-3">Настройки не найдены</p>}
+              </nav>
 
               {/* Logout Button */}
               <div className="pt-2">
@@ -1552,52 +1575,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
 
-              {/* Version Info */}
-              <div className="text-center pb-8 pt-2">
-                <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
-                  Terra — Семейный бюджет v3.4
-                </p>
-              </div>
             </div>
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[216px] lg:w-[232px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-3 flex-col shrink-0 overflow-y-auto">
-            <div className="px-2 pt-1 pb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                Разделы настроек
-              </span>
-            </div>
-
-            <nav aria-label="Разделы настроек" className="space-y-1 flex-1">
-              {filteredSections.map(section => {
-                const isActive = activeSection === section.id;
-                return (
-                  <button 
-                    key={section.id} 
-                    type="button"
-                    onClick={() => { 
-                      setActiveSection(section.id); 
-                    }} 
-                    aria-current={isActive ? "page" : undefined}
-                    className={`w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
-                      isActive 
-                        ? 'terra-settings-active' 
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5'
-                    }`}
-                  >
-                    <div className={`shrink-0 ${isActive ? 'text-primary dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                      {section.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold leading-tight">{section.label}</div>
-                      <div className={`text-xs truncate mt-0.5 text-gray-500 dark:text-gray-400`}>
-                        {section.subtitle}
-                      </div>
-                    </div>
-                  </button>
-                );
+          <aside className="hidden md:flex w-[216px] lg:w-[240px] bg-[var(--terra-surface)] border-r border-[var(--terra-border)] p-3 flex-col shrink-0 overflow-y-auto">
+            {renderSettingsSearch()}
+            <nav aria-label="Разделы настроек" className="space-y-4 flex-1 pt-4">
+              {SETTINGS_GROUPS.map(group=>{
+                const entries=filteredSections.filter(section=>section.group===group.id);
+                if(!entries.length)return null;
+                return <section key={group.id} className="space-y-1">
+                  <h3 className="px-2 text-xs font-semibold text-[var(--terra-muted)]">{group.label}</h3>
+                  {entries.map(section=>{
+                    const isActive=activeSection===section.id;
+                    return <button key={section.id} type="button" onClick={()=>selectSection(section.id)}
+                      aria-current={isActive?'page':undefined}
+                      className={`w-full min-h-[44px] flex items-center gap-2 px-2 py-2 rounded-xl text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary ${isActive?'terra-settings-active':'hover:bg-[var(--terra-soft)]'}`}>
+                      <span className="shrink-0 text-[var(--terra-primary)]">{section.icon}</span>
+                      <span className="min-w-0 flex-1 text-sm font-medium break-words">{section.label}</span>
+                    </button>;
+                  })}
+                </section>;
               })}
+              {!filteredSections.length&&<p role="status" className="px-2 text-sm text-[var(--terra-muted)]">Настройки не найдены</p>}
             </nav>
           </aside>
 
@@ -1614,11 +1615,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       <h3 className="font-headline text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                         {currentSection.label}
                       </h3>
-                      {currentSection.id === 'account' && (
-                        <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
-                        </span>
-                      )}
+
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {currentSection.subtitle}

@@ -79,13 +79,15 @@ export interface MembersSettingsSectionProps {
   readonly onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   readonly currentFamilyId: string | null;
   readonly transactions?: Transaction[];
+  readonly householdPersonal?:boolean;
+  readonly isHouseholdOwner?:boolean;
 }
 
 export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   members,
   onUpdateMembers,
   currentFamilyId,
-  transactions = [],
+  transactions = [], householdPersonal=false, isHouseholdOwner=false,
 }) => {
   const { user } = useAuth();
   const currentUserEmail = user?.email || 'Локальный пользователь';
@@ -131,7 +133,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   const [isBindingProfile, setIsBindingProfile] = useState(false);
 
   const handleBindProfile = useCallback(async (targetMemberId: string) => {
-    if (isBindingProfile) return;
+    if (isBindingProfile||householdPersonal) return;
     try {
       const updated = bindFamilyProfile(members, currentUserId, targetMemberId);
       setIsBindingProfile(true);
@@ -148,7 +150,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     } finally {
       setIsBindingProfile(false);
     }
-  }, [members, currentUserId, onUpdateMembers, isBindingProfile]);
+  }, [members, currentUserId, onUpdateMembers, isBindingProfile, householdPersonal]);
 
   // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {
@@ -205,7 +207,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   // Delete family member profile
   const [isDeletingMember,setIsDeletingMember]=useState(false);
   const handleDeleteMember = async () => {
-    if (!editingMemberId || isDeletingMember || isSavingMember) return;
+    if (!editingMemberId || isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner) return;
     if (members.length <= 1 || !currentFamilyId) {
       toast.error('Удаление недоступно без активной семьи или для единственного участника');
       return;
@@ -231,6 +233,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   // Create new user/participant profile
   const handleCreateNewMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(householdPersonal||!isHouseholdOwner||isSendingInvite)return;
     const nameVal = validateMemberName(inviteName);
     const emailVal = validateMemberEmail(inviteEmail);
 
@@ -323,7 +326,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     id="session-profile-link-desktop"
                     value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
                     onChange={(e) => void handleBindProfile(e.target.value)}
-                    disabled={isBindingProfile}
+                    disabled={isBindingProfile||householdPersonal}
                     className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
                   >
                     {members.map(m => (
@@ -531,7 +534,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     <button
                       type="button"
                       onClick={handleDeleteMember}
-                       disabled={isDeletingMember || isSavingMember}
+                       disabled={isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner}
                       className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 px-1 cursor-pointer"
                     >
                       <Trash2 size={15} />
@@ -586,7 +589,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
         <section className="flex flex-col gap-3">
           <button 
             type="button"
-            onClick={() => setIsInviteModalOpen(true)}
+            disabled={householdPersonal||!isHouseholdOwner}
+             onClick={() => setIsInviteModalOpen(true)}
             className="w-full min-h-[48px] px-4 py-3 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
           >
             <UserPlus size={18} />
@@ -624,7 +628,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               <select 
                 value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
                 onChange={(e) => void handleBindProfile(e.target.value)}
-                    disabled={isBindingProfile}
+                    disabled={isBindingProfile||householdPersonal}
                 className="w-full min-h-[46px] appearance-none bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200/50 dark:border-white/5 text-xs sm:text-sm font-bold rounded-xl px-3.5 pr-10 focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors cursor-pointer"
               >
                 {members.map(m => (
@@ -796,7 +800,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               <button 
                 type="button"
                 onClick={handleDeleteMember}
-                       disabled={isDeletingMember || isSavingMember}
+                       disabled={isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner}
                 className="min-h-[44px] w-full inline-flex items-center justify-center gap-1.5 text-red-500 font-bold text-xs py-2 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
               >
                 <Trash2 size={16} />
@@ -925,7 +929,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSendingInvite || !inviteName.trim()}
+                    disabled={isSendingInvite || householdPersonal || !isHouseholdOwner || !inviteName.trim()}
                     className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isSendingInvite ? 'Приглашение...' : 'Создать участника'}

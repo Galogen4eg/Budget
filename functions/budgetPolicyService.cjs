@@ -1,5 +1,5 @@
 'use strict';
-const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues}=require('./budgetMigration.cjs');
+const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues,findSavingsLinkIssues}=require('./budgetMigration.cjs');
 class PolicyError extends Error { constructor(code,message){super(message);this.code=code;} }
 async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false}){
  if(!uid)throw new PolicyError('unauthenticated','Войдите в Budget');
@@ -36,7 +36,13 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
      if(preview){
        const ownershipIssues=current==='family'&&target==='personal'?findUnownedFinancialRecords(input):[];
        const linkIssues=current==='family'&&target==='personal'?findFinancialLinkIssues(input.links,input.shared.mandatoryExpenses??[]):[];
-       return {policy:current,enabled,issues:[ownershipIssues.length?'Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.':linkIssues.length?'Связанные операции разных владельцев: '+linkIssues.length+'. Проверьте список ниже.':error.message],...(ownershipIssues.length?{ownershipIssues}:{}),...(linkIssues.length?{linkIssues}:{})};
+       const savingsIssues=current==='family'&&target==='personal'?findSavingsLinkIssues(input.links):[];
+       const issues=[];
+       if(ownershipIssues.length)issues.push('Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев.');
+       if(linkIssues.length)issues.push('Связанные операции разных владельцев: '+linkIssues.length+'. Проверьте владельцев.');
+       if(savingsIssues.length)issues.push('Переводы без корректной накопительной цели: '+savingsIssues.length+'. Сверьте остатки целей и укажите связь.');
+       if(!issues.length)issues.push(error.message);
+       return {policy:current,enabled,issues,...(ownershipIssues.length?{ownershipIssues}:{}),...(linkIssues.length?{linkIssues}:{}),...(savingsIssues.length?{savingsIssues}:{})};
      }
      throw new PolicyError('failed-precondition','Миграция заблокирована: '+error.message);
    }

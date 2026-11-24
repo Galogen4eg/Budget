@@ -452,7 +452,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </header>
 
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar overscroll-y-contain touch-pan-y">
           
           <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -517,7 +517,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div className="md:col-span-7 space-y-3.5">
               
               {/* Event Name & Notes */}
-              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <label htmlFor="event-title-input" className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Название события
@@ -550,7 +550,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </section>
 
               {/* Timing Grid: All 3 components completely unified in icon, layout, click handling */}
-              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400 block">
                   Дата и время
                 </span>
@@ -634,7 +634,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </section>
 
               {/* Participants */}
-              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Участники события
@@ -680,7 +680,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div className="md:col-span-5 space-y-3.5">
               
               {/* Telegram Reminders */}
-              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Bell size={12} className="text-[#4A7C59]" />
@@ -773,7 +773,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </section>
 
               {/* Checklist */}
-              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 shadow-2xs space-y-2">
+              <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
                     Чек-лист
@@ -904,7 +904,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               type="button"
               disabled={isSaving}
               onClick={handleSave}
-              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[#4A7C59] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
+              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[#4A7C59] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
             >
               <Check size={14} strokeWidth={2.8} />
               <span>{isSaving ? 'Сохранение…' : event ? 'Сохранить' : 'Создать'}</span>

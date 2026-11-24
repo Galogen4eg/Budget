@@ -31,10 +31,10 @@ test('iteration 72: overview uses same category allocation as Budget',()=>{
 });
 
 test('iteration 72: personal chart does not pretend family daily/monthly limit is personal',()=>{
- assert.ok(source.includes("const chartDailyLimit = budgetMode === 'family' || householdPersonal ? dailyLimit : 0"));
- assert.ok(source.includes("const monthlyLimit = budgetMode === 'family' || householdPersonal ?"));
- assert.ok(source.includes("budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику'"));
- assert.ok(source.includes("budgetMode === 'personal' && !householdPersonal ? 'Семейный план не применяется к личному графику'"));
+ assert.ok(source.includes("const chartDailyLimit = budgetMode === 'family' || personalOnly ? dailyLimit : 0"));
+ assert.ok(source.includes("const monthlyLimit = budgetMode === 'family' || personalOnly ?"));
+ assert.ok(source.includes("budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику'"));
+ assert.ok(source.includes("budgetMode === 'personal' && !personalOnly ? 'Семейный план не применяется к личному графику'"));
  assert.ok(source.includes('limit: chartDailyLimit'));
 });
 

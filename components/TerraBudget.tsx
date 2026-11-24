@@ -470,7 +470,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  {personalOnly?'Доступно лично':'Доступно семье'} до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}</strong>
+                  {personalOnly?'Доступно лично до зарплаты':'Доступно семье до зарплаты'} ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -947,7 +947,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
           <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView&&personalOpeningKnown}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
         </div>
       </div>
@@ -1611,7 +1611,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
 <BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
-            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView&&personalOpeningKnown}
+            currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}

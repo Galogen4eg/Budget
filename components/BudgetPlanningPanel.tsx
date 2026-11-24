@@ -17,7 +17,7 @@ export default function BudgetPlanningPanel({
  settings,categories,transactions,monthTransactions,currentMonth,isCurrentMonth,
  totalBalance,reservedAmount,daysToSalary
 }:Props){
- const {updateSettings,householdPersonal,personalDisplayOnly}=useData();
+ const {updateSettings,householdPersonal,personalDisplayOnly,personalOpeningKnown}=useData();
  const personalOnly=householdPersonal||personalDisplayOnly;
  const [categoryId,setCategoryId]=useState('');
  const [amount,setAmount]=useState('');
@@ -167,7 +167,7 @@ export default function BudgetPlanningPanel({
        </p>
      </div>
    </div>
-   {isCurrentMonth&&(
+   {isCurrentMonth&&personalOpeningKnown&&(
     <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-1.5">
      <h3 className="text-sm font-bold text-graphite dark:text-white">Прогноз до зарплаты</h3>
      <p className="text-xs text-graphite-muted dark:text-gray-400">Через {daysToSalary} дн. · средний расход за последние 14 дней</p>

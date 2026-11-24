@@ -27,9 +27,11 @@ export function projectPersonalFinance<T extends {
  categoryBudgets?:Record<string,number>;
  mandatoryExpenses:readonly {id:string;memberId?:string|null}[];
  manualPaidExpenses?:Record<string,string[]>;
+ personalMandatoryExpenses?:readonly {id:string;memberId?:string|null}[];
+ personalManualPaidExpenses?:Record<string,string[]>;
 }>(settings:T,memberId:string|undefined):T{
  const numberOrZero=(n:number|undefined)=>typeof n==='number'&&Number.isFinite(n)?n:0;
- const expenses=memberId?settings.mandatoryExpenses.filter(e=>e.memberId===memberId):[];
+ const expenses=memberId?(settings.personalMandatoryExpenses??[]).filter(e=>e.memberId===memberId):[];
  const ids=new Set(expenses.map(e=>e.id));
  return {...settings,
    initialBalance:memberId?numberOrZero(settings.personalInitialBalance):0,
@@ -39,7 +41,7 @@ export function projectPersonalFinance<T extends {
    manualReservedAmount:memberId?Math.max(0,numberOrZero(settings.personalManualReservedAmount)):0,
    categoryBudgets:{},
    mandatoryExpenses:expenses,
-   manualPaidExpenses:Object.fromEntries(Object.entries(settings.manualPaidExpenses||{}).map(([month,paid])=>[month,paid.filter(id=>ids.has(id))]))
+   manualPaidExpenses:Object.fromEntries(Object.entries(settings.personalManualPaidExpenses||{}).map(([month,paid])=>[month,paid.filter(id=>ids.has(id))]))
  };
 }
 

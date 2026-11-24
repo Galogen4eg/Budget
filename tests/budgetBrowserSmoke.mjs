@@ -268,6 +268,72 @@ try{
     await plans.waitFor({state:'visible'});
     assert.deepEqual(errors,[],label+': plans navigation runtime errors');
     console.log('PASS',label,'Plans views / day navigation / unsaved editor / return');
+    // Exercise the actual settings dialog at every viewport. Changes are local demo only.
+    const nav=page.getByRole('navigation',{name:width<768?'Основная навигация':'Основное меню'});
+    const openSettings=page.getByRole('button',{name:'Настройки',exact:true}).filter({visible:true}).first();
+    await openSettings.click();
+    const settingsDialog=page.getByRole('dialog',{name:'Настройки',exact:true});
+    await settingsDialog.waitFor({state:'visible'});
+    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+    const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
+    await themes.getByRole('button',{name:'Тёмная',exact:true}).click();
+    await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+    await themes.getByRole('button',{name:'Светлая',exact:true}).click();
+    await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+    await page.emulateMedia({colorScheme:'dark'});
+    await themes.getByRole('button',{name:'Системная',exact:true}).click();
+    await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+    await page.emulateMedia({colorScheme:'light'});
+    await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+    await themes.getByRole('button',{name:'Светлая',exact:true}).click();
+    assert.equal(await settingsDialog.getByRole('checkbox',{name:'Обзор',exact:true}).isDisabled(),true,label+': overview must remain reachable');
+    const services=settingsDialog.getByRole('checkbox',{name:'Сервисы',exact:true});
+    const startup=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
+    await startup.selectOption('services');
+    assert.equal(await startup.inputValue(),'services');
+    await services.uncheck();
+    await nav.getByRole('button',{name:'Сервисы',exact:true}).waitFor({state:'detached'});
+    assert.equal(await startup.inputValue(),'overview',label+': invalid startup tab not reset');
+    await services.check();
+    await nav.getByRole('button',{name:'Сервисы',exact:true}).waitFor({state:'visible'});
+    const shoppingWidget=settingsDialog.getByRole('checkbox',{name:'Список покупок',exact:true});
+    await shoppingWidget.uncheck();
+    const settingsOverflow=await settingsDialog.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
+    assert.ok(settingsOverflow.scroll<=settingsOverflow.width+2,label+': settings horizontal overflow '+JSON.stringify(settingsOverflow));
+    await page.screenshot({path:'artifacts/budget-browser/'+label+'-settings.png',fullPage:true,animations:'disabled'});
+    await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
+    await settingsDialog.waitFor({state:'hidden'});
+    await nav.getByRole('button',{name:'Обзор',exact:true}).click();
+    await page.getByRole('heading',{name:/^Список покупок$/i}).filter({visible:true}).first().waitFor({state:'hidden'});
+    // Reopen from a section with an accessible header action, restore the card,
+    // then inspect the PWA guide without opening a native installation dialog.
+    await nav.getByRole('button',{name:'Планы',exact:true}).click();
+    await openSettings.click();
+    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+    assert.equal(await shoppingWidget.isChecked(),false,label+': widget preference not retained');
+    await shoppingWidget.check();
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    await settingsDialog.getByRole('button',{name:/^Диагностика/}).filter({visible:true}).first().click();
+    await settingsDialog.getByRole('heading',{name:'Подключение и данные'}).waitFor({state:'visible'});
+    const installGuide=settingsDialog.getByRole('button',{name:'Как установить',exact:true});
+    if(await installGuide.isVisible()){
+      await installGuide.click();
+      const guide=page.getByRole('dialog',{name:'Установка приложения',exact:true});
+      await guide.waitFor({state:'visible'});
+      assert.ok(await guide.getByText(/iPhone: в Safari/).isVisible());
+      assert.ok(await guide.getByText(/Android: в Chrome/).isVisible());
+      await guide.getByRole('button',{name:'Понятно',exact:true}).click();
+      await guide.waitFor({state:'hidden'});
+    }else{
+      assert.ok(await settingsDialog.getByRole('button',{name:'Установить приложение',exact:true}).isVisible() ||
+        await settingsDialog.getByText('Приложение открыто в отдельном окне.').isVisible());
+    }
+    await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
+    await settingsDialog.waitFor({state:'hidden'});
+    await nav.getByRole('button',{name:'Обзор',exact:true}).click();
+    await page.getByRole('heading',{name:/^Список покупок$/i}).filter({visible:true}).first().waitFor({state:'visible'});
+    assert.deepEqual(errors,[],label+': settings runtime errors');
+    console.log('PASS',label,'settings themes, navigation, widgets, diagnostics and PWA help');
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

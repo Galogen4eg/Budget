@@ -12,7 +12,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection, subscribeToPersonalCollection, savePersonalItems, deletePersonalItem
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -313,30 +313,36 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Unified persistent updater for learned rules
+  // Shared and private learned rules never reuse another scope's storage.
   const updateRules = async (rulesOrFn: LearnedRule[] | ((prev: LearnedRule[]) => LearnedRule[])) => {
       const updated = typeof rulesOrFn === 'function' ? rulesOrFn(localRules) : rulesOrFn;
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await savePersonalItems(familyId,user.uid,'rules',updated);
+        else await addItemsBatch(familyId,'rules',updated);
+      }else{
+        localStorage.setItem('local_rules',JSON.stringify(updated));
+      }
       setLocalRules(updated);
-      try {
-          localStorage.setItem('local_rules', JSON.stringify(updated));
-      } catch (e) {
-          console.warn("Failed to write local_rules to localStorage:", e);
-      }
-      if (familyId) {
-          try {
-              await addItemsBatch(familyId, 'rules', updated);
-          } catch (e) {
-              console.warn("Failed to sync rules with Firestore:", e);
-          }
-      }
   };
+  useEffect(()=>{
+    if(!familyId||!user?.uid)return;
+    setLocalRules([]);setAiKnowledge([]);setNotifications([]);
+    if(!policyReady)return;
+    const subscribe=(kind:'rules'|'knowledge',callback:(rows:any[])=>void)=>householdPersonal
+      ?subscribeToPersonalCollection(familyId,user.uid,kind,callback)
+      :subscribeToCollection(familyId,kind,callback);
+    const stopRules=subscribe('rules',rows=>setLocalRules(rows as LearnedRule[]));
+    const stopKnowledge=subscribe('knowledge',rows=>setAiKnowledge(rows as AIKnowledgeItem[]));
+    return ()=>{stopRules();stopKnowledge();};
+  },[familyId,user?.uid,policyReady,householdPersonal]);
 
   // --- Subscriptions ---
   useEffect(() => {
     setTransactionsReady(false);
     setCatalogReady(false);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
-    const cachedRules = localStorage.getItem('local_rules');
+    const cachedRules = !familyId ? localStorage.getItem('local_rules') : null;
     if (cachedRules) {
         try {
             const parsed = JSON.parse(cachedRules);
@@ -460,28 +466,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   });
           }
       }),
-      subscribeToCollection(familyId, 'rules', async (data) => {
-          const list = (data as LearnedRule[]) || [];
-          if (list.length > 0) {
-              setLocalRules(list);
-              try { localStorage.setItem('local_rules', JSON.stringify(list)); } catch {}
-          } else {
-              // If Firestore rules are empty, check if we have cached rules locally and upload them
-              const cached = localStorage.getItem('local_rules');
-              if (cached) {
-                  try {
-                      const parsed = JSON.parse(cached);
-                      if (Array.isArray(parsed) && parsed.length > 0) {
-                          setLocalRules(parsed);
-                          await addItemsBatch(familyId, 'rules', parsed);
-                      }
-                  } catch (e) {
-                      console.warn("Failed to migrate cached rules to Firestore", e);
-                  }
-              }
-          }
-      }),
-      subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
 
     ];
@@ -501,7 +485,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sync dismissed notifications to local storage immediately
       localStorage.setItem('local_dismissed_notifs', JSON.stringify(dismissedNotificationIds));
       // Always keep local rules backed up on device
-      try { localStorage.setItem('local_rules', JSON.stringify(localRules)); } catch {}
+      if(!familyId)try { localStorage.setItem('local_rules', JSON.stringify(localRules)); } catch {}
 
       if (!authLoading && !isInitialLoad.current && !familyId) {
           localStorage.setItem('local_transactions', JSON.stringify(transactions));
@@ -595,13 +579,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           text,
           addedDate: new Date().toISOString()
       };
-      setAiKnowledge(prev => [...prev, newItem]);
-      if (familyId) await addItem(familyId, 'knowledge', newItem);
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await savePersonalItems(familyId,user.uid,'knowledge',[newItem]);
+        else await addItem(familyId,'knowledge',newItem);
+      }
+      setAiKnowledge(prev => [...prev.filter(item=>item.id!==newItem.id),newItem]);
   };
 
   const deleteAIKnowledge = async (id: string) => {
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await deletePersonalItem(familyId,user.uid,'knowledge',id);
+        else await deleteItem(familyId,'knowledge',id);
+      }
       setAiKnowledge(prev => prev.filter(k => k.id !== id));
-      if (familyId) await deleteItem(familyId, 'knowledge', id);
   };
 
   useEffect(() => {

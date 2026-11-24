@@ -44,7 +44,9 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
  let enabled=true;
  if(transport==='vercel'){
    admin=initializeAdmin({projectId},'policy-http-test');
-   const adminDb=initializeAdminDb(admin,{preferRest:true});
+   // The emulator's REST fallback requests Google ADC (firebase-admin-node #2016).
+   // Keep emulator tests isolated; production REST transport is a separate live verification.
+   const adminDb=initializeAdminDb(admin,{preferRest:false});
    const handler=createBudgetPolicyHandler(()=>({db:adminDb,FieldValue,verifyToken:token=>getAdminAuth(admin).verifyIdToken(token,true),enabled}));
    server=createServer(async(req,res)=>{
      let body='';for await(const chunk of req)body+=chunk;

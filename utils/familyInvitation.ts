@@ -25,3 +25,24 @@ export function prepareFamilyMemberInvitation(
     invitation: email ? { familyId, placeholderMemberId: member.id, email } : null
   };
 }
+
+
+export function resolveFamilyJoinProfile(members:readonly FamilyMember[],uid:string,invitedId:string|null):FamilyMember {
+  const existing=members.filter(m=>m.userId===uid);
+  if(existing.length>1)throw new Error('Обнаружено несколько привязанных профилей. Проверьте настройки семьи.');
+  if(invitedId){
+    const target=members.find(m=>m.id===invitedId);
+    if(!target)throw new Error('Профиль приглашения не найден');
+    if(target.userId&&target.userId!==uid)throw new Error('Профиль уже привязан к другому аккаунту');
+    if(existing.length&&existing[0].id!==target.id)throw new Error('Аккаунт уже привязан к другому профилю семьи');
+    return target;
+  }
+  if(!existing.length)throw new Error('Привязанный профиль не найден. Проверьте приглашение.');
+  return existing[0];
+}
+
+export function assertUnusedFamilyProfile(member:FamilyMember,hasReferences:boolean):void {
+  if(member.userId||member.isAdmin)throw new Error('Нельзя удалять профиль, связанный с аккаунтом или администратором');
+  if(member.email)throw new Error('Профиль с email может иметь приглашение. Удаление недоступно до проверки приглашения.');
+  if(hasReferences)throw new Error('У профиля есть связанные записи. Сохраните его для истории семьи.');
+}

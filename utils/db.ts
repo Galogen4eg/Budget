@@ -906,3 +906,29 @@ export function subscribeToScopedFinancialCollection(
     onValue(snapshot.docs.map(record=>({...record.data(),id:record.id})));
   },error=>{onValue([]);onError(error);});
 }
+
+
+/** Explicitly attribute an old shared record without moving it or changing amounts.
+ * Only the household owner may do this, and only in shared mode.
+ * Deployed Firestore rules must enforce the same conditions.
+ */
+export async function assignLegacyFinancialOwner(
+  familyId:string, actorUid:string, kind:'goals'|'debts', recordId:string, memberId:string
+):Promise<void>{
+  if(!familyId||!recordId||!memberId||!actorUid)throw new Error('Не указаны данные назначения владельца');
+  if(kind!=='goals'&&kind!=='debts')throw new Error('Недопустимый тип записи');
+  const familyRef=doc(db,'families',familyId);
+  const recordRef=doc(db,'families',familyId,kind,recordId);
+  const memberRef=doc(db,'families',familyId,'members',memberId);
+  await runTransaction(db,async tx=>{
+    const family=await tx.get(familyRef);
+    const record=await tx.get(recordRef);
+    const member=await tx.get(memberRef);
+    assertBudgetPolicyOwner(family.data()?.ownerId,actorUid);
+    if(family.data()?.budgetPolicy==='personal')throw new Error('Назначение доступно только в совместном режиме');
+    if(!record.exists()||record.data().memberId)throw new Error('Запись уже назначена или недоступна');
+    const uid=member.data()?.userId;
+    if(typeof uid!=='string'||!uid||!family.data()?.members?.includes(uid))throw new Error('Участник не привязан к семейному аккаунту');
+    tx.update(recordRef,{memberId});
+  });
+}

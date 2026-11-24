@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence } from '../utils/db';
 import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 import { formatLocalCalendarDate } from '../utils/calendarDates';
-import { dueCalendarNotifications } from '../utils/calendarReminders';
+import { dueCalendarNotifications, calendarReminderWindow } from '../utils/calendarReminders';
 import FamilyAgendaPanel from './FamilyAgendaPanel';
 import { toast } from 'sonner';
 import { telegramReminderKey } from '../utils/calendarTelegram';
@@ -252,9 +252,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   useEffect(()=>{
     if(!remindersEnabled||pushEnabled||!familyId||!user)return;
     const tick=()=>{
-      const now=new Date(),today=formatLocalCalendarDate(now);
-      const end=new Date(now);end.setDate(end.getDate()+40);
-      const future=buildCalendarOccurrences(events,today,formatLocalCalendarDate(end));
+      const now=new Date();
       // Browser timers can pause while the tab is in the background. Resume from
       // the last check, but avoid replaying notifications older than one hour.
       const checkedKey=`${reminderKey}:last-checked`;
@@ -262,6 +260,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       const since=Number.isFinite(previous)&&previous>0&&previous<=now.getTime()
         ?new Date(Math.max(previous,now.getTime()-3600000))
         :new Date(now.getTime()-120000);
+      const range=calendarReminderWindow(now,since);
+      const future=buildCalendarOccurrences(events,range.from,range.to);
       const due=dueCalendarNotifications(future,now,ownProfileId,since);
       localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;

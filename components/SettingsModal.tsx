@@ -906,6 +906,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       case 'budget':
         return (
+          <div className="space-y-5">
+          <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+            <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Подготовка к раздельному бюджету. Эти параметры сохраняются отдельно и пока не участвуют в текущем семейном расчёте.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                ['personalInitialBalance','Личный начальный остаток'],
+                ['personalSavingsRate','Процент накоплений, %'],
+                ['personalMonthlyBudget','Личный месячный лимит'],
+                ['personalManualReservedAmount','Личный резерв']
+              ] as const).map(([key,label])=><label key={key} className="block space-y-1 text-sm font-medium">
+                <span>{label}</span>
+                <input type="number" step="0.01" min={key==='personalInitialBalance'?undefined:0} max={key==='personalSavingsRate'?100:undefined}
+                  value={settings[key]??''} onChange={e=>{
+                    const n=e.target.value===''?0:e.target.valueAsNumber;
+                    if(Number.isFinite(n)&& (key==='personalInitialBalance'||n>=0) && (key!=='personalSavingsRate'||n<=100))handleChange(key,Math.round(n*100)/100);
+                  }} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
+              </label>)}
+              <label className="block space-y-1 text-sm font-medium">
+                <span>Дата личного начального остатка</span>
+                <input type="date" value={settings.personalInitialBalanceDate??''} onChange={e=>handleChange('personalInitialBalanceDate',e.target.value)} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
+              </label>
+            </div>
+          </section>
           <BudgetSettingsSection
             settings={settings}
             onUpdateSetting={handleChange}
@@ -915,6 +939,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             onOpenDuplicates={onOpenDuplicates}
             onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}
           />
+          </div>
         );
 
       case 'categories':

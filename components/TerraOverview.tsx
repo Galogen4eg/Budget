@@ -3,7 +3,7 @@ import {
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
   Calendar, Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
   ShoppingBag, History, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
-  HelpCircle, ShieldAlert, ChevronDown, ShieldCheck, ShoppingCart, FileText,
+  HelpCircle, ShieldAlert, ChevronDown, ShoppingCart,
   Star, Smartphone, Utensils, Store, Tag, Gift, Activity, Car, CreditCard
 } from 'lucide-react';
 import { 
@@ -770,7 +770,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
                 {personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}
               </span>
-              <span className="text-xs text-graphite-muted dark:text-gray-400">{currentMonthName}</span>
             </div>
 
             <div>
@@ -778,7 +777,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {settings.privacyMode ? '••••••' : `${formatAmount(sharedLedger)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                {personalOnly?(personalOpeningKnown?'По вашим операциям и личному начальному остатку.':'Начальный остаток не задан. Указан итог записанных операций, а не остаток на счетах.'):'Общий семейный баланс. Фильтр «Личный» меняет только историю и её показатели.'}
+                {personalOnly?(personalOpeningKnown?'По вашим операциям и личному начальному остатку.':'Начальный остаток не задан. Указан итог записанных операций, а не остаток на счетах.'):'Фильтр «Личный» меняет историю, но не семейный баланс.'}
               </p>
             </div>
 
@@ -843,7 +842,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg ?? 0)} ₽</span>
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="text-graphite-muted dark:text-gray-400">Пик:</span>
+                <span className="text-graphite-muted dark:text-gray-400">Максимум:</span>
                 <span className="font-bold font-headline text-[#7D5A44] dark:text-amber-400">{formatAmount(dynamicsData.max ?? 0)} ₽</span>
               </span>
             </div>
@@ -908,8 +907,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Footer Insight */}
             <div className="border-t border-[#EAE5DB] dark:border-white/10 pt-3 flex flex-wrap items-center gap-2.5 text-xs text-graphite dark:text-gray-300">
-              <ShieldCheck size={16} className="text-[#4A7C59] shrink-0" />
-              <span className="flex-1 min-w-[120px]">{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан — сравнение с лимитом недоступно."}</span>
+              <span className="flex-1 min-w-[120px]">{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан."}</span>
               <button type="button" onClick={()=>onNavigateTab('budget')} className="min-h-[44px] text-primary dark:text-green-400 font-semibold focus-visible:ring-2 focus-visible:ring-primary rounded-lg">К бюджету <ChevronRight size={14} className="inline"/></button>
             </div>
           </section>
@@ -1085,7 +1083,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <section className={`${SURFACE_CARD} space-y-3.5`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText size={18} className="text-graphite-muted dark:text-gray-400" />
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
                   История операций
                 </h3>
@@ -1147,9 +1144,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <div className="text-right shrink-0 ml-3">
                       <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums block">
                         {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
-                      </span>
-                      <span className="text-[10px] text-graphite-muted dark:text-gray-400 block mt-0.5">
-                        {budgetMode === 'family' ? 'Семейная операция' : 'Личная история'}
                       </span>
                     </div>
                   </button>
@@ -1400,7 +1394,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       : 'bg-[#FCF6EE] dark:bg-[#36271A] border-[#ECDCC4] dark:border-transparent text-[#8C5D23] dark:text-amber-400'
                   }`}>
                     <span className="text-[10px] uppercase font-mono font-bold">
-                      {chartScale === 'day' && isOverDailyLimit ? 'Пик сегодня' : 'Пик'}
+                      {chartScale === 'day' && isOverDailyLimit ? 'Максимум сегодня' : 'Максимум'}
                     </span>
                     <span className="font-mono font-bold">
                       {formatAmount(dynamicsData.max)} ₽

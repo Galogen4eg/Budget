@@ -573,10 +573,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="max-w-3xl space-y-5">
             <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
               <div><h3 className="text-base font-semibold">Тема приложения</h3><p className="text-sm text-gray-500 dark:text-gray-400">Личная настройка, не меняет оформление у другого участника семьи.</p></div>
-              <div role="group" aria-label="Тема приложения" className="grid grid-cols-2 gap-2">
-                {(['light','dark'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
-                  className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':'Тёмная'}</button>)}
+              <div role="group" aria-label="Тема приложения" className="grid grid-cols-3 gap-2">
+                {(['light','dark','system'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
+                  className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':theme==='dark'?'Тёмная':'Системная'}</button>)}
               </div>
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Навигация</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Выберите разделы меню на своих устройствах. Обзор всегда доступен.</p>
+              <div className="space-y-1">
+                {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).map(([id,label])=>{
+                  const enabled=settings.enabledTabs??['overview','budget','plans','shopping','chat','services'];
+                  const checked=id==='overview'||enabled.includes(id);
+                  return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-2 text-sm">
+                    <span>{label}</span>
+                    <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
+                      const next=e.target.checked?[...new Set([...enabled,id])]:enabled.filter(t=>t!==id);
+                      void Promise.resolve(onUpdate({enabledTabs:next,...(!next.includes(settings.startTab??'overview')?{startTab:'overview'}:{})})).catch(()=>toast.error('Не удалось сохранить меню'));
+                    }} className="h-5 w-5 accent-[#2D5A43]"/>
+                  </label>;
+                })}
+              </div>
+              <label className="block space-y-2 text-sm font-semibold">
+                <span>Стартовый раздел</span>
+                <select value={settings.startTab??'overview'} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2">
+                  {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).filter(([id])=>id==='overview'||settings.enabledTabs?.includes(id)).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+                </select>
+              </label>
             </section>
             <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Приватность и бюджет</h3>

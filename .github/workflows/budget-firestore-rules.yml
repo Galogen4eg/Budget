@@ -1,0 +1,25 @@
+name: Budget Firestore rules
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install emulator dependencies
+        run: npm install --prefix tests/firestore-emulator --no-audit --no-fund
+      - name: Run rules tests against isolated demo project
+        run: tests/firestore-emulator/node_modules/.bin/firebase emulators:exec --config firebase.test.json --only firestore --project demo-budget "node --test tests/firestore-emulator/rules.test.mjs"

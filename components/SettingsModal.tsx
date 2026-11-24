@@ -259,7 +259,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isTestingDelivery, setIsTestingDelivery] = useState(false);
 
   // Live Telegram Bot polling states
-  const { setTransactions, setShoppingItems, shoppingItems, householdPersonal, settingsReady } = useData();
+  const { setTransactions, setShoppingItems, shoppingItems, householdPersonal, settingsReady, hideSharedBudget, setHideSharedBudget } = useData();
   const [isBotActive, setIsBotActive] = useState(() => isBotPollingActive());
   const [botLogs, setBotLogs] = useState<BotLogEntry[]>([]);
 
@@ -657,8 +657,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
               </button>
               <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
+                <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
+                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span className="text-sm font-medium shrink-0">{householdPersonal||hideSharedBudget?'Выкл.':'Вкл.'}</span>
+                </button>
                 <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
-                <select id="settings-budget-default" disabled={householdPersonal} value={householdPersonal?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
+                <select id="settings-budget-default" disabled={householdPersonal||hideSharedBudget} value={householdPersonal||hideSharedBudget?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
                   <option value="personal">Личный</option>{!householdPersonal&&<option value="family">Семейный</option>}
                 </select>
               </div>
@@ -952,7 +955,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-6 w-full max-w-full">
             {/* SET-12: read-only until end-to-end isolation is verified. */}
             <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
-              <h3 className="text-base font-semibold">Режим семейного бюджета</h3>
+              <h3 className="text-base font-semibold">Разграничение доступа к данным (SET-12)</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Для простого скрытия совместного бюджета используйте «Оформление и приватность». Проверка и перенос нужны только для реального запрета доступа к чужим данным.</p>
               {householdPolicyError ? <p role="status" className="text-sm text-gray-500">Не удалось получить настройки семьи.</p> :
                 !currentHouseholdPolicy ? <p role="status" className="text-sm text-gray-500">Режим семьи пока не подтверждён.</p> :
                 <p className="text-sm">Сохранённый режим: <strong>{currentHouseholdPolicy.policy==='personal'?'Личный бюджет':'Совместный бюджет'}</strong></p>}

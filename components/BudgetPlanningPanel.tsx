@@ -17,7 +17,8 @@ export default function BudgetPlanningPanel({
  settings,categories,transactions,monthTransactions,currentMonth,isCurrentMonth,
  totalBalance,reservedAmount,daysToSalary
 }:Props){
- const {updateSettings}=useData();
+ const {updateSettings,householdPersonal,personalDisplayOnly,personalOpeningKnown}=useData();
+ const personalOnly=householdPersonal||personalDisplayOnly;
  const [categoryId,setCategoryId]=useState('');
  const [amount,setAmount]=useState('');
  const [saving,setSaving]=useState(false);
@@ -44,7 +45,7 @@ export default function BudgetPlanningPanel({
    try{
      const next={...limits};
      if(limit===null)delete next[categoryId]; else next[categoryId]=limit;
-     await updateSettings({categoryBudgets:next});
+     await updateSettings(personalDisplayOnly?{personalCategoryBudgets:next}:{categoryBudgets:next});
      setEditing(false);
      setAmount('');
      toast.success(limit===null?'Лимит удалён':'Лимит сохранён');
@@ -56,7 +57,7 @@ export default function BudgetPlanningPanel({
    <div className="flex justify-between items-start gap-2">
      <div>
        <h3 className="text-sm font-bold text-graphite dark:text-white">Лимиты по категориям</h3>
-       <p className="text-xs text-graphite-muted dark:text-gray-400">Общие семейные лимиты на календарный месяц</p>
+       <p className="text-xs text-graphite-muted dark:text-gray-400">{personalOnly?'Личные лимиты на календарный месяц':'Общие семейные лимиты на календарный месяц'}</p>
      </div>
      <button type="button" onClick={()=>setEditing(x=>!x)}
        aria-expanded={editing}
@@ -76,7 +77,7 @@ export default function BudgetPlanningPanel({
        {expenseCategories.map(cat=><option key={cat.id} value={cat.id}>{cat.parentId ? `${categoryNames.get(cat.parentId) || 'Категория'} / ${cat.label}` : cat.label}</option>)}
       </select>
       <label htmlFor="budget-limit-amount" className="text-xs font-semibold">Лимит в месяц, ₽ (пустое поле — удалить)</label>
-      <p className="text-[11px] text-graphite-muted dark:text-gray-400">Устанавливается для всей семьи. Можно задать лимит и для подкатегории; в общем плане она не дублируется.</p>
+      <p className="text-[11px] text-graphite-muted dark:text-gray-400">{personalOnly?'Устанавливается для личного бюджета.':'Устанавливается для всей семьи.'} Можно задать лимит и для подкатегории; в общем плане она не дублируется.</p>
       <input id="budget-limit-amount" type="text" inputMode="decimal" disabled={saving} value={amount}
         placeholder="Например, 30000,50" onChange={e=>setAmount(e.target.value)}
         className="min-h-[44px] w-full rounded-lg border border-surface-border dark:border-white/15 bg-white dark:bg-[#202024] px-3 text-sm"/>
@@ -166,7 +167,7 @@ export default function BudgetPlanningPanel({
        </p>
      </div>
    </div>
-   {isCurrentMonth&&(
+   {isCurrentMonth&&personalOpeningKnown&&(
     <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-1.5">
      <h3 className="text-sm font-bold text-graphite dark:text-white">Прогноз до зарплаты</h3>
      <p className="text-xs text-graphite-muted dark:text-gray-400">Через {daysToSalary} дн. · средний расход за последние 14 дней</p>

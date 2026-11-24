@@ -18,8 +18,9 @@ import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 import { missingIncomeCategories } from '../utils/categoryCatalog';
-import { effectiveBudgetMode, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
+import { displayBudgetMode, budgetDisplayPreferenceKey, projectPersonalDisplayFinance, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
+import { ledgerBalance, sumMoney } from '../utils/budgetFinancialMath';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -110,6 +111,14 @@ interface DataContextType {
   setSavingsRate: (rate: number) => void;
   householdPersonal: boolean;
   financialSettings: AppSettings;
+  hideSharedBudget: boolean;
+  setHideSharedBudget: (hide:boolean)=>void;
+  personalDisplayOnly: boolean;
+  personalOpeningKnown: boolean;
+  displaySettings: AppSettings;
+  displayTransactions: Transaction[];
+  displayGoals: SavingsGoal[];
+  displayMembers: FamilyMember[];
   budgetMode: 'personal' | 'family';
   setBudgetMode: React.Dispatch<React.SetStateAction<'personal' | 'family'>>;
 }
@@ -205,7 +214,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;actorUid:string;policy:'family'|'personal'}|null>(null);
   const policyReady=!familyId||(householdPolicy?.familyId===familyId&&householdPolicy?.actorUid===user?.uid);
   const householdPersonal=Boolean(familyId&&(!policyReady||householdPolicy?.policy==='personal'));
-  const budgetMode=effectiveBudgetMode(householdPersonal?'personal':'family',preferredBudgetMode);
+  // Local device preference scoped to the signed-in account and household.
+  const displayKey=budgetDisplayPreferenceKey(familyId,user?.uid);
+  const [displayPreference,setDisplayPreference]=useState<{key:string;hide:boolean}|null>(null);
+  const storedHide=useMemo(()=>{try{return localStorage.getItem(displayKey)==='1';}catch{return false;}},[displayKey]);
+  const hideSharedBudget=displayPreference?.key===displayKey?displayPreference.hide:storedHide;
+  const setHideSharedBudget=(hide:boolean)=>{
+    setDisplayPreference({key:displayKey,hide});
+    try{localStorage.setItem(displayKey,hide?'1':'0');}catch{}
+  };
+  const personalDisplayOnly=hideSharedBudget&&!householdPersonal;
+  const budgetMode=displayBudgetMode(householdPersonal?'personal':'family',preferredBudgetMode,hideSharedBudget);
   const linkedMemberId=(!familyId||loadedMembersScope===memberScope)?members.find(m=>m.userId&&m.userId===user?.uid)?.id:undefined;
   const settingsScope=memberScope&&policyReady?memberScope+':'+(householdPersonal?'personal':'family'):null;
   const settingsReady=!familyId||Boolean(settingsScope&&loadedSettingsScope===settingsScope);
@@ -226,13 +245,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       settingsRef.current=next;
       setSettings(next);
       setLoadedSettingsScope(settingsScope);
-      if(data.defaultBudgetMode)setBudgetMode(data.defaultBudgetMode);
+
     });
   },[familyId,user?.uid,settingsScope]);
+  // A settings snapshot for an unrelated field must not reset the current mode.
+  useEffect(()=>{if(settingsReady)setBudgetMode(baseSettings.defaultBudgetMode||'personal');},[settingsScope,settingsReady,baseSettings.defaultBudgetMode]);
   const visibleTransactions=useMemo(()=>householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[householdPersonal,transactions,linkedMemberId,policyReady]);
   const visibleGoals=useMemo(()=>householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[householdPersonal,goals,linkedMemberId,policyReady]);
   const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
 
+
+  const displaySettings=useMemo(()=>personalDisplayOnly?projectPersonalDisplayFinance(financialSettings,linkedMemberId):financialSettings,[personalDisplayOnly,financialSettings,linkedMemberId]);
+  const displayTransactions=useMemo(()=>personalDisplayOnly?visibleBudgetRecords(visibleTransactions,'personal',linkedMemberId):visibleTransactions,[personalDisplayOnly,visibleTransactions,linkedMemberId]);
+  const displayGoals=useMemo(()=>personalDisplayOnly?visibleBudgetRecords(visibleGoals,'personal',linkedMemberId):visibleGoals,[personalDisplayOnly,visibleGoals,linkedMemberId]);
+  const displayMembers=useMemo(()=>personalDisplayOnly||householdPersonal?members.filter(m=>m.id===linkedMemberId):members,[personalDisplayOnly,householdPersonal,members,linkedMemberId]);
+  const personalOpeningKnown=!personalDisplayOnly||(Boolean(linkedMemberId)&&typeof financialSettings.personalInitialBalance==='number'&&Number.isFinite(financialSettings.personalInitialBalance));
 
   // Shared queries do not depend on which member profile happened to load first.
   const financialQueryMemberId=householdPersonal?linkedMemberId:undefined;
@@ -621,10 +648,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const filteredTransactions = useMemo(() => {
-      const currentUserId = user?.uid;
-      const myMemberId = members.find(m => m.userId && m.userId === currentUserId)?.id;
-      return personalTransactions(visibleTransactions, budgetMode, myMemberId);
-  }, [visibleTransactions, budgetMode, members, user]);
+      return personalTransactions(visibleTransactions, budgetMode, linkedMemberId);
+  }, [visibleTransactions, budgetMode, linkedMemberId]);
 
   const parseLocalDate = (dateStr: string) => {
     if (!dateStr) return new Date();
@@ -638,38 +663,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return new Date(dateStr);
   };
 
-  const totalBalance = useMemo(() => {
-    let relevantTransactions = filteredTransactions;
-    if (financialSettings.initialBalanceDate) {
-        const startDate = parseLocalDate(financialSettings.initialBalanceDate);
-        startDate.setHours(0, 0, 0, 0);
-        relevantTransactions = filteredTransactions.filter(t => parseLocalDate(t.date).getTime() >= startDate.getTime());
-    }
-    const income = relevantTransactions
-      .filter(t => t.type === 'income')
-      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
-    const expense = relevantTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
-    const safeInitial = Number.isFinite(Number(financialSettings.initialBalance)) ? Number(financialSettings.initialBalance) : 0;
-    const rawBalance = safeInitial + income - expense;
-    return Math.round(rawBalance * 100) / 100;
-  }, [filteredTransactions, financialSettings.initialBalance, financialSettings.initialBalanceDate]);
-
-  const currentMonthSpent = useMemo(() => {
-    const now = new Date();
-    const rawSpent = filteredTransactions
-      .filter(t => {
-        if (t.type !== 'expense') return false;
-        const txDate = parseLocalDate(t.date);
-        return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
-      })
-      .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
-    return Math.round(rawSpent * 100) / 100;
-  }, [filteredTransactions]);
+  const totalBalance=useMemo(()=>ledgerBalance(displayTransactions,displaySettings.initialBalance,displaySettings.initialBalanceDate),[displayTransactions,displaySettings.initialBalance,displaySettings.initialBalanceDate]);
+  const currentMonthSpent=useMemo(()=>{
+    const now=new Date();
+    return sumMoney(filteredTransactions.filter(t=>{
+      if(t.type!=='expense')return false;
+      const d=parseLocalDate(t.date);
+      return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    }).map(t=>t.amount));
+  },[filteredTransactions]);
 
   const value = {
-    householdPersonal, financialSettings,
+    householdPersonal, financialSettings, hideSharedBudget, setHideSharedBudget, personalDisplayOnly, personalOpeningKnown, displaySettings, displayTransactions, displayGoals, displayMembers,
     transactions: visibleTransactions, setTransactions,
     shoppingItems, setShoppingItems,
     pantry, setPantry: handlePantryUpdate,

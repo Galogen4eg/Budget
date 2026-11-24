@@ -39,3 +39,9 @@ export function assertBulkDeleteSafe(transactions:readonly SavingsLike[],ids:rea
     throw new Error('В выбранных операциях есть переводы в накопления. Удалите их по одной через карточку операции, чтобы баланс цели изменился вместе с записью.');
   }
 }
+
+/** Any historical reference must be preserved, even a malformed savings category. */
+export function assertGoalDeletionSafe(goalId:string,transactions:readonly {linkedGoalId?:string}[]):void{
+ if(!goalId)throw new Error('Накопительная цель недоступна');
+ if(transactions.some(tx=>tx.linkedGoalId===goalId))throw new Error('Цель связана с операциями. Сначала корректно измените или удалите связанные переводы.');
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance,partitionMandatoryPayments,mergePersonalMandatoryPayments} from '../utils/familyBudgetPolicy.ts';
+import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance,partitionMandatoryPayments,mergePersonalMandatoryPayments,displayBudgetMode,budgetDisplayPreferenceKey,projectPersonalDisplayFinance} from '../utils/familyBudgetPolicy.ts';
 
 test('legacy households retain joint budget availability',()=>{
  assert.equal(effectiveBudgetMode(undefined,'family'),'family');
@@ -88,4 +88,25 @@ test('return to shared mode blocks missing members and duplicate or foreign reco
  {memberId:'a',mandatoryExpenses:[{id:'x',memberId:'a'},{id:'x',memberId:'a'},{id:'foreign',memberId:'b'}],manualPaidExpenses:{'2026-11':['missing']}}
  ],['a','b']);
  assert.ok(result.issues.length>=4);
+});
+
+test('hide shared is a reversible display choice, not an access-policy mutation',()=>{
+ assert.equal(displayBudgetMode('family','family',true),'personal');
+ assert.equal(displayBudgetMode('family','family',false),'family');
+ assert.equal(displayBudgetMode('personal','family',false),'personal');
+ assert.notEqual(budgetDisplayPreferenceKey('f','a'),budgetDisplayPreferenceKey('f','b'));
+ assert.notEqual(budgetDisplayPreferenceKey('f','a'),budgetDisplayPreferenceKey('g','a'));
+});
+test('personal display keeps only owned shared bills and personal opening and limits',()=>{
+ const shared={initialBalance:50000,savingsRate:25,categoryBudgets:{food:900},mandatoryExpenses:[{id:'a',memberId:'a'},{id:'b',memberId:'b'},{id:'joint'}],manualPaidExpenses:{'2026-11':['a','b','joint']},personalInitialBalance:123.45,personalCategoryBudgets:{food:100}};
+ const before=structuredClone(shared);
+ const display=projectPersonalDisplayFinance(shared,'a');
+ assert.equal(display.initialBalance,123.45);
+ assert.deepEqual(display.categoryBudgets,{food:100});
+ assert.deepEqual(display.mandatoryExpenses,[shared.mandatoryExpenses[0]]);
+ assert.deepEqual(display.manualPaidExpenses,{'2026-11':['a']});
+ assert.deepEqual(shared,before);
+ const unknown=projectPersonalDisplayFinance(shared,undefined);
+ assert.equal(unknown.initialBalance,0);
+ assert.deepEqual(unknown.mandatoryExpenses,[]);
 });

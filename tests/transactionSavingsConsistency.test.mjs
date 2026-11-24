@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { savingsContributionKopecks, nextSavingsGoalAmount, assertBulkDeleteSafe } from '../utils/transactionSavingsConsistency.ts';
+import {assertGoalDeletionSafe} from '../utils/transactionSavingsConsistency.ts';
 
 const expense=(id,amount,linkedGoalId='goal-1')=>({id,amount,type:'expense',category:'savings',linkedGoalId,note:'Копилка'});
 
@@ -47,4 +48,10 @@ test('confirmed external transfer preserves history without changing any goal ba
  assert.equal(nextSavingsGoalAmount(500,savingsContributionKopecks(row),0),500);
  assert.equal(savingsContributionKopecks({...row,externalSavingsConfirmed:false}),105000);
  assert.equal(savingsContributionKopecks({...row,linkedGoalId:'real'}),105000);
+});
+
+test('goal deletion refuses every linked historical operation, even a non-savings classification',()=>{
+ assert.throws(()=>assertGoalDeletionSafe('g1',[{linkedGoalId:'g1',category:'other'}]),/связана/);
+ assert.throws(()=>assertGoalDeletionSafe('',[]),/недоступна/);
+ assert.doesNotThrow(()=>assertGoalDeletionSafe('g1',[{linkedGoalId:'g2'},{}]));
 });

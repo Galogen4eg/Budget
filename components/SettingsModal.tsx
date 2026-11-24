@@ -660,8 +660,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
               <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
                 <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
-                <select id="settings-budget-default" value={settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
-                  <option value="personal">Личный</option><option value="family">Семейный</option>
+                <select id="settings-budget-default" disabled={householdPersonal} value={householdPersonal?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
+                  <option value="personal">Личный</option>{!householdPersonal&&<option value="family">Семейный</option>}
                 </select>
               </div>
             </section>

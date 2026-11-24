@@ -107,3 +107,30 @@ test('existing cross-owner obligation links remain blocked and identify exact re
  assert.throws(()=>prepareTransition({...f,links}),/obligation/i);
  assert.deepEqual(findFinancialLinkIssues(links,f.shared.mandatoryExpenses).map(x=>[x.id,x.targetId,x.owner,x.targetOwner]),[['t','y','a','b']]);
 });
+
+test('all missing, deleted and foreign savings links are diagnosed together, without changing balances',()=>{
+ const {findSavingsLinkIssues}=require('../budgetMigration.cjs');
+ const f=fixture();
+ const goals=[{id:'ga',memberId:'a',title:'Копилка',currentAmount:123.45},{id:'gb',memberId:'b',title:'Отпуск',currentAmount:987.65}];
+ const transactions=[
+  {id:'missing',memberId:'a',category:'savings',type:'expense',amount:10.25},
+  {id:'deleted',memberId:'b',linkedGoalId:'gone',type:'income',amount:5.15},
+  {id:'foreign',memberId:'a',linkedGoalId:'gb',type:'expense',amount:20.35},
+  {id:'ok',memberId:'a',linkedGoalId:'ga',type:'expense',amount:3},
+  {id:'ordinary',memberId:'b',category:'food',type:'expense',amount:3}
+ ];
+ const links={transactions,goals,debts:[]};
+ const before=JSON.stringify(links);
+ const issues=findSavingsLinkIssues(links);
+ assert.deepEqual(issues.map(x=>[x.id,x.reason,x.previousGoalId,x.candidates.map(g=>g.id)]),[
+  ['missing','missing',null,['ga']],['deleted','deleted','gone',['gb']],['foreign','foreign','gb',['ga']]
+ ]);
+ assert.equal(issues[0].candidates[0].currentAmount,123.45);
+ assert.equal(issues[2].previousGoal.currentAmount,987.65);
+ assert.throws(()=>prepareTransition({...f,links}),/goal/i);
+ assert.equal(JSON.stringify(links),before);
+ const repaired={...links,transactions:transactions.map(t=>({...t,...(t.id==='missing'||t.id==='foreign'?{linkedGoalId:'ga'}:t.id==='deleted'?{linkedGoalId:'gb'}:{})}))};
+ assert.deepEqual(findSavingsLinkIssues(repaired),[]);
+ assert.equal(prepareTransition({...f,links:repaired}).policy,'personal');
+ assert.equal(JSON.stringify(goals),JSON.stringify(links.goals));
+});

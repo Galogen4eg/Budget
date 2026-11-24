@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
 import { auth } from '../firebase';
-import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, sendEmailVerification, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -995,6 +995,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               onUpdateMembers={onUpdateMembers}
               currentFamilyId={currentFamilyId}
               transactions={transactions}
+              householdPersonal={householdPersonal}
+              isHouseholdOwner={isHouseholdOwner}
             />
 
             {/* Family Space ID & Sync */}
@@ -1046,8 +1048,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Для подключения нужно приглашение на email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
+                  Для подключения нужно приглашение на подтверждённый email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
                 </p>
+                {currentUser?.email&&!currentUser.emailVerified&&<button type="button" className="min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-3 text-sm" onClick={async()=>{try{await sendEmailVerification(currentUser);toast.success('Письмо отправлено. После подтверждения войдите повторно.');}catch{toast.error('Не удалось отправить письмо подтверждения');}}}>Отправить письмо подтверждения email</button>}
               </div>
             </section>
           </div>

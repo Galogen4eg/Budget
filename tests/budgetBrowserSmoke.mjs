@@ -511,14 +511,18 @@ try{
     }
     const appearance=settingsDialog.locator('.terra-appearance-grid');
     await appearance.waitFor({state:'visible'});
-    assert.equal(await appearance.locator(':scope > section').count(),4);
+    assert.equal(await appearance.locator(':scope > section').count(),2);
     assert.ok(await appearance.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+': appearance overflow');
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
     await themes.getByRole('button',{name:'Тёмная',exact:true}).click();
     await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await startupSelect.evaluate(el=>getComputedStyle(el).colorScheme),'dark',label+': native select color scheme');
     assert.equal(await startupSelect.locator('option').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(36, 37, 40)',label+': dark option background');
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
     assert.equal(await page.evaluate(()=>localStorage.getItem('theme')),'dark',label+': startup theme not persisted');
     await themes.getByRole('button',{name:'Светлая',exact:true}).click();
     await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
@@ -528,6 +532,15 @@ try{
     await page.emulateMedia({colorScheme:'light'});
     await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
     await themes.getByRole('button',{name:'Светлая',exact:true}).click();
+    if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
+    const settingsSearch=settingsDialog.getByRole('searchbox',{name:'Поиск настроек'}).filter({visible:true});
+    await settingsSearch.fill('пароль');
+    assert.equal(await settingsDialog.getByRole('button',{name:/Профиль и безопасность/}).filter({visible:true}).count(),1);
+    assert.equal(await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).count(),0);
+    await settingsSearch.fill('несуществующая настройка');
+    await settingsDialog.getByText('Настройки не найдены',{exact:true}).waitFor({state:'visible'});
+    await settingsSearch.fill('');
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await settingsDialog.getByRole('checkbox',{name:'Обзор',exact:true}).isDisabled(),true,label+': overview must remain reachable');
     const services=settingsDialog.getByRole('checkbox',{name:'Сервисы',exact:true});
     const startup=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
@@ -551,7 +564,7 @@ try{
     // then inspect the PWA guide without opening a native installation dialog.
     await nav.getByRole('button',{name:'Планы',exact:true}).click();
     await openSettings.click();
-    await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+    await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await shoppingWidget.isChecked(),false,label+': widget preference not retained');
     await shoppingWidget.check();
     if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();

@@ -31,6 +31,22 @@ try{
     const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
+    if(label==='phone-390'){
+      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce'});
+      try{
+        await dark.addInitScript(()=>localStorage.setItem('theme','dark'));
+        // Pause only the app bundle: the inline theme bootstrap must already be dark.
+        await dark.route('**/assets/*.js',route=>route.abort());
+        await dark.goto(baseURL,{waitUntil:'domcontentloaded',timeout:45000});
+        const splash=dark.locator('[data-terra-boot]');
+        await splash.waitFor({state:'visible',timeout:15000});
+        assert.equal(await dark.evaluate(()=>document.documentElement.classList.contains('dark')),true,'dark startup must respect stored theme');
+        assert.equal(await splash.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(24, 28, 25)');
+        await dark.waitForFunction(()=>document.querySelector('[data-terra-boot] img')?.naturalWidth>0);
+        assert.notEqual(await splash.locator('img').evaluate(el=>getComputedStyle(el).filter),'none');
+        await dark.screenshot({path:'artifacts/budget-browser/phone-390-startup-dark.png',animations:'disabled'});
+      }finally{await dark.close();}
+    }
     // Hold the app bundle so we can see the actual pre-React loading screen.
     let releaseBoot;
     const bootGate=new Promise(resolve=>{releaseBoot=resolve;});

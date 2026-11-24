@@ -302,6 +302,10 @@ export interface AppSettings {
   personalInitialBalanceDate?: string;
   personalSavingsRate?: number;
   personalMonthlyBudget?: number;
+  personalCategoryBudgets?: Record<string,number>;
+  personalIgnoredDuplicatePairs?: string[];
+  personalEnableSmartReserve?: boolean;
+  personalStartOfMonthDay?: number;
   personalMandatoryExpenses?: MandatoryExpense[];
   personalManualPaidExpenses?: Record<string,string[]>;
   personalManualReservedAmount?: number;

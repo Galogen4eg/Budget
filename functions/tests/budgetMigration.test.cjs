@@ -68,3 +68,26 @@ test('legacy subscriptions require explicit ownership and do not change amount o
  assert.equal(prepareTransition({...input,records:[...f.records,owned],links:{...input.links,subscriptions:[owned]}}).policy,'personal');
  assert.deepEqual(owned,{...subscription,memberId:'b'});
 });
+
+test('deleted obligations leave historical payment markers that can be archived without affecting live bills',()=>{
+ const f=fixture();
+ f.shared.manualPaidExpenses={'2026-10':['deleted-bill'],'2026-11':['x','deleted-bill','y']};
+ const split=prepareTransition(f);
+ assert.deepEqual(split.userPatches.u1.personalManualPaidExpenses,{'2026-11':['x']});
+ assert.deepEqual(split.userPatches.u2.personalManualPaidExpenses,{'2026-11':['y']});
+ assert.deepEqual(split.archive.__set12OrphanPaid,{'2026-10':['deleted-bill'],'2026-11':['deleted-bill']});
+ assert.deepEqual(f.shared.manualPaidExpenses,{'2026-10':['deleted-bill'],'2026-11':['x','deleted-bill','y']});
+ const back={...f,family:{...f.family,budgetPolicy:'personal'},target:'family',archive:split.archive,configs:{u1:split.userPatches.u1,u2:split.userPatches.u2}};
+ const merged=prepareTransition(back);
+ assert.deepEqual(merged.sharedPatch.manualPaidExpenses,{'2026-10':['deleted-bill'],'2026-11':['x','y','deleted-bill']});
+ assert.equal('__set12OrphanPaid' in merged.sharedPatch,false);
+ assert.deepEqual(merged.sharedPatch.mandatoryExpenses,f.shared.mandatoryExpenses);
+ back.configs.u1.personalMandatoryExpenses.push({id:'deleted-bill',memberId:'a',amount:5});
+ assert.throws(()=>prepareTransition(back),/повторно|reused/);
+});
+test('malformed payment history remains blocked rather than silently discarded',()=>{
+ const f=fixture();
+ for(const paid of [{'bad':['x']},{'2026-11':[null]},{'2026-11':'x'}]){
+   assert.throws(()=>prepareTransition({...f,shared:{...f.shared,manualPaidExpenses:paid}}),/Invalid payment history/);
+ }
+});

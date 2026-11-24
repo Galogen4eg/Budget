@@ -39,7 +39,7 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
      }
      throw new PolicyError('failed-precondition','Миграция заблокирована: '+error.message);
    }
-   if(preview)return {policy:current,enabled,issues:[]};
+   if(preview)return {policy:current,enabled,issues:[],...(result.archivedPaymentCount?{warnings:['Исторические отметки оплаты без действующих обязательств ('+result.archivedPaymentCount+') будут сохранены в закрытом архиве и восстановлены при возврате к совместному бюджету.']}: {})};
    if(target==='personal'){
      tx.set(archiveRef,result.archive);
      for(const [memberUid,patch] of Object.entries(result.userPatches))tx.set(refs[memberUid],patch,{merge:true});

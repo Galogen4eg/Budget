@@ -261,11 +261,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isTestingDelivery, setIsTestingDelivery] = useState(false);
 
   // Live Telegram Bot polling states
-  const { setTransactions, setShoppingItems, shoppingItems } = useData();
+  const { setTransactions, setShoppingItems, shoppingItems, householdPersonal, settingsReady } = useData();
   const [isBotActive, setIsBotActive] = useState(() => isBotPollingActive());
   const [botLogs, setBotLogs] = useState<BotLogEntry[]>([]);
 
+  useEffect(()=>{if(householdPersonal||!settingsReady){stopTelegramBotListener();setIsBotActive(false);setBotLogs([]);}},[householdPersonal,settingsReady]);
   const handleToggleBot = () => {
+    if(householdPersonal||!settingsReady){toast.error('В личном режиме входящие команды Telegram отключены: владелец операции не подтверждён');return;}
     if (isBotActive) {
       stopTelegramBotListener();
       setIsBotActive(false);
@@ -965,7 +967,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>{readiness.enabled?'Данные готовы к переходу.':'Данные проверены. Серверная активация пока выключена.'}</p>)}
                   </div>
                   <button type="button" disabled={policyBusy||readinessBusy||!readiness?.enabled||!!readiness.issues.length||readiness.familyId!==currentFamilyId||readiness.target===currentHouseholdPolicy?.policy} onClick={()=>void changePolicy()} className="w-full sm:w-auto min-h-[44px] rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{policyBusy?'Перенос данных…':currentHouseholdPolicy?.policy==='personal'?'Вернуть совместный бюджет':'Включить личные бюджеты'}</button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Проверка не меняет данные. Перед сохранением сервер повторно проверяет владельцев и историю платежей.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">При личном режиме входящие команды Telegram временно отключены: у очереди нет подтверждённого владельца. Проверка не меняет данные. Перед сохранением сервер повторно проверяет владельцев и историю платежей.</p>
                 </div>
               </div>}
             </section>
@@ -1056,7 +1058,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-5">
           <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
             <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Подготовка к раздельному бюджету. Эти параметры сохраняются отдельно и пока не участвуют в текущем семейном расчёте.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Подготовка к раздельному бюджету. Эти параметры не участвуют в совместном расчёте.'}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
                 ['personalInitialBalance','Личный начальный остаток'],
@@ -1224,6 +1226,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     type="button"
+                    disabled={householdPersonal||!settingsReady}
                     onClick={handleToggleBot}
                     aria-pressed={isBotActive}
                     className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${

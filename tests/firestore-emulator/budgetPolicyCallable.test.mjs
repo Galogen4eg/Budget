@@ -165,6 +165,16 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    await updateDoc(doc(a.db,f+'/subscriptions/old-sub'),{memberId:'a'});
    assert.equal((await getDocFromServer(doc(a.db,f+'/transactions/unknown'))).data().amount,10);
    assert.equal((await getDocFromServer(doc(b.db,f+'/goals/stale'))).data().currentAmount,12.5);
+   await setDoc(doc(a.db,f+'/transactions/legacy-savings'),{id:'legacy-savings',memberId:'a',category:'savings',type:'expense',amount:12.35});
+   const savingsBlocked=await a.call({...request,preview:true});
+   assert.equal(savingsBlocked.savingsIssues.length,1);
+   assert.equal(savingsBlocked.savingsIssues[0].id,'legacy-savings');
+   assert.equal(savingsBlocked.savingsIssues[0].reason,'missing');
+   assert.equal(savingsBlocked.savingsIssues[0].owner,'a');
+   await rejected(a.call(request),'functions/failed-precondition');
+   const oldGoal=(await getDocFromServer(doc(a.db,f+'/goals/g1'))).data();
+   await updateDoc(doc(a.db,f+'/transactions/legacy-savings'),{linkedGoalId:'g1'});
+   assert.deepEqual((await getDocFromServer(doc(a.db,f+'/goals/g1'))).data(),oldGoal);
    const ready=await a.call({...request,preview:true});
    assert.equal(ready.policy,'family');
    assert.equal(ready.enabled,true);

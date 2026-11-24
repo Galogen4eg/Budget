@@ -91,3 +91,19 @@ test('malformed payment history remains blocked rather than silently discarded',
    assert.throws(()=>prepareTransition({...f,shared:{...f.shared,manualPaidExpenses:paid}}),/Invalid payment history/);
  }
 });
+
+test('historical transaction links are archived without moving money or changing classification',()=>{
+ const f=fixture(), t={id:'t',memberId:'a',amount:10,linkedExpenseId:'deleted'};
+ const input={...f,links:{transactions:[t],goals:[],debts:[]}};
+ const result=prepareTransition(input);
+ assert.deepEqual(result.archive.__set12HistoricalLinks,[{id:'t',field:'linkedExpenseId',value:'deleted'}]);
+ assert.deepEqual(result.historicalLinkRepairs,[{id:'t',field:'linkedExpenseId',value:'deleted'}]);
+ assert.equal(t.linkedExpenseId,'deleted');
+ assert.equal(t.amount,10);
+});
+test('existing cross-owner obligation links remain blocked and identify exact records',()=>{
+ const f=fixture(),links={transactions:[{id:'t',memberId:'a',linkedExpenseId:'y',amount:20}],goals:[],debts:[]};
+ const {findFinancialLinkIssues}=require('../budgetMigration.cjs');
+ assert.throws(()=>prepareTransition({...f,links}),/obligation/i);
+ assert.deepEqual(findFinancialLinkIssues(links,f.shared.mandatoryExpenses).map(x=>[x.id,x.targetId,x.owner,x.targetOwner]),[['t','y','a','b']]);
+});

@@ -33,8 +33,8 @@ export function countTransactionsInRange(
   endDate: string
 ): number {
   if (!startDate || !endDate) return 0;
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).setHours(23, 59, 59, 999);
+  const start = new Date(startDate+'T00:00:00').getTime();
+  const end = new Date(endDate+'T23:59:59.999').getTime();
   if (isNaN(start) || isNaN(end) || start > end) return 0;
 
   return transactions.filter(tx => {
@@ -59,7 +59,7 @@ export interface BudgetSettingsSectionProps {
   setSavingsRate: (rate: number) => void;
   transactions?: Transaction[];
   onOpenDuplicates?: () => void;
-  onDeleteTransactionsByPeriod?: (start: string, end: string) => void;
+  onDeleteTransactionsByPeriod?: (start: string, end: string) => void | Promise<void>;
 }
 
 /**
@@ -114,14 +114,11 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
   }, [transactions, archiveStart, archiveEnd]);
 
   const handleArchiveExport = useCallback(() => {
-    if (!archiveStart || !archiveEnd) {
-      toast.error('Укажите период для архивации');
+    if (!archiveStart || !archiveEnd || archiveStart > archiveEnd) {
+      toast.error('Укажите корректный период для архивации');
       return;
     }
-    const filtered = transactions.filter(t => {
-      const d = t.date;
-      return d >= archiveStart && d <= archiveEnd;
-    });
+    const filtered = transactions.filter(t => countTransactionsInRange([t],archiveStart,archiveEnd)===1);
     const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -132,14 +129,16 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
     toast.success(`Архивировано операций: ${filtered.length}`);
   }, [archiveStart, archiveEnd, transactions]);
 
-  const handleDeletePeriod = useCallback(() => {
-    if (!archiveStart || !archiveEnd) {
-      toast.error('Укажите диапазон дат');
+  const handleDeletePeriod = useCallback(async () => {
+    if (!archiveStart || !archiveEnd || archiveStart > archiveEnd) {
+      toast.error('Укажите корректный диапазон дат');
       return;
     }
-    onDeleteTransactionsByPeriod?.(archiveStart, archiveEnd);
-    setIsConfirmingDelete(false);
-    toast.success('История за выбранный период очищена');
+    if (!onDeleteTransactionsByPeriod) return;
+    try {
+      await onDeleteTransactionsByPeriod(archiveStart, archiveEnd);
+      setIsConfirmingDelete(false);
+    } catch(error) { toast.error(error instanceof Error?error.message:'Удаление не выполнено'); }
   }, [archiveStart, archiveEnd, onDeleteTransactionsByPeriod]);
 
   return (

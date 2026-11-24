@@ -131,28 +131,28 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   });
 
   return (
-    <div className="shrink-0 min-w-0 border-b border-stone-200/80 dark:border-white/10 bg-[#FAF7F2] dark:bg-[var(--terra-surface)] px-3 sm:px-5 py-2 z-10">
+    <div className="shrink-0 min-w-0 border-b border-[var(--terra-border)] bg-[var(--terra-surface)] px-3 sm:px-5 py-2 z-10">
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => setSection(section === 'templates' ? null : 'templates')}
           aria-expanded={section === 'templates'}
           aria-controls="shopping-template-options"
-          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-stone-200 dark:border-white/15 px-2 sm:px-3 py-2 text-[11px] sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-[var(--terra-border)] px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <BookMarked size={16}/> Быстрые списки {section === 'templates' && <ChevronUp size={14}/>}
         </button>
         <button type="button" onClick={() => setSection(section === 'history' ? null : 'history')}
           aria-expanded={section === 'history'}
           aria-controls="shopping-repeat-options"
-          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-stone-200 dark:border-white/15 px-2 sm:px-3 py-2 text-[11px] sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-[var(--terra-border)] px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <RotateCcw size={16}/> Повторить покупки {section === 'history' && <ChevronUp size={14}/>}
         </button>
       </div>
 
       {section === 'templates' && (
         <div id="shopping-template-options" className="pt-3 space-y-3 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain" aria-label="Быстрые списки покупок">
-          <p className="text-xs text-stone-500 dark:text-stone-400">Добавьте готовый список или сохраните текущие товары. Шаблоны общие для вашей семьи.</p>
+          <p className="text-xs text-[var(--terra-muted)]">Готовые и сохранённые семейные списки</p>
           <div className="flex flex-wrap gap-2">
             {[...templates, ...BUILTIN].map(t => (
-              <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-stone-200 dark:border-white/15 p-1">
+              <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-[var(--terra-border)] p-1">
                 <button type="button" disabled={saving} onClick={() => void addProducts(t.items)}
                   className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium dark:text-white disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   <Plus size={13} className="inline mr-1"/>{t.name} · {t.items.length}
@@ -167,9 +167,9 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
           <form onSubmit={e => { e.preventDefault(); void saveTemplate(); }} className="flex gap-2 flex-wrap">
             <input value={templateName} onChange={e=>setTemplateName(e.target.value)}
               maxLength={60} placeholder="Название своего списка" aria-label="Название нового списка"
-              className="min-w-0 flex-1 rounded-xl bg-white dark:bg-stone-800 dark:text-white border border-stone-200 dark:border-white/15 px-3 py-2 text-sm"/>
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl bg-[var(--terra-soft)] text-[var(--terra-ink)] border border-[var(--terra-border)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"/>
             <button type="submit" disabled={saving || !templateName.trim()}
-              className="min-h-[44px] rounded-xl bg-[#4A7C59] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              className="min-h-[44px] rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               {saving ? <Loader2 size={16} className="animate-spin"/> : 'Сохранить текущие'}
             </button>
           </form>
@@ -179,23 +179,23 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
       {section === 'history' && (
         <div id="shopping-repeat-options" className="pt-3 space-y-3 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain" aria-label="История покупок">
           <div className="flex justify-between gap-2 items-center flex-wrap">
-            <p className="text-xs text-stone-500 dark:text-stone-400">Недавно купленные товары, доступные обоим участникам семьи.</p>
+            <p className="text-xs text-[var(--terra-muted)]">Недавние покупки</p>
             <button type="button" disabled={saving || recent.length===0}
               onClick={() => void addProducts(recent)}
-              className="min-h-[44px] px-3 py-2 bg-[#4A7C59] text-white rounded-xl text-xs font-semibold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              className="min-h-[44px] px-3 py-2 bg-primary text-white rounded-xl text-xs font-semibold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               Повторить последние ({recent.length})
             </button>
           </div>
-          {recent.length === 0 && <p className="text-sm text-stone-500">{familyId&&libraryFamily!==familyId?'История загружается.':'История появится после отметки товаров как купленных.'}</p>}
+          {recent.length === 0 && <p className="text-sm text-[var(--terra-muted)]">{familyId&&libraryFamily!==familyId?'История загружается.':'Купленных товаров пока нет.'}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
-                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-stone-200 dark:border-white/15 px-3 py-2 text-sm dark:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm dark:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <span className="min-w-0 break-words">
                   <span className="block font-semibold">{p.title} · {p.amount} {p.unit}</span>
                   {lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`) && (
-                    <span className="block mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                    <span className="block mt-0.5 text-[11px] text-[var(--terra-muted)]">
                       Последняя покупка: {new Date(lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`)!).toLocaleDateString('ru-RU')}
                     </span>
                   )}

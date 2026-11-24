@@ -5,8 +5,13 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const modal=read('components/SettingsModal.tsx');
 const members=read('components/MembersSettingsSection.tsx');
 test('iteration 81: settings controls submit only the modified key and handle failures',()=>{
- assert.match(modal,/onUpdate\(\{ \[key\]: value \}\)/);
- assert.match(modal,/Не удалось сохранить настройку/);
+ const handler=modal.slice(modal.indexOf('const handleChange = useCallback'),modal.indexOf('const handleUpdateFamilyId'));
+ const saver=modal.slice(modal.indexOf('const saveSettingsPatch = useCallback'),modal.indexOf('const handleChange = useCallback'));
+ assert.match(handler,/void saveSettingsPatch\(\{ \[key\]: value \}\)/);
+ assert.match(saver,/await onUpdate\(patch\)/);
+ assert.match(saver,/catch \(error\)/);
+ assert.match(saver,/setSettingsWriteFailed\(true\)/);
+ assert.match(saver,/Не удалось сохранить настройку/);
 });
 test('iteration 81: login update does not change a profile before email succeeds',()=>{
  const handler=modal.slice(modal.indexOf('const handleUpdateAccountLogin'),modal.indexOf('const handleUpdatePassword'));

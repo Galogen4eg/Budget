@@ -1,7 +1,6 @@
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
-import { useMedia } from 'react-use';
 import { agendaDisclosureTransition } from '../utils/uiMotion';
 import { CalendarDays, CircleCheck, Circle, Download, Bell, Send, Plus, Repeat2, ListTodo, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,9 +28,8 @@ export const FamilyAgendaPanel:React.FC<Props>=({
  const [view,setView]=useState<View>('week');
  const [expanded,setExpanded]=useState(false);
  const contentRef=React.useRef<HTMLDivElement|null>(null);
- const isDesktop=useMedia('(min-width: 768px)', false);
  const reduceMotion=useReducedMotion();
- const panelOpen=isDesktop||expanded;
+ const panelOpen=expanded;
  useEffect(()=>{
    if(contentRef.current) contentRef.current.inert=!panelOpen;
  },[panelOpen]);
@@ -79,28 +77,28 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   <div className="flex items-center justify-between flex-wrap gap-2">
    <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={panelOpen}
       aria-controls="family-agenda-content"
-      className="md:pointer-events-none min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+      className="min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
     Ближайшие дела <span className="text-xs font-normal text-stone-500">({agenda.length})</span>
-    <ChevronDown size={16} aria-hidden="true" className={`md:hidden text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
+    <ChevronDown size={16} aria-hidden="true" className={`text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
    </button>
    <div className="hidden md:flex gap-1.5 flex-wrap">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
-      className="rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
+      className="min-h-[44px] rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
       <Plus size={14}/>Задача
     </button>
     <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} title={pushEnabled?"Фоновые push включены":"Напоминания работают при открытом приложении"}
-      className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
+      className="min-h-[44px] rounded-xl border border-[var(--terra-border)] dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Bell size={14}/>{remindersEnabled?(pushEnabled?'Push включены':'Напоминания вкл.'):'Включить напоминания'}
     </button>
     <button type="button" onClick={onToggleTelegramReminders}
       title={telegramConfigured?'Фоновые напоминания через Telegram по расписанию Vercel':'Сначала настройте Telegram-бота'}
       aria-pressed={telegramRemindersEnabled}
-      className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
+      className="min-h-[44px] rounded-xl border border-[var(--terra-border)] dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Send size={14}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}
     </button>
     <button type="button" onClick={exportICS} title="Скачать события в формате iCalendar"
-      className="rounded-xl border border-stone-200 dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
+      className="min-h-[44px] rounded-xl border border-[var(--terra-border)] dark:border-white/20 text-xs font-medium px-2.5 py-2 dark:text-white flex items-center gap-1">
       <Download size={14}/> .ics
     </button>
    </div>
@@ -129,20 +127,20 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     </button>
    )}
   </div>
-  <div className="md:max-h-52 md:overflow-y-auto space-y-1.5" aria-label="Ближайшие события и семейные задачи">
+  <div className="divide-y divide-[var(--terra-border)]" aria-label="Ближайшие события и семейные задачи">
    {agenda.length===0&&<p className="text-xs text-stone-500 py-3">Пока нет запланированных дел на этот период.</p>}
-   {agenda.map(event=><div key={event.id} className="flex gap-2 items-center py-2 px-2 rounded-xl bg-white dark:bg-white/5">
+   {agenda.map(event=><div key={event.id} className="flex gap-2 items-center py-2 px-2 rounded-lg">
     {event.kind==='task'?
       <button type="button" title="Отметить выполнение" disabled={savingId===event.id}
        onClick={()=>void toggle(event)} aria-label={event.completed?"Вернуть задачу":"Отметить выполнение"} aria-pressed={Boolean(event.completed)} className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
        {event.completed?<CircleCheck size={19}/>:<Circle size={19}/>}
       </button>:<CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}
     <button type="button" onClick={()=>onOpenEvent(event)}
-     className="text-left min-h-[44px] min-w-0 flex-1">
-     <div className="text-xs sm:text-sm font-semibold dark:text-white truncate">{event.title}
+     className="text-left min-h-[44px] min-w-0 flex-1 rounded-lg focus-visible:ring-2 focus-visible:ring-primary">
+     <div className="text-xs sm:text-sm font-semibold dark:text-white break-words">{event.title}
       {event.recurrence&&event.recurrence!=='none'&&<Repeat2 size={12} className="inline ml-1 text-stone-400"/>}
      </div>
-     <div className="text-[11px] text-stone-500 truncate">{event.date} · {event.time} · {memberNames(event)} {event.kind==='task'&&!event.completed&&event.date<today?'· Просрочено':''}</div>
+     <div className="text-xs text-[var(--terra-muted)] break-words">{event.date} · {event.time} · {memberNames(event)} {event.kind==='task'&&!event.completed&&event.date<today?'· Просрочено':''}</div>
     </button>
    </div>)}
   </div>

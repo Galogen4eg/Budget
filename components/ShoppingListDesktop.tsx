@@ -1108,7 +1108,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             ) : (
               <div className="p-12 rounded-3xl bg-white dark:bg-[var(--terra-surface)] border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
                 <PackageCheck size={40} className="text-[var(--terra-primary)] opacity-70" />
-                <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">Все товары куплены!</h3>
+                <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">Все товары куплены</h3>
                 <p className="text-xs text-[var(--terra-muted)] max-w-sm">
                   Список пуст. Вы можете добавить новые продукты вручную или выбрать из частых покупок справа.
                 </p>
@@ -1130,7 +1130,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 >
                   <div className="flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300">
                     <ChevronDown size={18} className={`transition-transform duration-200 ${isPurchasedOpen ? 'rotate-180' : ''}`} />
-                    <span className="font-serif font-bold text-sm">Уже куплено в этот раз</span>
+                    <span className="font-serif font-bold text-sm">Куплено</span>
                     <span className="px-2 py-0.5 rounded-full bg-[var(--terra-soft)] dark:bg-stone-800 text-xs font-bold text-[var(--terra-primary)] dark:text-emerald-400">
                       {completedItems.length}
                     </span>
@@ -1272,7 +1272,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     {editingItem ? 'Редактировать товар' : 'Добавить в список покупок'}
                   </h3>
                   <p className="text-xs text-[var(--terra-muted)]">
-                    Автоматическое определение отдела и расчёт количества
+                    Название и количество
                   </p>
                 </div>
               </div>
@@ -1614,7 +1614,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 {parsedVoiceItems.length === 0 ? (
                   <div className="p-4 rounded-xl bg-[#F5F1EA]/60 dark:bg-stone-800/40 border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center text-xs text-[var(--terra-muted)] dark:text-stone-400">
-                    Говорите в микрофон, и товары автоматически появятся здесь в структурированном виде
+                    Продиктуйте список покупок.
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">

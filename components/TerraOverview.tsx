@@ -1206,7 +1206,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {personalOnly?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
+                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {personalOnly?'личного':'семейного'} бюджета скорректирован. 
                   </p>
                 </div>
               </div>
@@ -1499,7 +1499,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                                 </div>
                                 {dynamicsData.limit > 0 && (
                                   <div className="text-xs text-graphite-muted dark:text-gray-300 flex flex-wrap items-center justify-between gap-2 border-t border-[#EAE5DB] dark:border-white/10 pt-1">
-                                    <span>План лимита: {formatAmount(dynamicsData.limit)} ₽</span>
+                                    <span>Лимит: {formatAmount(dynamicsData.limit)} ₽</span>
                                     {hasOverlimit ? (
                                       <span className="text-red-700 dark:text-red-400 font-bold">+{formatAmount(data.amount - dynamicsData.limit)} ₽</span>
                                     ) : (

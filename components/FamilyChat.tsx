@@ -37,7 +37,7 @@ export interface TopicItem {
 }
 
 const INITIAL_TOPICS: TopicItem[] = [
-  { id: 'general', title: 'Общий семейный чат', subtitle: 'Сообщения семьи', icon: 'СБ', time: '', lastMessage: 'Пока нет сообщений' }
+  { id: 'general', title: 'Общий чат', subtitle: 'Сообщения семьи', icon: 'СБ', time: '', lastMessage: 'Пока нет сообщений' }
 ];
 
 const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = { general: [] };
@@ -225,7 +225,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
         {/* Sidebar Header */}
         <header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
           <div>
-            <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейные беседы</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейный чат</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block"></span>
               <span>{members.length} участников семьи</span>

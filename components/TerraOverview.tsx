@@ -80,6 +80,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   } = useData();
   
   const { user: firebaseUser, familyId } = useAuth();
+  const showShopping=settings.widgets?.find(w=>w.id==='shopping')?.isVisible!==false;
+  const showWeekEvents=settings.widgets?.find(w=>w.id==='week_events')?.isVisible!==false;
 
   const [chartScale, setChartScale] = useState<'day' | 'week' | 'month'>('day');
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
@@ -984,7 +986,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 4. Список покупок Card (Extracted Widget) */}
-          <QuickShoppingWidget
+          {showShopping && <QuickShoppingWidget
             activeShoppingItems={activeShoppingItems}
             displayShoppingItems={displayShoppingItems}
             newShoppingTitle={newShoppingTitle}
@@ -993,10 +995,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             handleToggleShopping={handleToggleShopping}
             handleAddShoppingInline={handleAddShoppingInline}
             onNavigateTab={onNavigateTab}
-          />
+          />}
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
-          {upcomingWeekEvents.length > 0 && (
+          {showWeekEvents && upcomingWeekEvents.length > 0 && (
             <section className={`${SURFACE_CARD} space-y-3.5`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1620,7 +1622,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* RIGHT COLUMN: 4 columns */}
           <div className="xl:col-span-4 flex flex-col gap-6">
             {/* Виджет «Список покупок» */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+            {showShopping && <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-primary-light dark:bg-primary/20 text-primary">
@@ -1705,10 +1707,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </div>
                 )}
               </form>
-            </div>
+            </div>}
 
             {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
-            {upcomingWeekEvents.length > 0 && (
+            {showWeekEvents && upcomingWeekEvents.length > 0 && (
               <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                   <div className="flex items-center gap-2.5">

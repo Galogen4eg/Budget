@@ -140,3 +140,19 @@ export function toPersonalSettingsPatch<T extends object>(changes:Partial<T>):Pa
  }
  return result as Partial<T>;
 }
+
+/** A device preference controls presentation, never the persisted household access policy. */
+export function displayBudgetMode(policy:HouseholdBudgetPolicy|undefined,preferred:HouseholdBudgetPolicy,hideShared:boolean):HouseholdBudgetPolicy{
+ return hideShared?'personal':effectiveBudgetMode(policy,preferred);
+}
+export function budgetDisplayPreferenceKey(familyId:string|null|undefined,uid:string|null|undefined):string{
+ return 'terra:hide-shared-budget:'+JSON.stringify([familyId??null,uid??null]);
+}
+/** Shared obligations remain authoritative. Only their explicitly owned subset is displayed.
+ * Never persist this derived settings object or its filtered payment map. */
+export function projectPersonalDisplayFinance<T extends Parameters<typeof projectPersonalFinance>[0]>(settings:T,memberId:string|undefined):T{
+ const own=memberId?settings.mandatoryExpenses.filter(e=>e.memberId===memberId):[];
+ const ids=new Set(own.map(e=>e.id));
+ return {...projectPersonalFinance(settings,memberId),mandatoryExpenses:own,
+ manualPaidExpenses:Object.fromEntries(Object.entries(settings.manualPaidExpenses||{}).map(([month,paid])=>[month,paid.filter(id=>ids.has(id))]))} as T;
+}

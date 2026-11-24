@@ -113,7 +113,7 @@ export default function App() {
     members, setMembers,
     categories, setCategories,
     importSourcesReady, settingsReady,
-    settings, financialSettings, householdPersonal, updateSettings, updateMandatoryPaymentBundle,
+    settings, financialSettings, householdPersonal, personalDisplayOnly, displaySettings, displayTransactions, displayMembers, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -1025,12 +1025,12 @@ export default function App() {
             
             <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 <TerraBudget
-                    key={householdPersonal?'private-budget':'joint-budget'}
-                    transactions={transactions}
+                    key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
+                    transactions={displayTransactions}
                     categories={categories}
-                    members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
-                    mandatoryExpenses={financialSettings.mandatoryExpenses || []}
-                    settings={financialSettings}
+                    members={displayMembers}
+                    mandatoryExpenses={displaySettings.mandatoryExpenses || []}
+                    settings={displaySettings}
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
                     onEditTransaction={handleEditTransaction}

@@ -455,6 +455,29 @@ try{
       await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();
     }
     await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+    if(width===390||width===1920){
+      const showShared=settingsDialog.getByRole('switch',{name:/Показывать совместный бюджет/});
+      assert.equal(await showShared.getAttribute('aria-checked'),'true');
+      let migrations=0;
+      const observe=request=>{if(new URL(request.url()).pathname==='/api/budget-policy')migrations++;};
+      page.on('request',observe);
+      await showShared.click();
+      assert.equal(await showShared.getAttribute('aria-checked'),'false');
+      await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
+      await nav.getByRole('button',{name:'Обзор',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:'Семейный',exact:true}).filter({visible:true}).count(),0);
+      await page.getByText(/итог личных операций/i).filter({visible:true}).first().waitFor({state:'visible'});
+      await nav.getByRole('button',{name:'Бюджет',exact:true}).click();
+      await page.getByText('Личный ориентир в день',{exact:true}).filter({visible:true}).first().waitFor({state:'visible'});
+      assert.equal(await page.getByText('Семейный ориентир в день',{exact:true}).filter({visible:true}).count(),0);
+      await openSettings.click();
+      await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
+      assert.equal(await showShared.getAttribute('aria-checked'),'false');
+      await showShared.click();
+      assert.equal(await showShared.getAttribute('aria-checked'),'true');
+      assert.equal(migrations,0,label+': display preference must not call SET-12');
+      page.off('request',observe);
+    }
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
     const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
     await themes.getByRole('button',{name:'Тёмная',exact:true}).click();

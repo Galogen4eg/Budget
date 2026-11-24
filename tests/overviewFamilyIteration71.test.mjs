@@ -48,7 +48,7 @@ test('iteration 71: overview manual bill status is shared and atomic with linked
 test('iteration 71: reserve UI remains family wide, keyboard accessible, and monetary formatter keeps kopecks',()=>{
  assert.ok(src.includes('СЕМЕЙНЫЙ РЕЗЕРВ'));
  assert.ok(src.includes('Открыть подробности семейного резерва'));
- assert.ok(src.includes("householdPersonal?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'"));
+ assert.ok(src.includes("personalOnly?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'"));
  assert.ok(src.includes('return formatBudgetMoney(num)'));
  assert.ok(!src.includes("return Math.round(num).toLocaleString('ru-RU')"));
 });
@@ -57,4 +57,12 @@ test('iteration 71: today spend is compared against shared daily allowance',()=>
  assert.ok(src.includes("return transactions.filter(t => {"));
  assert.ok(src.includes('sumMoney(todayTransactions.map(t => t.amount))'));
  assert.ok(src.includes('budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining)'));
+});
+
+test('personal display filters finance without changing shared bill writes',()=>{
+ assert.ok(src.includes('displayTransactions:transactions'));
+ assert.ok(src.includes('displayGoals:goals'));
+ assert.ok(src.includes('mandatoryExpenses:financialSettings.mandatoryExpenses'));
+ assert.ok(src.includes('financialSettings.manualPaidExpenses?.[currentMonthKey]'));
+ assert.ok(src.includes('personalOpeningKnown ? budgetDailyLimit'));
 });

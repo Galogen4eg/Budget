@@ -8,7 +8,7 @@ import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
-import { prepareFamilyMemberInvitation } from './familyInvitation';
+import { prepareFamilyMemberInvitation, resolveFamilyJoinProfile, assertUnusedFamilyProfile } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -326,9 +326,19 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   }
 
   // Reuse the placeholder created when the invitation was issued.
-  const memberId = invitation?.placeholderMemberId || user.uid;
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
-  const memberSnap = await getDoc(memberRef);
+  const memberCandidates:FamilyMember[]=[];
+  if(isExistingMember){
+    const linked=await getDocs(query(collection(db,'families',cleanFamilyId,'members'),where('userId','==',user.uid)));
+    memberCandidates.push(...linked.docs.map(s=>({...s.data(),id:s.id} as FamilyMember)));
+  }
+  if(invitation){
+    if(typeof invitation.placeholderMemberId!=='string'||!invitation.placeholderMemberId)throw new Error('Некорректное приглашение');
+    const invited=await getDoc(doc(db,'families',cleanFamilyId,'members',invitation.placeholderMemberId));
+    if(invited.exists()&&!memberCandidates.some(m=>m.id===invited.id))memberCandidates.push({...invited.data(),id:invited.id} as FamilyMember);
+  }
+  const selected=resolveFamilyJoinProfile(memberCandidates,user.uid,invitation?.placeholderMemberId||null);
+  const memberId=selected.id;
+  const memberRef=doc(db,'families',cleanFamilyId,'members',memberId);
   const batch = writeBatch(db);
 
   batch.update(familyRef, { members: arrayUnion(user.uid) });
@@ -341,9 +351,9 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const member: FamilyMember = {
     id: memberId,
     userId: user.uid,
-    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
-    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
-    isAdmin: false
+    name: selected.name || user.displayName || 'Участник',
+    color: selected.color || '#34C759',
+    isAdmin: Boolean(selected.isAdmin || familySnap.data().ownerId===user.uid)
   };
   if (user.photoURL) member.avatar = user.photoURL;
   batch.set(memberRef, member, { merge: true });
@@ -808,5 +818,34 @@ export async function saveFamilyPlanOccurrence(
     if(replacement&&overrideRef)tx.set(overrideRef,cleanForFirestore({
       ...replacement,id:overrideRef.id,seriesId:undefined,occurrenceDate:undefined,recurrence:'none'
     }));
+  });
+}
+
+
+/** Hard deletion is limited to unused, unbound profiles without an invitation. */
+export async function deleteUnusedFamilyProfile(familyId:string,memberId:string):Promise<void>{
+  if(!familyId||!memberId)throw new Error('Семейное пространство недоступно');
+  const ref=doc(db,'families',familyId,'members',memberId);
+  const snap=await getDocFromServer(ref);
+  if(!snap.exists())throw new Error('Профиль не найден');
+  assertUnusedFamilyProfile({...snap.data(),id:snap.id} as FamilyMember,false);
+  const containsReference=(value:unknown):boolean=>{
+    if(value===memberId)return true;
+    if(Array.isArray(value))return value.some(containsReference);
+    if(value&&typeof value==='object')return Object.values(value).some(containsReference);
+    return false;
+  };
+  const collections=['transactions','shopping','pantry','events','goals','debts','projects','loyalty','wishlist','rules'];
+  for(const name of collections){
+    const records=await getDocs(collection(db,'families',familyId,name));
+    if(records.docs.some(record=>containsReference(record.data())))throw new Error('У профиля есть связанные записи. Удаление недоступно.');
+  }
+  const settings=await getDocFromServer(doc(db,'families',familyId,'config','settings'));
+  if(settings.exists()&&containsReference(settings.data()))throw new Error('У профиля есть связанные настройки.');
+  await runTransaction(db,async tx=>{
+    const current=await tx.get(ref);
+    if(!current.exists())throw new Error('Профиль не найден');
+    assertUnusedFamilyProfile({...current.data(),id:current.id} as FamilyMember,false);
+    tx.delete(ref);
   });
 }

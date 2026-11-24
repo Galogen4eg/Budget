@@ -682,11 +682,10 @@ export default function App() {
   };
 
   const handleDeleteTransactionsByPeriod = async (startDate: string, endDate: string) => {
-      if (!startDate || !endDate) return;
-      const start = new Date(startDate);
-      start.setHours(0,0,0,0);
-      const end = new Date(endDate);
-      end.setHours(23,59,59,999);
+      if (!startDate || !endDate || startDate>endDate) throw new Error('Некорректный период');
+      const start = new Date(startDate+'T00:00:00');
+      const end = new Date(endDate+'T23:59:59.999');
+      if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error('Некорректные даты');
       
       const startTime = start.getTime();
       const endTime = end.getTime();
@@ -704,8 +703,7 @@ export default function App() {
       const ids = toDelete.map(t => t.id);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       // Deleting a savings transfer without adjusting its goal would corrupt balances.
-      try { assertBulkDeleteSafe(transactions,ids); }
-      catch(error){toast.error((error as Error).message);return;}
+      assertBulkDeleteSafe(transactions,ids);
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);

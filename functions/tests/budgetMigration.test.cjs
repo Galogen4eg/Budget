@@ -46,3 +46,14 @@ test('cannot isolate transfers or debt links shared across owners',()=>{
 test('unknown financial stores must be resolved before migration',()=>{
  assert.throws(()=>prepareTransition({...fixture(),unsupported:['accounts']}),/accounts/);
 });
+
+test('preflight identifies exact unlinked records without treating valid owners as missing',()=>{
+ const {findUnownedFinancialRecords}=require('../budgetMigration.cjs');
+ const f=fixture();
+ const input={...f,links:{transactions:[{id:'t1',memberId:'old',note:'Shop',amount:12.5},{id:'t2',memberId:'a'}],goals:[{id:'g1',title:'Goal'}],debts:[{id:'d1',memberId:'b'}]},shared:{...f.shared,mandatoryExpenses:[{id:'x',memberId:'a'},{id:'z',name:'Rent'}]}};
+ const rows=findUnownedFinancialRecords(input);
+ assert.deepEqual(rows.map(r=>[r.kind,r.id,r.owner]),[['transactions','t1','old'],['goals','g1',null],['mandatoryExpenses','z',null]]);
+ assert.equal(rows[0].amount,12.5);
+ assert.deepEqual(findUnownedFinancialRecords({...input,profiles:[...f.profiles,{id:'a2',userId:'u1'}]}),[]);
+ assert.equal(input.links.transactions[0].memberId,'old');
+});

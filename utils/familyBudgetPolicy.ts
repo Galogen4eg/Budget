@@ -76,3 +76,41 @@ export function partitionMandatoryPayments<T extends {id:string;memberId?:string
   }
   return {byMember,issues};
 }
+
+
+/** Rebuild the shared obligations from authoritative personal copies only.
+ * A nonempty issues list must prevent the caller from committing any writes.
+ */
+export function mergePersonalMandatoryPayments<T extends {id:string;memberId?:string|null}>(
+ documents:readonly {memberId:string;mandatoryExpenses:readonly T[];manualPaidExpenses:Readonly<Record<string,readonly string[]>>}[],
+ expectedMemberIds:readonly string[]
+):{mandatoryExpenses:T[];manualPaidExpenses:Record<string,string[]>;issues:string[]}{
+ const expected=new Set(expectedMemberIds);
+ const seenMembers=new Set<string>();
+ const seenIds=new Set<string>();
+ const mandatoryExpenses:T[]=[];
+ const manualPaidExpenses:Record<string,string[]>={};
+ const issues:string[]=[];
+ for(const document of documents){
+   if(!expected.has(document.memberId)||seenMembers.has(document.memberId)){
+     issues.push('Неожиданный или повторный профиль');continue;
+   }
+   seenMembers.add(document.memberId);
+   const ownIds=new Set<string>();
+   for(const expense of document.mandatoryExpenses){
+     if(!expense.id||expense.memberId!==document.memberId||seenIds.has(expense.id)){
+       issues.push('Конфликт владельца или ID обязательного платежа');continue;
+     }
+     seenIds.add(expense.id);ownIds.add(expense.id);mandatoryExpenses.push({...expense});
+   }
+   for(const [month,ids] of Object.entries(document.manualPaidExpenses)){
+     if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){issues.push('Некорректный месяц оплаты');continue;}
+     for(const id of new Set(ids)){
+       if(!ownIds.has(id)){issues.push('Отметка оплаты не принадлежит профилю');continue;}
+       (manualPaidExpenses[month]??=[]).push(id);
+     }
+   }
+ }
+ for(const id of expected)if(!seenMembers.has(id))issues.push('Отсутствует личный документ участника');
+ return {mandatoryExpenses,manualPaidExpenses,issues};
+}

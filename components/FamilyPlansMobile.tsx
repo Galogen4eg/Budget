@@ -882,7 +882,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
             <button
               type="button"
-              onClick={() => setViewMode('week')}
+              onClick={() => {setViewMode('week');setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));}}
               aria-pressed={viewMode === 'week'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'week'
@@ -894,7 +894,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               <span>Неделя</span>
             </button>
 
-            <button type="button" onClick={() => setViewMode('day')} aria-pressed={viewMode === 'day'}
+            <button type="button" onClick={() => {setViewMode('day');setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));}} aria-pressed={viewMode === 'day'}
               className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 shadow-xs' : 'text-[#6B6358] dark:text-gray-400'}`}>
               День
             </button>
@@ -1060,7 +1060,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                       )}
 
                       {/* Bottom Row: Member Chips + Notification & Actions */}
-                      <div className="flex items-center justify-between pt-1 gap-2 border-t border-[#EAE5DB]/60 dark:border-white/5">
+                      <div className="flex flex-wrap items-center justify-between pt-1 gap-2 border-t border-[#EAE5DB]/60 dark:border-white/5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {ev.memberIds && ev.memberIds.length > 0 ? (
                             ev.memberIds.map(mId => {
@@ -1086,7 +1086,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 min-w-0 max-w-full">
                           <span className="text-xs text-graphite-muted dark:text-gray-400 inline-flex items-center gap-1 min-w-0 break-words">
                             <Bell size={13} />
                             <span>{ev.reminders?.length ? ev.reminders.map(formatReminderLabel).join(', ') : 'Без напоминаний'}</span>

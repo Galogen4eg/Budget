@@ -106,7 +106,7 @@ export default function App() {
     members, setMembers,
     categories, setCategories,
     importSourcesReady,
-    settings, updateSettings, updateMandatoryPaymentBundle,
+    settings, financialSettings, householdPersonal, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -757,7 +757,7 @@ export default function App() {
   const renderWidget = (id: string) => {
       switch (id) {
           case 'balance':
-              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
+              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={financialSettings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={householdPersonal ? undefined : () => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
           case 'month_chart':
               return (
                   <div className="flex-1 h-[280px] lg:h-auto min-h-[250px]">
@@ -1030,8 +1030,8 @@ export default function App() {
                     transactions={transactions}
                     categories={categories}
                     members={members}
-                    mandatoryExpenses={settings.mandatoryExpenses || []}
-                    settings={settings}
+                    mandatoryExpenses={financialSettings.mandatoryExpenses || []}
+                    settings={financialSettings}
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
                     onEditTransaction={handleEditTransaction}

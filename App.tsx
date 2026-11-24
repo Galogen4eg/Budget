@@ -128,6 +128,18 @@ export default function App() {
   }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [installPrompt,setInstallPrompt]=useState<(Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>})|null>(null);
+  useEffect(()=>{
+    const capture=(event:Event)=>{
+      event.preventDefault();
+      setInstallPrompt(event as Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>});
+    };
+    const clear=()=>setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt',capture);
+    window.addEventListener('appinstalled',clear);
+    return ()=>{window.removeEventListener('beforeinstallprompt',capture);window.removeEventListener('appinstalled',clear);};
+  },[]);
+
   const [systemDark,setSystemDark]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(()=>{
     const media=window.matchMedia('(prefers-color-scheme: dark)');
@@ -1215,7 +1227,9 @@ export default function App() {
                   toast.success('Операция удалена');
                 }} 
             />}
-            {isSettingsOpen && <SettingsModal 
+            {isSettingsOpen && <SettingsModal
+                installPrompt={installPrompt}
+                onInstallPromptConsumed={()=>setInstallPrompt(null)} 
                 key="settings-modal"
                 settings={settings} 
                 onClose={() => setIsSettingsOpen(false)} 

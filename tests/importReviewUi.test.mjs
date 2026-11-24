@@ -42,3 +42,14 @@ test('iteration 67: closing bank preview is disabled during persistent save',()=
  assert.match(modal,/disabled=\{isConfirmingImport\}/);
  assert.match(modal,/Сохранение…/);
 });
+
+test('savings review requires explicit disposition before the first import write',()=>{
+ assert.match(modal,/assertImportSavingsReady\(cleanItems,goals,globalMemberId\)/);
+ assert.match(modal,/Банковский перевод без цели/);
+ assert.match(modal,/goals\.filter\(g=>g\.memberId===globalMemberId\)/);
+ const guard=app.indexOf('assertImportSavingsReady(prepared,goals,importMemberId)');
+ const firstWrite=app.indexOf('await addAlfaItemsIdempotent(familyId,normalRows)');
+ assert.ok(guard>=0&&firstWrite>guard);
+ assert.doesNotMatch(app,/savings_import_default/);
+ assert.match(app,/const normalRows = prepared\.filter\(t=>!isGoalSavingsTransfer\(t\)\)/);
+});

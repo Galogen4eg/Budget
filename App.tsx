@@ -50,10 +50,10 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { stopTelegramBotListener } from './utils/telegramBotListener';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
-import { assertBulkDeleteSafe, isGoalSavingsTransfer } from './utils/transactionSavingsConsistency';
+import { assertBulkDeleteSafe, isGoalSavingsTransfer, savingsContributionKopecks } from './utils/transactionSavingsConsistency';
 import { learnedRuleChangesSavings } from './utils/importSafety';
 import { resolveImportMemberId, assertImportRowsBelongToMember } from './utils/importMemberIdentity';
-import { assertImportBatchReady } from './utils/importSafety';
+import { assertImportBatchReady, assertImportSavingsReady } from './utils/importSafety';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
   addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
@@ -1324,7 +1324,7 @@ export default function App() {
                     const importMemberId = resolveImportMemberId(members, user?.uid);
                     assertImportRowsBelongToMember(itemsToImport, importMemberId);
                     assertImportBatchReady(itemsToImport, categories, importMemberId);
-                    const prepared = itemsToImport.map(item => {
+                    const prepared: Transaction[] = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);
                       const safeAmount = Number.isFinite(rawNum) ? Math.abs(rawNum) : 0;
@@ -1352,8 +1352,10 @@ export default function App() {
                     // Known Alfa IDs are idempotent on retry; no speculative local
                     // goal balance updates and no extra post-import Firestore write.
                     if (!familyId) throw new Error('Семья не подключена. Импорт не выполнен.');
-                    const normalRows = prepared.filter(t=>!isSavingsTransfer(t));
-                    const savingsRows = prepared.filter(t=>isSavingsTransfer(t));
+                    // Resolve every savings disposition before committing even ordinary rows.
+                    assertImportSavingsReady(prepared,goals,importMemberId);
+                    const normalRows = prepared.filter(t=>!isGoalSavingsTransfer(t));
+                    const savingsRows = prepared.filter(t=>isGoalSavingsTransfer(t));
                     const created: Transaction[] = [];
                     if(normalRows.length) {
                       const ordinary = normalRows.every(t=>/^alfa_[a-f0-9]{40}$/.test(t.id))
@@ -1361,28 +1363,12 @@ export default function App() {
                         : await addItemsBatch(familyId,'transactions',normalRows);
                       created.push(...ordinary);
                     }
-                    // The same goal ID is reused for all transfers when this
-                    // family has no existing savings goal yet.
-                    const defaultGoal = savingsRows.length
-                      ? (() => {
-                          const candidate = applySavingsTransferToGoals(goals,0,true).affectedGoal;
-                          // Stable ID for a new default goal: retries after partial
-                          // imports must never create another savings account.
-                          return goals.length ? candidate : {...candidate,id:householdPersonal ? 'savings_import_default_'+importMemberId : 'savings_import_default', ...(householdPersonal ? {memberId:importMemberId} : {})};
-                        })()
-                      : undefined;
                     for (const row of savingsRows) {
-                      const goal = row.linkedGoalId
-                        ? goals.find(g=>g.id===row.linkedGoalId) || (defaultGoal?.id===row.linkedGoalId?defaultGoal:undefined)
-                        : defaultGoal;
-                      if (!goal) throw new Error('Накопительная цель перевода не найдена. Исправьте её в предпросмотре.');
-                      const linkedRow={...row,linkedGoalId:goal.id};
-                      if(await addImportedSavingsItemIdempotent(familyId,linkedRow,goal))
-                        created.push(linkedRow);
+                      const goal=goals.find(g=>g.id===row.linkedGoalId&&g.memberId===importMemberId);
+                      if(!goal)throw new Error('Накопительная цель недоступна. Повторите проверку выписки.');
+                      if(await addImportedSavingsItemIdempotent(familyId,row,goal))created.push(row);
                     }
-                    const totalImportedSavings = created
-                      .filter(t=>isSavingsTransfer(t))
-                      .reduce((sum,t)=>sum+(t.type==='expense'?t.amount:-t.amount),0);
+                    const totalImportedSavings=created.reduce((sum,t)=>sum+savingsContributionKopecks(t),0)/100;
                     setImportPreview(null);
                     setTransactions(prev=>[...created.filter(t=>!prev.some(ex=>ex.id===t.id)),...prev]);
                     if (created.length === 0) toast.info('Все операции уже сохранены');
@@ -1432,7 +1418,8 @@ export default function App() {
                 learnedRules={learnedRules}
                 onAddCategory={handleAddCategory} 
                 transactions={transactions}
-                members={members} 
+                members={members}
+                goals={goals}
               />
             )}
             {showNotifications && <NotificationsModal key="notifications-modal" onClose={() => setShowNotifications(false)} />}

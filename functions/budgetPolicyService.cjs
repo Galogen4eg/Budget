@@ -14,7 +14,8 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
  if(!preview&&!enabled)throw new PolicyError('failed-precondition','SET-12 ещё не активирован на сервере');
  return db.runTransaction(async tx=>{
    timing('transaction-start');
-   const [userSnap,familySnap]=await Promise.all([tx.get(db.doc(`users/${uid}`)),tx.get(familyRef)]);
+   // Start the transaction with one BatchGet rather than two independent initial requests.
+   const [userSnap,familySnap]=await tx.getAll(db.doc(`users/${uid}`),familyRef);
    timing('membership-read');
    if(userSnap.data()?.familyId!==familyId)throw new PolicyError('permission-denied','Семья изменилась');
    const family=familySnap.data();
@@ -28,10 +29,11 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
    ]);
    timing('financial-snapshots-read');
    const configs=Object.create(null),refs=Object.create(null);
-   await Promise.all(family.members.map(async memberUid=>{
-     const ref=familyRef.collection('members').doc(memberUid).collection('config').doc('settings');
-     refs[memberUid]=ref;configs[memberUid]=(await tx.get(ref)).data()??{};
-   }));
+   for(const memberUid of family.members){
+     refs[memberUid]=familyRef.collection('members').doc(memberUid).collection('config').doc('settings');
+   }
+   const memberConfigs=await tx.getAll(...family.members.map(memberUid=>refs[memberUid]));
+   family.members.forEach((memberUid,i)=>{configs[memberUid]=memberConfigs[i].data()??{};});
    timing('member-configs-read');
    let result;
    const input={family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs,...subscriptions.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id})),subscriptions:subscriptions.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)};
@@ -62,7 +64,9 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
    }
    tx.update(familyRef,{budgetPolicy:target});
    return {policy:target,enabled,issues:[]};
- });
+ // A preview needs a consistent snapshot, not write locks. Revalidate in a read-write
+ // transaction when the user explicitly applies the migration.
+ },preview?{readOnly:true}:{maxAttempts:3});
 }
 
 module.exports={changeHouseholdBudgetPolicy,PolicyError};

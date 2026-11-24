@@ -139,3 +139,22 @@ test('confirmed external savings can migrate without inventing a goal; real link
  blocked({...external,memberId:'unknown'});
  assert.throws(()=>prepareTransition({...f,links:{...links,transactions:[{...external,linkedGoalId:'foreign'}],goals:[{id:'foreign',memberId:'b'}]}}),/Savings goal/);
 });
+
+test('SET-12 preview selects read-only transaction and batches initial membership lookup; apply retains write transaction',async()=>{
+ const {changeHouseholdBudgetPolicy}=require('../budgetPolicyService.cjs');
+ const reads=[],options=[];
+ const family={ownerId:'u1',members:['u1'],budgetPolicy:'family'};
+ function ref(path){return {path,collection:name=>({doc:id=>ref(path+'/'+name+'/'+id)})};}
+ const db={doc:ref,runTransaction:async(callback,opts)=>{
+   options.push(opts);
+   return callback({getAll:async(...refs)=>{
+     reads.push(refs.map(r=>r.path));
+     return [{data:()=>({familyId:'f1'})},{data:()=>family}];
+   }});
+ }};
+ const args={db,uid:'u1',enabled:true,data:{familyId:'f1',target:'family',preview:true}};
+ assert.deepEqual(await changeHouseholdBudgetPolicy(args),{policy:'family',enabled:true,issues:[]});
+ assert.deepEqual(await changeHouseholdBudgetPolicy({...args,data:{...args.data,preview:false}}),{policy:'family',enabled:true,issues:[]});
+ assert.deepEqual(options,[{readOnly:true},{maxAttempts:3}]);
+ assert.deepEqual(reads,[['users/u1','families/f1'],['users/u1','families/f1']]);
+});

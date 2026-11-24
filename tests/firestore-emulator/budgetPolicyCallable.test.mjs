@@ -62,7 +62,7 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    const fid='set12-family',f='families/'+fid;
    const settings=f+'/config/settings',privateSettings=uid=>f+'/members/'+uid+'/config/settings';
    const initialBills=[{id:'bill-a',memberId:'a',name:'A',amount:25.15},{id:'bill-b',memberId:'b',name:'B',amount:50.25}];
-   const originalShared={currency:'₽',initialBalance:300.35,savingsRate:10,mandatoryExpenses:initialBills,manualPaidExpenses:{'2026-11':['bill-a','bill-b']}};
+   const originalShared={currency:'₽',initialBalance:300.35,savingsRate:10,mandatoryExpenses:initialBills,manualPaidExpenses:{'2026-10':['removed-bill'],'2026-11':['bill-a','bill-b']}};
    await env.withSecurityRulesDisabled(async ctx=>{
      const db=ctx.firestore();
      const rows={
@@ -104,7 +104,10 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    await rejected(outsider.call(request),'functions/permission-denied');
    await rejected(a.call({...request,familyId:'wrong-family'}),'functions/permission-denied');
    const preview=await a.call({...request,preview:true});
-   assert.deepEqual(preview,{policy:'family',enabled:true,issues:[]});
+   assert.deepEqual(preview.issues,[]);
+   assert.equal(preview.policy,'family');
+   assert.equal(preview.enabled,true);
+   assert.equal(preview.warnings.length,1);
    assert.deepEqual((await getDocFromServer(doc(a.db,settings))).data(),originalShared,'preview changed shared settings');
    assert.equal((await getDocsFromServer(collection(b.db,f+'/transactions'))).size,2);
    assert.equal((await getDocsFromServer(collection(b.db,f+'/subscriptions'))).size,2);
@@ -143,7 +146,7 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    assert.equal((await getDocFromServer(doc(a.db,f+'/subscriptions/sub2'))).data().nextPaymentDate,'2026-12-06');
    assert.equal(merged.initialBalance,300.35);
    assert.deepEqual(merged.mandatoryExpenses,[{...initialBills[0],amount:30.55}]);
-   assert.deepEqual(merged.manualPaidExpenses,{'2026-11':['bill-a']});
+   assert.deepEqual(merged.manualPaidExpenses,{'2026-10':['removed-bill'],'2026-11':['bill-a']});
    assert.equal((await getDocFromServer(doc(a.db,f+'/transactions/b1'))).data().amount,21.35);
    assert.equal((await getDocsFromServer(collection(b.db,f+'/transactions'))).size,2);
    await setDoc(doc(a.db,f+'/transactions/unknown'),{amount:10,note:'Unknown owner'});
@@ -162,7 +165,11 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    await updateDoc(doc(a.db,f+'/subscriptions/old-sub'),{memberId:'a'});
    assert.equal((await getDocFromServer(doc(a.db,f+'/transactions/unknown'))).data().amount,10);
    assert.equal((await getDocFromServer(doc(b.db,f+'/goals/stale'))).data().currentAmount,12.5);
-   assert.deepEqual(await a.call({...request,preview:true}),{policy:'family',enabled:true,issues:[]});
+   const ready=await a.call({...request,preview:true});
+   assert.equal(ready.policy,'family');
+   assert.equal(ready.enabled,true);
+   assert.deepEqual(ready.issues,[]);
+   assert.equal(ready.warnings.length,1);
  }finally{
    await Promise.all(apps.splice(0).map(deleteApp));
    if(server)await new Promise(resolve=>server.close(resolve));

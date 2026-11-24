@@ -892,7 +892,7 @@ export function subscribeToHouseholdBudgetPolicy(
   },onError);
 }
 
-type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];ownershipIssues?:BudgetOwnershipIssue[]};
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];ownershipIssues?:BudgetOwnershipIssue[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
   const token=await auth.currentUser.getIdToken();

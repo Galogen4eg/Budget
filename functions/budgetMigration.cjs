@@ -17,6 +17,19 @@ function partition(expenses, paid, memberIds) {
   }
   return buckets;
 }
+// Old versions may leave paid markers after the obligation itself was deleted.
+// Preserve them in the server-only archive, never assign them to a random member.
+function separateHistoricalPayments(expenses,paid){
+ const known=new Set(expenses.map(e=>e.id)),active={},orphan={};
+ if(!paid||typeof paid!=='object'||Array.isArray(paid))throw new Error('Invalid payment history');
+ for(const [month,ids] of Object.entries(paid)){
+   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!Array.isArray(ids)||ids.some(id=>typeof id!=='string'||!id))throw new Error('Invalid payment history');
+   const current=ids.filter(id=>known.has(id)),old=ids.filter(id=>!known.has(id));
+   if(current.length)active[month]=current;
+   if(old.length)orphan[month]=old;
+ }
+ return {active,orphan};
+}
 function merge(documents, memberIds) {
   const expected=new Set(memberIds), seen=new Set(), expenses=[], paid={}, ids=new Set();
   for (const d of documents) {
@@ -73,7 +86,9 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
    if(unsupported.length)throw new Error('Unsupported financial collections require migration: '+unsupported.join(', '));
    const removeShared=Object.keys(shared).filter(key=>!SHARED_SAFE.has(key));
    const userPatches=Object.create(null);
-   const buckets=partition(shared.mandatoryExpenses??[],shared.manualPaidExpenses??{},ids);
+   const {active,orphan}=separateHistoricalPayments(shared.mandatoryExpenses??[],shared.manualPaidExpenses??{});
+   if(Object.hasOwn(shared,'__set12OrphanPaid'))throw new Error('Reserved archive field in shared settings');
+   const buckets=partition(shared.mandatoryExpenses??[],active,ids);
    validateLinks(links,shared.mandatoryExpenses??[]);
    for(const p of linked){
      const config=configs[p.uid];
@@ -81,11 +96,15 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
      const b=buckets.get(p.id);
      userPatches[p.uid]={personalMandatoryExpenses:b.mandatoryExpenses,personalManualPaidExpenses:b.manualPaidExpenses};
    }
-   return {policy:target,userPatches,archive:Object.fromEntries(removeShared.filter(k=>!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),removeShared};
+   return {policy:target,userPatches,archive:{...Object.fromEntries(removeShared.filter(k=>!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),...(Object.keys(orphan).length?{__set12OrphanPaid:orphan}:{})},removeShared,archivedPaymentCount:Object.values(orphan).reduce((sum,entries)=>sum+entries.length,0)};
  }
  if(!archive||typeof archive!=='object')throw new Error('Missing shared settings archive');
  const merged=merge(linked.map(p=>({memberId:p.id,mandatoryExpenses:configs[p.uid]?.personalMandatoryExpenses,manualPaidExpenses:configs[p.uid]?.personalManualPaidExpenses})),ids);
- return {policy:target,sharedPatch:{...archive,...merged}};
+ const {__set12OrphanPaid:oldPaid={},...sharedArchive}=archive;
+ const historical=separateHistoricalPayments(merged.mandatoryExpenses,oldPaid);
+ if(Object.keys(historical.active).length)throw new Error('Исторический ID платежа использован повторно; возврат заблокирован');
+ for(const [month,entries] of Object.entries(historical.orphan))merged.manualPaidExpenses[month]=[...(merged.manualPaidExpenses[month]??[]),...entries];
+ return {policy:target,sharedPatch:{...sharedArchive,...merged}};
 }
 // Diagnostic records are only returned by the authorized joint-mode preflight.
 function findUnownedFinancialRecords({family,profiles,links,shared}){

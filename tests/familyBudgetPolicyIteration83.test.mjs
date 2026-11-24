@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance} from '../utils/familyBudgetPolicy.ts';
+import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance,partitionMandatoryPayments} from '../utils/familyBudgetPolicy.ts';
 
 test('legacy households retain joint budget availability',()=>{
  assert.equal(effectiveBudgetMode(undefined,'family'),'family');
@@ -43,4 +43,22 @@ test('personal financial projection excludes shared balances, limits and payment
  assert.deepEqual(personal.manualPaidExpenses,{'2026-11':['a']});
  assert.equal(shared.initialBalance,90000);
  assert.equal(projectPersonalFinance(shared,undefined).initialBalance,0);
+});
+
+
+test('mandatory payment partition preserves amounts and historical months without cross-owner duplication',()=>{
+ const expenses=[{id:'a1',memberId:'a',amount:1250},{id:'b1',memberId:'b',amount:700}];
+ const paid={'2026-10':['a1','b1'],'2026-11':['b1','b1']};
+ const result=partitionMandatoryPayments(expenses,paid,['a','b']);
+ assert.deepEqual(result.issues,[]);
+ assert.deepEqual(result.byMember.a,{mandatoryExpenses:[expenses[0]],manualPaidExpenses:{'2026-10':['a1']}});
+ assert.deepEqual(result.byMember.b,{mandatoryExpenses:[expenses[1]],manualPaidExpenses:{'2026-10':['b1'],'2026-11':['b1']}});
+ assert.equal(expenses.length,2);
+ assert.deepEqual(paid['2026-11'],['b1','b1']);
+});
+test('migration detects ambiguous or invalid financial records instead of assigning them arbitrarily',()=>{
+ const result=partitionMandatoryPayments([{id:'a1',memberId:'a'},{id:'a1',memberId:'b'},{id:'unknown'},{id:'c1',memberId:'c'}],{'2026-11':['unknown'],'bad':['a1']},['a','b']);
+ assert.equal(result.issues.length,5);
+ assert.equal(result.byMember.a.mandatoryExpenses.length,1);
+ assert.equal(result.byMember.b.mandatoryExpenses.length,0);
 });

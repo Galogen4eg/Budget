@@ -5,7 +5,7 @@ import {
   AlertCircle, Tag, CheckCheck, Lightbulb, AlertTriangle, Bus, ShoppingCart, HeartPulse,
   Calendar, User, Edit3, Sparkles
 } from 'lucide-react';
-import { Transaction, AppSettings, LearnedRule, Category, FamilyMember } from '../types';
+import { Transaction, AppSettings, LearnedRule, Category, FamilyMember, SavingsGoal } from '../types';
 import { getIconById } from '../constants';
 import { useClickAway } from 'react-use';
 import { RippleButton } from './RippleButton';
@@ -16,7 +16,8 @@ import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from 
 import { toast } from 'sonner';
 import { countCategoryUsage } from '../utils/categoryPopularity';
 import { isCategoryForType } from '../utils/categoryCatalog';
-import { splitImportReview } from '../utils/importSafety';
+import { splitImportReview, assertImportSavingsReady } from '../utils/importSafety';
+import { isSavingsTransfer } from '../utils/savingsSync';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
   tempId: string;
@@ -39,6 +40,7 @@ interface ImportModalProps {
   onAddCategory: (category: Category) => void | Promise<void>;
   transactions: Transaction[];
   members: FamilyMember[];
+  goals: SavingsGoal[];
 }
 
 const PRESET_COLORS = [
@@ -80,7 +82,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   categories, 
   onAddCategory, 
   transactions,
-  members 
+  members,
+  goals
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   const [isConfirmingImport, setIsConfirmingImport] = useState(false);
@@ -491,9 +494,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       toast.error('В выписке есть операции с неверной датой. Исправьте их перед импортом.');
       return;
     }
-    const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
+    const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) =>
+      isSavingsTransfer(rest)?rest:{...rest,externalSavingsConfirmed:undefined});
     setIsConfirmingImport(true);
     try {
+      assertImportSavingsReady(cleanItems,goals,globalMemberId);
       const committed = await onConfirm(cleanItems);
       if (!committed) return;
       // A partial import must not persist rules belonging to excluded rows.
@@ -767,6 +772,26 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <span>Запустить анализатор ({unassignedCount})</span>
               </RippleButton>
             </div>
+          )}
+
+          {items.some(isSavingsTransfer)&&(
+            <fieldset className="min-w-0 rounded-2xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#1C1C1E] p-3 sm:p-4 space-y-3">
+              <legend className="px-1 text-sm font-bold text-stone-900 dark:text-white">Переводы в накопления</legend>
+              <p className="text-xs leading-relaxed text-stone-600 dark:text-gray-300">Укажите для каждого перевода его цель. Если деньги переводились между банковскими счетами и не относятся к целям Terra, выберите «Без цели». Новые цели автоматически не создаются.</p>
+              {items.filter(isSavingsTransfer).map(item=>(
+                <label key={item.tempId} className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                  <span className="flex-1 min-w-0 text-sm break-words text-stone-800 dark:text-white">{item.note||'Перевод'} · {settings.privacyMode?'•••':item.amount.toLocaleString('ru-RU')} ₽</span>
+                  <select aria-label={'Цель перевода: '+(item.note||'Перевод')+' '+item.date} disabled={isConfirmingImport} value={item.externalSavingsConfirmed===true&&!item.linkedGoalId?'external':goals.some(g=>g.id===item.linkedGoalId&&g.memberId===globalMemberId)?'goal:'+item.linkedGoalId:''} onChange={event=>{
+                    const choice=event.target.value;
+                    syncToParent(items.map(row=>row.tempId===item.tempId?{...row,linkedGoalId:choice.startsWith('goal:')?choice.slice(5):undefined,externalSavingsConfirmed:choice==='external'?true:undefined}:row));
+                  }} className="w-full sm:w-64 min-w-0 min-h-[44px] rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-white dark:bg-[#252528] px-3 text-sm focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                    <option value="">Выберите вариант</option>
+                    <option value="external">Банковский перевод без цели</option>
+                    {goals.filter(g=>g.memberId===globalMemberId).map(g=><option key={g.id} value={'goal:'+g.id}>{g.title}</option>)}
+                  </select>
+                </label>
+              ))}
+            </fieldset>
           )}
 
           {filteredItems.length === 0 ? (

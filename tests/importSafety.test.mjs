@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitImportReview, learnedRuleChangesSavings, isEligibleForImport, assertImportBatchReady } from '../utils/importSafety.ts';
+import { splitImportReview, learnedRuleChangesSavings, isEligibleForImport, assertImportBatchReady, assertImportSavingsReady } from '../utils/importSafety.ts';
 
 const categories=[
  {id:'other',label:'Другое',transactionType:'expense'},
@@ -42,4 +42,24 @@ test('iteration 67: import rejects wrong member, invalid dates and kopeck precis
 });
 test('iteration 67: accidental duplicate operation IDs are not accepted in the same batch',()=>{
  assert.throws(()=>assertImportBatchReady([tx('same','food'),tx('same','food')],categories,'m'),/идентификаторы/);
+});
+
+const savingsRow={id:'bank-1',category:'savings',type:'expense',memberId:'a',amount:120.55,note:'Копилка'};
+const importGoals=[{id:'a1',memberId:'a'},{id:'b1',memberId:'b'},{id:'legacy'}];
+test('import requires explicit savings disposition even if an owned goal exists',()=>{
+ assert.throws(()=>assertImportSavingsReady([savingsRow],importGoals,'a'),/выберите/i);
+ assert.doesNotThrow(()=>assertImportSavingsReady([{...savingsRow,linkedGoalId:'a1'}],importGoals,'a'));
+ assert.doesNotThrow(()=>assertImportSavingsReady([{...savingsRow,externalSavingsConfirmed:true}],[],'a'));
+});
+test('reject foreign, unowned, deleted goals and contradictory flags',()=>{
+ for(const linkedGoalId of ['b1','legacy','removed'])assert.throws(()=>assertImportSavingsReady([{...savingsRow,linkedGoalId}],importGoals,'a'),/цель/i);
+ assert.throws(()=>assertImportSavingsReady([{...savingsRow,linkedGoalId:'a1',externalSavingsConfirmed:true}],importGoals,'a'));
+ assert.throws(()=>assertImportSavingsReady([{...savingsRow,memberId:'b',externalSavingsConfirmed:true}],importGoals,'a'),/владелец/i);
+});
+test('mixed statement checks every savings row without mutating money or category',()=>{
+ const rows=[{...savingsRow,id:'food',category:'food',note:'Продукты'},{...savingsRow,externalSavingsConfirmed:true}];
+ const before=structuredClone(rows);
+ assert.doesNotThrow(()=>assertImportSavingsReady(rows,importGoals,'a'));
+ assert.deepEqual(rows,before);
+ assert.throws(()=>assertImportSavingsReady([rows[0],savingsRow],importGoals,'a'));
 });

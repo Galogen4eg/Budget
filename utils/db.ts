@@ -682,7 +682,7 @@ export const addImportedSavingsItemIdempotent = async (
   familyId: string, item: Transaction, goal: SavingsGoal
 ): Promise<boolean> => {
   if(!familyId || !item.id || !goal?.id)throw new Error('Не указана семья, операция или накопительная цель');
-  if(item.linkedGoalId && item.linkedGoalId!==goal.id)throw new Error('Накопительная цель операции не совпадает с выбранной');
+  if(item.linkedGoalId!==goal.id||item.externalSavingsConfirmed===true||!item.memberId||goal.memberId!==item.memberId)throw new Error('Накопительная цель операции не совпадает с выбранной или принадлежит другому участнику');
   const txRef=doc(db,'families',familyId,'transactions',item.id);
   const goalRef=doc(db,'families',familyId,'goals',goal.id);
   return runTransaction(db,async transaction=>{
@@ -691,18 +691,12 @@ export const addImportedSavingsItemIdempotent = async (
     const completeItem={...item,linkedGoalId:goal.id};
     const contribution=savingsContributionKopecks(completeItem);
     if(!contribution)throw new Error('Операция не является переводом в накопления');
-    if(!savedGoal.exists() && contribution<0)
-      throw new Error('Нельзя списать накопления: цель ещё не создана');
-    if(savedGoal.exists()){
-      const current=savedGoal.data() as SavingsGoal;
-      transaction.update(goalRef,{
-        currentAmount:nextSavingsGoalAmount(current.currentAmount,0,contribution)
-      });
-    }else{
-      transaction.set(goalRef,cleanForFirestore({
-        ...goal,currentAmount:nextSavingsGoalAmount(0,0,contribution)
-      }));
-    }
+    if(!savedGoal.exists())throw new Error('Накопительная цель удалена. Импорт перевода отменён.');
+    const current=savedGoal.data() as SavingsGoal;
+    if(current.memberId!==item.memberId)throw new Error('Владелец накопительной цели изменился. Повторите проверку.');
+    transaction.update(goalRef,{
+      currentAmount:nextSavingsGoalAmount(current.currentAmount,0,contribution)
+    });
     transaction.set(txRef,cleanForFirestore(completeItem));
     return true;
   });

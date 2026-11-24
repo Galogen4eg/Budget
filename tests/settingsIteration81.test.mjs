@@ -24,3 +24,12 @@ test('iteration 81: settings dialog has an accessible name and no fabricated acc
  assert.match(modal,/aria-label="Закрыть настройки"/);
  assert.doesNotMatch(modal,/849-01|alexey@semyaplus\.ru/);
 });
+
+test('iteration 81: personal appearance preferences are reachable and use existing user-specific keys',()=>{
+ assert.match(modal,/case 'appearance'/);
+ for(const key of ['theme','privacyMode','defaultBudgetMode']){
+  assert.ok(read('utils/db.ts').includes("'"+key+"'"));
+  assert.ok(modal.includes("handleChange('"+key+"'"));
+ }
+ assert.match(modal,/role="switch" aria-checked=\{settings.privacyMode\}/);
+});

@@ -319,6 +319,11 @@ export default function App() {
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
     const editing = selectedTx;
+    if (householdPersonal) {
+      const owner = members.find(m => m.userId && m.userId === user?.uid)?.id;
+      if (!owner || (editing && editing.memberId !== owner) || txData.memberId !== owner)
+        throw new Error('В личном режиме доступны только собственные операции');
+    }
     const transaction: Transaction = editing
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
@@ -724,6 +729,10 @@ export default function App() {
   };
 
   const handleGoalSave = async (goal: any) => {
+      const owner = members.find(m => m.userId && m.userId === user?.uid)?.id;
+      if (householdPersonal && (!owner || (editingGoal && editingGoal.memberId !== owner)))
+          throw new Error('В личном режиме доступны только собственные цели');
+      goal = {...goal, ...(editingGoal?.memberId || (!editingGoal && owner) ? {memberId: editingGoal?.memberId || owner} : {})};
       if (editingGoal) {
           if (!familyId) throw new Error('Family is not ready: goal was not saved');
           await updateItem(familyId, 'goals', goal.id, goal);
@@ -738,6 +747,7 @@ export default function App() {
   };
 
   const handleGoalDelete = async (id: string) => {
+      if (!goals.some(g=>g.id===id)) throw new Error('Цель недоступна');
       if (!familyId) throw new Error('Family is not ready: goal was not deleted');
       await deleteItem(familyId, 'goals', id);
       setGoals(prev => prev.filter(g => g.id !== id));
@@ -1156,8 +1166,8 @@ export default function App() {
                 key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} 
                 onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
                 onSubmit={handleTransactionSubmit} 
-                settings={settings} 
-                members={members} 
+                settings={financialSettings} 
+                members={householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members} 
                 categories={categories} 
                 learnedRules={learnedRules}
                 initialTransaction={selectedTx} 
@@ -1166,6 +1176,7 @@ export default function App() {
                 transactions={transactions} 
                 onDelete={async (id) => { 
                   const transactionToDelete = transactions.find(t => t.id === id);
+                  if (!transactionToDelete) throw new Error('Операция недоступна');
                   let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
                   if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
                     updatedSavings = applySavingsTransferToGoals(

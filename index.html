@@ -34,9 +34,19 @@
       html:not(.dark) select option, html:not(.dark) select optgroup { background-color: #fff; color: #1e2923; }
       html.dark select option:disabled { color: #a1a1aa; }
     </style>
+    <script>
+      (function(){
+        var root=document.documentElement,mode='compact';
+        try {
+          var navigation=performance.getEntriesByType('navigation')[0];
+          if(!sessionStorage.getItem('terra:opened')&&(!navigation||navigation.type==='navigate'))mode='illustrated';
+          sessionStorage.setItem('terra:opened','1');
+        } catch (_) {}
+        root.dataset.terraStartupMode=mode;
+        setTimeout(function(){root.dataset.terraStartupVisible='1';},250);
+      })();
+    </script>
     <link rel="stylesheet" href="/terra-splash.css" />
-    <link rel="preload" as="image" href="/terra-mobile.webp" media="(max-width: 767px), (orientation: portrait)" />
-    <link rel="preload" as="image" href="/terra-desktop.webp" media="(min-width: 768px) and (orientation: landscape)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Terra" />
@@ -146,7 +156,7 @@
   </head>
   <body class="text-[#1C1C1E] dark:text-white">
     <div id="root"><div class="terra-splash" data-terra-boot>
-      <picture><source media="(max-width: 767px), (orientation: portrait)" srcset="/terra-mobile.webp" type="image/webp" /><img src="/terra-desktop.webp" alt="" fetchpriority="high" decoding="async" /></picture>
+      <div class="terra-splash-art" aria-hidden="true"><div class="terra-splash-image"></div><div class="terra-splash-dots"><i></i><i></i><i></i></div></div><div class="terra-splash-compact" aria-hidden="true"><span>Загружаем данные…</span><div class="terra-splash-dots"><i></i><i></i><i></i></div></div>
       <span class="terra-splash-status" role="status">Terra. Загружаем данные…</span>
     </div></div>
   <script type="module" src="/index.tsx"></script>

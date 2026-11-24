@@ -41,9 +41,10 @@ try{
         const splash=dark.locator('[data-terra-boot]');
         await splash.waitFor({state:'visible',timeout:15000});
         assert.equal(await dark.evaluate(()=>document.documentElement.classList.contains('dark')),true,'dark startup must respect stored theme');
+        await splash.locator('.terra-splash-art').waitFor({state:'visible'});
         assert.equal(await splash.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(24, 28, 25)');
-        await dark.waitForFunction(()=>document.querySelector('[data-terra-boot] img')?.naturalWidth>0);
-        assert.notEqual(await splash.locator('img').evaluate(el=>getComputedStyle(el).filter),'none');
+        assert.notEqual(await splash.locator('.terra-splash-image').evaluate(el=>getComputedStyle(el).filter),'none');
+        assert.equal(await splash.locator('.terra-splash-dots i').first().evaluate(el=>getComputedStyle(el).animationName),'none');
         await dark.screenshot({path:'artifacts/budget-browser/phone-390-startup-dark.png',animations:'disabled'});
       }finally{await dark.close();}
     }
@@ -56,13 +57,21 @@ try{
       assert.equal(response?.status(),200,label+': page did not return 200');
       const boot=page.locator('[data-terra-boot]');
       await boot.waitFor({state:'visible',timeout:30000});
-      const expected=width<768||height>width?'terra-mobile.webp':'terra-desktop.webp';
-      await page.waitForFunction(expected=>{
-        const img=document.querySelector('[data-terra-boot] img');
-        return img?.complete&&img.naturalWidth>0&&img.currentSrc.endsWith(expected);
-      },expected,{timeout:15000});
-      const geometry=await boot.evaluate(el=>({width:el.clientWidth,height:el.clientHeight,scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight}));
-      assert.ok(geometry.width<=width+2&&geometry.scrollWidth<=width+2&&geometry.scrollHeight<=height+2,label+': loading screen overflows '+JSON.stringify(geometry));
+      const expected=height>=width?'terra-mobile.webp':'terra-desktop.webp';
+      const art=boot.locator('.terra-splash-art');
+      await art.waitFor({state:'visible',timeout:15000});
+      const loaded=await art.locator('.terra-splash-image').evaluate(async el=>{
+        const url=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
+        if(!url)return null;
+        const img=new Image();img.src=url;await img.decode();
+        return {url,width:img.naturalWidth,height:img.naturalHeight};
+      });
+      assert.ok(loaded?.url.endsWith(expected),label+': wrong artwork');
+      const geometry=await art.boundingBox();
+      assert.ok(geometry&&geometry.x>=-1&&geometry.y>=-1&&geometry.x+geometry.width<=width+1&&geometry.y+geometry.height<=height+1,label+': artwork clipped '+JSON.stringify(geometry));
+      assert.ok(Math.abs(geometry.width/geometry.height-loaded.width/loaded.height)<0.02,label+': artwork distorted');
+      assert.equal(await art.locator('.terra-splash-dots i').first().evaluate(el=>getComputedStyle(el).animationName),'terra-dot-pulse');
+      assert.equal(await art.locator('.terra-splash-dots i').count(),3);
       await page.screenshot({path:'artifacts/budget-browser/'+label+'-startup.png',animations:'disabled',timeout:15000});
       console.log('PASS',label,'responsive startup artwork',expected);
     }finally{releaseBoot();}
@@ -70,6 +79,22 @@ try{
     await page.getByRole('button',{name:/Войти/i}).waitFor({state:'visible',timeout:30000});
     assert.equal(await page.locator('input[type="password"]').count()>0,true,label+': password field missing');
     assert.equal(await page.locator('.terra-splash').count(),0,label+': splash stays after login is ready');
+    if(label==='phone-390'){
+      await page.unroute('**/assets/*.js');
+      let releaseReload;
+      const reloadGate=new Promise(resolve=>{releaseReload=resolve;});
+      await page.route('**/assets/*.js',async route=>{await reloadGate;await route.continue();});
+      try{
+        await page.reload({waitUntil:'commit',timeout:45000});
+        const boot=page.locator('[data-terra-boot]');
+        await boot.locator('.terra-splash-compact').waitFor({state:'visible',timeout:15000});
+        assert.equal(await boot.locator('.terra-splash-art').isVisible(),false);
+        assert.equal(await boot.locator('.terra-splash-image').evaluate(el=>getComputedStyle(el).backgroundImage),'none');
+        await page.screenshot({path:'artifacts/budget-browser/phone-390-reload.png',animations:'disabled'});
+      }finally{releaseReload();}
+      await page.getByRole('button',{name:/Войти/i}).waitFor({state:'visible',timeout:30000});
+      assert.equal(await page.locator('.terra-splash').count(),0);
+    }
     await page.waitForTimeout(450);
     const widthInfo=await page.evaluate(()=>({
       viewport:window.innerWidth,

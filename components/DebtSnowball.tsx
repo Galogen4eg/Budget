@@ -526,7 +526,7 @@ const DebtSnowball: React.FC<Props> = ({
             <button 
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1C1C1E] rounded-full border border-stone-200/90 dark:border-white/10 text-stone-600 dark:text-stone-300 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:border-[#4a7c59]/40 font-medium transition shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[var(--terra-surface)] rounded-full border border-stone-200/90 dark:border-white/10 text-stone-600 dark:text-stone-300 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:border-[#4a7c59]/40 font-medium transition shadow-xs cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
               <span>Ко всем сервисам</span>
@@ -538,15 +538,15 @@ const DebtSnowball: React.FC<Props> = ({
           <span className="font-bold text-stone-900 dark:text-white">Долги</span>
         </div>
 
-        <div className="flex items-center px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
+        <div className="flex items-center px-3 py-1 rounded-full bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
           <span>Обновлено в {currentTimeSync}</span>
         </div>
       </div>
 
       {/* 2. Header Banner: Мобильная и десктопная шапка */}
-      <header className="bg-white dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 shadow-card border border-stone-200/90 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 shadow-card border border-stone-200/90 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 sm:gap-5">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40 shadow-inner">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40 shadow-inner">
             <CreditCard className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />
           </div>
           <div>
@@ -573,11 +573,11 @@ const DebtSnowball: React.FC<Props> = ({
       <section aria-label="Сводка по долгам" className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5 md:gap-6">
         
         {/* KPI 1: Остаток долга (полная ширина на моб, 1-я колонка на десктопе) */}
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between relative overflow-hidden">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between relative overflow-hidden">
           <div>
             <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
               <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">Остаток долга</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 text-[11px] font-bold border border-[#d1dbd1] dark:border-emerald-800/40">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-[11px] font-bold border border-[#d1dbd1] dark:border-emerald-800/40">
                 <TrendingUp className="w-3.5 h-3.5" />
                 <span>+1.2% в этом мес.</span>
               </span>
@@ -608,7 +608,7 @@ const DebtSnowball: React.FC<Props> = ({
         {/* На мобильном: сетка из 2 колонок. На планшетах и десктопе: колонки 2 и 3 в общем ряду */}
         <div className="grid grid-cols-2 gap-3 sm:gap-5 md:contents">
           {/* KPI 2: Ближайший платёж */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
+          <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-1 sm:mb-2">
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Ближайший платёж</span>
@@ -636,11 +636,11 @@ const DebtSnowball: React.FC<Props> = ({
           </div>
 
           {/* KPI 3: Ежемесячная нагрузка */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
+          <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-1 sm:mb-2">
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Нагрузка в месяц</span>
-                <span className="p-1 sm:p-1.5 rounded-lg bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 shrink-0">
+                <span className="p-1 sm:p-1.5 rounded-lg bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 shrink-0">
                   <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </span>
               </div>
@@ -685,13 +685,13 @@ const DebtSnowball: React.FC<Props> = ({
             <h2 className="text-base sm:text-lg font-display font-bold text-stone-900 dark:text-white">
               Активные обязательства
             </h2>
-            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400">
+            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400">
               {debts.length}
             </span>
           </div>
 
           {/* Переключатель сортировки */}
-          <div className="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] p-1 rounded-xl border border-stone-200 dark:border-white/10 text-xs text-stone-600 dark:text-stone-300 shadow-2xs">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-[var(--terra-surface)] p-1 rounded-xl border border-stone-200 dark:border-white/10 text-xs text-stone-600 dark:text-stone-300 shadow-2xs">
             <button 
               type="button"
               onClick={() => setSortBy(sortBy === 'date' ? 'amount' : sortBy === 'amount' ? 'progress' : 'date')}
@@ -707,8 +707,8 @@ const DebtSnowball: React.FC<Props> = ({
         </div>
 
         {debts.length === 0 ? (
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-dashed border-stone-300 dark:border-white/10 p-10 sm:p-14 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 mx-auto flex items-center justify-center mb-4">
+          <div className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-dashed border-stone-300 dark:border-white/10 p-10 sm:p-14 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 mx-auto flex items-center justify-center mb-4">
               <Smile className="w-8 h-8" />
             </div>
             <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">Долгов нет! 🎉</h3>
@@ -739,13 +739,13 @@ const DebtSnowball: React.FC<Props> = ({
                 return (
                   <article 
                     key={debt.id} 
-                    className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card flex flex-col space-y-3.5 relative transition-all duration-300"
+                    className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card flex flex-col space-y-3.5 relative transition-all duration-300"
                   >
                     {/* Header row: Icon, Name & Status, Utility buttons */}
                     <header className="flex items-start justify-between gap-2">
                       <div className="flex items-start space-x-3 min-w-0 flex-1">
                         {/* Sage Badge House / Credit Icon */}
-                        <div aria-hidden="true" className="w-12 h-12 rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#4a7c59]/15 dark:border-emerald-800/40 shadow-xs">
+                        <div aria-hidden="true" className="w-12 h-12 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#4a7c59]/15 dark:border-emerald-800/40 shadow-xs">
                           {getDebtIcon(debt.name)}
                         </div>
                         
@@ -783,7 +783,7 @@ const DebtSnowball: React.FC<Props> = ({
                           onClick={() => setShowNotifySettings(debt)}
                           aria-label="Напоминания" 
                           title="Напоминания" 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[#edf4ef] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           <Bell className="w-4 h-4" />
                         </button>
@@ -792,7 +792,7 @@ const DebtSnowball: React.FC<Props> = ({
                           onClick={() => setShowDebtStats(extendedDebt)}
                           aria-label="История" 
                           title="История платежей и статистика" 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[#edf4ef] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           <Clock className="w-4 h-4" />
                         </button>
@@ -941,7 +941,7 @@ const DebtSnowball: React.FC<Props> = ({
                         type="button"
                         onClick={() => setEditingDebt(extendedDebt)}
                         aria-label="Редактировать параметры долга"
-                        className="w-full py-3 px-3 bg-[#f5f2eb] hover:bg-stone-200/80 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 font-bold rounded-2xl border border-stone-300/80 dark:border-white/10 active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                        className="w-full py-3 px-3 bg-[var(--terra-soft)] hover:bg-stone-200/80 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 font-bold rounded-2xl border border-stone-300/80 dark:border-white/10 active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
                         <Pencil className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400 stroke-[2.2]" />
                         <span className="tracking-wide text-xs sm:text-sm leading-none uppercase text-stone-700 dark:text-stone-200">РЕДАКТИРОВАТЬ</span>
@@ -953,7 +953,7 @@ const DebtSnowball: React.FC<Props> = ({
             </div>
 
             {/* Ближайшие платежи (Компактный график / Upcoming preview) */}
-            <section className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card">
+            <section className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 rounded-full bg-[#4a7c59] dark:bg-emerald-400" />
@@ -983,7 +983,7 @@ const DebtSnowball: React.FC<Props> = ({
                       className="flex items-center justify-between p-2.5 rounded-xl bg-[#f5f2eb]/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10"
                     >
                       <div className="flex items-center space-x-2.5 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 font-bold text-[11px] flex items-center justify-center shrink-0">
+                        <span className="w-7 h-7 rounded-lg bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 font-bold text-[11px] flex items-center justify-center shrink-0">
                           {day}
                         </span>
                         <div className="min-w-0">
@@ -1013,9 +1013,9 @@ const DebtSnowball: React.FC<Props> = ({
       </section>
 
       {/* 6. Полноразмерный баннер: Стратегия «Снежный ком» активна */}
-      <section className="bg-white dark:bg-[#1C1C1E] border border-stone-200/90 dark:border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <section className="bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
@@ -1031,7 +1031,7 @@ const DebtSnowball: React.FC<Props> = ({
         <button 
           type="button"
           onClick={() => setShowEarlyRepaymentCalc(true)}
-          className="min-h-[44px] whitespace-nowrap px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold uppercase tracking-wider text-[#4a7c59] dark:text-emerald-400 hover:text-white hover:bg-[#4a7c59] bg-[#edf4ef] dark:bg-[#243628] rounded-xl sm:rounded-2xl border border-[#4a7c59]/40 transition shadow-xs cursor-pointer shrink-0 active:scale-95"
+          className="min-h-[44px] whitespace-nowrap px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold uppercase tracking-wider text-[#4a7c59] dark:text-emerald-400 hover:text-white hover:bg-[#4a7c59] bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] rounded-xl sm:rounded-2xl border border-[#4a7c59]/40 transition shadow-xs cursor-pointer shrink-0 active:scale-95"
         >
           Калькулятор досрочного погашения
         </button>
@@ -1041,7 +1041,7 @@ const DebtSnowball: React.FC<Props> = ({
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Левые 2 колонки на десктопе: Динамика снижения долговой нагрузки */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-2 bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-display font-bold text-stone-900 dark:text-white text-sm sm:text-base">
@@ -1051,7 +1051,7 @@ const DebtSnowball: React.FC<Props> = ({
                 Прогноз до 2028 года с учетом регулярных аннуитетных платежей
               </p>
             </div>
-            <span className="inline-block px-2.5 py-1 rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 text-xs font-bold border border-[#d1dbd1] dark:border-emerald-800/40 shrink-0">
+            <span className="inline-block px-2.5 py-1 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-xs font-bold border border-[#d1dbd1] dark:border-emerald-800/40 shrink-0">
               Экономия ~248 000 ₽
             </span>
           </div>
@@ -1097,7 +1097,7 @@ const DebtSnowball: React.FC<Props> = ({
         </div>
 
         {/* Правая 1 колонка: Ближайшие выплаты */}
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-3.5">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-3.5">
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1116,7 +1116,7 @@ const DebtSnowball: React.FC<Props> = ({
                 const dueDay = debt.dueDate ? new Date(debt.dueDate).getDate() : 25;
                 const dueMonth = debt.dueDate ? new Date(debt.dueDate).toLocaleDateString('ru-RU', { month: 'short' }) : 'сен';
                 return (
-                  <div key={debt.id || index} className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-[#f9f8f4] dark:bg-[#252528] border border-stone-200/60 dark:border-white/5">
+                  <div key={debt.id || index} className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200/60 dark:border-white/5">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-lg bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 flex flex-col items-center justify-center shrink-0 border border-stone-200/80 dark:border-white/10">
                         <span className="text-[9px] font-bold text-stone-400 uppercase leading-none">{dueMonth}</span>
@@ -1167,7 +1167,7 @@ const DebtSnowball: React.FC<Props> = ({
       {/* 9. Модальное окно подтверждения удаления долга */}
       {debtToDelete && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 text-center">
+          <div className="relative w-full max-w-sm bg-white dark:bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 text-center">
             <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-900/30">
               <Trash2 className="w-7 h-7" />
             </div>
@@ -1204,7 +1204,7 @@ const DebtSnowball: React.FC<Props> = ({
       {/* 10. Модальное окно редактирования / создания долга (Terra) */}
       {editingDebt && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-[520px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] bg-white dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-3xl border-0 sm:border border-stone-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 relative z-50 overflow-y-auto no-scrollbar text-stone-800 dark:text-stone-100 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+          <div className="w-full max-w-[520px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] bg-white dark:bg-[var(--terra-surface)] rounded-t-3xl sm:rounded-3xl border-0 sm:border border-stone-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 relative z-50 overflow-y-auto no-scrollbar text-stone-800 dark:text-stone-100 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
             
             <header className="flex items-center justify-between">
               <h2 className="text-2xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
@@ -1243,7 +1243,7 @@ const DebtSnowball: React.FC<Props> = ({
                 onClick={() => setMode('manual')}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
                   mode === 'manual' 
-                    ? 'bg-white dark:bg-[#2C2C2E] text-stone-900 dark:text-white shadow-xs font-extrabold' 
+                    ? 'bg-white dark:bg-[var(--terra-soft)] text-stone-900 dark:text-white shadow-xs font-extrabold' 
                     : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
                 }`}
               >
@@ -1256,7 +1256,7 @@ const DebtSnowball: React.FC<Props> = ({
                 onClick={() => setMode('auto')}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
                   mode === 'auto' 
-                    ? 'bg-white dark:bg-[#2C2C2E] text-[#4a7c59] dark:text-emerald-400 shadow-xs font-extrabold' 
+                    ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-emerald-400 shadow-xs font-extrabold' 
                     : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
                 }`}
               >
@@ -1277,7 +1277,7 @@ const DebtSnowball: React.FC<Props> = ({
                   defaultValue={editingDebt.name} 
                   placeholder="Ипотека, Кредитная карта, Автокредит..." 
                   required 
-                  className="w-full bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[#1E1E20] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
+                  className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
                 />
               </div>
 
@@ -1292,7 +1292,7 @@ const DebtSnowball: React.FC<Props> = ({
                     value={editingDebt.finalClosingDate || ''}
                     onChange={(e) => setEditingDebt(prev => ({ ...prev, finalClosingDate: e.target.value }))}
                     required 
-                    className="w-full bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[#1E1E20] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
+                    className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
                   />
                 </div>
                 <p className="text-xs text-stone-400 dark:text-stone-500">
@@ -1314,7 +1314,7 @@ const DebtSnowball: React.FC<Props> = ({
                     onChange={(e) => setEditingDebt(prev => ({ ...prev, totalAmount: parseDecimal(e.target.value) }))}
                     placeholder="0.00" 
                     required 
-                    className="w-full bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[#1E1E20] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
+                    className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
                   />
                 </div>
 
@@ -1330,7 +1330,7 @@ const DebtSnowball: React.FC<Props> = ({
                     defaultValue={editingDebt.id ? ((editingDebt.totalAmount || 0) - (editingDebt.currentBalance ?? 0)) : ''} 
                     placeholder="0.00" 
                     required 
-                    className="w-full bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[#1E1E20] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
+                    className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
                   />
                 </div>
               </div>
@@ -1353,8 +1353,8 @@ const DebtSnowball: React.FC<Props> = ({
                     required 
                     className={`w-full text-base font-bold rounded-2xl px-4 py-3.5 outline-none transition ${
                       mode === 'auto' 
-                        ? 'bg-[#edf4ef]/70 dark:bg-[#243628] text-[#3d6749] dark:text-emerald-400 border border-[#4a7c59]/20 cursor-not-allowed' 
-                        : 'bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white focus:border-[#4a7c59]'
+                        ? 'bg-[#edf4ef]/70 dark:bg-[var(--terra-primary-soft)] text-[#3d6749] dark:text-emerald-400 border border-[#4a7c59]/20 cursor-not-allowed' 
+                        : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white focus:border-[#4a7c59]'
                     }`} 
                   />
                 </div>
@@ -1373,8 +1373,8 @@ const DebtSnowball: React.FC<Props> = ({
                     required 
                     className={`w-full text-base font-bold rounded-2xl px-4 py-3.5 outline-none transition ${
                       mode === 'auto' 
-                        ? 'bg-[#edf4ef]/70 dark:bg-[#243628] text-[#3d6749] dark:text-emerald-400 border border-[#4a7c59]/20 cursor-not-allowed' 
-                        : 'bg-[#fbf9f5] dark:bg-[#252528] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white focus:border-[#4a7c59]'
+                        ? 'bg-[#edf4ef]/70 dark:bg-[var(--terra-primary-soft)] text-[#3d6749] dark:text-emerald-400 border border-[#4a7c59]/20 cursor-not-allowed' 
+                        : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white focus:border-[#4a7c59]'
                     }`} 
                   />
                 </div>
@@ -1418,7 +1418,7 @@ const DebtSnowball: React.FC<Props> = ({
               )}
 
               {mode === 'auto' && scheduleData.length > 0 && (
-                <div className="bg-[#fbf9f5] dark:bg-[#252528] rounded-2xl p-4 border border-stone-200 dark:border-white/10 space-y-3">
+                <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] rounded-2xl p-4 border border-stone-200 dark:border-white/10 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CalendarCheck className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
@@ -1473,7 +1473,7 @@ const DebtSnowball: React.FC<Props> = ({
                       ...(foundExp && (!prev?.monthlyPayment || prev.monthlyPayment === 0) ? { monthlyPayment: foundExp.amount } : {})
                     }));
                   }}
-                  className="w-full text-sm font-semibold rounded-xl px-3.5 py-2.5 bg-white dark:bg-[#252528] border border-amber-300/80 dark:border-amber-900/60 text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full text-sm font-semibold rounded-xl px-3.5 py-2.5 bg-white dark:bg-[var(--terra-soft)] border border-amber-300/80 dark:border-amber-900/60 text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
                 >
                   <option value="">-- Без привязки к обязательному платежу --</option>
                   {(settings.mandatoryExpenses || []).map(exp => (
@@ -1537,7 +1537,7 @@ const DebtSnowball: React.FC<Props> = ({
               aria-labelledby="debt-schedule-title"
               aria-modal="true" 
               role="dialog"
-              className="relative w-full max-w-[940px] max-h-[94vh] bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden flex flex-col transition-all duration-200 text-stone-800 dark:text-stone-100"
+              className="relative w-full max-w-[940px] max-h-[94vh] bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden flex flex-col transition-all duration-200 text-stone-800 dark:text-stone-100"
             >
               {/* Top Decorative Accent Gradient Bar */}
               <div className="h-2 w-full bg-gradient-to-r from-[#4a7c59] via-[#78a886] to-[#a86b46] shrink-0" />
@@ -1549,7 +1549,7 @@ const DebtSnowball: React.FC<Props> = ({
                 <header className="flex items-start justify-between gap-3 pb-3 border-b border-stone-200/80 dark:border-white/10">
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
+                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
                         {getDebtIcon(showDebtStats.name)}
                       </span>
                       <h2 className="text-lg sm:text-2xl lg:text-3xl font-display font-bold text-stone-900 dark:text-white tracking-tight break-words" id="debt-schedule-title">
@@ -1578,7 +1578,7 @@ const DebtSnowball: React.FC<Props> = ({
                 {/* Desktop 3-Card Grid */}
                 <div className="hidden md:grid md:grid-cols-3 gap-4">
                   {/* Card 1: Paid Amount with Donut Ring */}
-                  <div className="bg-[#f9f8f4] dark:bg-[#252528] p-4 sm:p-5 rounded-2xl flex items-center justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
+                  <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] p-4 sm:p-5 rounded-2xl flex items-center justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
                     <div className="space-y-1">
                       <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
                         Выплачено
@@ -1615,7 +1615,7 @@ const DebtSnowball: React.FC<Props> = ({
                   </div>
 
                   {/* Card 2: Remaining Balance */}
-                  <div className="bg-[#f9f8f4] dark:bg-[#252528] p-4 sm:p-5 rounded-2xl flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
+                  <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] p-4 sm:p-5 rounded-2xl flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
                         Остаток долга
@@ -1642,7 +1642,7 @@ const DebtSnowball: React.FC<Props> = ({
                   </div>
 
                   {/* Card 3: Monthly Payment */}
-                  <div className="bg-[#f9f8f4] dark:bg-[#252528] p-4 sm:p-5 rounded-2xl flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
+                  <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] p-4 sm:p-5 rounded-2xl flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
                         Текущий платеж
@@ -1666,7 +1666,7 @@ const DebtSnowball: React.FC<Props> = ({
                 {/* Mobile 2-Card Grid */}
                 <div className="grid grid-cols-2 gap-3 md:hidden">
                   {/* Card 1: Paid */}
-                  <div className="bg-[#f9f8f4] dark:bg-[#252528] rounded-xl p-3.5 flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
+                  <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] rounded-xl p-3.5 flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Выплачено</span>
                       <CheckCircle2 className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
@@ -1680,7 +1680,7 @@ const DebtSnowball: React.FC<Props> = ({
                   </div>
 
                   {/* Card 2: Remaining */}
-                  <div className="bg-[#f9f8f4] dark:bg-[#252528] rounded-xl p-3.5 flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
+                  <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] rounded-xl p-3.5 flex flex-col justify-between border border-stone-200/80 dark:border-white/5 shadow-2xs">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Остаток</span>
                       <Hourglass className="w-4 h-4 text-rose-500" />
@@ -1740,7 +1740,7 @@ const DebtSnowball: React.FC<Props> = ({
                             item.isPaid
                               ? 'bg-[#edf4ef]/70 dark:bg-emerald-950/20 border-[#4a7c59]/40'
                               : isFirst
-                                ? 'bg-white dark:bg-[#252528] border-[#4a7c59]/30 hover:border-[#4a7c59] cursor-pointer shadow-xs'
+                                ? 'bg-white dark:bg-[var(--terra-soft)] border-[#4a7c59]/30 hover:border-[#4a7c59] cursor-pointer shadow-xs'
                                 : 'bg-[#f9f8f4]/90 dark:bg-[#222224] border-stone-200/70 dark:border-white/5'
                           }`}
                         >
@@ -1749,7 +1749,7 @@ const DebtSnowball: React.FC<Props> = ({
                               item.isPaid 
                                 ? 'bg-[#4a7c59] text-white shadow-xs' 
                                 : isFirst
-                                  ? 'bg-[#edf4ef] dark:bg-stone-800 text-[#4a7c59] dark:text-emerald-400'
+                                  ? 'bg-[var(--terra-primary-soft)] dark:bg-stone-800 text-[#4a7c59] dark:text-emerald-400'
                                   : 'bg-stone-200/70 dark:bg-stone-800 text-stone-400'
                             }`}>
                               {item.isPaid ? (
@@ -1823,7 +1823,7 @@ const DebtSnowball: React.FC<Props> = ({
       {/* 12. Модальное окно напоминаний */}
       {showNotifySettings && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+          <div className="relative w-full max-w-sm bg-white dark:bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
             <h3 className="text-xl font-display font-bold text-stone-900 dark:text-white">Напоминания</h3>
             
             <div className="space-y-4">
@@ -1839,7 +1839,7 @@ const DebtSnowball: React.FC<Props> = ({
                     setShowNotifySettings({...showNotifySettings, ...updates});
                     if (familyId) await updateItem(familyId, 'debts', showNotifySettings.id, updates);
                   }}
-                  className="w-full bg-[#fbf9f5] dark:bg-stone-800 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 font-bold text-stone-900 dark:text-white outline-none focus:border-[#4a7c59]"
+                  className="w-full bg-[var(--terra-surface)] dark:bg-stone-800 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 font-bold text-stone-900 dark:text-white outline-none focus:border-[#4a7c59]"
                 />
               </div>
 
@@ -1854,7 +1854,7 @@ const DebtSnowball: React.FC<Props> = ({
                 className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition ${
                   showNotifySettings.notifyIfOverdue 
                     ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/30 text-rose-600 dark:text-rose-400' 
-                    : 'bg-[#fbf9f5] dark:bg-stone-800 border-stone-200 dark:border-white/10 text-stone-600'
+                    : 'bg-[var(--terra-surface)] dark:bg-stone-800 border-stone-200 dark:border-white/10 text-stone-600'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -1881,10 +1881,10 @@ const DebtSnowball: React.FC<Props> = ({
       {/* 13. Модальное окно калькулятора досрочного погашения */}
       {showEarlyRepaymentCalc && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-white dark:bg-[#1C1C1E] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="relative w-full max-w-md bg-white dark:bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center">
                   <Calculator className="w-5 h-5" />
                 </div>
                 <h3 className="text-xl font-display font-bold text-stone-900 dark:text-white">
@@ -1921,7 +1921,7 @@ const DebtSnowball: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#edf4ef]/60 dark:bg-[#243628] border border-[#d1dbd1] dark:border-emerald-800/40 space-y-2">
+              <div className="p-4 rounded-2xl bg-[#edf4ef]/60 dark:bg-[var(--terra-primary-soft)] border border-[#d1dbd1] dark:border-emerald-800/40 space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-stone-600 dark:text-stone-300">Ускорение закрытия:</span>
                   <strong className="text-[#4a7c59] dark:text-emerald-400">~{Math.max(1, Math.round(extraPaymentAmount / 2000) + 2)} мес. быстрее</strong>

@@ -8,3 +8,24 @@
   .terra-press, .terra-progress, .terra-menu { transition: none !important; animation: none !important; }
   .terra-press:active { transform: none; }
 }
+
+/* Terra semantic color roles: shared by all screens and portals. */
+:root { --terra-canvas:#F6F1E8; --terra-surface:#FFFCF7; --terra-soft:#EFE7DA; --terra-border:#E2D8C8; --terra-ink:#1F2A24; --terra-muted:#66706A; --terra-primary:#4A7C59; --terra-primary-hover:#3E694B; --terra-primary-soft:#E6F0E8; --terra-accent:#C69143; --terra-focus:#4A7C59; }
+html.dark { --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A27; --terra-border:#313733; --terra-ink:#F3F1EC; --terra-muted:#A4ADA7; --terra-primary-soft:#223328; --terra-focus:#8BC49B; }
+/* Restrict focus changes to chart internals; preserve keyboard indication. */
+[data-testid^="overview-chart-"] .recharts-wrapper:focus:not(:focus-visible),
+[data-testid^="overview-chart-"] .recharts-surface:focus:not(:focus-visible) { outline:none !important; }
+[data-testid^="overview-chart-"] .recharts-wrapper:focus-visible,
+[data-testid^="overview-chart-"] .recharts-surface:focus-visible { outline:2px solid var(--terra-focus) !important; outline-offset:-2px; border-radius:8px; }
+.terra-settings-active { background:var(--terra-primary-soft); color:var(--terra-ink); }
+@media(min-width:768px) {
+ [data-terra-settings] { background:var(--terra-surface); color:var(--terra-ink); border-color:var(--terra-border); }
+ [data-terra-settings] > header { background:var(--terra-surface); border-color:var(--terra-border); }
+ [data-terra-settings] aside { background:var(--terra-canvas); border-color:var(--terra-border); }
+ [data-terra-settings] main { background:var(--terra-surface); }
+ .terra-settings-body { max-width:780px; margin-inline:auto; }
+ .terra-settings-body section { border-radius:14px; padding:16px; box-shadow:none; }
+ .terra-settings-body section + section { margin-top:12px; }
+ .terra-settings-body section h3 { font-size:15px; line-height:1.4; }
+ .terra-settings-body input:not([type=checkbox]):not([type=radio]), .terra-settings-body select { min-height:40px; }
+}

@@ -465,7 +465,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-white">
               Мои карты
             </h1>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400">
               {cards.length}
             </span>
           </div>
@@ -482,7 +482,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       </div>
 
       {/* 2. Filter Bar & View Toggle */}
-      <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-3">
+      <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
           {/* Category Badges Horizontal Ribbon */}
@@ -562,7 +562,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 onClick={() => setViewMode('grid')}
                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'grid' 
-                    ? 'bg-white dark:bg-[#2C2C2E] text-[#4a7c59] dark:text-green-400 shadow-xs' 
+                    ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
                 }`}
                 title="Сетка"
@@ -574,7 +574,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 onClick={() => setViewMode('list')}
                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'list' 
-                    ? 'bg-white dark:bg-[#2C2C2E] text-[#4a7c59] dark:text-green-400 shadow-xs' 
+                    ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
                 }`}
                 title="Список"
@@ -589,8 +589,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
       {/* 3. Cards Display (Bento Grid vs List) */}
       {filteredCards.length === 0 ? (
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-dashed border-stone-300 dark:border-white/10 p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-green-400 mx-auto flex items-center justify-center mb-3">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-dashed border-stone-300 dark:border-white/10 p-12 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-green-400 mx-auto flex items-center justify-center mb-3">
             <CreditCard className="w-7 h-7" />
           </div>
           <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">
@@ -731,7 +731,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               <div 
                 key={card.id}
                 onClick={() => setActiveBarcodeCard(card)}
-                className="bg-white dark:bg-[#1C1C1E] p-3 sm:p-4 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between gap-3 hover:border-[#4a7c59]/40 active:scale-[0.99] transition cursor-pointer"
+                className="bg-white dark:bg-[var(--terra-surface)] p-3 sm:p-4 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between gap-3 hover:border-[#4a7c59]/40 active:scale-[0.99] transition cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
@@ -743,7 +743,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                         {card.name}
                       </h3>
                       {card.discount && card.discount.toLowerCase() !== 'активна' && (
-                        <span className="px-1.5 py-0.5 rounded-md bg-[#edf4ef] dark:bg-[#243628] text-[#4a7c59] dark:text-emerald-400 text-[10px] font-bold shrink-0">
+                        <span className="px-1.5 py-0.5 rounded-md bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-[10px] font-bold shrink-0">
                           {card.discount}
                         </span>
                       )}
@@ -766,7 +766,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                       e.stopPropagation();
                       setActiveBarcodeCard(card);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-[#edf4ef] dark:bg-[#243628] hover:bg-[#4a7c59] hover:text-white text-[#4a7c59] dark:text-emerald-400 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    className="px-3 py-1.5 rounded-xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] hover:bg-[#4a7c59] hover:text-white text-[#4a7c59] dark:text-emerald-400 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
                   >
                     <QrCode className="w-3.5 h-3.5" />
                     <span>Код</span>
@@ -802,7 +802,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
         {/* Family Access Panel */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white dark:bg-[var(--terra-surface)] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <div>
@@ -856,7 +856,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
         </div>
 
         {/* Quick Scan Card / Action */}
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
           <div>
             <div className="w-12 h-12 rounded-2xl bg-[#f0e8db] dark:bg-[#332a1e] text-[#705c30] dark:text-[#dcc48e] flex items-center justify-center mb-4">
               <Camera className="w-6 h-6" />
@@ -888,7 +888,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             </div>
           </div>
 
-          <div className="mt-5 p-3.5 rounded-2xl bg-[#edf4ef]/60 dark:bg-[#243628] border border-[#d1dbd1] dark:border-green-800/40 flex items-start gap-2.5 text-xs text-stone-600 dark:text-stone-300">
+          <div className="mt-5 p-3.5 rounded-2xl bg-[#edf4ef]/60 dark:bg-[var(--terra-primary-soft)] border border-[#d1dbd1] dark:border-green-800/40 flex items-start gap-2.5 text-xs text-stone-600 dark:text-stone-300">
             <Lightbulb className="w-4 h-4 text-[#4a7c59] dark:text-green-400 shrink-0 mt-0.5" />
             <span>
               <b>Совет Terra:</b> Нажмите «Показать код» на кассе, чтобы открыть штрихкод на максимальной контрастности.
@@ -921,7 +921,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       {/* 6. Add / Edit Card Modal (Terra Design Prototype 3) */}
       {editingCard && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-md overflow-y-auto">
-          <div className="relative w-full max-w-[490px] my-auto bg-white dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-stone-200 dark:border-white/10 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] overflow-y-auto no-scrollbar pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+          <div className="relative w-full max-w-[490px] my-auto bg-white dark:bg-[var(--terra-surface)] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-stone-200 dark:border-white/10 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh] overflow-y-auto no-scrollbar pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
             
             {/* Modal Header */}
             <div className="px-6 pt-6 pb-3 flex items-center justify-between border-b border-stone-100 dark:border-white/5">
@@ -1234,12 +1234,12 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
           id="deleteConfirmDialog"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 dark:bg-black/70 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 shadow-xl flex flex-col items-center text-center border border-[#ECE5DB] dark:border-white/10">
+          <div className="w-full max-w-sm bg-white dark:bg-[var(--terra-surface)] rounded-2xl p-6 shadow-xl flex flex-col items-center text-center border border-[var(--terra-border)] dark:border-white/10">
             <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3">
               <AlertTriangle className="w-6 h-6" />
             </div>
             
-            <h3 className="font-serif font-bold text-lg text-[#2E3230] dark:text-white">
+            <h3 className="font-serif font-bold text-lg text-[var(--terra-ink)] dark:text-white">
               Удалить карту?
             </h3>
             
@@ -1252,7 +1252,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 type="button"
                 id="cancelDeleteBtn"
                 onClick={() => setCardToDelete(null)}
-                className="flex-1 py-2.5 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 text-[#2E3230] dark:text-stone-200 font-sans text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 text-[var(--terra-ink)] dark:text-stone-200 font-sans text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition-all cursor-pointer"
               >
                 Отмена
               </button>

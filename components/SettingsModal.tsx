@@ -1419,16 +1419,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       {/* Backdrop */}
       <div 
         onClick={onClose} 
-        className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200" 
+        className="absolute inset-0 bg-black/50 transition-opacity duration-200" 
       />
 
       {/* Main Container */}
       <div 
-        role="dialog" aria-modal="true" aria-label="Настройки"
-        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(96vw,1600px)] h-[100dvh] md:h-[94dvh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        role="dialog" aria-modal="true" aria-label="Настройки" data-terra-settings="true"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
-        <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+        <header className="hidden md:flex h-14 px-5 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
           </div>
@@ -1560,14 +1560,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[230px] lg:w-[250px] xl:w-[265px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-3.5 flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex w-[216px] lg:w-[232px] bg-gray-50 dark:bg-[#1E2023] border-r border-gray-100 dark:border-white/10 p-3 flex-col shrink-0 overflow-y-auto">
             <div className="px-2 pt-1 pb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 Разделы настроек
               </span>
             </div>
 
-            <nav className="space-y-1 flex-1">
+            <nav aria-label="Разделы настроек" className="space-y-1 flex-1">
               {filteredSections.map(section => {
                 const isActive = activeSection === section.id;
                 return (
@@ -1577,18 +1577,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => { 
                       setActiveSection(section.id); 
                     }} 
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                    aria-current={isActive ? "page" : undefined}
+                    className={`w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
                       isActive 
-                        ? 'bg-[#2D5A43] text-white shadow-sm' 
+                        ? 'terra-settings-active' 
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5'
                     }`}
                   >
-                    <div className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                    <div className={`shrink-0 ${isActive ? 'text-primary dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                       {section.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold truncate leading-tight">{section.label}</div>
-                      <div className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <div className="text-sm font-semibold leading-tight">{section.label}</div>
+                      <div className={`text-xs truncate mt-0.5 text-gray-500 dark:text-gray-400`}>
                         {section.subtitle}
                       </div>
                     </div>
@@ -1604,7 +1605,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           }`}>
             {/* Desktop Section Header (hidden on mobile) */}
             {currentSection.id !== 'categories' && (
-              <div className="hidden md:flex px-6 py-4 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+              <div className="hidden md:flex px-5 py-3 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -1626,8 +1627,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
-            <div data-testid="settings-section-scroll-container" className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
-              {renderSectionContent()}
+            <div data-testid="settings-section-scroll-container" className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto overscroll-y-contain p-4 md:p-5 space-y-4 pb-6 terra-settings-content'}`}>
+              <div className={currentSection.id === "categories" ? "h-full min-h-0 flex flex-col" : "terra-settings-body"}>{renderSectionContent()}</div>
             </div>
           </main>
         </div>
@@ -1683,8 +1684,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               transition={{ duration: 0.18, ease: 'easeOut' }}
               className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-gray-200/80 dark:border-white/10 z-10"
             >
-              <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-red-500/10 filter blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 filter blur-3xl pointer-events-none" />
+
 
               {/* Modal Header */}
               <div className="relative z-10 flex items-start justify-between">

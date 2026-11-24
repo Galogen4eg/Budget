@@ -31,3 +31,14 @@ test('toolbar and navigation use stable touch targets and shared colors',()=>{
  assert.match(app,/min-w-\[44px\] min-h-\[48px\]/);
  assert.doesNotMatch(app,/group-hover:scale-105/);
 });
+
+test('semantic palette and compact settings apply without removing keyboard focus',()=>{
+ const css=read('public/terra-ui.css');
+ assert.match(css,/--terra-canvas:#F6F1E8/);
+ assert.match(css,/html\.dark \{/);
+ assert.match(css,/recharts-wrapper:focus:not\(:focus-visible\)/);
+ assert.match(css,/recharts-surface:focus-visible/);
+ assert.match(read('components/SettingsModal.tsx'),/md:max-w-\[min\(94vw,1120px\)\]/);
+ assert.match(read('components/SettingsModal.tsx'),/data-terra-settings="true"/);
+ for(const path of ['TerraBudget','ShoppingListMobile','ShoppingListDesktop','FamilyPlansMobile','FamilyPlansDesktop','FamilyChat','ServicesHub','Wallet','DebtSnowball'])assert.match(read('components/'+path+'.tsx'),/var\(--terra-/);
+});

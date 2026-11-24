@@ -75,11 +75,11 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    toast.error(error instanceof Error?error.message:'Не удалось обновить задачу');
   }finally{setSavingId(null);}
  };
- return <section className="border-b border-[#EAE5DB] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2.5 space-y-2 shrink-0">
+ return <section className="border-b border-[var(--terra-border)] dark:border-white/10 bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] px-3 sm:px-5 py-2.5 space-y-2 shrink-0">
   <div className="flex items-center justify-between flex-wrap gap-2">
    <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={panelOpen}
       aria-controls="family-agenda-content"
-      className="md:pointer-events-none min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#2E3230] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+      className="md:pointer-events-none min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
     Ближайшие дела <span className="text-xs font-normal text-stone-500">({agenda.length})</span>
     <ChevronDown size={16} aria-hidden="true" className={`md:hidden text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
@@ -117,9 +117,9 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   <div className="md:hidden flex flex-wrap gap-2">
     <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
-    <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>{remindersEnabled?(pushEnabled?'Push: вкл.':'Напоминания: вкл.'):'Напоминания: выкл.'}</button>
-    <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}</button>
-    <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[#EAE5DB] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>
+    <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>{remindersEnabled?(pushEnabled?'Push: вкл.':'Напоминания: вкл.'):'Напоминания: выкл.'}</button>
+    <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}</button>
+    <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>
   </div>
   <div className={FILTER_RAIL} role="group" aria-label="Период календаря">
    {([['today','Сегодня'],['week','7 дней'],['month','30 дней'],['tasks','Задачи']] as const).map(([id,label])=>

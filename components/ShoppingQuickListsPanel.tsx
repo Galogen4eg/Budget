@@ -131,7 +131,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   });
 
   return (
-    <div className="shrink-0 min-w-0 border-b border-stone-200/80 dark:border-white/10 bg-[#FAF7F2] dark:bg-[#1C1C1E] px-3 sm:px-5 py-2 z-10">
+    <div className="shrink-0 min-w-0 border-b border-stone-200/80 dark:border-white/10 bg-[#FAF7F2] dark:bg-[var(--terra-surface)] px-3 sm:px-5 py-2 z-10">
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => setSection(section === 'templates' ? null : 'templates')}
           aria-expanded={section === 'templates'}

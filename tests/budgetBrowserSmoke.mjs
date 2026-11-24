@@ -448,6 +448,11 @@ try{
     await openSettings.click();
     const settingsDialog=page.getByRole('dialog',{name:'Настройки',exact:true});
     await settingsDialog.waitFor({state:'visible'});
+    if(width>=768){
+      const bounds=await settingsDialog.boundingBox();
+      assert.ok(bounds&&bounds.width<=1122&&bounds.height<=782,label+': oversized settings dialog');
+      assert.ok(await settingsDialog.getByRole('navigation',{name:'Разделы настроек'}).isVisible());
+    }
     if(width<768){
       await verifyMobileScroll(page,'settings-menu-scroll-container',label);
       await settingsDialog.getByRole('button',{name:/Категории и правила/}).filter({visible:true}).first().click();
@@ -558,8 +563,15 @@ try{
     assert.ok(baseHeight&&endHeight&&Math.abs(baseHeight.height-endHeight.height)<=2,label+': chart layout jumps after cycling periods');
     const style=await chart.evaluate(el=>{const s=getComputedStyle(el);return {radius:s.borderTopLeftRadius,bg:s.backgroundColor,overflow:el.scrollWidth-el.clientWidth};});
     assert.equal(style.radius,'16px',label+': chart surface radius');
-    assert.equal(style.bg,'rgb(250, 248, 245)',label+': chart surface color');
+    assert.equal(style.bg,'rgb(255, 252, 247)',label+': chart surface color');
     assert.ok(style.overflow<=2,label+': chart horizontal overflow');
+    const surface=chart.locator('.recharts-wrapper[tabindex], .recharts-surface[tabindex]').filter({visible:true}).first();
+    if(await surface.count()){
+      await surface.click({position:{x:8,y:8}});
+      const focus=await surface.evaluate(el=>({visible:el.matches(':focus-visible'),outline:getComputedStyle(el).outlineColor,style:getComputedStyle(el).outlineStyle}));
+      assert.ok(focus.style==='none'||focus.outline==='rgb(74, 124, 89)'||focus.outline==='rgb(139, 196, 155)',label+': unexpected chart focus '+JSON.stringify(focus));
+    }
+
     await page.emulateMedia({reducedMotion:'reduce'});
     const reduced=await page.evaluate(()=>{
       const el=document.createElement('div');el.className='terra-progress';document.body.appendChild(el);

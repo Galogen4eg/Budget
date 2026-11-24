@@ -87,7 +87,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     id: 'household', 
     name: 'Бытовая химия и аптека', 
     icon: <SparkleIcon size={17} />, 
-    bgLight: 'bg-[#F0E8DB] dark:bg-stone-800', 
+    bgLight: 'bg-[var(--terra-soft)] dark:bg-stone-800', 
     textLight: 'text-[#5E5548] dark:text-stone-300',
     defaultPrice: 350
   },
@@ -95,7 +95,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     id: 'pharmacy', 
     name: 'Аптека и здоровье', 
     icon: <SparkleIcon size={17} />, 
-    bgLight: 'bg-[#F0E8DB] dark:bg-stone-800', 
+    bgLight: 'bg-[var(--terra-soft)] dark:bg-stone-800', 
     textLight: 'text-[#5E5548] dark:text-stone-300',
     defaultPrice: 400
   },
@@ -119,7 +119,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     id: 'grocery', 
     name: 'Бакалея, крупы и паста', 
     icon: <Utensils size={17} />, 
-    bgLight: 'bg-[#F0E8DB] dark:bg-stone-800', 
+    bgLight: 'bg-[var(--terra-soft)] dark:bg-stone-800', 
     textLight: 'text-[#5E5548] dark:text-stone-300',
     defaultPrice: 110
   },
@@ -128,7 +128,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     name: 'Напитки, чай и кофе', 
     icon: <Coffee size={17} />, 
     bgLight: 'bg-[#D4CCBF] dark:bg-stone-700', 
-    textLight: 'text-[#1E1A13] dark:text-stone-200',
+    textLight: 'text-[var(--terra-ink)] dark:text-stone-200',
     defaultPrice: 220
   },
   { 
@@ -151,7 +151,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     id: 'clothes', 
     name: 'Одежда и текстиль', 
     icon: <Shirt size={17} />, 
-    bgLight: 'bg-[#F0E8DB] dark:bg-stone-800', 
+    bgLight: 'bg-[var(--terra-soft)] dark:bg-stone-800', 
     textLight: 'text-[#5E5548] dark:text-stone-300',
     defaultPrice: 600
   },
@@ -160,15 +160,15 @@ const DEPARTMENTS: DepartmentConfig[] = [
     name: 'Электроника и товары для дома', 
     icon: <Tv size={17} />, 
     bgLight: 'bg-[#D4CCBF] dark:bg-stone-700', 
-    textLight: 'text-[#1E1A13] dark:text-stone-200',
+    textLight: 'text-[var(--terra-ink)] dark:text-stone-200',
     defaultPrice: 900
   },
   { 
     id: 'other', 
     name: 'Разное и прочие товары', 
     icon: <HelpCircle size={17} />, 
-    bgLight: 'bg-[#E4E0D8] dark:bg-stone-800', 
-    textLight: 'text-[#4A4E4A] dark:text-stone-300',
+    bgLight: 'bg-[var(--terra-soft)] dark:bg-stone-800', 
+    textLight: 'text-[var(--terra-muted)] dark:text-stone-300',
     defaultPrice: 150
   }
 ];
@@ -838,7 +838,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-stone-100 font-sans p-6 lg:p-8">
+    <div className="flex-1 w-full h-full overflow-y-auto bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-stone-100 font-sans p-6 lg:p-8">
       <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-20">
         
         {/* Top Header & Summary */}
@@ -846,14 +846,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
-                <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#2E3230] dark:text-white tracking-tight">
+                <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[var(--terra-ink)] dark:text-white tracking-tight">
                   Список покупок
                 </h1>
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-400 text-xs font-semibold">
                   {totalItemsCount - completedCount} в списке · {completedCount} куплено
                 </span>
               </div>
-              <p className="text-sm text-[#4A4E4A] dark:text-stone-400 font-medium">
+              <p className="text-sm text-[var(--terra-muted)] dark:text-stone-400 font-medium">
                 Общий список покупок в реальном времени
               </p>
             </div>
@@ -870,7 +870,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isScanning}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4E0D8] dark:bg-stone-800 text-[#2E3230] dark:text-stone-200 text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition shadow-xs cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-ink)] dark:text-stone-200 text-sm font-semibold hover:bg-[#D5CDC2] dark:hover:bg-stone-700 transition shadow-xs cursor-pointer"
                 title="Распознать штрихкод товара по фото"
               >
                 {isScanning ? <Loader2 size={18} className="animate-spin text-[#705C30]" /> : <ScanLine size={18} className="text-[#705C30]" />}
@@ -897,10 +897,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               <button 
                 onClick={handleTelegramSend}
                 disabled={isSendingTelegram}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#edf4ef] hover:bg-[#d8edd9] dark:bg-[#243628] hover:dark:bg-[#2e4733] text-[#4a7c59] dark:text-emerald-400 text-sm font-semibold transition shadow-xs cursor-pointer border border-[#d1dbd1] dark:border-emerald-800/40 active:scale-95"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#edf4ef] hover:bg-[#d8edd9] dark:bg-[#243628] hover:dark:bg-[#2e4733] text-[var(--terra-primary)] dark:text-emerald-400 text-sm font-semibold transition shadow-xs cursor-pointer border border-[#d1dbd1] dark:border-emerald-800/40 active:scale-95"
                 title="Отправить актуальный список покупок в семейный Telegram чат"
               >
-                {isSendingTelegram ? <Loader2 size={18} className="animate-spin text-[#4a7c59] dark:text-emerald-400" /> : <Send size={18} className="text-[#4a7c59] dark:text-emerald-400" />}
+                {isSendingTelegram ? <Loader2 size={18} className="animate-spin text-[var(--terra-primary)] dark:text-emerald-400" /> : <Send size={18} className="text-[var(--terra-primary)] dark:text-emerald-400" />}
                 <span>В Telegram</span>
               </button>
 
@@ -915,20 +915,20 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           </div>
 
           {/* Filters & Segmented Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#F5F1EA] dark:bg-[#1C1C1E] p-3.5 rounded-2xl border border-[#ECE5DB] dark:border-white/5">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] p-3.5 rounded-2xl border border-[var(--terra-border)] dark:border-white/5">
             {/* Quick search filter within list */}
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#74796E] dark:text-stone-400" size={17} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] dark:text-stone-400" size={17} />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Быстрый поиск в списке..."
-                className="w-full pl-9 pr-9 py-1.5 rounded-xl bg-white dark:bg-[#252528] text-xs text-[#2E3230] dark:text-white placeholder-[#74796E] outline-none focus:ring-1 focus:ring-[#4A7C59] shadow-2xs border border-[#ECE5DB]/60 dark:border-transparent"
+                className="w-full pl-9 pr-9 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-xs text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] outline-none focus:ring-1 focus:ring-[#4A7C59] shadow-2xs border border-[#ECE5DB]/60 dark:border-transparent"
               />
               <button
                 onClick={startVoiceRecording}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74796E] hover:text-[#4A7C59] dark:text-stone-400 dark:hover:text-emerald-400 p-1 rounded-md transition cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] hover:text-[var(--terra-primary)] dark:text-stone-400 dark:hover:text-emerald-400 p-1 rounded-md transition cursor-pointer"
                 title="Надиктовать список голосом"
               >
                 <Mic size={14} />
@@ -944,16 +944,16 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="lg:col-span-8 flex flex-col gap-6 w-full min-w-0">
             
             {/* Smart Quick Add Bar (Terra styled) */}
-            <div className="w-full min-w-0 bg-white dark:bg-[#1C1C1E] p-3.5 sm:p-4 rounded-2xl border border-[#ECE5DB] dark:border-white/5 shadow-xs overflow-hidden transition-all">
+            <div className="w-full min-w-0 bg-white dark:bg-[var(--terra-surface)] p-3.5 sm:p-4 rounded-2xl border border-[var(--terra-border)] dark:border-white/5 shadow-xs overflow-hidden transition-all">
               <form onSubmit={handleQuickAddSubmit} className="flex flex-col gap-2.5 w-full min-w-0">
                 <div className="flex items-center justify-between gap-3 min-w-0">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300 flex items-center gap-1.5 shrink-0">
-                    <Plus size={14} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300 flex items-center gap-1.5 shrink-0">
+                    <Plus size={14} className="text-[var(--terra-primary)] dark:text-emerald-400 shrink-0" />
                     <span>Быстрое добавление</span>
-                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[#EAE6DD] dark:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 rounded border border-[#D5CFBE] dark:border-stone-700">↵ Enter</kbd>
+                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 rounded border border-[#D5CFBE] dark:border-stone-700">↵ Enter</kbd>
                   </label>
-                  <span className="text-[11px] text-[#74796E] dark:text-stone-400 truncate hidden md:inline min-w-0">
-                    Например: <span className="text-[#4A7C59] dark:text-emerald-400 font-semibold">чипсы 2 шт, молоко 1.5 л, сыр 300г</span>
+                  <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 truncate hidden md:inline min-w-0">
+                    Например: <span className="text-[var(--terra-primary)] dark:text-emerald-400 font-semibold">чипсы 2 шт, молоко 1.5 л, сыр 300г</span>
                   </span>
                 </div>
 
@@ -969,7 +969,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       }
                     }}
                     placeholder="Введите товары (чипсы 2 шт, бананы 1 кг, хлеб)..."
-                    className="w-full min-w-0 bg-[#FAF8F5] dark:bg-[#252528] border border-[#ECE5DB] dark:border-white/10 rounded-xl text-xs sm:text-sm font-medium text-[#2E3230] dark:text-white placeholder-[#74796E] py-2.5 sm:py-3 pl-3.5 sm:pl-4 pr-11 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/40 focus:bg-white dark:focus:bg-[#2C2C2E] transition"
+                    className="w-full min-w-0 bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10 rounded-xl text-xs sm:text-sm font-medium text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] py-2.5 sm:py-3 pl-3.5 sm:pl-4 pr-11 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/40 focus:bg-white dark:focus:bg-[var(--terra-soft)] transition"
                   />
                   <button 
                     type="submit"
@@ -993,7 +993,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#EDF4EF] dark:bg-[#203425] text-[#2A6038] dark:text-emerald-300 border border-[#D1DBD1] dark:border-green-800/40 text-xs font-semibold shadow-2xs max-w-full truncate"
                         >
                           <span className="truncate">{pi.title}</span>
-                          <span className="font-mono bg-white/80 dark:bg-black/30 px-1.5 py-0.2 rounded text-[11px] text-[#1E1A13] dark:text-white shrink-0">
+                          <span className="font-mono bg-white/80 dark:bg-black/30 px-1.5 py-0.2 rounded text-[11px] text-[var(--terra-ink)] dark:text-white shrink-0">
                             {pi.amount} {pi.unit}
                           </span>
                           <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal shrink-0">
@@ -1015,10 +1015,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       <div className={`w-7 h-7 rounded-lg ${dept.bgLight} ${dept.textLight} flex items-center justify-center shrink-0`}>
                         {dept.icon}
                       </div>
-                      <h2 className="font-serif font-bold text-base text-[#2E3230] dark:text-white">
+                      <h2 className="font-serif font-bold text-base text-[var(--terra-ink)] dark:text-white">
                         {dept.name}
                       </h2>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#E4E0D8] dark:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 font-medium">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--terra-soft)] dark:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 font-medium">
                         {deptItems.length} {deptItems.length === 1 ? 'позиция' : deptItems.length >= 2 && deptItems.length <= 4 ? 'позиции' : 'позиций'}
                       </span>
                     </div>
@@ -1031,13 +1031,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         <div 
                           key={item.id ? `desk-item-${item.id}` : `desk-item-idx-${dept.id}-${itemIdx}`}
                           onClick={() => openEditModal(item)}
-                          className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xs hover:shadow-md border border-[#ECE5DB] dark:border-white/5 transition-all cursor-pointer hover:border-[#C8E8D0]"
+                          className="group relative flex items-center justify-between p-3.5 bg-white dark:bg-[var(--terra-surface)] rounded-2xl shadow-xs hover:shadow-md border border-[var(--terra-border)] dark:border-white/5 transition-all cursor-pointer hover:border-[#C8E8D0]"
                         >
                           <div className="flex items-center gap-3.5 min-w-0">
                             {/* Custom checkmark */}
                             <label 
                               onClick={(e) => e.stopPropagation()}
-                              className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[#F5F1EA] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0 focus-within:ring-2 focus-within:ring-primary"
+                              className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[var(--terra-soft)] dark:bg-stone-800 cursor-pointer transition-colors hover:bg-[#4A7C59]/20 shrink-0 focus-within:ring-2 focus-within:ring-primary"
                             >
                               <input 
                                 type="checkbox"
@@ -1056,7 +1056,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                 <button type="button"
                                   onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
                                   aria-label={`Редактировать товар: ${item.title}`}
-                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[#2E3230] dark:text-white truncate rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white truncate rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                   {item.title}
                                 </button>
                                 {item.priority === 'high' && (
@@ -1070,21 +1070,21 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                           {/* Stepper & Actions */}
                           <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center bg-[#F5F1EA] dark:bg-stone-800 rounded-xl px-1.5 py-1">
+                            <div className="flex items-center bg-[var(--terra-soft)] dark:bg-stone-800 rounded-xl px-1.5 py-1">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
                                 aria-label={`Уменьшить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 -
                               </button>
-                              <span className="px-3 text-xs font-bold text-[#2E3230] dark:text-white font-mono whitespace-nowrap">
+                              <span className="px-3 text-xs font-bold text-[var(--terra-ink)] dark:text-white font-mono whitespace-nowrap">
                                 {item.amount || '1'} {item.unit || 'шт'}
                               </span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
                                 aria-label={`Увеличить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[#E4E0D8] text-[#2E3230] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 +
                               </button>
@@ -1093,7 +1093,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             <button 
                               onClick={(e) => handleDeleteItem(e, item.id)}
                               aria-label={`Удалить товар: ${item.title}`}
-                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[#74796E] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-muted)] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                               title="Удалить товар"
                             >
                               <Trash2 size={17} />
@@ -1106,10 +1106,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 </section>
               ))
             ) : (
-              <div className="p-12 rounded-3xl bg-white dark:bg-[#1C1C1E] border border-dashed border-[#ECE5DB] dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
-                <PackageCheck size={40} className="text-[#4A7C59] opacity-70" />
-                <h3 className="font-serif text-lg font-bold text-[#2E3230] dark:text-white">Все товары куплены!</h3>
-                <p className="text-xs text-[#74796E] max-w-sm">
+              <div className="p-12 rounded-3xl bg-white dark:bg-[var(--terra-surface)] border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
+                <PackageCheck size={40} className="text-[var(--terra-primary)] opacity-70" />
+                <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">Все товары куплены!</h3>
+                <p className="text-xs text-[var(--terra-muted)] max-w-sm">
                   Список пуст. Вы можете добавить новые продукты вручную или выбрать из частых покупок справа.
                 </p>
                 <button 
@@ -1123,15 +1123,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
             {/* Completed Section (Collapsible Accordion) */}
             {completedItems.length > 0 && (
-              <section className="mt-4 bg-[#F5F1EA]/80 dark:bg-stone-900/60 rounded-2xl p-4 flex flex-col gap-3 border border-[#ECE5DB] dark:border-white/5">
+              <section className="mt-4 bg-[#F5F1EA]/80 dark:bg-stone-900/60 rounded-2xl p-4 flex flex-col gap-3 border border-[var(--terra-border)] dark:border-white/5">
                 <div 
                   className="flex items-center justify-between cursor-pointer select-none"
                   onClick={() => setIsPurchasedOpen(prev => !prev)}
                 >
-                  <div className="flex items-center gap-2 text-[#4A4E4A] dark:text-stone-300">
+                  <div className="flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300">
                     <ChevronDown size={18} className={`transition-transform duration-200 ${isPurchasedOpen ? 'rotate-180' : ''}`} />
                     <span className="font-serif font-bold text-sm">Уже куплено в этот раз</span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#E4E0D8] dark:bg-stone-800 text-xs font-bold text-[#4A7C59] dark:text-emerald-400">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--terra-soft)] dark:bg-stone-800 text-xs font-bold text-[var(--terra-primary)] dark:text-emerald-400">
                       {completedItems.length}
                     </span>
                   </div>
@@ -1174,12 +1174,12 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                           >
                             <Check size={13} strokeWidth={3} />
                           </button>
-                          <span className="line-through text-xs font-medium text-[#2E3230] dark:text-stone-300">
+                          <span className="line-through text-xs font-medium text-[var(--terra-ink)] dark:text-stone-300">
                             {item.title}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs text-[#74796E]">
+                        <div className="flex items-center gap-3 text-xs text-[var(--terra-muted)]">
                           <span>{item.amount || '1'} {item.unit || 'шт'}</span>
                           <button 
                             onClick={(e) => handleDeleteItem(e, item.id)}
@@ -1202,15 +1202,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="lg:col-span-4 flex flex-col gap-6 shrink-0">
             
             {/* Quick Add Templates (Dynamic Family Favorites) */}
-            <div className="p-6 rounded-2xl bg-[#F5F1EA] dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/5 shadow-xs flex flex-col gap-4">
+            <div className="p-6 rounded-2xl bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/5 shadow-xs flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <span className="font-serif font-bold text-sm text-[#2E3230] dark:text-white flex items-center gap-1.5">
+                <span className="font-serif font-bold text-sm text-[var(--terra-ink)] dark:text-white flex items-center gap-1.5">
                   <Star size={16} className="text-[#705C30] fill-[#705C30]" />
                   Частые покупки семьи
                 </span>
                 <span className="text-xs text-[#705C30] font-bold">Быстрый +</span>
               </div>
-              <p className="text-xs text-[#4A4E4A] dark:text-stone-400 leading-relaxed">
+              <p className="text-xs text-[var(--terra-muted)] dark:text-stone-400 leading-relaxed">
                 Формируется на основе купленных, добавленных и возвращенных товаров:
               </p>
 
@@ -1220,21 +1220,21 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     key={`fav-chip-${fav.title}-${i}`}
                     onClick={() => handleQuickAddFavorite(fav)}
                     title={`Добавлено/куплено: ${fav.frequencyLabel}. Нажмите для добавления в список`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#252528] hover:bg-[#E4E0D8] dark:hover:bg-stone-700 text-xs font-semibold text-[#2E3230] dark:text-stone-200 border border-[#ECE5DB] dark:border-white/5 shadow-2xs transition group cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-700 text-xs font-semibold text-[var(--terra-ink)] dark:text-stone-200 border border-[var(--terra-border)] dark:border-white/5 shadow-2xs transition group cursor-pointer"
                   >
                     <span>{fav.title}</span>
-                    <span className="text-[10px] text-[#705C30] dark:text-amber-300/80 font-mono bg-[#F0ECE4] dark:bg-stone-800 px-1.5 py-0.5 rounded-md">
+                    <span className="text-[10px] text-[#705C30] dark:text-amber-300/80 font-mono bg-[var(--terra-soft)] dark:bg-stone-800 px-1.5 py-0.5 rounded-md">
                       {fav.frequencyLabel}
                     </span>
-                    <Plus size={14} className="text-[#4A7C59] group-hover:scale-125 transition-transform" />
+                    <Plus size={14} className="text-[var(--terra-primary)] group-hover:scale-125 transition-transform" />
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Category Stats Box */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/5 shadow-xs space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#74796E] block">
+            <div className="p-5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/5 shadow-xs space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] block">
                 Отделы в корзине
               </span>
               <div className="space-y-2">
@@ -1242,9 +1242,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <div key={dept.id} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#4A7C59]" />
-                      <span className="text-[#2E3230] dark:text-stone-300 font-medium truncate max-w-[180px]">{dept.name}</span>
+                      <span className="text-[var(--terra-ink)] dark:text-stone-300 font-medium truncate max-w-[180px]">{dept.name}</span>
                     </div>
-                    <span className="text-[#4A7C59] dark:text-emerald-400 font-bold font-mono">{dItems.length} поз.</span>
+                    <span className="text-[var(--terra-primary)] dark:text-emerald-400 font-bold font-mono">{dItems.length} поз.</span>
                   </div>
                 ))}
               </div>
@@ -1259,19 +1259,19 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       {/* Interactive Add/Edit Item Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl bg-[#FAF6F0] dark:bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#ECE5DB] dark:border-white/10 overflow-hidden">
+          <div className="relative w-full max-w-xl bg-[var(--terra-canvas)] dark:bg-[var(--terra-surface)] rounded-3xl shadow-2xl border border-[var(--terra-border)] dark:border-white/10 overflow-hidden">
             
             {/* Modal Header */}
-            <div className="px-6 py-5 bg-[#F5F1EA] dark:bg-stone-900 flex items-center justify-between border-b border-[#ECE5DB] dark:border-white/5">
+            <div className="px-6 py-5 bg-[var(--terra-soft)] dark:bg-stone-900 flex items-center justify-between border-b border-[var(--terra-border)] dark:border-white/5">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#4A7C59] flex items-center justify-center text-white shadow-xs">
                   <ShoppingBag size={18} />
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-[#2E3230] dark:text-white">
+                  <h3 className="font-serif font-bold text-lg text-[var(--terra-ink)] dark:text-white">
                     {editingItem ? 'Редактировать товар' : 'Добавить в список покупок'}
                   </h3>
-                  <p className="text-xs text-[#74796E]">
+                  <p className="text-xs text-[var(--terra-muted)]">
                     Автоматическое определение отдела и расчёт количества
                   </p>
                 </div>
@@ -1279,7 +1279,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#74796E] hover:bg-[#E4E0D8] dark:hover:bg-stone-800 transition cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--terra-muted)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -1291,7 +1291,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Item Name Input */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                     Наименование товара
                   </label>
                   <button
@@ -1300,7 +1300,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                       isInlineListening 
                         ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 animate-pulse'
-                        : 'bg-[#ECE5DB] dark:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 hover:text-[#4A7C59]'
+                        : 'bg-[#ECE5DB] dark:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 hover:text-[var(--terra-primary)]'
                     }`}
                     title="Надиктовать голосом (например: «Сыр маасдам 300 грамм»)"
                   >
@@ -1319,7 +1319,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       }
                     }}
                     placeholder="Например: Сыр маасдам, Хлеб, Яблоки..."
-                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[#252528] text-sm font-semibold text-[#2E3230] dark:text-white placeholder-[#74796E] border border-[#ECE5DB] dark:border-white/5 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-sm font-semibold text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] border border-[var(--terra-border)] dark:border-white/5 focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
                     autoFocus
                   />
                   <button
@@ -1335,8 +1335,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 {/* Open Food Facts Results Chips */}
                 {offSearchResults.length > 0 && (
-                  <div className="mt-1 space-y-1.5 p-3 rounded-xl bg-[#F0ECE4] dark:bg-stone-800 border border-[#ECE5DB] dark:border-white/5">
-                    <span className="text-[10px] font-bold text-[#6B6358] dark:text-stone-400 uppercase tracking-wider block">
+                  <div className="mt-1 space-y-1.5 p-3 rounded-xl bg-[var(--terra-soft)] dark:bg-stone-800 border border-[var(--terra-border)] dark:border-white/5">
+                    <span className="text-[10px] font-bold text-[var(--terra-muted)] dark:text-stone-400 uppercase tracking-wider block">
                       Результаты Open Food Facts (нажмите для выбора):
                     </span>
                     <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto no-scrollbar">
@@ -1351,10 +1351,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             setItemUnit(prod.unit);
                             setOffSearchResults([]);
                           }}
-                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#252528] hover:border-[#4A7C59] border border-transparent text-xs font-semibold text-[#2E3230] dark:text-white text-left transition-all active:scale-95 shadow-3xs flex flex-col"
+                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[var(--terra-soft)] hover:border-[var(--terra-primary)] border border-transparent text-xs font-semibold text-[var(--terra-ink)] dark:text-white text-left transition-all active:scale-95 shadow-3xs flex flex-col"
                         >
                           <span className="font-bold text-[11px] leading-tight line-clamp-1">{prod.title}</span>
-                          <span className="text-[9px] text-[#6B6358] dark:text-stone-400 mt-0.5">
+                          <span className="text-[9px] text-[var(--terra-muted)] dark:text-stone-400 mt-0.5">
                             {prod.amount} {prod.unit} • {prod.category}
                           </span>
                         </button>
@@ -1388,7 +1388,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     </button>
                     <button 
                       onClick={() => handleSaveModal(false)}
-                      className="px-3 py-1.5 rounded-lg bg-white/70 dark:bg-stone-800 text-[#2E3230] dark:text-stone-200 text-xs font-medium hover:bg-white transition cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-white/70 dark:bg-stone-800 text-[var(--terra-ink)] dark:text-stone-200 text-xs font-medium hover:bg-white transition cursor-pointer"
                     >
                       Отдельной позицией
                     </button>
@@ -1399,13 +1399,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Quantity Stepper & Unit Picker */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                     Количество
                   </span>
-                  <div className="flex items-center bg-white dark:bg-[#252528] rounded-xl p-1 border border-[#ECE5DB] dark:border-white/5">
+                  <div className="flex items-center bg-white dark:bg-[var(--terra-soft)] rounded-xl p-1 border border-[var(--terra-border)] dark:border-white/5">
                     <button 
                       onClick={() => setItemAmount(prev => Math.max(0.5, prev - (prev <= 1 ? 0.5 : 1)))}
-                      className="w-9 h-9 rounded-lg bg-[#F5F1EA] dark:bg-stone-700 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#E4E0D8] transition font-bold text-base cursor-pointer"
+                      className="w-9 h-9 rounded-lg bg-[var(--terra-soft)] dark:bg-stone-700 flex items-center justify-center text-[var(--terra-ink)] dark:text-white hover:bg-[var(--terra-soft)] transition font-bold text-base cursor-pointer"
                     >
                       -
                     </button>
@@ -1415,11 +1415,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       min="0.5"
                       value={itemAmount}
                       onChange={(e) => setItemAmount(Math.max(0.5, parseFloat(e.target.value) || 1))}
-                      className="w-full text-center bg-transparent font-serif font-bold text-base text-[#2E3230] dark:text-white outline-none"
+                      className="w-full text-center bg-transparent font-serif font-bold text-base text-[var(--terra-ink)] dark:text-white outline-none"
                     />
                     <button 
                       onClick={() => setItemAmount(prev => prev + 1)}
-                      className="w-9 h-9 rounded-lg bg-[#F5F1EA] dark:bg-stone-700 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#E4E0D8] transition font-bold text-base cursor-pointer"
+                      className="w-9 h-9 rounded-lg bg-[var(--terra-soft)] dark:bg-stone-700 flex items-center justify-center text-[var(--terra-ink)] dark:text-white hover:bg-[var(--terra-soft)] transition font-bold text-base cursor-pointer"
                     >
                       +
                     </button>
@@ -1428,10 +1428,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                 {/* Unit Selector Segment */}
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                     Единица измерения
                   </span>
-                  <div className="flex items-center gap-1 bg-white dark:bg-[#252528] p-1 rounded-xl border border-[#ECE5DB] dark:border-white/5">
+                  <div className="flex items-center gap-1 bg-white dark:bg-[var(--terra-soft)] p-1 rounded-xl border border-[var(--terra-border)] dark:border-white/5">
                     {UNITS.map(u => (
                       <button 
                         key={u}
@@ -1439,7 +1439,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         className={`flex-1 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                           itemUnit === u 
                             ? 'bg-[#4A7C59] text-white shadow-xs' 
-                            : 'text-[#74796E] hover:text-[#2E3230] hover:bg-[#F5F1EA] dark:hover:bg-stone-700'
+                            : 'text-[var(--terra-muted)] hover:text-[var(--terra-ink)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-700'
                         }`}
                       >
                         {u}
@@ -1451,7 +1451,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               {/* Department selection */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                   Отдел / Категория
                 </label>
                 <div className="relative">
@@ -1462,7 +1462,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       const dept = DEPARTMENTS.find(d => d.id === e.target.value);
                       if (dept) setItemEstimatedPrice(dept.defaultPrice);
                     }}
-                    className="w-full appearance-none px-4 py-3 rounded-xl bg-white dark:bg-[#252528] text-xs font-semibold text-[#2E3230] dark:text-white outline-none border border-[#ECE5DB] dark:border-white/5 focus:ring-1 focus:ring-[#4A7C59] cursor-pointer"
+                    className="w-full appearance-none px-4 py-3 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-xs font-semibold text-[var(--terra-ink)] dark:text-white outline-none border border-[var(--terra-border)] dark:border-white/5 focus:ring-1 focus:ring-[#4A7C59] cursor-pointer"
                   >
                     {DEPARTMENTS.map(d => (
                       <option key={d.id} value={d.id}>{d.name}</option>
@@ -1474,7 +1474,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               {/* Urgent Priority Switch */}
               <div className="flex items-center justify-between pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                   Приоритет
                 </span>
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1484,18 +1484,18 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     onChange={(e) => setIsUrgent(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-[#E4E0D8] dark:bg-stone-700 peer-checked:bg-[#705C30] rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
-                  <span className="text-xs font-bold text-[#2E3230] dark:text-white">Срочно купить</span>
+                  <div className="w-9 h-5 bg-[var(--terra-soft)] dark:bg-stone-700 peer-checked:bg-[#705C30] rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                  <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white">Срочно купить</span>
                 </label>
               </div>
 
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-[#F5F1EA] dark:bg-stone-900 border-t border-[#ECE5DB] dark:border-white/5 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-[var(--terra-soft)] dark:bg-stone-900 border-t border-[var(--terra-border)] dark:border-white/5 flex items-center justify-end gap-3">
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-transparent hover:bg-[#E4E0D8] dark:hover:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 text-sm font-semibold transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-transparent hover:bg-[var(--terra-soft)] dark:hover:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 text-sm font-semibold transition cursor-pointer"
               >
                 Отмена
               </button>
@@ -1514,10 +1514,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       {/* Voice Recording HUD / Modal */}
       {isVoiceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg bg-[#FAF6F0] dark:bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#ECE5DB] dark:border-white/10 overflow-hidden flex flex-col">
+          <div className="relative w-full max-w-lg bg-[var(--terra-canvas)] dark:bg-[var(--terra-surface)] rounded-3xl shadow-2xl border border-[var(--terra-border)] dark:border-white/10 overflow-hidden flex flex-col">
             
             {/* Modal Header */}
-            <div className="px-6 py-4.5 bg-[#F5F1EA] dark:bg-[#252528] border-b border-[#ECE5DB] dark:border-white/5 flex items-center justify-between">
+            <div className="px-6 py-4.5 bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] border-b border-[var(--terra-border)] dark:border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                   isVoiceListening ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'bg-[#4A7C59] text-white'
@@ -1525,14 +1525,14 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <Mic size={19} className={isVoiceListening ? 'animate-bounce' : ''} />
                 </div>
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-[#2E3230] dark:text-white">
+                  <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">
                     Голосовая запись покупок
                   </h3>
                   <div className="text-xs">
                     {isVoiceListening ? (
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">Идёт запись... Говорите</span>
                     ) : (
-                      <span className="text-[#74796E] dark:text-stone-400">Запись на паузе</span>
+                      <span className="text-[var(--terra-muted)] dark:text-stone-400">Запись на паузе</span>
                     )}
                   </div>
                 </div>
@@ -1543,7 +1543,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   stopVoiceRecording();
                   setIsVoiceModalOpen(false);
                 }}
-                className="w-8 h-8 rounded-full bg-[#E4E0D8] dark:bg-stone-700 hover:bg-[#D5CDC2] flex items-center justify-center text-[#74796E] dark:text-stone-300 hover:text-[#2E3230] transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-[var(--terra-soft)] dark:bg-stone-700 hover:bg-[#D5CDC2] flex items-center justify-center text-[var(--terra-muted)] dark:text-stone-300 hover:text-[var(--terra-ink)] transition cursor-pointer"
               >
                 <X size={17} />
               </button>
@@ -1553,7 +1553,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             <div className="p-6 flex flex-col gap-5 max-h-[75vh] overflow-y-auto no-scrollbar">
               
               {/* Voice Visualizer / Microphone Center */}
-              <div className="flex flex-col items-center justify-center py-4 px-6 bg-white dark:bg-[#252528] rounded-2xl border border-[#ECE5DB] dark:border-white/5 gap-3">
+              <div className="flex flex-col items-center justify-center py-4 px-6 bg-white dark:bg-[var(--terra-soft)] rounded-2xl border border-[var(--terra-border)] dark:border-white/5 gap-3">
                 <div className="relative">
                   {isVoiceListening && (
                     <div className="absolute -inset-3 bg-rose-500/20 rounded-full animate-ping pointer-events-none" />
@@ -1571,10 +1571,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 </div>
 
                 <div className="text-center">
-                  <p className="text-xs font-bold text-[#2E3230] dark:text-white">
+                  <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white">
                     {isVoiceListening ? 'Нажмите, чтобы остановить запись' : 'Нажмите на микрофон для продолжения'}
                   </p>
-                  <p className="text-[11px] text-[#74796E] dark:text-stone-400 mt-0.5">
+                  <p className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 mt-0.5">
                     Назовите товары через запятую, например: «Молоко 2 литра, хлеб и десяток яиц»
                   </p>
                 </div>
@@ -1582,17 +1582,17 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               {/* Real-time Transcription Box */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                   Распознанный текст
                 </span>
-                <div className="p-3.5 rounded-xl bg-white dark:bg-[#252528] border border-[#ECE5DB] dark:border-white/5 min-h-[60px] text-xs text-[#2E3230] dark:text-white leading-relaxed">
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/5 min-h-[60px] text-xs text-[var(--terra-ink)] dark:text-white leading-relaxed">
                   {voiceTranscript || voiceInterim ? (
                     <span>
-                      <span className="font-medium text-[#2E3230] dark:text-white">{voiceTranscript}</span>
-                      <span className="text-[#4A7C59] dark:text-emerald-400 italic"> {voiceInterim}</span>
+                      <span className="font-medium text-[var(--terra-ink)] dark:text-white">{voiceTranscript}</span>
+                      <span className="text-[var(--terra-primary)] dark:text-emerald-400 italic"> {voiceInterim}</span>
                     </span>
                   ) : (
-                    <span className="text-[#74796E] dark:text-stone-500 italic">
+                    <span className="text-[var(--terra-muted)] dark:text-stone-500 italic">
                       Здесь появится текст по мере вашей речи...
                     </span>
                   )}
@@ -1602,18 +1602,18 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Parsed Recognized Items Preview */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A4E4A] dark:text-stone-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--terra-muted)] dark:text-stone-300">
                     Распознанные позиции ({parsedVoiceItems.length})
                   </span>
                   {parsedVoiceItems.length > 0 && (
-                    <span className="text-[11px] text-[#4A7C59] dark:text-emerald-400 font-semibold">
+                    <span className="text-[11px] text-[var(--terra-primary)] dark:text-emerald-400 font-semibold">
                       Готово к добавлению
                     </span>
                   )}
                 </div>
 
                 {parsedVoiceItems.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-[#F5F1EA]/60 dark:bg-stone-800/40 border border-dashed border-[#ECE5DB] dark:border-white/10 text-center text-xs text-[#74796E] dark:text-stone-400">
+                  <div className="p-4 rounded-xl bg-[#F5F1EA]/60 dark:bg-stone-800/40 border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center text-xs text-[var(--terra-muted)] dark:text-stone-400">
                     Говорите в микрофон, и товары автоматически появятся здесь в структурированном виде
                   </div>
                 ) : (
@@ -1623,17 +1623,17 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                       return (
                         <div 
                           key={`voice-parsed-${item.title}-${index}`}
-                          className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#252528] border border-[#ECE5DB] dark:border-white/5 shadow-2xs group"
+                          className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/5 shadow-2xs group"
                         >
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${dept?.bgLight || 'bg-stone-100 dark:bg-stone-800'} ${dept?.textLight || 'text-stone-700'}`}>
                               {dept?.icon || <Sparkles size={16} />}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-sm font-bold text-[#2E3230] dark:text-white capitalize">
+                              <span className="text-sm font-bold text-[var(--terra-ink)] dark:text-white capitalize">
                                 {item.title}
                               </span>
-                              <span className="text-xs text-[#74796E] dark:text-stone-400">
+                              <span className="text-xs text-[var(--terra-muted)] dark:text-stone-400">
                                 {item.amount} {item.unit} · {dept?.name || 'Другое'}
                               </span>
                             </div>
@@ -1642,7 +1642,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveParsedVoiceItem(index)}
-                            className="p-1.5 rounded-lg text-[#74796E] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                            className="p-1.5 rounded-lg text-[var(--terra-muted)] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
                             title="Удалить из списка"
                           >
                             <Trash2 size={16} />
@@ -1657,13 +1657,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-[#F5F1EA] dark:bg-stone-900 border-t border-[#ECE5DB] dark:border-white/5 flex items-center justify-between gap-3">
+            <div className="px-6 py-4 bg-[var(--terra-soft)] dark:bg-stone-900 border-t border-[var(--terra-border)] dark:border-white/5 flex items-center justify-between gap-3">
               <button 
                 onClick={() => {
                   stopVoiceRecording();
                   setIsVoiceModalOpen(false);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-transparent hover:bg-[#E4E0D8] dark:hover:bg-stone-800 text-[#4A4E4A] dark:text-stone-300 text-sm font-semibold transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-transparent hover:bg-[var(--terra-soft)] dark:hover:bg-stone-800 text-[var(--terra-muted)] dark:text-stone-300 text-sm font-semibold transition cursor-pointer"
               >
                 Отмена
               </button>

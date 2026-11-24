@@ -99,12 +99,12 @@
               "primary": "#4A7C59",
               "primary-dark": "#3B6547",
               "primary-light": "#EAF2EC",
-              "background": "#F8F6F2",
-              "surface": "#FFFFFF",
-              "surface-subtle": "#F2EFEB",
-              "surface-border": "#E6E2DA",
-              "graphite": "#1E2923",
-              "graphite-muted": "#68726B",
+              "background": "var(--terra-canvas)",
+              "surface": "var(--terra-surface)",
+              "surface-subtle": "var(--terra-soft)",
+              "surface-border": "var(--terra-border)",
+              "graphite": "var(--terra-ink)",
+              "graphite-muted": "var(--terra-muted)",
               "clay": "#B25E41",
               "clay-light": "#FAECE7",
               "clay-border": "#EBD2C9",
@@ -136,7 +136,7 @@
       }
       html.dark body { background-color: #121214; }
       * { -webkit-tap-highlight-color: transparent; }
-      :focus-visible { outline: 2px solid #4A7C59; outline-offset: 2px; }
+      :focus-visible { outline: 2px solid var(--terra-focus); outline-offset: 2px; }
       
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }

@@ -885,7 +885,7 @@ export default function App() {
                 aria-label={isSidebarExpanded ? "Свернуть боковое меню" : "Развернуть боковое меню"}
                 aria-expanded={isSidebarExpanded}
               >
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] shrink-0 transition-colors">
                   <Leaf className="w-5 h-5 text-white stroke-[2.2]" />
                 </div>
                 {isSidebarExpanded && (

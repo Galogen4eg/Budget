@@ -267,6 +267,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   useEffect(()=>{
     if(!remindersEnabled||pushEnabled||!familyId||!user)return;
+    // The expanded occurrence set depends on events and the local date window,
+    // not on each 30-second clock tick. The effect resets on dependency changes.
+    let occurrenceCache:{from:string;to:string;items:FamilyEvent[]}|null=null;
     const tick=()=>{
       const now=new Date();
       // Browser timers can pause while the tab is in the background. Resume from
@@ -277,7 +280,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         ?new Date(Math.max(previous,now.getTime()-3600000))
         :new Date(now.getTime()-120000);
       const range=calendarReminderWindow(now,since);
-      const future=buildCalendarOccurrences(events,range.from,range.to);
+      if(!occurrenceCache||occurrenceCache.from!==range.from||occurrenceCache.to!==range.to){
+        occurrenceCache={...range,items:buildCalendarOccurrences(events,range.from,range.to)};
+      }
+      const future=occurrenceCache.items;
       const due=dueCalendarNotifications(future,now,ownProfileId,since);
       localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;

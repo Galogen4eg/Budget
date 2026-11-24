@@ -261,7 +261,7 @@ export interface AppSettings {
   currency: string;
   startOfMonthDay: number;
   privacyMode: boolean;
-  theme: 'light' | 'dark'; // New Theme property
+  theme: 'light' | 'dark' | 'system'; // New Theme property
   savingsRate: number; // PERSISTED SAVINGS RATE
   
   // New: Store API Key in settings
@@ -273,6 +273,7 @@ export interface AppSettings {
   pinCode?: string; // Stored PIN
   
   enabledTabs: string[];
+  startTab?: string;
   enabledServices: string[];
   defaultBudgetMode: 'personal' | 'family'; 
 

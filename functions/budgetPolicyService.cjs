@@ -1,5 +1,5 @@
 'use strict';
-const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues}=require('./budgetMigration.cjs');
+const {prepareTransition,findUnownedFinancialRecords,findFinancialLinkIssues,findSavingsLinkIssues}=require('./budgetMigration.cjs');
 class PolicyError extends Error { constructor(code,message){super(message);this.code=code;} }
 async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false}){
  if(!uid)throw new PolicyError('unauthenticated','Войдите в Budget');
@@ -36,7 +36,14 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
      if(preview){
        const ownershipIssues=current==='family'&&target==='personal'?findUnownedFinancialRecords(input):[];
        const linkIssues=current==='family'&&target==='personal'?findFinancialLinkIssues(input.links,input.shared.mandatoryExpenses??[]):[];
-       return {policy:current,enabled,issues:[ownershipIssues.length?'Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.':linkIssues.length?'Связанные операции разных владельцев: '+linkIssues.length+'. Проверьте список ниже.':error.message],...(ownershipIssues.length?{ownershipIssues}:{}),...(linkIssues.length?{linkIssues}:{})};
+       const savingsLinkIssues=current==='family'&&target==='personal'?findSavingsLinkIssues(input.links):[];
+       const issues=[];
+       if(ownershipIssues.length)issues.push('Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.');
+       if(linkIssues.length)issues.push('Связанные операции разных владельцев: '+linkIssues.length+'. Проверьте список ниже.');
+       if(savingsLinkIssues.length)issues.push('Проблемы со связями накоплений: '+savingsLinkIssues.length+'. Проверьте операции ниже.');
+       const described=(error.message==='Financial record without linked owner'&&ownershipIssues.length)||(error.message==='Savings goal link missing or belongs to another owner'&&savingsLinkIssues.length)||(['Transaction obligation belongs to another owner','Transaction debt belongs to another owner'].includes(error.message)&&linkIssues.length);
+       if(!described)issues.push(error.message);
+       return {policy:current,enabled,issues,...(ownershipIssues.length?{ownershipIssues}:{}),...(linkIssues.length?{linkIssues}:{}),...(savingsLinkIssues.length?{savingsLinkIssues}:{})};
      }
      throw new PolicyError('failed-precondition','Миграция заблокирована: '+error.message);
    }

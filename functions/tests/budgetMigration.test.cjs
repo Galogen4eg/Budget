@@ -107,3 +107,21 @@ test('existing cross-owner obligation links remain blocked and identify exact re
  assert.throws(()=>prepareTransition({...f,links}),/obligation/i);
  assert.deepEqual(findFinancialLinkIssues(links,f.shared.mandatoryExpenses).map(x=>[x.id,x.targetId,x.owner,x.targetOwner]),[['t','y','a','b']]);
 });
+
+test('preflight identifies all savings issues, including missing and removed goals and different owners',()=>{
+ const links={goals:[{id:'a1',memberId:'a',title:'A',currentAmount:100},{id:'b1',memberId:'b',title:'B',currentAmount:200}],debts:[],transactions:[{id:'missing',memberId:'a',category:'savings',amount:15,date:'2026-11-01'},{id:'removed',memberId:'a',linkedGoalId:'old',amount:20},{id:'other',memberId:'b',linkedGoalId:'a1',amount:30},{id:'valid',memberId:'a',linkedGoalId:'a1',amount:40},{id:'ordinary',memberId:'a',category:'food',amount:50},{id:'raw',memberId:'b',rawNote:'Пополнение копилки',amount:60}]};
+ const before=structuredClone(links);
+ const {findSavingsLinkIssues}=require('../budgetMigration.cjs');
+ const rows=findSavingsLinkIssues(links);
+ assert.deepEqual(rows.map(r=>[r.id,r.reason,r.targetId,r.owner,r.targetOwner]),[['missing','missing',null,'a',null],['removed','deleted','old','a',null],['other','owner','a1','b','a'],['raw','missing',null,'b',null]]);
+ assert.deepEqual(rows[0].availableGoals,[{id:'a1',title:'A'}]);
+ assert.deepEqual(rows[3].availableGoals,[{id:'b1',title:'B'}]);
+ assert.equal(rows[2].targetTitle,'A');
+ assert.equal(rows[0].amount,15);
+ assert.deepEqual(links,before);
+ assert.throws(()=>prepareTransition({...fixture(),links}),/Savings goal/);
+ const fixed={...links,transactions:links.transactions.map(row=>row.id==='missing'||row.id==='removed'?{...row,linkedGoalId:'a1'}:row.id==='other'?{...row,memberId:'a'}:row.id==='raw'?{...row,linkedGoalId:'b1'}:row)};
+ assert.equal(prepareTransition({...fixture(),links:fixed}).policy,'personal');
+ assert.deepEqual(fixed.goals,before.goals);
+ assert.deepEqual(fixed.transactions.map(row=>row.amount),before.transactions.map(row=>row.amount));
+});

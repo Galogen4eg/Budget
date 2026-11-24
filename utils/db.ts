@@ -1014,7 +1014,11 @@ export async function commitPersonalMandatoryPaymentBundle(
     for(const debt of debts){
       if(!debt.exists()||debt.data().memberId!==memberId)throw new Error('Связанный долг недоступен');
     }
-    tx.set(configRef,cleanForFirestore({personalMandatoryExpenses:changes.mandatoryExpenses,personalManualPaidExpenses:paid}),{merge:true});
+    const mergedPaid={...(config.data()?.personalManualPaidExpenses??{}),...paid} as Record<string,string[]>;
+    for(const entries of Object.values(mergedPaid)){
+      if(!Array.isArray(entries)||entries.some(id=>!ids.has(id)))throw new Error('Сначала устраните связанные отметки оплаты');
+    }
+    tx.set(configRef,cleanForFirestore({personalMandatoryExpenses:changes.mandatoryExpenses,personalManualPaidExpenses:mergedPaid}),{merge:true});
     for(let i=0;i<debtChanges.length;i++)tx.update(debtRefs[i],cleanForFirestore(debtChanges[i].changes));
   });
 }

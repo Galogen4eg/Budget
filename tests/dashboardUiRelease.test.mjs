@@ -116,3 +116,27 @@ test('budget metric cards simplify labels and hide derived money in privacy mode
   assert.ok(section.includes('motion-reduce:transition-none'));
  }
 });
+
+
+test('budget calendar, operations and category cards retain stable actions and precise amounts',()=>{
+ const budget=read('components/TerraBudget.tsx');
+ const mobile=budget.split('data-testid="budget-calendar-mobile"')[1]?.split('{/* Selected Day Details')[0];
+ const desktop=budget.split('data-testid="budget-calendar-desktop"')[1]?.split('{/* Selected Day Detail Box')[0];
+ assert.ok(mobile && desktop);
+ assert.match(mobile,/min-h-\[44px\] min-w-\[44px\]/);
+ for(const calendar of [mobile,desktop]){
+  assert.match(calendar,/setSelectedDay\(dayNum\)/);
+  assert.match(calendar,/focus-visible:ring-2/);
+  assert.doesNotMatch(calendar,/active:scale|transition-all/);
+ }
+ assert.match(desktop,/title=\{settings\.privacyMode \? undefined :/);
+ const detail=budget.split('{/* Selected Day Detail Box')[1]?.split('{/* RIGHT: Analytics Sidebar')[0];
+ assert.doesNotMatch(detail,/bg-gradient-to-b|↗ карточка/);
+ assert.match(detail,/onEditTransaction\(tx\)/);
+ assert.match(detail,/onClick=\{handleQuickAdd\}/);
+ const sidebar=budget.split('{/* RIGHT: Analytics Sidebar')[1]?.split('{/* Modals */}')[0];
+ assert.match(sidebar,/formatBudgetMoney\(cat.sum\)/);
+ assert.doesNotMatch(sidebar,/Math.round\(cat.sum\)/);
+ assert.match(sidebar,/onToggleMandatoryPaid\(expense.id\)/);
+ assert.match(sidebar,/filter|historySearch/);
+});

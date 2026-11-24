@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
-import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
+import { savingsContributionKopecks, nextSavingsGoalAmount, savingsLinkRepairPatch } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
 import { assertBudgetPolicyOwner } from './familyBudgetPolicy';
@@ -892,7 +892,7 @@ export function subscribeToHouseholdBudgetPolicy(
   },onError);
 }
 
-type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];savingsIssues?:BudgetSavingsIssue[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
   const token=await auth.currentUser.getIdToken();
@@ -931,6 +931,8 @@ export function subscribeToScopedFinancialCollection(
  * Deployed Firestore rules must enforce the same conditions.
  */
 export type BudgetLinkIssue={id:string;field:'linkedExpenseId'|'linkedDebtId';targetId:string;owner:string;targetOwner:string;title:string;targetTitle:string;amount?:number;date?:string};
+export type BudgetSavingsGoal={id:string;title:string;memberId:string|null;currentAmount:number|null};
+export type BudgetSavingsIssue={id:string;owner:string|null;title:string;type:string|null;amount:number|null;date:string|null;reason:'missing'|'deleted'|'foreign';previousGoalId:string|null;previousGoal:BudgetSavingsGoal|null;candidates:BudgetSavingsGoal[]};
 export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'subscriptions'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
 export async function assignLegacyFinancialOwner(
   familyId:string, actorUid:string, kind:BudgetOwnershipIssue['kind'], recordId:string, memberId:string, expectedOwner:string|null=null
@@ -1062,5 +1064,27 @@ export async function alignLinkedTransactionOwner(familyId:string,actorUid:strin
   const member=await t.get(doc(db,'families',familyId,'members',issue.targetOwner));
   if(!f?.members?.includes(member.data()?.userId)||!member.data()?.userId)throw new Error('Владелец не подтверждён');
   t.update(txRef,{memberId:issue.targetOwner});
+ });
+}
+
+/** Administrator-confirmed historical linkage; existing goal balances must be reconciled first. */
+export async function repairLegacySavingsLink(familyId:string,actorUid:string,issue:BudgetSavingsIssue,goalId:string){
+ if(!actorUid||auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!issue.owner)throw new Error('Семейный аккаунт недоступен');
+ const confirmed=issue.candidates.find(g=>g.id===goalId);
+ if(!confirmed||confirmed.memberId!==issue.owner||!Number.isFinite(confirmed.currentAmount))throw new Error('Выберите подтверждённую личную цель');
+ const familyRef=doc(db,'families',familyId),txRef=doc(db,'families',familyId,'transactions',issue.id);
+ const goalRef=doc(db,'families',familyId,'goals',goalId),memberRef=doc(db,'families',familyId,'members',issue.owner);
+ await runTransaction(db,async t=>{
+  const [family,transaction,goal,member]=await Promise.all([t.get(familyRef),t.get(txRef),t.get(goalRef),t.get(memberRef)]);
+  const f=family.data();
+  assertBudgetPolicyOwner(f?.ownerId,actorUid);
+  if((f?.budgetPolicy??'family')!=='family'||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Владелец или режим изменился. Повторите проверку.');
+  if(issue.previousGoalId){
+    const old=await t.get(doc(db,'families',familyId,'goals',issue.previousGoalId));
+    if(issue.previousGoal?(!old.exists()||old.data()?.memberId!==issue.previousGoal.memberId||old.data()?.currentAmount!==issue.previousGoal.currentAmount):old.exists())throw new Error('Прежняя цель изменилась. Повторите проверку.');
+  }
+  const row=transaction.exists()?{...transaction.data(),id:transaction.id} as Transaction:undefined;
+  const target=goal.exists()?{...goal.data(),id:goal.id} as SavingsGoal:undefined;
+  t.update(txRef,savingsLinkRepairPatch(row,issue,target,confirmed));
  });
 }

@@ -179,11 +179,21 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    await rejected(a.call(request),'functions/failed-precondition');
    assert.equal((await getDocFromServer(doc(a.db,f))).data().budgetPolicy,'family');
    const goalBefore=(await getDocFromServer(doc(a.db,f+'/goals/g1'))).data();
-   await updateDoc(doc(a.db,f+'/transactions/savings-missing'),{linkedGoalId:'g1'});
+   const externalRef=doc(a.db,f+'/transactions/savings-missing');
+   const beforeExternal=(await getDocFromServer(externalRef)).data();
+   await updateDoc(externalRef,{externalSavingsConfirmed:true});
+   assert.deepEqual((await getDocFromServer(externalRef)).data(),{...beforeExternal,externalSavingsConfirmed:true});
+   const partiallyFixed=await a.call({...request,preview:true});
+   assert.deepEqual(partiallyFixed.savingsLinkIssues.map(row=>row.reason),['deleted','owner']);
+   await rejected(a.call(request),'functions/failed-precondition');
    await updateDoc(doc(a.db,f+'/transactions/savings-deleted'),{linkedGoalId:'g1'});
    await updateDoc(doc(a.db,f+'/transactions/savings-foreign'),{memberId:'a'});
    assert.deepEqual((await getDocFromServer(doc(a.db,f+'/goals/g1'))).data(),goalBefore);
    assert.deepEqual((await a.call({...request,preview:true})).issues,[]);
+   assert.deepEqual(await a.call(request),{policy:'personal',enabled:true,issues:[]});
+   assert.deepEqual((await getDocFromServer(externalRef)).data(),{...beforeExternal,externalSavingsConfirmed:true});
+   await assertFails(getDocFromServer(doc(b.db,f+'/transactions/savings-missing')));
+   assert.deepEqual((await getDocFromServer(doc(a.db,f+'/goals/g1'))).data(),goalBefore);
  }finally{
    await Promise.all(apps.splice(0).map(deleteApp));
    if(server)await new Promise(resolve=>server.close(resolve));

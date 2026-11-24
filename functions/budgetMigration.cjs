@@ -81,6 +81,8 @@ function findSavingsLinkIssues(links){
  const rows=[];
  for(const t of links.transactions){
    if(!isSavingsTransfer(t))continue;
+   // A confirmed historical bank transfer is not a Terra goal contribution.
+   if(t.externalSavingsConfirmed===true&&!t.linkedGoalId)continue;
    const targetId=t.linkedGoalId||null,target=goals.get(targetId);
    const reason=!targetId?'missing':!target?'deleted':target.memberId!==t.memberId?'owner':null;
    if(!reason)continue;

@@ -466,6 +466,7 @@ export const saveTransactionWithGoal = async (
     if(isEdit && !saved.exists())throw new Error('Операция была удалена другим пользователем');
     if(!isEdit && saved.exists())throw new Error('Операция уже существует');
     const previous=saved.exists()?saved.data() as Transaction:null;
+    if(transaction.externalSavingsConfirmed===true&&(previous?.externalSavingsConfirmed!==true||previous.linkedGoalId||transaction.linkedGoalId))throw new Error('Подтвердите внешний перевод в настройках семьи.');
     const before=savingsContributionKopecks(previous);
     const after=savingsContributionKopecks(transaction);
     const previousGoalId=previous?.linkedGoalId || (before!==0?goal?.id:undefined);
@@ -492,7 +493,7 @@ export const saveTransactionWithGoal = async (
     }
     if(isEdit){
       const {id:_id,...updates}=transaction;
-      tx.update(txRef,{...cleanForFirestore(updates),...(!transaction.linkedGoalId&&previous?.linkedGoalId?{linkedGoalId:deleteField()}:{})});
+      tx.update(txRef,{...cleanForFirestore(updates),...(!transaction.linkedGoalId&&previous?.linkedGoalId?{linkedGoalId:deleteField()}:{}),...(transaction.externalSavingsConfirmed!==true&&previous?.externalSavingsConfirmed===true?{externalSavingsConfirmed:deleteField()}:{})});
     }else tx.set(txRef,cleanForFirestore(transaction));
   });
 };
@@ -1082,7 +1083,24 @@ export async function restoreMissingSavingsLink(familyId:string,actorUid:string,
    const f=family.data(),row=transaction.data();
    assertBudgetPolicyOwner(f?.ownerId,actorUid);
    if((f?.budgetPolicy??'family')!=='family')throw new Error('Доступно только в совместном режиме');
-   if(!row||row.memberId!==owner||(row.linkedGoalId||null)!==issue.targetId||(Number.isFinite(row.amount)?row.amount:null)!==issue.amount||(typeof row.date==='string'?row.date:null)!==issue.date||!isSavingsTransferForRepair(row)||previous?.exists()||goal.data()?.memberId!==owner||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Записи изменились. Повторите проверку.');
+   if(!row||row.memberId!==owner||(row.linkedGoalId||null)!==issue.targetId||(Number.isFinite(row.amount)?row.amount:null)!==issue.amount||(typeof row.date==='string'?row.date:null)!==issue.date||row.externalSavingsConfirmed===true||!isSavingsTransferForRepair(row)||previous?.exists()||goal.data()?.memberId!==owner||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Записи изменились. Повторите проверку.');
    t.update(rowRef,{linkedGoalId:goalId});
+ });
+}
+
+/** Confirm an unlinked bank transfer without creating a goal or altering its balance. */
+export async function confirmExternalSavingsTransfer(familyId:string,actorUid:string,issue:SavingsLinkIssue){
+ if(auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!issue.owner||issue.reason!=='missing'||issue.targetId!==null)throw new Error('Некорректные данные');
+ const owner=issue.owner;
+ const familyRef=doc(db,'families',familyId);
+ const rowRef=doc(db,'families',familyId,'transactions',issue.id);
+ const memberRef=doc(db,'families',familyId,'members',owner);
+ await runTransaction(db,async t=>{
+   const [family,transaction,member]=await Promise.all([t.get(familyRef),t.get(rowRef),t.get(memberRef)]);
+   const f=family.data(),row=transaction.data();
+   assertBudgetPolicyOwner(f?.ownerId,actorUid);
+   if((f?.budgetPolicy??'family')!=='family')throw new Error('Доступно только в совместном режиме');
+   if(!row||row.memberId!==owner||row.linkedGoalId||(Number.isFinite(row.amount)?row.amount:null)!==issue.amount||(typeof row.date==='string'?row.date:null)!==issue.date||!isSavingsTransferForRepair(row)||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Записи изменились. Повторите проверку.');
+   if(row.externalSavingsConfirmed!==true)t.update(rowRef,{externalSavingsConfirmed:true});
  });
 }

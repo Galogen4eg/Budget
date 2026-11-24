@@ -8,12 +8,17 @@ type SavingsLike = {
   note?:string;
   rawNote?:string;
   linkedGoalId?:string;
+  externalSavingsConfirmed?:boolean;
 };
 
 const kopecks=(value:number)=>Number.isFinite(value)?Math.round(value*100):0;
 
+// Keep financial classification intact; exclude reviewed external transfers only from goal accounting.
+export function isGoalSavingsTransfer(tx:SavingsLike|null|undefined):boolean{
+  return Boolean(tx&&isSavingsTransfer(tx)&&!(tx.externalSavingsConfirmed===true&&!tx.linkedGoalId));
+}
 export function savingsContributionKopecks(tx:SavingsLike|null|undefined):number{
-  if(!tx || !isSavingsTransfer(tx))return 0;
+  if(!tx || !isGoalSavingsTransfer(tx))return 0;
   return (tx.type==='expense'?1:-1)*kopecks(tx.amount);
 }
 

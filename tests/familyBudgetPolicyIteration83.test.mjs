@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords} from '../utils/familyBudgetPolicy.ts';
+import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance} from '../utils/familyBudgetPolicy.ts';
 
 test('legacy households retain joint budget availability',()=>{
  assert.equal(effectiveBudgetMode(undefined,'family'),'family');
@@ -28,4 +28,19 @@ test('personal opening never inherits the shared amount or cutoff',()=>{
  assert.deepEqual(resolveBudgetOpening('personal','b',shared,personal),personal.b);
  assert.deepEqual(resolveBudgetOpening('personal','missing',shared,personal),{amount:0});
  assert.deepEqual(resolveBudgetOpening('family','a',shared,personal),shared);
+});
+
+test('personal financial projection excludes shared balances, limits and payment status',()=>{
+ const shared={initialBalance:90000,initialBalanceDate:'2025-01-01',savingsRate:20,targetMonthlyBudget:50000,manualReservedAmount:10000,categoryBudgets:{food:2000},mandatoryExpenses:[{id:'a',memberId:'a'},{id:'b',memberId:'b'},{id:'shared'}],manualPaidExpenses:{'2026-11':['a','b','shared']},personalInitialBalance:1000,personalSavingsRate:5};
+ const personal=projectPersonalFinance(shared,'a');
+ assert.equal(personal.initialBalance,1000);
+ assert.equal(personal.initialBalanceDate,undefined);
+ assert.equal(personal.savingsRate,5);
+ assert.equal(personal.targetMonthlyBudget,0);
+ assert.equal(personal.manualReservedAmount,0);
+ assert.deepEqual(personal.categoryBudgets,{});
+ assert.deepEqual(personal.mandatoryExpenses,[shared.mandatoryExpenses[0]]);
+ assert.deepEqual(personal.manualPaidExpenses,{'2026-11':['a']});
+ assert.equal(shared.initialBalance,90000);
+ assert.equal(projectPersonalFinance(shared,undefined).initialBalance,0);
 });

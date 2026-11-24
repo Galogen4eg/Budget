@@ -19,9 +19,12 @@ service cloud.firestore {
         && get(profilePath(fid,data.memberId)).data.get('userId','') == request.auth.uid;
     }
     function personalKeys() {
-      return ['personalInitialBalance','personalInitialBalanceDate','personalSavingsRate','personalMonthlyBudget',
-        'personalManualReservedAmount','personalMandatoryExpenses','personalManualPaidExpenses','personalCategoryBudgets','personalIgnoredDuplicatePairs'];
+      return ['theme','privacyMode','widgets','isPinEnabled','pinCode','enabledTabs','startTab','enabledServices','defaultBudgetMode',
+        'personalInitialBalance','personalInitialBalanceDate','personalSavingsRate','personalMonthlyBudget','personalManualReservedAmount',
+        'personalMandatoryExpenses','personalManualPaidExpenses','personalCategoryBudgets','personalIgnoredDuplicatePairs','personalEnableSmartReserve','personalStartOfMonthDay',
+        'pushEnabled','fcmToken','showFeedbackTool','eventTemplate','shoppingTemplate','dayStartHour','dayEndHour','salaryDates','telegramBotToken','telegramChatId','telegramApiUrl','telegramState'];
     }
+    function safeSharedKeys() { return ['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']; }
     function sharedFinancialKeys() {
       return ['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount',
         'categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve'];
@@ -69,17 +72,18 @@ service cloud.firestore {
           && resource.data.get('isAdmin',false) == false && resource.data.get('email',null) == null;
         match /config/{id} {
           allow get: if member(fid) && pid == request.auth.uid && id == 'settings';
-          allow create, update: if member(fid) && pid == request.auth.uid && id == 'settings';
+          allow create: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.keys().hasOnly(personalKeys());
+          allow update: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(personalKeys());
         }
       }
       match /config/{id} {
-        allow get: if member(fid) && id == 'settings';
+        allow get: if member(fid) && id == 'settings' && (joint(fid) || resource.data.keys().hasOnly(safeSharedKeys()));
         allow create: if id == 'settings' && afterMember(fid) && !request.resource.data.keys().hasAny(personalKeys())
           && (getAfter(familyPath(fid)).data.get('budgetPolicy','family') == 'family'
-            || !request.resource.data.keys().hasAny(sharedFinancialKeys()));
+            || request.resource.data.keys().hasOnly(safeSharedKeys()));
         allow update: if member(fid) && id == 'settings'
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(personalKeys())
-          && (joint(fid) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(sharedFinancialKeys()));
+          && (joint(fid) || request.resource.data.keys().hasOnly(safeSharedKeys()));
       }
       match /{kind}/{id} {
         allow read: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));

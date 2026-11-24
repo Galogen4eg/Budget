@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate, calendarEndTime } from '../utils/calendarDates';
-import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember } from '../utils/calendarDates';
+import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 
@@ -87,6 +87,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   const changeDate = (dir: number) => {
     const newDate = shiftCalendarMonth(currentDate, dir);
     setCurrentDate(newDate);
+    setSelectedDate(selectedDayInMonth(selectedDate,newDate));
   };
 
   // Week calculation helpers
@@ -151,6 +152,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     return getLocalDateString(todayMonday) === getLocalDateString(selMonday);
   }, [selectedDate]);
 
+  const memberIds = useMemo(()=>members.map(member=>member.id),[members]);
+  const matchesMember = (event:FamilyEvent) => matchesCalendarMember(event,filterMemberId,memberIds);
+  const filteredDayEvents = selectedDayEvents.filter(matchesMember);
   // Schedule filtered events within current selected month
   const currentMonthEvents = useMemo(() => {
     const targetYear = currentDate.getFullYear();
@@ -158,41 +162,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
     return events.filter(e => {
       const [y, m] = (e.date || '').split('-').map(Number);
-      return y === targetYear && (m - 1) === targetMonth && (filterMemberId === 'all' || e.memberIds?.includes(filterMemberId));
+      return y === targetYear && (m - 1) === targetMonth && matchesMember(e);
     });
-  }, [events, currentDate, filterMemberId]);
+  }, [events, currentDate, filterMemberId, memberIds]);
 
-  const scheduleUpcomingEvents = useMemo(() => {
-    const now = new Date();
-    return currentMonthEvents.filter(e => {
-      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
-      return eDate >= now;
-    }).sort((a, b) => {
-      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-      return da - db;
-    });
-  }, [currentMonthEvents]);
-
-  const schedulePastEvents = useMemo(() => {
-    const now = new Date();
-    return currentMonthEvents.filter(e => {
-      const eDate = new Date(`${e.date}T${e.time || '00:00'}`);
-      return eDate < now;
-    }).sort((a, b) => {
-      const da = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-      const db = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-      return db - da;
-    });
-  }, [currentMonthEvents]);
-
-  const isEventDimmed = (event: FamilyEvent) => {
-    if (filterMemberId === 'all') return false;
-    if (filterMemberId === 'conflicts') {
-      return !conflictingEventIds.has(event.id);
-    }
-    return !event.memberIds.includes(filterMemberId);
-  };
+  const scheduleUpcomingEvents = filterEventsForCalendarMonth(currentMonthEvents,currentDate,'upcoming');
+  const schedulePastEvents = filterEventsForCalendarMonth(currentMonthEvents,currentDate,'past');
 
   // Предстоящие события на ближайшую неделю
   const upcomingEvents = useMemo(() => {
@@ -200,10 +175,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     const todayStr = getLocalDateString(now);
 
     return events
-      .filter(e => e.date >= todayStr)
+      .filter(e => e.date >= todayStr && matchesMember(e))
       .sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`))
       .slice(0, 6);
-  }, [events]);
+  }, [events, filterMemberId, memberIds]);
 
   const getEventCategoryMeta = (title: string, member?: FamilyMember) => {
     const lower = title.toLowerCase();
@@ -362,11 +337,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </button>
             {members.map(m => {
               const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
-              if (count === 0) return null;
               const isSelected = filterMemberId === m.id;
               return (
                 <button key={m.id} type="button" aria-pressed={isSelected}
-                  onClick={() => setFilterMemberId(isSelected ? 'all' : m.id)}
+                  onClick={() => setFilterMemberId(m.id)}
                   className={`${FILTER_CHIP} ${isSelected ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: m.color || '#4A7C59' }} />
                   <span className="max-w-[12rem] truncate" title={m.name}>{m.name}</span>
@@ -374,6 +348,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 </button>
               );
             })}
+
+            {members.length>1 && <button type="button" aria-pressed={filterMemberId==='common'}
+              onClick={()=>setFilterMemberId('common')}
+              className={`${FILTER_CHIP} ${filterMemberId==='common'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}>
+              Общие ({events.filter(event=>matchesCalendarMember(event,'common',memberIds)).length})
+            </button>}
 
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
             <div role="group" aria-label="Вид календаря" className="flex flex-none shrink-0 items-center gap-1">
@@ -471,7 +451,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 {calendarData.map((d, i) => {
                   const dateObj = new Date(d.year, d.month, d.day);
                   const dateStr = getLocalDateString(dateObj);
-                  const dayEvents: FamilyEvent[] = events.filter((e: FamilyEvent) => e.date === dateStr);
+                  const dayEvents: FamilyEvent[] = events.filter((e: FamilyEvent) => e.date === dateStr && matchesMember(e));
 
                   const isSelected = selectedDate.getDate() === d.day && selectedDate.getMonth() === d.month && selectedDate.getFullYear() === d.year;
                   const isToday = new Date().getDate() === d.day && new Date().getMonth() === d.month && new Date().getFullYear() === d.year;
@@ -522,7 +502,6 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       {/* Список событий внутри дня */}
                       <div className="space-y-1 min-w-0">
                         {dayEvents.slice(0, 2).map((evt: FamilyEvent) => {
-                          const dimmed = isEventDimmed(evt);
                           const badgeStyle = getEventBadgeStyle(evt);
 
                           return (
@@ -536,9 +515,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               }}
                               className={`w-full text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-medium py-1 px-2 rounded-lg truncate transition-colors flex items-center gap-1.5 border-l-2 ${
                                 badgeStyle.badgeBg
-                              } ${badgeStyle.badgeText} ${
-                                dimmed ? 'opacity-50' : 'hover:opacity-90 shadow-2xs'
-                              }`}
+                              } ${badgeStyle.badgeText} hover:opacity-90`}
                               style={{ borderLeftColor: badgeStyle.borderColor }}
                             >
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
@@ -586,7 +563,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             <div className="grid grid-cols-7 gap-2 min-w-0">
               {currentWeekDays.map((dayDate, i) => {
                 const dateStr = getLocalDateString(dayDate);
-                const dayEvents = events.filter(e => e.date === dateStr && (filterMemberId === 'all' || e.memberIds?.includes(filterMemberId)));
+                const dayEvents = events.filter(e => e.date === dateStr && matchesMember(e));
                 const isToday = getLocalDateString(new Date()) === dateStr;
                 const isSelected = getLocalDateString(selectedDate) === dateStr;
                 const isWeekend = i >= 5;
@@ -659,14 +636,14 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           {viewMode === 'day' && (
             <div className="min-w-0 space-y-3">
               <h2 className="text-lg font-semibold">События дня</h2>
-              {selectedDayEvents.filter(ev=>filterMemberId==='all'||ev.memberIds?.includes(filterMemberId)).map(ev=>(
+              {filteredDayEvents.map(ev=>(
                 <button type="button" key={ev.id} onClick={()=>onOpenEvent(ev)}
                   className="w-full min-h-[44px] rounded-xl border border-[var(--terra-border)] dark:border-white/10 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-stone-100 dark:hover:bg-white/5 transition-colors motion-reduce:transition-none">
                   <span className="block text-sm font-semibold break-words">{ev.title}</span>
                   <span className="block text-xs text-stone-500 dark:text-stone-300">{ev.time}{ev.duration ? ' — '+calendarEndTime(ev.time,ev.duration):''}</span>
                 </button>
               ))}
-              {!selectedDayEvents.some(ev=>filterMemberId==='all'||ev.memberIds?.includes(filterMemberId))&&
+              {filteredDayEvents.length===0&&
                 <p className="p-4 text-sm text-stone-500 dark:text-stone-300">На этот день нет событий.</p>}
               <button type="button" onClick={()=>onOpenEvent(null,{date:getLocalDateString(selectedDate)})}
                 className="min-h-[44px] rounded-xl px-4 bg-[#2D5A46] text-white text-sm font-semibold">Добавить событие</button>
@@ -831,7 +808,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               </h2>
             </div>
             <span className="text-xs font-bold px-3 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-stone-700 dark:text-stone-300">
-              {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'событие' : selectedDayEvents.length >= 2 && selectedDayEvents.length <= 4 ? 'события' : 'событий'}
+              Событий: {filteredDayEvents.length}
             </span>
           </div>
         </div>
@@ -862,9 +839,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             </button>
           )}
 
-          {selectedDayEvents.length > 0 ? (
+          {filteredDayEvents.length > 0 ? (
             <div className="divide-y divide-[var(--terra-border)]">
-              {selectedDayEvents.map((evt) => {
+              {filteredDayEvents.map((evt) => {
                 const badgeStyle = getEventBadgeStyle(evt);
                 const isConflict = conflictingEventIds.has(evt.id);
 

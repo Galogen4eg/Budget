@@ -63,16 +63,11 @@ import {
 import { useAuth } from './contexts/AuthContext';
 import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
-import { visibleMenuTabs } from './utils/menuNavigation';
+import { MENU_TABS, visibleMenuTabs } from './utils/menuNavigation';
 
-const TAB_CONFIG = [
-  { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
-  { id: 'budget', label: 'Бюджет', icon: Wallet },
-  { id: 'plans', label: 'Планы', icon: Calendar },
-  { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
-  { id: 'chat', label: 'Чат', icon: MessageSquare },
-  { id: 'services', label: 'Сервисы', icon: AppWindow },
-];
+const TAB_ICONS = {overview:LayoutDashboard,budget:Wallet,plans:Calendar,shopping:ShoppingBag,chat:MessageSquare,services:AppWindow};
+const TAB_CONFIG=MENU_TABS.map(tab=>({...tab,icon:TAB_ICONS[tab.id]}));
+const TAB_GROUPS=[{id:'finance',label:'Финансы'},{id:'family',label:'Семья'},{id:'tools',label:'Инструменты'}] as const;
 
 const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
@@ -904,7 +899,12 @@ export default function App() {
 
             {/* Navigation Links */}
             <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-1 mt-3` }>
-              {visibleTabs.map(tab => {
+              {TAB_GROUPS.map(group=>{
+                const tabs=visibleTabs.filter(tab=>tab.group===group.id);
+                if(!tabs.length)return null;
+                return <div key={group.id} className="space-y-1 pb-2">
+                  {isSidebarExpanded&&<div className="px-3 pt-2 pb-1 text-xs font-medium text-graphite-muted">{group.label}</div>}
+                  {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -925,6 +925,8 @@ export default function App() {
                         size: 21, 
                         className: isActive ? 'text-white' : 'group-hover:text-primary transition-colors' 
                       })}
+                </div>;
+              })}
                       {!isSidebarExpanded && tab.id === 'shopping' && activeShoppingCount > 0 && (
                         <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-[#FAF8F5] dark:ring-[#1C1C1E]" />
                       )}

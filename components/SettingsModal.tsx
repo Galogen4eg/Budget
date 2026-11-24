@@ -32,7 +32,7 @@ import { startTelegramBotListener, stopTelegramBotListener, isBotPollingActive, 
 interface SettingsModalProps {
   settings: AppSettings;
   onClose: () => void;
-  onUpdate: (settings: AppSettings) => void;
+  onUpdate: (settings: Partial<AppSettings>) => void | Promise<void>;
   onReset: () => void;
   savingsRate: number;
   setSavingsRate: (val: number) => void;
@@ -341,17 +341,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     setIsUpdatingLogin(true);
     try {
-      await updateProfile(currentUser, { displayName: cleanLogin });
-
-      if (members && onUpdateMembers) {
-        const updatedMembers = members.map(m => 
-          m.userId === currentUser.uid || m.email === currentUser.email 
-            ? { ...m, name: cleanLogin } 
-            : m
-        );
-        onUpdateMembers(updatedMembers);
-      }
-
       const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
       if (currentUser.email !== formattedEmail) {
         try {
@@ -377,9 +366,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             setIsUpdatingLogin(false);
             return;
           }
+          throw emailErr;
         }
       }
 
+      await updateProfile(currentUser, { displayName: cleanLogin });
+      if (members.some(m => m.userId === currentUser.uid)) {
+        await onUpdateMembers(members.map(m => m.userId === currentUser.uid
+          ? { ...m, name: cleanLogin, email: formattedEmail } : m));
+      }
       toast.success('Логин и профиль успешно обновлены!');
     } catch (err: any) {
       toast.error(err?.message || 'Не удалось обновить логин');
@@ -473,8 +468,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleChange = useCallback((key: keyof AppSettings, value: any) => {
-    onUpdate({ ...settings, [key]: value });
-  }, [settings, onUpdate]);
+    void Promise.resolve().then(() => onUpdate({ [key]: value })).catch(error => {
+      console.error('Settings save failed', error);
+      toast.error('Не удалось сохранить настройку. Повторите попытку.');
+    });
+  }, [onUpdate]);
 
   const handleUpdateFamilyId = async () => {
     const targetId = newFamilyId.trim();
@@ -548,7 +546,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                   </div>
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {currentUser?.email || 'alexey@semyaplus.ru'}
+                    {currentUser?.email || 'Email не указан'}
                   </span>
                 </div>
 
@@ -1133,7 +1131,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       {/* Main Container */}
       <div 
-        className="modal-animate-enter relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-full md:h-[94vh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        role="dialog" aria-modal="true" aria-label="Настройки"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-[100dvh] md:h-[94dvh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
@@ -1145,7 +1144,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <button 
               type="button" 
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              aria-label="Закрыть настройки"
+              className="w-11 h-11 focus-visible:ring-2 focus-visible:ring-primary rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1163,7 +1163,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <button 
                 type="button" 
                 onClick={() => setShowMobileMenu(true)} 
-                className="flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
+                className="min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
               >
                 <ArrowLeft size={16} />
                 <span>Назад</span>
@@ -1178,7 +1178,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <button 
               type="button" 
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              aria-label="Закрыть настройки"
+              className="w-11 h-11 focus-visible:ring-2 focus-visible:ring-primary rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -1186,7 +1187,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </header>
 
         {/* 2-Column Core Layout / Mobile View */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
             <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
@@ -1205,11 +1206,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         {currentUser?.displayName || accountLogin || 'Пользователь'}
                       </h4>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                      {currentUser?.email || 'alexey@semyaplus.ru'}
+                      {currentUser?.email || 'Email не указан'}
                     </p>
                   </div>
                 </div>
@@ -1305,7 +1306,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </aside>
 
           {/* Right Main Content Panel (visible on md+, or on mobile when showMobileMenu is false) */}
-          <main className={`flex-1 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
+          <main className={`flex-1 min-h-0 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
             showMobileMenu ? 'hidden md:flex' : 'flex'
           }`}>
             {/* Desktop Section Header (hidden on mobile) */}
@@ -1319,7 +1320,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       </h3>
                       {currentSection.id === 'account' && (
                         <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                         </span>
                       )}
                     </div>
@@ -1332,7 +1333,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
-            <div className={`flex-1 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
+            <div className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
               {renderSectionContent()}
             </div>
           </main>
@@ -1436,7 +1437,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Активное пространство</span>
                     <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
-                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                     </span>
                   </div>
                 </div>

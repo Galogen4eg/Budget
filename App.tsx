@@ -144,7 +144,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('overview');
   const tabScope=JSON.stringify([user?.uid??null,familyId??null]);
-  const [tabVisits,setTabVisits]=useState(()=>({scope:tabScope,tabs:['overview']}));
+  const [tabVisits,setTabVisits]=useState<import('./utils/tabLifecycle').TabVisits>(()=>({scope:tabScope,tabs:['overview']}));
   useEffect(()=>{
     if(!isAuthLoading&&user)setTabVisits(previous=>rememberTabVisit(previous,tabScope,activeTab));
   },[tabScope,activeTab,isAuthLoading,user?.uid]);
@@ -252,7 +252,7 @@ export default function App() {
 
   // Scroll to top when tab changes
   useEffect(() => {
-      mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+      mainRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeTab]);
 
   // Filter transactions for Budget tab widgets

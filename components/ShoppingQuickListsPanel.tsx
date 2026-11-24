@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookMarked, RotateCcw, Plus, Trash2, Loader2, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import type { ShoppingItem, FamilyMember } from '../types';
 import { generateUniqueId, saveShoppingMerge } from '../utils/db';
 import { unseenPurchaseCompletions } from '../utils/familyWorkspace';
@@ -39,6 +40,7 @@ const BUILTIN: Pick<SavedShoppingList,'id'|'name'|'items'>[] = [
 
 export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => {
   const { familyId, user } = useAuth();
+  const { shoppingReady } = useData();
   const [section, setSection] = useState<'templates' | 'history' | null>(null);
   const [templates, setTemplates] = useState<SavedShoppingList[]>([]);
   const [history, setHistory] = useState<PurchasedProduct[]>([]);
@@ -75,7 +77,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   // before this feature was available. A transaction deduplicates simultaneous
   // observations from both logged-in family members.
   useEffect(() => {
-    if (!familyId||libraryFamily!==familyId) return;
+    if (!familyId||!shoppingReady||libraryFamily!==familyId) return;
     const pending: ShoppingItem[] = [];
     const keys: string[] = [];
     const capturedForFamily=captured.current;
@@ -91,7 +93,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
       for(const key of keys)capturedForFamily.delete(key);
       console.error('Failed to save shopping history', error);
     });
-  }, [familyId, items, history, libraryFamily]);
+  }, [familyId, items, history, libraryFamily, shoppingReady]);
 
   const execute = async (work: () => Promise<void>) => {
     if (saving) return;

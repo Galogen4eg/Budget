@@ -59,6 +59,8 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const { familyId, user } = useAuth();
   const { familyCalendarReady } = useData();
   const [telegramStatusKey,setTelegramStatusKey]=useState<string|null>(null);
+  const [telegramStatusAttempt,setTelegramStatusAttempt]=useState(0);
+  const [telegramStatusFailed,setTelegramStatusFailed]=useState(false);
   const telegramScopeRef=useRef<string|null>(null);
   const [remindersEnabled,setRemindersEnabled]=useState(false);
   const [pushEnabled,setPushEnabled]=useState(false);
@@ -155,7 +157,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const telegramKey=telegramReminderKey(familyId||'none',user?.uid||'none',telegramChatId||'none');
   telegramScopeRef.current=familyId&&user?.uid?telegramKey:null;
   useEffect(()=>{
-    setTelegramStatusKey(null);setTelegramRemindersEnabled(false);
+    setTelegramStatusKey(null);setTelegramRemindersEnabled(false);setTelegramStatusFailed(false);
     if(!user?.uid||!familyId||!familyCalendarReady)return;
     let cancelled=false;
     void getTelegramScheduleStatus().then(status=>{
@@ -164,13 +166,17 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       if(status.enabled)localStorage.setItem(telegramKey,'enabled');
       else localStorage.removeItem(telegramKey);
     }).catch(error=>{
-      if(!cancelled)console.warn('Telegram schedule status unavailable',error);
+      if(!cancelled){setTelegramStatusFailed(true);console.warn('Telegram schedule status unavailable',error);}
     });
     return ()=>{cancelled=true;};
-  },[familyId,user?.uid,telegramKey,familyCalendarReady]);
+  },[familyId,user?.uid,telegramKey,familyCalendarReady,telegramStatusAttempt]);
 
   const toggleTelegramReminders=async()=>{
-    if(!familyCalendarReady||telegramStatusKey!==telegramKey){toast.info('Дождитесь загрузки семейных событий и статуса Telegram.');return;}
+    if(!familyCalendarReady||telegramStatusKey!==telegramKey){
+      if(telegramStatusFailed&&familyCalendarReady){setTelegramStatusAttempt(n=>n+1);toast.info('Повторно проверяем статус Telegram.');}
+      else toast.info('Дождитесь загрузки семейных событий и статуса Telegram.');
+      return;
+    }
     if(telegramRemindersEnabled){
       try{
         await disableTelegramSchedule();

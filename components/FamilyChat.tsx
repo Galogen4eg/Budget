@@ -75,7 +75,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const activeTopic = topics.find(t => t.id === activeTopicId) || topics[0];
-  const currentMessages = messagesMap[activeTopicId] || [];
+  const currentMessages = loadedScope===scope?(messagesMap[activeTopicId] || []):[];
 
   // Auto-scroll to bottom on topic change or message addition
   useEffect(() => {
@@ -405,7 +405,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                 return (
                   <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                      {msg.userName.charAt(0).toUpperCase()}
+                      {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                       <div className="flex items-baseline gap-2 px-1">
@@ -463,7 +463,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                 return (
                   <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                      {msg.userName.charAt(0).toUpperCase()}
+                      {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <div className="flex items-baseline gap-2 px-1">

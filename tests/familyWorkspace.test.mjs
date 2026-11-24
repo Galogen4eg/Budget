@@ -48,3 +48,8 @@ test('chat is loaded lazily and reactions use atomic field updates',()=>{
  assert.doesNotMatch(chat,/Сегодня, 24 сентября|60fps/);
  assert.match(read('utils/db.ts'),/heartUsers:active\?arrayUnion\(uid\):arrayRemove\(uid\)/);
 });
+
+test('shopping history cannot record another family’s stale shopping snapshot',()=>{
+ assert.match(read('components/ShoppingQuickListsPanel.tsx'),/!familyId\|\|!shoppingReady\|\|libraryFamily!==familyId/);
+ assert.match(read('contexts/DataContext.tsx'),/loadedShoppingScope===memberScope/);
+});

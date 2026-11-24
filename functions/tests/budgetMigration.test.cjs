@@ -36,3 +36,13 @@ test('missing opening and invalid reverse document block changes',()=>{
  assert.throws(()=>prepareTransition({...f,configs:{...f.configs,u2:{}}}));
  assert.throws(()=>prepareTransition({...f,family:{...f.family,budgetPolicy:'personal'},target:'family'}));
 });
+
+test('cannot isolate transfers or debt links shared across owners',()=>{
+ const f=fixture();
+ assert.throws(()=>prepareTransition({...f,links:{transactions:[{id:'t',memberId:'a',linkedGoalId:'g'}],goals:[{id:'g',memberId:'b'}],debts:[]}}),/goal/i);
+ assert.throws(()=>prepareTransition({...f,links:{transactions:[{id:'t',memberId:'a',linkedExpenseId:'y'}],goals:[],debts:[]}}),/obligation/i);
+ assert.throws(()=>prepareTransition({...f,links:{transactions:[{id:'t',memberId:'a',category:'savings'}],goals:[],debts:[]}}),/goal/i);
+});
+test('unknown financial stores must be resolved before migration',()=>{
+ assert.throws(()=>prepareTransition({...fixture(),unsupported:['accounts']}),/accounts/);
+});

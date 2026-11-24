@@ -22,6 +22,7 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
+import type { BudgetOwnershipIssue } from '../utils/db';
 import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -189,10 +190,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   },[currentFamilyId,currentUser?.uid]);
   const currentHouseholdPolicy=householdPolicy?.familyId===currentFamilyId?householdPolicy:null;
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
-  const { goals: ownershipGoals, debts: ownershipDebts }=useData();
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
   const [readinessBusy,setReadinessBusy]=useState(false);
-  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
   const [readinessError,setReadinessError]=useState<string|null>(null);
   const [policyBusy,setPolicyBusy]=useState(false);
   const checkReadiness=async()=>{
@@ -201,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setReadinessBusy(true);setReadiness(null);setReadinessError(null);
     try{
       const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
-      setReadiness({familyId:currentFamilyId,issues:result.issues,enabled:result.enabled,target});
+      setReadiness({familyId:currentFamilyId,issues:result.issues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
     }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
     finally{setReadinessBusy(false);}
   };
@@ -218,17 +218,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     finally{setPolicyBusy(false);}
   };
   const [ownershipChoices,setOwnershipChoices]=useState<Record<string,string>>({});
-  const legacyRecords=[
-    ...ownershipGoals.filter(g=>!g.memberId).map(g=>({kind:'goals' as const,id:g.id,title:g.title})),
-    ...ownershipDebts.filter(d=>!d.memberId).map(d=>({kind:'debts' as const,id:d.id,title:d.name}))
-  ];
-  const assignOwner=async(kind:'goals'|'debts',id:string)=>{
+  const legacyRecords=readiness?.familyId===currentFamilyId&&readiness.target==='personal'?readiness.ownershipIssues??[]:[];
+  const assignOwner=async(record:BudgetOwnershipIssue)=>{
+    const {kind,id,owner}=record;
     const key=kind+':'+id;
     if(ownershipBusy||!isHouseholdOwner||!currentFamilyId||!currentUser?.uid||currentHouseholdPolicy?.policy!=='family'||!ownershipChoices[key])return;
     setOwnershipBusy(key);
     try{
-      await assignLegacyFinancialOwner(currentFamilyId,currentUser.uid,kind,id,ownershipChoices[key]);
-      setReadiness(null);
+      await assignLegacyFinancialOwner(currentFamilyId,currentUser.uid,kind,id,ownershipChoices[key],owner);
+      setReadiness(prev=>prev?{...prev,issues:['Повторите проверку после назначения владельцев.'],ownershipIssues:prev.ownershipIssues?.filter(item=>item.kind!==kind||item.id!==id)}:null);
       toast.success('Владелец назначен');
     }catch(error){toast.error(error instanceof Error?error.message:'Не удалось назначить владельца');}
     finally{setOwnershipBusy(null);}
@@ -972,19 +970,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>}
             </section>
             {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
-              <h3 className="text-base font-semibold">Распределение старых долгов и целей</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Назначьте владельца записи перед включением личного бюджета. Суммы останутся прежними.</p>
-              {legacyRecords.length===0?<p className="text-sm text-gray-500">Нет долгов и целей без владельца.</p>:legacyRecords.map(record=>{
+              <h3 className="text-base font-semibold">Записи без владельца</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Нажмите проверку перехода выше, чтобы получить список. Назначайте только фактического владельца; суммы и история платежей не меняются.</p>
+              {legacyRecords.length===0?<p className="text-sm text-gray-500">Нет записей в текущем списке. Повторите проверку.</p>:legacyRecords.map(record=>{
                 const key=record.kind+':'+record.id;
                 return <div key={key} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
                   <p className="text-sm font-semibold break-words">{record.title}</p>
-                  <p className="text-xs text-gray-500">{record.kind==='goals'?'Накопительная цель':'Долг'}</p>
+                  <p className="text-xs text-gray-500">{({goals:'Накопительная цель',debts:'Долг',transactions:'Операция',mandatoryExpenses:'Обязательный платёж'})[record.kind]}{record.date?' · '+record.date:''}{typeof record.amount==='number'?' · '+(settings.privacyMode?'•••':record.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
                   <div className="flex flex-wrap gap-2">
                     <select aria-label={'Владелец: '+record.title} disabled={Boolean(ownershipBusy)} value={ownershipChoices[key]||''} onChange={e=>setOwnershipChoices(prev=>({...prev,[key]:e.target.value}))} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-transparent px-2 text-sm">
                       <option value="">Выберите участника</option>
                       {members.filter(m=>m.userId).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
-                    <button type="button" disabled={Boolean(ownershipBusy)||!ownershipChoices[key]} onClick={()=>void assignOwner(record.kind,record.id)} className="min-h-[44px] px-3 rounded-lg bg-[#2D5A43] text-white text-sm disabled:opacity-50">{ownershipBusy===key?'Сохранение…':'Назначить'}</button>
+                    <button type="button" disabled={Boolean(ownershipBusy)||!ownershipChoices[key]} onClick={()=>void assignOwner(record)} className="min-h-[44px] px-3 rounded-lg bg-[#2D5A43] text-white text-sm disabled:opacity-50">{ownershipBusy===key?'Сохранение…':'Назначить'}</button>
                   </div>
                 </div>;
               })}

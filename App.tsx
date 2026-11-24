@@ -925,8 +925,6 @@ export default function App() {
                         size: 21, 
                         className: isActive ? 'text-white' : 'group-hover:text-primary transition-colors' 
                       })}
-                </div>;
-              })}
                       {!isSidebarExpanded && tab.id === 'shopping' && activeShoppingCount > 0 && (
                         <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-[#FAF8F5] dark:ring-[#1C1C1E]" />
                       )}
@@ -941,6 +939,8 @@ export default function App() {
                     )}
                   </button>
                 );
+                  })}
+                </div>;
               })}
             </nav>
           </div>

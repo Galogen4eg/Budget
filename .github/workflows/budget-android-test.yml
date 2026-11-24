@@ -1,0 +1,54 @@
+name: Budget Android test APK
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/budget-android-test.yml'
+      - 'capacitor.config.ts'
+permissions:
+  contents: read
+concurrency:
+  group: budget-android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  debug-apk:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install existing project dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+      - name: Build packaged web assets
+        run: npx vite build
+      - name: Prepare native Android project
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          npx cap sync android
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Verify APK and record provenance
+        run: |
+          mkdir -p artifacts/android
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android/Terra-test-debug.apk
+          unzip -t artifacts/android/Terra-test-debug.apk
+          git rev-parse HEAD > artifacts/android/GIT-SHA.txt
+          cd artifacts/android
+          sha256sum Terra-test-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Terra-test-debug-apk
+          path: artifacts/android/
+          retention-days: 7
+          if-no-files-found: error

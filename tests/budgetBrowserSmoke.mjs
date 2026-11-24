@@ -83,6 +83,15 @@ async function verifyMobileScroll(page,id,label,{requireOverflow=false,synthetic
 let browser;
 try{
   await waitForServer();
+  // Validate delivered manifest and bitmap dimensions, without contacting production.
+  const manifest=await (await fetch(new URL('/manifest.webmanifest',baseURL))).json();
+  for(const n of [192,512]){
+    const icon=manifest.icons.find(i=>i.type==='image/png'&&i.sizes===n+'x'+n);
+    assert.ok(icon,'missing install icon '+n);
+    const bytes=Buffer.from(await (await fetch(new URL(icon.src,baseURL))).arrayBuffer());
+    assert.equal(bytes.readUInt32BE(16),n);assert.equal(bytes.readUInt32BE(20),n);
+  }
+  console.log('PASS PWA manifest and install icon delivery');
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){

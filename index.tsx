@@ -2,6 +2,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MotionConfig } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
@@ -81,6 +82,12 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Keep Firebase messaging and PWA navigation on the same root worker.
+if(import.meta.env.PROD&&'serviceWorker' in navigator&&window.isSecureContext&&!Capacitor.isNativePlatform()){
+  window.addEventListener('load',()=>{
+    void navigator.serviceWorker.register('/firebase-messaging-sw.js',{updateViaCache:'none'}).catch(error=>console.warn('PWA registration unavailable',error));
+  },{once:true});
+}
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

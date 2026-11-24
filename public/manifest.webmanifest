@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Terra — Семейный бюджет",
   "short_name": "Terra",
-  "description": "Семейный бюджет и общие финансовые планы",
+  "description": "Семейный бюджет, покупки и планы",
   "lang": "ru",
   "start_url": "/",
   "scope": "/",
@@ -11,10 +11,22 @@
   "theme_color": "#4A7C59",
   "icons": [
     {
+      "src": "/icons/terra-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/terra-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/icons/terra-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

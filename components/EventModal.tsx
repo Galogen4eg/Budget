@@ -10,6 +10,7 @@ import { auth } from '../firebase';
 import { toast } from 'sonner';
 import { formatLocalCalendarDate, parseLocalCalendarDate, eventDateTime } from '../utils/calendarDates';
 import { findEventConflicts } from '../utils/eventConflicts';
+import { parseCustomCalendarReminder } from '../utils/calendarReminders';
 import { buildCalendarOccurrences } from '../utils/familyPlanEngine';
 
 interface EventModalProps {
@@ -241,13 +242,11 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   const handleAddCustomReminder = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const num = parseInt(customReminderVal, 10);
-    if (isNaN(num) || num <= 0) {
-      toast.error('Укажите корректное число');
+    const totalMinutes = parseCustomCalendarReminder(customReminderVal, customReminderUnit);
+    if (totalMinutes === null) {
+      toast.error('Укажите целое число от 1 до 365');
       return;
     }
-    const multiplier = customReminderUnit === 'day' ? 1440 : customReminderUnit === 'hour' ? 60 : 1;
-    const totalMinutes = num * multiplier;
 
     if (!reminders.includes(totalMinutes)) {
       setReminders(prev => [...prev, totalMinutes].sort((a, b) => a - b));
@@ -333,6 +332,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       kind,
       completed:kind==='task'?completed:false,
       recurrence:isSingle?'none':recurrence,
+      ...(!isSingle&&recurrence!=='none'?{recurrenceExceptions:baseSeries?.recurrenceExceptions}:{}),
       ...(recurrence!=='none'&&!isSingle&&recurrenceUntil?{recurrenceUntil}:{}),
       ...(isSingle?{seriesId,occurrenceDate:event?.occurrenceDate||event?.date}:{ }),
       userId: auth.currentUser?.uid,
@@ -654,7 +654,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                         key={m.id}
                         type="button"
                         onClick={() => toggleMember(m.id)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition cursor-pointer active:scale-95 ${
+                        aria-pressed={isSelected}
+                        className={`inline-flex min-h-[44px] items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition cursor-pointer active:scale-95 ${
                           isSelected
                             ? 'border-[#4A7C59] bg-[#EAF2EC] text-[#2D5A46] dark:bg-[#4A7C59]/25 dark:text-green-300'
                             : 'border-[#EAE5DB] bg-[#F5F2EB]/50 dark:bg-white/5 text-stone-500 dark:text-stone-400 opacity-60'
@@ -706,7 +707,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                         key={opt.value}
                         type="button"
                         onClick={() => toggleReminder(opt.value)}
-                        className={`py-1 px-2 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                        aria-pressed={isActive}
+                        className={`min-h-[44px] py-1 px-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                           isActive
                             ? 'bg-[#4A7C59] text-white shadow-2xs'
                             : 'bg-[#F5F2EB] dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-[#EAE5DB] border border-[#EAE5DB]/60 dark:border-white/5'
@@ -720,7 +722,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsCustomReminderOpen(!isCustomReminderOpen)}
-                    className="py-1 px-2 text-[10px] font-bold rounded-lg bg-[#F5F2EB] dark:bg-[#252528] text-[#4A7C59] border border-[#CBD7CB]/60 dark:border-white/10 cursor-pointer"
+                    aria-expanded={isCustomReminderOpen}
+                    className="min-h-[44px] py-1 px-2 text-xs font-bold rounded-lg bg-[#F5F2EB] dark:bg-[#252528] text-[#4A7C59] border border-[#CBD7CB]/60 dark:border-white/10 cursor-pointer"
                   >
                     + Своё
                   </button>
@@ -789,12 +792,13 @@ export const EventModal: React.FC<EventModalProps> = ({
                     onChange={e => setNewChecklistItem(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addChecklistItem()}
                     placeholder="Добавить пункт (билеты, термос)..."
-                    className="flex-1 px-3 py-1 text-xs bg-[#F5F2EB]/60 dark:bg-[#252528] rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
+                    className="flex-1 min-w-0 min-h-[44px] px-3 py-1 text-sm bg-[#F5F2EB]/60 dark:bg-[#252528] rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => addChecklistItem()}
-                    className="w-6 h-6 bg-[#4A7C59] text-white rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+                    aria-label="Добавить пункт чек-листа"
+                    className="w-11 h-11 bg-[#4A7C59] text-white rounded-lg flex items-center justify-center cursor-pointer shrink-0"
                   >
                     <Plus size={14} />
                   </button>
@@ -804,7 +808,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <div className="space-y-1 pt-1 max-h-36 overflow-y-auto no-scrollbar">
                     {checklist.map(item => (
                       <div key={item.id} className="flex items-center justify-between py-1 px-2 rounded-lg bg-[#F5F2EB]/40 dark:bg-white/5">
-                        <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                        <label className="flex min-h-[44px] items-center gap-2 cursor-pointer flex-1 min-w-0">
                           <input 
                             type="checkbox"
                             checked={item.completed}
@@ -818,7 +822,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))}
-                          className="text-stone-400 hover:text-red-500 p-0.5 cursor-pointer"
+                          aria-label={`Удалить пункт: ${item.text}`}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-400 hover:text-red-500 cursor-pointer"
                         >
                           <Trash2 size={12} />
                         </button>

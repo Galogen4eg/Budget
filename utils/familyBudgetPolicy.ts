@@ -42,3 +42,35 @@ export function projectPersonalFinance<T extends {
    manualPaidExpenses:Object.fromEntries(Object.entries(settings.manualPaidExpenses||{}).map(([month,paid])=>[month,paid.filter(id=>ids.has(id))]))
  };
 }
+
+
+/** Prepare a lossless migration of legacy obligations. No writes or guessed owners. */
+export function partitionMandatoryPayments<T extends {id:string;memberId?:string|null}>(
+  expenses:readonly T[], paid:Readonly<Record<string,readonly string[]>>, memberIds:readonly string[]
+): {byMember:Record<string,{mandatoryExpenses:T[];manualPaidExpenses:Record<string,string[]>}>; issues:string[]} {
+  const byMember:Record<string,{mandatoryExpenses:T[];manualPaidExpenses:Record<string,string[]>}>=Object.create(null);
+  const owners=new Map<string,string>();
+  const issues:string[]=[];
+  for(const memberId of new Set(memberIds)){
+    if(memberId)byMember[memberId]={mandatoryExpenses:[],manualPaidExpenses:{}};
+  }
+  const seen=new Set<string>();
+  for(const expense of expenses){
+    if(!expense.id||seen.has(expense.id)){issues.push('Повторяющийся или пустой ID обязательного платежа');continue;}
+    seen.add(expense.id);
+    if(!expense.memberId||!Object.prototype.hasOwnProperty.call(byMember,expense.memberId)){
+      issues.push('Обязательный платёж без подтверждённого владельца: '+expense.id);continue;
+    }
+    owners.set(expense.id,expense.memberId);
+    byMember[expense.memberId].mandatoryExpenses.push({...expense});
+  }
+  for(const [month,ids] of Object.entries(paid)){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){issues.push('Некорректный месяц оплаты: '+month);continue;}
+    for(const id of new Set(ids)){
+      const owner=owners.get(id);
+      if(!owner){issues.push('Отметка оплаты без подтверждённого платежа: '+id);continue;}
+      (byMember[owner].manualPaidExpenses[month]??=[]).push(id);
+    }
+  }
+  return {byMember,issues};
+}

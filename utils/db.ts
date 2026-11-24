@@ -961,11 +961,11 @@ export async function inspectPersonalBudgetReadiness(familyId:string,actorUid:st
 /** Diagnostic listener for the family document only; metadata never contains financial values. */
 export function subscribeToFamilySyncStatus(familyId:string,onValue:(status:{fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string})=>void):()=>void{
   return onSnapshot(doc(db,'families',familyId),{includeMetadataChanges:true},snapshot=>{
+    const {fromCache,hasPendingWrites:pending}=snapshot.metadata;
     if(!snapshot.exists()){
-      onValue({fromCache:snapshot.metadata.fromCache,pending:snapshot.metadata.hasPendingWrites,error:'Семейное пространство не подтверждено'});
+      onValue({fromCache,pending,error:'Семейное пространство не подтверждено'});
       return;
     }
-    const {fromCache,hasPendingWrites:pending}=snapshot.metadata;
     onValue({fromCache,pending,...(!fromCache&&!pending?{confirmedAt:Date.now()}:{})});
   },error=>onValue({fromCache:false,pending:false,error:error.code==='permission-denied'?'Нет доступа к семейному пространству':'Не удалось подтвердить соединение с Firebase'}));
 }

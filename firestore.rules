@@ -25,10 +25,6 @@ service cloud.firestore {
         'pushEnabled','fcmToken','showFeedbackTool','eventTemplate','shoppingTemplate','dayStartHour','dayEndHour','salaryDates','telegramBotToken','telegramChatId','telegramApiUrl','telegramState'];
     }
     function safeSharedKeys() { return ['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']; }
-    function sharedFinancialKeys() {
-      return ['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount',
-        'categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve'];
-    }
     match /users/{uid} {
       allow get, create, update, delete: if signedIn() && request.auth.uid == uid;
     }

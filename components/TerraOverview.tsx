@@ -1201,7 +1201,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв семейного бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
+                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {householdPersonal?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
                   </p>
                 </div>
               </div>
@@ -1231,7 +1231,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>СЕМЕЙНЫЙ БАЛАНС</span>
+                <span>{householdPersonal?'ЛИЧНЫЙ БАЛАНС':'СЕМЕЙНЫЙ БАЛАНС'}</span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
                 Общий
@@ -1332,7 +1332,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
           <button type="button"
             onClick={() => setIsReserveModalOpen(true)}
-            aria-label="Открыть подробности семейного резерва"
+            aria-label={householdPersonal?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
             className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">

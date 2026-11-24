@@ -105,7 +105,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady,
+    importSourcesReady, settingsReady,
     settings, financialSettings, householdPersonal, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -154,10 +154,10 @@ export default function App() {
     if(isAuthLoading)return;
     const key=(user?.uid??'demo')+':'+(familyId??'local');
     if(initialTabApplied.current===key)return;
-    if(familyId&&!importSourcesReady)return;
+    if(familyId&&!settingsReady)return;
     initialTabApplied.current=key;
     setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
-  },[isAuthLoading,user?.uid,familyId,importSourcesReady,settings.startTab,settings.enabledTabs]);
+  },[isAuthLoading,user?.uid,familyId,settingsReady,settings.startTab,settings.enabledTabs]);
   useEffect(()=>{
     if(!visibleTabs.some(t=>t.id===activeTab))setActiveTab('overview');
   },[activeTab,settings.enabledTabs]);
@@ -181,6 +181,9 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
+  useEffect(()=>{
+    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+  },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   
   // Offline / Network Status
@@ -199,6 +202,8 @@ export default function App() {
     setShoppingItems,
     setTransactions,
     setEvents,
+    householdPersonal,
+    settingsReady,
   });
 
   useEffect(() => {
@@ -361,23 +366,26 @@ export default function App() {
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
-    const savingsContribution = (tx: Transaction) =>
-      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
-    const previousContribution = editing ? savingsContribution(editing) : 0;
-    const delta = savingsContribution(transaction) - previousContribution;
-
-    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-    if (delta !== 0) {
-      goalAdjustment = applySavingsTransferToGoals(
-        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
-      );
+    // Persist the goal link so future edits/deletions cannot select a different account.
+    const before=editing&&isSavingsTransfer(editing)?(editing.type==='expense'?editing.amount:-editing.amount):0;
+    const after=isSavingsTransfer(transaction)?(transaction.type==='expense'?transaction.amount:-transaction.amount):0;
+    let affectedGoal: SavingsGoal|undefined;
+    if(householdPersonal&&before!==0&&!editing?.linkedGoalId)throw new Error('Старый перевод не привязан к личной цели');
+    if(after!==0||before!==0){
+      const requestedGoal=transaction.linkedGoalId||editing?.linkedGoalId;
+      if(requestedGoal&&!goals.some(g=>g.id===requestedGoal))throw new Error('Накопительная цель недоступна');
+      if(!requestedGoal&&before!==0&&goals.length===0)throw new Error('Накопительная цель предыдущего перевода не найдена');
+      const candidate=applySavingsTransferToGoals(goals,Math.abs(after||before),after>0,requestedGoal).affectedGoal;
+      affectedGoal=goals.some(g=>g.id===candidate.id)?candidate:{...candidate,memberId:transaction.memberId};
+      if(householdPersonal&&affectedGoal.memberId!==transaction.memberId)throw new Error('Цель принадлежит другому участнику');
+      if(after!==0)transaction.linkedGoalId=affectedGoal.id;
+      else delete transaction.linkedGoalId;
     }
 
     // Never report a saved operation without an acknowledged family write.
     if (!familyId) throw new Error('Family is not ready: transaction was not saved');
     await saveTransactionWithGoal(
-      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+      familyId, transaction, Boolean(editing), affectedGoal
     );
 
     // Firestore goal snapshots now carry authoritative balances after an atomic write.
@@ -394,8 +402,7 @@ export default function App() {
       if (!familyId) throw new Error('Семья ещё не готова');
       if (!rule.keyword?.trim()) throw new Error('Нельзя сохранить пустое правило');
       // Do not report a learned rule as saved when Firestore rejected it.
-      await addItem(familyId, 'rules', rule);
-      setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
+      await setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
 
       const keyword = rule.keyword.trim().toLowerCase();
       let needsIndividualReview = 0;
@@ -454,7 +461,9 @@ export default function App() {
   };
 
   const handleResetSettings = async () => {
-    await updateSettings(DEFAULT_SETTINGS);
+    if(householdPersonal){
+      await updateSettings({theme:DEFAULT_SETTINGS.theme,privacyMode:DEFAULT_SETTINGS.privacyMode,widgets:DEFAULT_SETTINGS.widgets,enabledTabs:DEFAULT_SETTINGS.enabledTabs,startTab:'overview'});
+    }else await updateSettings(DEFAULT_SETTINGS);
     toast.success("Настройки сброшены к значениям по умолчанию");
   };
 
@@ -880,7 +889,7 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full bg-[#F8F6F2] dark:bg-[#121214] text-graphite dark:text-white flex overflow-hidden font-sans relative selection:bg-primary/20 selection:text-primary-dark">
-      <Toaster position="top-center" richColors theme={settings.theme === 'dark' ? 'dark' : 'light'} />
+      <Toaster position="top-center" richColors theme={resolvedTheme === 'dark' ? 'dark' : 'light'} />
 
       {/* Mobile Top Header (only on non-overview tabs, since overview has its own topbar) */}
       {activeTab !== 'overview' && (
@@ -1070,9 +1079,10 @@ export default function App() {
             
             <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 <TerraBudget
+                    key={householdPersonal?'private-budget':'joint-budget'}
                     transactions={transactions}
                     categories={categories}
-                    members={members}
+                    members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
                     mandatoryExpenses={financialSettings.mandatoryExpenses || []}
                     settings={financialSettings}
                     currentMonth={currentMonth}
@@ -1270,7 +1280,7 @@ export default function App() {
             />}
             {isAIChatOpen && (
               <AIChatModal 
-                key="ai-chat-modal" 
+                key={'ai-chat-modal-'+(user?.uid??'demo')+'-'+(familyId??'local')+'-'+(householdPersonal?'personal':'family')} 
                 onClose={() => setIsAIChatOpen(false)} 
                 onOpenSettings={() => {
                   setIsAIChatOpen(false);

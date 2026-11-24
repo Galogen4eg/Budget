@@ -91,6 +91,7 @@ export interface WishlistItem {
 
 export interface Subscription {
   id: string;
+  memberId?: string; // Legacy subscriptions need explicit ownership before personal mode.
   name: string;
   amount: number;
   currency: string;

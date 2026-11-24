@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
+  Transaction, SavingsGoal, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
 import { Toaster, toast } from 'sonner';
 
@@ -464,7 +464,7 @@ export default function App() {
     if(householdPersonal){
       await updateSettings({theme:DEFAULT_SETTINGS.theme,privacyMode:DEFAULT_SETTINGS.privacyMode,widgets:DEFAULT_SETTINGS.widgets,enabledTabs:DEFAULT_SETTINGS.enabledTabs,startTab:'overview'});
     }else await updateSettings(DEFAULT_SETTINGS);
-    toast.success("Настройки сброшены к значениям по умолчанию");
+    toast.success(householdPersonal?'Оформление и навигация сброшены':'Настройки сброшены к значениям по умолчанию');
   };
 
   const handleDeleteEvent = async (id: string, scope: 'single'|'series' = 'series') => {

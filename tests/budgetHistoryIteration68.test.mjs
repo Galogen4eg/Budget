@@ -52,5 +52,9 @@ test('iteration 68: transaction editor rejects malformed numeric text and rounds
 test('iteration 68: mobile day operations have labeled keyboard-accessible controls',()=>{
  const source=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
  assert.match(source,/aria-label=\{\x60Редактировать операцию: \$\{displayTitle\}\x60\}/);
- assert.match(source,/min-h-\[48px\] w-full flex items-center justify-between p-2\.5 text-left/);
+ const section=source.split('{/* Selected Day Details')[1]?.split('{/* Scheduled Monthly Mandatory Payments')[0];
+ assert.ok(section);
+ const row=section.match(/<button type="button"\s+key=\{tx\.id[^\n]*[\s\S]*?aria-label=\{\x60Редактировать операцию:[^\n]*\n\s*className="([^"]+)"/)?.[1];
+ assert.ok(row,'mobile transaction button must retain accessible label');
+ for(const token of ['min-h-[48px]','w-full','text-left','focus-visible:ring-2'])assert.ok(row.split(/\s+/).includes(token),token);
 });

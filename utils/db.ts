@@ -930,12 +930,12 @@ export function subscribeToScopedFinancialCollection(
  * Only the household owner may do this, and only in shared mode.
  * Deployed Firestore rules must enforce the same conditions.
  */
-export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
+export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'subscriptions'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
 export async function assignLegacyFinancialOwner(
   familyId:string, actorUid:string, kind:BudgetOwnershipIssue['kind'], recordId:string, memberId:string, expectedOwner:string|null=null
 ):Promise<void>{
   if(!familyId||!recordId||!memberId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Не указаны данные назначения владельца');
-  if(!['transactions','goals','debts','mandatoryExpenses'].includes(kind))throw new Error('Недопустимый тип записи');
+  if(!['transactions','goals','debts','subscriptions','mandatoryExpenses'].includes(kind))throw new Error('Недопустимый тип записи');
   const familyRef=doc(db,'families',familyId);
   const recordRef=kind==='mandatoryExpenses'?doc(db,'families',familyId,'config','settings'):doc(db,'families',familyId,kind,recordId);
   const memberRef=doc(db,'families',familyId,'members',memberId);

@@ -100,3 +100,19 @@ test('mobile quick shopping uses shared surfaces and stable touch controls',()=>
  assert.match(widget,/onSubmit=\{handleAddShoppingInline\}/);
  assert.match(widget,/w-11 h-11/);
 });
+
+
+test('budget metric cards simplify labels and hide derived money in privacy mode',()=>{
+ const budget=read('components/TerraBudget.tsx');
+ const mobile=budget.split('{/* KPI & Family Overview Card */}')[1]?.split('{/* Family Member Filter Chips')[0];
+ const desktop=budget.split('{/* 2. TOP KPI CARDS:')[1]?.split('{/* 3. MAIN WORKSPACE:')[0];
+ assert.ok(mobile && desktop);
+ assert.doesNotMatch(mobile,/Рассчитан|shadow-xs/);
+ assert.doesNotMatch(desktop,/Ориентир рассчитан|>факт<|truncate block|uppercase tracking-wider/);
+ assert.ok(desktop.includes("safeDailyLimit <= 0 || settings.privacyMode ? ''"));
+ assert.ok(desktop.includes('!settings.privacyMode && yesterdaySpent < safeDailyLimit'));
+ for(const section of [mobile,desktop]){
+  assert.ok(section.includes('formatBudgetMoney(safeDailyLimit)'));
+  assert.ok(section.includes('motion-reduce:transition-none'));
+ }
+});

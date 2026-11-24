@@ -85,15 +85,15 @@ service cloud.firestore {
           && (joint(fid) || request.resource.data.keys().hasOnly(safeSharedKeys()));
       }
       match /{kind}/{id} {
-        allow get: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || !exists(/databases/$(database)/documents/families/$(fid)/$(kind)/$(id)) || owns(fid,resource.data));
-        allow list: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
-        allow create: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,request.resource.data));
-        allow update: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || (owns(fid,resource.data) && owns(fid,request.resource.data) && resource.data.memberId == request.resource.data.memberId));
-        allow delete: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
+        allow get: if member(fid) && kind in ['transactions','goals','debts','subscriptions'] && (joint(fid) || !exists(/databases/$(database)/documents/families/$(fid)/$(kind)/$(id)) || owns(fid,resource.data));
+        allow list: if member(fid) && kind in ['transactions','goals','debts','subscriptions'] && (joint(fid) || owns(fid,resource.data));
+        allow create: if member(fid) && kind in ['transactions','goals','debts','subscriptions'] && (joint(fid) || owns(fid,request.resource.data));
+        allow update: if member(fid) && kind in ['transactions','goals','debts','subscriptions'] && (joint(fid) || (owns(fid,resource.data) && owns(fid,request.resource.data) && resource.data.memberId == request.resource.data.memberId));
+        allow delete: if member(fid) && kind in ['transactions','goals','debts','subscriptions'] && (joint(fid) || owns(fid,resource.data));
         // Shared non-financial application areas are explicitly named.
         allow read, write: if member(fid) && kind in ['shopping','pantry','events','projects','loyalty','wishlist','categories','chat','messages','shoppingLists','reminders'];
         // Other financial/AI collections have not been partitioned; deny in personal mode.
-        allow read, write: if member(fid) && joint(fid) && kind in ['accounts','subscriptions','meterReadings','rules','knowledge'];
+        allow read, write: if member(fid) && joint(fid) && kind in ['accounts','meterReadings','rules','knowledge'];
       }
       // serverBudgetArchive and pushDelivery are Admin SDK only.
     }

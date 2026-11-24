@@ -22,7 +22,7 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
    const [profiles,shared,archive,transactions,goals,debts,accounts,subscriptions,meterReadings]=await Promise.all([
       tx.get(familyRef.collection('members')),tx.get(sharedRef),tx.get(archiveRef),
       tx.get(familyRef.collection('transactions')),tx.get(familyRef.collection('goals')),tx.get(familyRef.collection('debts')),
-      tx.get(familyRef.collection('accounts').limit(1)),tx.get(familyRef.collection('subscriptions').limit(1)),tx.get(familyRef.collection('meterReadings').limit(1))
+      tx.get(familyRef.collection('accounts').limit(1)),tx.get(familyRef.collection('subscriptions')),tx.get(familyRef.collection('meterReadings').limit(1))
    ]);
    const configs=Object.create(null),refs=Object.create(null);
    for(const memberUid of family.members){
@@ -30,7 +30,7 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
      refs[memberUid]=ref;configs[memberUid]=(await tx.get(ref)).data()??{};
    }
    let result;
-   const input={family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)};
+   const input={family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs,...subscriptions.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id})),subscriptions:subscriptions.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)};
    try{result=prepareTransition(input);}
    catch(error){
      if(preview){

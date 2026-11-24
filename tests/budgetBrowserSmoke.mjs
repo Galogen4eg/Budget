@@ -276,8 +276,12 @@ try{
     await settingsDialog.waitFor({state:'visible'});
     await settingsDialog.getByRole('button',{name:/Оформление и приватность/}).filter({visible:true}).first().click();
     const themes=settingsDialog.getByRole('group',{name:'Тема приложения'});
+    const startupSelect=settingsDialog.getByRole('combobox',{name:'Стартовый раздел'});
     await themes.getByRole('button',{name:'Тёмная',exact:true}).click();
     await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+    assert.equal(await startupSelect.evaluate(el=>getComputedStyle(el).colorScheme),'dark',label+': native select color scheme');
+    assert.equal(await startupSelect.locator('option').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(36, 37, 40)',label+': dark option background');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('theme')),'dark',label+': startup theme not persisted');
     await themes.getByRole('button',{name:'Светлая',exact:true}).click();
     await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
     await page.emulateMedia({colorScheme:'dark'});
@@ -334,6 +338,14 @@ try{
     await page.getByRole('heading',{name:/^Список покупок$/i}).filter({visible:true}).first().waitFor({state:'visible'});
     assert.deepEqual(errors,[],label+': settings runtime errors');
     console.log('PASS',label,'settings themes, navigation, widgets, diagnostics and PWA help');
+    if(width===390){
+      await page.evaluate(()=>localStorage.setItem('theme','dark'));
+      await page.addInitScript(()=>{window.__themeTransitions=[];const observe=()=>{if(!document.documentElement)return;new MutationObserver(()=>window.__themeTransitions.push(document.documentElement.classList.contains('dark'))).observe(document.documentElement,{attributes:true,attributeFilter:['class']});};if(document.documentElement)observe();else document.addEventListener('readystatechange',observe,{once:true});});
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+      await page.waitForTimeout(1200);
+      assert.ok(await page.evaluate(()=>document.documentElement.classList.contains('dark')&&!window.__themeTransitions.includes(false)),label+': persisted dark theme flashes light during startup');
+    }
     console.log('PASS',label,'login visible, no horizontal overflow or page errors');
     await page.close();
   }

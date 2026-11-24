@@ -22,8 +22,8 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
-import type { BudgetOwnershipIssue, BudgetLinkIssue } from '../utils/db';
-import { alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
+import type { BudgetOwnershipIssue, BudgetLinkIssue, BudgetSavingsIssue } from '../utils/db';
+import { repairLegacySavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -192,7 +192,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
   const [readinessBusy,setReadinessBusy]=useState(false);
-  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];savingsIssues?:BudgetSavingsIssue[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
   const [readinessError,setReadinessError]=useState<string|null>(null);
   const [policyBusy,setPolicyBusy]=useState(false);
   const checkReadiness=async()=>{
@@ -201,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setReadinessBusy(true);setReadiness(null);setReadinessError(null);
     try{
       const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
-      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,linkIssues:result.linkIssues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
+      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,savingsIssues:result.savingsIssues,linkIssues:result.linkIssues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
     }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
     finally{setReadinessBusy(false);}
   };
@@ -218,6 +218,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     finally{setPolicyBusy(false);}
   };
   const [ownershipChoices,setOwnershipChoices]=useState<Record<string,string>>({});
+  const [savingsChoices,setSavingsChoices]=useState<Record<string,string>>({});
   const legacyRecords=readiness?.familyId===currentFamilyId&&readiness.target==='personal'?readiness.ownershipIssues??[]:[];
   const assignOwner=async(record:BudgetOwnershipIssue)=>{
     const {kind,id,owner}=record;
@@ -963,6 +964,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div role="status" aria-live="polite" className="space-y-2 text-sm">
                     {readinessError && <p className="text-red-600 dark:text-red-400 break-words">{readinessError}</p>}
                     {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>{readiness.enabled?'Данные готовы к переходу.':'Данные проверены. Серверная активация пока выключена.'}</p>)}
+                    {readiness?.familyId===currentFamilyId&&!!readiness.savingsIssues?.length&&<div className="space-y-3">
+                      <p className="font-semibold">Переводы в накопления</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">Сначала сверьте фактические остатки целей. Привязка старой операции не добавляет её сумму к накоплениям повторно. Если остаток неверен, исправьте его в разделе накоплений и повторите проверку.</p>
+                      {readiness.savingsIssues.map(issue=><div key={issue.id} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
+                        <p className="font-medium break-words">{issue.title}</p>
+                        <p className="text-xs break-words">{members.find(m=>m.id===issue.owner)?.name??'Владелец не подтверждён'} · {issue.type==='income'?'Снятие':'Пополнение'} · {settings.privacyMode?'•••':typeof issue.amount==='number'?issue.amount.toLocaleString('ru-RU')+' ₽':'Сумма не указана'}{issue.date?' · '+new Date(issue.date).toLocaleDateString('ru-RU'):''}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 break-words">{issue.reason==='missing'?'Цель не указана':issue.reason==='deleted'?'Старая цель удалена':'Цель другого участника: '+issue.previousGoal?.title}{issue.previousGoal&&typeof issue.previousGoal.currentAmount==='number'?' · остаток '+(settings.privacyMode?'•••':issue.previousGoal.currentAmount.toLocaleString('ru-RU')+' ₽'):''}</p>
+                        {issue.candidates.length?<div className="flex flex-wrap gap-2">
+                          <select aria-label={'Цель: '+issue.title} value={savingsChoices[issue.id]||''} onChange={e=>setSavingsChoices(prev=>({...prev,[issue.id]:e.target.value}))} disabled={!!ownershipBusy} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#242528] text-gray-900 dark:text-gray-100 px-2 text-sm">
+                            <option value="">Выберите цель владельца</option>
+                            {issue.candidates.map(goal=><option key={goal.id} value={goal.id}>{goal.title} · {settings.privacyMode?'•••':goal.currentAmount?.toLocaleString('ru-RU')+' ₽'}</option>)}
+                          </select>
+                          <button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy||!savingsChoices[issue.id]} className="min-h-[44px] rounded-lg bg-[#2D5A43] text-white px-3 disabled:opacity-50" onClick={async()=>{
+                            if(!currentFamilyId||!currentUser?.uid||!window.confirm('Подтверждаете, что остатки накопительных целей уже корректны с учётом этой операции? Изменится только связь, суммы и остатки не пересчитываются.'))return;
+                            setOwnershipBusy(issue.id);
+                            try{
+                              await repairLegacySavingsLink(currentFamilyId,currentUser.uid,issue,savingsChoices[issue.id]);
+                              setReadiness(prev=>prev?{...prev,issues:['Повторите проверку после исправления связей.'],savingsIssues:prev.savingsIssues?.filter(row=>row.id!==issue.id)}:null);
+                              toast.success('Связь сохранена без изменения остатка');
+                            }catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось сохранить связь');}finally{setOwnershipBusy(null);}
+                          }}>Привязать</button>
+                        </div>:<p className="text-xs text-gray-600 dark:text-gray-300">Нет цели этого участника. Создайте или назначьте ему накопительную цель с фактическим остатком и повторите проверку.</p>}
+                      </div>)}
+                    </div>}
                     {readiness?.familyId===currentFamilyId&&readiness.linkIssues?.map(issue=><div key={issue.id+issue.field} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
                       <p className="font-medium break-words">{issue.title} · {settings.privacyMode?'•••':typeof issue.amount==='number'?issue.amount.toLocaleString('ru-RU')+' ₽':''}</p>
                       <p className="text-xs break-words">Связь: {issue.targetTitle}. Операция: {members.find(m=>m.id===issue.owner)?.name??'Неизвестный участник'}. Обязательство: {members.find(m=>m.id===issue.targetOwner)?.name??'Неизвестный участник'}.</p>

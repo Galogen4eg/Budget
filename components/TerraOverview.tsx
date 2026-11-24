@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
   Calendar, Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
-  ShoppingBag, History, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
+  ShoppingBag, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
   HelpCircle, ShieldAlert, ChevronDown, ShoppingCart,
   Star, Smartphone, Utensils, Store, Tag, Gift, Activity, Car, CreditCard
 } from 'lucide-react';
@@ -1080,7 +1080,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           )}
 
           {/* 6. История операций Card */}
-          <section className={`${SURFACE_CARD} space-y-3.5`}>
+          <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} space-y-3`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
@@ -1090,14 +1090,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <button
                 type="button"
                 onClick={() => onDrillDown('all')}
-                className="flex items-center gap-0.5 text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition"
+                className="min-h-[44px] px-2 flex items-center gap-0.5 text-sm font-medium text-primary transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span>Все</span>
                 <ChevronRight size={14} />
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="divide-y divide-[var(--terra-border)]">
               {recentMobileTransactions.length === 0 && (
                 <div className="py-4 text-center space-y-2">
                   <p className="text-sm text-graphite-muted dark:text-gray-400">Операций пока нет.</p>
@@ -1121,17 +1121,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
                     onClick={() => onEditTransaction(tx)}
                     aria-label={`Редактировать операцию: ${displayTitle}`}
-                    className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3.5 flex items-center justify-between gap-2 hover:bg-[#EAE6DD]/70 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="min-h-[56px] w-full text-left px-1 py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
                         <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-10 h-10 rounded-full" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-graphite dark:text-white truncate">
+                        <h4 className="text-sm font-semibold text-graphite dark:text-white truncate">
                           {displayTitle}
                         </h4>
-                        <p className="text-[11px] text-graphite-muted dark:text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
+                        <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                           <span>{dateFormatted}</span>
                           <span className="font-medium" style={{ color: txMember.color }}>
                             {txMember.name}
@@ -1141,8 +1141,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0 ml-3">
-                      <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums block">
+                    <div className="text-right min-w-0 max-w-[46%] shrink-0">
+                      <span className="text-sm font-semibold text-graphite dark:text-white tabular-nums block [overflow-wrap:anywhere]">
                         {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
                       </span>
                     </div>
@@ -1789,27 +1789,24 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             )}
 
             {/* Виджет «История операций» (компактный список без пустых разрывов) */}
-            <div className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
+            <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-[#FAF1E3] dark:bg-[#3D2C1E] text-warm-amber">
-                    <History size={16} />
-                  </div>
-                  <h3 className="text-sm font-bold font-headline text-graphite dark:text-white uppercase tracking-wide">
-                    ИСТОРИЯ ОПЕРАЦИЙ
+                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
+                    История операций
                   </h3>
                 </div>
                 <button 
                   type="button"
                   onClick={() => onDrillDown('all')}
-                  className="text-xs text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold cursor-pointer"
+                  className="min-h-[44px] px-2 rounded-lg text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition-colors flex items-center gap-1 font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Все
                   <ChevronRight size={14} />
                 </button>
               </div>
 
-              <div className="space-y-2.5 mt-4 flex flex-col justify-start">
+              <div className="divide-y divide-[var(--terra-border)] mt-1 flex flex-col justify-start">
                 {recentTransactions.length === 0 ? (
                   <div className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
                     Нет операций за выбранный период
@@ -1831,10 +1828,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
                         onClick={() => onEditTransaction(tx)}
                         aria-label={`Редактировать операцию: ${displayTitle}`}
-                        className={`min-h-[48px] w-full text-left flex items-center justify-between p-3 rounded-2xl border transition group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`min-h-[56px] w-full text-left flex items-center justify-between px-1 py-2.5 gap-2 transition-colors group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isTxToday && isExpense && isOverDailyLimit && idx === 0
-                            ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A] border-[#FDBA74] dark:border-[#C2410C]/40'
-                            : 'bg-[#FAF8F5] dark:bg-[#2C2C2E] hover:bg-[#F3EFE9] dark:hover:bg-[#3A3A3C] border-surface-border dark:border-white/5'
+                            ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A]'
+                            : 'hover:bg-[var(--terra-soft)]'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -1848,15 +1845,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-graphite dark:text-white group-hover:text-primary transition truncate flex items-center gap-1.5">
+                            <h4 className="text-sm font-semibold text-graphite dark:text-white group-hover:text-primary transition-colors truncate">
                               {displayTitle}
-                              {isTxToday && (
-                                <span className="text-[9px] bg-[#C2410C] text-white px-1.5 py-0.2 rounded font-mono font-medium flex-shrink-0">
-                                  СЕГОДНЯ
-                                </span>
-                              )}
                             </h4>
-                            <p className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1.5 mt-0.5 truncate">
+                            <p className="text-xs text-graphite-muted dark:text-gray-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
                               <span>{dateFormatted}</span>
                               <span className="font-medium" style={{ color: txMember.color }}>
                                 {txMember.name}
@@ -1865,15 +1857,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           </div>
                         </div>
 
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <span className={`text-sm font-bold font-mono whitespace-nowrap block transition ${
+                        <div className="text-right min-w-0 max-w-[46%] shrink-0">
+                          <span className={`text-sm font-semibold tabular-nums [overflow-wrap:anywhere] block transition-colors ${
                             isExpense 
                               ? (isTxToday && isOverDailyLimit ? 'text-[#C2410C]' : 'text-graphite dark:text-white group-hover:text-clay') 
                               : 'text-[#2F673E] dark:text-green-400'
                           }`}>
                             {isExpense ? '-' : '+'}{formatAmount(tx.amount)} ₽
                           </span>
-                          <p className="text-[10px] text-graphite-muted dark:text-gray-400 truncate max-w-[90px]">{catLabel}</p>
+                          <p className="text-xs text-graphite-muted dark:text-gray-400 break-words">{catLabel}</p>
                         </div>
                       </button>
                     );

@@ -57,6 +57,7 @@ export interface BudgetSettingsSectionProps {
   onUpdateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
   savingsRate: number;
   setSavingsRate: (rate: number) => void;
+  mode?: 'finance' | 'history' | 'all';
   transactions?: Transaction[];
   onOpenDuplicates?: () => void;
   onDeleteTransactionsByPeriod?: (start: string, end: string) => void | Promise<void>;
@@ -74,6 +75,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
   onUpdateSetting,
   savingsRate,
   setSavingsRate,
+  mode = 'all',
   transactions = [],
   onOpenDuplicates,
   onDeleteTransactionsByPeriod,
@@ -143,25 +145,16 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
 
   return (
     <div className="flex flex-col w-full pb-2 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
-      {/* Верхний статус-контекст */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center px-3 py-1.5 rounded-full bg-[#f0ece4] dark:bg-[#202225] text-[#4a4e4a] dark:text-gray-300 text-xs font-semibold tracking-wide border border-transparent dark:border-white/5">
-          <span>Настройки системы • Финансовый контур</span>
-        </div>
-        <div className="px-2.5 py-1 rounded-full bg-[#f0e8db] dark:bg-emerald-950/40 text-[#705c30] dark:text-emerald-400 text-xs font-semibold">
-          Цикл: Месячный
-        </div>
-      </div>
-
+      {mode !== 'history' && <>
       {/* Карточка 1: Базовый контур и копилка */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-5">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Wallet size={24} />
           </div>
           <div>
             <h2 className="font-headline font-semibold text-base sm:text-lg text-[#2e3230] dark:text-white leading-tight">
-              Базовый контур и копилка
+              Начальный остаток и накопления
             </h2>
             <p className="text-xs text-[#4a4e4a] dark:text-gray-400 font-medium mt-0.5">
               Вводная точка для вычисления свободных денег
@@ -234,7 +227,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button 
               type="button"
               onClick={handleDecrementSavings}
-              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
               aria-label="Уменьшить процент"
             >
               <Remove size={20} />
@@ -250,7 +243,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button 
               type="button"
               onClick={handleIncrementSavings}
-              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
               aria-label="Увеличить процент"
             >
               <Add size={20} />
@@ -312,7 +305,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       </section>
 
       {/* Карточка 2: Календарь выплат */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-4">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
@@ -342,7 +335,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 key={dayNum}
                 type="button"
                 onClick={() => toggleSalaryDay(dayNum)}
-                className={`h-9 rounded-lg font-semibold text-xs flex items-center justify-center active:scale-95 transition-all cursor-pointer ${
+                className={`h-9 rounded-lg font-semibold text-xs flex items-center justify-center transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-[#4a7c59] text-white font-bold shadow-[0_2px_8px_rgba(74,124,89,0.3)]'
                     : 'bg-[#f5f1ea] dark:bg-[#25282c] text-[#2e3230] dark:text-gray-300 hover:bg-[#f0ece4] dark:hover:bg-white/10'
@@ -367,18 +360,20 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
         </div>
       </section>
 
+      </>}
+      {mode !== 'finance' && <>
       {/* Карточка 3: Инструменты и аудит данных */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-5">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Build size={22} />
           </div>
           <div>
             <h2 className="font-headline font-semibold text-base sm:text-lg text-[#2e3230] dark:text-white leading-tight">
-              Инструменты и аудит данных
+              История операций
             </h2>
             <p className="text-xs text-[#4a4e4a] dark:text-gray-400 font-medium mt-0.5">
-              Контроль целостности журнала транзакций и чистка
+              Поиск повторов, экспорт и удаление за период
             </p>
           </div>
         </div>
@@ -399,17 +394,15 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-[#4a7c59]/10 text-[#4a7c59] dark:text-emerald-400 text-[11px] font-bold">
-              Активно
-            </span>
+
           </div>
           <button
             type="button"
             onClick={onOpenDuplicates}
-            className="w-full py-2.5 px-4 rounded-xl bg-[#e4e0d8] dark:bg-white/10 text-[#2e3230] dark:text-white font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#d4ccbf] dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+            className="min-h-[44px] w-full py-2.5 px-4 rounded-xl bg-[#e4e0d8] dark:bg-white/10 text-[#2e3230] dark:text-white font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#d4ccbf] dark:hover:bg-white/15 transition-colors cursor-pointer"
           >
             <SearchCheck size={18} className="text-[#4a7c59] dark:text-emerald-400" />
-            <span>Запустить аудит</span>
+            <span>Найти дубли</span>
           </button>
         </div>
 
@@ -417,7 +410,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[#4a4e4a] dark:text-gray-400 flex items-center gap-1">
             <FolderZip size={16} className="text-[#4a4e4a] dark:text-gray-400" />
-            <span>Архивация и очистка журнала</span>
+            <span>Экспорт и удаление операций</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -453,7 +446,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button
               type="button"
               onClick={handleArchiveExport}
-              className="w-full py-3 px-4 rounded-xl bg-[#f0ece4] dark:bg-white/10 text-[#4a7c59] dark:text-emerald-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#e4e0d8] dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+              className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#f0ece4] dark:bg-white/10 text-[#4a7c59] dark:text-emerald-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#e4e0d8] dark:hover:bg-white/15 transition-colors cursor-pointer"
             >
               <FolderZip size={18} />
               <span>Архивировать в отдельный файл</span>
@@ -464,7 +457,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 <button
                   type="button"
                   onClick={handleDeletePeriod}
-                  className="flex-1 py-3 px-4 rounded-xl bg-[#b83230] text-white font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-sm"
+                  className="flex-1 py-3 px-4 rounded-xl bg-[#b83230] text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
                 >
                   <DeleteSweep size={18} />
                   <span>Удалить {matchedCount > 0 ? `(${matchedCount})` : ''}?</span>
@@ -472,7 +465,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsConfirmingDelete(false)}
-                  className="px-4 py-3 rounded-xl bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold text-xs active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-3 rounded-xl bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
                 >
                   Отмена
                 </button>
@@ -481,7 +474,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               <button
                 type="button"
                 onClick={() => setIsConfirmingDelete(true)}
-                className="w-full py-3 px-4 rounded-xl bg-[#ffdad8] dark:bg-red-950/40 text-[#b83230] dark:text-red-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#ffdad8]/80 dark:hover:bg-red-900/50 active:scale-95 transition-all cursor-pointer"
+                className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#ffdad8] dark:bg-red-950/40 text-[#b83230] dark:text-red-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#ffdad8]/80 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
               >
                 <DeleteSweep size={18} />
                 <span>Очистить историю за период</span>
@@ -490,6 +483,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 };

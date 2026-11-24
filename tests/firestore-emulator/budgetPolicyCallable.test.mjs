@@ -1,6 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {initializeApp as initializeAdmin,deleteApp as deleteAdmin} from 'firebase-admin/app';
+import {getFirestore as getAdminDb,FieldValue} from 'firebase-admin/firestore';
+import {getAuth as getAdminAuth} from 'firebase-admin/auth';
+import {createBudgetPolicyHandler} from '../../api/budget-policy.js';
 import {initializeApp,deleteApp} from 'firebase/app';
 import {initializeAuth,inMemoryPersistence,connectAuthEmulator,createUserWithEmailAndPassword} from 'firebase/auth';
 import {getFirestore,connectFirestoreEmulator,doc,collection,getDocFromServer,getDocsFromServer,updateDoc,setDoc,deleteDoc,query,where,writeBatch} from 'firebase/firestore';
@@ -14,7 +19,7 @@ if(!authHost||!firestoreHost||process.env.BUDGET_SET12_ENABLED!=='true')throw ne
 if(!/^127\.0\.0\.1:\d+$/.test(authHost)||!/^127\.0\.0\.1:\d+$/.test(firestoreHost))throw new Error('Refuse non-loopback emulator endpoints');
 const [host,port]=firestoreHost.split(':');
 const apps=[];
-async function actor(label){
+async function actor(label,endpoint){
  const app=initializeApp({apiKey:'demo-key',projectId,authDomain:'demo-budget.firebaseapp.com',appId:'demo-set12'},'set12-'+label+'-'+Date.now());
  apps.push(app);
  const auth=initializeAuth(app,{persistence:inMemoryPersistence});
@@ -25,14 +30,35 @@ async function actor(label){
  const functions=getFunctions(app,'europe-west1');
  connectFunctionsEmulator(functions,'127.0.0.1',5001);
  const call=httpsCallable(functions,'changeHouseholdBudgetPolicy',{timeout:120000});
- return {uid:user.uid,db,call:async(data)=>(await call(data)).data};
+ return {uid:user.uid,db,token:()=>user.getIdToken(),call:async(data)=>{
+   if(!endpoint)return (await call(data)).data;
+   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await user.getIdToken()},body:JSON.stringify({...data,preview:data.preview===true})});
+   const result=await response.json();
+   if(!response.ok)throw Object.assign(new Error(result.error),{code:({400:'functions/invalid-argument',401:'functions/unauthenticated',403:'functions/permission-denied',409:'functions/failed-precondition'})[response.status]??'functions/internal'});
+   return result;
+ }};
 }
 const rejected=(promise,code)=>assert.rejects(promise,e=>e?.code===code);
-test('SET-12 callable: two authenticated accounts, forward/return migration, owner authorization, failed migration atomicity',{timeout:180000},async()=>{
+for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two authenticated accounts, forward/return migration, owner authorization, failed migration atomicity',{timeout:180000},async()=>{
+ let server,admin,endpoint;
+ let enabled=true;
+ if(transport==='vercel'){
+   admin=initializeAdmin({projectId},'policy-http-test');
+   const handler=createBudgetPolicyHandler(()=>({db:getAdminDb(admin),FieldValue,verifyToken:token=>getAdminAuth(admin).verifyIdToken(token,true),enabled}));
+   server=createServer(async(req,res)=>{
+     let body='';for await(const chunk of req)body+=chunk;
+     req.body=body;
+     res.status=code=>{res.statusCode=code;return res;};
+     res.json=value=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));};
+     await handler(req,res);
+   });
+   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+   endpoint='http://127.0.0.1:'+server.address().port;
+ }
  const env=await initializeTestEnvironment({projectId,firestore:{host,port:Number(port),rules:readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')}});
  try{
    await env.clearFirestore();
-   const a=await actor('owner'),b=await actor('member'),outsider=await actor('outsider');
+   const a=await actor('owner',endpoint),b=await actor('member',endpoint),outsider=await actor('outsider',endpoint);
    const fid='set12-family',f='families/'+fid;
    const settings=f+'/config/settings',privateSettings=uid=>f+'/members/'+uid+'/config/settings';
    const initialBills=[{id:'bill-a',memberId:'a',name:'A',amount:25.15},{id:'bill-b',memberId:'b',name:'B',amount:50.25}];
@@ -60,6 +86,17 @@ test('SET-12 callable: two authenticated accounts, forward/return migration, own
      await batch.commit();
    });
    const request={familyId:fid,target:'personal'};
+   if(endpoint){
+     const headers={'Content-Type':'application/json'};
+     const body=JSON.stringify({...request,preview:true});
+     assert.equal((await fetch(endpoint,{method:'POST',headers,body})).status,401);
+     assert.equal((await fetch(endpoint,{method:'POST',headers:{...headers,Authorization:'Bearer invalid'},body})).status,401);
+     assert.equal((await fetch(endpoint)).status,405);
+     enabled=false;
+     assert.equal((await a.call({...request,preview:true})).enabled,false);
+     await rejected(a.call(request),'functions/failed-precondition');
+     enabled=true;
+   }
    await rejected(b.call({...request,preview:true}),'functions/permission-denied');
    await rejected(b.call(request),'functions/permission-denied');
    await rejected(outsider.call(request),'functions/permission-denied');
@@ -108,7 +145,9 @@ test('SET-12 callable: two authenticated accounts, forward/return migration, own
    await deleteDoc(doc(a.db,f+'/transactions/unknown'));
    assert.deepEqual(await a.call({...request,preview:true}),{policy:'family',enabled:true,issues:[]});
  }finally{
-   await Promise.all(apps.map(deleteApp));
+   await Promise.all(apps.splice(0).map(deleteApp));
+   if(server)await new Promise(resolve=>server.close(resolve));
+   if(admin)await deleteAdmin(admin);
    await env.cleanup();
  }
 });

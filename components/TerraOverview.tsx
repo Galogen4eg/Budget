@@ -20,7 +20,7 @@ import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
 import TerraMobileHeader from './TerraMobileHeader';
-import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
+import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, CHART_TOOLTIP, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
@@ -792,7 +792,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden" aria-hidden="true">
                 <div 
-                  className="h-full rounded-full bg-[#4A7C59] transition-all duration-500"
+                  className="h-full rounded-full bg-[#4A7C59] terra-progress"
                   style={{ width: `${totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
                 />
               </div>
@@ -800,7 +800,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 2. Динамика расходов Card */}
-          <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 shadow-sm space-y-4">
+          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className={SECTION_HEADING}>
@@ -836,7 +836,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Metrics Legend */}
-            <div className="flex items-center gap-4 text-xs font-medium text-graphite dark:text-gray-300">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-graphite dark:text-gray-300 tabular-nums">
               <span className="inline-flex items-center gap-1">
                 <span className="text-graphite-muted dark:text-gray-400">Средний:</span>
                 <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg ?? 0)} ₽</span>
@@ -848,16 +848,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Area Chart with Tooltip on Peak */}
-            <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[156px] w-full relative min-w-0 overflow-hidden rounded-lg">
+            <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[184px] w-full relative min-w-0 overflow-hidden rounded-lg">
               {hasChartExpenses ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
                     <linearGradient id="mobileWaveGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.34} />
-                      <stop offset="95%" stopColor="#4A7C59" stopOpacity={0.02} />
+                      <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.20} />
+                      <stop offset="95%" stopColor="#4A7C59" stopOpacity={0.01} />
                     </linearGradient>
                   </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150, 150, 150, 0.15)" />
                   <XAxis 
                     dataKey="label" 
                     axisLine={false} 
@@ -865,6 +866,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     minTickGap={16}
                     tick={{ fontSize: 10, fill: '#8E8E93' }} 
                   />
+                  {dynamicsData.limit > 0 && <ReferenceLine y={dynamicsData.limit} stroke="#C48C3B" strokeDasharray="4 4" />}
                   <Tooltip 
                     cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
                     wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
@@ -875,9 +877,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         const dataPoint = payload[0].payload;
                         const fullDate = dataPoint?.fullLabel || dataPoint?.fullDate || (dataPoint?.label ? `${dataPoint.label} ${activeMonth.toLocaleString('ru-RU', { month: 'long' })}` : '');
                         return (
-                          <div className="bg-[#1C1C1E] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="text-gray-300">{fullDate}:</span>
-                            <span className="text-[#4ADE80] font-headline">{settings.privacyMode ? '•••' : formatBudgetMoney(typeof val === 'number' ? val : Number(val) || 0)} {settings.privacyMode ? '' : '₽'}</span>
+                          <div className={`${CHART_TOOLTIP} flex flex-wrap items-center gap-1.5`}>
+                            <span className="text-graphite-muted dark:text-gray-300">{fullDate}:</span>
+                            <span className="text-primary dark:text-green-400 font-semibold tabular-nums">{settings.privacyMode ? '•••' : formatBudgetMoney(typeof val === 'number' ? val : Number(val) || 0)} {settings.privacyMode ? '' : '₽'}</span>
                           </div>
                         );
                       }
@@ -887,6 +889,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <Area 
                     type="monotone" 
                     dataKey="amount" 
+                    isAnimationActive={false}
                     stroke="#4A7C59" 
                     strokeWidth={2.6} 
                     fill="url(#mobileWaveGradient)" 
@@ -903,9 +906,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Footer Insight */}
-            <div className="bg-[#EAE6DD]/60 dark:bg-white/5 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-graphite dark:text-gray-300">
+            <div className="border-t border-[#EAE5DB] dark:border-white/10 pt-3 flex flex-wrap items-center gap-2.5 text-xs text-graphite dark:text-gray-300">
               <ShieldCheck size={16} className="text-[#4A7C59] shrink-0" />
-              <span>{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан — сравнение с лимитом недоступно."}</span>
+              <span className="flex-1 min-w-[120px]">{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан — сравнение с лимитом недоступно."}</span>
+              <button type="button" onClick={()=>onNavigateTab('budget')} className="min-h-[44px] text-primary dark:text-green-400 font-semibold focus-visible:ring-2 focus-visible:ring-primary rounded-lg">К бюджету <ChevronRight size={14} className="inline"/></button>
             </div>
           </section>
 
@@ -924,7 +928,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <button
                   type="button"
                   onClick={() => onDrillDown('all')}
-                  className="flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 hover:opacity-80 transition cursor-pointer px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5"
+                  className="min-h-[44px] flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5"
                   title="Открыть аналитику всех категорий"
                 >
                   <span>Все категории</span>
@@ -937,7 +941,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     setIsCatModalOpen(true);
                   }}
                   title="Создать новую категорию или настроить"
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white dark:hover:bg-green-600 transition cursor-pointer"
+                  aria-label="Управление категориями" className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
                 >
                   <Plus size={14} />
                 </button>
@@ -974,7 +978,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </div>
                   <div className="h-1.5 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
                     <div 
-                      className="h-full rounded-full transition-all duration-300"
+                      className="h-full rounded-full terra-progress"
                       style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
                     />
                   </div>
@@ -1228,7 +1232,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
           {/* Card 1: ОБЩИЙ БАЛАНС */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
+          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-colors relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
                 <span>{householdPersonal?'ЛИЧНЫЙ БАЛАНС':'СЕМЕЙНЫЙ БАЛАНС'}</span>
@@ -1290,7 +1294,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className={`h-full rounded-full transition-all ${isOverDailyLimit ? 'bg-[#EA580C]' : 'bg-primary'}`}
+                  className={`h-full rounded-full terra-progress ${isOverDailyLimit ? 'bg-[#EA580C]' : 'bg-primary'}`}
                   style={{ width: `${Math.min(100, dailyUsagePercent)}%` }}
                 ></div>
               </div>
@@ -1298,7 +1302,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* Card 3: ТРАТЫ СЕГОДНЯ */}
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#EDDCD4] dark:hover:border-white/15 transition-all">
+          <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#EDDCD4] dark:hover:border-white/15 transition-all">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <ArrowDownRight size={14} className="text-clay" />
@@ -1322,7 +1326,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className="bg-clay h-full rounded-full transition-all" 
+                  className="bg-clay h-full rounded-full terra-progress" 
                   style={{ width: `${Math.min(100, dailyUsagePercent)}%` }}
                 ></div>
               </div>
@@ -1333,7 +1337,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <button type="button"
             onClick={() => setIsReserveModalOpen(true)}
             aria-label={householdPersonal?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
-            className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
+            className="w-full text-left bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-5 border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-colors cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
@@ -1356,7 +1360,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className="bg-warm-amber h-full rounded-full transition-all" 
+                  className="bg-warm-amber h-full rounded-full terra-progress" 
                   style={{ width: `${reservePercent}%` }}
                 ></div>
               </div>
@@ -1365,11 +1369,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5">
           {/* LEFT COLUMN: 8 columns */}
-          <div className="xl:col-span-8 flex flex-col gap-6">
+          <div className="xl:col-span-8 min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Блок «Динамика расходов» */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD}>
               {/* Header */}
               <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                 <div className="flex items-center gap-3">
@@ -1377,7 +1381,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <TrendingUp size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold font-headline text-graphite dark:text-white tracking-wide uppercase">ДИНАМИКА РАСХОДОВ</h3>
+                    <h3 className={SECTION_HEADING}>Динамика расходов</h3>
                     <span className="text-xs text-graphite-muted dark:text-gray-400">{dynamicsData.subtitle}</span>
                   </div>
                 </div>
@@ -1385,7 +1389,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {/* Controls: AVG / MAX & Day-Week-Month Filter */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 text-xs font-semibold text-graphite dark:text-gray-200">
-                    <span className="text-[10px] text-graphite-muted dark:text-gray-400 uppercase font-mono">AVG</span>
+                    <span className="text-[10px] text-graphite-muted dark:text-gray-400 uppercase font-mono">Средний</span>
                     <span className="font-mono">{formatAmount(dynamicsData.avg)} ₽</span>
                   </span>
 
@@ -1395,24 +1399,24 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       : 'bg-[#FCF6EE] dark:bg-[#36271A] border-[#ECDCC4] dark:border-transparent text-[#8C5D23] dark:text-amber-400'
                   }`}>
                     <span className="text-[10px] uppercase font-mono font-bold">
-                      {chartScale === 'day' && isOverDailyLimit ? 'MAX СЕГОДНЯ' : 'MAX'}
+                      {chartScale === 'day' && isOverDailyLimit ? 'Пик сегодня' : 'Пик'}
                     </span>
                     <span className="font-mono font-bold">
                       {formatAmount(dynamicsData.max)} ₽
                     </span>
                   </span>
 
-                  <div role="group" aria-label="Период динамики расходов на ПК" className="flex max-w-full overflow-x-auto rounded-xl bg-surface-subtle dark:bg-[#2C2C2E] p-0.5 border border-surface-border dark:border-white/5 ml-1">
+                  <div role="group" aria-label="Период динамики расходов на ПК" className={`${FILTER_RAIL} sm:w-auto` }>
                     {(['day', 'week', 'month'] as const).map(scale => (
                       <button
                         key={scale}
                         type="button"
                         onClick={() => setChartScale(scale)}
                         aria-pressed={chartScale === scale}
-                        className={`min-h-[44px] shrink-0 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
+                        className={`min-h-[44px] shrink-0 ${FILTER_CHIP} cursor-pointer ${
                           chartScale === scale
-                            ? 'font-semibold text-graphite dark:text-white bg-white dark:bg-[#1C1C1E] shadow-xs'
-                            : 'font-medium text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
+                            ? FILTER_CHIP_ACTIVE
+                            : FILTER_CHIP_IDLE
                         }`}
                       >
                         {scale === 'day' ? 'День' : scale === 'week' ? 'Неделя' : 'Месяц'}
@@ -1423,8 +1427,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               {/* Chart Area */}
-              <div className="relative py-6 min-h-[300px] flex flex-col justify-end overflow-hidden">
-                <div className="w-full h-[220px]">
+              <div className="relative py-3 flex flex-col justify-end overflow-hidden min-w-0">
+                <div className="w-full h-[240px] lg:h-[264px] min-w-0">
                   {hasChartExpenses ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart 
@@ -1443,7 +1447,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     >
                       <defs>
                         <linearGradient id="terraGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stopOpacity={0.25} />
+                          <stop offset="0%" stopColor={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stopOpacity={0.20} />
                           <stop offset="100%" stopColor="#4A7C59" stopOpacity={0.01} />
                         </linearGradient>
                       </defs>
@@ -1485,7 +1489,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             const val = payload[0].value;
                             const hasOverlimit = dynamicsData.limit > 0 && data.amount > dynamicsData.limit;
                             return (
-                              <div className="bg-[#1C1C1E] dark:bg-[#1C1C1E] text-white border border-white/15 px-3.5 py-2.5 rounded-xl shadow-2xl flex flex-col gap-1.5 pointer-events-none z-50">
+                              <div className={`${CHART_TOOLTIP} flex flex-col gap-1.5 z-50`}>
                                 <div className="flex items-center gap-2">
                                   <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0"></span>
                                   <span className="text-xs font-mono font-bold">
@@ -1493,12 +1497,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                                   </span>
                                 </div>
                                 {dynamicsData.limit > 0 && (
-                                  <div className="text-[11px] text-gray-300 flex items-center justify-between gap-4 border-t border-white/10 pt-1">
+                                  <div className="text-xs text-graphite-muted dark:text-gray-300 flex flex-wrap items-center justify-between gap-2 border-t border-[#EAE5DB] dark:border-white/10 pt-1">
                                     <span>План лимита: {formatAmount(dynamicsData.limit)} ₽</span>
                                     {hasOverlimit ? (
-                                      <span className="text-[#F87171] font-bold">+{formatAmount(data.amount - dynamicsData.limit)} ₽</span>
+                                      <span className="text-red-700 dark:text-red-400 font-bold">+{formatAmount(data.amount - dynamicsData.limit)} ₽</span>
                                     ) : (
-                                      <span className="text-[#4ADE80] font-semibold">В норме</span>
+                                      <span className="text-primary dark:text-green-400 font-semibold">В норме</span>
                                     )}
                                   </div>
                                 )}
@@ -1511,6 +1515,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       <Area 
                         type="monotone" 
                         dataKey="amount" 
+                    isAnimationActive={false}
                         stroke={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} 
                         strokeWidth={2.8} 
                         fill="url(#terraGradient)" 
@@ -1546,7 +1551,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Сетка «Категории расходов» (4 карточки, растянута до нижней границы) */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm flex-1 flex flex-col justify-between">
+            <div className={`${DASHBOARD_CARD} flex-1 flex flex-col justify-between`}>
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-[#FAF1E3] dark:bg-[#3D2C1E] text-warm-amber">
@@ -1608,7 +1613,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </p>
                     <div className="w-full bg-[#EAE5DC] dark:bg-black/40 h-1.5 rounded-full mt-2.5 overflow-hidden">
                       <div 
-                        className="h-full rounded-full transition-all duration-300" 
+                        className="h-full rounded-full terra-progress" 
                         style={{ width: `${cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
                       />
                     </div>
@@ -1619,9 +1624,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN: 4 columns */}
-          <div className="xl:col-span-4 flex flex-col gap-6">
+          <div className="xl:col-span-4 min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Виджет «Список покупок» */}
-            {showShopping && <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+            {showShopping && <div className={DASHBOARD_CARD}>
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-primary-light dark:bg-primary/20 text-primary">
@@ -1710,7 +1715,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
             {showWeekEvents && upcomingWeekEvents.length > 0 && (
-              <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+              <div className={DASHBOARD_CARD}>
                 <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-primary-light dark:bg-primary/20 text-primary">
@@ -1797,7 +1802,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             )}
 
             {/* Виджет «История операций» (компактный список без пустых разрывов) */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm flex flex-col justify-start">
+            <div className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-[#FAF1E3] dark:bg-[#3D2C1E] text-warm-amber">

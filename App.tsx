@@ -912,14 +912,14 @@ export default function App() {
                     aria-label={tab.label}
                     className={`w-full flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
-                        ? 'bg-primary text-white font-bold shadow-[0_2px_10px_rgba(74,124,89,0.3)]' 
+                        ? 'bg-primary text-white font-semibold' 
                         : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] font-medium'
                     }`}
                   >
                     <span className="shrink-0 relative">
                       {React.createElement(tab.icon, { 
                         size: 21, 
-                        className: isActive ? 'text-white' : 'group-hover:text-primary transition group-hover:scale-105' 
+                        className: isActive ? 'text-white' : 'group-hover:text-primary transition-colors' 
                       })}
                       {!isSidebarExpanded && tab.id === 'shopping' && activeShoppingCount > 0 && (
                         <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-[#FAF8F5] dark:ring-[#1C1C1E]" />
@@ -1117,7 +1117,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
-      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
          {visibleTabs.map(tab => {
              const isActive = activeTab === tab.id;
              return (
@@ -1133,8 +1133,8 @@ export default function App() {
                     }
                     setActiveTab(tab.id);
                   }} 
-                  className={`relative flex flex-col items-center justify-center flex-1 min-w-0 min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all ${
-                    isActive ? 'text-[#4A7C59] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
+                  className={`relative flex flex-col items-center justify-center flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors terra-press ${
+                    isActive ? 'bg-[#E6EDE5] dark:bg-[#20362A] text-[#326243] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
                   }`}
                 >
                     <span className="relative z-10 flex items-center justify-center">

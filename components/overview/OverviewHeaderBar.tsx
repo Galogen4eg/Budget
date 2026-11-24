@@ -3,6 +3,7 @@ import {
   Users, User, Eye, EyeOff, Sparkles, Plus, ChevronDown, Calendar 
 } from 'lucide-react';
 import { AppSettings, FamilyMember } from '../../types';
+import { TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY } from '../filterUiTokens';
 
 interface OverviewHeaderBarProps {
   budgetMode: 'family' | 'personal';
@@ -49,7 +50,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           type="button"
           onClick={() => setBudgetMode('family')}
           aria-pressed={budgetMode === 'family'}
-          className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-[44px] flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary cursor-pointer ${
             budgetMode === 'family'
               ? 'bg-[#4A7C59] text-white shadow-xs'
               : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
@@ -62,7 +63,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           type="button"
           onClick={() => setBudgetMode('personal')}
           aria-pressed={budgetMode === 'personal'}
-          className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-[44px] flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary cursor-pointer ${
             budgetMode === 'personal'
               ? 'bg-[#4A7C59] text-white shadow-xs'
               : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
@@ -98,7 +99,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                 className="fixed inset-0 z-20" 
                 onClick={() => setIsMonthPickerOpen(false)} 
               />
-              <div className="absolute right-0 top-full mt-2 w-48 bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-xl z-30 py-1.5 overflow-hidden font-sans">
+              <div className="absolute right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
                 {monthOptions.map(m => {
                   const isSelected = 
                     m.date.getMonth() === activeMonth.getMonth() && 
@@ -129,7 +130,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={() => updateSettings({ privacyMode: !settings.privacyMode })}
-          className="p-3 rounded-2xl bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
+          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
           title={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
           aria-label={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
           aria-pressed={settings.privacyMode}
@@ -141,7 +142,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={onOpenAIChat}
-          className="p-2.5 rounded-2xl bg-[#EAE6DD] dark:bg-[#2C2C2E] text-graphite dark:text-white hover:bg-[#DFD9CB] dark:hover:bg-[#3A3A3C] transition cursor-pointer"
+          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
           title="Спросить ИИ-помощника"
           aria-label="Спросить ИИ-помощника"
         >
@@ -152,7 +153,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={onOpenAddModal}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-2xl min-h-[44px] bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold shadow-sm active:scale-95 transition cursor-pointer"
+          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_PRIMARY} cursor-pointer terra-press`}
         >
           <Plus size={16} />
           <span>Запись</span>

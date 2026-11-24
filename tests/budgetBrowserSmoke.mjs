@@ -517,6 +517,32 @@ try{
     await nav.getByRole('button',{name:'Обзор',exact:true}).click();
     await page.getByRole('heading',{name:/^Список покупок$/i}).filter({visible:true}).first().waitFor({state:'visible'});
     assert.deepEqual(errors,[],label+': settings runtime errors');
+    // Verify actual dashboard surface and interaction geometry at every width.
+    const chart=page.getByTestId(width<768?'overview-chart-mobile':'overview-chart-desktop');
+    await chart.waitFor({state:'visible'});
+    const periods=chart.getByRole('group',{name:/Период динамики расходов/});
+    const baseHeight=await chart.boundingBox();
+    for(const name of ['Неделя','Месяц','День']){
+      const tab=periods.getByRole('button',{name,exact:true});
+      await tab.click();
+      assert.equal(await tab.getAttribute('aria-pressed'),'true',label+': chart period');
+      const size=await tab.boundingBox();
+      assert.ok(size&&size.height>=44&&size.width>=44,label+': chart control too small');
+    }
+    const endHeight=await chart.boundingBox();
+    assert.ok(baseHeight&&endHeight&&Math.abs(baseHeight.height-endHeight.height)<=2,label+': chart layout jumps after cycling periods');
+    const style=await chart.evaluate(el=>{const s=getComputedStyle(el);return {radius:s.borderTopLeftRadius,bg:s.backgroundColor,overflow:el.scrollWidth-el.clientWidth};});
+    assert.equal(style.radius,'16px',label+': chart surface radius');
+    assert.equal(style.bg,'rgb(250, 248, 245)',label+': chart surface color');
+    assert.ok(style.overflow<=2,label+': chart horizontal overflow');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const reduced=await page.evaluate(()=>{
+      const el=document.createElement('div');el.className='terra-progress';document.body.appendChild(el);
+      const duration=getComputedStyle(el).transitionDuration;el.remove();return duration;
+    });
+    assert.equal(reduced,'0s',label+': reduced-motion width transition');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    console.log('PASS',label,'dashboard chart surface, controls and reduced motion');
     console.log('PASS',label,'settings themes, navigation, widgets, diagnostics and PWA help');
     if(width===390){
       await page.evaluate(()=>localStorage.setItem('theme','dark'));

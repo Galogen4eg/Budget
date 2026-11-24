@@ -1,6 +1,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MotionConfig } from 'framer-motion';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
@@ -91,7 +92,7 @@ root.render(
     <ErrorBoundary>
       <AuthProvider>
         <DataProvider>
-          <App />
+          <MotionConfig reducedMotion="user"><App /></MotionConfig>
         </DataProvider>
       </AuthProvider>
     </ErrorBoundary>

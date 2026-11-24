@@ -52,3 +52,7 @@ Based on Emil Kowalski's interaction guidance: no animation for high-frequency c
 5. Never mark a draft as deployable until checks run and any cross-PR dependencies are resolved.
 
 References for design approach: Anthropic `frontend-design` and `theme-factory`, pbakaus `impeccable`, Leonxlnx `taste-skill`, emilkowalski `emil-design-eng`. These were consulted as external guidance, not installed as executable Budget skills.
+
+## Dashboard consistency release
+
+Overview cards and charts use DASHBOARD_CARD / CHART_TOOLTIP; chart period filters use FILTER_RAIL / FILTER_CHIP. Both chart plots use a fixed-height viewport per breakpoint and no replayed Area animation. Toolbar actions use 44px targets. Mobile navigation keeps minimum 44px width, stable selected background and no decorative blur or hover scaling. Global Framer Motion respects the user's system preference. Scoped CSS motion is loaded through public/terra-ui.css, not the unused legacy index.css; do not enable the legacy fixed body styles as part of visual changes. Browser regression exercises period switching, surface tokens and reduced motion at existing viewport matrix. Finance formulas, access and Firestore are unchanged.

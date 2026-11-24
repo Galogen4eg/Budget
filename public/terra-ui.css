@@ -1,0 +1,10 @@
+/* Shared, restrained Terra motion. Never animate numeric values or chart geometry. */
+.terra-press { transition: background-color 140ms ease-out, color 140ms ease-out, transform 120ms ease-out; }
+.terra-press:active { transform: scale(.98); }
+.terra-progress { transition: width 200ms ease-out; }
+.terra-menu { animation: terra-menu-in 150ms ease-out both; }
+@keyframes terra-menu-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .terra-press, .terra-progress, .terra-menu { transition: none !important; animation: none !important; }
+  .terra-press:active { transform: none; }
+}

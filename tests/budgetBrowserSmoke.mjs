@@ -31,10 +31,45 @@ try{
     const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
-    const response=await page.goto(baseURL,{waitUntil:'domcontentloaded',timeout:45000});
-    assert.equal(response?.status(),200,label+': page did not return 200');
+    if(label==='phone-390'){
+      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce'});
+      try{
+        await dark.addInitScript(()=>localStorage.setItem('theme','dark'));
+        // Pause only the app bundle: the inline theme bootstrap must already be dark.
+        await dark.route('**/assets/*.js',route=>route.abort());
+        await dark.goto(baseURL,{waitUntil:'domcontentloaded',timeout:45000});
+        const splash=dark.locator('[data-terra-boot]');
+        await splash.waitFor({state:'visible',timeout:15000});
+        assert.equal(await dark.evaluate(()=>document.documentElement.classList.contains('dark')),true,'dark startup must respect stored theme');
+        assert.equal(await splash.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(24, 28, 25)');
+        await dark.waitForFunction(()=>document.querySelector('[data-terra-boot] img')?.naturalWidth>0);
+        assert.notEqual(await splash.locator('img').evaluate(el=>getComputedStyle(el).filter),'none');
+        await dark.screenshot({path:'artifacts/budget-browser/phone-390-startup-dark.png',animations:'disabled'});
+      }finally{await dark.close();}
+    }
+    // Hold the app bundle so we can see the actual pre-React loading screen.
+    let releaseBoot;
+    const bootGate=new Promise(resolve=>{releaseBoot=resolve;});
+    await page.route('**/assets/*.js',async route=>{await bootGate;await route.continue();});
+    try{
+      const response=await page.goto(baseURL,{waitUntil:'commit',timeout:45000});
+      assert.equal(response?.status(),200,label+': page did not return 200');
+      const boot=page.locator('[data-terra-boot]');
+      await boot.waitFor({state:'visible',timeout:30000});
+      const expected=width<768||height>width?'terra-mobile.webp':'terra-desktop.webp';
+      await page.waitForFunction(expected=>{
+        const img=document.querySelector('[data-terra-boot] img');
+        return img?.complete&&img.naturalWidth>0&&img.currentSrc.endsWith(expected);
+      },expected,{timeout:15000});
+      const geometry=await boot.evaluate(el=>({width:el.clientWidth,height:el.clientHeight,scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight}));
+      assert.ok(geometry.width<=width+2&&geometry.scrollWidth<=width+2&&geometry.scrollHeight<=height+2,label+': loading screen overflows '+JSON.stringify(geometry));
+      await page.screenshot({path:'artifacts/budget-browser/'+label+'-startup.png',animations:'disabled',timeout:15000});
+      console.log('PASS',label,'responsive startup artwork',expected);
+    }finally{releaseBoot();}
+
     await page.getByRole('button',{name:/Войти/i}).waitFor({state:'visible',timeout:30000});
     assert.equal(await page.locator('input[type="password"]').count()>0,true,label+': password field missing');
+    assert.equal(await page.locator('.terra-splash').count(),0,label+': splash stays after login is ready');
     await page.waitForTimeout(450);
     const widthInfo=await page.evaluate(()=>({
       viewport:window.innerWidth,

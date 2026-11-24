@@ -1,7 +1,8 @@
 
+import TerraSplash from './components/TerraSplash';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
+import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
   Transaction, SavingsGoal, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
@@ -879,24 +880,7 @@ export default function App() {
     return (shoppingItems || []).filter(i => !i.completed).length;
   }, [shoppingItems]);
 
-  if (isAuthLoading) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center bg-[#EBEFF5] dark:bg-black gap-4 px-4 text-center select-none">
-        <Loader2 className="animate-spin text-[#4A7C59] dark:text-emerald-500" size={36}/>
-        {showSlowLoadFallback && (
-          <div className="flex flex-col items-center gap-2 max-w-xs animate-in fade-in duration-300">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация аккаунта занимает чуть дольше обычного...</p>
-            <button 
-              onClick={() => enterDemoMode()} 
-              className="mt-2 px-4 py-2 bg-[#4A7C59] hover:bg-[#3B6547] text-white text-xs font-semibold rounded-xl shadow-sm transition-all active:scale-95"
-            >
-              Открыть в автономном режиме
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  if (isAuthLoading) return <TerraSplash slow={showSlowLoadFallback} onDemo={enterDemoMode} />;
   if (!user) return <LoginScreen />;
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => setPinMode(null)} onForgot={() => logout()} /></Suspense>;
 

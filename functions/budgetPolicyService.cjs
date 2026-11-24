@@ -1,5 +1,5 @@
 'use strict';
-const {prepareTransition}=require('./budgetMigration.cjs');
+const {prepareTransition,findUnownedFinancialRecords}=require('./budgetMigration.cjs');
 class PolicyError extends Error { constructor(code,message){super(message);this.code=code;} }
 async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false}){
  if(!uid)throw new PolicyError('unauthenticated','Войдите в Budget');
@@ -30,10 +30,13 @@ async function changeHouseholdBudgetPolicy({db,FieldValue,uid,data,enabled=false
      refs[memberUid]=ref;configs[memberUid]=(await tx.get(ref)).data()??{};
    }
    let result;
-   try{
-     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)});
-   }catch(error){
-     if(preview)return {policy:current,enabled,issues:[error.message]};
+   const input={family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)};
+   try{result=prepareTransition(input);}
+   catch(error){
+     if(preview){
+       const ownershipIssues=current==='family'&&target==='personal'?findUnownedFinancialRecords(input):[];
+       return {policy:current,enabled,issues:[ownershipIssues.length?'Записи без подтверждённого владельца: '+ownershipIssues.length+'. Назначьте владельцев ниже.':error.message],...(ownershipIssues.length?{ownershipIssues}:{})};
+     }
      throw new PolicyError('failed-precondition','Миграция заблокирована: '+error.message);
    }
    if(preview)return {policy:current,enabled,issues:[]};

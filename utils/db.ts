@@ -266,7 +266,7 @@ export const createFamilyMemberWithInvitation = async (
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
-  if (!user.email) return null;
+  if (!user.email||!user.emailVerified) return null;
   const email = user.email.trim().toLowerCase();
   const invitation = await getDoc(doc(db, 'invitations', email));
   if (!invitation.exists()) return null;
@@ -320,6 +320,8 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
 
   const cleanFamilyId = targetFamilyId.trim();
+  await user.reload();
+  await user.getIdToken(true);
   const familyRef = doc(db, 'families', cleanFamilyId);
   const userRef = doc(db, 'users', user.uid);
 
@@ -328,7 +330,7 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
 
   const cleanEmail = user.email?.toLowerCase().trim();
-  const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
+  const inviteRef = cleanEmail&&user.emailVerified ? doc(db, 'invitations', cleanEmail) : null;
   const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
   const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
     ? inviteSnap.data() : null;
@@ -338,6 +340,7 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const isExistingMember = Array.isArray(familySnap.data().members) &&
     familySnap.data().members.includes(user.uid);
   if (!invitation && !isExistingMember) {
+    if(!user.emailVerified)throw new Error('Подтвердите email перед присоединением к семье');
     throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
   }
 
@@ -875,7 +878,8 @@ export function subscribeToHouseholdBudgetPolicy(
   onValue:(value:{ownerUid:string;policy:'family'|'personal'})=>void,
   onError:(error:Error)=>void
 ):()=>void {
-  return onSnapshot(doc(db,'families',familyId),snapshot=>{
+  return onSnapshot(doc(db,'families',familyId),{includeMetadataChanges:true},snapshot=>{
+    if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
     const data=snapshot.data();
     if(!data||typeof data.ownerId!=='string'||!data.ownerId){
       onError(new Error('Владелец семьи не определён'));
@@ -1005,4 +1009,22 @@ export async function commitPersonalMandatoryPaymentBundle(
     tx.set(configRef,cleanForFirestore({personalMandatoryExpenses:changes.mandatoryExpenses,personalManualPaidExpenses:mergedPaid}),{merge:true});
     for(let i=0;i<debtChanges.length;i++)tx.update(debtRefs[i],cleanForFirestore(debtChanges[i].changes));
   });
+}
+
+
+export function subscribeToPersonalCollection(familyId:string,uid:string,kind:'rules'|'knowledge',callback:(data:any[])=>void){
+ if(!familyId||auth.currentUser?.uid!==uid){callback([]);return ()=>{};}
+ return onSnapshot(collection(db,'families',familyId,'members',uid,kind),snap=>callback(snap.docs.map(d=>({...d.data(),id:d.id}))),()=>callback([]));
+}
+export async function savePersonalItems(familyId:string,uid:string,kind:'rules'|'knowledge',items:ReadonlyArray<{id:string}>){
+ if(!familyId||auth.currentUser?.uid!==uid)throw new Error('Личный профиль недоступен');
+ for(let i=0;i<items.length;i+=450){
+   const batch=writeBatch(db);
+   for(const item of items.slice(i,i+450))batch.set(doc(db,'families',familyId,'members',uid,kind,item.id),cleanForFirestore(item));
+   await batch.commit();
+ }
+}
+export async function deletePersonalItem(familyId:string,uid:string,kind:'rules'|'knowledge',id:string){
+ if(!familyId||auth.currentUser?.uid!==uid)throw new Error('Личный профиль недоступен');
+ await deleteDoc(doc(db,'families',familyId,'members',uid,kind,id));
 }

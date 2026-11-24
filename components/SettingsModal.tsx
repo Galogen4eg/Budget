@@ -192,7 +192,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
   const [readinessBusy,setReadinessBusy]=useState(false);
-  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
   const [readinessError,setReadinessError]=useState<string|null>(null);
   const [policyBusy,setPolicyBusy]=useState(false);
   const checkReadiness=async()=>{
@@ -201,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setReadinessBusy(true);setReadiness(null);setReadinessError(null);
     try{
       const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
-      setReadiness({familyId:currentFamilyId,issues:result.issues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
+      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
     }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
     finally{setReadinessBusy(false);}
   };
@@ -963,6 +963,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div role="status" aria-live="polite" className="space-y-2 text-sm">
                     {readinessError && <p className="text-red-600 dark:text-red-400 break-words">{readinessError}</p>}
                     {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>{readiness.enabled?'Данные готовы к переходу.':'Данные проверены. Серверная активация пока выключена.'}</p>)}
+                    {readiness?.familyId===currentFamilyId&&readiness.warnings?.map((warning,index)=><p key={index} className="text-xs text-gray-600 dark:text-gray-300 break-words">{warning}</p>)}
                   </div>
                   <button type="button" disabled={policyBusy||readinessBusy||!readiness?.enabled||!!readiness.issues.length||readiness.familyId!==currentFamilyId||readiness.target===currentHouseholdPolicy?.policy} onClick={()=>void changePolicy()} className="w-full sm:w-auto min-h-[44px] rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{policyBusy?'Перенос данных…':currentHouseholdPolicy?.policy==='personal'?'Вернуть совместный бюджет':'Включить личные бюджеты'}</button>
                   <p className="text-xs text-gray-500 dark:text-gray-400">При личном режиме входящие команды Telegram временно отключены: у очереди нет подтверждённого владельца. Проверка не меняет данные. Перед сохранением сервер повторно проверяет владельцев и историю платежей.</p>

@@ -92,12 +92,12 @@ test('malformed payment history remains blocked rather than silently discarded',
  }
 });
 
-test('historical transaction links are archived without moving money or changing classification',()=>{
+test('historical transaction links remain intact without moving money or changing classification',()=>{
  const f=fixture(), t={id:'t',memberId:'a',amount:10,linkedExpenseId:'deleted'};
  const input={...f,links:{transactions:[t],goals:[],debts:[]}};
  const result=prepareTransition(input);
- assert.deepEqual(result.archive.__set12HistoricalLinks,[{id:'t',field:'linkedExpenseId',value:'deleted'}]);
- assert.deepEqual(result.historicalLinkRepairs,[{id:'t',field:'linkedExpenseId',value:'deleted'}]);
+ assert.equal(result.historicalLinkCount,1);
+ assert.equal(result.policy,'personal');
  assert.equal(t.linkedExpenseId,'deleted');
  assert.equal(t.amount,10);
 });

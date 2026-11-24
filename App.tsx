@@ -12,7 +12,7 @@ import { Toaster, toast } from 'sonner';
 import SmartHeader from './components/SmartHeader';
 import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
 import RecentTransactionsWidget from './components/RecentTransactionsWidget';
-import ShoppingList from './components/ShoppingList';
+
 import ShoppingWidget from './components/ShoppingWidget';
 import WalletWidget from './components/WalletWidget';
 import FamilyPlans from './components/FamilyPlans';
@@ -23,9 +23,9 @@ import CategoryProgress from './components/CategoryProgress';
 import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import GoalsSection from './components/GoalsSection';
 import LoginScreen from './components/LoginScreen';
-import ServicesHub from './components/ServicesHub';
+
 import TerraOverview from './components/TerraOverview';
-import TerraBudget from './components/TerraBudget';
+
 import AddTransactionModal from './components/AddTransactionModal';
 import EventModal from './components/EventModal';
 import DrillDownModal from './components/DrillDownModal';
@@ -35,10 +35,15 @@ import DuplicatesModal from './components/DuplicatesModal';
 import AIChatModal from './components/AIChatModal';
 import GoalModal from './components/GoalModal';
 import MandatoryExpenseModal from './components/MandatoryExpenseModal';
-import FamilyChat from './components/FamilyChat';
+
 import { MemberMarker } from './constants';
 import { sendTelegramMessage as dispatchTelegramMessage } from './utils/telegram';
 import { enqueueTelegramMessage, initTelegramQueueSync } from './utils/telegramQueue';
+
+const TerraBudget = React.lazy(() => import('./components/TerraBudget'));
+const ShoppingList = React.lazy(() => import('./components/ShoppingList'));
+const FamilyChat = React.lazy(() => import('./components/FamilyChat'));
+const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
 
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
 const PinScreen = React.lazy(() => import('./components/PinScreen'));
@@ -63,14 +68,11 @@ import {
 import { useAuth } from './contexts/AuthContext';
 import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
-const TAB_CONFIG = [
-  { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
-  { id: 'budget', label: 'Бюджет', icon: Wallet },
-  { id: 'plans', label: 'Планы', icon: Calendar },
-  { id: 'shopping', label: 'Покупки', icon: ShoppingBag },
-  { id: 'chat', label: 'Чат', icon: MessageSquare },
-  { id: 'services', label: 'Сервисы', icon: AppWindow },
-];
+import { MENU_TABS, visibleMenuTabs } from './utils/menuNavigation';
+
+const TAB_ICONS = {overview:LayoutDashboard,budget:Wallet,plans:Calendar,shopping:ShoppingBag,chat:MessageSquare,services:AppWindow};
+const TAB_CONFIG=MENU_TABS.map(tab=>({...tab,icon:TAB_ICONS[tab.id]}));
+const TAB_GROUPS=[{id:'finance',label:'Финансы'},{id:'family',label:'Семья'},{id:'tools',label:'Инструменты'}] as const;
 
 const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     { id: 'balance', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 2, rowSpan: 1 } },
@@ -81,6 +83,12 @@ const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
 ];
+
+import { rememberTabVisit, shouldMountTab } from './utils/tabLifecycle';
+
+const TabLoading=()=>(
+  <div role="status" className="flex flex-1 min-h-0 items-center justify-center text-sm text-graphite-muted" aria-live="polite">Загрузка раздела…</div>
+);
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -135,6 +143,12 @@ export default function App() {
   }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const tabScope=JSON.stringify([user?.uid??null,familyId??null]);
+  const [tabVisits,setTabVisits]=useState<import('./utils/tabLifecycle').TabVisits>(()=>({scope:tabScope,tabs:['overview']}));
+  useEffect(()=>{
+    if(!isAuthLoading&&user)setTabVisits(previous=>rememberTabVisit(previous,tabScope,activeTab));
+  },[tabScope,activeTab,isAuthLoading,user?.uid]);
+  const mountTab=(tab:string)=>shouldMountTab(tabVisits,tabScope,activeTab,tab);
   const [installPrompt,setInstallPrompt]=useState<(Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>})|null>(null);
   useEffect(()=>{
     const capture=(event:Event)=>{
@@ -158,7 +172,8 @@ export default function App() {
   const startupTheme=savedBootTheme==='dark'||savedBootTheme==='light'||savedBootTheme==='system'?savedBootTheme:'system';
   const themePreference=isAuthLoading||!user||(familyId&&!settingsReady)?startupTheme:settings.theme;
   const resolvedTheme=themePreference==='system'?(systemDark?'dark':'light'):themePreference;
-  const visibleTabs=TAB_CONFIG.filter(tab=>tab.id==='overview'||(settings.enabledTabs??TAB_CONFIG.map(t=>t.id)).includes(tab.id));
+  const visibleTabIds=visibleMenuTabs(settings.enabledTabs);
+  const visibleTabs=TAB_CONFIG.filter(tab=>visibleTabIds.some(id=>id===tab.id));
   const initialTabApplied=useRef<string|null>(null);
   useEffect(()=>{
     if(isAuthLoading)return;
@@ -168,10 +183,10 @@ export default function App() {
     initialTabApplied.current=key;
     setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
   },[isAuthLoading,user?.uid,familyId,settingsReady,settings.startTab,settings.enabledTabs]);
-  useEffect(()=>{
-    if(!visibleTabs.some(t=>t.id===activeTab))setActiveTab('overview');
-  },[activeTab,settings.enabledTabs]);
+  // Hidden menu entries remain reachable through explicit overview shortcuts.
+  // Visibility preferences do not control authorization.
   const [targetService, setTargetService] = useState<string | null>(null);
+  const navigateMenu=(id:string)=>{if(id==='services')setTargetService('menu');setActiveTab(id);};
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null);
@@ -237,7 +252,7 @@ export default function App() {
 
   // Scroll to top when tab changes
   useEffect(() => {
-      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      mainRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeTab]);
 
   // Filter transactions for Budget tab widgets
@@ -866,16 +881,16 @@ export default function App() {
              <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
            </div>
            <div className="flex gap-2">
-               <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
-               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
+               <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
+               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><SettingsIcon size={18} /></button>
            </div>
         </div>
       )}
 
       {/* BEGIN: LeftSidebar (Desktop Terra - Collapsed by default) */}
-      <aside className={`hidden md:flex ${isSidebarExpanded ? 'w-56' : 'w-[72px]'} bg-[#FAF8F5] dark:bg-[#1C1C1E] border-r border-surface-border dark:border-white/5 flex-col justify-between shrink-0 z-30 transition-all duration-300 select-none`}>
-        <div className="flex flex-col h-full justify-between items-center w-full py-5">
-          <div className="flex flex-col w-full items-center">
+      <aside className={`hidden md:flex ${isSidebarExpanded ? 'w-56' : 'w-[72px]'} bg-[#FAF8F5] dark:bg-[#1C1C1E] border-r border-surface-border dark:border-white/5 flex-col justify-between shrink-0 min-h-0 z-30 transition-[width] duration-200 motion-reduce:transition-none`}>
+        <div className="flex flex-col h-full min-h-0 justify-between items-center w-full py-3">
+          <div className="flex flex-col w-full items-center min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {/* Logo & Expand/Collapse Toggle */}
             <div className={`flex items-center ${isSidebarExpanded ? 'px-4 justify-between w-full pb-4' : 'justify-center pb-4'} border-b border-surface-border dark:border-white/5`}>
               <button 
@@ -900,20 +915,23 @@ export default function App() {
             </div>
 
             {/* Navigation Links */}
-            <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-2 mt-4`}>
-              {visibleTabs.map(tab => {
+            <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-1 mt-3` }>
+              {TAB_GROUPS.map(group=>{
+                const tabs=visibleTabs.filter(tab=>tab.group===group.id);
+                if(!tabs.length)return null;
+                return <div key={group.id} className="space-y-1 pb-2">
+                  {isSidebarExpanded&&<div className="px-3 pt-2 pb-1 text-xs font-medium text-graphite-muted">{group.label}</div>}
+                  {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                    }}
+                    onClick={()=>navigateMenu(tab.id)}
                     title={tab.label}
                     aria-current={isActive ? 'page' : undefined}
                     aria-label={tab.label}
-                    className={`w-full flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
+                    className={`w-full min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSidebarExpanded ? 'gap-3 px-3.5 py-2.5 rounded-xl justify-start' : 'justify-center w-11 h-11 mx-auto rounded-xl'} transition-all cursor-pointer group ${
                       isActive 
                         ? 'bg-primary text-white font-semibold' 
                         : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] font-medium'
@@ -938,6 +956,8 @@ export default function App() {
                     )}
                   </button>
                 );
+                  })}
+                </div>;
               })}
             </nav>
           </div>
@@ -949,16 +969,16 @@ export default function App() {
               <button 
                 type="button"
                 onClick={() => setIsAIChatOpen(true)} 
-                title="AI Ассистент (Gemini)" 
-                className="p-2 rounded-xl text-[#4A7C59] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
+                title="AI Ассистент (Gemini)" aria-label="AI Ассистент" 
+                className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[#4A7C59] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
               >
                 <Sparkles size={18} />
               </button>
               <button 
                 type="button"
                 onClick={() => setShowNotifications(true)} 
-                title="Уведомления" 
-                className="relative p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
+                title="Уведомления" aria-label="Уведомления" 
+                className="relative min-h-[44px] min-w-[44px] p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
               >
                 <Bell size={18} />
                 {unreadNotificationsCount > 0 && (
@@ -987,7 +1007,7 @@ export default function App() {
         {/* Offline Alert Banner */}
         {!isOnline && (
           <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
-            <WifiOff size={15} className="animate-pulse" />
+            <WifiOff size={15} />
             <span>Офлайн-режим. Изменения сохраняются локально на вашем устройстве</span>
           </div>
         )}
@@ -1001,7 +1021,7 @@ export default function App() {
         )}
 
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
+            <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 <TerraOverview 
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
@@ -1026,8 +1046,9 @@ export default function App() {
                 />
             </div>
             
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
-                <TerraBudget
+            <div key={tabScope+'-budget'} data-tab-panel="budget" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
+                {mountTab('budget') && <Suspense fallback={<TabLoading/>}>
+                  <TerraBudget
                     key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
                     transactions={displayTransactions}
                     categories={categories}
@@ -1075,9 +1096,11 @@ export default function App() {
                         }
                     }}
                 />
+                </Suspense>}
+
             </div>
             
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
+            <div key={tabScope+'-plans'} data-tab-panel="plans" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
               <FamilyPlans 
                 events={events} 
                 setEvents={setEvents} 
@@ -1091,8 +1114,9 @@ export default function App() {
               />
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
-              <ShoppingList 
+            <div key={tabScope+'-shopping'} data-tab-panel="shopping" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
+              {mountTab('shopping') && <Suspense fallback={<TabLoading/>}>
+                  <ShoppingList 
                 items={shoppingItems} 
                 setItems={setShoppingItems} 
                 settings={settings} 
@@ -1102,19 +1126,27 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
               />
+                </Suspense>}
+
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
-              <FamilyChat active={activeTab==='chat'} />
+            <div key={tabScope+'-chat'} data-tab-panel="chat" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+              {mountTab('chat') && <Suspense fallback={<TabLoading/>}>
+                  <FamilyChat active={activeTab==='chat'} />
+                </Suspense>}
+
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
-              <ServicesHub 
+            <div key={tabScope+'-services'} data-tab-panel="services" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
+              {mountTab('services') && <Suspense fallback={<TabLoading/>}>
+                  <ServicesHub 
                 initialService={targetService} 
                 onClearService={() => setTargetService(null)} 
                 onNavigateHome={() => setActiveTab('overview')}
                 onOpenSettings={() => setIsSettingsOpen(true)}
               />
+                </Suspense>}
+
             </div>
         </div>
       </main>
@@ -1131,10 +1163,7 @@ export default function App() {
                   aria-label={tab.label}
                   onClick={() => {
                     triggerHaptic('light');
-                    if (tab.id === 'services') {
-                      setTargetService('menu');
-                    }
-                    setActiveTab(tab.id);
+                    navigateMenu(tab.id);
                   }} 
                   className={`relative flex flex-col items-center justify-center flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors terra-press ${
                     isActive ? 'bg-[#E6EDE5] dark:bg-[#20362A] text-[#326243] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'

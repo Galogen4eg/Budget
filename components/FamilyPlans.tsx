@@ -267,6 +267,9 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   useEffect(()=>{
     if(!remindersEnabled||pushEnabled||!familyId||!user)return;
+    // The expanded occurrence set depends on events and the local date window,
+    // not on each 30-second clock tick. The effect resets on dependency changes.
+    let occurrenceCache:{from:string;to:string;items:FamilyEvent[]}|null=null;
     const tick=()=>{
       const now=new Date();
       // Browser timers can pause while the tab is in the background. Resume from
@@ -277,7 +280,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         ?new Date(Math.max(previous,now.getTime()-3600000))
         :new Date(now.getTime()-120000);
       const range=calendarReminderWindow(now,since);
-      const future=buildCalendarOccurrences(events,range.from,range.to);
+      if(!occurrenceCache||occurrenceCache.from!==range.from||occurrenceCache.to!==range.to){
+        occurrenceCache={...range,items:buildCalendarOccurrences(events,range.from,range.to)};
+      }
+      const future=occurrenceCache.items;
       const due=dueCalendarNotifications(future,now,ownProfileId,since);
       localStorage.setItem(checkedKey,String(now.getTime()));
       const key=`${reminderKey}:seen`;
@@ -345,7 +351,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const selectedDayEvents = useMemo(() => {
       const dayEvents = getEventsForDate(selectedDate);
       // Sort events by time ascending (08:00 before 12:00)
-      return dayEvents.sort((a, b) => a.time.localeCompare(b.time));
+      return dayEvents.sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
   }, [selectedDate, visibleEvents]);
 
   const filteredListEvents = useMemo(
@@ -428,7 +434,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       currentDate,
       setCurrentDate,
       selectedDate,
-      setSelectedDate,
+      setSelectedDate: (date: Date) => {
+        setSelectedDate(date);
+        if(date.getFullYear()!==currentDate.getFullYear() || date.getMonth()!==currentDate.getMonth()){
+          setCurrentDate(new Date(date.getFullYear(),date.getMonth(),1));
+        }
+      },
       viewMode,
       setViewMode,
       listTab,
@@ -446,7 +457,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y pt-[calc(64px+env(safe-area-inset-top))] md:pt-0 lg:overflow-hidden" data-testid="plans-scroll-container">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y pt-[calc(64px+env(safe-area-inset-top))] md:pt-0" data-testid="plans-scroll-container">
       <FamilyAgendaPanel events={events} members={members}
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
@@ -456,7 +467,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         telegramRemindersEnabled={telegramRemindersEnabled}
         telegramConfigured={telegramConfigured}
         onToggleTelegramReminders={toggleTelegramReminders}/>
-        <div className="flex-none min-h-0 lg:flex-1 lg:overflow-hidden">
+        <div className="flex-none min-w-0">
         {isDesktop ? (
             <FamilyPlansDesktop 
                 {...commonProps} 

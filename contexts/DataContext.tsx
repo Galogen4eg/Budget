@@ -12,7 +12,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -243,6 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // family fields belonging to another person's settings change.
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
       const current = settingsRef.current;
+      if(familyId&&householdPersonal&&('mandatoryExpenses' in newSettings||'manualPaidExpenses' in newSettings))throw new Error('Используйте сохранение личных обязательных платежей');
       const patch = diffSettings(current, newSettings);
       if (!Object.keys(patch).length) return;
       const merged = { ...current, ...patch,
@@ -270,7 +271,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
     debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
   ) => {
-    if(familyId&&householdPersonal)throw new Error('Изменение обязательных платежей в личном режиме пока недоступно');
+    if(familyId&&householdPersonal){
+      if(!policyReady||!user?.uid||!linkedMemberId)throw new Error('Личный профиль не подтверждён');
+      const personalChanges={...changes,mandatoryExpenses:changes.mandatoryExpenses.map(e=>({...e,memberId:e.memberId??linkedMemberId}))};
+      await commitPersonalMandatoryPaymentBundle(familyId,user.uid,linkedMemberId,personalChanges,debtChanges);
+      // Authoritative snapshots update private settings and debts after commit.
+      return;
+    }
     if (familyId && user) {
       await commitMandatoryPaymentBundle(familyId, user.uid, changes, debtChanges);
     }

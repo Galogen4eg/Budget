@@ -22,3 +22,14 @@ test('shopping retains labeled keyboard controls for editing, quantity and resto
  assert.match(read('ShoppingListDesktop'),/aria-expanded=\{isPurchasedOpen\}/);
  assert.match(read('ShoppingListMobile'),/aria-expanded=\{isCompletedOpen\}/);
 });
+
+
+test('quick lists and repeat purchases retain shared actions and bounded panel scrolling',()=>{
+ const source=read('ShoppingQuickListsPanel');
+ assert.match(source,/aria-expanded=\{section === 'templates'\}/);
+ assert.match(source,/aria-expanded=\{section === 'history'\}/);
+ assert.match(source,/max-h-\[min\(32dvh,16rem\)\] overflow-y-auto overscroll-contain/);
+ for(const action of ['addProducts(t.items)','addProducts(recent)','addProducts([p])','saveTemplate()','removeTemplate(t.id)'])assert.ok(source.includes(action),action);
+ assert.match(source,/saveShoppingMerge\(familyId, changes.itemsToUpdateInDb, changes.itemsToAddInDb\)/);
+ assert.match(source,/min-h-\[44px\] min-w-0 flex-1 rounded-xl/);
+});

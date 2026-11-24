@@ -14,6 +14,8 @@ import { detectProductCategory } from '../utils/categorizer';
 interface UseTelegramSyncParams {
   readonly settings: AppSettings;
   readonly familyId: string | null;
+  readonly householdPersonal: boolean;
+  readonly settingsReady: boolean;
   readonly setShoppingItems: React.Dispatch<React.SetStateAction<ShoppingItem[]>>;
   readonly setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   readonly setEvents: React.Dispatch<React.SetStateAction<FamilyEvent[]>>;
@@ -25,11 +27,15 @@ export function useTelegramSync({
   setShoppingItems,
   setTransactions,
   setEvents,
+  householdPersonal,
+  settingsReady,
 }: UseTelegramSyncParams) {
   const isSyncingRef = useRef(false);
   const processedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if(!familyId||!settingsReady||householdPersonal)return; // Telegram queue has no verified financial owner.
+    let cancelled=false;
     const pollIntervalMs = 4000;
 
     const syncPendingActions = async () => {
@@ -42,7 +48,7 @@ export function useTelegramSync({
         const url = `/api/tg-sync${chatId ? `?chatId=${chatId}` : ''}`;
 
         const res = await fetch(url);
-        if (!res.ok) return;
+        if (!res.ok||cancelled) return;
 
         const data = await res.json();
         const queue: any[] = data.queue || [];
@@ -51,6 +57,7 @@ export function useTelegramSync({
         const ackIds: string[] = [];
 
         for (const item of queue) {
+          if(cancelled)return;
           if (processedIdsRef.current.has(item.id)) {
             ackIds.push(item.id);
             continue;
@@ -155,6 +162,6 @@ export function useTelegramSync({
 
     // Интервальный опрос
     const timer = setInterval(syncPendingActions, pollIntervalMs);
-    return () => clearInterval(timer);
-  }, [settings.telegramChatId, familyId, setShoppingItems, setTransactions, setEvents]);
+    return () => {cancelled=true;clearInterval(timer);};
+  }, [settings.telegramChatId, familyId, householdPersonal, settingsReady, setShoppingItems, setTransactions, setEvents]);
 }

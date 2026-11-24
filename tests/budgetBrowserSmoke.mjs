@@ -330,11 +330,14 @@ try{
     }
     // Shopping section smoke: verify real navigation and responsive quick-list
     // expansion on each viewport, without writing any family data.
+    const shoppingPanel=page.locator('[data-tab-panel="shopping"]');
+    assert.equal(await shoppingPanel.locator('button').count(),0,label+': shopping mounted before first visit');
     const shoppingTab=page.getByRole('button',{name:/Покупки/i}).filter({visible:true}).first();
     await shoppingTab.click();
     const quickLists=page.getByRole('button',{name:/Быстрые списки/}).filter({visible:true}).first();
     const repeat=page.getByRole('button',{name:/Повторить покупки/}).filter({visible:true}).first();
     await quickLists.waitFor({state:'visible'});
+    assert.ok(await shoppingPanel.locator('button').count()>0,label+': lazy shopping did not mount');
     for(const control of [quickLists,repeat]){
       const dimensions=await control.boundingBox();
       assert.ok(dimensions && dimensions.height>=44,label+': small shopping panel control');
@@ -389,6 +392,8 @@ try{
     await page.getByRole('button',{name:'Планы',exact:true}).filter({visible:true}).first().click();
     const plans=page.getByTestId('plans-scroll-container');
     await plans.waitFor({state:'visible'});
+    assert.ok(await shoppingPanel.locator('button').count()>0,label+': previously visited shopping state was discarded');
+    assert.equal(await shoppingPanel.isVisible(),false,label+': hidden shopping remains visible');
     for(const name of ['Месяц','Неделя','День','Расписание']){
       const tab=plans.getByRole('button',{name,exact:true}).filter({visible:true}).first();
       await tab.click();

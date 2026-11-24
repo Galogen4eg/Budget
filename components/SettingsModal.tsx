@@ -53,7 +53,7 @@ interface SettingsModalProps {
   onOpenDuplicates?: () => void;
 }
 
-type SectionType = 'account' | 'family' | 'budget' | 'categories' | 'integrations';
+type SectionType = 'account' | 'appearance' | 'family' | 'budget' | 'categories' | 'integrations';
 
 interface SectionConfig {
   id: SectionType;
@@ -63,7 +63,8 @@ interface SectionConfig {
 }
 
 const SECTIONS: SectionConfig[] = [
-  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль, оформление и аккаунт', icon: <User size={18} /> },
+  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль и аккаунт', icon: <User size={18} /> },
+  { id: 'appearance', label: 'Оформление и приватность', subtitle: 'Тема, видимость сумм, стартовый режим', icon: <Sun size={18} /> },
   { id: 'family', label: 'Семья и доступ', subtitle: 'Участники, ID пространства, синхронизация', icon: <Users size={18} /> },
   { id: 'budget', label: 'Бюджет и зарплата', subtitle: 'Дни зарплаты, сбережения, резерв', icon: <Calculator size={18} /> },
   { id: 'categories', label: 'Категории и правила', subtitle: 'Категории трат и авто-правила', icon: <Tag size={18} /> },
@@ -505,6 +506,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const renderSectionContent = () => {
     switch (activeSection) {
+      case 'appearance':
+        return (
+          <div className="max-w-3xl space-y-5">
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <div><h3 className="text-base font-semibold">Тема приложения</h3><p className="text-sm text-gray-500 dark:text-gray-400">Личная настройка, не меняет оформление у другого участника семьи.</p></div>
+              <div role="group" aria-label="Тема приложения" className="grid grid-cols-2 gap-2">
+                {(['light','dark'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
+                  className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':'Тёмная'}</button>)}
+              </div>
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Приватность и бюджет</h3>
+              <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
+              </button>
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
+                <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
+                <select id="settings-budget-default" value={settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
+                  <option value="personal">Личный</option><option value="family">Семейный</option>
+                </select>
+              </div>
+            </section>
+          </div>
+        );
       case 'account':
         return (
           <div className="space-y-6 w-full max-w-full">

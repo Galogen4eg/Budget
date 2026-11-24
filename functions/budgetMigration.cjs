@@ -52,6 +52,24 @@ function merge(documents, memberIds) {
 // Preserve the prior family configuration, never infer an opening balance from transactions.
 const SHARED_SAFE=new Set(['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']);
 const SHARED_FINANCE=['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount','categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve','startOfMonthDay'];
+function isSavingsTransfer(t){
+   const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
+   const savings=t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word));
+ return Boolean(savings);
+}
+function findSavingsLinkIssues(links){
+ if(!links)return [];
+ const goals=new Map(links.goals.map(g=>[g.id,g]));
+ const describe=g=>({id:g.id,title:String(g.title||g.id).slice(0,180),memberId:g.memberId??null,currentAmount:Number.isFinite(g.currentAmount)?g.currentAmount:null});
+ const result=[];
+ for(const t of links.transactions){
+   if(!isSavingsTransfer(t))continue;
+   const previous=goals.get(t.linkedGoalId);
+   if(previous&&previous.memberId===t.memberId)continue;
+   result.push({id:t.id,owner:t.memberId??null,title:String(t.note||t.rawNote||t.category||t.id).slice(0,180),type:t.type??null,amount:Number.isFinite(t.amount)?t.amount:null,date:typeof t.date==='string'?t.date:null,reason:!t.linkedGoalId?'missing':!previous?'deleted':'foreign',previousGoalId:t.linkedGoalId||null,previousGoal:previous?describe(previous):null,candidates:links.goals.filter(g=>g.memberId===t.memberId&&Number.isFinite(g.currentAmount)).map(describe)});
+ }
+ return result;
+}
 function findFinancialLinkIssues(links,expenses){
  if(!links)return [];
  const bills=new Map(expenses.map(e=>[e.id,e]));
@@ -77,9 +95,7 @@ function validateLinks(links,expenses){
  const debts=new Map(links.debts.map(d=>[d.id,d]));
  const bills=new Map(expenses.map(e=>[e.id,e]));
  for(const t of links.transactions){
-   const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
-   const savings=t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word));
-   if(savings&&(!t.linkedGoalId||goals.get(t.linkedGoalId)?.memberId!==t.memberId))throw new Error('Savings goal link missing or belongs to another owner');
+   if(isSavingsTransfer(t)&&(!t.linkedGoalId||goals.get(t.linkedGoalId)?.memberId!==t.memberId))throw new Error('Savings goal link missing or belongs to another owner');
    if(t.linkedExpenseId&&bills.has(t.linkedExpenseId)&&bills.get(t.linkedExpenseId).memberId!==t.memberId)throw new Error('Transaction obligation belongs to another owner');
    if(t.linkedDebtId&&debts.has(t.linkedDebtId)&&debts.get(t.linkedDebtId).memberId!==t.memberId)throw new Error('Transaction debt belongs to another owner');
  }
@@ -146,4 +162,4 @@ function findUnownedFinancialRecords({family,profiles,links,shared}){
  }
  return rows;
 }
-module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords,findFinancialLinkIssues};
+module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords,findFinancialLinkIssues,findSavingsLinkIssues};

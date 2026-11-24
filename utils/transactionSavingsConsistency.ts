@@ -34,3 +34,20 @@ export function assertBulkDeleteSafe(transactions:readonly SavingsLike[],ids:rea
     throw new Error('В выбранных операциях есть переводы в накопления. Удалите их по одной через карточку операции, чтобы баланс цели изменился вместе с записью.');
   }
 }
+
+/** Link an already reconciled historical transfer; do not apply its contribution twice. */
+export function savingsLinkRepairPatch(
+ row:(SavingsLike&{memberId:string;date?:string})|undefined,
+ expected:{id:string;owner:string|null;previousGoalId:string|null;amount:number|null;type:string|null;date:string|null},
+ goal:{id:string;memberId?:string|null;currentAmount:number}|undefined,
+ confirmed:{id:string;memberId:string|null;currentAmount:number|null}
+):{linkedGoalId:string}{
+ if(!row||!expected.owner||row.id!==expected.id||row.memberId!==expected.owner||
+    (row.linkedGoalId||null)!==expected.previousGoalId||row.amount!==expected.amount||
+    row.type!==expected.type||(row.date??null)!==expected.date||!isSavingsTransfer(row)||
+    !Number.isFinite(row.amount))throw new Error('Операция изменилась. Повторите проверку.');
+ if(!goal||goal.id!==confirmed.id||goal.memberId!==row.memberId||goal.memberId!==confirmed.memberId||
+    !Number.isFinite(goal.currentAmount)||goal.currentAmount!==confirmed.currentAmount||
+    goal.id===row.linkedGoalId)throw new Error('Цель изменилась или не принадлежит владельцу операции. Повторите проверку.');
+ return {linkedGoalId:goal.id};
+}

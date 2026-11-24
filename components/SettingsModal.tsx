@@ -976,7 +976,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 const key=record.kind+':'+record.id;
                 return <div key={key} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
                   <p className="text-sm font-semibold break-words">{record.title}</p>
-                  <p className="text-xs text-gray-500">{({goals:'Накопительная цель',debts:'Долг',transactions:'Операция',mandatoryExpenses:'Обязательный платёж'})[record.kind]}{record.date?' · '+record.date:''}{typeof record.amount==='number'?' · '+(settings.privacyMode?'•••':record.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
+                  <p className="text-xs text-gray-500">{({goals:'Накопительная цель',debts:'Долг',transactions:'Операция',subscriptions:'Подписка',mandatoryExpenses:'Обязательный платёж'})[record.kind]}{record.date?' · '+(Number.isNaN(new Date(record.date).getTime())?record.date:new Date(record.date).toLocaleDateString('ru-RU')):''}{typeof record.amount==='number'?' · '+(settings.privacyMode?'•••':record.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
                   <div className="flex flex-wrap gap-2">
                     <select aria-label={'Владелец: '+record.title} disabled={Boolean(ownershipBusy)} value={ownershipChoices[key]||''} onChange={e=>setOwnershipChoices(prev=>({...prev,[key]:e.target.value}))} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#242528] text-gray-900 dark:text-gray-100 px-2 text-sm">
                       <option value="">Выберите участника</option>

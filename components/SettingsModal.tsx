@@ -580,13 +580,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleChange = useCallback((key: keyof AppSettings, value: any) => {
-    void Promise.resolve().then(() => onUpdate({ [key]: value })).then(()=>setSettingsWriteFailed(false)).catch(error => {
+  // Invoke the optimistic settings update in the input event itself.
+  // Deferring it to a microtask lets React restore a controlled select's old value.
+  const saveSettingsPatch = useCallback(async (patch: Partial<AppSettings>) => {
+    try {
+      await onUpdate(patch);
+      setSettingsWriteFailed(false);
+    } catch (error) {
       setSettingsWriteFailed(true);
       console.error('Settings save failed', error);
       toast.error('Не удалось сохранить настройку. Повторите попытку.');
-    });
+    }
   }, [onUpdate]);
+  const handleChange = useCallback((key: keyof AppSettings, value: any) => {
+    void saveSettingsPatch({ [key]: value });
+  }, [saveSettingsPatch]);
 
   const handleUpdateFamilyId = async () => {
     const targetId = newFamilyId.trim();
@@ -668,7 +676,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>{label}</span>
                     <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
                       const patch=menuPreferencePatch(settings.enabledTabs,settings.startTab,id,e.target.checked);
-                      void Promise.resolve().then(()=>onUpdate(patch)).then(()=>setSettingsWriteFailed(false)).catch(()=>{setSettingsWriteFailed(true);toast.error('Не удалось сохранить меню');});
+                      void saveSettingsPatch(patch);
                     }} className="h-5 w-5 accent-[#2D5A43]"/>
                   </label>;
                 })}

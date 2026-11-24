@@ -978,7 +978,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className="text-sm font-semibold break-words">{record.title}</p>
                   <p className="text-xs text-gray-500">{({goals:'Накопительная цель',debts:'Долг',transactions:'Операция',mandatoryExpenses:'Обязательный платёж'})[record.kind]}{record.date?' · '+record.date:''}{typeof record.amount==='number'?' · '+(settings.privacyMode?'•••':record.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
                   <div className="flex flex-wrap gap-2">
-                    <select aria-label={'Владелец: '+record.title} disabled={Boolean(ownershipBusy)} value={ownershipChoices[key]||''} onChange={e=>setOwnershipChoices(prev=>({...prev,[key]:e.target.value}))} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-transparent px-2 text-sm">
+                    <select aria-label={'Владелец: '+record.title} disabled={Boolean(ownershipBusy)} value={ownershipChoices[key]||''} onChange={e=>setOwnershipChoices(prev=>({...prev,[key]:e.target.value}))} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#242528] text-gray-900 dark:text-gray-100 px-2 text-sm">
                       <option value="">Выберите участника</option>
                       {members.filter(m=>m.userId).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -1378,7 +1378,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       {/* Main Container */}
       <div 
         role="dialog" aria-modal="true" aria-label="Настройки"
-        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-[100dvh] md:h-[94dvh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(96vw,1600px)] h-[100dvh] md:h-[94dvh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">

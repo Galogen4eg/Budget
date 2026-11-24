@@ -22,7 +22,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
   rightExtra,
 }) => {
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF6F0] dark:bg-[#121214] px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-3 flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 shrink-0 transition-colors">
+    <header className="sticky top-0 z-30 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-3 flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 shrink-0 transition-colors">
       {/* Section Title without app name with safe wrapping and truncation */}
       <h1 className={`${PAGE_HEADING} truncate mr-3 min-w-0 flex-1`}>
         {title}

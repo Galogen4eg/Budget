@@ -43,18 +43,18 @@ export interface ShoppingListMobileProps {
 
 export const AISLES = [
   { id: 'dairy', label: 'Молочные продукты и сыры', icon: '🥛', emoji: '🥛', bg: 'bg-[#C8E8D0] text-[#2A6038]' },
-  { id: 'bakery', label: 'Хлеб и свежая выпечка', icon: '🍞', emoji: '🍞', bg: 'bg-[#F0E8DB] text-[#5E5548]' },
+  { id: 'bakery', label: 'Хлеб и свежая выпечка', icon: '🍞', emoji: '🍞', bg: 'bg-[var(--terra-soft)] text-[#5E5548]' },
   { id: 'produce', label: 'Овощи, фрукты и зелень', icon: '🥦', emoji: '🥦', bg: 'bg-[#D8F0DE] text-[#2A6038]' },
   { id: 'meat', label: 'Мясо, птица и рыба', icon: '🥩', emoji: '🥩', bg: 'bg-[#FFDAD8] text-[#690005]' },
-  { id: 'grocery', label: 'Бакалея, крупы и макароны', icon: '🍝', emoji: '🍝', bg: 'bg-[#F0E8DB] text-[#554020]' },
-  { id: 'drinks', label: 'Напитки, соки и вода', icon: '🧃', emoji: '🧃', bg: 'bg-[#E4E0D8] text-[#4A4E4A]' },
+  { id: 'grocery', label: 'Бакалея, крупы и макароны', icon: '🍝', emoji: '🍝', bg: 'bg-[var(--terra-soft)] text-[#554020]' },
+  { id: 'drinks', label: 'Напитки, соки и вода', icon: '🧃', emoji: '🧃', bg: 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' },
   { id: 'sweets', label: 'Сладости, снеки и чай', icon: '🍫', emoji: '🍫', bg: 'bg-[#F8E0A8] text-[#554020]' },
   { id: 'frozen', label: 'Замороженные продукты', icon: '🧊', emoji: '🧊', bg: 'bg-[#C8E8D0] text-[#2A6038]' },
-  { id: 'household', label: 'Товары для дома и быта', icon: '🧼', emoji: '🧼', bg: 'bg-[#E4E0D8] text-[#4A4E4A]' },
+  { id: 'household', label: 'Товары для дома и быта', icon: '🧼', emoji: '🧼', bg: 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' },
   { id: 'beauty', label: 'Уход, косметика и гигиена', icon: '💄', emoji: '💄', bg: 'bg-[#FFDAD8] text-[#690005]' },
-  { id: 'pets', label: 'Товары для питомцев', icon: '🐱', emoji: '🐱', bg: 'bg-[#F0E8DB] text-[#5E5548]' },
+  { id: 'pets', label: 'Товары для питомцев', icon: '🐱', emoji: '🐱', bg: 'bg-[var(--terra-soft)] text-[#5E5548]' },
   { id: 'pharmacy', label: 'Аптека и здоровье', icon: '💊', emoji: '💊', bg: 'bg-[#C8E8D0] text-[#2A6038]' },
-  { id: 'other', label: 'Другие покупки', icon: '📦', emoji: '📦', bg: 'bg-[#E4E0D8] text-[#4A4E4A]' },
+  { id: 'other', label: 'Другие покупки', icon: '📦', emoji: '📦', bg: 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' },
 ];
 
 const UNITS = ['шт', 'кг', 'л', 'уп', 'г', 'бут'] as const;
@@ -503,7 +503,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
 
   return (
-    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[#1E2420] dark:text-gray-100 font-body transition-colors">
+    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
         title="Список покупок"
@@ -517,7 +517,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             disabled={isSendingTelegram}
             title="Отправить список в Telegram"
             aria-label="Отправить список в Telegram"
-            className="min-w-[44px] min-h-[44px] rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[#4A7C59] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
+            className="min-w-[44px] min-h-[44px] rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
           >
             {isSendingTelegram ? (
               <Loader2 size={18} className="animate-spin" />
@@ -546,7 +546,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             className="fixed top-4 inset-x-4 z-[3000] max-w-sm mx-auto bg-[#1E2420] text-white px-4 py-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 border border-white/10 text-xs font-semibold"
           >
             <div className="flex items-center gap-2">
-              <Send size={15} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
+              <Send size={15} className="text-[var(--terra-primary)] dark:text-emerald-400 shrink-0" />
               <span>{telegramNotification}</span>
             </div>
             <button 
@@ -575,12 +575,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                   <Mic size={32} />
                 </div>
               ) : (
-                <BrainCircuit size={48} className="text-[#4A7C59] animate-pulse" />
+                <BrainCircuit size={48} className="text-[var(--terra-primary)] animate-pulse" />
               )}
-              <h3 className="font-headline font-bold text-lg text-[#2E3230] dark:text-white">
+              <h3 className="font-headline font-bold text-lg text-[var(--terra-ink)] dark:text-white">
                 {isListening ? 'Говорите продукты...' : 'Обрабатываем список...'}
               </h3>
-              <p className="text-xs text-[#6B6358] dark:text-stone-400">
+              <p className="text-xs text-[var(--terra-muted)] dark:text-stone-400">
                 Например: «Два молока, буханка хлеба и десяток яиц»
               </p>
             </div>
@@ -591,11 +591,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
       <div className="flex flex-col w-full max-w-md mx-auto px-4 pt-3 space-y-3.5">
         
         {/* Status Counters Strip */}
-        <div className="flex items-center justify-between bg-white dark:bg-[#1E1E20] px-4 py-2.5 rounded-2xl border border-[#EAE5DB]/60 dark:border-white/5 shadow-2xs">
-          <div className="text-xs font-semibold text-[#4A7C59] dark:text-emerald-400">
+        <div className="flex items-center justify-between bg-white dark:bg-[var(--terra-surface)] px-4 py-2.5 rounded-2xl border border-[#EAE5DB]/60 dark:border-white/5 shadow-2xs">
+          <div className="text-xs font-semibold text-[var(--terra-primary)] dark:text-emerald-400">
             <span>{allActiveCount} в списке</span>
           </div>
-          <div className="text-xs font-semibold text-[#68736A] dark:text-stone-400">
+          <div className="text-xs font-semibold text-[var(--terra-muted)] dark:text-stone-400">
             <span>{allCompletedCount} куплено</span>
           </div>
         </div>
@@ -611,14 +611,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск в покупках..."
             aria-label="Поиск по товарам в семейном списке"
-            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[#1C1C1E] text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[#EAE4D6] dark:border-white/10 shadow-xs focus:outline-none focus:border-[#4A7C59] transition"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 shadow-xs focus:outline-none focus:border-[var(--terra-primary)] transition"
           />
           {searchQuery ? (
             <button 
               type="button"
               onClick={() => setSearchQuery('')}
               aria-label="Очистить поиск товаров"
-              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[#1E2420] dark:hover:text-white cursor-pointer"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[var(--terra-ink)] dark:hover:text-white cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -627,7 +627,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               type="button"
               onClick={startListening}
               aria-label="Голосовой ввод товара"
-              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] dark:text-emerald-400 hover:opacity-80 cursor-pointer"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--terra-primary)] dark:text-emerald-400 hover:opacity-80 cursor-pointer"
             >
               <Mic size={17} />
             </button>
@@ -635,9 +635,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         </div>
 
         {/* Quick Add Box */}
-        <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-2 pl-3.5 shadow-xs flex flex-col gap-1.5">
+        <div className="bg-[var(--terra-canvas)] dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 rounded-2xl p-2 pl-3.5 shadow-xs flex flex-col gap-1.5">
           <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-2">
-            <Plus size={18} className="text-[#4A7C59] dark:text-emerald-400 shrink-0" />
+            <Plus size={18} className="text-[var(--terra-primary)] dark:text-emerald-400 shrink-0" />
             <input 
               ref={quickInputRef}
               type="text"
@@ -645,7 +645,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               onChange={e => setQuickAddText(e.target.value)}
               placeholder="Например: молоко 1.5 л, бананы 1 кг..."
               aria-label="Быстрое добавление товаров"
-              className="min-h-[44px] flex-1 bg-transparent text-xs sm:text-sm text-[#1E2420] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
+              className="min-h-[44px] flex-1 bg-transparent text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
             />
             <button 
               type="submit"
@@ -658,7 +658,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           </form>
 
           {liveParsedItems.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px] text-[#4A7C59] dark:text-emerald-400 font-semibold border-t border-[#EAE4D6]/60 dark:border-white/10">
+            <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px] text-[var(--terra-primary)] dark:text-emerald-400 font-semibold border-t border-[#EAE4D6]/60 dark:border-white/10">
               {liveParsedItems.map((p, idx) => (
                 <span key={`live-preview-${p.title}-${idx}`} className="bg-[#D8F0DE] dark:bg-[#1C3B24] text-[#2A6038] dark:text-[#8ECF9E] px-2 py-0.5 rounded-md text-[10px]">
                   {p.title} ({p.amount} {p.unit})
@@ -670,10 +670,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
         {/* 4. Categorized Product Lists */}
         {activeItems.length === 0 && (
-          <div className="py-8 text-center bg-white/60 dark:bg-white/5 rounded-2xl border border-dashed border-[#EAE4D6] dark:border-white/10 space-y-1.5">
+          <div className="py-8 text-center bg-white/60 dark:bg-white/5 rounded-2xl border border-dashed border-[var(--terra-border)] dark:border-white/10 space-y-1.5">
             <ShoppingBag size={32} className="text-[#A39E93] dark:text-stone-500 mx-auto" />
-            <p className="text-xs font-bold text-[#1E2420] dark:text-white">Все покупки сделаны!</p>
-            <p className="text-[11px] text-[#68736A] dark:text-stone-400">
+            <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white">Все покупки сделаны!</p>
+            <p className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400">
               Добавьте новые товары в строке выше или из частых покупок
             </p>
           </div>
@@ -690,11 +690,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm shrink-0">{aisle.emoji}</span>
-                    <h2 className="font-bold text-xs sm:text-sm text-[#1E2420] dark:text-white truncate">
+                    <h2 className="font-bold text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white truncate">
                       {aisle.label}
                     </h2>
                   </div>
-                  <span className="bg-[#F0ECE4] dark:bg-white/10 text-[#68736A] dark:text-stone-300 text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                  <span className="bg-[var(--terra-soft)] dark:bg-white/10 text-[var(--terra-muted)] dark:text-stone-300 text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
                     {aisleItems.length} поз.
                   </span>
                 </div>
@@ -723,7 +723,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
         {/* 5. Already Bought Section ("Уже куплено в этот раз") */}
         {completedItems.length > 0 && (
-          <section className="bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3.5 shadow-xs space-y-2.5">
+          <section className="bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 rounded-2xl p-3.5 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
               <button type="button"
                 aria-expanded={isCompletedOpen}
@@ -734,7 +734,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 <div className="w-5 h-5 rounded-full bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] flex items-center justify-center text-xs">
                   <Check size={12} strokeWidth={3} />
                 </div>
-                <h3 className="font-bold text-xs sm:text-sm text-[#1E2420] dark:text-white">
+                <h3 className="font-bold text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white">
                   Уже куплено в этот раз
                 </h3>
                 <span className="bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] text-[11px] font-bold px-2 py-0.2 rounded-full">
@@ -779,12 +779,12 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         <section className="space-y-2 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <Star size={14} className="text-[#68736A] dark:text-stone-400 fill-stone-300 dark:fill-stone-600" />
-              <h3 className="font-bold text-xs sm:text-sm text-[#1E2420] dark:text-white">
+              <Star size={14} className="text-[var(--terra-muted)] dark:text-stone-400 fill-stone-300 dark:fill-stone-600" />
+              <h3 className="font-bold text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white">
                 Частые покупки
               </h3>
             </div>
-            <span className="text-[11px] text-[#68736A] dark:text-stone-400 font-medium">
+            <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 font-medium">
               Быстро добавить
             </span>
           </div>
@@ -800,7 +800,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                   className={`${FILTER_CHIP} ${FILTER_CHIP_IDLE} cursor-pointer`}
                 >
                   <span>{label}</span>
-                  <span className="text-[#4A7C59] dark:text-emerald-400 font-bold">+</span>
+                  <span className="text-[var(--terra-primary)] dark:text-emerald-400 font-bold">+</span>
                 </button>
               );
             })}
@@ -818,15 +818,15 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
-              className="w-full max-w-md bg-[#FBF9F5] dark:bg-[#1C1C1E] rounded-t-[32px] sm:rounded-[32px] p-5 shadow-2xl border-0 sm:border border-[#EAE4D6] dark:border-white/10 space-y-4 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+              className="w-full max-w-md bg-[#FBF9F5] dark:bg-[var(--terra-surface)] rounded-t-[32px] sm:rounded-[32px] p-5 shadow-2xl border-0 sm:border border-[var(--terra-border)] dark:border-white/10 space-y-4 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="flex items-center justify-between border-b border-[#EAE4D6]/60 dark:border-white/10 pb-3">
                 <div>
-                  <h3 className="text-base font-bold text-[#1E2420] dark:text-white">
+                  <h3 className="text-base font-bold text-[var(--terra-ink)] dark:text-white">
                     {editingItem ? 'Редактировать товар' : 'Новый товар в список'}
                   </h3>
                   {!editingItem && (
-                    <p className="text-[11px] text-[#68736A] dark:text-stone-400">
+                    <p className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400">
                       После добавления поле сразу готово к следующему товару
                     </p>
                   )}
@@ -834,7 +834,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-[#EEE9DF] dark:bg-white/10 flex items-center justify-center text-[#1E2420] dark:text-white cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-[#EEE9DF] dark:bg-white/10 flex items-center justify-center text-[var(--terra-ink)] dark:text-white cursor-pointer"
                 >
                   <X size={15} />
                 </button>
@@ -854,7 +854,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
               <form onSubmit={(e) => handleSaveModalItem(e, false)} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-[#68736A] dark:text-stone-400 mb-1">
+                  <label className="block text-xs font-bold text-[var(--terra-muted)] dark:text-stone-400 mb-1">
                     Название товара
                   </label>
                   <input 
@@ -864,30 +864,30 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                     value={newItemTitle}
                     onChange={e => setNewItemTitle(e.target.value)}
                     placeholder="Например: Сыр Российский"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#252528] text-sm text-[#1E2420] dark:text-white border border-[#EAE4D6] dark:border-white/10 focus:outline-none focus:border-[#4A7C59]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)] dark:text-white border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus:border-[var(--terra-primary)]"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-[#68736A] dark:text-stone-400 mb-1">
+                    <label className="block text-xs font-bold text-[var(--terra-muted)] dark:text-stone-400 mb-1">
                       Количество
                     </label>
                     <input 
                       type="text"
                       value={newItemAmount}
                       onChange={e => setNewItemAmount(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#252528] text-sm text-[#1E2420] dark:text-white border border-[#EAE4D6] dark:border-white/10 focus:outline-none focus:border-[#4A7C59]"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)] dark:text-white border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus:border-[var(--terra-primary)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[#68736A] dark:text-stone-400 mb-1">
+                    <label className="block text-xs font-bold text-[var(--terra-muted)] dark:text-stone-400 mb-1">
                       Единица
                     </label>
                     <select 
                       value={newItemUnit}
                       onChange={e => setNewItemUnit(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#252528] text-sm text-[#1E2420] dark:text-white border border-[#EAE4D6] dark:border-white/10 focus:outline-none focus:border-[#4A7C59]"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)] dark:text-white border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus:border-[var(--terra-primary)]"
                     >
                       {UNITS.map(u => (
                         <option key={u} value={u}>{u}</option>
@@ -897,13 +897,13 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#68736A] dark:text-stone-400 mb-1">
+                  <label className="block text-xs font-bold text-[var(--terra-muted)] dark:text-stone-400 mb-1">
                     Отдел / Категория
                   </label>
                   <select 
                     value={selectedAisle}
                     onChange={e => setSelectedAisle(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#252528] text-sm text-[#1E2420] dark:text-white border border-[#EAE4D6] dark:border-white/10 focus:outline-none focus:border-[#4A7C59]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)] dark:text-white border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus:border-[var(--terra-primary)]"
                   >
                     {AISLES.map(a => (
                       <option key={a.id} value={a.id}>{a.emoji} {a.label}</option>
@@ -911,16 +911,16 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                   </select>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#252528] border border-[#EAE4D6] dark:border-white/10">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10">
                   <div className="flex items-center gap-2">
                     <Zap size={16} className={newItemPriority === 'high' ? 'text-amber-500 fill-amber-500' : 'text-stone-400'} />
-                    <span className="text-xs font-bold text-[#1E2420] dark:text-white">Срочная покупка</span>
+                    <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white">Срочная покупка</span>
                   </div>
                   <input 
                     type="checkbox"
                     checked={newItemPriority === 'high'}
                     onChange={e => setNewItemPriority(e.target.checked ? 'high' : 'medium')}
-                    className="w-5 h-5 rounded text-[#4A7C59] focus:ring-[#4A7C59]"
+                    className="w-5 h-5 rounded text-[var(--terra-primary)] focus:ring-[#4A7C59]"
                   />
                 </div>
 
@@ -947,7 +947,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                       <button 
                         type="button"
                         onClick={() => setIsAddModalOpen(false)}
-                        className="px-4 py-3 rounded-xl bg-[#EAE4D6] dark:bg-white/10 text-[#1E2420] dark:text-white font-bold text-sm hover:bg-[#DED7C7] transition cursor-pointer"
+                        className="px-4 py-3 rounded-xl bg-[#EAE4D6] dark:bg-white/10 text-[var(--terra-ink)] dark:text-white font-bold text-sm hover:bg-[#DED7C7] transition cursor-pointer"
                       >
                         Готово
                       </button>
@@ -1028,7 +1028,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[#1C1C1E] border border-[#EAE4D6] dark:border-white/10 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-pan-y"
+        className="relative z-10 bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1039,13 +1039,13 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onToggle(item);
             }}
             aria-label="Отметить как купленное"
-            className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[#4A7C59] active:scale-90 flex items-center justify-center shrink-0 transition-all cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[var(--terra-primary)] active:scale-90 flex items-center justify-center shrink-0 transition-all cursor-pointer"
           >
             <Check size={14} className="text-transparent" />
           </button>
 
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-[#1E2420] dark:text-white truncate leading-snug">
+            <h3 className="text-sm font-bold text-[var(--terra-ink)] dark:text-white truncate leading-snug">
               {item.title}
             </h3>
             
@@ -1057,7 +1057,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
                 </span>
               )}
               {item.note && (
-                <span className="text-[11px] text-[#68736A] dark:text-stone-400 truncate max-w-[140px]">
+                <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 truncate max-w-[140px]">
                   {item.note}
                 </span>
               )}
@@ -1067,7 +1067,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 
         {/* Quantity Stepper Pill */}
         <div 
-          className="flex items-center bg-[#F5F1EA] dark:bg-white/5 border border-[#EAE4D6]/70 dark:border-white/10 rounded-xl p-1 shrink-0" 
+          className="flex items-center bg-[var(--terra-soft)] dark:bg-white/5 border border-[#EAE4D6]/70 dark:border-white/10 rounded-xl p-1 shrink-0" 
           onClick={(e) => e.stopPropagation()}
         >
           <button 
@@ -1077,11 +1077,11 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, -1);
             }}
             aria-label="Уменьшить количество"
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
           >
             -
           </button>
-          <span className="text-xs font-bold text-[#1E2420] dark:text-white px-2 min-w-[34px] text-center tabular-nums">
+          <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white px-2 min-w-[34px] text-center tabular-nums">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 
@@ -1091,7 +1091,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, 1);
             }}
             aria-label="Увеличить количество"
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[#2C2C2E] text-[#1E2420] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center shadow-2xs hover:bg-[#EAE4D6] active:scale-90 transition cursor-pointer"
           >
             +
           </button>
@@ -1149,7 +1149,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
             onToggle(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[#1C1C1E] flex items-center justify-between gap-2 py-1 px-1 rounded-xl touch-pan-y"
+        className="relative z-10 bg-white dark:bg-[var(--terra-surface)] flex items-center justify-between gap-2 py-1 px-1 rounded-xl touch-pan-y"
       >
         <div 
           onClick={() => {
@@ -1162,7 +1162,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
           <div className="w-5 h-5 rounded-full bg-[#4A7C59] text-white flex items-center justify-center shrink-0">
             <Check size={12} strokeWidth={3} />
           </div>
-          <span className="text-xs font-medium line-through text-[#68736A] dark:text-stone-400 truncate">
+          <span className="text-xs font-medium line-through text-[var(--terra-muted)] dark:text-stone-400 truncate">
             {item.title} {item.amount && item.amount !== '1' ? `${item.amount} ${item.unit || 'шт'}` : ''}
           </span>
         </div>
@@ -1175,7 +1175,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
                 toast.error(error instanceof Error ? error.message : 'Не удалось переместить товар в кладовую');
               });
             }}
-            className="p-1 text-[#68736A] hover:text-[#4A7C59] transition cursor-pointer"
+            className="p-1 text-[var(--terra-muted)] hover:text-[var(--terra-primary)] transition cursor-pointer"
             title="В кладовку"
           >
             <ArrowRight size={14} />
@@ -1183,7 +1183,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
           <button 
             type="button"
             onClick={() => onDelete(item.id)}
-            className="p-1 text-[#68736A] hover:text-[#C62828] transition cursor-pointer"
+            className="p-1 text-[var(--terra-muted)] hover:text-[#C62828] transition cursor-pointer"
             title="Удалить"
           >
             <X size={15} />

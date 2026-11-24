@@ -1444,7 +1444,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           setSelectedDayDetailDate(new Date(payloadData.dateObj));
                         }
                       }}
-                      className="cursor-pointer"
+                      className="cursor-pointer terra-chart-interactive"
                     >
                       <defs>
                         <linearGradient id="terraGradient" x1="0" y1="0" x2="0" y2="1">

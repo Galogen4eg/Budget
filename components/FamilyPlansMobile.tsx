@@ -387,7 +387,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           className={`min-h-[48px] sm:min-h-[56px] p-1.5 rounded-xl flex flex-col justify-between items-center cursor-pointer select-none relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] motion-reduce:transform-none ${
             isSelected
               ? 'ring-2 ring-[#4A7C59] bg-[#EEF5F0] dark:bg-[#4A7C59]/20 shadow-xs z-10'
-              : 'bg-[#F5F2EB] dark:bg-white/5 hover:bg-[#EAE6DE] dark:hover:bg-white/10'
+              : 'bg-[var(--terra-soft)] dark:bg-white/5 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10'
           }`}
         >
           {/* Day Number */}
@@ -396,8 +396,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               isSelected
                 ? 'text-[#2A6038] dark:text-green-300 font-extrabold'
                 : isToday
-                ? 'text-[#4A7C59] dark:text-green-300 font-extrabold'
-                : 'text-[#2E3230] dark:text-gray-200'
+                ? 'text-[var(--terra-primary)] dark:text-green-300 font-extrabold'
+                : 'text-[var(--terra-ink)] dark:text-gray-200'
             }`}
           >
             {day}
@@ -447,7 +447,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     }
 
     return (
-      <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-2.5">
+      <div className="bg-white dark:bg-[var(--terra-surface)] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-2.5">
         {/* Weekday Header */}
         <div className="grid grid-cols-7 text-center text-xs font-bold text-graphite-muted/80 dark:text-gray-400 py-1">
           <span>ПН</span>
@@ -484,7 +484,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     return (
       <div className="space-y-3.5">
         {/* Week Strip / 7-Day Grid */}
-        <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-2.5">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
               Дни недели
@@ -515,7 +515,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   className={`flex flex-col items-center justify-between py-2.5 px-0.5 rounded-2xl transition-all cursor-pointer relative active:scale-95 ${
                     isSelected
                       ? 'bg-[#4A7C59] text-white shadow-sm transform scale-[1.03]'
-                      : 'bg-[#F5F2EB] dark:bg-white/5 hover:bg-[#EAE6DE] dark:hover:bg-white/10 text-[#2E3230] dark:text-gray-200'
+                      : 'bg-[var(--terra-soft)] dark:bg-white/5 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 text-[var(--terra-ink)] dark:text-gray-200'
                   }`}
                 >
                   <span className={`text-[11px] font-bold uppercase tracking-wider ${
@@ -552,13 +552,13 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         </div>
 
         {/* Weekly Summary Card */}
-        <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-3">
+        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
                 Всего на неделе
               </div>
-              <div className="text-base font-headline font-bold text-[#2E3230] dark:text-white mt-0.5">
+              <div className="text-base font-headline font-bold text-[var(--terra-ink)] dark:text-white mt-0.5">
                 {weekAllEvents.length} {weekAllEvents.length === 1 ? 'событие' : weekAllEvents.length >= 2 && weekAllEvents.length <= 4 ? 'события' : 'событий'}
               </div>
             </div>
@@ -581,23 +581,23 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                       setSelectedDate(parseLocalCalendarDate(e.date));
                       onOpenEvent(e);
                     }}
-                    className="bg-[#F5F2EB] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DE] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    className="bg-[var(--terra-soft)] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-[var(--terra-soft)] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
                         <span className="text-[9px] font-bold text-graphite-muted dark:text-gray-400 uppercase leading-none">
                           {dayOfWeekLabel}
                         </span>
-                        <span className="text-xs font-bold text-[#2E3230] dark:text-white leading-none mt-0.5">
+                        <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white leading-none mt-0.5">
                           {dayNum}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-[#2E3230] dark:text-white truncate">
+                        <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white truncate">
                           {e.title}
                         </p>
                         <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
-                          <span className="font-semibold text-[#2E3230] dark:text-gray-200">{e.time}</span>
+                          <span className="font-semibold text-[var(--terra-ink)] dark:text-gray-200">{e.time}</span>
                           <span className="inline-flex items-center gap-1.5">
                             <span
                               className="w-2 h-2 rounded-full shrink-0"
@@ -612,7 +612,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     <button
                       type="button"
                       aria-label="Подробнее"
-                      className="w-11 h-11 flex items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-[#4A7C59] transition-colors cursor-pointer"
+                      className="w-11 h-11 flex items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-[var(--terra-primary)] transition-colors cursor-pointer"
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -639,17 +639,17 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     const listEvents = listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents;
 
     return (
-      <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-3.5">
+      <div className="bg-white dark:bg-[var(--terra-surface)] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-3.5">
         {/* Tab Toggle: Предстоящие / Прошедшие */}
         <div className="flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 pb-3">
-          <div className="flex bg-[#F0ECE4] dark:bg-[#252528] p-1 rounded-xl">
+          <div className="flex bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] p-1 rounded-xl">
             <button
               type="button"
               onClick={() => setListTab('upcoming')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 listTab === 'upcoming'
-                  ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 shadow-xs'
-                  : 'text-[#6B6358] dark:text-gray-400'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs'
+                  : 'text-[var(--terra-muted)] dark:text-gray-400'
               }`}
             >
               Предстоящие ({scheduleUpcomingEvents.length})
@@ -659,8 +659,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               onClick={() => setListTab('past')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 listTab === 'past'
-                  ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 shadow-xs'
-                  : 'text-[#6B6358] dark:text-gray-400'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs'
+                  : 'text-[var(--terra-muted)] dark:text-gray-400'
               }`}
             >
               Прошедшие ({schedulePastEvents.length})
@@ -695,24 +695,24 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     setSelectedDate(parseLocalCalendarDate(e.date));
                     onOpenEvent(e);
                   }}
-                  className="bg-[#F5F2EB] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DE] dark:hover:bg-white/10 transition cursor-pointer"
+                  className="bg-[var(--terra-soft)] dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 transition cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--terra-soft)] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
                       <span className="text-[9px] font-bold text-graphite-muted dark:text-gray-400 uppercase leading-none">
                         {dayOfWeekLabel}
                       </span>
-                      <span className="text-xs font-bold text-[#2E3230] dark:text-white leading-none mt-0.5">
+                      <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white leading-none mt-0.5">
                         {dayNum}
                       </span>
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#2E3230] dark:text-white truncate">
+                      <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white truncate">
                         {e.title}
                       </p>
                       <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
-                        <span className="font-semibold text-[#2E3230] dark:text-gray-200">{e.time}</span>
+                        <span className="font-semibold text-[var(--terra-ink)] dark:text-gray-200">{e.time}</span>
                         <span className="inline-flex items-center gap-1.5">
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
@@ -730,7 +730,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                       evt.stopPropagation();
                       onSendToTelegram(e);
                     }}
-                    className="w-8 h-8 rounded-full text-[#4A7C59] hover:bg-[#EDE8DD] dark:hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
+                    className="w-8 h-8 rounded-full text-[var(--terra-primary)] hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
                     title="В Telegram"
                   >
                     <Send size={15} />
@@ -741,7 +741,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           ) : (
             <div className="py-10 text-center bg-[#F5F2EB]/50 dark:bg-white/5 rounded-2xl p-6">
               <Check size={32} className="mx-auto text-graphite-muted/40 mb-2" />
-              <p className="text-xs font-bold text-[#2E3230] dark:text-white uppercase tracking-wider">
+              <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white uppercase tracking-wider">
                 {listTab === 'upcoming' 
                   ? `В ${currentMonthTitle} нет запланированных событий` 
                   : `В ${currentMonthTitle} нет прошедших событий`}
@@ -764,7 +764,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   };
 
   return (
-    <div className="flex-none flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-visible text-[#2E3230] dark:text-gray-100 transition-colors">
+    <div className="flex-none flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-visible text-[var(--terra-ink)] dark:text-gray-100 transition-colors">
       
       {/* 1. UNIFIED MOBILE HEADER */}
       <TerraMobileHeader
@@ -782,7 +782,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 ? 'bg-red-500 text-white animate-pulse shadow-md'
                 : isProcessingVoice
                 ? 'bg-amber-500 text-white'
-                : 'bg-[#EAE6DD] dark:bg-[#252528] text-[#2E3230] dark:text-white hover:text-[#4A7C59] hover:bg-[#E0DBD0] dark:hover:bg-white/10 shadow-xs'
+                : 'bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white hover:text-[var(--terra-primary)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 shadow-xs'
             }`}
             title="Голосовой ввод события"
           >
@@ -832,11 +832,11 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           {/* Row 1: Month Title & Arrows */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-xl sm:text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight truncate">
+              <h2 className="text-xl sm:text-2xl font-headline font-bold text-[var(--terra-ink)] dark:text-white tracking-tight truncate">
                 {viewMode === 'day' ? selectedDayFormattedTitle : viewMode === 'week' ? weekPeriodTitle : currentMonthTitle}
               </h2>
               {viewMode !== 'week' && viewMode !== 'day' && (
-                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#F0ECE4] dark:bg-white/10 text-[#6B6358] dark:text-gray-300 shrink-0">
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-[var(--terra-muted)] dark:text-gray-300 shrink-0">
                   {`${daysCountInCurrentMonth} дней`}
                 </span>
               )}
@@ -847,7 +847,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 type="button"
                 onClick={() => viewMode === 'day' ? changeDay(-1) : viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
                 aria-label={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
-                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
+                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[var(--terra-soft)] dark:bg-white/10 flex items-center justify-center text-[var(--terra-ink)] dark:text-white hover:bg-[var(--terra-soft)] active:scale-95 transition-all cursor-pointer"
                 title={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
@@ -856,7 +856,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 type="button"
                 onClick={() => viewMode === 'day' ? changeDay(1) : viewMode === 'week' ? changeWeek(1) : changeMonth(1)}
                 aria-label={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
-                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
+                className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[var(--terra-soft)] dark:bg-white/10 flex items-center justify-center text-[var(--terra-ink)] dark:text-white hover:bg-[var(--terra-soft)] active:scale-95 transition-all cursor-pointer"
                 title={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
@@ -865,15 +865,15 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 2: Segmented Switcher (Месяц / Неделя / Расписание) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#F0ECE4] dark:bg-[#252528] p-1 rounded-2xl gap-1 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] p-1 rounded-2xl gap-1 w-full">
             <button
               type="button"
               onClick={() => setViewMode('month')}
               aria-pressed={viewMode === 'month'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'month'
-                  ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
-                  : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
               <LayoutGrid size={15} />
@@ -886,8 +886,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               aria-pressed={viewMode === 'week'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'week'
-                  ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
-                  : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
               <Columns size={15} />
@@ -895,7 +895,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             </button>
 
             <button type="button" onClick={() => {setViewMode('day');setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));}} aria-pressed={viewMode === 'day'}
-              className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 shadow-xs' : 'text-[#6B6358] dark:text-gray-400'}`}>
+              className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs' : 'text-[var(--terra-muted)] dark:text-gray-400'}`}>
               День
             </button>
             <button
@@ -904,8 +904,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               aria-pressed={viewMode === 'list'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
-                  : 'text-[#6B6358] dark:text-gray-400 font-medium hover:text-[#2E3230]'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
               <ListTodo size={15} />
@@ -966,7 +966,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
         {/* CARD 3: Selected Day Card & Monthly Summary (Image 1 Spec) */}
         {viewMode !== 'list' && (
-          <div className="bg-white dark:bg-[#1E1E20] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-4">
+          <div className="bg-white dark:bg-[var(--terra-surface)] rounded-[28px] p-4 shadow-sm border border-[#EAE5DB]/60 dark:border-white/5 space-y-4">
             
             {/* Header: Circle Day Badge, Title, Today Badge & Add Button */}
             <div className="flex items-center justify-between gap-3">
@@ -977,7 +977,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-headline font-bold text-base sm:text-lg text-[#2E3230] dark:text-white leading-tight">
+                    <h3 className="font-headline font-bold text-base sm:text-lg text-[var(--terra-ink)] dark:text-white leading-tight">
                       {selectedDayFormattedTitle}
                     </h3>
                     {isSelectedDateToday && (
@@ -1016,7 +1016,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     <div
                       key={ev.id}
                       onClick={() => onOpenEvent(ev)}
-                      className={`p-4 rounded-2xl bg-[#F5F2EB] dark:bg-white/5 border transition cursor-pointer space-y-2.5 ${
+                      className={`p-4 rounded-2xl bg-[var(--terra-soft)] dark:bg-white/5 border transition cursor-pointer space-y-2.5 ${
                         isConflict
                           ? 'border-amber-400/80 dark:border-amber-600/60'
                           : 'border-[#EAE5DB]/70 dark:border-white/10'
@@ -1024,7 +1024,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     >
                       {/* Top Row: Color Dot + Time + Status Badge */}
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 font-sans text-sm font-bold text-[#2E3230] dark:text-white">
+                        <div className="flex items-center gap-2 font-sans text-sm font-bold text-[var(--terra-ink)] dark:text-white">
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: memberMeta?.color || '#D97706' }}
@@ -1040,7 +1040,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                             <span>Пересечение</span>
                           </span>
                         ) : isCommon ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#EDE8DD] text-[#5E5548] dark:bg-white/10 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[var(--terra-soft)] text-[#5E5548] dark:bg-white/10 dark:text-gray-300">
                             <Users size={12} />
                             <span>Совместно</span>
                           </span>
@@ -1048,7 +1048,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                       </div>
 
                       {/* Event Title */}
-                      <h4 className="text-base font-bold text-[#2E3230] dark:text-white leading-snug">
+                      <h4 className="text-base font-bold text-[var(--terra-ink)] dark:text-white leading-snug">
                         {ev.title}
                       </h4>
 
@@ -1068,7 +1068,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                               return (
                                 <span
                                   key={mId}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EDE8DD] dark:bg-white/10 text-xs font-semibold text-[#2E3230] dark:text-gray-200"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-xs font-semibold text-[var(--terra-ink)] dark:text-gray-200"
                                 >
                                   <span
                                     className="w-1.5 h-1.5 rounded-full shrink-0 self-center"
@@ -1079,7 +1079,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                               );
                             })
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EDE8DD] dark:bg-white/10 text-xs font-semibold text-[#2E3230] dark:text-gray-200">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-xs font-semibold text-[var(--terra-ink)] dark:text-gray-200">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] shrink-0 self-center" />
                               <span>Вся семья</span>
                             </span>
@@ -1098,7 +1098,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                               e.stopPropagation();
                               onSendToTelegram(ev);
                             }}
-                            className="w-11 h-11 flex items-center justify-center text-[#4A7C59] hover:bg-[#EDE8DD] dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                            className="w-11 h-11 flex items-center justify-center text-[var(--terra-primary)] hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
                             title="В Telegram"
                           >
                             <Send size={15} />
@@ -1110,12 +1110,12 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 })}
               </div>
             ) : (
-              <div className="bg-[#F5F2EB] dark:bg-white/5 rounded-2xl p-4 flex items-center gap-3.5 transition-colors">
+              <div className="bg-[var(--terra-soft)] dark:bg-white/5 rounded-2xl p-4 flex items-center gap-3.5 transition-colors">
                 <div className="w-11 h-11 rounded-full bg-[#C8E8D0] dark:bg-[#4A7C59]/30 text-[#2A6038] dark:text-green-200 flex items-center justify-center shrink-0 shadow-xs">
                   <Leaf size={22} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-bold text-[#2E3230] dark:text-white leading-snug">
+                  <h4 className="text-sm font-bold text-[var(--terra-ink)] dark:text-white leading-snug">
                     Нет событий на этот день
                   </h4>
                   <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5 leading-relaxed">
@@ -1131,15 +1131,15 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 <div className="w-6 h-6 rounded-full bg-[#C8E8D0]/60 dark:bg-emerald-800/40 text-[#2A6038] dark:text-green-300 flex items-center justify-center">
                   <Sparkles size={13} />
                 </div>
-                <span className="font-bold text-[#2E3230] dark:text-white">
+                <span className="font-bold text-[var(--terra-ink)] dark:text-white">
                   Планы на месяц: <strong className="text-[#3B6347] dark:text-emerald-400">{monthStats.total} событий</strong>
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#6B6358] dark:text-gray-300">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--terra-muted)] dark:text-gray-300">
                 {monthStats.memberCounts.map(mc => (
                   <span key={mc.name}>
-                    {mc.name}: <strong className="text-[#2E3230] dark:text-white">{mc.count}</strong>
+                    {mc.name}: <strong className="text-[var(--terra-ink)] dark:text-white">{mc.count}</strong>
                   </span>
                 ))}
                 {monthStats.commonCount > 0 && (

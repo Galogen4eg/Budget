@@ -45,7 +45,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   return (
     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-2 w-full min-w-0">
       {/* Mode Selector (Family / Personal) */}
-      <div className={`w-full sm:w-auto grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start`}>
+      <div className={`w-full sm:w-auto grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start`}>
         {!householdPersonal&&<button
           type="button"
           onClick={() => setBudgetMode('family')}
@@ -71,7 +71,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         >
           <User size={15} />
           <span>Личный</span>
-          <span className="w-5 h-5 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] text-graphite dark:text-white flex items-center justify-center text-[10px] font-mono ml-0.5">
+          <span className="w-5 h-5 rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-graphite dark:text-white flex items-center justify-center text-[10px] font-mono ml-0.5">
             {memberInitial}
           </span>
         </button>
@@ -86,7 +86,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
             onClick={() => setIsMonthPickerOpen(prev => !prev)}
             aria-expanded={isMonthPickerOpen}
             aria-label={`Выбрать месяц. Сейчас: ${currentMonthName}`}
-            className="flex items-center gap-2 px-3 py-2 rounded-2xl min-h-[44px] bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 text-xs font-bold text-graphite dark:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl min-h-[44px] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[#EAE6DD] dark:border-white/10 text-xs font-bold text-graphite dark:text-white hover:bg-[#F2ECE1] dark:hover:bg-white/5 transition cursor-pointer"
           >
             <Calendar size={14} className="text-[#4A7C59]" />
             <span className="capitalize">{currentMonthName}</span>
@@ -99,7 +99,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                 className="fixed inset-0 z-20" 
                 onClick={() => setIsMonthPickerOpen(false)} 
               />
-              <div className="absolute right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[#FAF8F5] dark:bg-[#1C1C1E] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
+              <div className="absolute right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
                 {monthOptions.map(m => {
                   const isSelected = 
                     m.date.getMonth() === activeMonth.getMonth() && 

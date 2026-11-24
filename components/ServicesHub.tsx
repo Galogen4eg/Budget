@@ -124,7 +124,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                   <h1 className={PAGE_HEADING}>
                     Финансовые сервисы
                   </h1>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#f1ede6] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[var(--terra-soft)] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
                     {SERVICES.length} сервиса
                   </span>
                 </div>
@@ -158,7 +158,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
 
                     {/* Title and Description */}
                     <div>
-                      <h2 className="text-sm sm:text-base font-semibold text-[#2E3230] dark:text-white leading-snug break-words">
+                      <h2 className="text-sm sm:text-base font-semibold text-[var(--terra-ink)] dark:text-white leading-snug break-words">
                         {app.label}
                       </h2>
                       <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed line-clamp-2">
@@ -178,7 +178,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
-                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[#1C1C1E] hover:bg-stone-50 dark:hover:bg-[#2C2C2E] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[var(--terra-surface)] hover:bg-stone-50 dark:hover:bg-[var(--terra-soft)] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Ко всем сервисам</span>

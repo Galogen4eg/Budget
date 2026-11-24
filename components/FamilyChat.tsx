@@ -216,16 +216,16 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
   });
 
   return (
-    <div className="w-full h-full flex-1 flex bg-[#FAF6F0] dark:bg-[#121214] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[#EAE5DB] dark:md:border-white/10 select-none min-h-0">
+    <div className="w-full h-full flex-1 flex bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[var(--terra-border)] dark:md:border-white/10 select-none min-h-0">
       
       {/* LEFT COLUMN: CHAT FOLDERS / TOPICS LIST (Always visible on desktop md+, toggleable on mobile) */}
-      <aside className={`w-full md:w-72 lg:w-80 border-r border-outline-variant/30 bg-[#F5F1EA] dark:bg-[#1C1C1E] flex-col shrink-0 h-full ${
+      <aside className={`w-full md:w-72 lg:w-80 border-r border-outline-variant/30 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] flex-col shrink-0 h-full ${
         mobileView === 'list' ? 'flex' : 'hidden md:flex'
       }`}>
         {/* Sidebar Header */}
-        <header className="min-h-16 px-4 border-b border-[#EAE5DB] dark:border-white/10 flex items-center justify-between shrink-0 bg-[#FAF6F0] dark:bg-[#121214]">
+        <header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
           <div>
-            <h1 className="font-headline font-bold text-xl tracking-tight text-[#2E3230] dark:text-white">Семейные беседы</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block"></span>
               <span>{members.length} участников семьи</span>
@@ -236,7 +236,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
             onClick={handleCreateTopic}
             title="Создать тему"
             aria-label="Создать тему"
-            className="w-11 h-11 rounded-full bg-primary-container/60 hover:bg-primary-container text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-11 h-11 rounded-full bg-primary-container/60 hover:bg-primary-container text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
           </button>
@@ -253,7 +253,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                 onClick={() => handleSelectTopic(t.id)}
                 className={`w-full p-3 rounded-2xl text-left flex items-start gap-3 transition-all cursor-pointer ${
                   isActive 
-                    ? 'bg-surface dark:bg-[#2C2C2E] border border-primary/40 shadow-sm' 
+                    ? 'bg-surface dark:bg-[var(--terra-soft)] border border-primary/40 shadow-sm' 
                     : 'hover:bg-surface-container/60 dark:hover:bg-white/5 border border-transparent'
                 }`}
               >
@@ -278,12 +278,12 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
       </aside>
 
       {/* RIGHT COLUMN: ACTIVE CHAT FEED (Always visible on desktop md+, toggleable on mobile) */}
-      <section className={`flex-1 flex flex-col h-full bg-[#FAF6F0] dark:bg-[#121214] min-w-0 relative ${
+      <section className={`flex-1 flex flex-col h-full bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] min-w-0 relative ${
         mobileView === 'chat' ? 'flex' : 'hidden md:flex'
       }`}>
         
         {/* Chat Header */}
-        <header className="sticky top-0 w-full z-40 bg-[#FAF6F0] dark:bg-[#121214] border-b border-[#EAE5DB] dark:border-white/10 shrink-0">
+        <header className="sticky top-0 w-full z-40 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] border-b border-[var(--terra-border)] dark:border-white/10 shrink-0">
           <div className="h-16 px-3.5 flex items-center justify-between gap-2">
             
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -340,7 +340,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
 
           {/* Collapsible Search Bar */}
           {isSearching && (
-            <div className="px-4 py-2 bg-surface-container-low dark:bg-[#1C1C1E] border-t border-surface-variant/40 dark:border-white/10 flex items-center gap-2">
+            <div className="px-4 py-2 bg-surface-container-low dark:bg-[var(--terra-surface)] border-t border-surface-variant/40 dark:border-white/10 flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">search</span>
               <input 
                 type="text"
@@ -362,7 +362,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
         </header>
 
         {/* Messages Feed */}
-        <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[#121214] overflow-hidden">
+        <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[var(--terra-canvas)] overflow-hidden">
           <div 
             ref={messagesContainerRef}
             onScroll={e=>{const el=e.currentTarget;followChat.current=shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop);}}
@@ -374,7 +374,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
               <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
                 <span>{searchQuery.trim()?'Результаты поиска':'История сообщений'}</span>
                 {isVirtual && (
-                  <span className="text-[10.5px] bg-[#4A7C59]/15 text-[#2D5A3F] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" title="Виртуализация активна: рендерятся только видимые сообщения">
+                  <span className="text-[10.5px] bg-[#4A7C59]/15 text-[var(--terra-primary)] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" title="Виртуализация активна: рендерятся только видимые сообщения">
                     {filteredMessages.length} сообщ.
                   </span>
                 )}
@@ -415,7 +415,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                         </span>
                       </div>
 
-                      <div className="bg-surface-container-low dark:bg-[#1C1C1E] rounded-xl p-3.5 shadow-sm flex flex-col gap-2.5 border border-outline-variant/20 dark:border-white/10">
+                      <div className="bg-surface-container-low dark:bg-[var(--terra-surface)] rounded-xl p-3.5 shadow-sm flex flex-col gap-2.5 border border-outline-variant/20 dark:border-white/10">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-primary-fixed dark:bg-emerald-950 flex items-center justify-center shrink-0 text-primary dark:text-emerald-400">
@@ -473,13 +473,13 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                         </span>
                       </div>
 
-                      <div className="relative bg-surface-container-lowest dark:bg-[#1C1C1E] border border-outline-variant/20 dark:border-white/10 p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
+                      <div className="relative bg-surface-container-lowest dark:bg-[var(--terra-surface)] border border-outline-variant/20 dark:border-white/10 p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
                         {msg.text}
 
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <button type="button" aria-label="Реакция сердце" aria-pressed={Boolean(user?.uid&&msg.heartUsers?.includes(user.uid))}
                             disabled={!user||heartBusy.includes(msg.id)} onClick={()=>void handleToggleReaction(msg)}
-                            className="min-h-[44px] min-w-[44px] rounded-xl px-2 text-xs border border-[#EAE5DB] dark:border-white/10 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary">
+                            className="min-h-[44px] min-w-[44px] rounded-xl px-2 text-xs border border-[var(--terra-border)] dark:border-white/10 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary">
                             ♥ {(msg.heartUsers||[]).length||''}
                           </button>
                           {!!msg.reactions?.['❤️']&&<span className="text-xs text-graphite-muted dark:text-gray-400">Старые реакции: {msg.reactions['❤️']}</span>}
@@ -505,7 +505,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                   {!!msg.heartUsers?.length&&<span className="text-xs text-graphite-muted dark:text-gray-400">♥ {msg.heartUsers.length}</span>}
 
                   <div className="flex items-center gap-1 pr-1 text-[11px] text-on-surface-variant dark:text-stone-400 font-body">
-                    <span className="material-symbols-outlined text-[15px] text-[#2D5A3F] dark:text-emerald-400">done_all</span>
+                    <span className="material-symbols-outlined text-[15px] text-[var(--terra-primary)] dark:text-emerald-400">done_all</span>
                     <span>Отправлено</span>
                   </div>
                 </div>
@@ -525,7 +525,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
         </main>
 
         {/* Composer Bar */}
-        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[#1C1C1E] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-3">
+        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-3">
           <form className="p-2 sm:p-3 flex items-center gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
             <input 
               ref={fileInputRef}
@@ -542,7 +542,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
               <span className="material-symbols-outlined text-[20px] sm:text-[22px]">attach_file</span>
             </button>
 
-            <div className="flex-1 bg-surface-container-low dark:bg-[#121214] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
+            <div className="flex-1 bg-surface-container-low dark:bg-[var(--terra-canvas)] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
               <input 
                 type="text"
                 value={inputText}
@@ -569,12 +569,12 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
       {/* EXPENSE DETAILS MODAL SHEET */}
       {isReceiptModalOpen && selectedReceipt && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-end justify-center p-0 transition-opacity">
-          <div className="w-full max-w-md !bg-white dark:!bg-[#1C1C1E] rounded-t-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-6 duration-200 border-t border-stone-200 dark:border-white/10 relative z-10">
+          <div className="w-full max-w-md !bg-white dark:!bg-[var(--terra-surface)] rounded-t-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-6 duration-200 border-t border-stone-200 dark:border-white/10 relative z-10">
             <div className="w-12 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600 mx-auto"></div>
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-[#2D5A3F] dark:text-emerald-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[22px]">receipt_long</span>
                 </div>
                 <div>
@@ -591,7 +591,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
               </button>
             </div>
 
-            <div className="bg-stone-50 dark:bg-[#121214] rounded-xl p-3.5 space-y-2 text-xs font-body text-on-surface dark:text-stone-200 border border-stone-200 dark:border-white/10">
+            <div className="bg-stone-50 dark:bg-[var(--terra-canvas)] rounded-xl p-3.5 space-y-2 text-xs font-body text-on-surface dark:text-stone-200 border border-stone-200 dark:border-white/10">
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-stone-400">Сумма покупки:</span>
                 <span className="font-bold text-sm text-on-surface dark:text-white">
@@ -600,7 +600,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-stone-400">Категория:</span>
-                <span className="font-semibold text-[#2D5A3F] dark:text-emerald-400">{selectedReceipt.category}</span>
+                <span className="font-semibold text-[var(--terra-primary)] dark:text-emerald-400">{selectedReceipt.category}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-stone-400">Дата и время:</span>
@@ -622,7 +622,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
       {/* CONFIRM DELETE CHAT MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="!bg-white dark:!bg-[#1C1C1E] border border-stone-200 dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4 relative z-10">
+          <div className="!bg-white dark:!bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4 relative z-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[20px]">delete</span>

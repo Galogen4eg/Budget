@@ -257,7 +257,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     }
     return {
       icon: <Coffee size={15} />,
-      bg: 'bg-[#F6F3EE] dark:bg-white/5',
+      bg: 'bg-[var(--terra-surface)] dark:bg-white/5',
       text: 'text-stone-600 dark:text-stone-300',
       categoryName: 'Личное'
     };
@@ -302,7 +302,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   return (
-    <div className="flex h-full min-w-0 w-full bg-[#F8F6F0] dark:bg-[#121214] text-stone-900 dark:text-white font-sans overflow-hidden select-none">
+    <div className="flex h-full min-w-0 w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-canvas)] text-stone-900 dark:text-white font-sans overflow-hidden select-none">
       
       {/* Левая и центральная область: Календарь планов */}
       <main className="flex-1 flex flex-col min-w-0 h-full p-5 lg:p-7 overflow-y-auto">
@@ -316,7 +316,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               <h1 className="text-2xl lg:text-3xl font-bold font-serif capitalize tracking-tight text-stone-900 dark:text-white">
                 {viewMode === 'day' ? selectedDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : viewMode === 'week' ? weekPeriodTitle : monthName}
               </h1>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#EBE5DB] dark:bg-white/10 text-stone-600 dark:text-stone-300">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-stone-600 dark:text-stone-300">
                 {viewMode === 'week' 
                   ? (isSelectedWeekCurrent ? 'Текущая неделя' : 'Неделя')
                   : viewMode === 'day' ? 'День' : `${daysInCurrentMonth} дней`}
@@ -325,7 +325,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 <button
                   type="button"
                   onClick={resetToCurrentWeek}
-                  className="text-xs font-bold text-[#2D5A46] dark:text-emerald-400 hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[var(--terra-primary)] dark:text-emerald-400 hover:underline cursor-pointer"
                 >
                   К текущей неделе
                 </button>
@@ -430,7 +430,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               className={`w-11 h-11 flex flex-none items-center justify-center rounded-xl transition-colors cursor-pointer ${
                 isListening 
                   ? 'bg-red-500 text-white animate-pulse' 
-                  : 'bg-[#EBE5DB] dark:bg-white/10 hover:bg-stone-300 text-stone-700 dark:text-stone-300'
+                  : 'bg-[var(--terra-soft)] dark:bg-white/10 hover:bg-stone-300 text-stone-700 dark:text-stone-300'
               }`}
               title="Добавить голосом"
             >
@@ -497,17 +497,17 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary p-2.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[96px] ${
                         d.current 
                           ? isToday
-                            ? 'border-2 border-[#2D5A46] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
+                            ? 'border-2 border-[var(--terra-primary)] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[var(--terra-surface)] shadow-sm z-10'
                             : isSelected
-                            ? 'border-2 border-[#2D5A46]/80 bg-white dark:bg-[#1C1C1E] shadow-sm z-10'
-                            : 'bg-[#F6F3EE] dark:bg-[#252528] border border-[#ECE5DB]/80 dark:border-white/5 hover:border-[#D5CDC2]'
+                            ? 'border-2 border-[#2D5A46]/80 bg-white dark:bg-[var(--terra-surface)] shadow-sm z-10'
+                            : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-[#ECE5DB]/80 dark:border-white/5 hover:border-[var(--terra-border)]'
                           : 'bg-stone-50/40 dark:bg-black/20 border border-transparent opacity-30'
                       }`}
                     >
                       {/* Верхняя строка ячейки: Число */}
                       <div className="flex justify-between items-center shrink-0 mb-1">
                         {d.current ? (
-                          <span className={`text-xs ${isToday ? 'text-[#2D5A46] dark:text-emerald-400 font-extrabold text-sm' : isSelected ? 'text-[#2D5A46] font-bold' : 'text-stone-700 dark:text-stone-300 font-semibold'}`}>
+                          <span className={`text-xs ${isToday ? 'text-[var(--terra-primary)] dark:text-emerald-400 font-extrabold text-sm' : isSelected ? 'text-[var(--terra-primary)] font-bold' : 'text-stone-700 dark:text-stone-300 font-semibold'}`}>
                             {d.day}
                           </span>
                         ) : (
@@ -556,7 +556,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               setSelectedDate(new Date(d.year, d.month, d.day));
                               onOpenEvent(null, { date: dateStr });
                             }}
-                            className="min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[#2D5A46] transition py-1 text-center opacity-70 hover:opacity-100"
+                            className="min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[var(--terra-primary)] transition py-1 text-center opacity-70 hover:opacity-100"
                           >
                             + Добавить
                           </button>
@@ -597,10 +597,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     onClick={() => setSelectedDate(dayDate)} 
                     className={`rounded-2xl p-3.5 border transition flex flex-col cursor-pointer ${
                       isSelected 
-                        ? 'border-2 border-[#2D5A46] bg-white dark:bg-[#1E1E20] shadow-sm'
+                        ? 'border-2 border-[var(--terra-primary)] bg-white dark:bg-[var(--terra-surface)] shadow-sm'
                         : isToday
                         ? 'bg-[#E8F2EC]/40 dark:bg-[#2D5A46]/20 border-[#2D5A46]/40'
-                        : 'bg-[#F6F3EE] dark:bg-[#252528] border-[#ECE5DB] dark:border-white/5 hover:border-stone-400'
+                        : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border-[var(--terra-border)] dark:border-white/5 hover:border-stone-400'
                     }`}
                   >
                     <div className="flex items-center justify-between pb-2 border-b border-stone-200/60 dark:border-white/10 mb-3">
@@ -610,7 +610,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                         {WEEK_DAYS[i]}
                       </span>
                       <span className={`text-base font-extrabold px-2 py-0.5 rounded-full leading-none ${
-                        isToday ? 'bg-[#2D5A46] text-white' : isSelected ? 'text-[#2D5A46]' : 'text-stone-900 dark:text-white'
+                        isToday ? 'bg-[#2D5A46] text-white' : isSelected ? 'text-[var(--terra-primary)]' : 'text-stone-900 dark:text-white'
                       }`}>
                         {dayDate.getDate()}
                       </span>
@@ -643,7 +643,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                             setSelectedDate(dayDate);
                             onOpenEvent(null, { date: dateStr });
                           }}
-                          className="text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[#2D5A46] transition py-3 text-center opacity-70 hover:opacity-100 italic"
+                          className="text-[11px] text-stone-400 dark:text-stone-500 font-medium hover:text-[var(--terra-primary)] transition py-3 text-center opacity-70 hover:opacity-100 italic"
                         >
                           + Добавить
                         </div>
@@ -660,7 +660,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               <h2 className="text-lg font-semibold">События дня</h2>
               {selectedDayEvents.filter(ev=>filterMemberId==='all'||ev.memberIds?.includes(filterMemberId)).map(ev=>(
                 <button type="button" key={ev.id} onClick={()=>onOpenEvent(ev)}
-                  className="w-full min-h-[44px] rounded-xl border border-[#ECE5DB] dark:border-white/10 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-stone-100 dark:hover:bg-white/5 transition-colors motion-reduce:transition-none">
+                  className="w-full min-h-[44px] rounded-xl border border-[var(--terra-border)] dark:border-white/10 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-stone-100 dark:hover:bg-white/5 transition-colors motion-reduce:transition-none">
                   <span className="block text-sm font-semibold break-words">{ev.title}</span>
                   <span className="block text-xs text-stone-500 dark:text-stone-300">{ev.time}{ev.duration ? ' — '+calendarEndTime(ev.time,ev.duration):''}</span>
                 </button>
@@ -675,20 +675,20 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-4">
               {/* Переключатель: Будущие / Прошедшие в рамках текущего месяца */}
               <div className="flex items-center justify-between shrink-0 pb-2 border-b border-stone-200/60 dark:border-white/10">
-                <div className="inline-flex bg-[#EBE5DB] dark:bg-white/10 p-1 rounded-2xl gap-1">
+                <div className="inline-flex bg-[var(--terra-soft)] dark:bg-white/10 p-1 rounded-2xl gap-1">
                   <button
                     type="button"
                     onClick={() => setListTab('upcoming')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'upcoming'
-                        ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
+                        ? 'bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-primary)] dark:text-emerald-300 shadow-sm'
                         : FILTER_CHIP_IDLE
                     }`}
                   >
                     <Sparkles size={14} />
                     <span>Будущие</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      listTab === 'upcoming' ? 'bg-[#2D5A46]/15 text-[#2D5A46] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
+                      listTab === 'upcoming' ? 'bg-[#2D5A46]/15 text-[var(--terra-primary)] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
                     }`}>
                       {scheduleUpcomingEvents.length}
                     </span>
@@ -699,14 +699,14 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     onClick={() => setListTab('past')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
                       listTab === 'past'
-                        ? 'bg-white dark:bg-[#2C2C2E] text-[#2D5A46] dark:text-emerald-300 shadow-sm'
+                        ? 'bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-primary)] dark:text-emerald-300 shadow-sm'
                         : FILTER_CHIP_IDLE
                     }`}
                   >
                     <History size={14} />
                     <span>Прошедшие</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      listTab === 'past' ? 'bg-[#2D5A46]/15 text-[#2D5A46] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
+                      listTab === 'past' ? 'bg-[#2D5A46]/15 text-[var(--terra-primary)] dark:text-emerald-300' : 'bg-black/5 dark:bg-white/10'
                     }`}>
                       {schedulePastEvents.length}
                     </span>
@@ -733,10 +733,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                           setSelectedDate(parseLocalCalendarDate(evt.date));
                           onOpenEvent(evt);
                         }}
-                        className="p-4 bg-[#F6F3EE] dark:bg-[#252528] rounded-2xl border border-[#ECE5DB] dark:border-white/5 hover:border-[#2D5A46] transition flex items-center justify-between cursor-pointer group"
+                        className="p-4 bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] rounded-2xl border border-[var(--terra-border)] dark:border-white/5 hover:border-[var(--terra-primary)] transition flex items-center justify-between cursor-pointer group"
                       >
                         <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#1C1C1E] flex flex-col items-center justify-center border border-[#ECE5DB] dark:border-white/10 shrink-0 shadow-2xs">
+                          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[var(--terra-surface)] flex flex-col items-center justify-center border border-[var(--terra-border)] dark:border-white/10 shrink-0 shadow-2xs">
                             <span className="text-[10px] font-bold text-stone-400 uppercase leading-none">
                               {dateObj.toLocaleDateString('ru-RU', { weekday: 'short' })}
                             </span>
@@ -747,7 +747,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-xs font-extrabold text-[#2D5A46] dark:text-emerald-400 flex items-center gap-1">
+                              <span className="text-xs font-extrabold text-[var(--terra-primary)] dark:text-emerald-400 flex items-center gap-1">
                                 <Clock size={12} />
                                 {evt.time || 'Весь день'}
                               </span>
@@ -774,7 +774,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               e.stopPropagation();
                               onSendToTelegram(evt);
                             }}
-                            className="p-2 rounded-xl bg-white dark:bg-[#1C1C1E] text-stone-400 hover:text-[#2D5A46] border border-[#ECE5DB] dark:border-white/10 transition cursor-pointer"
+                            className="p-2 rounded-xl bg-white dark:bg-[var(--terra-surface)] text-stone-400 hover:text-[var(--terra-primary)] border border-[var(--terra-border)] dark:border-white/10 transition cursor-pointer"
                             title="Отправить в Telegram"
                           >
                             <Send size={15} />
@@ -784,7 +784,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     );
                   })
                 ) : (
-                  <div className="py-16 text-center bg-[#F6F3EE]/50 dark:bg-white/5 rounded-3xl p-8 border border-dashed border-[#ECE5DB] dark:border-white/10">
+                  <div className="py-16 text-center bg-[#F6F3EE]/50 dark:bg-white/5 rounded-3xl p-8 border border-dashed border-[var(--terra-border)] dark:border-white/10">
                     <CheckCircle2 size={40} className="mx-auto text-stone-400 mb-2 opacity-60" />
                     <p className="text-sm font-bold text-stone-700 dark:text-stone-300">
                       {listTab === 'upcoming' 
@@ -810,7 +810,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: ИНСПЕКТОР ДНЯ */}
-      <aside className="w-[min(360px,32vw)] min-w-[280px] bg-[#F8F6F0] dark:bg-[#141416] border-l border-[#ECE5DB] dark:border-white/10 flex flex-col shrink-0 h-full p-6 lg:p-7 overflow-y-auto no-scrollbar space-y-6">
+      <aside className="w-[min(360px,32vw)] min-w-[280px] bg-[var(--terra-surface)] dark:bg-[#141416] border-l border-[var(--terra-border)] dark:border-white/10 flex flex-col shrink-0 h-full p-6 lg:p-7 overflow-y-auto no-scrollbar space-y-6">
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">
@@ -830,7 +830,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 {selectedDate.getDate()} {selectedDate.toLocaleDateString('ru-RU', { month: 'long' })}
               </h2>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#EBE5DB] dark:bg-white/10 text-stone-700 dark:text-stone-300">
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-stone-700 dark:text-stone-300">
               {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'событие' : selectedDayEvents.length >= 2 && selectedDayEvents.length <= 4 ? 'события' : 'событий'}
             </span>
           </div>
@@ -871,7 +871,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 return (
                   <div 
                     key={evt.id}
-                    className="p-4 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-[#ECE5DB] dark:border-white/10 shadow-xs space-y-2 relative group"
+                    className="p-4 rounded-2xl bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 shadow-xs space-y-2 relative group"
                   >
                     {/* Верхняя строка карточки: Время + Бейдж участника + Сообщение о пересечении + Карандаш */}
                     <div className="flex items-center justify-between">
@@ -928,7 +928,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               })}
             </div>
           ) : (
-            <div className="p-5 rounded-2xl bg-white/60 dark:bg-white/5 border border-dashed border-[#ECE5DB] dark:border-white/10 text-center">
+            <div className="p-5 rounded-2xl bg-white/60 dark:bg-white/5 border border-dashed border-[var(--terra-border)] dark:border-white/10 text-center">
               <p className="text-xs text-stone-400 font-medium">Нет запланированных событий на этот день</p>
             </div>
           )}
@@ -936,7 +936,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           {/* Кнопка добавления события на выбранный день */}
           <button 
             onClick={() => onOpenEvent(null, { date: getLocalDateString(selectedDate) })}
-            className="w-full py-3 rounded-2xl border border-dashed border-[#D5CDC2] dark:border-white/15 bg-[#F6F3EE] dark:bg-white/5 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[#2D5A46] hover:border-[#2D5A46] flex items-center justify-center gap-1.5 transition cursor-pointer"
+            className="w-full py-3 rounded-2xl border border-dashed border-[var(--terra-border)] dark:border-white/15 bg-[var(--terra-surface)] dark:bg-white/5 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[var(--terra-primary)] hover:border-[var(--terra-primary)] flex items-center justify-center gap-1.5 transition cursor-pointer"
           >
             <Plus size={15} />
             <span>Добавить событие на {selectedDate.getDate()} {selectedDate.toLocaleDateString('ru-RU', { month: 'short' })}</span>
@@ -969,7 +969,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                       setSelectedDate(dateObj);
                       onOpenEvent(evt);
                     }}
-                    className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1C1E] hover:border-stone-400 dark:hover:border-white/20 border border-[#ECE5DB] dark:border-white/10 transition flex items-center justify-between cursor-pointer shadow-xs"
+                    className="p-3.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] hover:border-stone-400 dark:hover:border-white/20 border border-[var(--terra-border)] dark:border-white/10 transition flex items-center justify-between cursor-pointer shadow-xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-xl ${meta.bg} ${meta.text} flex items-center justify-center shrink-0`}>

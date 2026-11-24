@@ -78,3 +78,14 @@ test('overview transaction history uses compact rows and preserves edit actions'
   assert.doesNotMatch(section,/СЕГОДНЯ|whitespace-nowrap/);
  }
 });
+
+
+test('desktop overview widgets retain actions and avoid decorative card clutter',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Виджет «История операций»')[0];
+ assert.ok(section);
+ assert.doesNotMatch(section,/КАТЕГОРИИ РАСХОДОВ|СПИСОК ПОКУПОК|СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ|Все покупки сделаны!|whitespace-nowrap/);
+ for(const action of ['onDrillDown(cat.id)','handleToggleShopping(item)','handleAddShoppingInline','onEditEvent(ev)','formatAmount(cat.amount)'])assert.ok(section.includes(action),action);
+ assert.match(section,/aria-label="Добавить в список покупок"/);
+ assert.match(section,/min-h-\[44px\] min-w-\[44px\]/);
+});

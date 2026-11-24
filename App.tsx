@@ -46,6 +46,7 @@ const NotificationsModal = React.lazy(() => import('./components/NotificationsMo
 import { parseAlfaStatement } from './utils/alfaParser';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
+import { stopTelegramBotListener } from './utils/telegramBotListener';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
@@ -195,6 +196,7 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
+  useEffect(()=>{if(householdPersonal||!settingsReady)stopTelegramBotListener();},[householdPersonal,settingsReady]);
   // Двусторонняя синхронизация с Telegram-ботом в реальном времени
   useTelegramSync({
     settings,

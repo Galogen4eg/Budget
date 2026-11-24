@@ -151,9 +151,10 @@ exports.changeHouseholdBudgetPolicy=onCall({region,timeoutSeconds:120},async(req
    if(!family||family.ownerId!==uid||!Array.isArray(family.members)||!family.members.includes(uid))throw new HttpsError('permission-denied','Только администратор');
    const current=family.budgetPolicy??'family';
    if(current===target)return {policy:current,enabled,issues:[]};
-   const [profiles,shared,archive,transactions,goals,debts]=await Promise.all([
+   const [profiles,shared,archive,transactions,goals,debts,accounts,subscriptions,meterReadings]=await Promise.all([
       tx.get(familyRef.collection('members')),tx.get(sharedRef),tx.get(archiveRef),
-      tx.get(familyRef.collection('transactions')),tx.get(familyRef.collection('goals')),tx.get(familyRef.collection('debts'))
+      tx.get(familyRef.collection('transactions')),tx.get(familyRef.collection('goals')),tx.get(familyRef.collection('debts')),
+      tx.get(familyRef.collection('accounts').limit(1)),tx.get(familyRef.collection('subscriptions').limit(1)),tx.get(familyRef.collection('meterReadings').limit(1))
    ]);
    const configs=Object.create(null),refs=Object.create(null);
    for(const memberUid of family.members){
@@ -162,7 +163,7 @@ exports.changeHouseholdBudgetPolicy=onCall({region,timeoutSeconds:120},async(req
    }
    let result;
    try{
-     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data())});
+     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)});
    }catch(error){
      if(preview)return {policy:current,enabled,issues:[error.message]};
      throw new HttpsError('failed-precondition','Миграция заблокирована: '+error.message);

@@ -1,6 +1,6 @@
 import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
-import {getFirestore,FieldValue} from 'firebase-admin/firestore';
+import {initializeFirestore,FieldValue} from 'firebase-admin/firestore';
 import service from '../functions/budgetPolicyService.cjs';
 
 const {changeHouseholdBudgetPolicy,PolicyError}=service;
@@ -12,7 +12,9 @@ function productionRuntime(){
   const account=JSON.parse(raw);
   if(account.project_id!==projectId)throw new Error('Unexpected Firebase project');
   const app=getApps().find(app=>app.name==='budget-policy')??initializeApp({credential:cert(account),projectId},'budget-policy');
-  return {db:getFirestore(app),FieldValue,verifyToken:token=>getAuth(app).verifyIdToken(token,true),enabled:process.env.BUDGET_SET12_ENABLED==='true'};
+  // Serverless HTTP handler does not use snapshot listeners; avoid the gRPC transport.
+  const db=initializeFirestore(app,{preferRest:true});
+  return {db,FieldValue,verifyToken:token=>getAuth(app).verifyIdToken(token,true),enabled:process.env.BUDGET_SET12_ENABLED==='true'};
 }
 export function createBudgetPolicyHandler(runtime=productionRuntime){
  return async function handler(req,res){

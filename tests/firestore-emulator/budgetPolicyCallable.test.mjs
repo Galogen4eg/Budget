@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {initializeApp as initializeAdmin,deleteApp as deleteAdmin} from 'firebase-admin/app';
-import {getFirestore as getAdminDb,FieldValue} from 'firebase-admin/firestore';
+import {initializeFirestore as initializeAdminDb,FieldValue} from 'firebase-admin/firestore';
 import {getAuth as getAdminAuth} from 'firebase-admin/auth';
 import {createBudgetPolicyHandler} from '../../api/budget-policy.js';
 import {initializeApp,deleteApp} from 'firebase/app';
@@ -44,7 +44,8 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
  let enabled=true;
  if(transport==='vercel'){
    admin=initializeAdmin({projectId},'policy-http-test');
-   const handler=createBudgetPolicyHandler(()=>({db:getAdminDb(admin),FieldValue,verifyToken:token=>getAdminAuth(admin).verifyIdToken(token,true),enabled}));
+   const adminDb=initializeAdminDb(admin,{preferRest:true});
+   const handler=createBudgetPolicyHandler(()=>({db:adminDb,FieldValue,verifyToken:token=>getAdminAuth(admin).verifyIdToken(token,true),enabled}));
    server=createServer(async(req,res)=>{
      let body='';for await(const chunk of req)body+=chunk;
      req.body=body;

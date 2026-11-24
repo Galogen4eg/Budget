@@ -21,5 +21,12 @@ jobs:
           java-version: '21'
       - name: Install emulator dependencies
         run: npm install --prefix tests/firestore-emulator --no-audit --no-fund
-      - name: Run rules tests against isolated demo project
-        run: tests/firestore-emulator/node_modules/.bin/firebase emulators:exec --config firebase.test.json --only firestore --project demo-budget "node --test tests/firestore-emulator/rules.test.mjs"
+      - name: Install actual Cloud Functions dependencies
+        run: npm install --prefix functions --no-audit --no-fund
+      - name: Run rules and real callable migration tests against isolated demo project
+        env:
+          BUDGET_SET12_ENABLED: 'true'
+        run: |
+          printf 'BUDGET_SET12_ENABLED=true\n' > functions/.env.local
+          tests/firestore-emulator/node_modules/.bin/firebase emulators:exec --config firebase.test.json --only auth,firestore,functions --project demo-budget "node --test --test-concurrency=1 tests/firestore-emulator/rules.test.mjs tests/firestore-emulator/budgetPolicyCallable.test.mjs"
+

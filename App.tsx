@@ -50,13 +50,13 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { stopTelegramBotListener } from './utils/telegramBotListener';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
-import { assertBulkDeleteSafe, isGoalSavingsTransfer, savingsContributionKopecks } from './utils/transactionSavingsConsistency';
+import { assertBulkDeleteSafe, isGoalSavingsTransfer, savingsContributionKopecks, assertGoalDeletionSafe } from './utils/transactionSavingsConsistency';
 import { learnedRuleChangesSavings } from './utils/importSafety';
 import { resolveImportMemberId, assertImportRowsBelongToMember } from './utils/importMemberIdentity';
 import { assertImportBatchReady, assertImportSavingsReady } from './utils/importSafety';
 import { 
   addItem, updateItem, deleteItem, saveTransactionWithGoal, deleteTransactionWithGoal, 
-  addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
+  addItemsBatch, addAlfaItemsIdempotent, addImportedSavingsItemIdempotent, deleteUnlinkedSavingsGoal, areAlfaItemsSavedOnServer, updateItemsBatch, deleteItemsBatch, joinFamily, moveShoppingToPantry, generateUniqueId,
   saveFamilyPlanEvent, deleteFamilyPlanEvent, saveFamilyPlanOccurrence 
 } from './utils/db';
 
@@ -113,7 +113,7 @@ export default function App() {
     members, setMembers,
     categories, setCategories,
     importSourcesReady, settingsReady,
-    settings, financialSettings, householdPersonal, updateSettings, updateMandatoryPaymentBundle,
+    settings, financialSettings, householdPersonal, personalDisplayOnly, displaySettings, displayTransactions, displayMembers, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -770,7 +770,10 @@ export default function App() {
   const handleGoalDelete = async (id: string) => {
       if (!goals.some(g=>g.id===id)) throw new Error('Цель недоступна');
       if (!familyId) throw new Error('Family is not ready: goal was not deleted');
-      await deleteItem(familyId, 'goals', id);
+      assertGoalDeletionSafe(id,transactions);
+      const own=members.find(m=>m.userId&&m.userId===user?.uid)?.id;
+      if(householdPersonal&&!own)throw new Error('Личный профиль не подтверждён');
+      await deleteUnlinkedSavingsGoal(familyId,id,householdPersonal?own:undefined);
       setGoals(prev => prev.filter(g => g.id !== id));
       setIsGoalModalOpen(false);
       setEditingGoal(null);
@@ -1025,12 +1028,12 @@ export default function App() {
             
             <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 <TerraBudget
-                    key={householdPersonal?'private-budget':'joint-budget'}
-                    transactions={transactions}
+                    key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
+                    transactions={displayTransactions}
                     categories={categories}
-                    members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
-                    mandatoryExpenses={financialSettings.mandatoryExpenses || []}
-                    settings={financialSettings}
+                    members={displayMembers}
+                    mandatoryExpenses={displaySettings.mandatoryExpenses || []}
+                    settings={displaySettings}
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
                     onEditTransaction={handleEditTransaction}

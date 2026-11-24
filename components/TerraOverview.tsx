@@ -62,12 +62,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onEditEvent
 }) => {
   const { 
-    transactions, 
+    transactions:allTransactions,
+    displayTransactions:transactions,
     setTransactions,
     filteredTransactions, 
     currentMonthSpent, 
-    goals,
-    financialSettings: settings, householdPersonal,
+    displayGoals:goals,
+    financialSettings, displaySettings:settings, householdPersonal, personalDisplayOnly, personalOpeningKnown,
     updateSettings, updateMandatoryPaymentBundle, 
     members, 
     categories, 
@@ -80,6 +81,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   } = useData();
   
   const { user: firebaseUser, familyId } = useAuth();
+  const personalOnly=householdPersonal||personalDisplayOnly;
   const showShopping=settings.widgets?.find(w=>w.id==='shopping')?.isVisible!==false;
   const showWeekEvents=settings.widgets?.find(w=>w.id==='week_events')?.isVisible!==false;
 
@@ -194,9 +196,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }), [transactions, activeMonth]);
 
   const displayMonthSpent = useMemo(() => {
-    return currentMonthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+    return sumMoney(currentMonthTransactions.filter(t=>t.type==='expense').map(t=>t.amount));
   }, [currentMonthTransactions]);
 
   // Always use the same shared projection as the Budget section.
@@ -212,8 +212,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     enableSmartReserve: settings.enableSmartReserve,
     savingsRate: settings.savingsRate ?? savingsRate,
     manualReservedAmount: settings.manualReservedAmount,
-    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0)
-  }), [transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
+    goalSavedAmounts: goals.map(goal => goal.currentAmount || 0),
+    paymentContext:personalDisplayOnly?{bills:financialSettings.mandatoryExpenses,transactions:allTransactions.filter(tx=>tx.date.slice(0,7)===currentMonthKey),manuallyPaidIds:financialSettings.manualPaidExpenses?.[currentMonthKey]||[]}:undefined
+  }), [personalDisplayOnly,financialSettings,allTransactions,transactions, familyMonthTransactions, relevantMandatoryExpenses, categories,
       settings.manualPaidExpenses, currentMonthKey, settings.initialBalance,
       settings.initialBalanceDate, settings.enableSmartReserve,
       settings.savingsRate, savingsRate, settings.manualReservedAmount, goals]);
@@ -238,7 +239,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [relevantMandatoryExpenses, paymentStates, isCurrentCalendarMonth, now]);
 
   const handleToggleMandatoryPaid = useCallback(async (expenseId: string, isPaid: boolean) => {
-    const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
+    const existing = financialSettings.manualPaidExpenses?.[currentMonthKey] || [];
     const updated = isPaid
       ? Array.from(new Set([...existing, expenseId]))
       : existing.filter(id => id !== expenseId);
@@ -246,7 +247,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       const recorded = familyMonthTransactions.some(tx =>
         tx.type === 'expense' && tx.linkedExpenseId === expenseId
       );
-      if (recorded) {
+      if (recorded || (personalDisplayOnly&&allTransactions.some(tx=>tx.type==='expense'&&tx.linkedExpenseId===expenseId&&tx.date.slice(0,7)===currentMonthKey))) {
         toast.info('Платёж связан с финансовой операцией. Измените или удалите её, чтобы снять оплату.');
         return;
       }
@@ -257,17 +258,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       : [];
     try {
       await updateMandatoryPaymentBundle({
-        mandatoryExpenses:relevantMandatoryExpenses,
+        mandatoryExpenses:financialSettings.mandatoryExpenses,
         manualPaidExpenses:{ [currentMonthKey]:updated }
       }, debtChanges);
     } catch {
       toast.error('Не удалось сохранить отметку платежа и связанный долг.');
     }
-  }, [settings.manualPaidExpenses, currentMonthKey, familyMonthTransactions,
-      relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
+  }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, familyMonthTransactions,
+      relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle, personalDisplayOnly, allTransactions]);
 
   const handlePayMandatoryExpenses = useCallback(async (expenseIds: string[]) => {
-    const existing = settings.manualPaidExpenses?.[currentMonthKey] || [];
+    const existing = financialSettings.manualPaidExpenses?.[currentMonthKey] || [];
     const updated = Array.from(new Set([...existing,...expenseIds]));
     const ids = new Set(expenseIds);
     const debtIds = new Set(relevantMandatoryExpenses.filter(expense =>
@@ -276,13 +277,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const debtChanges = Array.from(debtIds).map(id => ({id, changes:{paidThisMonth:true}}));
     try {
       await updateMandatoryPaymentBundle({
-        mandatoryExpenses:relevantMandatoryExpenses,
+        mandatoryExpenses:financialSettings.mandatoryExpenses,
         manualPaidExpenses:{ [currentMonthKey]:updated }
       }, debtChanges);
     } catch {
       toast.error('Не удалось записать оплату обязательств и связанных долгов.');
     }
-  }, [settings.manualPaidExpenses, currentMonthKey, relevantMandatoryExpenses,
+  }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, relevantMandatoryExpenses,
       isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
   const sharedLedger = familyProjection.ledger;
@@ -292,7 +293,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const availableBalance = familyProjection.availableBalance;
   const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
   const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
-  const dailyLimit = budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining);
+  const dailyLimit = personalOpeningKnown ? budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining) : 0;
 
   // Today's spending
   const todayTransactions = useMemo(() => {
@@ -332,7 +333,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
   // A family budget target must not be reported as a personal spending target.
-  const chartDailyLimit = budgetMode === 'family' || householdPersonal ? dailyLimit : 0;
+  const chartDailyLimit = budgetMode === 'family' || personalOnly ? dailyLimit : 0;
 
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
@@ -382,9 +383,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         max,
         limit: chartDailyLimit,
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : householdPersonal?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
+        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : personalOnly?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -457,7 +458,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -475,7 +476,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }
     });
 
-    const monthlyLimit = budgetMode === 'family' || householdPersonal ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
+    const monthlyLimit = budgetMode === 'family' || personalOnly ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -512,9 +513,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' && !householdPersonal ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' && !personalOnly ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, householdPersonal, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, personalOnly, realToday, isCurrentCalendarMonth]);
 
   // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
@@ -569,7 +570,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return formatBudgetMoney(num);
   };
 
-  const totalMonthlyLimit = settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0);
+  const totalMonthlyLimit = budgetMode==='personal'&&!personalOnly?0:(settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0));
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
@@ -731,8 +732,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
         <div className="px-4 my-3 w-full">
-          <div className={`w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} gap-1`}>
-            {!householdPersonal&&<button
+          <div className={`w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid ${personalOnly?'grid-cols-1':'grid-cols-2'} gap-1`}>
+            {!personalOnly&&<button
               type="button"
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
@@ -767,7 +768,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <section className={`${SURFACE_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
-                {'Семейный баланс'}
+                {personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}
               </span>
               <span className="text-xs text-graphite-muted dark:text-gray-400">{currentMonthName}</span>
             </div>
@@ -777,7 +778,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {settings.privacyMode ? '••••••' : `${formatAmount(sharedLedger)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-                Общий семейный баланс. Фильтр «Личный» меняет только историю и её показатели.
+                {personalOnly?(personalOpeningKnown?'По вашим операциям и личному начальному остатку.':'Начальный остаток не задан. Указан итог записанных операций, а не остаток на счетах.'):'Общий семейный баланс. Фильтр «Личный» меняет только историю и её показатели.'}
               </p>
             </div>
 
@@ -1164,7 +1165,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
-            householdPersonal={householdPersonal}
+            householdPersonal={personalOnly}
             setBudgetMode={setBudgetMode}
             settings={settings}
             updateSettings={updateSettings}
@@ -1201,14 +1202,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {householdPersonal?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
+                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {personalOnly?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 sm:self-start md:self-center flex-shrink-0 pl-13 md:pl-0">
                 <button 
                   type="button"
-                  onClick={() => setIsReserveModalOpen(true)}
+                  onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
                   className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1C1E] hover:bg-[#FFF4E5] dark:hover:bg-[#2C2C2E] border border-[#FDBA74] text-xs font-bold text-[#9A3412] dark:text-[#FB923C] transition shadow-xs whitespace-nowrap active:scale-[0.98]"
                 >
                   Покрыть из Резерва
@@ -1231,10 +1232,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>{householdPersonal?'ЛИЧНЫЙ БАЛАНС':'СЕМЕЙНЫЙ БАЛАНС'}</span>
+                <span>{personalOnly?(personalOpeningKnown?'ЛИЧНЫЙ БАЛАНС':'ИТОГ ЛИЧНЫХ ОПЕРАЦИЙ'):'СЕМЕЙНЫЙ БАЛАНС'}</span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
-                Общий
+                {personalOnly?'Личный':'Общий'}
               </span>
             </div>
             <div className="my-3 flex items-baseline">
@@ -1273,14 +1274,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   ? 'bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] dark:text-orange-400 border-[#FDBA74] dark:border-transparent' 
                   : 'bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 border-[#D5E5D9] dark:border-transparent'
               }`}>
-                {isOverDailyLimit ? 'Превышен' : 'В норме'}
+                {!personalOpeningKnown?'Укажите остаток':isOverDailyLimit ? 'Превышен' : 'В норме'}
               </span>
             </div>
             <div className="my-3 flex items-baseline">
               <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight break-words min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
                 isOverDailyLimit ? 'text-[#9A3412] dark:text-orange-400' : 'text-graphite dark:text-white'
               }`}>
-                {formatAmount(dailyLimit)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
+                {personalOpeningKnown?formatAmount(dailyLimit):'—'} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
               </span>
             </div>
             <div>
@@ -1315,7 +1316,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
             <div>
               <div className="flex justify-between text-[11px] text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span className="whitespace-nowrap">План: до {formatAmount(dailyLimit)} ₽</span>
+                <span className="whitespace-nowrap">{personalOpeningKnown?`План: до ${formatAmount(dailyLimit)} ₽`:'Начальный остаток не задан'}</span>
                 {isOverDailyLimit && (
                   <span className="text-xs font-mono font-bold text-clay">+{formatAmount(overLimitDelta)} ₽</span>
                 )}
@@ -1331,14 +1332,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
           <button type="button"
-            onClick={() => setIsReserveModalOpen(true)}
-            aria-label={householdPersonal?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
+            onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
+            aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
             className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                {householdPersonal?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'}
+                {personalOnly?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'}
               </span>
               <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%
@@ -1905,12 +1906,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           dailyBudget={dailyLimit}
           daysRemaining={daysRemaining}
           savingsAmount={savingsAmount}
-          savingsRate={savingsRate}
+          savingsRate={settings.savingsRate}
           unpaidMandatoryTotal={unpaidMandatoryTotal}
           futureExpenses={detailedMandatoryExpenses}
           manualReserved={manualReserved}
           onUpdateManualSavings={async (amt) => {
-            await updateSettings(householdPersonal ? { personalManualReservedAmount: amt } : { manualReservedAmount: amt });
+            await updateSettings(personalOnly ? { personalManualReservedAmount: amt } : { manualReservedAmount: amt });
           }}
           onTogglePaid={handleToggleMandatoryPaid}
           onPayExpenses={handlePayMandatoryExpenses}

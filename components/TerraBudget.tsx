@@ -72,7 +72,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onSelectCategory,
   onOpenSettings
 }) => {
-  const { goals } = useData();
+  const { displayGoals:goals, householdPersonal, personalDisplayOnly, personalOpeningKnown, financialSettings, transactions:allTransactions } = useData();
+  const personalOnly=householdPersonal||personalDisplayOnly;
   const { user } = useAuth();
   // Member filter: 'all' or memberId
   const [selectedMember, setSelectedMember] = useState<string>('all');
@@ -160,13 +161,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     savingsRate: settings.savingsRate || 0,
     manualReservedAmount: settings.manualReservedAmount,
     goalSavedAmounts: goals.map(goal=>goal.currentAmount||0),
-  }), [transactions, familyMonthTransactions, mandatoryExpenses, categories,
+    paymentContext:personalDisplayOnly?{bills:financialSettings.mandatoryExpenses,transactions:allTransactions.filter(tx=>tx.date.slice(0,7)===`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`),manuallyPaidIds:financialSettings.manualPaidExpenses?.[`${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}`]||[]}:undefined,
+  }), [personalDisplayOnly,financialSettings,allTransactions,transactions, familyMonthTransactions, mandatoryExpenses, categories,
        settings.manualPaidExpenses, currentMonth, settings.initialBalance,
        settings.initialBalanceDate, settings.enableSmartReserve,
        settings.savingsRate, settings.manualReservedAmount, goals]);
   const { monthlyPaymentStates, mandatoryReserve, monthlySalary, savingsReserve,
     manualReserve, reservedAmount, ledger, availableBalance } = familyProjection;
-  const safeDailyLimit = isCurrentMonthView
+  const safeDailyLimit = isCurrentMonthView && personalOpeningKnown
     ? budgetDailyLimit(ledger,reservedAmount,remainingDays) : 0;
 
   // Today's spend
@@ -460,15 +462,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? 'Семейный ориентир в день' : 'История бюджета'}</span>
+                <span className="text-xs font-semibold text-[#6B6358] dark:text-gray-400">{isCurrentMonthView ? (personalOnly?'Личный ориентир в день':'Семейный ориентир в день') : 'История бюджета'}</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span data-testid="family-daily-limit-mobile" className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white">
-                    {isCurrentMonthView ? (settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`) : '—'}
+                    {isCurrentMonthView&&personalOpeningKnown ? (settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`) : '—'}
                   </span>
                   <span className="text-xs text-[#6B6358] dark:text-gray-400 font-medium">/ день</span>
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Доступно семье до зарплаты ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`}</strong>
+                  {personalOnly?'Доступно лично до зарплаты':'Доступно семье до зарплаты'} ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[#2E3230] dark:text-white font-semibold">{!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}</strong>
                 </span>
               </div>
               <div className={`flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -477,7 +479,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   : 'bg-[#EAE6DD] text-[#6B6358] dark:bg-white/10 dark:text-gray-300'
               }`}>
                 <Sprout size={15} />
-                <span>{!isCurrentMonthView ? 'Архив' : safeDailyLimit > 0 ? 'Рассчитан' : 'Нет остатка'}</span>
+                <span>{!isCurrentMonthView ? 'Архив' : !personalOpeningKnown?'Укажите остаток':safeDailyLimit > 0 ? 'Рассчитан' : 'Нет остатка'}</span>
               </div>
             </div>
 
@@ -733,7 +735,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   )}
                 </div>
                 <span className="text-xs text-[#6B6358] dark:text-gray-400 mt-0.5">
-                  Результат дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${formatBudgetMoney(selectedDayNet)} ₽`}</strong> • {selectedMember === 'all' ? 'Все участники' : 'Выбранный участник'}
+                  Результат дня: <strong className="text-[#2E3230] dark:text-white font-semibold">{settings.privacyMode ? '•••' : `${selectedDayNet > 0 ? '+' : ''}${formatBudgetMoney(selectedDayNet)} ₽`}</strong> • {personalOnly?'Личные операции':selectedMember === 'all' ? 'Все участники' : 'Выбранный участник'}
                 </span>
               </div>
               <button 
@@ -1074,7 +1076,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-[11px] font-bold tracking-wider uppercase text-primary-dark dark:text-green-400">
-                Семейный ориентир в день
+                {personalOnly?'Личный ориентир в день':'Семейный ориентир в день'}
               </span>
             </div>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 border border-primary-border/60">
@@ -1085,19 +1087,19 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="my-2">
             <div className="flex items-baseline gap-1.5">
               <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-semibold font-headline text-primary-dark dark:text-green-400 tracking-tight">
-                {settings.privacyMode ? '•••' : `${safeDailyLimit.toLocaleString('ru-RU')} ₽`}
+                {!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
             </div>
             <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-              Расчёт: {settings.privacyMode ? '•••' : `${availableBalance.toLocaleString('ru-RU')} ₽`} доступно ÷ {remainingDays} оставшихся дней
+              Расчёт: {!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`} доступно ÷ {remainingDays} оставшихся дней
             </p>
           </div>
 
           <div className="pt-1.5 border-t border-primary-border/30 flex items-center justify-between text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Дневной ориентир:</span>
             <span className="font-bold text-emerald-800 dark:text-green-400">
-              {!isCurrentMonthView ? 'Лимит не рассчитывается' : safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
+              {!isCurrentMonthView ? 'Лимит не рассчитывается' : !personalOpeningKnown?'Укажите личный начальный остаток':safeDailyLimit > 0 ? 'Ориентир рассчитан' : 'Нет доступного остатка'}
             </span>
           </div>
         </div>
@@ -1107,7 +1109,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-graphite-muted dark:text-gray-400">
-              Траты семьи сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
+              {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
               todayReserve >= 0 
@@ -1121,7 +1123,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="my-2 space-y-1.5">
             <div className="flex justify-between items-baseline">
               <div className="text-lg font-bold font-headline text-graphite dark:text-white">
-                Сегодня (семья): {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
+                {personalOnly?'Сегодня (личные)':'Сегодня (семья)'}: {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
               </div>
               <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-primary dark:text-green-400' : 'text-red-500'}`}>
                 {safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
@@ -1137,7 +1139,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </div>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex items-center justify-between text-[11px] text-graphite-muted dark:text-gray-400">
-            <span>Вчера (семья): {yesterdaySpent.toLocaleString('ru-RU')} ₽</span>
+            <span>{personalOnly?'Вчера (личные)':'Вчера (семья)'}: {settings.privacyMode?'•••':formatBudgetMoney(yesterdaySpent)+' ₽'}</span>
             <span className="text-emerald-700 dark:text-green-400 font-semibold">
               {yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
             </span>

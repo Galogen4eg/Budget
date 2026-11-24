@@ -28,7 +28,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
   const [activeService, setActiveService] = useState<ServiceType>(() => isValidService(initialService) ? initialService : 'menu');
   const { 
-    settings, 
+    financialSettings: settings, 
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
     transactions

@@ -47,7 +47,8 @@ interface SettingsModalProps {
   currentFamilyId: string | null;
   onJoinFamily: (id: string) => void | Promise<void>;
   onLogout: () => void;
-  installPrompt?: any;
+  installPrompt?: {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>} | null;
+  onInstallPromptConsumed?:()=>void;
   transactions?: Transaction[];
   onDeleteTransactionsByPeriod?: (startDate: string, endDate: string) => void;
   onUpdateTransactions?: (transactions: Transaction[]) => void;
@@ -97,12 +98,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   settings, onClose, onUpdate, savingsRate, setSavingsRate, 
   members, onUpdateMembers, categories, onUpdateCategories, 
   onDeleteCategory, learnedRules, onUpdateRules, currentFamilyId, 
-  onJoinFamily, onLogout, installPrompt, transactions = [], 
+  onJoinFamily, onLogout, installPrompt, onInstallPromptConsumed, transactions = [], 
   onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates 
 }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('account');
   const [showMobileMenu, setShowMobileMenu] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [installBusy,setInstallBusy]=useState(false);
+  const [installStatus,setInstallStatus]=useState('');
+  const [standalone,setStandalone]=useState(()=>window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & {standalone?:boolean}).standalone===true);
+  useEffect(()=>{
+    const media=window.matchMedia('(display-mode: standalone)');
+    const update=()=>setStandalone(media.matches || (navigator as Navigator & {standalone?:boolean}).standalone===true);
+    window.addEventListener('appinstalled',update);
+    media.addEventListener('change',update);
+    return ()=>{window.removeEventListener('appinstalled',update);media.removeEventListener('change',update);};
+  },[]);
+  const handleInstall=async()=>{
+    if(installBusy||standalone)return;
+    if(!installPrompt){setShowInstallGuide(true);return;}
+    setInstallBusy(true);setInstallStatus('');
+    try{
+      await installPrompt.prompt();
+      const choice=await installPrompt.userChoice;
+      setInstallStatus(choice.outcome==='accepted'?'Запрос установки принят браузером.':'Установка отменена.');
+    }catch{setInstallStatus('Браузер не открыл установку.');setShowInstallGuide(true);}
+    finally{setInstallBusy(false);onInstallPromptConsumed?.();}
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const { isOfflineMode }=useAuth();
   const [networkOnline,setNetworkOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
@@ -1091,6 +1114,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </dl>
               <p className="text-xs text-gray-500 dark:text-gray-400">Проверяется документ семейного пространства, а не доставка каждой финансовой операции. Ключи, токены и суммы не выводятся.</p>
             </section>
+            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              <h3 className="text-base font-semibold">Установка приложения</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{standalone?'Приложение открыто в отдельном окне.':'Добавьте Terra на главный экран или установите через меню браузера.'}</p>
+              {!standalone&&<button type="button" disabled={installBusy} onClick={()=>void handleInstall()} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{installBusy?'Ожидание браузера…':installPrompt?'Установить приложение':'Как установить'}</button>}
+              <p role="status" className="text-sm">{installStatus}</p>
+            </section>
           </div>
         );
 
@@ -1551,7 +1580,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {showInstallGuide && (
           <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full space-y-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center mx-auto">
                 <Smartphone size={24} />
               </div>
@@ -1562,14 +1591,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                 <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
                   <span className="font-bold">1.</span>
-                  <span>Нажмите «Поделиться» в браузере Safari или меню Chrome</span>
+                  <span>iPhone: в Safari откройте меню «Поделиться» и выберите «На экран Домой».</span>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
                   <span className="font-bold">2.</span>
-                  <span>Выберите пункт «На экран "Домой"»</span>
+                  <span>Android: в Chrome откройте меню ⋮ и выберите «Установить приложение» или «Добавить на главный экран», если пункт доступен.</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full bg-[#2D5A43] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full min-h-[44px] bg-[#2D5A43] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 Понятно
               </button>
             </motion.div>

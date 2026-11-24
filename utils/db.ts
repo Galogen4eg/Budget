@@ -1,6 +1,6 @@
 
 import { 
-  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
+  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer,
   onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -492,7 +492,7 @@ export const saveTransactionWithGoal = async (
     }
     if(isEdit){
       const {id:_id,...updates}=transaction;
-      tx.update(txRef,cleanForFirestore(updates));
+      tx.update(txRef,{...cleanForFirestore(updates),...(!transaction.linkedGoalId&&previous?.linkedGoalId?{linkedGoalId:deleteField()}:{})});
     }else tx.set(txRef,cleanForFirestore(transaction));
   });
 };

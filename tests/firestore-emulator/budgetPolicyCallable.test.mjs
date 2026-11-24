@@ -77,6 +77,8 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
        [f+'/transactions/b1']:{id:'b1',memberId:'b',type:'expense',amount:20.25},
        [f+'/goals/g1']:{id:'g1',memberId:'a',currentAmount:25},
        [f+'/debts/d1']:{id:'d1',memberId:'b',currentBalance:100},
+       [f+'/subscriptions/sub1']:{id:'sub1',name:'Music',memberId:'a',amount:199.99,nextPaymentDate:'2026-12-04'},
+       [f+'/subscriptions/sub2']:{id:'sub2',name:'Video',memberId:'b',amount:299.5,nextPaymentDate:'2026-12-06'},
        [f+'/shopping/s1']:{id:'s1',title:'Shared shopping'},
        [f+'/events/e1']:{id:'e1',title:'Shared event'},
        [f+'/chat/c1']:{id:'c1',text:'Shared chat'},
@@ -105,6 +107,7 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    assert.deepEqual(preview,{policy:'family',enabled:true,issues:[]});
    assert.deepEqual((await getDocFromServer(doc(a.db,settings))).data(),originalShared,'preview changed shared settings');
    assert.equal((await getDocsFromServer(collection(b.db,f+'/transactions'))).size,2);
+   assert.equal((await getDocsFromServer(collection(b.db,f+'/subscriptions'))).size,2);
    assert.deepEqual(await a.call(request),{policy:'personal',enabled:true,issues:[]});
    assert.equal((await getDocFromServer(doc(b.db,f))).data().budgetPolicy,'personal');
    for(const [actor,own,foreign,bill] of [[a,'a','b','bill-a'],[b,'b','a','bill-b']]){
@@ -121,6 +124,12 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
      for(const name of ['shopping/s1','events/e1','chat/c1'])assert.equal((await getDocFromServer(doc(actor.db,f+'/'+name))).exists(),true);
      await assertFails(updateDoc(doc(actor.db,f),{budgetPolicy:'family'}));
    }
+   for(const [actor,own,ownSub,foreignSub] of [[a,'a','sub1','sub2'],[b,'b','sub2','sub1']]){
+     const subs=await getDocsFromServer(query(collection(actor.db,f+'/subscriptions'),where('memberId','==',own)));
+     assert.deepEqual(subs.docs.map(s=>s.id),[ownSub]);
+     await assertFails(getDocFromServer(doc(actor.db,f+'/subscriptions/'+foreignSub)));
+     await assertFails(updateDoc(doc(actor.db,f+'/subscriptions/'+foreignSub),{amount:1}));
+   }
    await assertFails(getDocFromServer(doc(a.db,f+'/debts/d1')));
    await assertFails(getDocFromServer(doc(b.db,f+'/goals/g1')));
    await assertFails(getDocFromServer(doc(a.db,f+'/serverBudgetArchive/shared')));
@@ -130,6 +139,8 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    await rejected(b.call({familyId:fid,target:'family'}),'functions/permission-denied');
    assert.deepEqual(await a.call({familyId:fid,target:'family'}),{policy:'family',enabled:true,issues:[]});
    const merged=(await getDocFromServer(doc(b.db,settings))).data();
+   assert.equal((await getDocFromServer(doc(b.db,f+'/subscriptions/sub1'))).data().amount,199.99);
+   assert.equal((await getDocFromServer(doc(a.db,f+'/subscriptions/sub2'))).data().nextPaymentDate,'2026-12-06');
    assert.equal(merged.initialBalance,300.35);
    assert.deepEqual(merged.mandatoryExpenses,[{...initialBills[0],amount:30.55}]);
    assert.deepEqual(merged.manualPaidExpenses,{'2026-11':['bill-a']});
@@ -137,16 +148,18 @@ for(const transport of ['callable','vercel'])test('SET-12 '+transport+': two aut
    assert.equal((await getDocsFromServer(collection(b.db,f+'/transactions'))).size,2);
    await setDoc(doc(a.db,f+'/transactions/unknown'),{amount:10,note:'Unknown owner'});
    await setDoc(doc(a.db,f+'/goals/stale'),{title:'Old goal',memberId:'removed-profile',currentAmount:12.5});
+   await setDoc(doc(a.db,f+'/subscriptions/old-sub'),{name:'Legacy',amount:100,nextPaymentDate:'2026-12-10'});
    const blocked=await a.call({...request,preview:true});
    assert.equal(blocked.policy,'family');
    assert.ok(blocked.issues.length>0);
-   assert.deepEqual(blocked.ownershipIssues.map(({kind,id,owner,amount})=>({kind,id,owner,amount})),[{kind:'transactions',id:'unknown',owner:null,amount:10},{kind:'goals',id:'stale',owner:'removed-profile',amount:12.5}]);
+   assert.deepEqual(blocked.ownershipIssues.map(({kind,id,owner,amount})=>({kind,id,owner,amount})),[{kind:'transactions',id:'unknown',owner:null,amount:10},{kind:'goals',id:'stale',owner:'removed-profile',amount:12.5},{kind:'subscriptions',id:'old-sub',owner:null,amount:100}]);
    await rejected(b.call({...request,preview:true}),'functions/permission-denied');
    await rejected(a.call(request),'functions/failed-precondition');
    assert.equal((await getDocFromServer(doc(a.db,f))).data().budgetPolicy,'family');
    assert.deepEqual((await getDocFromServer(doc(b.db,settings))).data(),merged);
    await updateDoc(doc(a.db,f+'/transactions/unknown'),{memberId:'a'});
    await updateDoc(doc(a.db,f+'/goals/stale'),{memberId:'b'});
+   await updateDoc(doc(a.db,f+'/subscriptions/old-sub'),{memberId:'a'});
    assert.equal((await getDocFromServer(doc(a.db,f+'/transactions/unknown'))).data().amount,10);
    assert.equal((await getDocFromServer(doc(b.db,f+'/goals/stale'))).data().currentAmount,12.5);
    assert.deepEqual(await a.call({...request,preview:true}),{policy:'family',enabled:true,issues:[]});

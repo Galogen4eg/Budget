@@ -1,7 +1,7 @@
 
 import { 
   collection, doc, setDoc, addDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer,
-  onSnapshot, query, orderBy, where, limit, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
+  onSnapshot, query, orderBy, where, limit, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
@@ -37,7 +37,7 @@ export const logDebug = async (user: FirebaseUser | null, action: string, detail
     }
 };
 
-export const subscribeToCollection = (familyId: string, collectionName: string, callback: (data: any[]) => void) => {
+export const subscribeToCollection = (familyId: string, collectionName: string, callback: (data: any[]) => void, onError?: (error: Error)=>void) => {
   if (!familyId) return () => {};
   const q = query(collection(db, 'families', familyId, collectionName));
   return onSnapshot(q, (snapshot) => {
@@ -45,6 +45,7 @@ export const subscribeToCollection = (familyId: string, collectionName: string, 
     callback(data);
   }, (error) => {
     console.error(`Error subscribing to ${collectionName}:`, error);
+    onError?.(error);
   });
 };
 
@@ -1120,4 +1121,10 @@ export async function deleteUnlinkedSavingsGoal(familyId:string,goalId:string,pe
    assertGoalDeletionSafe(goalId,linked.docs.map(row=>row.data() as Transaction));
    tx.delete(ref);
  });
+}
+
+/** One atomic field transform, no extra document read. */
+export async function setChatHeart(familyId:string,messageId:string,uid:string,active:boolean):Promise<void>{
+ if(!familyId||!messageId||!uid||auth.currentUser?.uid!==uid)throw new Error('Семейный чат недоступен');
+ await updateDoc(doc(db,'families',familyId,'chat',messageId),{heartUsers:active?arrayUnion(uid):arrayRemove(uid)});
 }

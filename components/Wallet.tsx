@@ -14,6 +14,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useAuth } from '../contexts/AuthContext';
 import { addItem, updateItem, deleteItem } from '../utils/db';
 import { useData } from '../contexts/DataContext';
+import { toast } from 'sonner';
 import { LoyaltyCardMobileModal } from './LoyaltyCardMobileModal';
 
 interface WalletProps {
@@ -298,15 +299,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
   const [formDiscount, setFormDiscount] = useState('');
   const [formBalance, setFormBalance] = useState('');
 
-  const { familyId } = useAuth();
+  const { familyId, isOfflineMode } = useAuth();
+  const mutationRef=useRef(false);
+  const [busy,setBusy]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Initialize sample cards if empty on first load so user immediately sees rich UI
-  useEffect(() => {
-    if (cards.length === 0) {
-      setCards(DEFAULT_SAMPLE_CARDS);
-    }
-  }, []);
 
   // Counts for each category
   const categoryCounts = useMemo(() => {
@@ -389,9 +385,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) return;
-
+    if(mutationRef.current)return;
     const cleanNumber = formNumber.replace(/\s+/g, '');
+    if(!formName.trim()||!cleanNumber){toast.warning('Введите название и номер карты');return;}
+    if(!familyId&&!isOfflineMode){toast.error('Семейный аккаунт недоступен');return;}
 
     const cardData: LoyaltyCard = {
       id: editingCard?.id || Date.now().toString() + Math.random().toString(36).substring(2, 7),
@@ -406,29 +403,34 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       balance: formBalance.trim()
     };
 
-    if (editingCard?.id) {
-      setCards(cards.map(c => c.id === editingCard.id ? cardData : c));
-      if (familyId) await updateItem(familyId, 'loyalty', editingCard.id, cardData);
-    } else {
-      setCards([cardData, ...cards]);
-      if (familyId) await addItem(familyId, 'loyalty', cardData);
-    }
-
-    setEditingCard(null);
+    mutationRef.current=true;setBusy(true);
+    try{
+      if(familyId){
+        if(editingCard?.id)await updateItem(familyId,'loyalty',editingCard.id,cardData);
+        else await addItem(familyId,'loyalty',cardData);
+      }else setCards(editingCard?.id?cards.map(c=>c.id===editingCard.id?cardData:c):[cardData,...cards]);
+      setEditingCard(null);toast.success('Карта сохранена');
+    }catch{toast.error('Не удалось сохранить карту. Введённые данные сохранены в форме.');}
+    finally{mutationRef.current=false;setBusy(false);}
   };
 
   const confirmDelete = async (id: string) => {
-    setCards(cards.filter(c => c.id !== id));
-    if (familyId) await deleteItem(familyId, 'loyalty', id);
-    setCardToDelete(null);
-    if (activeBarcodeCard?.id === id) setActiveBarcodeCard(null);
-    if (editingCard?.id === id) setEditingCard(null);
+    if(mutationRef.current)return;
+    if(!familyId&&!isOfflineMode){toast.error('Семейный аккаунт недоступен');return;}
+    mutationRef.current=true;setBusy(true);
+    try{
+      if(familyId)await deleteItem(familyId,'loyalty',id);
+      else setCards(cards.filter(c=>c.id!==id));
+      setCardToDelete(null);
+      if(activeBarcodeCard?.id===id)setActiveBarcodeCard(null);
+      if(editingCard?.id===id)setEditingCard(null);
+    }catch{toast.error('Не удалось удалить карту');}
+    finally{mutationRef.current=false;setBusy(false);}
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2000);
+  const copyToClipboard = async (text: string) => {
+    try{await navigator.clipboard.writeText(text);setCopiedNotification(true);setTimeout(()=>setCopiedNotification(false),2000);}
+    catch{toast.error('Не удалось скопировать номер карты');}
   };
 
   const getCardGradient = (colorHex?: string) => {
@@ -929,7 +931,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               <button 
                 type="button"
-                onClick={() => setEditingCard(null)}
+                disabled={busy} onClick={() => setEditingCard(null)}
                 className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 text-stone-500 flex items-center justify-center transition cursor-pointer"
                 title="Закрыть"
               >
@@ -1212,10 +1214,10 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               {/* Submit Primary Action */}
               <div className="pt-2">
                 <button 
-                  type="submit"
+                  type="submit" disabled={busy}
                   className="w-full h-12 rounded-2xl bg-[#4a7c59] hover:bg-[#3d6749] text-white font-display font-bold text-sm tracking-wide shadow-md shadow-[#4a7c59]/20 transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
                 >
-                  <span>{editingCard.id ? 'СОХРАНИТЬ КАРТУ' : 'ДОБАВИТЬ В КОШЕЛЁК'}</span>
+                  <span>{busy?'Сохранение…':editingCard.id ? 'Сохранить карту' : 'Добавить в кошелёк'}</span>
                   <Check className="w-5 h-5 stroke-[2.5]" />
                 </button>
               </div>
@@ -1256,7 +1258,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               </button>
               <button 
                 type="button"
-                id="confirmDeleteBtn"
+                id="confirmDeleteBtn" disabled={busy}
                 onClick={() => confirmDelete(cardToDelete.id)}
                 className="flex-1 py-2.5 rounded-xl bg-[#B83230] text-white font-sans text-sm font-semibold hover:bg-[#A32B29] transition-all cursor-pointer shadow-xs"
               >

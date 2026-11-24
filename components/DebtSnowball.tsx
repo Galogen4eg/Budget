@@ -10,6 +10,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Debt, AppSettings, Transaction, MandatoryExpense } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { toast } from 'sonner';
+import { assertDebtDeletionSafe } from '../utils/familyWorkspace';
 import { addItem, updateItem, deleteItem } from '../utils/db';
 import { 
   findLinkedExpenseForDebt, 
@@ -333,14 +335,15 @@ const DebtSnowball: React.FC<Props> = ({
     const linkedExpense = findLinkedExpenseForDebt(debt.id, settings.mandatoryExpenses);
     const paymentStatus = computeDebtMonthPaymentStatus(debt, linkedExpense, transactions, settings, currentMonth);
 
+    if(paymentStatus.source==='transaction'){toast.info('Платёж связан с операциями. Измените запись в бюджете, чтобы не учесть платёж дважды.');return;}
     const isCurrentlyPaid = paymentStatus.isPaid;
     const payment = debt.monthlyPayment || 0;
     
     let newBalance = debt.currentBalance;
     if (!isCurrentlyPaid) {
-      newBalance = Math.max(0, debt.currentBalance - payment);
+      newBalance = Math.max(0,Math.round(debt.currentBalance*100)-Math.round(payment*100))/100;
     } else {
-      newBalance = Math.min(debt.totalAmount, debt.currentBalance + payment);
+      newBalance = Math.min(Math.round(debt.totalAmount*100),Math.round(debt.currentBalance*100)+Math.round(payment*100))/100;
     }
 
     const updates = { 
@@ -372,8 +375,12 @@ const DebtSnowball: React.FC<Props> = ({
   };
 
   const confirmDeleteDebt = async (id: string) => {
-    if (!debts.some(d=>d.id===id)) throw new Error('Долг недоступен');
-    if (familyId) await deleteItem(familyId, 'debts', id);
+    const debt=debts.find(d=>d.id===id);
+    if(!debt)return;
+    try{
+      assertDebtDeletionSafe(debt,settings.mandatoryExpenses||[],transactions);
+      if (familyId) await deleteItem(familyId, 'debts', id);
+    }catch(error){toast.error(error instanceof Error?error.message:'Не удалось удалить долг');return;}
     setDebts(debts.filter(d => d.id !== id));
     setDebtToDelete(null);
     if (editingDebt?.id === id) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { savingsContributionKopecks, nextSavingsGoalAmount, assertBulkDeleteSafe } from '../utils/transactionSavingsConsistency.ts';
+import { savingsContributionKopecks, nextSavingsGoalAmount, assertBulkDeleteSafe, savingsLinkRepairPatch } from '../utils/transactionSavingsConsistency.ts';
 
 const expense=(id,amount,linkedGoalId='goal-1')=>({id,amount,type:'expense',category:'savings',linkedGoalId,note:'Копилка'});
 
@@ -38,4 +38,16 @@ test('bulk deletion of savings transfers must not silently orphan goal balances'
 
 test('new savings targets cannot go below zero when correcting older balances',()=>{
  assert.equal(nextSavingsGoalAmount(5,1000,0),0);
+});
+
+test('repairing a legacy link is metadata-only and refuses changed amounts, owners or balances',()=>{
+ const row={...expense('t',12.35),memberId:'a',date:'2026-01-01',linkedGoalId:'old'};
+ const expected={id:'t',owner:'a',previousGoalId:'old',amount:12.35,type:'expense',date:'2026-01-01'};
+ const goal={id:'new',memberId:'a',currentAmount:132.35};
+ assert.deepEqual(savingsLinkRepairPatch(row,expected,goal,goal),{linkedGoalId:'new'});
+ assert.throws(()=>savingsLinkRepairPatch({...row,amount:12.36},expected,goal,goal));
+ assert.throws(()=>savingsLinkRepairPatch(row,expected,{...goal,memberId:'b'},goal));
+ assert.throws(()=>savingsLinkRepairPatch(row,expected,{...goal,currentAmount:132.36},goal));
+ assert.throws(()=>savingsLinkRepairPatch({...row,linkedGoalId:'new'},expected,goal,goal));
+ assert.equal(goal.currentAmount,132.35);
 });

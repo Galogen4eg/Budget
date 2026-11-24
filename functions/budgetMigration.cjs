@@ -39,7 +39,21 @@ function merge(documents, memberIds) {
 // Preserve the prior family configuration, never infer an opening balance from transactions.
 const SHARED_SAFE=new Set(['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']);
 const SHARED_FINANCE=['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount','categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve','startOfMonthDay'];
-function prepareTransition({family,actor,target,profiles,configs,shared,records,archive,unsupported=[]}){
+function validateLinks(links,expenses){
+ if(!links)return;
+ const goals=new Map(links.goals.map(g=>[g.id,g]));
+ const debts=new Map(links.debts.map(d=>[d.id,d]));
+ const bills=new Map(expenses.map(e=>[e.id,e]));
+ for(const t of links.transactions){
+   const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
+   const savings=t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word));
+   if(savings&&(!t.linkedGoalId||goals.get(t.linkedGoalId)?.memberId!==t.memberId))throw new Error('Savings goal link missing or belongs to another owner');
+   if(t.linkedExpenseId&&bills.get(t.linkedExpenseId)?.memberId!==t.memberId)throw new Error('Transaction obligation belongs to another owner or is missing');
+ }
+ for(const e of expenses)if(e.linkedDebtId&&debts.get(e.linkedDebtId)?.memberId!==e.memberId)throw new Error('Obligation debt belongs to another owner or is missing');
+ for(const d of links.debts)if(d.linkedExpenseId&&bills.get(d.linkedExpenseId)?.memberId!==d.memberId)throw new Error('Debt obligation belongs to another owner or is missing');
+}
+function prepareTransition({family,actor,target,profiles,configs,shared,records,archive,unsupported=[],links}){
  if(!actor||family.ownerId!==actor||!Array.isArray(family.members)||!family.members.includes(actor))throw new Error('Only household owner may change budget policy');
  if(!['family','personal'].includes(target))throw new Error('Invalid target');
  const current=family.budgetPolicy??'family';
@@ -60,6 +74,7 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
    const removeShared=Object.keys(shared).filter(key=>!SHARED_SAFE.has(key));
    const userPatches=Object.create(null);
    const buckets=partition(shared.mandatoryExpenses??[],shared.manualPaidExpenses??{},ids);
+   validateLinks(links,shared.mandatoryExpenses??[]);
    for(const p of linked){
      const config=configs[p.uid];
      if(!config||!Number.isFinite(config.personalInitialBalance))throw new Error('Personal opening missing');

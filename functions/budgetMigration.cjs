@@ -37,8 +37,9 @@ function merge(documents, memberIds) {
 }
 // Shared balances and limits are independent from personal balances and limits.
 // Preserve the prior family configuration, never infer an opening balance from transactions.
-const SHARED_FINANCE=['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount','categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs'];
-function prepareTransition({family,actor,target,profiles,configs,shared,records,archive}){
+const SHARED_SAFE=new Set(['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']);
+const SHARED_FINANCE=['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount','categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve','startOfMonthDay'];
+function prepareTransition({family,actor,target,profiles,configs,shared,records,archive,unsupported=[]}){
  if(!actor||family.ownerId!==actor||!Array.isArray(family.members)||!family.members.includes(actor))throw new Error('Only household owner may change budget policy');
  if(!['family','personal'].includes(target))throw new Error('Invalid target');
  const current=family.budgetPolicy??'family';
@@ -55,6 +56,8 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
  if(new Set(ids).size!==ids.length||ids.some(id=>!id))throw new Error('Invalid member IDs');
  if(records.some(row=>!ids.includes(row.memberId)))throw new Error('Financial record without linked owner');
  if(target==='personal'){
+   if(unsupported.length)throw new Error('Unsupported financial collections require migration: '+unsupported.join(', '));
+   const removeShared=Object.keys(shared).filter(key=>!SHARED_SAFE.has(key));
    const userPatches=Object.create(null);
    const buckets=partition(shared.mandatoryExpenses??[],shared.manualPaidExpenses??{},ids);
    for(const p of linked){
@@ -63,7 +66,7 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
      const b=buckets.get(p.id);
      userPatches[p.uid]={personalMandatoryExpenses:b.mandatoryExpenses,personalManualPaidExpenses:b.manualPaidExpenses};
    }
-   return {policy:target,userPatches,archive:Object.fromEntries(SHARED_FINANCE.filter(k=>k in shared&&!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),removeShared:SHARED_FINANCE};
+   return {policy:target,userPatches,archive:Object.fromEntries(removeShared.filter(k=>!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),removeShared};
  }
  if(!archive||typeof archive!=='object')throw new Error('Missing shared settings archive');
  const merged=merge(linked.map(p=>({memberId:p.id,mandatoryExpenses:configs[p.uid]?.personalMandatoryExpenses,manualPaidExpenses:configs[p.uid]?.personalManualPaidExpenses})),ids);

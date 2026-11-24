@@ -18,7 +18,7 @@ import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 import { missingIncomeCategories } from '../utils/categoryCatalog';
-import { effectiveBudgetMode, projectPersonalFinance, visibleBudgetRecords } from '../utils/familyBudgetPolicy';
+import { effectiveBudgetMode, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 
 // Default Settings
@@ -77,6 +77,7 @@ interface DataContextType {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   importSourcesReady: boolean;
+  settingsReady: boolean;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   aiKnowledge: AIKnowledgeItem[];
@@ -190,6 +191,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [localRules, globalRules]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [loadedSettingsScope,setLoadedSettingsScope]=useState<string|null>(null);
+  const [loadedMembersScope,setLoadedMembersScope]=useState<string|null>(null);
+  const memberScope=familyId&&user?.uid?familyId+':'+user.uid:null;
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   
@@ -202,7 +206,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const policyReady=!familyId||(householdPolicy?.familyId===familyId&&householdPolicy?.actorUid===user?.uid);
   const householdPersonal=Boolean(familyId&&(!policyReady||householdPolicy?.policy==='personal'));
   const budgetMode=effectiveBudgetMode(householdPersonal?'personal':'family',preferredBudgetMode);
-  const linkedMemberId=members.find(m=>m.userId&&m.userId===user?.uid)?.id;
+  const linkedMemberId=(!familyId||loadedMembersScope===memberScope)?members.find(m=>m.userId&&m.userId===user?.uid)?.id:undefined;
+  const settingsScope=memberScope&&policyReady?memberScope+':'+(householdPersonal?'personal':'family'):null;
+  const settingsReady=!familyId||Boolean(settingsScope&&loadedSettingsScope===settingsScope);
+  const baseSettings=settingsReady?settings:DEFAULT_SETTINGS;
   useEffect(()=>{
     if(!familyId||!user?.uid)return;
     setHouseholdPolicy(null);
@@ -210,7 +217,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value=>setHouseholdPolicy({familyId,actorUid:user.uid,policy:value.policy}),
       ()=>setHouseholdPolicy(null));
   },[familyId,user?.uid]);
-  const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(settings,policyReady?linkedMemberId:undefined):settings,[householdPersonal,settings,linkedMemberId,policyReady]);
+  const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(baseSettings,policyReady&&settingsReady?linkedMemberId:undefined):baseSettings,[householdPersonal,baseSettings,linkedMemberId,policyReady,settingsReady]);
+  useEffect(()=>{
+    if(!familyId||!user?.uid||!settingsScope)return;
+    setLoadedSettingsScope(null);
+    return subscribeToAppSettings(familyId,user.uid,data=>{
+      const next={...DEFAULT_SETTINGS,...data,widgets:mergeWidgets(data.widgets)};
+      settingsRef.current=next;
+      setSettings(next);
+      setLoadedSettingsScope(settingsScope);
+      if(data.defaultBudgetMode)setBudgetMode(data.defaultBudgetMode);
+    });
+  },[familyId,user?.uid,settingsScope]);
   const visibleTransactions=useMemo(()=>householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[householdPersonal,transactions,linkedMemberId,policyReady]);
   const visibleGoals=useMemo(()=>householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[householdPersonal,goals,linkedMemberId,policyReady]);
   const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
@@ -243,8 +261,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // family fields belonging to another person's settings change.
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
       const current = settingsRef.current;
-      if(familyId&&householdPersonal&&('mandatoryExpenses' in newSettings||'manualPaidExpenses' in newSettings))throw new Error('Используйте сохранение личных обязательных платежей');
-      const patch = diffSettings(current, newSettings);
+      if(familyId&&(!policyReady||!settingsReady))throw new Error('Дождитесь загрузки настроек бюджета');
+      const changes=diffSettings(householdPersonal?projectPersonalFinance(current,linkedMemberId):current,newSettings);
+      const patch=householdPersonal?toPersonalSettingsPatch<AppSettings>(changes):changes;
       if (!Object.keys(patch).length) return;
       const merged = { ...current, ...patch,
           ...(patch.manualPaidExpenses ? { manualPaidExpenses: {
@@ -272,7 +291,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
   ) => {
     if(familyId&&householdPersonal){
-      if(!policyReady||!user?.uid||!linkedMemberId)throw new Error('Личный профиль не подтверждён');
+      if(!policyReady||!settingsReady||!user?.uid||!linkedMemberId)throw new Error('Личный профиль не подтверждён');
       const personalChanges={...changes,mandatoryExpenses:changes.mandatoryExpenses.map(e=>({...e,memberId:e.memberId??linkedMemberId}))};
       await commitPersonalMandatoryPaymentBundle(familyId,user.uid,linkedMemberId,personalChanges,debtChanges);
       // Authoritative snapshots update private settings and debts after commit.
@@ -416,8 +435,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
       subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
-      subscribeToCollection(familyId, 'members', (data) => { 
-          if (data.length > 0) setMembers(data as FamilyMember[]);
+      subscribeToCollection(familyId, 'members', (data) => {
+          setMembers(data as FamilyMember[]);
+          setLoadedMembersScope(memberScope);
       }),
       subscribeToCollection(familyId, 'categories', (data) => {
           const saved = data as Category[];
@@ -463,14 +483,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
       subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
-      // NEW: Subscribe to merged settings (Shared + User)
-      subscribeToAppSettings(familyId, user?.uid || 'unknown', (data) => {
-          if (data) {
-              const mergedWidgets = mergeWidgets(data.widgets);
-              setSettings(prev => ({ ...prev, ...data, widgets: mergedWidgets }));
-              if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
-          }
-      })
+
     ];
     
     // Always load dismissed notifications from local storage (device specific preference)
@@ -671,10 +684,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals: visibleGoals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady: transactionsReady && catalogReady,
+    importSourcesReady: transactionsReady && catalogReady && settingsReady,
+    settingsReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
-    settings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose unified updater
+    settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose scoped settings
     debts: visibleDebts, setDebts,
     loyaltyCards, setLoyaltyCards,
     notifications, setNotifications,

@@ -33,7 +33,9 @@ export function filterEventsForCalendarMonth<T extends Pick<FamilyEvent,'date'|'
       const date=parseLocalCalendarDate(event.date);
       if(date.getFullYear()!==monthDate.getFullYear() || date.getMonth()!==monthDate.getMonth()) return false;
       const eventMoment=eventDateTime(event.date,event.time || '00:00').getTime();
-      return tab==='upcoming' ? eventMoment >= now.getTime() : eventMoment < now.getTime();
+      // An untimed event remains upcoming throughout its local calendar day.
+      const upcoming=event.time ? eventMoment>=now.getTime() : event.date>=formatLocalCalendarDate(now);
+      return tab==='upcoming' ? upcoming : !upcoming;
     } catch {
       return false;
     }
@@ -51,4 +53,12 @@ export function calendarEndTime(time:string,duration:number):string {
  const dayOffset=Math.floor(total/1440);
  const clock=String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
  return clock+(dayOffset?' (+'+dayOffset+' дн.)':'');
+}
+
+/** A named member filter matches explicit assignments; common is the shared-event view. */
+export function matchesCalendarMember(event: Pick<FamilyEvent,'memberIds'>, filter: string, memberIds: readonly string[]): boolean {
+  const assigned=event.memberIds||[];
+  if(filter==='all')return true;
+  if(filter==='common')return assigned.length===0 || (memberIds.length>0 && memberIds.every(id=>assigned.includes(id)));
+  return assigned.includes(filter);
 }

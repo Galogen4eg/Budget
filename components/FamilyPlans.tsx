@@ -345,7 +345,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const selectedDayEvents = useMemo(() => {
       const dayEvents = getEventsForDate(selectedDate);
       // Sort events by time ascending (08:00 before 12:00)
-      return dayEvents.sort((a, b) => a.time.localeCompare(b.time));
+      return dayEvents.sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
   }, [selectedDate, visibleEvents]);
 
   const filteredListEvents = useMemo(
@@ -428,7 +428,12 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       currentDate,
       setCurrentDate,
       selectedDate,
-      setSelectedDate,
+      setSelectedDate: (date: Date) => {
+        setSelectedDate(date);
+        if(date.getFullYear()!==currentDate.getFullYear() || date.getMonth()!==currentDate.getMonth()){
+          setCurrentDate(new Date(date.getFullYear(),date.getMonth(),1));
+        }
+      },
       viewMode,
       setViewMode,
       listTab,
@@ -446,7 +451,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y pt-[calc(64px+env(safe-area-inset-top))] md:pt-0 lg:overflow-hidden" data-testid="plans-scroll-container">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y pt-[calc(64px+env(safe-area-inset-top))] md:pt-0" data-testid="plans-scroll-container">
       <FamilyAgendaPanel events={events} members={members}
         onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
         onToggleTask={handleToggleTask}
@@ -456,7 +461,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
         telegramRemindersEnabled={telegramRemindersEnabled}
         telegramConfigured={telegramConfigured}
         onToggleTelegramReminders={toggleTelegramReminders}/>
-        <div className="flex-none min-h-0 lg:flex-1 lg:overflow-hidden">
+        <div className="flex-none min-w-0">
         {isDesktop ? (
             <FamilyPlansDesktop 
                 {...commonProps} 

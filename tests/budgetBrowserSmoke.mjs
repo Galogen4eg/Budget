@@ -407,7 +407,18 @@ try{
     await eventDialog.getByRole('button',{name:'Закрыть редактор события'}).click();
     await eventDialog.waitFor({state:'hidden'});
     await plans.getByRole('button',{name:'Месяц',exact:true}).click();
-    if(width<1024){
+    // A selected mid-month date must follow the visible month, not stay in
+    // the previous month while the user opens the day details.
+    const midMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,exact:true}).filter({visible:true}).first();
+    // Click the date label, not the nested quick-add action in desktop cells.
+    await midMonthDay.locator('span').first().click();
+    const selectedMidMonthDay=plans.getByRole('button',{name:/^Выбрать (?:дату \d{4}-\d{2}-15|15 число месяца)$/,pressed:true}).filter({visible:true});
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day before navigation');
+    await plans.getByRole('button',{name:'Следующий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow next month');
+    await plans.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+    assert.equal(await selectedMidMonthDay.count(),1,label+': selected calendar day must follow previous month');
+    {
       const metrics=await plans.evaluate(el=>{
         const initial=el.scrollTop;
         el.scrollTop=0;
@@ -419,6 +430,19 @@ try{
       if(metrics.scrollHeight>metrics.height+2)assert.ok(metrics.scrollTop>0,label+': plans scroll blocked');
     }
     if(width<768)await verifyMobileScroll(page,'plans-scroll-container',label);
+    if(width===1280){
+      const originalViewport=page.viewportSize();
+      await page.setViewportSize({width,height:480});
+      try{
+        const metrics=await plans.evaluate(el=>{
+          el.scrollTop=el.scrollHeight;
+          return {height:el.clientHeight,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop};
+        });
+        assert.ok(metrics.scrollHeight>metrics.height+2 && metrics.scrollTop>0,
+          label+': short desktop viewport must scroll real calendar content '+JSON.stringify(metrics));
+        await plans.evaluate(el=>{el.scrollTop=0;});
+      }finally{await page.setViewportSize(originalViewport);}
+    }
     const plansOverflow=await page.evaluate(()=>({viewport:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));
     assert.ok(plansOverflow.body<=plansOverflow.viewport+2&&plansOverflow.document<=plansOverflow.viewport+2,label+': plans horizontal overflow '+JSON.stringify(plansOverflow));
     await page.screenshot({path:'artifacts/budget-browser/'+label+'-plans.png',fullPage:true,animations:'disabled'});

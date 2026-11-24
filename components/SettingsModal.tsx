@@ -21,6 +21,7 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
+import { subscribeToHouseholdBudgetPolicy } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -133,6 +134,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Account & Password Management State
   const currentUser = auth.currentUser;
+  const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;ownerUid:string;policy:'family'|'personal'}|null>(null);
+  const [householdPolicyError,setHouseholdPolicyError]=useState(false);
+  useEffect(()=>{
+    setHouseholdPolicy(null);
+    setHouseholdPolicyError(false);
+    if(!currentFamilyId||!currentUser?.uid)return;
+    return subscribeToHouseholdBudgetPolicy(currentFamilyId,
+      value=>{setHouseholdPolicy({...value,familyId:currentFamilyId});setHouseholdPolicyError(false);},
+      ()=>{setHouseholdPolicy(null);setHouseholdPolicyError(true);});
+  },[currentFamilyId,currentUser?.uid]);
+  const currentHouseholdPolicy=householdPolicy?.familyId===currentFamilyId?householdPolicy:null;
+  const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
+
   const currentEmail = currentUser?.email || '';
   const initialUsername = getInitialUsername(currentEmail, currentUser?.displayName);
 
@@ -809,7 +823,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'family':
         return (
           <div className="space-y-6 w-full max-w-full">
-            {/* Members Settings */}
+            {/* SET-12: read-only until end-to-end isolation is verified. */}
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              <h3 className="text-base font-semibold">Режим семейного бюджета</h3>
+              {householdPolicyError ? <p role="status" className="text-sm text-gray-500">Не удалось получить настройки семьи.</p> :
+                !currentHouseholdPolicy ? <p role="status" className="text-sm text-gray-500">Режим семьи пока не подтверждён.</p> :
+                <p className="text-sm">Сохранённый режим: <strong>{currentHouseholdPolicy.policy==='personal'?'Личный бюджет':'Совместный бюджет'}</strong></p>}
+              {isHouseholdOwner && <div className="space-y-2">
+                <fieldset disabled className="space-y-2">
+                  <legend className="text-xs text-gray-500">Настройка администратора</legend>
+                  {(['family','personal'] as const).map(mode=><label key={mode} className="flex min-h-[44px] items-center gap-3 rounded-xl border border-gray-200 dark:border-white/10 p-3 text-sm opacity-70">
+                    <input type="radio" name="household-budget-policy" checked={currentHouseholdPolicy?.policy===mode} readOnly/>
+                    {mode==='family'?'Совместный бюджет':'Личный бюджет'}
+                  </label>)}
+                </fieldset>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Изменение режима станет доступно после проверки разделения финансовых данных.</p>
+              </div>}
+            </section>
+                        {/* Members Settings */}
             <MembersSettingsSection 
               members={members}
               onUpdateMembers={onUpdateMembers}

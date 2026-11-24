@@ -904,7 +904,7 @@ export default function App() {
            </div>
            <div className="flex gap-2">
                <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
-               <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
+               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
            </div>
         </div>
       )}
@@ -1005,8 +1005,8 @@ export default function App() {
               <button 
                 type="button"
                 onClick={() => setIsSettingsOpen(true)} 
-                title="Настройки" 
-                className="p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
+                title="Настройки" aria-label="Настройки"
+                className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
               >
                 <SettingsIcon size={18} />
               </button>

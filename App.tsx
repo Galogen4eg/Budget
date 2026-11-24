@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
@@ -148,7 +148,10 @@ export default function App() {
     update();media.addEventListener('change',update);
     return ()=>media.removeEventListener('change',update);
   },[]);
-  const resolvedTheme=settings.theme==='system'?(systemDark?'dark':'light'):settings.theme;
+  const savedBootTheme=typeof document!=='undefined'?document.documentElement.dataset.bootTheme:undefined;
+  const startupTheme=savedBootTheme==='dark'||savedBootTheme==='light'||savedBootTheme==='system'?savedBootTheme:'system';
+  const themePreference=isAuthLoading||!user||(familyId&&!settingsReady)?startupTheme:settings.theme;
+  const resolvedTheme=themePreference==='system'?(systemDark?'dark':'light'):themePreference;
   const visibleTabs=TAB_CONFIG.filter(tab=>tab.id==='overview'||(settings.enabledTabs??TAB_CONFIG.map(t=>t.id)).includes(tab.id));
   const initialTabApplied=useRef<string|null>(null);
   useEffect(()=>{
@@ -329,9 +332,17 @@ export default function App() {
     }
   }, [user?.uid]);
 
-  useEffect(() => {
-      document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
-  }, [resolvedTheme]);
+  useLayoutEffect(() => {
+    const root=document.documentElement;
+    root.classList.toggle('dark',resolvedTheme==='dark');
+    root.style.colorScheme=resolvedTheme;
+    root.style.backgroundColor=resolvedTheme==='dark'?'#121214':'#EBEFF5';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',resolvedTheme==='dark'?'#121214':'#EBEFF5');
+    if(!isAuthLoading&&user&&(!familyId||settingsReady)){
+      root.dataset.bootTheme=themePreference;
+      try{localStorage.setItem('theme',themePreference);}catch{}
+    }
+  },[resolvedTheme,themePreference,isAuthLoading,user?.uid,familyId,settingsReady]);
 
   // Synchronize offline Telegram message queue when internet connection restores
   useEffect(() => {

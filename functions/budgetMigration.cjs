@@ -52,6 +52,25 @@ function merge(documents, memberIds) {
 // Preserve the prior family configuration, never infer an opening balance from transactions.
 const SHARED_SAFE=new Set(['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']);
 const SHARED_FINANCE=['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount','categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve','startOfMonthDay'];
+function findFinancialLinkIssues(links,expenses){
+ if(!links)return [];
+ const bills=new Map(expenses.map(e=>[e.id,e]));
+ const debts=new Map(links.debts.map(d=>[d.id,d]));
+ const rows=[];
+ for(const t of links.transactions){
+   for(const [field,targets] of [['linkedExpenseId',bills],['linkedDebtId',debts]]){
+     const id=t[field];if(!id)continue;
+     const target=targets.get(id);
+     if(target&&target.memberId!==t.memberId)rows.push({id:t.id,field,targetId:id,owner:t.memberId,targetOwner:target.memberId,title:String(t.note||t.category||t.id),targetTitle:String(target.name||target.title||id),amount:t.amount,date:t.date});
+   }
+ }
+ return rows;
+}
+function countHistoricalLinks(links,expenses){
+ if(!links)return 0;
+ const bills=new Set(expenses.map(e=>e.id)),debts=new Set(links.debts.map(d=>d.id));
+ return links.transactions.reduce((n,t)=>n+Number(Boolean(t.linkedExpenseId&&!bills.has(t.linkedExpenseId)))+Number(Boolean(t.linkedDebtId&&!debts.has(t.linkedDebtId))),0);
+}
 function validateLinks(links,expenses){
  if(!links)return;
  const goals=new Map(links.goals.map(g=>[g.id,g]));
@@ -61,7 +80,8 @@ function validateLinks(links,expenses){
    const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
    const savings=t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word));
    if(savings&&(!t.linkedGoalId||goals.get(t.linkedGoalId)?.memberId!==t.memberId))throw new Error('Savings goal link missing or belongs to another owner');
-   if(t.linkedExpenseId&&bills.get(t.linkedExpenseId)?.memberId!==t.memberId)throw new Error('Transaction obligation belongs to another owner or is missing');
+   if(t.linkedExpenseId&&bills.has(t.linkedExpenseId)&&bills.get(t.linkedExpenseId).memberId!==t.memberId)throw new Error('Transaction obligation belongs to another owner');
+   if(t.linkedDebtId&&debts.has(t.linkedDebtId)&&debts.get(t.linkedDebtId).memberId!==t.memberId)throw new Error('Transaction debt belongs to another owner');
  }
  for(const e of expenses)if(e.linkedDebtId&&debts.get(e.linkedDebtId)?.memberId!==e.memberId)throw new Error('Obligation debt belongs to another owner or is missing');
  for(const d of links.debts)if(d.linkedExpenseId&&bills.get(d.linkedExpenseId)?.memberId!==d.memberId)throw new Error('Debt obligation belongs to another owner or is missing');
@@ -96,7 +116,7 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
      const b=buckets.get(p.id);
      userPatches[p.uid]={personalMandatoryExpenses:b.mandatoryExpenses,personalManualPaidExpenses:b.manualPaidExpenses};
    }
-   return {policy:target,userPatches,archive:{...Object.fromEntries(removeShared.filter(k=>!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),...(Object.keys(orphan).length?{__set12OrphanPaid:orphan}:{})},removeShared,archivedPaymentCount:Object.values(orphan).reduce((sum,entries)=>sum+entries.length,0)};
+   return {policy:target,userPatches,archive:{...Object.fromEntries(removeShared.filter(k=>!['mandatoryExpenses','manualPaidExpenses'].includes(k)).map(k=>[k,shared[k]])),...(Object.keys(orphan).length?{__set12OrphanPaid:orphan}:{})},removeShared,historicalLinkCount:countHistoricalLinks(links,shared.mandatoryExpenses??[]),archivedPaymentCount:Object.values(orphan).reduce((sum,entries)=>sum+entries.length,0)};
  }
  if(!archive||typeof archive!=='object')throw new Error('Missing shared settings archive');
  const merged=merge(linked.map(p=>({memberId:p.id,mandatoryExpenses:configs[p.uid]?.personalMandatoryExpenses,manualPaidExpenses:configs[p.uid]?.personalManualPaidExpenses})),ids);
@@ -126,4 +146,4 @@ function findUnownedFinancialRecords({family,profiles,links,shared}){
  }
  return rows;
 }
-module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords};
+module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords,findFinancialLinkIssues};

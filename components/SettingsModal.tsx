@@ -22,8 +22,8 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
-import type { BudgetOwnershipIssue } from '../utils/db';
-import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
+import type { BudgetOwnershipIssue, BudgetLinkIssue } from '../utils/db';
+import { alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -192,7 +192,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
   const [readinessBusy,setReadinessBusy]=useState(false);
-  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
   const [readinessError,setReadinessError]=useState<string|null>(null);
   const [policyBusy,setPolicyBusy]=useState(false);
   const checkReadiness=async()=>{
@@ -201,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setReadinessBusy(true);setReadiness(null);setReadinessError(null);
     try{
       const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
-      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
+      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,linkIssues:result.linkIssues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
     }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
     finally{setReadinessBusy(false);}
   };
@@ -963,6 +963,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div role="status" aria-live="polite" className="space-y-2 text-sm">
                     {readinessError && <p className="text-red-600 dark:text-red-400 break-words">{readinessError}</p>}
                     {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>{readiness.enabled?'Данные готовы к переходу.':'Данные проверены. Серверная активация пока выключена.'}</p>)}
+                    {readiness?.familyId===currentFamilyId&&readiness.linkIssues?.map(issue=><div key={issue.id+issue.field} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
+                      <p className="font-medium break-words">{issue.title} · {settings.privacyMode?'•••':typeof issue.amount==='number'?issue.amount.toLocaleString('ru-RU')+' ₽':''}</p>
+                      <p className="text-xs break-words">Связь: {issue.targetTitle}. Операция: {members.find(m=>m.id===issue.owner)?.name??'Неизвестный участник'}. Обязательство: {members.find(m=>m.id===issue.targetOwner)?.name??'Неизвестный участник'}.</p>
+                      <button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy} className="min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 disabled:opacity-50" onClick={async()=>{
+                        if(!currentFamilyId||!currentUser?.uid||!window.confirm('Перенести операцию владельцу обязательства? Сумма, дата и связь останутся прежними. Подтверждайте только если это фактический владелец.'))return;
+                        setOwnershipBusy(issue.id);
+                        try{await alignLinkedTransactionOwner(currentFamilyId,currentUser.uid,issue);setReadiness(null);toast.success('Владелец изменён. Повторите проверку.');}
+                        catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось изменить владельца');}
+                        finally{setOwnershipBusy(null);}
+                      }}>Назначить владельца обязательства</button>
+                    </div>)}
                     {readiness?.familyId===currentFamilyId&&readiness.warnings?.map((warning,index)=><p key={index} className="text-xs text-gray-600 dark:text-gray-300 break-words">{warning}</p>)}
                   </div>
                   <button type="button" disabled={policyBusy||readinessBusy||!readiness?.enabled||!!readiness.issues.length||readiness.familyId!==currentFamilyId||readiness.target===currentHouseholdPolicy?.policy} onClick={()=>void changePolicy()} className="w-full sm:w-auto min-h-[44px] rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{policyBusy?'Перенос данных…':currentHouseholdPolicy?.policy==='personal'?'Вернуть совместный бюджет':'Включить личные бюджеты'}</button>

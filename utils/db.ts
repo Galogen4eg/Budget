@@ -892,7 +892,7 @@ export function subscribeToHouseholdBudgetPolicy(
   },onError);
 }
 
-type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];ownershipIssues?:BudgetOwnershipIssue[]};
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
   const token=await auth.currentUser.getIdToken();
@@ -930,6 +930,7 @@ export function subscribeToScopedFinancialCollection(
  * Only the household owner may do this, and only in shared mode.
  * Deployed Firestore rules must enforce the same conditions.
  */
+export type BudgetLinkIssue={id:string;field:'linkedExpenseId'|'linkedDebtId';targetId:string;owner:string;targetOwner:string;title:string;targetTitle:string;amount?:number;date?:string};
 export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'subscriptions'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
 export async function assignLegacyFinancialOwner(
   familyId:string, actorUid:string, kind:BudgetOwnershipIssue['kind'], recordId:string, memberId:string, expectedOwner:string|null=null
@@ -1043,4 +1044,23 @@ export async function savePersonalItems(familyId:string,uid:string,kind:'rules'|
 export async function deletePersonalItem(familyId:string,uid:string,kind:'rules'|'knowledge',id:string){
  if(!familyId||auth.currentUser?.uid!==uid)throw new Error('Личный профиль недоступен');
  await deleteDoc(doc(db,'families',familyId,'members',uid,kind,id));
+}
+
+/** Explicit repair: never alter amounts, dates, or links silently. */
+export async function alignLinkedTransactionOwner(familyId:string,actorUid:string,issue:BudgetLinkIssue){
+ if(auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!['linkedExpenseId','linkedDebtId'].includes(issue.field))throw new Error('Некорректные данные');
+ const familyRef=doc(db,'families',familyId);
+ const txRef=doc(db,'families',familyId,'transactions',issue.id);
+ const targetRef=issue.field==='linkedExpenseId'?doc(db,'families',familyId,'config','settings'):doc(db,'families',familyId,'debts',issue.targetId);
+ await runTransaction(db,async t=>{
+  const [family,transaction,target]=await Promise.all([t.get(familyRef),t.get(txRef),t.get(targetRef)]);
+  const f=family.data(),row=transaction.data();
+  assertBudgetPolicyOwner(f?.ownerId,actorUid);
+  if((f?.budgetPolicy??'family')!=='family')throw new Error('Доступно только в совместном режиме');
+  const matches=issue.field==='linkedExpenseId'?(target.data()?.mandatoryExpenses??[]).filter((e:any)=>e.id===issue.targetId):[target.data()].filter(Boolean);
+  if(matches.length!==1||row?.memberId!==issue.owner||row?.[issue.field]!==issue.targetId||matches[0]?.memberId!==issue.targetOwner)throw new Error('Записи изменились. Повторите проверку.');
+  const member=await t.get(doc(db,'families',familyId,'members',issue.targetOwner));
+  if(!f?.members?.includes(member.data()?.userId)||!member.data()?.userId)throw new Error('Владелец не подтверждён');
+  t.update(txRef,{memberId:issue.targetOwner});
+ });
 }

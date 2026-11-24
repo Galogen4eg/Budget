@@ -12,7 +12,7 @@ import { Toaster, toast } from 'sonner';
 import SmartHeader from './components/SmartHeader';
 import MonthlyAnalyticsWidget from './components/MonthlyAnalyticsWidget';
 import RecentTransactionsWidget from './components/RecentTransactionsWidget';
-import ShoppingList from './components/ShoppingList';
+
 import ShoppingWidget from './components/ShoppingWidget';
 import WalletWidget from './components/WalletWidget';
 import FamilyPlans from './components/FamilyPlans';
@@ -23,9 +23,9 @@ import CategoryProgress from './components/CategoryProgress';
 import CategoryAnalysisWidget from './components/CategoryAnalysisWidget';
 import GoalsSection from './components/GoalsSection';
 import LoginScreen from './components/LoginScreen';
-import ServicesHub from './components/ServicesHub';
+
 import TerraOverview from './components/TerraOverview';
-import TerraBudget from './components/TerraBudget';
+
 import AddTransactionModal from './components/AddTransactionModal';
 import EventModal from './components/EventModal';
 import DrillDownModal from './components/DrillDownModal';
@@ -35,10 +35,15 @@ import DuplicatesModal from './components/DuplicatesModal';
 import AIChatModal from './components/AIChatModal';
 import GoalModal from './components/GoalModal';
 import MandatoryExpenseModal from './components/MandatoryExpenseModal';
-import FamilyChat from './components/FamilyChat';
+
 import { MemberMarker } from './constants';
 import { sendTelegramMessage as dispatchTelegramMessage } from './utils/telegram';
 import { enqueueTelegramMessage, initTelegramQueueSync } from './utils/telegramQueue';
+
+const TerraBudget = React.lazy(() => import('./components/TerraBudget'));
+const ShoppingList = React.lazy(() => import('./components/ShoppingList'));
+const FamilyChat = React.lazy(() => import('./components/FamilyChat'));
+const ServicesHub = React.lazy(() => import('./components/ServicesHub'));
 
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal'));
 const PinScreen = React.lazy(() => import('./components/PinScreen'));
@@ -78,6 +83,12 @@ const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
 ];
+
+import { rememberTabVisit, shouldMountTab } from './utils/tabLifecycle';
+
+const TabLoading=()=>(
+  <div role="status" className="flex flex-1 min-h-0 items-center justify-center text-sm text-graphite-muted" aria-live="polite">Загрузка раздела…</div>
+);
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -132,6 +143,12 @@ export default function App() {
   }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const tabScope=JSON.stringify([user?.uid??null,familyId??null]);
+  const [tabVisits,setTabVisits]=useState(()=>({scope:tabScope,tabs:['overview']}));
+  useEffect(()=>{
+    if(!isAuthLoading&&user)setTabVisits(previous=>rememberTabVisit(previous,tabScope,activeTab));
+  },[tabScope,activeTab,isAuthLoading,user?.uid]);
+  const mountTab=(tab:string)=>shouldMountTab(tabVisits,tabScope,activeTab,tab);
   const [installPrompt,setInstallPrompt]=useState<(Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>})|null>(null);
   useEffect(()=>{
     const capture=(event:Event)=>{
@@ -235,7 +252,7 @@ export default function App() {
 
   // Scroll to top when tab changes
   useEffect(() => {
-      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeTab]);
 
   // Filter transactions for Budget tab widgets
@@ -864,8 +881,8 @@ export default function App() {
              <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
            </div>
            <div className="flex gap-2">
-               <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
-               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
+               <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
+               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><SettingsIcon size={18} /></button>
            </div>
         </div>
       )}
@@ -990,7 +1007,7 @@ export default function App() {
         {/* Offline Alert Banner */}
         {!isOnline && (
           <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
-            <WifiOff size={15} className="animate-pulse" />
+            <WifiOff size={15} />
             <span>Офлайн-режим. Изменения сохраняются локально на вашем устройстве</span>
           </div>
         )}
@@ -1004,7 +1021,7 @@ export default function App() {
         )}
 
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
+            <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 <TerraOverview 
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
@@ -1029,8 +1046,9 @@ export default function App() {
                 />
             </div>
             
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
-                <TerraBudget
+            <div key={tabScope+'-budget'} data-tab-panel="budget" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
+                {mountTab('budget') && <Suspense fallback={<TabLoading/>}>
+                  <TerraBudget
                     key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
                     transactions={displayTransactions}
                     categories={categories}
@@ -1078,9 +1096,11 @@ export default function App() {
                         }
                     }}
                 />
+                </Suspense>}
+
             </div>
             
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
+            <div key={tabScope+'-plans'} data-tab-panel="plans" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
               <FamilyPlans 
                 events={events} 
                 setEvents={setEvents} 
@@ -1094,8 +1114,9 @@ export default function App() {
               />
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
-              <ShoppingList 
+            <div key={tabScope+'-shopping'} data-tab-panel="shopping" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
+              {mountTab('shopping') && <Suspense fallback={<TabLoading/>}>
+                  <ShoppingList 
                 items={shoppingItems} 
                 setItems={setShoppingItems} 
                 settings={settings} 
@@ -1105,19 +1126,27 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
               />
+                </Suspense>}
+
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
-              <FamilyChat active={activeTab==='chat'} />
+            <div key={tabScope+'-chat'} data-tab-panel="chat" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+              {mountTab('chat') && <Suspense fallback={<TabLoading/>}>
+                  <FamilyChat active={activeTab==='chat'} />
+                </Suspense>}
+
             </div>
 
-            <div className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
-              <ServicesHub 
+            <div key={tabScope+'-services'} data-tab-panel="services" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
+              {mountTab('services') && <Suspense fallback={<TabLoading/>}>
+                  <ServicesHub 
                 initialService={targetService} 
                 onClearService={() => setTargetService(null)} 
                 onNavigateHome={() => setActiveTab('overview')}
                 onOpenSettings={() => setIsSettingsOpen(true)}
               />
+                </Suspense>}
+
             </div>
         </div>
       </main>

@@ -543,7 +543,7 @@ try{
     assert.equal(await settingsDialog.getByRole('button',{name:/Профиль и безопасность/}).filter({visible:true}).count(),1);
     assert.equal(await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).count(),0);
     await settingsSearch.fill('несуществующая настройка');
-    await settingsDialog.getByText('Настройки не найдены',{exact:true}).waitFor({state:'visible'});
+    await settingsDialog.getByText('Настройки не найдены',{exact:true}).filter({visible:true}).waitFor({state:'visible'});
     await settingsSearch.fill('');
     await settingsDialog.getByRole('button',{name:/^Меню и обзор/}).filter({visible:true}).first().click();
     assert.equal(await settingsDialog.getByRole('checkbox',{name:'Обзор',exact:true}).isDisabled(),true,label+': overview must remain reachable');

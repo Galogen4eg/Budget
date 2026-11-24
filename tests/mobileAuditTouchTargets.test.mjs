@@ -7,10 +7,10 @@ const plansMobile=read('FamilyPlansMobile.tsx');
 const shopping=read('ShoppingListMobile.tsx');
 const budget=read('TerraBudget.tsx');
 
-test('mobile plans scroll until desktop component activates at 1024px, not 768px',()=>{
- assert.match(plans,/lg:overflow-hidden/);
- assert.match(plans,/lg:flex-1 lg:overflow-hidden/);
- assert.doesNotMatch(plans,/md:flex-1 md:overflow-hidden/);
+test('plans retain native scroll across the 1024px desktop breakpoint',()=>{
+ assert.match(plans,/window.innerWidth >= 1024/);
+ assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y/);
+ assert.doesNotMatch(plans,/lg:overflow-hidden|md:overflow-hidden/);
 });
 test('calendar participant filters are accessible 44px targets',()=>{
  assert.match(plansMobile,/aria-pressed=\{isSelected\}/);

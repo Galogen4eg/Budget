@@ -29,3 +29,12 @@ html.dark { --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A2
  .terra-settings-body section h3 { font-size:15px; line-height:1.4; }
  .terra-settings-body input:not([type=checkbox]):not([type=radio]), .terra-settings-body select { min-height:40px; }
 }
+
+/* Compact settings content; keep existing scroll containers. */
+.terra-settings-summary { cursor:pointer; font-size:15px; font-weight:600; padding-block:8px; color:var(--terra-ink); }
+.terra-settings-body details { border:1px solid var(--terra-border); border-radius:14px; padding:12px 16px; background:var(--terra-surface); }
+.terra-settings-body :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]) { background-color:var(--terra-surface); border-color:var(--terra-border); color:var(--terra-ink); }
+.terra-settings-body input[type=checkbox] { accent-color:var(--terra-primary); }
+.terra-appearance-grid { display:grid; gap:12px; }
+.terra-appearance-grid > section { margin-top:0 !important; min-width:0; }
+@media(min-width:1024px){ .terra-appearance-grid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; } .terra-appearance-grid > section:nth-child(2), .terra-appearance-grid > section:nth-child(4) { grid-column:1 / -1; } }

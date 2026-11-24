@@ -154,7 +154,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       </div>
 
       {/* Карточка 1: Базовый контур и копилка */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-gray-200/80 dark:border-white/5 space-y-5">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Wallet size={24} />
@@ -312,7 +312,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       </section>
 
       {/* Карточка 2: Календарь выплат */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-gray-200/80 dark:border-white/5 space-y-4">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
@@ -368,7 +368,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       </section>
 
       {/* Карточка 3: Инструменты и аудит данных */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-gray-200/80 dark:border-white/5 space-y-5">
+      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(46,50,48,0.05)] border border-[var(--terra-border)] space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Build size={22} />

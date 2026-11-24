@@ -606,18 +606,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     switch (activeSection) {
       case 'appearance':
         return (
-          <div className="max-w-3xl space-y-5">
-            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+          <div className="terra-appearance-grid">
+            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <div><h3 className="text-base font-semibold">Тема приложения</h3><p className="text-sm text-gray-500 dark:text-gray-400">Личная настройка, не меняет оформление у другого участника семьи.</p></div>
               <div role="group" aria-label="Тема приложения" className="grid grid-cols-3 gap-2">
                 {(['light','dark','system'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
                   className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':theme==='dark'?'Тёмная':'Системная'}</button>)}
               </div>
             </section>
-            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Навигация</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Выберите разделы меню на своих устройствах. Обзор всегда доступен.</p>
-              <div className="space-y-1">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-3">
                 {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).map(([id,label])=>{
                   const enabled=settings.enabledTabs??['overview','budget','plans','shopping','chat','services'];
                   const checked=id==='overview'||enabled.includes(id);
@@ -633,11 +633,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <label className="block space-y-2 text-sm font-semibold">
                 <span>Стартовый раздел</span>
                 <select value={settings.startTab??'overview'} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2">
-                  {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).filter(([id])=>id==='overview'||settings.enabledTabs?.includes(id)).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+                  {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).filter(([id])=>id==='overview'||(settings.enabledTabs??['overview','budget','plans','shopping','chat','services']).includes(id)).map(([id,label])=><option key={id} value={id}>{label}</option>)}
                 </select>
               </label>
             </section>
-            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Карточки обзора</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Скрытие карточек не удаляет данные и не меняет основной раздел.</p>
               {([['shopping','Список покупок'],['week_events','События недели']] as const).map(([id,label])=>{
@@ -651,7 +651,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>;
               })}
             </section>
-            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Приватность и бюджет</h3>
               <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
                 <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
@@ -672,21 +672,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         return (
           <div className="space-y-6 w-full max-w-full">
             {/* Top Session Status Card */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)]">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#2D5A43] dark:text-emerald-400">
                 <Shield size={16} />
                 <span>Безопасность и аккаунт</span>
               </div>
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300">
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--terra-surface)] border border-[var(--terra-border)] text-xs text-gray-600 dark:text-gray-300">
                 <span>Сессия активна: Веб-терминал</span>
               </div>
             </div>
 
             {/* CARD 1: Учетная запись */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-6">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
                     <User size={20} />
                   </div>
                   <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Учетная запись</h3>
@@ -697,7 +697,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* User Info Highlight Card */}
-              <div className="p-5 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="p-5 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <h4 className="font-headline font-bold text-xl text-gray-900 dark:text-white">
@@ -745,7 +745,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={accountLogin}
                       onChange={e => setAccountLogin(e.target.value)}
                       placeholder="alexey_smirnov"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500 transition-all duration-200"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500 transition-all duration-200"
                     />
                   </div>
                   <button
@@ -772,7 +772,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={currentPasswordForLogin}
                       onChange={e => setCurrentPasswordForLogin(e.target.value)}
                       placeholder="Текущий пароль"
-                      className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
+                      className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
                     />
                   </div>
                 )}
@@ -780,10 +780,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* CARD 2: Смена пароля */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-5">
               <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200/80 dark:border-white/10 flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
                     <Lock size={20} />
                   </div>
                   <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Смена пароля</h3>
@@ -802,7 +802,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={currentPasswordForPass}
                     onChange={e => setCurrentPasswordForPass(e.target.value)}
                     placeholder="Текущий пароль"
-                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
+                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
                   />
                 </div>
               )}
@@ -819,7 +819,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={currentPasswordForPass}
                       onChange={e => setCurrentPasswordForPass(e.target.value)}
                       placeholder="Текущий пароль"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
@@ -841,7 +841,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="Минимум 6 символов"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
@@ -863,7 +863,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Повторите ввод"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                     />
                     <button
                       type="button"
@@ -902,7 +902,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {currentUser?.email && !currentUser.email.endsWith('@family.local') && (
-                <div className="pt-3 border-t border-gray-200/80 dark:border-white/10">
+                <div className="pt-3 border-t border-[var(--terra-border)]">
                   <button
                     type="button"
                     onClick={handleSendResetEmail}
@@ -917,7 +917,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* No security control is exposed until a real server-side MFA enrollment flow exists. */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-4 sm:p-6">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-4 sm:p-6">
               <div className="flex items-start gap-3">
                 <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#4A7C59]" aria-hidden="true" />
                 <div className="min-w-0 space-y-1">
@@ -953,9 +953,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'family':
         return (
           <div className="space-y-6 w-full max-w-full">
-            {/* SET-12: read-only until end-to-end isolation is verified. */}
-            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
-              <h3 className="text-base font-semibold">Разграничение доступа к данным (SET-12)</h3>
+            {/* Advanced access controls remain opt-in. */}
+            <details className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-3">
+              <summary className="terra-settings-summary">Расширенное разграничение доступа (SET-12)</summary>
+              <div className="pt-3 space-y-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Для простого скрытия совместного бюджета используйте «Оформление и приватность». Проверка и перенос нужны только для реального запрета доступа к чужим данным.</p>
               {householdPolicyError ? <p role="status" className="text-sm text-gray-500">Не удалось получить настройки семьи.</p> :
                 !currentHouseholdPolicy ? <p role="status" className="text-sm text-gray-500">Режим семьи пока не подтверждён.</p> :
@@ -1015,8 +1016,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className="text-xs text-gray-500 dark:text-gray-400">При личном режиме входящие команды Telegram временно отключены: у очереди нет подтверждённого владельца. Проверка не меняет данные. Перед сохранением сервер повторно проверяет владельцев и историю платежей.</p>
                 </div>
               </div>}
-            </section>
-            {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              </div>
+            </details>
+            {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-3">
               <h3 className="text-base font-semibold">Записи без владельца</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Нажмите проверку перехода выше, чтобы получить список. Назначайте только фактического владельца; суммы и история платежей не меняются.</p>
               {legacyRecords.length===0?<p className="text-sm text-gray-500">Нет записей в текущем списке. Повторите проверку.</p>:legacyRecords.map(record=>{
@@ -1045,7 +1047,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Family Space ID & Sync */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center">
@@ -1064,7 +1066,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       try { await navigator.clipboard.writeText(currentFamilyId); toast.success('ID пространства скопирован'); }
                       catch { toast.error('Не удалось скопировать ID'); }
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <Copy size={14} />
                     <span>Скопировать ID</span>
@@ -1079,7 +1081,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newFamilyId}
                     onChange={e => setNewFamilyId(e.target.value)}
                     placeholder="Введите ID семейного пространства..."
-                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                    className="flex-1 px-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-mono text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
                   />
                   <button 
                     type="button"
@@ -1104,9 +1106,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'budget':
         return (
           <div className="space-y-5">
-          <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+          <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
             <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Подготовка к раздельному бюджету. Эти параметры не участвуют в совместном расчёте.'}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Используются для личного отображения бюджета. Общие финансовые параметры не меняются.'}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
                 ['personalInitialBalance','Личный начальный остаток'],
@@ -1184,7 +1186,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         return (
           <div className="space-y-6 w-full max-w-full">
             {/* Telegram Bot Settings */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2.5">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -1217,7 +1219,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     autoComplete="off"
                     value={settings.telegramBotToken || ''} 
                     onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
-                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
+                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="712345678:AAHk..." 
                   />
                 </div>
@@ -1229,7 +1231,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="text" 
                     value={settings.telegramChatId || ''} 
                     onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
-                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#18191C] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
+                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="-1001928374650" 
                   />
                 </div>
@@ -1318,7 +1320,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* Gemini API Key */}
-            <section className="bg-gray-50/80 dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
@@ -1345,7 +1347,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
                     onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value.trim()); }}
-                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
+                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
                   <button
@@ -1425,10 +1427,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       {/* Main Container */}
       <div 
         role="dialog" aria-modal="true" aria-label="Настройки" data-terra-settings="true"
-        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-[var(--terra-surface)] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-[var(--terra-border)] z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
-        <header className="hidden md:flex h-14 px-5 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+        <header className="hidden md:flex h-14 px-5 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
           </div>
@@ -1446,7 +1448,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </header>
 
         {/* MOBILE Top Header Bar (< md) - view-stack routing aware */}
-        <header className="md:hidden h-14 px-4 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
+        <header className="md:hidden h-14 px-4 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
           {showMobileMenu ? (
             <div className="flex items-center gap-2">
               <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
@@ -1487,7 +1489,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Profile Card */}
               <div 
                 onClick={() => { setActiveSection('account'); setShowMobileMenu(false); }}
-                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#2D5A43]/40"
+                className="p-4 rounded-2xl bg-white dark:bg-[#202225] border border-[var(--terra-border)] shadow-xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-[#2D5A43]/40"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#2D5A43] dark:text-emerald-300 font-bold text-lg flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
@@ -1511,7 +1513,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Список настроек */}
-              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-gray-200/80 dark:border-white/5 shadow-xs overflow-hidden">
+              <div className="rounded-2xl bg-white dark:bg-[#202225] border border-[var(--terra-border)] shadow-xs overflow-hidden">
                 <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                   Разделы настроек
                 </div>
@@ -1600,7 +1602,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </aside>
 
           {/* Right Main Content Panel (visible on md+, or on mobile when showMobileMenu is false) */}
-          <main className={`flex-1 min-h-0 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
+          <main className={`flex-1 min-h-0 bg-[var(--terra-surface)] flex-col min-w-0 overflow-hidden ${
             showMobileMenu ? 'hidden md:flex' : 'flex'
           }`}>
             {/* Desktop Section Header (hidden on mobile) */}
@@ -1639,7 +1641,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {showInstallGuide && (
           <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-[var(--terra-surface)] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center mx-auto">
                 <Smartphone size={24} />
               </div>
@@ -1682,7 +1684,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-gray-200/80 dark:border-white/10 z-10"
+              className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-[var(--terra-border)] z-10"
             >
 
 

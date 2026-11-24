@@ -162,7 +162,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
       role="presentation"
     >
       <div 
-        className="relative w-full max-w-[490px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-t-3xl sm:rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border-0 sm:border border-[#ECE6DE] dark:border-white/10 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-[490px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] bg-[var(--terra-surface)] rounded-t-3xl sm:rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border-0 sm:border border-[var(--terra-border)] animate-in fade-in zoom-in-95 duration-200 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
         onClick={e => e.stopPropagation()}
       >
         {/* Заголовок модального окна */}
@@ -198,7 +198,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 }}
                 className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   expenseType === 'regular'
-                    ? 'bg-white dark:bg-[#252528] text-stone-900 dark:text-white shadow-xs'
+                    ? 'bg-[var(--terra-soft)] text-stone-900 dark:text-white shadow-xs'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
                 }`}
               >
@@ -211,7 +211,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 onClick={() => setExpenseType('debt')}
                 className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   expenseType === 'debt'
-                    ? 'bg-white dark:bg-[#252528] text-[#8C3A3A] dark:text-rose-400 shadow-xs'
+                    ? 'bg-[var(--terra-soft)] text-[#8C3A3A] dark:text-rose-400 shadow-xs'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
                 }`}
               >
@@ -240,7 +240,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   id="linkedDebtSelect"
                   value={linkedDebtId}
                   onChange={e => handleDebtChange(e.target.value)}
-                  className="w-full bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-semibold text-sm px-3.5 py-2.5 rounded-xl border border-amber-300/70 dark:border-amber-900/60 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-semibold text-sm px-3.5 py-2.5 rounded-xl border border-amber-300/70 dark:border-amber-900/60 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                 >
                   <option value="">-- Выберите долг для синхронизации --</option>
                   {debts.map(d => (
@@ -276,7 +276,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 onChange={e => setName(e.target.value)}
                 placeholder={expenseType === 'debt' ? 'Ипотека, автокредит, кредитка...' : 'ЖКХ, интернет, аренда, связь...'} 
                 autoFocus
-                className="w-full bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-semibold text-base px-4 py-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-10"
+                className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-semibold text-base px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-10"
               />
               <span className="absolute right-3.5 text-stone-400">
                 <Edit3 size={18} />
@@ -301,7 +301,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   value={amount} 
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-8"
+                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-8"
                 />
                 <span className="absolute right-3.5 font-headline font-bold text-sm text-stone-400">₽</span>
               </div>
@@ -321,7 +321,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   max="31" 
                   value={day} 
                   onChange={e => setDay(e.target.value)}
-                  className="w-full bg-white dark:bg-[#252528] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] text-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-12"
+                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] text-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-12"
                 />
                 <span className="absolute right-3 text-stone-400 text-xs font-semibold">число</span>
               </div>
@@ -342,10 +342,10 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   <label 
                     key={m.id}
                     onClick={() => setMemberId(m.id)}
-                    className={`relative flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#252528] cursor-pointer hover:bg-stone-50 dark:hover:bg-[#2A2A2D] transition-all shadow-[0_1px_4px_rgba(46,50,48,0.04)] border ${
+                    className={`relative flex items-center gap-3 p-2.5 rounded-xl bg-[var(--terra-soft)] cursor-pointer hover:bg-stone-50 dark:hover:bg-[#2A2A2D] transition-all shadow-[0_1px_4px_rgba(46,50,48,0.04)] border ${
                       isSelected 
                         ? 'border-[#4A7C59] ring-2 ring-[#4A7C59]/20' 
-                        : 'border-[#ECE6DE] dark:border-white/10'
+                        : 'border-[var(--terra-border)]'
                     }`}
                   >
                     <div 
@@ -377,7 +377,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             type="button"
             aria-pressed={remind}
             onClick={() => setRemind(!remind)}
-            className="w-full text-left bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full text-left bg-[var(--terra-soft)] rounded-xl p-3.5 border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-[#4A7C59] group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
@@ -404,7 +404,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             aria-pressed={isPaidCurrentMonth}
             onClick={() => setIsPaidCurrentMonth(!isPaidCurrentMonth)}
             disabled={isSaving}
-            className="w-full text-left bg-white dark:bg-[#252528] rounded-xl p-3.5 border border-[#ECE6DE] dark:border-white/10 shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full text-left bg-[var(--terra-soft)] rounded-xl p-3.5 border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-stone-500 group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">

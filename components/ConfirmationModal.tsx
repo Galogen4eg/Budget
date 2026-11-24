@@ -56,7 +56,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', duration: 0.4 }}
-            className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/10 rounded-3xl shadow-xl max-w-sm w-full overflow-hidden relative z-10 flex flex-col p-6 space-y-4"
+            className="bg-[var(--terra-surface)] border border-surface-border dark:border-white/10 rounded-3xl shadow-xl max-w-sm w-full overflow-hidden relative z-10 flex flex-col p-6 space-y-4"
           >
             {/* Header Icon & Title */}
             <div className="flex items-start gap-3.5">

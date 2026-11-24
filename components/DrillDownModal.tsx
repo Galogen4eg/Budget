@@ -610,7 +610,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 onClick={() => setViewMode('inspector')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   viewMode === 'inspector'
-                    ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-xs'
+                    ? 'bg-[var(--terra-surface)] text-[#2E3230] dark:text-white shadow-xs'
                     : 'text-[#68726B] dark:text-stone-400 hover:text-[#2E3230] dark:hover:text-white'
                 }`}
                 title="Реестр операций"
@@ -830,7 +830,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                         onClick={() => setTypeFilter('all')}
                         className={`py-1.5 rounded-lg text-center transition-all cursor-pointer ${
                           typeFilter === 'all'
-                            ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-2xs'
+                            ? 'bg-[var(--terra-surface)] text-[#2E3230] dark:text-white shadow-2xs'
                             : 'text-[#68726B] dark:text-stone-400 hover:text-[#2E3230]'
                         }`}
                       >
@@ -841,7 +841,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                         onClick={() => setTypeFilter('expense')}
                         className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer ${
                           typeFilter === 'expense'
-                            ? 'bg-white dark:bg-[#1C1C1E] text-rose-600 dark:text-rose-400 shadow-2xs font-bold'
+                            ? 'bg-[var(--terra-surface)] text-rose-600 dark:text-rose-400 shadow-2xs font-bold'
                             : 'text-[#68726B] dark:text-stone-400 hover:text-rose-600'
                         }`}
                       >
@@ -853,7 +853,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                         onClick={() => setTypeFilter('income')}
                         className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer ${
                           typeFilter === 'income'
-                            ? 'bg-white dark:bg-[#1C1C1E] text-[#4A7C59] dark:text-green-400 shadow-2xs font-bold'
+                            ? 'bg-[var(--terra-surface)] text-[#4A7C59] dark:text-green-400 shadow-2xs font-bold'
                             : 'text-[#68726B] dark:text-stone-400 hover:text-[#4A7C59]'
                         }`}
                       >
@@ -1126,7 +1126,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
                   <div className="space-y-2.5">
                     {/* Insight 1 */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
+                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
                       <div className="w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 text-[#2E3230] dark:text-stone-300 flex items-center justify-center shrink-0 mt-0.5">
                         <CalendarIcon className="w-3.5 h-3.5" />
                       </div>
@@ -1137,7 +1137,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     </div>
 
                     {/* Insight 2 */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
+                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
                       <div className="w-6 h-6 rounded-lg bg-[#EAF2EC] dark:bg-green-950/40 text-[#4A7C59] flex items-center justify-center shrink-0 mt-0.5">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </div>
@@ -1148,7 +1148,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     </div>
 
                     {/* Insight 3 */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
+                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
                       <div className="w-6 h-6 rounded-lg bg-[#F0E8DB] dark:bg-stone-800 text-[#4A4538] dark:text-stone-300 flex items-center justify-center shrink-0 mt-0.5">
                         <Zap className="w-3.5 h-3.5 text-amber-600" />
                       </div>

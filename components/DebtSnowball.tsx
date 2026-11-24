@@ -44,7 +44,6 @@ const DebtSnowball: React.FC<Props> = ({
 }) => {
   const [showNotifySettings, setShowNotifySettings] = useState<Debt | null>(null);
   const [showDebtStats, setShowDebtStats] = useState<ExtendedDebt | null>(null);
-  const [showEarlyRepaymentCalc, setShowEarlyRepaymentCalc] = useState<boolean>(false);
   const [extraPaymentAmount, setExtraPaymentAmount] = useState<number>(5000);
   const [editingDebt, setEditingDebt] = useState<Partial<ExtendedDebt> | null>(null);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
@@ -538,9 +537,7 @@ const DebtSnowball: React.FC<Props> = ({
           <span className="font-bold text-stone-900 dark:text-white">Долги</span>
         </div>
 
-        <div className="flex items-center px-3 py-1 rounded-full bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
-          <span>Обновлено в {currentTimeSync}</span>
-        </div>
+        
       </div>
 
       {/* 2. Header Banner: Мобильная и десктопная шапка */}
@@ -553,9 +550,7 @@ const DebtSnowball: React.FC<Props> = ({
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight leading-tight">
               Мои долги
             </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm uppercase font-bold tracking-wider text-[#4a7c59] dark:text-emerald-400 mt-0.5">
-              УПРАВЛЕНИЕ ВЫПЛАТАМИ И КРЕДИТАМИ
-            </p>
+            
           </div>
         </div>
 
@@ -577,10 +572,7 @@ const DebtSnowball: React.FC<Props> = ({
           <div>
             <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
               <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">Остаток долга</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-[11px] font-bold border border-[#d1dbd1] dark:border-emerald-800/40">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>+1.2% в этом мес.</span>
-              </span>
+              
             </div>
             <div className="text-2xl sm:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
               {formatCurrencyWithKopecks(totalRemaining)}
@@ -629,10 +621,7 @@ const DebtSnowball: React.FC<Props> = ({
               )}
             </div>
 
-            <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-stone-100 dark:border-white/5 flex items-center gap-1.5 text-[10px] sm:text-xs text-stone-500 dark:text-stone-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate">Автосписание настроено</span>
-            </div>
+            
           </div>
 
           {/* KPI 3: Ежемесячная нагрузка */}
@@ -648,16 +637,11 @@ const DebtSnowball: React.FC<Props> = ({
                 {formatCurrencyWithKopecks(monthlyDebtLoad)}
               </div>
               <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 mt-1 truncate">
-                {debts.length} {debts.length === 1 ? 'активный' : debts.length < 5 ? 'активных' : 'активных'} · Без просрочек
+                {debts.length} {debts.length === 1 ? 'активный' : debts.length < 5 ? 'активных' : 'активных'}
               </p>
             </div>
 
-            <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[10px] sm:text-xs font-semibold">
-              <span className="text-stone-500 dark:text-stone-400 truncate">Безопасно (24%)</span>
-              <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                В норме ✓
-              </span>
-            </div>
+            
           </div>
         </div>
 
@@ -711,7 +695,7 @@ const DebtSnowball: React.FC<Props> = ({
             <div className="w-16 h-16 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 mx-auto flex items-center justify-center mb-4">
               <Smile className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">Долгов нет! 🎉</h3>
+            <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">Долгов нет</h3>
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
               Все кредиты и рассрочки закрыты или еще не добавлены в систему. Нажмите кнопку ниже, чтобы внести новый долг.
             </p>
@@ -961,13 +945,7 @@ const DebtSnowball: React.FC<Props> = ({
                     Ближайшие платежи
                   </h3>
                 </div>
-                <button 
-                  type="button"
-                  onClick={() => setShowEarlyRepaymentCalc(true)}
-                  className="text-xs font-semibold text-[#4a7c59] dark:text-emerald-400 hover:underline cursor-pointer"
-                >
-                  Весь график
-                </button>
+                
               </div>
 
               <div className="space-y-2 text-xs">
@@ -1010,31 +988,6 @@ const DebtSnowball: React.FC<Props> = ({
             </section>
           </>
         )}
-      </section>
-
-      {/* 6. Полноразмерный баннер: Стратегия «Снежный ком» активна */}
-      <section className="bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
-            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <h3 className="font-display font-extrabold text-stone-900 dark:text-white text-sm sm:text-base md:text-lg">
-              Стратегия «Снежный ком» активна
-            </h3>
-            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-1 leading-relaxed">
-              При внесении дополнительных <b>{extraPaymentAmount.toLocaleString('ru-RU')} ₽</b> в месяц срок закрытия первого кредита сократится на <b>4 месяца</b>, а переплата снизится на <b>~18 400 ₽</b>.
-            </p>
-          </div>
-        </div>
-
-        <button 
-          type="button"
-          onClick={() => setShowEarlyRepaymentCalc(true)}
-          className="min-h-[44px] whitespace-nowrap px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold uppercase tracking-wider text-[#4a7c59] dark:text-emerald-400 hover:text-white hover:bg-[#4a7c59] bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] rounded-xl sm:rounded-2xl border border-[#4a7c59]/40 transition shadow-xs cursor-pointer shrink-0 active:scale-95"
-        >
-          Калькулятор досрочного погашения
-        </button>
       </section>
 
       {/* 7. Нижний аналитический блок: Динамика снижения долга (2024–2028) и Календарь ближайших выплат */}
@@ -1657,7 +1610,7 @@ const DebtSnowball: React.FC<Props> = ({
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-stone-500 dark:text-stone-400 mt-2.5">
                         <span>{showDebtStats.strategy === 'auto' ? 'Авто-расчет' : 'Фиксированный аннуитет'}</span>
-                        <span className="font-medium text-[#4a7c59] dark:text-emerald-400">В графике</span>
+                        
                       </div>
                     </div>
                   </div>
@@ -1873,72 +1826,6 @@ const DebtSnowball: React.FC<Props> = ({
               className="w-full py-3.5 bg-[#4a7c59] hover:bg-[#3d6749] text-white rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
             >
               Сохранить
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 13. Модальное окно калькулятора досрочного погашения */}
-      {showEarlyRepaymentCalc && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-white dark:bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center">
-                  <Calculator className="w-5 h-5" />
-                </div>
-                <h3 className="text-xl font-display font-bold text-stone-900 dark:text-white">
-                  Досрочное погашение
-                </h3>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setShowEarlyRepaymentCalc(false)}
-                className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1.5">
-                  Дополнительный платёж в месяц
-                </label>
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="range"
-                    min="1000"
-                    max="50000"
-                    step="1000"
-                    value={extraPaymentAmount}
-                    onChange={(e) => setExtraPaymentAmount(Number(e.target.value))}
-                    className="w-full accent-[#4a7c59]"
-                  />
-                  <span className="text-base font-bold font-display text-[#4a7c59] dark:text-emerald-400 whitespace-nowrap min-w-[90px] text-right">
-                    {extraPaymentAmount.toLocaleString('ru-RU')} ₽
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#edf4ef]/60 dark:bg-[var(--terra-primary-soft)] border border-[#d1dbd1] dark:border-emerald-800/40 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-stone-600 dark:text-stone-300">Ускорение закрытия:</span>
-                  <strong className="text-[#4a7c59] dark:text-emerald-400">~{Math.max(1, Math.round(extraPaymentAmount / 2000) + 2)} мес. быстрее</strong>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-stone-600 dark:text-stone-300">Экономия на переплате:</span>
-                  <strong className="text-[#4a7c59] dark:text-emerald-400">~{(extraPaymentAmount * 3.6).toLocaleString('ru-RU')} ₽</strong>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              type="button"
-              onClick={() => setShowEarlyRepaymentCalc(false)} 
-              className="w-full py-3.5 bg-[#4a7c59] hover:bg-[#3d6749] text-white rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            >
-              Понятно
             </button>
           </div>
         </div>

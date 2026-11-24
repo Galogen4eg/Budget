@@ -49,7 +49,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'debts', 
       label: 'Долги', 
-      desc: 'Управление выплатами, кредитами и стратегией', 
+      desc: 'Кредиты и платежи', 
       hasAttention: debts && debts.length > 0,
       icon: (
         <svg className="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'receipts', 
       label: 'Чеки ФНС и выписки', 
-      desc: 'Сканирование QR чеков и разделение на пул позиций по категориям', 
+      desc: 'Сканирование чеков и импорт покупок', 
       hasAttention: false,
       icon: (
         <ShieldCheck className="w-6 h-6 stroke-[1.8]" />
@@ -122,15 +122,11 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
               <div className={SURFACE_CARD} data-purpose="services-header">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <h1 className={PAGE_HEADING}>
-                    Финансовые сервисы
+                    Сервисы
                   </h1>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[var(--terra-soft)] dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-white/10 whitespace-nowrap">
-                    {SERVICES.length} сервиса
-                  </span>
+                  
                 </div>
-                <p className="text-[13px] leading-relaxed text-stone-500 dark:text-stone-400">
-                  Специализированные инструменты управления задолженностями, лояльностью и чеками ФНС
-                </p>
+                
               </div>
             </div>
 

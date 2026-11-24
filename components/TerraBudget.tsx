@@ -882,7 +882,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           {/* Top Spending Categories Section */}
           <section className="flex flex-col bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] p-4 rounded-2xl shadow-xs border border-[var(--terra-border)] dark:border-white/10 gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Топ категорий трат</span>
+              <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Расходы по категориям</span>
               <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">
                 {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽ всего`}
               </span>
@@ -1170,7 +1170,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <span className="text-xs lg:text-sm font-semibold font-headline text-primary dark:text-green-400 truncate block">
                 {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}
               </span>
-              <span className="text-xs text-emerald-700 dark:text-green-400 block">факт</span>
+              
             </div>
 
             <div className="text-center px-1 border-x border-surface-border/70 dark:border-white/5">
@@ -1425,7 +1425,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                             <h5 className="text-xs font-bold text-graphite dark:text-white group-hover:text-primary transition">
                               {displayTitle}
                             </h5>
-                            <span className="text-[9px] text-graphite-muted opacity-0 group-hover:opacity-100 transition">↗ карточка</span>
+                            
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-graphite-muted dark:text-gray-400">
                             {member && (

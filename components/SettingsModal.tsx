@@ -671,17 +671,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'account':
         return (
           <div className="space-y-6 w-full max-w-full">
-            {/* Top Session Status Card */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#2D5A43] dark:text-emerald-400">
-                <Shield size={16} />
-                <span>Безопасность и аккаунт</span>
-              </div>
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--terra-surface)] border border-[var(--terra-border)] text-xs text-gray-600 dark:text-gray-300">
-                <span>Сессия активна: Веб-терминал</span>
-              </div>
-            </div>
-
             {/* CARD 1: Учетная запись */}
             <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-6">
               <div className="flex items-center justify-between">
@@ -1694,14 +1683,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="w-12 h-12 rounded-xl bg-red-100/80 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs">
                     <LogOut size={24} />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs uppercase tracking-wider font-bold text-red-600 dark:text-red-400">
-                      Сессия пользователя
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Terra Hub v3.4
-                    </span>
-                  </div>
+                  
                 </div>
                 <button
                   type="button"
@@ -1719,41 +1701,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   Выйти из профиля?
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Локальные данные синхронизированы с облаком. Чтобы войти снова, потребуется ввести логин и пароль или код доступа к пространству.
+                  Для повторного входа понадобится логин и пароль.
                 </p>
-              </div>
-
-              {/* Space Sync Status Banner */}
-              <div className="relative z-10 bg-gray-50 dark:bg-[#18191C] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-gray-100 dark:border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 flex items-center justify-center text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-white/10">
-                    <Database size={16} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Активное пространство</span>
-                    <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
-                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
-                    </span>
-                  </div>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold self-start sm:self-center">
-                  <CheckCircle2 size={14} className="text-emerald-500" />
-                  <span>Синхронизировано</span>
-                </div>
-              </div>
-
-              {/* Metadata Grid */}
-              <div className="relative z-10 grid grid-cols-2 gap-3">
-                <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
-                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Устройство</span>
-                  <span className="text-xs font-bold text-gray-900 dark:text-white truncate">Мобильный/Веб узел</span>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-[#18191C] rounded-xl border border-gray-100 dark:border-white/5 flex flex-col gap-1">
-                  <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Синхронизация</span>
-                  <span className="text-xs font-bold text-[#2D5A43] dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCheck size={14} /> Все записано
-                  </span>
-                </div>
               </div>
 
               {/* Modal Buttons */}

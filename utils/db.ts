@@ -900,7 +900,10 @@ const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:
   const token=await auth.currentUser.getIdToken();
   const response=await fetch('/api/budget-policy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({familyId,target,preview})});
   const result=await response.json().catch(()=>null);
-  if(!response.ok)throw new Error(typeof result?.error==='string'?result.error:'Сервер SET-12 недоступен');
+  if(!response.ok){
+    if(response.status===504||response.status===408)throw new Error(preview?'Проверка заняла слишком много времени. Данные не изменены. Повторите проверку.':'Сервер не успел подтвердить переход. Проверьте текущий режим перед повтором.');
+    throw new Error(typeof result?.error==='string'?result.error:'Сервер SET-12 недоступен (HTTP '+response.status+').');
+  }
   if(!result||!['family','personal'].includes(result.policy)||typeof result.enabled!=='boolean'||!Array.isArray(result.issues))throw new Error('Сервер вернул некорректный ответ');
   return result as HouseholdBudgetChangeResult;
 };

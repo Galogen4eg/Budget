@@ -75,6 +75,13 @@ service cloud.firestore {
           allow update: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(personalKeys());
         }
       }
+      // Quick lists and purchase history use this exact shared document.
+      match /config/shoppingLists {
+        allow get: if member(fid);
+        allow create, update: if member(fid)
+          && request.resource.data.keys().hasOnly(['templates','history'])
+          && request.resource.data.templates is list && request.resource.data.history is list;
+      }
       match /config/{id} {
         allow get: if member(fid) && id == 'settings' && (joint(fid) || resource.data.keys().hasOnly(safeSharedKeys()));
         allow create: if id == 'settings' && afterMember(fid) && !request.resource.data.keys().hasAny(personalKeys())

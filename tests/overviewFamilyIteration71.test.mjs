@@ -46,9 +46,10 @@ test('iteration 71: overview manual bill status is shared and atomic with linked
 });
 
 test('iteration 71: reserve UI remains family wide, keyboard accessible, and monetary formatter keeps kopecks',()=>{
- assert.ok(src.includes('СЕМЕЙНЫЙ РЕЗЕРВ'));
+ assert.match(src,/Семейный резерв/i);
  assert.ok(src.includes('Открыть подробности семейного резерва'));
- assert.ok(src.includes("personalOnly?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'"));
+ assert.match(src,/personalOnly\?'Личный резерв':'Семейный резерв'/i);
+ assert.match(src,/onClick=\{\(\) => personalOpeningKnown\?setIsReserveModalOpen\(true\):onOpenSettings\(\)\}/);
  assert.ok(src.includes('return formatBudgetMoney(num)'));
  assert.ok(!src.includes("return Math.round(num).toLocaleString('ru-RU')"));
 });

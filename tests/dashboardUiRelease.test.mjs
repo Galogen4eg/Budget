@@ -53,3 +53,50 @@ test('settings keeps advanced controls accessible without making them the defaul
 test('primary editors use the shared surface palette',()=>{
  for(const name of ['GoalModal','EventModal','AddTransactionModal','MandatoryExpenseModal','ConfirmationModal','ImportModal','LoyaltyCardMobileModal','NotificationsModal','DrillDownModal'])assert.match(read('components/'+name+'.tsx'),/var\(--terra-(surface|soft)\)/,name);
 });
+
+
+test('desktop metric cards use shared surfaces and readable wrapping labels',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ const section=overview.split('data-testid="overview-metrics-desktop"')[1]?.split('</section>')[0];
+ assert.ok(section);
+ assert.equal((section.match(/\$\{DASHBOARD_CARD\}/g)||[]).length,4);
+ assert.doesNotMatch(section,/whitespace-nowrap|uppercase tracking-wider|shadow-sm/);
+ assert.match(section,/focus-visible:ring-2/);
+ for(const name of ['sharedLedger','dailyLimit','spentToday','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
+});
+
+
+test('overview transaction history uses compact rows and preserves edit actions',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ for(const [marker,end] of [['overview-history-mobile','</section>'],['overview-history-desktop','{/* Reserve Details Modal */}']]){
+  const section=overview.split('data-testid="'+marker+'"')[1]?.split(end)[0];
+  assert.ok(section,marker);
+  assert.match(section,/divide-y divide-\[var\(--terra-border\)\]/);
+  assert.match(section,/min-h-\[56px\]/);
+  assert.match(section,/onEditTransaction\(tx\)/);
+  assert.match(section,/formatAmount\(tx.amount\)/);
+  assert.doesNotMatch(section,/СЕГОДНЯ|whitespace-nowrap/);
+ }
+});
+
+
+test('desktop overview widgets retain actions and avoid decorative card clutter',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Виджет «История операций»')[0];
+ assert.ok(section);
+ assert.doesNotMatch(section,/КАТЕГОРИИ РАСХОДОВ|СПИСОК ПОКУПОК|СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ|Все покупки сделаны!|whitespace-nowrap/);
+ for(const action of ['onDrillDown(cat.id)','handleToggleShopping(item)','handleAddShoppingInline','onEditEvent(ev)','formatAmount(cat.amount)'])assert.ok(section.includes(action),action);
+ assert.match(section,/aria-label="Добавить в список покупок"/);
+ assert.match(section,/min-h-\[44px\] min-w-\[44px\]/);
+});
+
+
+test('mobile quick shopping uses shared surfaces and stable touch controls',()=>{
+ const widget=read('components/QuickShoppingWidget.tsx');
+ assert.match(widget,/\$\{DASHBOARD_CARD\}/);
+ assert.match(widget,/divide-y divide-\[var\(--terra-border\)\]/);
+ assert.doesNotMatch(widget,/animate-pulse-slow|animate-press|after:inset-\[-10px\]/);
+ assert.match(widget,/handleToggleShopping\(item as any\)/);
+ assert.match(widget,/onSubmit=\{handleAddShoppingInline\}/);
+ assert.match(widget,/w-11 h-11/);
+});

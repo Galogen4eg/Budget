@@ -1128,3 +1128,16 @@ export async function setChatHeart(familyId:string,messageId:string,uid:string,a
  if(!familyId||!messageId||!uid||auth.currentUser?.uid!==uid)throw new Error('Семейный чат недоступен');
  await updateDoc(doc(db,'families',familyId,'chat',messageId),{heartUsers:active?arrayUnion(uid):arrayRemove(uid)});
 }
+
+/** Retry only creates missing Telegram records; never overwrite a user edit. */
+export async function addTelegramItemsIdempotent(familyId:string,kind:'shopping'|'transactions'|'events',items:readonly (ShoppingItem|Transaction|FamilyEvent)[]):Promise<number>{
+ if(!familyId||items.length>100||items.some(item=>!/^tgq_[a-zA-Z0-9_%.-]+$/.test(item.id)))throw new Error('Invalid Telegram records');
+ if(!items.length)return 0;
+ return runTransaction(db,async tx=>{
+  const refs=items.map(item=>doc(db,'families',familyId,kind,item.id));
+  const existing=await Promise.all(refs.map(ref=>tx.get(ref)));
+  let created=0;
+  items.forEach((item,i)=>{if(!existing[i].exists()){tx.set(refs[i],cleanForFirestore(item));created++;}});
+  return created;
+ });
+}

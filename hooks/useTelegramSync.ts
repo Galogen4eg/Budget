@@ -1,15 +1,9 @@
-/**
- * @file hooks/useTelegramSync.ts
- * Хук двусторонней синхронизации между Telegram-ботом и приложением Terra.
- * Получает действия из серверной очереди (/api/telegram-sync), применяет их
- * к локальному состоянию и сохраняет в Firestore.
- */
-
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { ShoppingItem, Transaction, FamilyEvent, AppSettings } from '../types';
-import { addItem, addItemsBatch } from '../utils/db';
+import type { ShoppingItem, Transaction, FamilyEvent, AppSettings } from '../types';
+import { addTelegramItemsIdempotent } from '../utils/db';
 import { detectProductCategory } from '../utils/categorizer';
+import { telegramPollEnabled, telegramQueueRecordId, TELEGRAM_POLL_MS } from '../utils/telegramSyncPolicy';
 
 interface UseTelegramSyncParams {
   readonly settings: AppSettings;
@@ -21,147 +15,73 @@ interface UseTelegramSyncParams {
   readonly setEvents: React.Dispatch<React.SetStateAction<FamilyEvent[]>>;
 }
 
-export function useTelegramSync({
-  settings,
-  familyId,
-  setShoppingItems,
-  setTransactions,
-  setEvents,
-  householdPersonal,
-  settingsReady,
-}: UseTelegramSyncParams) {
-  const isSyncingRef = useRef(false);
-  const processedIdsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if(!familyId||!settingsReady||householdPersonal)return; // Telegram queue has no verified financial owner.
-    let cancelled=false;
-    const pollIntervalMs = 4000;
-
-    const syncPendingActions = async () => {
-      // Пропускаем, если вкладка не активна или идет параллельный запрос
-      if (document.hidden || isSyncingRef.current) return;
-
-      isSyncingRef.current = true;
-      try {
-        const chatId = settings.telegramChatId ? encodeURIComponent(settings.telegramChatId.trim()) : '';
-        const url = `/api/tg-sync${chatId ? `?chatId=${chatId}` : ''}`;
-
-        const res = await fetch(url);
-        if (!res.ok||cancelled) return;
-
-        const data = await res.json();
-        const queue: any[] = data.queue || [];
-        if (!queue.length) return;
-
-        const ackIds: string[] = [];
-
-        for (const item of queue) {
-          if(cancelled)return;
-          if (processedIdsRef.current.has(item.id)) {
-            ackIds.push(item.id);
-            continue;
-          }
-
-          processedIdsRef.current.add(item.id);
-          ackIds.push(item.id);
-
-          const { action, payload } = item;
-
-          // 1. Добавление покупок
-          if (action === 'add_shopping') {
-            const rawItems = payload.items || payload.shoppingItems || [];
-            if (Array.isArray(rawItems) && rawItems.length > 0) {
-              const newItems: ShoppingItem[] = rawItems.map((it: any) => ({
-                id: `shop_tg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                title: String(it.title || 'Товар').trim(),
-                amount: it.amount ? String(it.amount) : undefined,
-                unit: it.unit || 'шт',
-                completed: false,
-                memberId: 'telegram',
-                priority: 'medium',
-                category: detectProductCategory(String(it.title || '')) || 'other',
-              }));
-
-              setShoppingItems(prev => [...prev, ...newItems]);
-              if (familyId) {
-                await addItemsBatch(familyId, 'shopping', newItems);
-              }
-
-              const summaryText = newItems.map(i => `${i.title}${i.amount ? ` (${i.amount} ${i.unit})` : ''}`).join(', ');
-              toast.success(`📥 Из Telegram: добавлено в покупки: ${summaryText}`, {
-                duration: 5000,
-              });
-            }
-          }
-
-          // 2. Добавление транзакции
-          if (action === 'add_transaction' && payload.transaction) {
-            const t = payload.transaction;
-            const newTx: Transaction = {
-              id: `tx_tg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              amount: Number(t.amount) || 0,
-              type: t.type === 'income' ? 'income' : 'expense',
-              category: t.categoryId || 'other',
-              note: t.note ? `[TG] ${t.note}` : '[TG] Операция из Telegram',
-              date: t.date || new Date().toISOString().split('T')[0],
-              memberId: 'telegram',
-            };
-
-            setTransactions(prev => [newTx, ...prev]);
-            if (familyId) {
-              await addItem(familyId, 'transactions', newTx);
-            }
-
-            toast.success(`📥 Из Telegram: записана операция ${newTx.amount.toLocaleString('ru-RU')} ₽ («${newTx.note}»)`, {
-              duration: 5000,
-            });
-          }
-
-          // 3. Создание события
-          if (action === 'create_event' && payload.event) {
-            const ev = payload.event;
-            const newEvent: FamilyEvent = {
-              id: `ev_tg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              title: ev.title || 'Событие из Telegram',
-              description: ev.description || 'Создано через Telegram-бота',
-              date: ev.date || new Date().toISOString().split('T')[0],
-              time: ev.time || '12:00',
-              memberIds: [],
-            };
-
-            setEvents(prev => [...prev, newEvent]);
-            if (familyId) {
-              await addItem(familyId, 'events', newEvent);
-            }
-
-            toast.success(`📥 Из Telegram: добавлено событие «${newEvent.title}» (${newEvent.date} в ${newEvent.time})`, {
-              duration: 5000,
-            });
-          }
-        }
-
-        // Подтверждаем обработку
-        if (ackIds.length > 0) {
-          await fetch('/api/tg-sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ackIds }),
-          });
-        }
-      } catch (err) {
-        // Ошибки сети обрабатываются тихо, чтобы не беспокоить пользователя
-        console.debug('Telegram sync poll err:', err);
-      } finally {
-        isSyncingRef.current = false;
-      }
-    };
-
-    // Первичный запуск при монтировании
-    syncPendingActions();
-
-    // Интервальный опрос
-    const timer = setInterval(syncPendingActions, pollIntervalMs);
-    return () => {cancelled=true;clearInterval(timer);};
-  }, [settings.telegramChatId, familyId, householdPersonal, settingsReady, setShoppingItems, setTransactions, setEvents]);
+export function useTelegramSync({settings,familyId,householdPersonal,settingsReady}:UseTelegramSyncParams){
+ const isSyncingRef=useRef(false);
+ const chatId=settings.telegramChatId?.trim()||'';
+ const configured=Boolean(settings.telegramBotToken?.trim());
+ useEffect(()=>{
+  if(!familyId||!telegramPollEnabled(settingsReady,householdPersonal,chatId,configured))return;
+  let cancelled=false;
+  const processed=new Set<string>();
+  const syncPendingActions=async()=>{
+   if(cancelled||document.hidden||!navigator.onLine||isSyncingRef.current)return;
+   isSyncingRef.current=true;
+   try{
+    const res=await fetch('/api/tg-sync?chatId='+encodeURIComponent(chatId),{cache:'no-store'});
+    if(!res.ok||cancelled)return;
+    const data=await res.json();
+    if(!Array.isArray(data.queue))return;
+    const ackIds:string[]=[];
+    for(const item of data.queue){
+     if(cancelled)break;
+     if(typeof item?.id!=='string'||!item.id||item.id.length>200)continue;
+     // Never consume unscoped queue entries or entries belonging to another chat.
+     if(String(item.chatId??'')!==chatId)continue;
+     if(processed.has(item.id)){ackIds.push(item.id);continue;}
+     try{
+      const payload=item.payload||{};
+      let created=0;
+      if(item.action==='add_shopping'){
+       const rows=payload.items||payload.shoppingItems;
+       if(!Array.isArray(rows)||!rows.length||rows.length>100)continue;
+       if(rows.some(row=>!row||typeof row.title!=='string'||!row.title.trim()))continue;
+       const products:ShoppingItem[]=rows.map((row,i)=>({
+        id:telegramQueueRecordId(item.id,'shop',i),title:row.title.trim(),
+        amount:row.amount?String(row.amount):undefined,unit:row.unit||'шт',
+        completed:false,memberId:'telegram',priority:'medium',
+        category:detectProductCategory(row.title)||'other'
+       }));
+       created=await addTelegramItemsIdempotent(familyId,'shopping',products);
+      }else if(item.action==='add_transaction'){
+       const t=payload.transaction,amount=Number(t?.amount);
+       if(!t||!Number.isFinite(amount)||amount<=0||!['income','expense'].includes(t.type))continue;
+       const tx:Transaction={id:telegramQueueRecordId(item.id,'tx',0),amount,type:t.type,
+        category:t.categoryId||'other',note:t.note?'[TG] '+t.note:'[TG] Операция из Telegram',
+        date:t.date||new Date().toISOString().split('T')[0],memberId:'telegram'};
+       created=await addTelegramItemsIdempotent(familyId,'transactions',[tx]);
+      }else if(item.action==='create_event'){
+       const e=payload.event;
+       if(!e||typeof e.title!=='string'||!e.title.trim())continue;
+       const ev:FamilyEvent={id:telegramQueueRecordId(item.id,'event',0),title:e.title.trim(),
+        description:e.description||'Создано через Telegram-бота',date:e.date||new Date().toISOString().split('T')[0],time:e.time||'12:00',memberIds:[]};
+       created=await addTelegramItemsIdempotent(familyId,'events',[ev]);
+      }else continue;
+      // The Firestore listener owns UI state. ACK follows confirmed writes.
+      processed.add(item.id);ackIds.push(item.id);
+      if(created&&!cancelled)toast.success('Из Telegram: данные добавлены');
+     }catch(error){console.warn('Telegram action not confirmed; retained for retry',error);break;}
+    }
+    if(!cancelled&&ackIds.length){
+     const ack=await fetch('/api/tg-sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ackIds})});
+     if(ack.ok)for(const id of ackIds)processed.delete(id);
+    }
+   }catch(error){console.debug('Telegram sync poll err:',error);}
+   finally{isSyncingRef.current=false;}
+  };
+  void syncPendingActions();
+  const timer=setInterval(syncPendingActions,TELEGRAM_POLL_MS);
+  document.addEventListener('visibilitychange',syncPendingActions);
+  window.addEventListener('online',syncPendingActions);
+  return()=>{cancelled=true;clearInterval(timer);document.removeEventListener('visibilitychange',syncPendingActions);window.removeEventListener('online',syncPendingActions);};
+ },[chatId,configured,familyId,householdPersonal,settingsReady]);
 }
